@@ -4,13 +4,14 @@ import json
 import shutil
 import re
 import webbrowser
+import tempfile
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QPushButton, QTextEdit, QSpinBox, 
                              QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar, 
                              QFileDialog, QTabWidget, QListWidget, QListWidgetItem, 
                              QAbstractItemView, QMessageBox, QSplitter, QComboBox, QFrame, QGridLayout, QSizePolicy, QDialog, QScrollArea, QCheckBox, QDoubleSpinBox, QStackedWidget, QMenu)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QEvent
-from PyQt6.QtGui import QIcon, QPixmap, QFont, QAction, QWheelEvent, QPalette, QPainter, QColor, QBrush, QPen
+from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QSize, QEvent, QMimeData, QUrl, QPoint)
+from PyQt6.QtGui import (QIcon, QPixmap, QFont, QAction, QWheelEvent, QPalette, QPainter, QColor, QBrush, QPen, QDrag)
 
 # ==========================================
 # LOCALIZATION & HELP HELPERS
@@ -379,11 +380,16 @@ QTableWidget::item {
     padding: 4px;
 }
 QTableWidget::item:selected, QListWidget::item:selected {
-    background-color: rgba(74, 144, 226, 0.2);
-    border: 1px solid #4A90E2;
+    background-color: transparent;
+    border: 2px solid #4A90E2;
     border-radius: 4px;
     color: #FFFFFF;
 }
+QListWidget::item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+/* Ensure rubber band is not opaque if system default is weird */
+/* Removed problematic block */
 
 /* Tabs */
 QTabWidget::pane {
@@ -446,6 +452,169 @@ QCheckBox::indicator:hover {
     border-color: #666;
 }
 """
+
+class GalleryCache:
+    def __init__(self):
+        self._cache = {} # {character_name: [list of image dicts]}
+        self._folder_icon_cache = {} # {key: QIcon}
+
+    def get_images(self, character_name):
+        return self._cache.get(character_name)
+
+    def set_images(self, character_name, images):
+        self._cache[character_name] = images
+
+    def invalidate(self, character_name=None):
+        if character_name:
+            if character_name in self._cache:
+                del self._cache[character_name]
+        else:
+            self._cache.clear()
+            self._folder_icon_cache.clear()
+
+class DraggableListWidget(QListWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setDragEnabled(True)
+        # Fix: Use Static movement to prevent items from disappearing/moving within the list
+        self.setMovement(QListWidget.Movement.Static)
+        self.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.setViewMode(QListWidget.ViewMode.IconMode)
+        # Revert UniformItemSizes to avoid cutting off content
+        # self.setUniformItemSizes(True) 
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        
+        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        
+        # Fix Ghosting: Force full update on changes
+        # ERROR: setViewportUpdateMode is for QGraphicsView, not QListWidget.
+        # Instead, we force update on events if needed, but usually Qt handles this.
+        # Let's try to rely on standard behavior first after removing the crashing line.
+        # If ghosting persists, we can override paintEvent or mouseMoveEvent.
+        
+        # Connect selection change to update to ensure artifacts are cleared
+        self.itemSelectionChanged.connect(self.viewport().update)
+
+        # Fix Selection Rendering: Ensure Palette Highlight is transparent
+        p = self.palette()
+        p.setColor(QPalette.ColorRole.Highlight, QColor(74, 144, 226, 50)) # Transparent Blue
+        p.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+        self.setPalette(p)
+
+    def mouseMoveEvent(self, e):
+        super().mouseMoveEvent(e)
+        self.viewport().update()
+
+    def startDrag(self, supportedActions):
+        items = self.selectedItems()
+        if not items: return
+
+        # Temp dir for drag ops
+        temp_dir = os.path.join(tempfile.gettempdir(), "ComfyEmotionGen_Drag")
+        if not os.path.exists(temp_dir):
+            try:
+                os.makedirs(temp_dir)
+            except: pass
+        
+        urls = []
+        valid_items = []
+        
+        for item in items:
+            try:
+                # Safe data access
+                path = item.data(Qt.ItemDataRole.UserRole + 1)
+                itype = item.data(Qt.ItemDataRole.UserRole)
+                
+                if itype == "Image" and path and os.path.exists(path):
+                    valid_items.append(item)
+                    
+                    # Name Logic
+                    # Attempt to extract parts from path structure
+                    # output/Character/Emotion/File.png
+                    
+                    # Default fallback
+                    target_name = os.path.basename(path)
+                    
+                    try:
+                        parent_dir = os.path.dirname(path) 
+                        grandparent_dir = os.path.dirname(parent_dir)
+                        
+                        emotion_name = os.path.basename(parent_dir)
+                        char_name = os.path.basename(grandparent_dir)
+                        fname = os.path.basename(path)
+                        ext = os.path.splitext(fname)[1]
+                        
+                        # Seed extraction
+                        seed = "Unknown"
+                        m = re.search(r"(?:Seed|_s)(\d+)", fname)
+                        if m: seed = m.group(1)
+                        
+                        # Preferred Name
+                        candidate_name = f"{char_name}_{emotion_name}{ext}"
+                        candidate_path = os.path.join(temp_dir, candidate_name)
+                        
+                        # Collision handling
+                        if os.path.exists(candidate_path):
+                             candidate_name = f"{char_name}_{emotion_name}_{seed}{ext}"
+                             candidate_path = os.path.join(temp_dir, candidate_name)
+                        
+                        target_path = candidate_path
+                        target_name = candidate_name
+                        
+                    except:
+                        # Fallback if structure is weird
+                        target_path = os.path.join(temp_dir, os.path.basename(path))
+
+                    shutil.copy2(path, target_path)
+                    urls.append(QUrl.fromLocalFile(target_path))
+            except Exception as e:
+                print(f"Error processing item for drag: {e}")
+        
+        if urls:
+            drag = QDrag(self)
+            mime_data = QMimeData()
+            mime_data.setUrls(urls)
+            drag.setMimeData(mime_data)
+            
+            # Rendering:
+            # If standard drag rendering is desired, we could rely on QListWidget's default but 
+            # modifying the data afterwards is tricky.
+            # So we create a custom pixmap.
+            
+            # 1. Calculate bounding rect of all selected items to make a nice drag image?
+            # Or just show the first one. Standard windows behavior usually shows a ghost of the items.
+            # QListWidget default startDrag does this well.
+            # But since we want to CHANGE the file list (to temp files), we must override.
+            
+            # Let's try to create a simple composite if few items, or generic icon if many.
+            if len(valid_items) == 1:
+                icon = valid_items[0].icon()
+                if not icon.isNull():
+                    drag.setPixmap(icon.pixmap(100, 100))
+                    drag.setHotSpot(QPoint(50, 50))
+            else:
+                # Generic "Stack" icon or just first image with badge
+                icon = valid_items[0].icon()
+                if not icon.isNull():
+                    pix = icon.pixmap(100, 100)
+                    painter = QPainter(pix)
+                    painter.setBrush(QColor(0, 120, 215))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    # Draw a badge count
+                    painter.drawEllipse(70, 70, 25, 25)
+                    painter.setPen(Qt.GlobalColor.white)
+                    painter.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+                    painter.drawText(QRect(70, 70, 25, 25), Qt.AlignmentFlag.AlignCenter, str(len(valid_items)))
+                    painter.end()
+                    drag.setPixmap(pix)
+                    drag.setHotSpot(QPoint(50, 50))
+
+            drag.exec(Qt.DropAction.CopyAction)
+            
+            # Fix Rendering Artifacts: Force update after drag
+            self.viewport().update()
 
 class Card(QFrame):
     def __init__(self, parent=None):
@@ -906,6 +1075,8 @@ class MainWindow(QMainWindow):
         
         self.base_output_dir = os.path.join(os.getcwd(), "output")
         if not os.path.exists(self.base_output_dir): os.makedirs(self.base_output_dir)
+
+        self.gallery_cache = GalleryCache()
         
         # Load Workflow
         try:
@@ -1691,9 +1862,10 @@ class MainWindow(QMainWindow):
         self.gallery_group_combo.currentTextChanged.connect(self.reset_gallery_to_root)
         fh.addWidget(self.gallery_group_combo)
         
+        
         fh.addStretch()
         refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self.scan_output_folder)
+        refresh_btn.clicked.connect(self.refresh_gallery_scan)
         fh.addWidget(refresh_btn)
         
         open_btn = QPushButton("Open Disk Folder")
@@ -1717,13 +1889,14 @@ class MainWindow(QMainWindow):
         layout.addLayout(nav_layout)
         
         # Content Area
-        self.image_list = QListWidget()
+        # Content Area
+        self.image_list = DraggableListWidget()
         self.image_list.setViewMode(QListWidget.ViewMode.IconMode)
         self.image_list.setIconSize(QSize(180, 180))
         self.image_list.setResizeMode(QListWidget.ResizeMode.Adjust)
         self.image_list.setSpacing(15)
         self.image_list.setGridSize(QSize(220, 240))
-        self.image_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        # ExtendedSelection is set in DraggableListWidget init
         self.image_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.image_list.customContextMenuRequested.connect(self.show_gallery_context_menu)
         self.image_list.itemDoubleClicked.connect(self.open_gallery_item)
@@ -1995,9 +2168,16 @@ class MainWindow(QMainWindow):
              
         self.scan_output_folder()
 
+    def refresh_gallery_scan(self):
+        self.gallery_cache.invalidate()
+        self.scan_output_folder()
+
     def scan_output_folder(self):
         if not os.path.exists(self.base_output_dir): return
+        
+        # Just update char list here, actual file scan happens in update_gallery_view
         chars = [d for d in os.listdir(self.base_output_dir) if os.path.isdir(os.path.join(self.base_output_dir, d))]
+        chars.sort()
         
         curr = self.gallery_char_combo.currentText()
         self.gallery_char_combo.blockSignals(True)
@@ -2092,19 +2272,24 @@ class MainWindow(QMainWindow):
         path = os.path.join(self.base_output_dir, char)
         if not os.path.exists(path): return
 
-        # 1. Scan all images
-        all_images = []
-        for r, _, fs in os.walk(path):
-            for f in fs:
-                if f.startswith("reference") or not f.endswith((".png",".jpg", ".jpeg", ".webp")):
-                    continue
-                
-                # Match Seed
-                m = re.search(r"(?:Seed|_s)(\d+)", f)
-                seed = m.group(1) if m else "Unknown"
-                
-                emotion = os.path.basename(r)
-                all_images.append({"path": os.path.join(r, f), "seed": seed, "emotion": emotion})
+        # 1. Get images (Cache Check)
+        all_images = self.gallery_cache.get_images(char)
+        if all_images is None:
+            # Not in cache, scan!
+            all_images = []
+            for r, _, fs in os.walk(path):
+                for f in fs:
+                    if f.startswith("reference") or not f.endswith((".png",".jpg", ".jpeg", ".webp")):
+                        continue
+                    
+                    # Match Seed
+                    m = re.search(r"(?:Seed|_s)(\d+)", f)
+                    seed = m.group(1) if m else "Unknown"
+                    
+                    emotion = os.path.basename(r)
+                    all_images.append({"path": os.path.join(r, f), "seed": seed, "emotion": emotion})
+            
+            self.gallery_cache.set_images(char, all_images)
 
         items_to_load = []
 
@@ -2165,6 +2350,9 @@ class MainWindow(QMainWindow):
                 item.setIcon(default_icon) # Placeholder
                 item.setData(Qt.ItemDataRole.UserRole, "Image")
                 item.setData(Qt.ItemDataRole.UserRole + 1, img['path'])
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+                # Fix Selection Area: Make item fill the grid cell so entire tile is clickable
+                item.setSizeHint(QSize(220, 240))
                 self.image_list.addItem(item)
                 
                 items_to_load.append(img)
