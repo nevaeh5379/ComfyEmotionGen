@@ -8,9 +8,98 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QLabel, QLineEdit, QPushButton, QTextEdit, QSpinBox, 
                              QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar, 
                              QFileDialog, QTabWidget, QListWidget, QListWidgetItem, 
-                             QAbstractItemView, QMessageBox, QSplitter, QComboBox, QFrame, QGridLayout, QSizePolicy, QDialog, QScrollArea, QCheckBox, QDoubleSpinBox, QStackedWidget)
+                             QAbstractItemView, QMessageBox, QSplitter, QComboBox, QFrame, QGridLayout, QSizePolicy, QDialog, QScrollArea, QCheckBox, QDoubleSpinBox, QStackedWidget, QMenu)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QEvent
 from PyQt6.QtGui import QIcon, QPixmap, QFont, QAction, QWheelEvent, QPalette, QPainter, QColor, QBrush, QPen
+
+# ==========================================
+# LOCALIZATION & HELP HELPERS
+# ==========================================
+TRANSLATIONS = {
+    "Run": {"ko": "실행", "en": "Run"},
+    "Stop": {"ko": "중지", "en": "Stop"},
+    "Status": {"ko": "상태", "en": "Status"},
+    "Identity": {"ko": "신원 (Identity)", "en": "Identity"},
+    "Character Name": {"ko": "캐릭터 이름", "en": "Character Name"},
+    "Reference Image": {"ko": "참조 이미지", "en": "Reference Image"},
+    "Reference": {"ko": "레퍼런스 (Reference)", "en": "Reference"},
+    "Enable Reference (IPAdapter)": {"ko": "레퍼런스 사용 (IPAdapter)", "en": "Enable Reference (IPAdapter)"},
+    "Weight": {"ko": "가중치 (Weight)", "en": "Weight"},
+    "FaceID v2": {"ko": "FaceID v2", "en": "FaceID v2"},
+    "Type": {"ko": "타입 (Type)", "en": "Type"},
+    "Combine": {"ko": "결합 (Combine)", "en": "Combine"},
+    "Start At": {"ko": "시작 시점 (Start At)", "en": "Start At"},
+    "End At": {"ko": "종료 시점 (End At)", "en": "End At"},
+    "Scaling": {"ko": "스케일링 (Scaling)", "en": "Scaling"},
+    "Prompting": {"ko": "프롬프트 (Prompting)", "en": "Prompting"},
+    "Quality Prompt": {"ko": "화질 프롬프트 (Quality)", "en": "Quality Prompt"},
+    "Subject Prompt (#emotion# tag required)": {"ko": "피사체 프롬프트 (#emotion# 태그 필수)", "en": "Subject Prompt (#emotion# tag required)"},
+    "Style/Artist Prompt": {"ko": "스타일/화풍 프롬프트", "en": "Style/Artist Prompt"},
+    "Negative Prompt": {"ko": "부정 프롬프트 (Negative)", "en": "Negative Prompt"},
+    "Emotions": {"ko": "감정 (Emotions)", "en": "Emotions"},
+    "Import": {"ko": "가져오기 (Import)", "en": "Import"},
+    "Export": {"ko": "내보내기 (Export)", "en": "Export"},
+    "Add": {"ko": "추가", "en": "Add"},
+    "Remove": {"ko": "삭제", "en": "Remove"},
+    "Emotion Name": {"ko": "감정 이름", "en": "Emotion Name"},
+    "Prompt Modifier": {"ko": "프롬프트 수식어", "en": "Prompt Modifier"},
+    "Advanced": {"ko": "고급 (Advanced)", "en": "Advanced"},
+    "Primary Sampler": {"ko": "기본 샘플러", "en": "Primary Sampler"},
+    "Secondary Sampler": {"ko": "보조 샘플러", "en": "Secondary Sampler"},
+    "Upscale Factor": {"ko": "업스케일 배수", "en": "Upscale Factor"},
+    "Base Resolution": {"ko": "기본 해상도", "en": "Base Resolution"},
+    "Queue": {"ko": "대기열 (Queue)", "en": "Queue"},
+    "Pending Jobs": {"ko": "대기 중인 작업", "en": "Pending Jobs"},
+    "Trash All": {"ko": "전체 삭제", "en": "Trash All"},
+    "Batch": {"ko": "배치 (Batch)", "en": "Batch"},
+    "Seed": {"ko": "시드 (Seed)", "en": "Seed"},
+    "Generate": {"ko": "생성 (Generate)", "en": "Generate"},
+    "Ready": {"ko": "준비됨", "en": "Ready"},
+    "Processing Queue...": {"ko": "대기열 처리 중...", "en": "Processing Queue..."},
+    "Job added to running queue.": {"ko": "작업이 실행 대기열에 추가되었습니다.", "en": "Job added to running queue."},
+    "Generation Complete.": {"ko": "생성 완료.", "en": "Generation Complete."},
+    "Validation Error": {"ko": "검증 오류", "en": "Validation Error"},
+    "Worklist is empty.": {"ko": "작업 목록이 비어있습니다.", "en": "Worklist is empty."},
+    "Combined Prompt must contain '#emotion#'. (Check Subject Prompt)": {"ko": "프롬프트에 '#emotion#' 태그가 포함되어야 합니다. (피사체 프롬프트 확인)", "en": "Combined Prompt must contain '#emotion#'. (Check Subject Prompt)"},
+     # Tooltips
+    "tip_weight": {"ko": "참조 이미지의 영향력을 조절합니다. 값이 높을수록 원본과 흡사해집니다.", "en": "Controls the influence of the reference image. Higher values make it look more like the reference."},
+    "tip_faceid": {"ko": "IPAdapter FaceID 모델의 가중치입니다. 얼굴 유사도에 영향을 줍니다.", "en": "Weight for the IPAdapter FaceID model. Affects face similarity."},
+    "tip_type": {"ko": "가중치가 적용되는 방식입니다.\n- Linear: 일정하게 적용\n- Ease In: 점점 강하게\n- Ease Out: 점점 약하게", "en": "How the weight is applied over the steps.\n- Linear: Constant\n- Ease In: Start weak, end strong\n- Ease Out: Start strong, end weak"},
+    "tip_combine": {"ko": "임베딩 결합 방식입니다. 보통 'add'가 무난합니다.", "en": "How to combine embeddings. 'add' is usually sufficient."},
+    "tip_start": {"ko": "참조 이미지가 적용되기 시작하는 단계(0.0~1.0)입니다.", "en": "When to start applying the reference image (0.0-1.0)."},
+    "tip_end": {"ko": "참조 이미지 적용을 멈추는 단계(0.0~1.0)입니다.", "en": "When to stop applying the reference image (0.0-1.0)."},
+    "tip_scaling": {"ko": "임베딩 스케일링 방식입니다.", "en": "Embedding scaling method."}
+}
+
+class HelpMarker(QLabel):
+    def __init__(self, tooltip_key, parent=None):
+        super().__init__("❓", parent)
+        self.tooltip_key = tooltip_key
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(self.get_text())
+        self.setStyleSheet("color: #4A90E2; font-weight: bold; margin-left: 5px;")
+    
+    def get_text(self):
+        # We need a way to access current language. Ideally passed or global.
+        # For simplicity, we'll try to access global app config if possible or just store both.
+        # But wait, MainWindow handles language. 
+        # Let's just store the key and update tooltip on hover if we can access app instance.
+        # OR simpler: checking config file directly might be slow.
+        # Let's assume we pass the translated text or the key.
+        # Modified: Let's make it look up TRANSLATIONS directly based on a simple global var or config check.
+        # Actually, let's just make get_help_text(key) function.
+        return localized_text(self.tooltip_key)
+
+    def enterEvent(self, event):
+        self.setToolTip(localized_text(self.tooltip_key))
+        super().enterEvent(event)
+
+# Simple global context for language (A bit hacky but effective for single window app)
+CURRENT_LANG = "en"
+
+def localized_text(key):
+    if key not in TRANSLATIONS: return key
+    return TRANSLATIONS[key].get(CURRENT_LANG, key)
 
 # Import backend logic
 from comfy_client import ComfyClient
@@ -393,7 +482,7 @@ class ResizingLabel(QLabel):
             super().setPixmap(QPixmap())
 
 class JobQueueItem:
-    def __init__(self, char_name, base_prompt, neg_prompt, emotions, ref_img, batch, seed, gen_settings, ref_enabled, ref_settings):
+    def __init__(self, char_name, base_prompt, neg_prompt, emotions, ref_img, batch, seed, gen_settings, ref_enabled, ref_settings, is_test=False):
         self.char_name = char_name
         self.base_prompt = base_prompt
         self.neg_prompt = neg_prompt
@@ -404,6 +493,7 @@ class JobQueueItem:
         self.gen_settings = gen_settings
         self.ref_enabled = ref_enabled
         self.ref_settings = ref_settings
+        self.is_test = is_test
         self.status = "Pending" # Pending, Running, Done, Error
 
 class AppConfigManager:
@@ -413,9 +503,14 @@ class AppConfigManager:
             "server_address": "127.0.0.1:8188",
             "use_internal_viewer": True,
             "last_active_character": "",
-            "folder_preview_mode": "3 Images"
+            "folder_preview_mode": "3 Images",
+            "language": "en"
         }
         self.config = self.load_config()
+        
+        # Set Global Lang
+        global CURRENT_LANG
+        CURRENT_LANG = self.config.get("language")
 
     def load_config(self):
         if os.path.exists(self.config_file):
@@ -553,8 +648,14 @@ class GenerationWorker(QThread):
                         seeds.append(base_seed + i)
 
                 # Directories
-                char_safe_name = self.clean_name(job.char_name)
-                char_dir = os.path.join(self.output_dir, char_safe_name)
+                # Directories
+                if job.is_test:
+                    char_dir = os.path.join(self.output_dir, ".temp")
+                    char_safe_name = "test"
+                else:
+                    char_safe_name = self.clean_name(job.char_name)
+                    char_dir = os.path.join(self.output_dir, char_safe_name)
+                
                 if not os.path.exists(char_dir): os.makedirs(char_dir)
                 
                 if job.ref_img:
@@ -571,8 +672,11 @@ class GenerationWorker(QThread):
                     if not self.is_running: break
                     
                     emotion_safe_name = self.clean_name(emotion_name)
-                    emotion_dir = os.path.join(char_dir, emotion_safe_name)
-                    if not os.path.exists(emotion_dir): os.makedirs(emotion_dir)
+                    if job.is_test:
+                        emotion_dir = char_dir
+                    else:
+                        emotion_dir = os.path.join(char_dir, emotion_safe_name)
+                        if not os.path.exists(emotion_dir): os.makedirs(emotion_dir)
 
                     for i in range(job.batch):
                         if not self.is_running: break
@@ -598,7 +702,10 @@ class GenerationWorker(QThread):
                         
                         if result:
                             fname, sub, typ = result
-                            target_filename = f"{char_safe_name}__{emotion_safe_name}__Seed{used_seed}__{i+1}.png"
+                            if job.is_test:
+                                target_filename = "test_preview.png"
+                            else:
+                                target_filename = f"{char_safe_name}__{emotion_safe_name}__Seed{used_seed}__{i+1}.png"
                             self.client.download_image(fname, sub, os.path.join(emotion_dir, target_filename))
                             self.log_signal.emit(f"Saved: {target_filename}")
                             
@@ -624,7 +731,14 @@ class GenerationWorker(QThread):
 
     def clean_name(self, name):
         return "".join([c for c in name if c.isalnum() or c in (' ', '_', '-')]).strip()
-    def stop(self): self.is_running = False
+
+    def stop(self): 
+        self.is_running = False
+        self.log_signal.emit("Stopping...")
+        try:
+            self.client.interrupt()
+            self.client.close()
+        except: pass
 
 class ThumbnailWorker(QThread):
     thumbnail_ready = pyqtSignal(str, QIcon) # path, icon
@@ -972,11 +1086,18 @@ class MainWindow(QMainWindow):
         new_btn.clicked.connect(self.new_character_profile)
         top_h.addWidget(new_btn)
         
+        # Language Toggle
+        top_h.addSpacing(10)
+        self.lang_btn = QPushButton("English" if CURRENT_LANG == "en" else "한국어")
+        self.lang_btn.setFixedWidth(80)
+        self.lang_btn.clicked.connect(self.toggle_language)
+        top_h.addWidget(self.lang_btn)
+        
         left_layout.addLayout(top_h)
 
         # Config Tabs
-        config_tabs = QTabWidget()
-        config_tabs.setStyleSheet("""
+        self.config_tabs = QTabWidget()
+        self.config_tabs.setStyleSheet("""
             QTabWidget::pane { border: 1px solid #333; background: #202020; border-radius: 8px; }
             QTabBar::tab { background: #181818; color: #888; padding: 8px 20px; border-top-left-radius: 4px; border-top-right-radius: 4px; margin-right: 2px; }
             QTabBar::tab:selected { background: #202020; color: #4A90E2; border-bottom: 2px solid #4A90E2; font-weight: bold; }
@@ -1045,12 +1166,12 @@ class MainWindow(QMainWindow):
         # Add a spacer at bottom to push everything up
         grid_id.setRowStretch(2, 1)
         
-        config_tabs.addTab(tab_identity, "🆔 Identity")
+        self.config_tabs.addTab(tab_identity, localized_text("Identity"))
         
         # Tab 2: Reference Settings
         tab_ref = QWidget()
         tr = QVBoxLayout(tab_ref); tr.setSpacing(15); tr.setContentsMargins(20,20,20,20)
-        self.ref_enabled_chk = QCheckBox("Enable Reference (IPAdapter)")
+        self.ref_enabled_chk = QCheckBox(localized_text("Enable Reference (IPAdapter)"))
         self.ref_enabled_chk.setMinimumHeight(24)
         self.ref_enabled_chk.setChecked(True)
         self.ref_enabled_chk.toggled.connect(lambda c: self.ref_settings_frame.setVisible(c))
@@ -1060,30 +1181,51 @@ class MainWindow(QMainWindow):
         ref_grid = QGridLayout(self.ref_settings_frame)
         ref_grid.setContentsMargins(10, 10, 10, 10)
         ref_grid.setSpacing(10)
-        ref_grid.addWidget(QLabel("Weight"), 0, 0)
+        
+        # Helper to add label with help
+        def add_param(row, col, name_key, tooltip_key, widget, colspan=1):
+            h = QHBoxLayout()
+            h.setContentsMargins(0,0,0,0)
+            h.setSpacing(2)
+            lbl = QLabel(localized_text(name_key))
+            h.addWidget(lbl)
+            if tooltip_key:
+                h.addWidget(HelpMarker(tooltip_key))
+            h.addStretch()
+            ref_grid.addLayout(h, row, col)
+            ref_grid.addWidget(widget, row, col+1, 1, colspan)
+
         self.ref_weight_spin = QDoubleSpinBox(); self.ref_weight_spin.setRange(0, 5); self.ref_weight_spin.setSingleStep(0.1); self.ref_weight_spin.setValue(1.0)
-        ref_grid.addWidget(self.ref_weight_spin, 0, 1)
-        ref_grid.addWidget(QLabel("FaceID v2"), 0, 2)
+        add_param(0, 0, "Weight", "tip_weight", self.ref_weight_spin)
+        
         self.ref_faceidv2_spin = QDoubleSpinBox(); self.ref_faceidv2_spin.setRange(0, 5); self.ref_faceidv2_spin.setSingleStep(0.1); self.ref_faceidv2_spin.setValue(1.0)
-        ref_grid.addWidget(self.ref_faceidv2_spin, 0, 3)
-        ref_grid.addWidget(QLabel("Type"), 1, 0)
+        add_param(0, 2, "FaceID v2", "tip_faceid", self.ref_faceidv2_spin)
+        
         self.ref_type_combo = QComboBox(); self.ref_type_combo.addItems(["linear", "ease in", "ease out", "weak input", "strong input"])
-        ref_grid.addWidget(self.ref_type_combo, 1, 1)
-        ref_grid.addWidget(QLabel("Combine"), 1, 2)
+        add_param(1, 0, "Type", "tip_type", self.ref_type_combo)
+
         self.ref_combine_combo = QComboBox(); self.ref_combine_combo.addItems(["add", "concat", "subtract", "average", "norm average"])
-        ref_grid.addWidget(self.ref_combine_combo, 1, 3)
-        ref_grid.addWidget(QLabel("Start At"), 2, 0)
+        add_param(1, 2, "Combine", "tip_combine", self.ref_combine_combo)
+        
         self.ref_start_spin = QDoubleSpinBox(); self.ref_start_spin.setRange(0, 1); self.ref_start_spin.setSingleStep(0.05); self.ref_start_spin.setValue(0.0)
-        ref_grid.addWidget(self.ref_start_spin, 2, 1)
-        ref_grid.addWidget(QLabel("End At"), 2, 2)
+        add_param(2, 0, "Start At", "tip_start", self.ref_start_spin)
+        
         self.ref_end_spin = QDoubleSpinBox(); self.ref_end_spin.setRange(0, 1); self.ref_end_spin.setSingleStep(0.05); self.ref_end_spin.setValue(1.0)
-        ref_grid.addWidget(self.ref_end_spin, 2, 3)
-        ref_grid.addWidget(QLabel("Scaling"), 3, 0)
+        add_param(2, 2, "End At", "tip_end", self.ref_end_spin)
+        
         self.ref_scaling_combo = QComboBox(); self.ref_scaling_combo.addItems(["V only", "K+V", "K+V w/ C penalty", "K+mean(V) w/ C penalty"])
+        
+        # Scaling needs special handling for colspan
+        h_sc = QHBoxLayout(); h_sc.setContentsMargins(0,0,0,0); h_sc.setSpacing(2)
+        h_sc.addWidget(QLabel(localized_text("Scaling")))
+        h_sc.addWidget(HelpMarker("tip_scaling"))
+        h_sc.addStretch()
+        ref_grid.addLayout(h_sc, 3, 0)
         ref_grid.addWidget(self.ref_scaling_combo, 3, 1, 1, 3)
+
         tr.addWidget(self.ref_settings_frame)
         tr.addStretch()
-        config_tabs.addTab(tab_ref, "🖼️ Reference")
+        self.config_tabs.addTab(tab_ref, localized_text("Reference"))
         
         # Tab 3: Prompting
         tab_prompt = QWidget()
@@ -1117,7 +1259,7 @@ class MainWindow(QMainWindow):
         self.neg_prompt_input.setMaximumHeight(60)
         tl2.addWidget(self.neg_prompt_input)
 
-        config_tabs.addTab(tab_prompt, "📝 Prompting")
+        self.config_tabs.addTab(tab_prompt, "📝 Prompting")
 
         # Tab 4: Emotion Worklist
         tab_emotions = QWidget()
@@ -1143,7 +1285,7 @@ class MainWindow(QMainWindow):
         self.emotion_table.verticalHeader().setVisible(False)
         self.emotion_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         wl.addWidget(self.emotion_table)
-        config_tabs.addTab(tab_emotions, "🎭 Emotions")
+        self.config_tabs.addTab(tab_emotions, "🎭 Emotions")
         
         # Tab 5: Advanced
         tab_adv = QWidget()
@@ -1174,7 +1316,7 @@ class MainWindow(QMainWindow):
         tl3.addLayout(res_layout, 3, 1, 1, 2)
 
         tl3.setRowStretch(4, 1)
-        config_tabs.addTab(tab_adv, "⚙️ Advanced")
+        self.config_tabs.addTab(tab_adv, "⚙️ Advanced")
 
         # Tab 6: Job Queue (NEW)
         tab_queue = QWidget()
@@ -1197,9 +1339,9 @@ class MainWindow(QMainWindow):
         self.queue_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         q_layout.addWidget(self.queue_table)
         
-        config_tabs.addTab(tab_queue, "⏳ Queue")
+        self.config_tabs.addTab(tab_queue, "⏳ Queue")
         
-        left_layout.addWidget(config_tabs)
+        left_layout.addWidget(self.config_tabs)
         
         # Execution Bar
         exec_bar = QFrame()
@@ -1241,6 +1383,16 @@ class MainWindow(QMainWindow):
         self.generate_btn.setProperty("class", "Primary")
         self.generate_btn.clicked.connect(self.handle_generate)
         el.addWidget(self.generate_btn)
+
+        self.stop_btn = QPushButton("🛑 Stop")
+        self.stop_btn.setProperty("class", "Danger")
+        self.stop_btn.clicked.connect(self.handle_stop)
+        self.stop_btn.setEnabled(False) 
+        el.addWidget(self.stop_btn)
+        
+        self.test_btn = QPushButton("🧪 Test (Happy)")
+        self.test_btn.clicked.connect(self.handle_test_generate)
+        el.addWidget(self.test_btn)
         
         left_layout.addWidget(exec_bar)
         
@@ -1334,7 +1486,8 @@ class MainWindow(QMainWindow):
             self.seed_input.text(),
             gen_settings,
             self.ref_enabled_chk.isChecked(),
-            ref_settings
+            ref_settings,
+            is_test=False
         )
         
         self.job_queue.append(job)
@@ -1346,7 +1499,68 @@ class MainWindow(QMainWindow):
         else:
             self.status_bar.setText("Job added to running queue.")
 
+    def handle_test_generate(self):
+        # Quick Generate with Happy emotion, single batch, no save
+        qual = self.quality_prompt_input.toPlainText().strip()
+        subj = self.subject_prompt_input.toPlainText().strip()
+        style = self.style_prompt_input.toPlainText().strip()
+        
+        parts = [p for p in [qual, subj, style] if p]
+        base_prompt = ", ".join(parts)
+
+        if "#emotion#" not in base_prompt:
+             return QMessageBox.warning(self, "Validation Error", "Combined Prompt must contain '#emotion#'.")
+
+        gen_settings = {
+            "sampler1_name": self.sampler1_combo.currentText(),
+            "scheduler1": self.scheduler1_combo.currentText(),
+            "sampler2_name": self.sampler2_combo.currentText(),
+            "scheduler2": self.scheduler2_combo.currentText(),
+            "upscale_factor": self.upscale_spin.value(),
+            "width": self.width_spin.value(),
+            "height": self.height_spin.value()
+        }
+        
+        ref_settings = {
+            "weight": self.ref_weight_spin.value(),
+            "weight_faceidv2": self.ref_faceidv2_spin.value(),
+            "weight_type": self.ref_type_combo.currentText(),
+            "combine_embeds": self.ref_combine_combo.currentText(),
+            "start_at": self.ref_start_spin.value(),
+            "end_at": self.ref_end_spin.value(),
+            "embeds_scaling": self.ref_scaling_combo.currentText()
+        }
+
+        job = JobQueueItem(
+            self.char_name_input.text(),
+            base_prompt,
+            self.neg_prompt_input.toPlainText(),
+            [("Test", "happy")], # Force happy emotion
+            self.ref_img_path.text(),
+            1, # Force batch 1
+            "-1",
+            gen_settings,
+            self.ref_enabled_chk.isChecked(),
+            ref_settings,
+            is_test=True
+        )
+        
+        self.job_queue.append(job)
+        self.refresh_queue_ui()
+        
+        if not hasattr(self, 'worker') or not self.worker.isRunning():
+            self.start_worker_thread()
+
+    def handle_stop(self):
+        if hasattr(self, 'worker') and self.worker.isRunning():
+            self.stop_btn.setEnabled(False) # Prevent multiple clicks
+            self.status_bar.setText("Stopping...")
+            self.worker.stop()
+
     def start_worker_thread(self):
+        # Update Button States
+        self.stop_btn.setEnabled(True)
+        
         self.status_bar.setText("Processing Queue...")
         self.log_console.clear()
         self.progress_bar.setValue(0)
@@ -1508,10 +1722,38 @@ class MainWindow(QMainWindow):
         self.image_list.setIconSize(QSize(180, 180))
         self.image_list.setResizeMode(QListWidget.ResizeMode.Adjust)
         self.image_list.setSpacing(15)
+        self.image_list.setGridSize(QSize(220, 240))
         self.image_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.image_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.image_list.customContextMenuRequested.connect(self.show_gallery_context_menu)
         self.image_list.itemDoubleClicked.connect(self.open_gallery_item)
         
         layout.addWidget(self.image_list)
+
+    def show_gallery_context_menu(self, pos):
+        item = self.image_list.itemAt(pos)
+        if not item: return
+
+        itype = item.data(Qt.ItemDataRole.UserRole)
+        data = item.data(Qt.ItemDataRole.UserRole + 1) # Path
+        
+        if itype == "Image":
+            menu = QMenu(self)
+            copy_seed_act = QAction("Copy Seed", self)
+            copy_seed_act.triggered.connect(lambda: self.copy_seed_from_path(data))
+            menu.addAction(copy_seed_act)
+            menu.exec(self.image_list.mapToGlobal(pos))
+
+    def copy_seed_from_path(self, path):
+        fname = os.path.basename(path)
+        # Look for pattern like _s12345 or Seed12345
+        m = re.search(r"(?:Seed|_s)(\d+)", fname)
+        if m:
+            seed = m.group(1)
+            QApplication.clipboard().setText(seed)
+            self.status_bar.setText(f"Seed {seed} copied to clipboard!")
+        else:
+            self.status_bar.setText("Could not find seed in filename.")
 
     def reset_gallery_to_root(self):
         self.gallery_current_level = "root"
@@ -1739,10 +1981,18 @@ class MainWindow(QMainWindow):
                 self.pip_preview.show()
 
     def on_finished(self):
-        # self.process_queue_btn.setEnabled(True) # Removed
-        self.status_bar.setText("Generation Complete.")
+        self.stop_btn.setEnabled(False)
+        
+        self.status_bar.setText("Generation Complete (or Stopped).")
         self.step_progress_bar.setValue(0)
-        QMessageBox.information(self, "Done", "Queue Processing Complete!")
+        
+        # Only show "Done" if it wasn't a hard crash or something, but usually fine
+        # If stopped, user knows.
+        if self.worker.is_running: # If it finished naturally
+            QMessageBox.information(self, "Done", "Queue Processing Complete!")
+        else:
+             self.status_bar.setText("Stopped by User.")
+             
         self.scan_output_folder()
 
     def scan_output_folder(self):
@@ -1931,6 +2181,15 @@ class MainWindow(QMainWindow):
             if item.data(Qt.ItemDataRole.UserRole + 1) == path:
                 item.setIcon(icon)
                 break
+
+    def toggle_language(self):
+        global CURRENT_LANG
+        new_lang = "ko" if CURRENT_LANG == "en" else "en"
+        self.app_config.set("language", new_lang)
+        
+        msg = "Language changed to Korean. Please restart the application." if new_lang == "ko" else "Language changed to English. Please restart the application."
+        QMessageBox.information(self, "Restart Required", msg)
+        # In a real app we might call setup_ui() again but clearing layout is messy. Restart is safer.
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -112,6 +112,16 @@ class ComfyClient:
             with open(output_path, 'wb') as f:
                 f.write(data)
 
+    def interrupt(self):
+        """
+        Interrupts the current execution on ComfyUI.
+        """
+        url = f"http://{self.server_address}/interrupt"
+        try:
+            requests.post(url)
+        except Exception as e:
+            print(f"Failed to interrupt: {e}")
+
     def close(self):
         if self.ws:
             self.ws.close()

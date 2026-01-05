@@ -1,15 +1,7 @@
 [
     {
         "name": "Happy",
-        "prompt": "smile"
-    },
-    {
-        "name": "Sad",
-        "prompt": "tears"
-    },
-    {
-        "name": "Happy",
-        "prompt": "smile"
+        "prompt": "happy"
     },
     {
         "name": "Sad",
@@ -69,10 +61,10 @@
     },
     {
         "name": "teasing",
-        "prompt": "looking at viewer, smirk, one eyebrow raised, half-closed eyes, (doyagao, tongue out, :p:1.1), hand on own chin"
+        "prompt": "smirk, one eyebrow raised, half-closed eyes, (doyagao, tongue out, :p:1.1), hand on own chin"
     },
     {
         "name": "stupefied",
-        "prompt": "looking at viewer, stunned, wide-eyed,  (open mouth, rectangular mouth:1.1), (no pupils, white eyes), (jaw drop, drooling:1.2)"
+        "prompt": "stunned, wide-eyed,  (open mouth, rectangular mouth:1.1), (no pupils, white eyes), (jaw drop, drooling:1.2)"
     }
 ]
