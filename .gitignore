@@ -2,3 +2,4 @@ output/**
 app_config.json
 configs/**
 __pycache__/**
+python_embed/**

@@ -103,6 +103,11 @@ def localized_text(key):
     return TRANSLATIONS[key].get(CURRENT_LANG, key)
 
 # Import backend logic
+# Ensure current directory is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 from comfy_client import ComfyClient
 from workflow_manager import prepare_workflow
 
@@ -925,10 +930,31 @@ class ThumbnailWorker(QThread):
             path = item['path']
             # Only process if it's an image file
             if path and os.path.exists(path) and os.path.isfile(path):
-                pix = QPixmap(path)
-                if not pix.isNull():
-                    scaled = pix.scaled(self.icon_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    self.thumbnail_ready.emit(path, QIcon(scaled))
+                # Try loading from cache first
+                cache_dir = os.path.join(os.path.dirname(path), ".thumbnails")
+                if not os.path.exists(cache_dir):
+                    try: os.makedirs(cache_dir)
+                    except: pass
+                
+                cache_key = os.path.splitext(os.path.basename(path))[0] + ".jpg"
+                cache_path = os.path.join(cache_dir, cache_key)
+                
+                loaded = False
+                if os.path.exists(cache_path):
+                    pix = QPixmap(cache_path)
+                    if not pix.isNull():
+                        self.thumbnail_ready.emit(path, QIcon(pix))
+                        loaded = True
+                
+                if not loaded:
+                    pix = QPixmap(path)
+                    if not pix.isNull():
+                        scaled = pix.scaled(self.icon_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                        self.thumbnail_ready.emit(path, QIcon(scaled))
+                        # Save to cache
+                        try:
+                            scaled.save(cache_path, "JPG", 85)
+                        except: pass
     
     def stop(self):
         self.is_running = False
@@ -1842,6 +1868,9 @@ class MainWindow(QMainWindow):
         self.gallery_current_level = "root" # root, folder
         self.gallery_current_folder = None
         self.gallery_data_cache = [] # List of {path, emotion, seed}
+        self.gallery_page = 0
+        self.gallery_page_size = 50
+
         
         # Filter Bar
         filter_card = Card()
@@ -1885,7 +1914,24 @@ class MainWindow(QMainWindow):
         self.path_label = QLabel(" / ")
         self.path_label.setStyleSheet("font-weight: bold; color: #888;")
         nav_layout.addWidget(self.path_label)
+        
         nav_layout.addStretch()
+        
+        self.prev_page_btn = QPushButton("<")
+        self.prev_page_btn.setFixedSize(30, 30)
+        self.prev_page_btn.clicked.connect(self.prev_page)
+        
+        self.page_label = QLabel("1 / 1")
+        self.page_label.setStyleSheet("color: #888; font-weight: bold; padding: 0 10px;")
+        
+        self.next_page_btn = QPushButton(">")
+        self.next_page_btn.setFixedSize(30, 30)
+        self.next_page_btn.clicked.connect(self.next_page)
+        
+        nav_layout.addWidget(self.prev_page_btn)
+        nav_layout.addWidget(self.page_label)
+        nav_layout.addWidget(self.next_page_btn)
+        
         layout.addLayout(nav_layout)
         
         # Content Area
@@ -1931,6 +1977,7 @@ class MainWindow(QMainWindow):
     def reset_gallery_to_root(self):
         self.gallery_current_level = "root"
         self.gallery_current_folder = None
+        self.gallery_page = 0 # Reset page
         self.back_btn.setEnabled(False)
         self.update_gallery_view()
         
@@ -1946,6 +1993,7 @@ class MainWindow(QMainWindow):
             # Enter Folder
             self.gallery_current_level = "folder"
             self.gallery_current_folder = data
+            self.gallery_page = 0 # Reset page
             self.back_btn.setEnabled(True)
             self.update_gallery_view()
         elif itype == "Image":
@@ -1958,6 +2006,31 @@ class MainWindow(QMainWindow):
                     os.startfile(data)
                 except Exception as e:
                     QMessageBox.warning(self, "Error", f"Could not open image: {e}")
+
+            self.back_btn.setEnabled(True)
+            self.update_gallery_view()
+        elif itype == "Image":
+            # Open Viewer based on preference
+            if self.app_config.get("use_internal_viewer"):
+                viewer = ImageViewer(data, self)
+                viewer.exec()
+            else:
+                try:
+                    os.startfile(data)
+                except Exception as e:
+                    QMessageBox.warning(self, "Error", f"Could not open image: {e}")
+
+    def prev_page(self):
+        if self.gallery_page > 0:
+            self.gallery_page -= 1
+            self.update_gallery_view()
+
+    def next_page(self):
+        # We need total count to check if next is possible, which we know in update_view
+        # But we can just try incrementing and if view handles valid range, it's fine.
+        # Ideally update_gallery_view enables/disables.
+        self.gallery_page += 1
+        self.update_gallery_view()
 
     # --- Logic ---
     def refresh_character_list(self):
@@ -2248,7 +2321,7 @@ class MainWindow(QMainWindow):
                         painter.setBrush(QColor("#4A90E2"))
 
         painter.end()
-        return QIcon(pix)
+        return QIcon(pix) 
 
     def update_gallery_view(self):
         char = self.gallery_char_combo.currentText()
@@ -2292,9 +2365,13 @@ class MainWindow(QMainWindow):
             self.gallery_cache.set_images(char, all_images)
 
         items_to_load = []
+        
+        # Determine items to display based on level
+        display_list = []
+        is_folder_view = False
 
-        # 2. Display based on level
         if self.gallery_current_level == "root":
+            is_folder_view = True
             # Show Folders
             groups = set()
             group_images = {} # {group_name: [path1, path2, ...]}
@@ -2312,18 +2389,16 @@ class MainWindow(QMainWindow):
             
             sorted_groups = sorted(list(groups), key=natural_sort_key)
             
+            # Prepare list items
             for g in sorted_groups:
-                item = QListWidgetItem()
-                item.setText(g)
-                # Generate icon with previews (Still synchronous as it's just composition of up to 3 images, usually fast enough, 
-                # but better to async if many folders. For now keep sync as it's complex to async QPainter)
-                # Optimization: Load small images for folder icon
-                item.setIcon(self.get_folder_icon(group_images.get(g, [])))
-                item.setData(Qt.ItemDataRole.UserRole, "Folder")
-                item.setData(Qt.ItemDataRole.UserRole + 1, g)
-                self.image_list.addItem(item)
+                display_list.append({
+                    "type": "Folder",
+                    "text": g,
+                    "preview_images": group_images.get(g, [])
+                })
                 
         else:
+            is_folder_view = False
             # Show Images in Folder
             target_group = self.gallery_current_folder
             
@@ -2339,28 +2414,63 @@ class MainWindow(QMainWindow):
                 filtered.sort(key=lambda x: int(x['seed']) if x['seed'].isdigit() else 0)
             else:
                 filtered.sort(key=lambda x: x['emotion'])
-            
-            # Create placeholders
-            default_icon = QIcon(self.image_list.style().standardIcon(self.image_list.style().StandardPixmap.SP_FileIcon))
-            
+                
             for img in filtered:
-                item = QListWidgetItem()
-                label_text = f"Seed: {img['seed']}" if group_by == "Emotion" else f"{img['emotion']}"
-                item.setText(label_text)
+                display_list.append({
+                    "type": "Image",
+                    "text": f"Seed: {img['seed']}" if group_by == "Emotion" else f"{img['emotion']}",
+                    "data": img
+                })
+
+        # --- Pagination Logic ---
+        total_items = len(display_list)
+        total_pages = (total_items + self.gallery_page_size - 1) // self.gallery_page_size
+        if total_pages < 1: total_pages = 1
+        
+        if self.gallery_page >= total_pages: self.gallery_page = total_pages - 1
+        if self.gallery_page < 0: self.gallery_page = 0
+        
+        start_idx = self.gallery_page * self.gallery_page_size
+        end_idx = start_idx + self.gallery_page_size
+        
+        paged_items = display_list[start_idx:end_idx]
+        
+        # Update UI Controls
+        self.page_label.setText(f"{self.gallery_page + 1} / {total_pages}")
+        self.prev_page_btn.setEnabled(self.gallery_page > 0)
+        self.next_page_btn.setEnabled(self.gallery_page < total_pages - 1)
+        
+        # Render Items
+        default_icon = QIcon(self.image_list.style().standardIcon(self.image_list.style().StandardPixmap.SP_FileIcon))
+        
+        for item_data in paged_items:
+            item = QListWidgetItem()
+            item.setText(item_data["text"])
+            
+            if item_data["type"] == "Folder":
+                # Folders are always generated synchronously for now (usually low count per page after pagination)
+                # Correction: If we paginate folders, we only generate icons for the visible ones.
+                item.setIcon(self.get_folder_icon(item_data["preview_images"]))
+                item.setData(Qt.ItemDataRole.UserRole, "Folder")
+                item.setData(Qt.ItemDataRole.UserRole + 1, item_data["text"])
+                self.image_list.addItem(item)
+            else:
+                layout_item = item_data["data"]
                 item.setIcon(default_icon) # Placeholder
                 item.setData(Qt.ItemDataRole.UserRole, "Image")
-                item.setData(Qt.ItemDataRole.UserRole + 1, img['path'])
+                item.setData(Qt.ItemDataRole.UserRole + 1, layout_item['path'])
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
-                # Fix Selection Area: Make item fill the grid cell so entire tile is clickable
                 item.setSizeHint(QSize(220, 240))
                 self.image_list.addItem(item)
                 
-                items_to_load.append(img)
+                items_to_load.append(layout_item)
             
-            # Start Async Loading
+        # Start Async Loading for images on current page
+        if items_to_load:
             self.thumb_worker = ThumbnailWorker(items_to_load, QSize(200, 200))
             self.thumb_worker.thumbnail_ready.connect(self.on_thumbnail_ready)
             self.thumb_worker.start()
+
 
     def on_thumbnail_ready(self, path, icon):
         # Find item with this path
