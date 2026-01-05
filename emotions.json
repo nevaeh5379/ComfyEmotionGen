@@ -1,0 +1,78 @@
+[
+    {
+        "name": "Happy",
+        "prompt": "smile"
+    },
+    {
+        "name": "Sad",
+        "prompt": "tears"
+    },
+    {
+        "name": "Happy",
+        "prompt": "smile"
+    },
+    {
+        "name": "Sad",
+        "prompt": "sad"
+    },
+    {
+        "name": "sleepy",
+        "prompt": "sleepy"
+    },
+    {
+        "name": "excited",
+        "prompt": "excited"
+    },
+    {
+        "name": "laughing",
+        "prompt": "laughing"
+    },
+    {
+        "name": "crying",
+        "prompt": "crying"
+    },
+    {
+        "name": "angry",
+        "prompt": "angry"
+    },
+    {
+        "name": "embarrassed",
+        "prompt": "embarrassed"
+    },
+    {
+        "name": "surprised",
+        "prompt": "surprised"
+    },
+    {
+        "name": "shocked",
+        "prompt": "shocked"
+    },
+    {
+        "name": "scared",
+        "prompt": "scared"
+    },
+    {
+        "name": "winking",
+        "prompt": "winking face"
+    },
+    {
+        "name": "heart",
+        "prompt": "heart eyes"
+    },
+    {
+        "name": "smug",
+        "prompt": "smug"
+    },
+    {
+        "name": "thinking",
+        "prompt": "frown, ..., (looking up:1.15), (stroking own chin, thinking, furrowed brow:1.2), (hand on own chin:1.3)"
+    },
+    {
+        "name": "teasing",
+        "prompt": "looking at viewer, smirk, one eyebrow raised, half-closed eyes, (doyagao, tongue out, :p:1.1), hand on own chin"
+    },
+    {
+        "name": "stupefied",
+        "prompt": "looking at viewer, stunned, wide-eyed,  (open mouth, rectangular mouth:1.1), (no pupils, white eyes), (jaw drop, drooling:1.2)"
+    }
+]
