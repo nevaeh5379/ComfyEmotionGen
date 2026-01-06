@@ -79,7 +79,7 @@ class HelpMarker(QLabel):
         self.tooltip_key = tooltip_key
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(self.get_text())
-        self.setStyleSheet("color: #4A90E2; font-weight: bold; margin-left: 5px;")
+        self.setStyleSheet("color: #0A84FF; font-weight: bold; margin-left: 5px;")
     
     def get_text(self):
         # We need a way to access current language. Ideally passed or global.
@@ -119,257 +119,306 @@ from gui_gallery import GalleryTab
 # MODERN UI STYLESHEET
 # ==========================================
 MODERN_STYLESHEET = """
-/* Main Window & Background */
-QMainWindow, QDialog, QWidget#CentralWidget {
-    background-color: #181818;
-    color: #E0E0E0;
-    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+/* --- Global Clean Reset --- */
+* {
+    outline: none; /* Remove default focus outlines */
 }
 
-/* ScrollBars */
+/* --- Main Window & Background --- */
+QMainWindow, QDialog, QWidget#CentralWidget {
+    background-color: #1C1C1E;
+    color: #F5F5F7;           /* Main Text */
+    font-family: 'Segoe UI', 'San Francisco', 'Helvetica Neue', sans-serif;
+    font-size: 14px;
+}
+
+/* --- ScrollBars (Invisible/Overlay style simulation) --- */
 QScrollBar:vertical {
     border: none;
-    background: #202020;
-    width: 10px;
+    background: transparent;
+    width: 12px;
     margin: 0px;
 }
 QScrollBar::handle:vertical {
-    background: #424242;
+    background: #48484A;
     min-height: 20px;
-    border-radius: 5px;
+    border-radius: 6px;
+    border: 3px solid transparent; /* Padding effect */
+    background-clip: content-box;
+}
+QScrollBar::handle:vertical:hover {
+    background: #636366;
+    border: 3px solid transparent;
+    background-clip: content-box;
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
 }
-
-/* Sidebar */
-QListWidget#Sidebar {
-    background-color: #202020;
+QScrollBar:horizontal {
     border: none;
-    border-right: 1px solid #333;
+    background: transparent;
+    height: 12px;
+}
+QScrollBar::handle:horizontal {
+    background: #48484A;
+    min-width: 20px;
+    border-radius: 6px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+}
+
+/* --- Sidebar (Source List) --- */
+QWidget#SidebarContainer {
+    background-color: #252525; /* Slightly lighter than main bg */
+    border-right: 1px solid #38383A;
+}
+
+QListWidget#Sidebar {
+    background-color: transparent;
+    border: none;
+    font-size: 15px;
+    font-weight: 500;
+    padding-top: 10px;
     outline: none;
-    font-size: 16px;
-    padding-top: 20px;
 }
 QListWidget#Sidebar::item {
-    color: #888;
-    padding: 15px 20px;
-    border-left: 4px solid transparent;
+    color: #AEAEB2; /* Secondary Label Color */
+    padding: 10px 15px;
+    margin: 2px 10px; /* Spacing for rounded look */
+    border-radius: 8px; /* Rounded corners for selection */
+    border: none;       /* Remove old left-border style */
 }
 QListWidget#Sidebar::item:selected {
-    background-color: #2A2A2A;
-    color: #FFF;
-    border-left: 4px solid #4A90E2;
+    background-color: #3A3A3C; /* Selected Background */
+    color: #FFFFFF;
 }
-QListWidget#Sidebar::item:hover {
-    background-color: #252525;
-    color: #CCC;
+QListWidget#Sidebar::item:hover:!selected {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #E5E5EA;
 }
 
-/* Card-like Panels */
+/* --- Card / Panels --- */
 QFrame.Card {
-    background-color: #202020;
-    border-radius: 10px;
-    border: 1px solid #333333;
+    background-color: #2C2C2E; /* Secondary Grouped Background */
+    border-radius: 12px;
+    border: 1px solid #38383A;
 }
 
-/* Headers & Labels */
+/* --- Headers & Typography --- */
 QLabel {
-    color: #E0E0E0;
-    font-size: 14px;
+    color: #F5F5F7;
 }
 QLabel.Header {
-    font-size: 22px;
-    font-weight: bold;
+    font-size: 24px;
+    font-weight: 700;
     color: #FFFFFF;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 QLabel.SectionTitle {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    color: #4A90E2; /* Accent Color */
-    margin-bottom: 8px;
+    color: #0A84FF;
+    margin-bottom: 6px;
 }
 
-/* Input Fields - FIX: Explicitly target QAbstractSpinBox and QLineEdit */
+/* --- Input Fields (Text Fields) --- */
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-    background-color: #2C2C2C;
-    border: 1px solid #3E3E3E;
-    border-radius: 6px;
-    padding: 6px 10px;
+    background-color: #1C1C1E; /* Darker than Card */
+    border: 1px solid #3A3A3C;
+    border-radius: 8px;
+    padding: 8px 10px;
     color: #FFFFFF;
     font-size: 13px;
-    selection-background-color: #4A90E2;
+    selection-background-color: #0A84FF;
+    selection-color: #FFFFFF;
 }
 QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
-    border: 1px solid #4A90E2;
-    background-color: #333333;
+    border: 1px solid #0A84FF; /* Focus Ring */
+    background-color: #000000;
 }
+QLineEdit:disabled, QComboBox:disabled {
+    color: #636366;
+    background-color: #2C2C2E;
+    border-color: #38383A;
+}
+
 /* SpinBox Arrows */
 QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {
     background-color: transparent;
     border: none;
+    border-radius: 4px;
+    margin: 1px;
+}
+QAbstractSpinBox::up-button:hover, QAbstractSpinBox::down-button:hover {
+    background-color: #3A3A3C;
 }
 QAbstractSpinBox::up-arrow, QAbstractSpinBox::down-arrow {
     width: 8px;
     height: 8px;
+    /* Often need an image or unicode hack if standard doesn't render well. 
+       PyQt usually handles this, but let's leave default or add images if broken. */
 }
 
+/* ComboBox Dropdown */
 QComboBox::drop-down {
     border: none;
-    padding-right: 10px;
+    width: 20px;
+}
+QComboBox::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #8E8E93;
+    margin-right: 8px;
 }
 
-/* Buttons */
+/* --- Buttons --- */
 QPushButton {
-    background-color: #3A3A3A;
-    border: 1px solid #4A4A4A;
-    border-radius: 6px;
+    background-color: #3A3A3C; /* Neutral Fill */
+    border: 1px solid transparent;
+    border-radius: 8px; /* Slightly rounded, try 15px for full pill if height allows */
     color: #FFFFFF;
-    padding: 8px 16px;
-    font-weight: 600;
+    padding: 6px 16px;
+    font-weight: 500;
     font-size: 13px;
 }
 QPushButton:hover {
-    background-color: #484848;
-    border-color: #666;
+    background-color: #48484A;
 }
 QPushButton:pressed {
-    background-color: #222;
-    border-color: #333;
-    padding-top: 10px;
-    padding-bottom: 6px;
+    background-color: #2C2C2E;
 }
 QPushButton:disabled {
-    background-color: #2A2A2A;
-    color: #555;
-    border-color: #333;
+    background-color: #2C2C2E;
+    color: #636366;
 }
 
+/* Primary Action Button (Blue Pill) */
 QPushButton.Primary {
-    background-color: #4A90E2;
-    border: 1px solid #357ABD;
+    background-color: #0A84FF;
+    color: #FFFFFF;
+    border-radius: 18px; /* Full Pill Shape for larger buttons */
+    padding: 8px 20px;
+    font-weight: 600;
     font-size: 14px;
-    padding: 10px 20px;
 }
 QPushButton.Primary:hover {
-    background-color: #5AA0F2;
-    border-color: #70B0FF;
+    background-color: #007AFF; /* Slightly lighter/brighter */
 }
 QPushButton.Primary:pressed {
-    background-color: #306090;
-    border-color: #204060;
-    padding-top: 12px;
-    padding-bottom: 8px;
+    background-color: #0062CC;
 }
 
+/* Destructive Action Button (Red) */
 QPushButton.Danger {
-    background-color: #D32F2F;
-    border: 1px solid #B71C1C;
+    background-color: rgba(255, 69, 58, 0.15); /* Transparent Red */
+    color: #FF453A;
+    border: 1px solid rgba(255, 69, 58, 0.3);
 }
 QPushButton.Danger:hover {
-    background-color: #E53935;
-    border-color: #FF6666;
+    background-color: rgba(255, 69, 58, 0.25);
+    border-color: #FF453A;
 }
 QPushButton.Danger:pressed {
-    background-color: #9A0007;
-    border-color: #700000;
-    padding-top: 10px;
-    padding-bottom: 6px;
+    background-color: rgba(255, 69, 58, 0.4);
 }
 
-/* Tables & Lists */
-QTableWidget, QListWidget {
-    background-color: #202020;
-    border: 1px solid #333333;
-    border-radius: 6px;
-    gridline-color: #333333;
-    font-size: 13px;
-    color: #E0E0E0;
-}
-QHeaderView::section {
-    background-color: #2A2A2A;
-    color: #BBBBBB;
-    padding: 6px;
-    border: none;
-    border-bottom: 1px solid #333333;
-    font-weight: bold;
-}
-QTableWidget::item {
-    color: #E0E0E0;
-    padding: 4px;
-}
-QTableWidget::item:selected, QListWidget::item:selected {
-    background-color: transparent;
-    border: 2px solid #4A90E2;
-    border-radius: 4px;
-    color: #FFFFFF;
-}
-QListWidget::item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-/* Ensure rubber band is not opaque if system default is weird */
-/* Removed problematic block */
-
-/* Tabs */
+/* --- Tabs (Segmented Control Style) --- */
 QTabWidget::pane {
-    border: 1px solid #333;
-    background-color: #202020;
-    border-radius: 6px;
+    border: 1px solid #38383A;
+    border-radius: 12px; /* Content area rounded */
+    background-color: #2C2C2E;
+    /* Move content down slightly if needed */
+    margin-top: -1px; 
+}
+QTabWidget::tab-bar {
+    alignment: left;
+    left: 10px; 
 }
 QTabBar::tab {
-    background-color: #181818;
-    color: #888;
+    background-color: transparent;
+    color: #AEAEB2;
     padding: 8px 16px;
+    font-weight: 600;
     font-size: 13px;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
-    margin-right: 2px;
+    margin-right: 5px;
+    border-radius: 16px; /* Pill shape tabs */
+    border: 1px solid transparent;
 }
 QTabBar::tab:selected {
-    background-color: #202020;
-    color: #4A90E2;
-    font-weight: bold;
-    border-bottom: 2px solid #4A90E2;
+    background-color: #636366; /* Active Pill Color */
+    color: #FFFFFF;
 }
-QTabBar::tab:hover {
-    background-color: #252525;
+QTabBar::tab:hover:!selected {
+    background-color: rgba(99, 99, 102, 0.3);
+    color: #E5E5EA;
 }
 
-/* Progress Bar */
+/* --- Tables & Lists --- */
+QTableWidget, QListWidget {
+    background-color: #1C1C1E;
+    border: 1px solid #38383A;
+    border-radius: 8px;
+    gridline-color: #38383A;
+    color: #F5F5F7;
+    alternate-background-color: #252525;
+}
+QHeaderView::section {
+    background-color: #2C2C2E;
+    color: #AEAEB2;
+    padding: 6px;
+    border: none;
+    border-bottom: 1px solid #38383A;
+    border-right: 1px solid #38383A;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+QTableWidget::item:selected {
+    background-color: #143F6B; /* Darker Blue selection */
+    color: #FFF;
+}
+
+/* --- CheckBox --- */
+QCheckBox {
+    color: #F5F5F7;
+    font-size: 13px;
+    spacing: 8px;
+}
+
+/* --- Toolbar --- */
+QWidget#TopToolbar {
+    background-color: #252525;
+    border-bottom: 1px solid #38383A;
+}
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    background: #2C2C2E;
+    border: 1px solid #48484A;
+    border-radius: 4px;
+}
+QCheckBox::indicator:checked {
+    background-color: #0A84FF;
+    border-color: #0A84FF;
+    /* We can use a standard checkmark image or rely on color. */
+    image: url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>);
+}
+QCheckBox::indicator:hover {
+    border-color: #636366;
+}
+
+/* --- Progress Bar --- */
 QProgressBar {
     border: none;
-    background-color: #2C2C2C;
+    background-color: #3A3A3C;
     border-radius: 4px;
-    height: 8px;
+    height: 6px;
     text-align: center;
 }
 QProgressBar::chunk {
-    background-color: #4A90E2;
+    background-color: #0A84FF;
     border-radius: 4px;
-}
-
-/* CheckBox */
-QCheckBox {
-    color: #E0E0E0;
-    font-size: 13px;
-    spacing: 5px;
-    padding: 2px;
-}
-QCheckBox::indicator {
-    width: 16px;
-    height: 16px;
-    background: #2C2C2C;
-    border: 1px solid #444;
-    border-radius: 3px;
-}
-QCheckBox::indicator:checked {
-    background: #4A90E2;
-    border-color: #4A90E2;
-    image: url(check_icon_placeholder); /* Often default checkmark works if background is set, or rely on color */
-}
-QCheckBox::indicator:hover {
-    border-color: #666;
 }
 """
 
@@ -755,7 +804,7 @@ class FloatingPreview(QWidget):
         self.frame.setStyleSheet("""
             QFrame {
                 background-color: #1E1E1E;
-                border: 2px solid #4A90E2;
+                border: 2px solid #0A84FF;
                 border-radius: 10px;
             }
         """)
@@ -914,8 +963,8 @@ class MainWindow(QMainWindow):
         # --- Sidebar Container ---
         sidebar_container = QWidget()
         sidebar_container.setObjectName("SidebarContainer")
-        sidebar_container.setStyleSheet("background-color: #202020; border-right: 1px solid #333;")
-        sidebar_container.setFixedWidth(200)
+        # sidebar_container.setStyleSheet(...) # Stylesheet handles global look, but object name is key
+        sidebar_container.setFixedWidth(250)
         
         sidebar_layout = QVBoxLayout(sidebar_container)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
@@ -1004,58 +1053,129 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'pip_preview'):
             self.pip_preview = FloatingPreview(None)
         
-        # Main Layout for Gen Tab
-        main_layout = QHBoxLayout(self.gen_tab)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        # Main Layout for Gen Tab (Vertical now, because Toolbar is at top)
+        # Actually, let's keep it consistent: Gen Tab is the container.
+        # Structure:
+        # [ Top Toolbar ]
+        # [ Splitter (Controls | Preview) ]
+        
+        gen_layout = QVBoxLayout(self.gen_tab)
+        gen_layout.setContentsMargins(0, 0, 0, 0)
+        gen_layout.setSpacing(0)
 
-        # Splitter to divide Controls (Left) and Preview (Right)
+        # ==========================================
+        # 1. TOP TOOLBAR
+        # ==========================================
+        self.top_toolbar = QWidget()
+        self.top_toolbar.setObjectName("TopToolbar")
+        self.top_toolbar.setFixedHeight(60) # Fixed height for toolbar feel
+        tb_layout = QHBoxLayout(self.top_toolbar)
+        tb_layout.setContentsMargins(20, 0, 20, 0)
+        tb_layout.setSpacing(15)
+
+        # --- Left: Character & Profile ---
+        tb_layout.addWidget(QLabel("Character:"))
+        self.char_select_combo = QComboBox()
+        self.char_select_combo.setFixedWidth(200)
+        self.char_select_combo.currentIndexChanged.connect(self.load_character_profile)
+        tb_layout.addWidget(self.char_select_combo)
+        
+        save_btn = QPushButton("Save")
+        save_btn.setToolTip("Save Profile")
+        save_btn.setFixedWidth(60) # Adequate width for text
+        save_btn.clicked.connect(self.save_character_profile)
+        tb_layout.addWidget(save_btn)
+        
+        new_btn = QPushButton("New")
+        new_btn.setToolTip("New Profile")
+        new_btn.setFixedWidth(60)
+        new_btn.clicked.connect(self.new_character_profile)
+        tb_layout.addWidget(new_btn)
+        
+        # Separator
+        line1 = QFrame(); line1.setFrameShape(QFrame.Shape.VLine); line1.setStyleSheet("color: #444;")
+        tb_layout.addWidget(line1)
+
+        # --- Center: Execution Controls ---
+        # Batch
+        tb_layout.addWidget(QLabel("Batch:"))
+        self.batch_count_spin = QSpinBox(); self.batch_count_spin.setRange(1, 50); self.batch_count_spin.setValue(1); self.batch_count_spin.setFixedWidth(60)
+        tb_layout.addWidget(self.batch_count_spin)
+
+        # Seed
+        tb_layout.addWidget(QLabel("Seed:"))
+        self.seed_input = QLineEdit(); self.seed_input.setPlaceholderText("-1"); self.seed_input.setText("-1"); self.seed_input.setFixedWidth(100)
+        tb_layout.addWidget(self.seed_input)
+        dice_btn = QPushButton("🎲")
+        dice_btn.setFixedSize(30, 30); dice_btn.setToolTip("Random Seed")
+        dice_btn.clicked.connect(lambda: self.seed_input.setText("-1"))
+        tb_layout.addWidget(dice_btn)
+
+        # Big Buttons
+        self.generate_btn = QPushButton("▶ Generate")
+        self.generate_btn.setProperty("class", "Primary")
+        self.generate_btn.setFixedHeight(36)
+        self.generate_btn.clicked.connect(self.handle_generate)
+        tb_layout.addWidget(self.generate_btn)
+
+        self.stop_btn = QPushButton("⏹ Stop")
+        self.stop_btn.setProperty("class", "Danger")
+        self.stop_btn.setFixedHeight(36)
+        self.stop_btn.clicked.connect(self.handle_stop)
+        self.stop_btn.setEnabled(False)
+        tb_layout.addWidget(self.stop_btn)
+
+        self.test_btn = QPushButton("🧪 Test")
+        self.test_btn.setFixedHeight(36)
+        self.test_btn.setToolTip("Generate 1 image (Happy) without saving")
+        self.test_btn.clicked.connect(self.handle_test_generate)
+        tb_layout.addWidget(self.test_btn)
+
+        tb_layout.addStretch() # Spacer
+
+        # --- Right: View & Lang ---
+        pip_btn = QPushButton("Pip")
+        pip_btn.setCheckable(True)
+        pip_btn.clicked.connect(self.toggle_pip)
+        tb_layout.addWidget(pip_btn)
+        
+        self.lang_btn = QPushButton("KR/EN")
+        self.lang_btn.setFixedWidth(60)
+        self.lang_btn.clicked.connect(self.toggle_language)
+        tb_layout.addWidget(self.lang_btn)
+        
+        gen_layout.addWidget(self.top_toolbar)
+        
+        # --- Progress Bar Strip (Just below toolbar) ---
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFixedHeight(4)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setStyleSheet("background: transparent; border: none; border-radius: 0px;") 
+        # We need to style the chunk specifically for this thin bar or keep global
+        gen_layout.addWidget(self.progress_bar)
+
+        # ==========================================
+        # 2. MAIN CONTENT SPLITTER
+        # ==========================================
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(1)
-        splitter.setStyleSheet("QSplitter::handle { background: #333; }")
-        main_layout.addWidget(splitter)
+        splitter.setStyleSheet("QSplitter::handle { background: #38383A; }")
+        gen_layout.addWidget(splitter)
 
-        # --- LEFT PANEL: Controls ---
+        # --- LEFT PANEL: Configuration (Inspector) ---
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(20, 20, 20, 20)
         left_layout.setSpacing(15)
         splitter.addWidget(left_panel)
 
-        # Top Bar (Profile Management)
-        top_h = QHBoxLayout()
-        top_h.addWidget(QLabel("Active Character:", styleSheet="font-weight:bold; font-size:16px; color:#4A90E2;"))
-        
-        self.char_select_combo = QComboBox()
-        self.char_select_combo.setFixedWidth(250)
-        self.char_select_combo.currentIndexChanged.connect(self.load_character_profile)
-        top_h.addWidget(self.char_select_combo)
-        
-        top_h.addStretch()
-        
-        save_btn = QPushButton("💾 Save")
-        save_btn.clicked.connect(self.save_character_profile)
-        top_h.addWidget(save_btn)
-        
-        new_btn = QPushButton("✨ New")
-        new_btn.clicked.connect(self.new_character_profile)
-        top_h.addWidget(new_btn)
-        
-        # Language Toggle
-        top_h.addSpacing(10)
-        self.lang_btn = QPushButton("English" if CURRENT_LANG == "en" else "한국어")
-        self.lang_btn.setFixedWidth(80)
-        self.lang_btn.clicked.connect(self.toggle_language)
-        top_h.addWidget(self.lang_btn)
-        
-        left_layout.addLayout(top_h)
-
         # Config Tabs
         self.config_tabs = QTabWidget()
         self.config_tabs.setStyleSheet("""
-            QTabWidget::pane { border: 1px solid #333; background: #202020; border-radius: 8px; }
-            QTabBar::tab { background: #181818; color: #888; padding: 8px 20px; border-top-left-radius: 4px; border-top-right-radius: 4px; margin-right: 2px; }
-            QTabBar::tab:selected { background: #202020; color: #4A90E2; border-bottom: 2px solid #4A90E2; font-weight: bold; }
+            QTabWidget::pane { border: 1px solid #38383A; background: #2C2C2E; border-radius: 8px; }
+            QTabBar::tab { background: transparent; color: #888; padding: 6px 16px; border-radius: 14px; margin-right: 4px; border: 1px solid transparent; }
+            QTabBar::tab:selected { background: #636366; color: #FFF; font-weight: bold; }
+            QTabBar::tab:hover:!selected { background: rgba(255,255,255,0.05); }
         """)
         
         # Tab 1: Identity
@@ -1100,7 +1220,7 @@ class MainWindow(QMainWindow):
 
         # 3. Preview Image (Right side, spanning rows)
         preview_container = QFrame()
-        preview_container.setStyleSheet("background: #111; border: 1px solid #333; border-radius: 8px;")
+        preview_container.setStyleSheet("background: #1C1C1E; border: 1px solid #38383A; border-radius: 8px;")
         p_layout = QVBoxLayout(preview_container)
         p_layout.setContentsMargins(0,0,0,0)
         
@@ -1137,7 +1257,7 @@ class MainWindow(QMainWindow):
         ref_grid.setContentsMargins(10, 10, 10, 10)
         ref_grid.setSpacing(10)
         
-        # Helper to add label with help
+        # Helper to add label with help (Same as before)
         def add_param(row, col, name_key, tooltip_key, widget, colspan=1):
             h = QHBoxLayout()
             h.setContentsMargins(0,0,0,0)
@@ -1170,7 +1290,6 @@ class MainWindow(QMainWindow):
         
         self.ref_scaling_combo = QComboBox(); self.ref_scaling_combo.addItems(["V only", "K+V", "K+V w/ C penalty", "K+mean(V) w/ C penalty"])
         
-        # Scaling needs special handling for colspan
         h_sc = QHBoxLayout(); h_sc.setContentsMargins(0,0,0,0); h_sc.setSpacing(2)
         h_sc.addWidget(QLabel(localized_text("Scaling")))
         h_sc.addWidget(HelpMarker("tip_scaling"))
@@ -1278,7 +1397,7 @@ class MainWindow(QMainWindow):
         tl3.setRowStretch(4, 1)
         self.config_tabs.addTab(tab_adv, "⚙️ Advanced")
 
-        # Tab 6: Job Queue (NEW)
+        # Tab 6: Job Queue
         tab_queue = QWidget()
         q_layout = QVBoxLayout(tab_queue); q_layout.setContentsMargins(15,15,15,15)
         
@@ -1303,64 +1422,6 @@ class MainWindow(QMainWindow):
         
         left_layout.addWidget(self.config_tabs)
         
-        # Execution Bar
-        exec_bar = QFrame()
-        exec_bar.setStyleSheet("background: #252525; border-radius: 8px; border: 1px solid #333;")
-        el = QHBoxLayout(exec_bar); el.setContentsMargins(15, 10, 15, 10)
-        el.addWidget(QLabel("Batch:"))
-        self.batch_count_spin = QSpinBox(); self.batch_count_spin.setRange(1, 50); self.batch_count_spin.setValue(1)
-        el.addWidget(self.batch_count_spin)
-        el.addSpacing(15)
-        el.addWidget(QLabel("Seed:"))
-        self.seed_input = QLineEdit(); self.seed_input.setPlaceholderText("-1"); self.seed_input.setText("-1"); self.seed_input.setFixedWidth(100)
-        el.addWidget(self.seed_input)
-        dice_btn = QPushButton("🎲")
-        dice_btn.setFixedSize(30, 30)
-        dice_btn.setToolTip("Random Seed (-1)")
-        dice_btn.clicked.connect(lambda: self.seed_input.setText("-1"))
-        el.addWidget(dice_btn)
-        el.addSpacing(15)
-        pip_btn = QPushButton("📺 Toggle PIP")
-        pip_btn.clicked.connect(self.toggle_pip)
-        el.addWidget(pip_btn)
-        el.addSpacing(15)
-        prog_layout = QVBoxLayout()
-        prog_layout.setSpacing(2)
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(10)
-        self.progress_bar.setToolTip("Task Progress")
-        prog_layout.addWidget(self.progress_bar)
-        self.step_progress_bar = QProgressBar()
-        self.step_progress_bar.setFixedHeight(6)
-        self.step_progress_bar.setStyleSheet("QProgressBar::chunk { background-color: #50C878; }")
-        self.step_progress_bar.setTextVisible(False)
-        self.step_progress_bar.setToolTip("Step Progress")
-        prog_layout.addWidget(self.step_progress_bar)
-        el.addLayout(prog_layout)
-        
-        # Buttons
-        self.generate_btn = QPushButton("✨ Generate")
-        self.generate_btn.setProperty("class", "Primary")
-        self.generate_btn.clicked.connect(self.handle_generate)
-        el.addWidget(self.generate_btn)
-
-        self.stop_btn = QPushButton("🛑 Stop")
-        self.stop_btn.setProperty("class", "Danger")
-        self.stop_btn.clicked.connect(self.handle_stop)
-        self.stop_btn.setEnabled(False) 
-        el.addWidget(self.stop_btn)
-        
-        self.test_btn = QPushButton("🧪 Test (Happy)")
-        self.test_btn.clicked.connect(self.handle_test_generate)
-        el.addWidget(self.test_btn)
-        
-        left_layout.addWidget(exec_bar)
-        
-        # Status Bar
-        self.status_bar = QLabel("Ready")
-        self.status_bar.setStyleSheet("color: #888; font-size: 12px; margin-top: 5px;")
-        left_layout.addWidget(self.status_bar)
-        
         # Hidden Log
         self.log_console = QTextEdit()
         self.log_console.setMaximumHeight(0) 
@@ -1371,10 +1432,15 @@ class MainWindow(QMainWindow):
         right_panel = QWidget()
         right_panel.setMinimumWidth(400)
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0) # Zero margins for panel
-        splitter.addWidget(right_panel)
-
-        # right_layout.addWidget(QLabel("Live Preview", styleSheet="font-weight:bold; font-size:16px; color:#4A90E2;")) # Removed label to save height
+        right_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Status Bar integrated in Right Panel or independent?
+        # Let's put Status Bar at bottom of Right Panel, or maybe Global bottom?
+        # For now, put it in Right Panel
+        self.status_bar = QLabel("Ready")
+        self.status_bar.setStyleSheet("color: #888; font-size: 12px; margin-bottom: 5px;")
+        self.status_bar.setAlignment(Qt.AlignmentFlag.AlignRight)
+        right_layout.addWidget(self.status_bar)
 
         # Card container for image
         preview_card = QFrame()
@@ -1389,9 +1455,12 @@ class MainWindow(QMainWindow):
         pc_layout.addWidget(self.live_preview_label)
         right_layout.addWidget(preview_card)
 
-        # Initial splitter sizes - Balanced 1:1
-        splitter.setStretchFactor(0, 1) # Left
-        splitter.setStretchFactor(1, 1) # Right
+        # Add Right Panel to Splitter
+        splitter.addWidget(right_panel)
+
+        # Initial splitter sizes
+        splitter.setStretchFactor(0, 4) # Left
+        splitter.setStretchFactor(1, 6) # Right
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
 
@@ -1525,7 +1594,7 @@ class MainWindow(QMainWindow):
         self.status_bar.setText("Processing Queue...")
         self.log_console.clear()
         self.progress_bar.setValue(0)
-        self.step_progress_bar.setValue(0)
+        # self.step_progress_bar.setValue(0) # Removed in refactor
         
         self.comfy_client.server_address = self.app_config.get("server_address")
         
@@ -1534,7 +1603,7 @@ class MainWindow(QMainWindow):
             self.base_output_dir, self.job_queue
         )
         self.worker.progress_signal.connect(self.progress_bar.setValue)
-        self.worker.step_signal.connect(self.on_step_progress)
+        # self.worker.step_signal.connect(self.on_step_progress) # We might keep this logic but for now simplify
         self.worker.log_signal.connect(self.update_log_status)
         self.worker.preview_signal.connect(self.update_live_preview)
         self.worker.job_started_signal.connect(self.on_job_started)
@@ -1786,8 +1855,9 @@ class MainWindow(QMainWindow):
         if r >= 0: self.emotion_table.removeRow(r)
 
     def on_step_progress(self, value, max_val):
-        self.step_progress_bar.setMaximum(max_val)
-        self.step_progress_bar.setValue(value)
+        pass # Step progress bar removed in refactor
+        # self.step_progress_bar.setMaximum(max_val)
+        # self.step_progress_bar.setValue(value)
 
     def update_log_status(self, msg):
         self.log_console.append(msg)
@@ -1824,7 +1894,8 @@ class MainWindow(QMainWindow):
         self.stop_btn.setEnabled(False)
         
         self.status_bar.setText("Generation Complete (or Stopped).")
-        self.step_progress_bar.setValue(0)
+        self.status_bar.setText("Generation Complete (or Stopped).")
+        # self.step_progress_bar.setValue(0) # Removed
         
         # Only show "Done" if it wasn't a hard crash or something, but usually fine
         # If stopped, user knows.

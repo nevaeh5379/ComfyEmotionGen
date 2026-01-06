@@ -498,7 +498,7 @@ class DraggableListWidget(QListWidget):
         
         # Color palette
         p = self.palette()
-        p.setColor(QPalette.ColorRole.Highlight, QColor(74, 144, 226, 50))
+        p.setColor(QPalette.ColorRole.Highlight, QColor(10, 132, 255, 50))
         p.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
         self.setPalette(p)
 
@@ -640,11 +640,13 @@ class GalleryTab(QWidget):
         painter = QPainter(pix)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        painter.setBrush(QColor("#4A90E2"))
+        painter.setBrush(QColor("#0A84FF"))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(10, 10, 70, 40, 8, 8)
+        # Tab on folder top
+        painter.drawRoundedRect(10, 10, 70, 40, 6, 6)
         
-        painter.drawRoundedRect(10, 30, 160, 120, 8, 8)
+        # Main folder body
+        painter.drawRoundedRect(10, 30, 160, 120, 12, 12)
         
         mode = self.app_config.get("folder_preview_mode")
         if preview_images and mode != "Off":
@@ -672,11 +674,11 @@ class GalleryTab(QWidget):
                         copy_y = (scaled.height() - h) // 2
                         painter.drawPixmap(x, y, scaled, copy_x, copy_y, w, h)
                         
-                        painter.setPen(QPen(QColor("#1E1E1E"), 2))
+                        painter.setPen(QPen(QColor("#1C1C1E"), 2)) # Match background
                         painter.setBrush(Qt.BrushStyle.NoBrush)
                         painter.drawRect(x, y, w, h)
                         painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(QColor("#4A90E2"))
+                        painter.setBrush(QColor("#0A84FF"))
 
         painter.end()
         return QIcon(pix) 
