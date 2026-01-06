@@ -111,95 +111,9 @@ if current_dir not in sys.path:
 
 from comfy_client import ComfyClient
 from workflow_manager import prepare_workflow
+from gui_gallery import GalleryTab
 
-class ImageViewer(QDialog):
-    def __init__(self, image_path, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Image Viewer")
-        self.resize(1000, 800)
-        self.image_path = image_path
-        self.scale_factor = 1.0
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Scroll Area
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setBackgroundRole(QPalette.ColorRole.Dark)
-        self.scroll_area.setWidgetResizable(True) # Changed to True initially to center, but we might toggle
-        
-        self.image_label = QLabel()
-        self.image_label.setBackgroundRole(QPalette.ColorRole.Base)
-        self.image_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
-        self.image_label.setScaledContents(True)
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        self.pixmap = QPixmap(image_path)
-        self.image_label.setPixmap(self.pixmap)
-        
-        self.scroll_area.setWidget(self.image_label)
-        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.scroll_area)
-        
-        # Controls
-        ctrl_layout = QHBoxLayout()
-        ctrl_layout.setContentsMargins(10, 10, 10, 10)
-        
-        self.info_lbl = QLabel(f"{os.path.basename(image_path)} | {self.pixmap.width()}x{self.pixmap.height()}")
-        ctrl_layout.addWidget(self.info_lbl)
-        ctrl_layout.addStretch()
-        
-        zoom_in = QPushButton("+")
-        zoom_in.setFixedSize(40, 40)
-        zoom_in.clicked.connect(self.zoom_in)
-        
-        zoom_out = QPushButton("-")
-        zoom_out.setFixedSize(40, 40)
-        zoom_out.clicked.connect(self.zoom_out)
-        
-        fit_btn = QPushButton("Fit")
-        fit_btn.setFixedSize(60, 40)
-        fit_btn.clicked.connect(self.fit_to_window)
-        
-        ctrl_layout.addWidget(zoom_out)
-        ctrl_layout.addWidget(fit_btn)
-        ctrl_layout.addWidget(zoom_in)
-        
-        layout.addLayout(ctrl_layout)
-        
-        self.fit_to_window()
-        
-    def zoom_in(self):
-        self.scale_image(1.25)
-
-    def zoom_out(self):
-        self.scale_image(0.8)
-
-    def fit_to_window(self):
-        if self.pixmap.isNull(): return
-        w_ratio = (self.scroll_area.width() - 20) / self.pixmap.width()
-        h_ratio = (self.scroll_area.height() - 20) / self.pixmap.height()
-        self.scale_factor = min(w_ratio, h_ratio, 1.0)
-        self.image_label.resize(self.scale_factor * self.pixmap.size())
-        self.update_zoom_info()
-        
-    def scale_image(self, factor):
-        self.scale_factor *= factor
-        self.image_label.resize(self.scale_factor * self.pixmap.size())
-        self.update_zoom_info()
-        
-    def update_zoom_info(self):
-        # self.info_lbl.setText(f"Zoom: {int(self.scale_factor * 100)}%")
-        pass
-        
-    def wheelEvent(self, event: QWheelEvent):
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            delta = event.angleDelta().y()
-            if delta > 0: self.zoom_in()
-            else: self.zoom_out()
-            event.accept()
-        else:
-            super().wheelEvent(event)
 
 # ==========================================
 # MODERN UI STYLESHEET
@@ -459,24 +373,7 @@ QCheckBox::indicator:hover {
 }
 """
 
-class GalleryCache:
-    def __init__(self):
-        self._cache = {} # {character_name: [list of image dicts]}
-        self._folder_icon_cache = {} # {key: QIcon}
 
-    def get_images(self, character_name):
-        return self._cache.get(character_name)
-
-    def set_images(self, character_name, images):
-        self._cache[character_name] = images
-
-    def invalidate(self, character_name=None):
-        if character_name:
-            if character_name in self._cache:
-                del self._cache[character_name]
-        else:
-            self._cache.clear()
-            self._folder_icon_cache.clear()
 
 
 
@@ -774,50 +671,7 @@ class GenerationWorker(QThread):
             self.client.close()
         except: pass
 
-class ThumbnailWorker(QThread):
-    thumbnail_ready = pyqtSignal(str, QIcon) # path, icon
 
-    def __init__(self, items, icon_size):
-        super().__init__()
-        self.items = items # List of dicts or tuples
-        self.icon_size = icon_size
-        self.is_running = True
-
-    def run(self):
-        for item in self.items:
-            if not self.is_running: break
-            
-            path = item['path']
-            # Only process if it's an image file
-            if path and os.path.exists(path) and os.path.isfile(path):
-                # Try loading from cache first
-                cache_dir = os.path.join(os.path.dirname(path), ".thumbnails")
-                if not os.path.exists(cache_dir):
-                    try: os.makedirs(cache_dir)
-                    except: pass
-                
-                cache_key = os.path.splitext(os.path.basename(path))[0] + ".jpg"
-                cache_path = os.path.join(cache_dir, cache_key)
-                
-                loaded = False
-                if os.path.exists(cache_path):
-                    pix = QPixmap(cache_path)
-                    if not pix.isNull():
-                        self.thumbnail_ready.emit(path, QIcon(pix))
-                        loaded = True
-                
-                if not loaded:
-                    pix = QPixmap(path)
-                    if not pix.isNull():
-                        scaled = pix.scaled(self.icon_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                        self.thumbnail_ready.emit(path, QIcon(scaled))
-                        # Save to cache
-                        try:
-                            scaled.save(cache_path, "JPG", 85)
-                        except: pass
-    
-    def stop(self):
-        self.is_running = False
 
 class SettingsDialog(QDialog):
     def __init__(self, app_config, parent=None):
@@ -992,37 +846,7 @@ class FavoritesManager:
             self.add(path)
             return True
 
-class DraggableListWidget(QListWidget):
-    delete_pressed = pyqtSignal() # New signal for delete key
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setDragEnabled(True)
-        # Fix: Use Static movement to prevent items from disappearing/moving within the list
-        self.setMovement(QListWidget.Movement.Static)
-        self.setResizeMode(QListWidget.ResizeMode.Adjust)
-        self.setViewMode(QListWidget.ViewMode.IconMode)
-        # Revert UniformItemSizes to avoid cutting off content
-        # self.setUniformItemSizes(True) 
-        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
-        self.setDefaultDropAction(Qt.DropAction.CopyAction)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        
-        # Color palette
-        p = self.palette()
-        p.setColor(QPalette.ColorRole.Highlight, QColor(74, 144, 226, 50))
-        p.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
-        self.setPalette(p)
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Delete:
-            self.delete_pressed.emit()
-        else:
-            super().keyPressEvent(event)
-
-    def mouseMoveEvent(self, e):
-        super().mouseMoveEvent(e)
-        self.viewport().update()
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -1036,7 +860,7 @@ class MainWindow(QMainWindow):
         self.base_output_dir = os.path.join(os.getcwd(), "output")
         if not os.path.exists(self.base_output_dir): os.makedirs(self.base_output_dir)
 
-        self.gallery_cache = GalleryCache()
+
         self.favorites_manager = FavoritesManager()
         
         # Load Workflow
@@ -1157,8 +981,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.gen_tab)
 
         # Gallery Tab
-        self.gallery_tab = QWidget()
-        self.setup_gallery_tab()
+        self.gallery_tab = GalleryTab(self, self.app_config, self.favorites_manager, self.base_output_dir)
         self.stack.addWidget(self.gallery_tab)
         
         # Connect
@@ -1168,7 +991,7 @@ class MainWindow(QMainWindow):
     def on_sidebar_changed(self, index):
         self.stack.setCurrentIndex(index)
         if index == 1: # Gallery
-            self.scan_output_folder()
+            self.gallery_tab.scan_output_folder()
 
     def open_settings(self):
         dlg = SettingsDialog(self.app_config, self)
@@ -1801,250 +1624,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to export: {e}")
 
-    def setup_gallery_tab(self):
-        layout = QVBoxLayout(self.gallery_tab)
-        layout.setContentsMargins(0, 20, 0, 0)
-        
-        # State
-        self.gallery_current_level = "root" # root, folder
-        self.gallery_current_folder = None
-        self.gallery_data_cache = [] # List of {path, emotion, seed}
-        self.gallery_page = 0
-        self.gallery_page_size = 50
 
-        
-        # Filter Bar
-        filter_card = Card()
-        fh = QHBoxLayout()
-        filter_card.layout().addLayout(fh)
-        
-        fh.addWidget(QLabel("Character:"))
-        self.gallery_char_combo = QComboBox()
-        self.gallery_char_combo.setFixedWidth(200)
-        self.gallery_char_combo.currentTextChanged.connect(self.reset_gallery_to_root)
-        fh.addWidget(self.gallery_char_combo)
-        
-        fh.addSpacing(20)
-        fh.addWidget(QLabel("Group By:"))
-        self.gallery_group_combo = QComboBox()
-        self.gallery_group_combo.addItems(["Emotion", "Seed"])
-        self.gallery_group_combo.setFixedWidth(120)
-        self.gallery_group_combo.currentTextChanged.connect(self.reset_gallery_to_root)
-        fh.addWidget(self.gallery_group_combo)
-        
-        fh.addSpacing(20)
-        self.gallery_fav_only_chk = QCheckBox("★ Favorites Only")
-        self.gallery_fav_only_chk.toggled.connect(self.reset_gallery_to_root)
-        fh.addWidget(self.gallery_fav_only_chk)
-        
-        
-        fh.addStretch()
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self.refresh_gallery_scan)
-        fh.addWidget(refresh_btn)
-        
-        open_btn = QPushButton("Open Disk Folder")
-        open_btn.clicked.connect(lambda: os.startfile(self.base_output_dir))
-        fh.addWidget(open_btn)
-        
-        layout.addWidget(filter_card)
-        
-        # Navigation Bar
-        nav_layout = QHBoxLayout()
-        self.back_btn = QPushButton(" < Back ")
-        self.back_btn.setFixedWidth(80)
-        self.back_btn.setEnabled(False)
-        self.back_btn.clicked.connect(self.navigate_up)
-        nav_layout.addWidget(self.back_btn)
-        
-        self.path_label = QLabel(" / ")
-        self.path_label.setStyleSheet("font-weight: bold; color: #888;")
-        nav_layout.addWidget(self.path_label)
-        
-        nav_layout.addStretch()
-        
-        self.prev_page_btn = QPushButton("<")
-        self.prev_page_btn.setFixedSize(30, 30)
-        self.prev_page_btn.clicked.connect(self.prev_page)
-        
-        self.page_label = QLabel("1 / 1")
-        self.page_label.setStyleSheet("color: #888; font-weight: bold; padding: 0 10px;")
-        
-        self.next_page_btn = QPushButton(">")
-        self.next_page_btn.setFixedSize(30, 30)
-        self.next_page_btn.clicked.connect(self.next_page)
-        
-        nav_layout.addWidget(self.prev_page_btn)
-        nav_layout.addWidget(self.page_label)
-        nav_layout.addWidget(self.next_page_btn)
-        
-        layout.addLayout(nav_layout)
-        
-        # Content Area
-        # Content Area
-        self.image_list = DraggableListWidget()
-        self.image_list.setViewMode(QListWidget.ViewMode.IconMode)
-        self.image_list.setIconSize(QSize(180, 180))
-        self.image_list.setResizeMode(QListWidget.ResizeMode.Adjust)
-        self.image_list.setSpacing(15)
-        self.image_list.setGridSize(QSize(220, 240))
-        # ExtendedSelection is set in DraggableListWidget init
-        self.image_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.image_list.customContextMenuRequested.connect(self.show_gallery_context_menu)
-        self.image_list.itemDoubleClicked.connect(self.open_gallery_item)
-        self.image_list.delete_pressed.connect(self.delete_gallery_items)
-        
-        layout.addWidget(self.image_list)
-
-    def show_gallery_context_menu(self, pos):
-        item = self.image_list.itemAt(pos)
-        if not item: return
-
-        itype = item.data(Qt.ItemDataRole.UserRole)
-        path = item.data(Qt.ItemDataRole.UserRole + 1) # Path
-        
-        menu = QMenu(self)
-        
-        if itype == "Folder":
-            open_act = QAction("Open", self)
-            open_act.triggered.connect(lambda: self.open_gallery_item(item))
-            menu.addAction(open_act)
-            
-        if itype == "Image":
-            # Favorites
-            is_fav = self.favorites_manager.is_favorite(path)
-            fav_text = "Remove from Favorites" if is_fav else "Add to Favorites"
-            fav_act = QAction(fav_text, self)
-            fav_act.triggered.connect(lambda: self.toggle_gallery_favorites([item]))
-            menu.addAction(fav_act)
-            
-            menu.addSeparator()
-            
-            # Copy Seed
-            copy_seed_act = QAction("Copy Seed", self)
-            copy_seed_act.triggered.connect(lambda: self.copy_seed_from_path(path))
-            menu.addAction(copy_seed_act)
-            
-            # Copy Path
-            copy_path_act = QAction("Copy Path", self)
-            copy_path_act.triggered.connect(lambda: QApplication.clipboard().setText(path))
-            menu.addAction(copy_path_act)
-            
-            # Open in Explorer
-            open_exp_act = QAction("Show in Explorer", self)
-            open_exp_act.triggered.connect(lambda: self.open_in_explorer(path))
-            menu.addAction(open_exp_act)
-            
-            menu.addSeparator()
-            
-            # Delete
-            del_act = QAction("Delete", self)
-            del_act.setProperty("class", "Danger") # Custom property if supported by stylesheet (not standard QAction but handled by some themes)
-            # We can set color manually or just rely on text
-            del_act.triggered.connect(self.delete_gallery_items)
-            menu.addAction(del_act)
-            
-        menu.exec(self.image_list.mapToGlobal(pos))
-
-    def copy_seed_from_path(self, path):
-        fname = os.path.basename(path)
-        # Look for pattern like _s12345 or Seed12345
-        m = re.search(r"(?:Seed|_s)(\d+)", fname)
-        if m:
-            seed = m.group(1)
-            QApplication.clipboard().setText(seed)
-            self.status_bar.setText(f"Seed {seed} copied to clipboard!")
-        else:
-            self.status_bar.setText("Could not find seed in filename.")
-
-    def open_in_explorer(self, path):
-        if not os.path.exists(path): return
-        subprocess.Popen(f'explorer /select,"{os.path.normpath(path)}"')
-
-    def delete_gallery_items(self):
-        items = self.image_list.selectedItems()
-        if not items: return
-        
-        reply = QMessageBox.question(self, "Delete", f"Delete {len(items)} items permanently?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.No: return
-        
-        for item in items:
-            path = item.data(Qt.ItemDataRole.UserRole + 1)
-            itype = item.data(Qt.ItemDataRole.UserRole)
-            if itype == "Image" and path and os.path.exists(path):
-                try:
-                    os.remove(path)
-                    if self.favorites_manager.is_favorite(path):
-                        self.favorites_manager.remove(path)
-                except Exception as e:
-                    print(f"Error deleting {path}: {e}")
-                    
-        self.update_gallery_view()
-
-    def toggle_gallery_favorites(self, items):
-        for item in items:
-            path = item.data(Qt.ItemDataRole.UserRole + 1)
-            if path:
-                self.favorites_manager.toggle(path)
-        self.update_gallery_view()
-
-    def reset_gallery_to_root(self):
-        self.gallery_current_level = "root"
-        self.gallery_current_folder = None
-        self.gallery_page = 0 # Reset page
-        self.back_btn.setEnabled(False)
-        self.update_gallery_view()
-        
-    def navigate_up(self):
-        if self.gallery_current_level != "root":
-            self.reset_gallery_to_root()
-
-    def open_gallery_item(self, item):
-        itype = item.data(Qt.ItemDataRole.UserRole)
-        data = item.data(Qt.ItemDataRole.UserRole + 1) # Folder Name or Image Path
-        
-        if itype == "Folder":
-            # Enter Folder
-            self.gallery_current_level = "folder"
-            self.gallery_current_folder = data
-            self.gallery_page = 0 # Reset page
-            self.back_btn.setEnabled(True)
-            self.update_gallery_view()
-        elif itype == "Image":
-            # Open Viewer based on preference
-            if self.app_config.get("use_internal_viewer"):
-                viewer = ImageViewer(data, self)
-                viewer.exec()
-            else:
-                try:
-                    os.startfile(data)
-                except Exception as e:
-                    QMessageBox.warning(self, "Error", f"Could not open image: {e}")
-
-            self.back_btn.setEnabled(True)
-            self.update_gallery_view()
-        elif itype == "Image":
-            # Open Viewer based on preference
-            if self.app_config.get("use_internal_viewer"):
-                viewer = ImageViewer(data, self)
-                viewer.exec()
-            else:
-                try:
-                    os.startfile(data)
-                except Exception as e:
-                    QMessageBox.warning(self, "Error", f"Could not open image: {e}")
-
-    def prev_page(self):
-        if self.gallery_page > 0:
-            self.gallery_page -= 1
-            self.update_gallery_view()
-
-    def next_page(self):
-        # We need total count to check if next is possible, which we know in update_view
-        # But we can just try incrementing and if view handles valid range, it's fine.
-        # Ideally update_gallery_view enables/disables.
-        self.gallery_page += 1
-        self.update_gallery_view()
 
     # --- Logic ---
     def refresh_character_list(self):
@@ -2253,256 +1833,9 @@ class MainWindow(QMainWindow):
         else:
              self.status_bar.setText("Stopped by User.")
              
-        self.scan_output_folder()
-
-    def refresh_gallery_scan(self):
-        self.gallery_cache.invalidate()
-        self.scan_output_folder()
-
-    def scan_output_folder(self):
-        if not os.path.exists(self.base_output_dir): return
-        
-        # Just update char list here, actual file scan happens in update_gallery_view
-        chars = [d for d in os.listdir(self.base_output_dir) if os.path.isdir(os.path.join(self.base_output_dir, d))]
-        chars.sort()
-        
-        curr = self.gallery_char_combo.currentText()
-        self.gallery_char_combo.blockSignals(True)
-        self.gallery_char_combo.clear()
-        self.gallery_char_combo.addItems(chars)
-        if curr in chars: self.gallery_char_combo.setCurrentText(curr)
-        elif chars: self.gallery_char_combo.setCurrentIndex(0)
-        self.gallery_char_combo.blockSignals(False)
-        self.reset_gallery_to_root()
-
-    def get_folder_icon(self, preview_images=None):
-        pix = QPixmap(180, 180)
-        pix.fill(Qt.GlobalColor.transparent)
-        
-        painter = QPainter(pix)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        # Folder Back Tab
-        painter.setBrush(QColor("#4A90E2"))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(10, 10, 70, 40, 8, 8)
-        
-        # Folder Body Back
-        painter.drawRoundedRect(10, 30, 160, 120, 8, 8)
-        
-        mode = self.app_config.get("folder_preview_mode")
-        if preview_images and mode != "Off":
-            # Draw images inside the folder body area
-            # Target Rect for images: 15, 35, 150, 110
-            
-            if mode == "1 Image" and len(preview_images) >= 1:
-                img = QPixmap(preview_images[0])
-                if not img.isNull():
-                    scaled = img.scaled(150, 110, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-                    copy_x = (scaled.width() - 150) // 2
-                    copy_y = (scaled.height() - 110) // 2
-                    
-                    # Rounded clipping
-                    path = pyqt_QPainterPath = QIcon() # Placeholder
-                    # Actually standard clipping is complex in PyQt without Path. 
-                    # Just drawing on top is fine for now, or use setClipRect.
-                    # Folder is rounded, so it might look square on corners. 
-                    # Let's just draw rect, it's fine.
-                    painter.drawPixmap(15, 35, scaled, copy_x, copy_y, 150, 110)
-                    
-            elif mode == "3 Images" and len(preview_images) >= 1:
-                # Collage
-                coords = [
-                    (15, 35, 75, 110),
-                    (90, 35, 75, 55),
-                    (90, 90, 75, 55)
-                ]
-                
-                for i in range(min(len(preview_images), 3)):
-                    img = QPixmap(preview_images[i])
-                    if not img.isNull():
-                        x, y, w, h = coords[i]
-                        scaled = img.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-                        copy_x = (scaled.width() - w) // 2
-                        copy_y = (scaled.height() - h) // 2
-                        painter.drawPixmap(x, y, scaled, copy_x, copy_y, w, h)
-                        
-                        # Add thin border
-                        painter.setPen(QPen(QColor("#1E1E1E"), 2))
-                        painter.setBrush(Qt.BrushStyle.NoBrush)
-                        painter.drawRect(x, y, w, h)
-                        painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(QColor("#4A90E2"))
-
-        painter.end()
-        return QIcon(pix) 
-
-    def update_gallery_view(self):
-        char = self.gallery_char_combo.currentText()
-        group_by = self.gallery_group_combo.currentText() # Emotion or Seed
-        
-        self.image_list.clear()
-        
-        # Stop existing worker if running
-        if hasattr(self, 'thumb_worker') and self.thumb_worker.isRunning():
-            self.thumb_worker.stop()
-            self.thumb_worker.wait()
-        
-        # Update Breadcrumb
-        if self.gallery_current_level == "root":
-            self.path_label.setText(f" {char} / ")
-        else:
-            self.path_label.setText(f" {char} / {self.gallery_current_folder} ")
-
-        if not char: return
-        
-        path = os.path.join(self.base_output_dir, char)
-        if not os.path.exists(path): return
-
-        # 1. Get images (Cache Check)
-        all_images = self.gallery_cache.get_images(char)
-        if all_images is None:
-            # Not in cache, scan!
-            all_images = []
-            for r, _, fs in os.walk(path):
-                for f in fs:
-                    if f.startswith("reference") or not f.endswith((".png",".jpg", ".jpeg", ".webp")):
-                        continue
-                    
-                    # Match Seed
-                    m = re.search(r"(?:Seed|_s)(\d+)", f)
-                    seed = m.group(1) if m else "Unknown"
-                    
-                    emotion = os.path.basename(r)
-                    all_images.append({"path": os.path.join(r, f), "seed": seed, "emotion": emotion})
-            
-            self.gallery_cache.set_images(char, all_images)
-
-        # Filter by Favorites if needed
-        if hasattr(self, 'gallery_fav_only_chk') and self.gallery_fav_only_chk.isChecked():
-            all_images = [img for img in all_images if self.favorites_manager.is_favorite(img['path'])]
-
-        items_to_load = []
-        
-        # Determine items to display based on level
-        display_list = []
-        is_folder_view = False
-
-        if self.gallery_current_level == "root":
-            is_folder_view = True
-            # Show Folders
-            groups = set()
-            group_images = {} # {group_name: [path1, path2, ...]}
-
-            for img in all_images:
-                val = img["emotion"] if group_by == "Emotion" else f"Seed {img['seed']}"
-                groups.add(val)
-                if val not in group_images: group_images[val] = []
-                if len(group_images[val]) < 3:
-                    group_images[val].append(img["path"])
-            
-            # Sort naturally
-            def natural_sort_key(s):
-                return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
-            
-            sorted_groups = sorted(list(groups), key=natural_sort_key)
-            
-            # Prepare list items
-            for g in sorted_groups:
-                display_list.append({
-                    "type": "Folder",
-                    "text": g,
-                    "preview_images": group_images.get(g, [])
-                })
-                
-        else:
-            is_folder_view = False
-            # Show Images in Folder
-            target_group = self.gallery_current_folder
-            
-            # Filter
-            filtered = []
-            for img in all_images:
-                val = img["emotion"] if group_by == "Emotion" else f"Seed {img['seed']}"
-                if val == target_group:
-                    filtered.append(img)
-            
-            # Sort images
-            if group_by == "Emotion":
-                filtered.sort(key=lambda x: int(x['seed']) if x['seed'].isdigit() else 0)
-            else:
-                filtered.sort(key=lambda x: x['emotion'])
-                
-            for img in filtered:
-                display_list.append({
-                    "type": "Image",
-                    "text": f"Seed: {img['seed']}" if group_by == "Emotion" else f"{img['emotion']}",
-                    "data": img
-                })
-
-        # --- Pagination Logic ---
-        total_items = len(display_list)
-        total_pages = (total_items + self.gallery_page_size - 1) // self.gallery_page_size
-        if total_pages < 1: total_pages = 1
-        
-        if self.gallery_page >= total_pages: self.gallery_page = total_pages - 1
-        if self.gallery_page < 0: self.gallery_page = 0
-        
-        start_idx = self.gallery_page * self.gallery_page_size
-        end_idx = start_idx + self.gallery_page_size
-        
-        paged_items = display_list[start_idx:end_idx]
-        
-        # Update UI Controls
-        self.page_label.setText(f"{self.gallery_page + 1} / {total_pages}")
-        self.prev_page_btn.setEnabled(self.gallery_page > 0)
-        self.next_page_btn.setEnabled(self.gallery_page < total_pages - 1)
-        
-        # Render Items
-        default_icon = QIcon(self.image_list.style().standardIcon(self.image_list.style().StandardPixmap.SP_FileIcon))
-        
-        for item_data in paged_items:
-            item = QListWidgetItem()
-            item.setText(item_data["text"])
-            
-            if item_data["type"] == "Folder":
-                # Folders are always generated synchronously for now (usually low count per page after pagination)
-                # Correction: If we paginate folders, we only generate icons for the visible ones.
-                item.setIcon(self.get_folder_icon(item_data["preview_images"]))
-                item.setData(Qt.ItemDataRole.UserRole, "Folder")
-                item.setData(Qt.ItemDataRole.UserRole + 1, item_data["text"])
-                self.image_list.addItem(item)
-            else:
-                layout_item = item_data["data"]
-                item.setIcon(default_icon) # Placeholder
-                item.setData(Qt.ItemDataRole.UserRole, "Image")
-                item.setData(Qt.ItemDataRole.UserRole + 1, layout_item['path'])
-                
-                # Mark Favorite
-                if self.favorites_manager.is_favorite(layout_item['path']):
-                    item.setText("★ " + item.text())
-                    item.setToolTip("Favorite")
-
-                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
-                item.setSizeHint(QSize(220, 240))
-                self.image_list.addItem(item)
-                
-                items_to_load.append(layout_item)
-            
-        # Start Async Loading for images on current page
-        if items_to_load:
-            self.thumb_worker = ThumbnailWorker(items_to_load, QSize(200, 200))
-            self.thumb_worker.thumbnail_ready.connect(self.on_thumbnail_ready)
-            self.thumb_worker.start()
+        self.gallery_tab.scan_output_folder()
 
 
-    def on_thumbnail_ready(self, path, icon):
-        # Find item with this path
-        for i in range(self.image_list.count()):
-            item = self.image_list.item(i)
-            if item.data(Qt.ItemDataRole.UserRole + 1) == path:
-                item.setIcon(icon)
-                break
 
     def toggle_language(self):
         global CURRENT_LANG
