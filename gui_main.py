@@ -21,7 +21,7 @@ TRANSLATIONS = {
     "Run": {"ko": "실행", "en": "Run"},
     "Stop": {"ko": "중지", "en": "Stop"},
     "Status": {"ko": "상태", "en": "Status"},
-    "Identity": {"ko": "신원 (Identity)", "en": "Identity"},
+    "Identity": {"ko": "기본 정보", "en": "Identity"},
     "Character Name": {"ko": "캐릭터 이름", "en": "Character Name"},
     "Reference Image": {"ko": "참조 이미지", "en": "Reference Image"},
     "Reference": {"ko": "레퍼런스 (Reference)", "en": "Reference"},
@@ -391,21 +391,33 @@ QWidget#TopToolbar {
     background-color: #252525;
     border-bottom: 1px solid #38383A;
 }
+QCheckBox {
+    spacing: 8px; /* Spacing between box and text */
+}
 QCheckBox::indicator {
-    width: 18px;
-    height: 18px;
-    background: #2C2C2E;
-    border: 1px solid #48484A;
+    width: 20px;
+    height: 20px;
+    background: #000000;
+    border: 2px solid #888888; /* Thicker, lighter border for visibility */
     border-radius: 4px;
 }
 QCheckBox::indicator:checked {
     background-color: #0A84FF;
     border-color: #0A84FF;
-    /* We can use a standard checkmark image or rely on color. */
-    image: url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>);
+    /* Simplified SVG with explicit white stroke */
+    image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjAgNiA5IDE3IDQgMTIiLz48L3N2Zz4=);
 }
 QCheckBox::indicator:hover {
-    border-color: #636366;
+    border-color: #FFFFFF; /* High contrast on hover */
+    background-color: #1a1a1a;
+}
+QCheckBox::indicator:disabled {
+    background-color: #2C2C2E;
+    border-color: #38383A;
+    image: none;
+}
+QCheckBox:disabled {
+    color: #555555; /* Dim text for disabled */
 }
 
 /* --- Progress Bar --- */
@@ -1080,15 +1092,17 @@ class MainWindow(QMainWindow):
         self.char_select_combo.currentIndexChanged.connect(self.load_character_profile)
         tb_layout.addWidget(self.char_select_combo)
         
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton("💾")
         save_btn.setToolTip("Save Profile")
-        save_btn.setFixedWidth(60) # Adequate width for text
+        save_btn.setFixedSize(40, 40)
+        save_btn.setStyleSheet("font-size: 20px; padding: 0px;") 
         save_btn.clicked.connect(self.save_character_profile)
         tb_layout.addWidget(save_btn)
         
-        new_btn = QPushButton("New")
+        new_btn = QPushButton("✨")
         new_btn.setToolTip("New Profile")
-        new_btn.setFixedWidth(60)
+        new_btn.setFixedSize(40, 40)
+        new_btn.setStyleSheet("font-size: 20px; padding: 0px;")
         new_btn.clicked.connect(self.new_character_profile)
         tb_layout.addWidget(new_btn)
         
@@ -1107,7 +1121,9 @@ class MainWindow(QMainWindow):
         self.seed_input = QLineEdit(); self.seed_input.setPlaceholderText("-1"); self.seed_input.setText("-1"); self.seed_input.setFixedWidth(100)
         tb_layout.addWidget(self.seed_input)
         dice_btn = QPushButton("🎲")
-        dice_btn.setFixedSize(30, 30); dice_btn.setToolTip("Random Seed")
+        dice_btn.setToolTip("Random Seed")
+        dice_btn.setFixedSize(40, 40)
+        dice_btn.setStyleSheet("font-size: 20px; padding: 0px;")
         dice_btn.clicked.connect(lambda: self.seed_input.setText("-1"))
         tb_layout.addWidget(dice_btn)
 

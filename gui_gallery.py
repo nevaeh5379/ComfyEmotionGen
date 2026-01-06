@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
                              QComboBox, QCheckBox, QListWidget, QListWidgetItem,
                              QAbstractItemView, QMenu, QFileDialog, QMessageBox,
                              QFrame, QDialog, QScrollArea, QSizePolicy, QApplication, QTextEdit)
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, QEvent, QPoint
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, QEvent, QPoint, QMimeData, QUrl
 from PyQt6.QtGui import QIcon, QPixmap, QImage, QPainter, QColor, QPen, QAction, QWheelEvent, QPalette
 
 class Card(QFrame):
@@ -502,6 +502,32 @@ class DraggableListWidget(QListWidget):
         p.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
         self.setPalette(p)
 
+    def mimeData(self, items):
+        mime = QMimeData()
+        urls = []
+        for item in items:
+            # We stored item data in user roles or we can deduce path
+            # In GalleryTab, we set:
+            # item.setData(Qt.ItemDataRole.UserRole, "Folder")
+            # item.setData(Qt.ItemDataRole.UserRole + 1, item_data["text"])
+            # OR for Images:
+            # layout_item = item_data["data"] (`data` is the dict with 'path')
+            # But wait, we didn't set UserRole for Images in update_gallery_view.
+            # Let's double check update_gallery_view in GalleryTab.
+            # Actually, `DraggableListWidget` items need to hold the path for this to work.
+            # I need to modify `update_gallery_view` to store the full path in the item first.
+            # Assuming I will do that, I'll access it here.
+            
+            path = item.data(Qt.ItemDataRole.UserRole + 2) # Convention: +2 will be properties/path
+            if path and os.path.exists(path):
+                urls.append(QUrl.fromLocalFile(path))
+        
+        if urls:
+            mime.setUrls(urls)
+            return mime
+        
+        return super().mimeData(items)
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:
             self.delete_pressed.emit()
@@ -558,6 +584,11 @@ class GalleryTab(QWidget):
         self.gallery_fav_only_chk.toggled.connect(self.reset_gallery_to_root)
         fh.addWidget(self.gallery_fav_only_chk)
         
+        dl_fav_btn = QPushButton("Download Favs")
+        dl_fav_btn.setToolTip("Copy all favorited images to a folder")
+        dl_fav_btn.clicked.connect(self.download_all_favorites)
+        fh.addWidget(dl_fav_btn)
+        
         fh.addStretch()
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_gallery_scan)
@@ -613,6 +644,57 @@ class GalleryTab(QWidget):
         self.image_list.delete_pressed.connect(self.delete_gallery_items)
         
         layout.addWidget(self.image_list)
+
+    def download_all_favorites(self):
+        if not self.favorites_manager: return
+        
+        favs = list(self.favorites_manager.favorites)
+        if not favs:
+            QMessageBox.information(self, "Download Favorites", "No favorites found.")
+            return
+
+        # Filter to existing files only
+        valid_favs = [f for f in favs if os.path.exists(f)]
+        if not valid_favs:
+            QMessageBox.warning(self, "Download Favorites", "No valid favorite files found on disk.")
+            return
+            
+        target_dir = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
+        if not target_dir: return
+        
+        count = 0
+        errors = 0
+        
+        import shutil
+        
+        # Simple progress dialog could be nice, but blocking loop is okay for now if not too many
+        # Use a ProgressDialog if list is large?
+        # Let's just do it
+        
+        for file_path in valid_favs:
+            try:
+                fname = os.path.basename(file_path)
+                dest = os.path.join(target_dir, fname)
+                
+                # Handle duplicate names
+                if os.path.exists(dest):
+                    base, ext = os.path.splitext(fname)
+                    idx = 1
+                    while os.path.exists(dest):
+                        dest = os.path.join(target_dir, f"{base}_{idx}{ext}")
+                        idx += 1
+                
+                shutil.copy2(file_path, dest)
+                count += 1
+            except Exception as e:
+                print(f"Error copying {file_path}: {e}")
+                errors += 1
+        
+        msg = f"Successfully copied {count} images."
+        if errors > 0:
+            msg += f"\n({errors} errors occurred)"
+            
+        QMessageBox.information(self, "Download Complete", msg)
 
     def refresh_gallery_scan(self):
         self.gallery_cache.invalidate()
@@ -742,10 +824,31 @@ class GalleryTab(QWidget):
             sorted_groups = sorted(list(groups), key=natural_sort_key)
             
             for g in sorted_groups:
+                # For folder, prompt said "copy folder as folder".
+                # We need to find the real directory path for this "group".
+                # If grouping by Emotion, the path is .../Character/Emotion
+                # If grouping by Seed, images are scattered, so we might not have a single folder to copy.
+                # But wait, user said "Folder (copy folder as folder)".
+                # If "Emotion" group, the items are in `.../Character/Emotion`.
+                # If "Seed" group, files share seed but might be in different emotion folders? 
+                # Actually, based on logic: `path = os.path.join(r, f)`. `r` is the dir.
+                # If GroupBy Emotion, key is `emotion` (basename of r).
+                # Implementation detail:
+                # `group_images[val]` is list of paths.
+                # If group by emotion, all paths in this group *should* be in the same folder `.../Character/Emotion`.
+                # Let's verify: `val = img["emotion"]`.
+                # Yes. So we can deduce folder path from the first image's directory.
+                
+                folder_path = None
+                if group_by == "Emotion" and group_images.get(g):
+                     first_img = group_images[g][0]
+                     folder_path = os.path.dirname(first_img)
+                
                 display_list.append({
                     "type": "Folder",
                     "text": g,
-                    "preview_images": group_images.get(g, [])
+                    "preview_images": group_images.get(g, []),
+                    "path": folder_path # This enables folder dragging
                 })
                 
         else:
@@ -765,7 +868,8 @@ class GalleryTab(QWidget):
                 display_list.append({
                     "type": "Image",
                     "text": f"Seed: {img['seed']}" if group_by == "Emotion" else f"{img['emotion']}",
-                    "data": img
+                    "data": img,
+                    "path": img['path']
                 })
 
         total_items = len(display_list)
@@ -794,10 +898,12 @@ class GalleryTab(QWidget):
                 item.setIcon(self.get_folder_icon(item_data["preview_images"]))
                 item.setData(Qt.ItemDataRole.UserRole, "Folder")
                 item.setData(Qt.ItemDataRole.UserRole + 1, item_data["text"])
+                item.setData(Qt.ItemDataRole.UserRole + 2, item_data["path"]) # For Drag & Drop
                 self.image_list.addItem(item)
             else:
                 layout_item = item_data["data"]
                 item.setIcon(default_icon) 
+                item.setData(Qt.ItemDataRole.UserRole + 2, item_data["path"]) # For Drag & Drop 
                 item.setData(Qt.ItemDataRole.UserRole, "Image")
                 item.setData(Qt.ItemDataRole.UserRole + 1, layout_item['path'])
                 
