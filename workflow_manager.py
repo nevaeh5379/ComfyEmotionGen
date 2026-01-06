@@ -7,7 +7,8 @@ def prepare_workflow(base_json, character_name, base_prompt, emotion_name, emoti
                      sampler2_name="dpmpp_3m_sde", scheduler2="simple", 
                      upscale_factor=1.5,
                      ref_enabled=True, ref_settings=None,
-                     width=896, height=1152):
+                     width=896, height=1152,
+                     bypass_sage_attn=False):
     """
     Modifies the workflow JSON based on inputs.
     """
@@ -92,5 +93,22 @@ def prepare_workflow(base_json, character_name, base_prompt, emotion_name, emoti
         clean_char_name = "".join([c for c in character_name if c.isalnum() or c in (' ', '_', '-')]).strip()
         new_path_string = f"{clean_char_name}/{{{{emotion_name}}}}/result_{{{{emotion_name}}}}"
         workflow["59:28"]["inputs"]["string"] = new_path_string
+        
+    # 11. Sage Attention Bypass Logic
+    if bypass_sage_attn:
+        # We need to bypass Node 59:15 (PathchSageAttentionKJ)
+        # Node 59:13 (1st Sampler) and 59:19 (2nd Sampler) take input 'model' from 59:15
+        
+        # Determine the source model for 59:15
+        source_model = None
+        if "59:15" in workflow:
+             source_model = workflow["59:15"]["inputs"]["model"]
+             
+        if source_model:
+            # Re-route samplers to use source_model directly
+            if "59:13" in workflow:
+                workflow["59:13"]["inputs"]["model"] = source_model
+            if "59:19" in workflow:
+                workflow["59:19"]["inputs"]["model"] = source_model
 
     return workflow, seed

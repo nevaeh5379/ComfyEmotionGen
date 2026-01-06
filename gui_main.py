@@ -5,6 +5,7 @@ import shutil
 import re
 import webbrowser
 import tempfile
+import subprocess
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QPushButton, QTextEdit, QSpinBox, 
                              QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar, 
@@ -477,149 +478,7 @@ class GalleryCache:
             self._cache.clear()
             self._folder_icon_cache.clear()
 
-class DraggableListWidget(QListWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setDragEnabled(True)
-        # Fix: Use Static movement to prevent items from disappearing/moving within the list
-        self.setMovement(QListWidget.Movement.Static)
-        self.setResizeMode(QListWidget.ResizeMode.Adjust)
-        self.setViewMode(QListWidget.ViewMode.IconMode)
-        # Revert UniformItemSizes to avoid cutting off content
-        # self.setUniformItemSizes(True) 
-        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
-        self.setDefaultDropAction(Qt.DropAction.CopyAction)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        
-        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        
-        # Fix Ghosting: Force full update on changes
-        # ERROR: setViewportUpdateMode is for QGraphicsView, not QListWidget.
-        # Instead, we force update on events if needed, but usually Qt handles this.
-        # Let's try to rely on standard behavior first after removing the crashing line.
-        # If ghosting persists, we can override paintEvent or mouseMoveEvent.
-        
-        # Connect selection change to update to ensure artifacts are cleared
-        self.itemSelectionChanged.connect(self.viewport().update)
 
-        # Fix Selection Rendering: Ensure Palette Highlight is transparent
-        p = self.palette()
-        p.setColor(QPalette.ColorRole.Highlight, QColor(74, 144, 226, 50)) # Transparent Blue
-        p.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
-        self.setPalette(p)
-
-    def mouseMoveEvent(self, e):
-        super().mouseMoveEvent(e)
-        self.viewport().update()
-
-    def startDrag(self, supportedActions):
-        items = self.selectedItems()
-        if not items: return
-
-        # Temp dir for drag ops
-        temp_dir = os.path.join(tempfile.gettempdir(), "ComfyEmotionGen_Drag")
-        if not os.path.exists(temp_dir):
-            try:
-                os.makedirs(temp_dir)
-            except: pass
-        
-        urls = []
-        valid_items = []
-        
-        for item in items:
-            try:
-                # Safe data access
-                path = item.data(Qt.ItemDataRole.UserRole + 1)
-                itype = item.data(Qt.ItemDataRole.UserRole)
-                
-                if itype == "Image" and path and os.path.exists(path):
-                    valid_items.append(item)
-                    
-                    # Name Logic
-                    # Attempt to extract parts from path structure
-                    # output/Character/Emotion/File.png
-                    
-                    # Default fallback
-                    target_name = os.path.basename(path)
-                    
-                    try:
-                        parent_dir = os.path.dirname(path) 
-                        grandparent_dir = os.path.dirname(parent_dir)
-                        
-                        emotion_name = os.path.basename(parent_dir)
-                        char_name = os.path.basename(grandparent_dir)
-                        fname = os.path.basename(path)
-                        ext = os.path.splitext(fname)[1]
-                        
-                        # Seed extraction
-                        seed = "Unknown"
-                        m = re.search(r"(?:Seed|_s)(\d+)", fname)
-                        if m: seed = m.group(1)
-                        
-                        # Preferred Name
-                        candidate_name = f"{char_name}_{emotion_name}{ext}"
-                        candidate_path = os.path.join(temp_dir, candidate_name)
-                        
-                        # Collision handling
-                        if os.path.exists(candidate_path):
-                             candidate_name = f"{char_name}_{emotion_name}_{seed}{ext}"
-                             candidate_path = os.path.join(temp_dir, candidate_name)
-                        
-                        target_path = candidate_path
-                        target_name = candidate_name
-                        
-                    except:
-                        # Fallback if structure is weird
-                        target_path = os.path.join(temp_dir, os.path.basename(path))
-
-                    shutil.copy2(path, target_path)
-                    urls.append(QUrl.fromLocalFile(target_path))
-            except Exception as e:
-                print(f"Error processing item for drag: {e}")
-        
-        if urls:
-            drag = QDrag(self)
-            mime_data = QMimeData()
-            mime_data.setUrls(urls)
-            drag.setMimeData(mime_data)
-            
-            # Rendering:
-            # If standard drag rendering is desired, we could rely on QListWidget's default but 
-            # modifying the data afterwards is tricky.
-            # So we create a custom pixmap.
-            
-            # 1. Calculate bounding rect of all selected items to make a nice drag image?
-            # Or just show the first one. Standard windows behavior usually shows a ghost of the items.
-            # QListWidget default startDrag does this well.
-            # But since we want to CHANGE the file list (to temp files), we must override.
-            
-            # Let's try to create a simple composite if few items, or generic icon if many.
-            if len(valid_items) == 1:
-                icon = valid_items[0].icon()
-                if not icon.isNull():
-                    drag.setPixmap(icon.pixmap(100, 100))
-                    drag.setHotSpot(QPoint(50, 50))
-            else:
-                # Generic "Stack" icon or just first image with badge
-                icon = valid_items[0].icon()
-                if not icon.isNull():
-                    pix = icon.pixmap(100, 100)
-                    painter = QPainter(pix)
-                    painter.setBrush(QColor(0, 120, 215))
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    # Draw a badge count
-                    painter.drawEllipse(70, 70, 25, 25)
-                    painter.setPen(Qt.GlobalColor.white)
-                    painter.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-                    painter.drawText(QRect(70, 70, 25, 25), Qt.AlignmentFlag.AlignCenter, str(len(valid_items)))
-                    painter.end()
-                    drag.setPixmap(pix)
-                    drag.setHotSpot(QPoint(50, 50))
-
-            drag.exec(Qt.DropAction.CopyAction)
-            
-            # Fix Rendering Artifacts: Force update after drag
-            self.viewport().update()
 
 class Card(QFrame):
     def __init__(self, parent=None):
@@ -868,7 +727,8 @@ class GenerationWorker(QThread):
                             ref_enabled=job.ref_enabled,
                             ref_settings=job.ref_settings,
                             width=job.gen_settings.get("width", 896),
-                            height=job.gen_settings.get("height", 1152)
+                            height=job.gen_settings.get("height", 1152),
+                            bypass_sage_attn=job.gen_settings.get("bypass_sage_attn", False)
                         )
                         
                         prompt_id = self.client.queue_prompt(new_workflow)
@@ -1090,6 +950,80 @@ class FloatingPreview(QWidget):
     def mouseReleaseEvent(self, event):
         self.old_pos = None
 
+class FavoritesManager:
+    def __init__(self, file_path="favorites.json"):
+        self.file_path = os.path.join(os.getcwd(), file_path)
+        self.favorites = self.load() # Set of paths
+
+    def load(self):
+        if os.path.exists(self.file_path):
+            try:
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return set(data)
+            except:
+                return set()
+        return set()
+
+    def save(self):
+        try:
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                json.dump(list(self.favorites), f, indent=4)
+        except Exception as e:
+            print(f"Error saving favorites: {e}")
+
+    def add(self, path):
+        self.favorites.add(path)
+        self.save()
+
+    def remove(self, path):
+        if path in self.favorites:
+            self.favorites.remove(path)
+            self.save()
+
+    def is_favorite(self, path):
+        return path in self.favorites
+
+    def toggle(self, path):
+        if path in self.favorites:
+            self.remove(path)
+            return False
+        else:
+            self.add(path)
+            return True
+
+class DraggableListWidget(QListWidget):
+    delete_pressed = pyqtSignal() # New signal for delete key
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setDragEnabled(True)
+        # Fix: Use Static movement to prevent items from disappearing/moving within the list
+        self.setMovement(QListWidget.Movement.Static)
+        self.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.setViewMode(QListWidget.ViewMode.IconMode)
+        # Revert UniformItemSizes to avoid cutting off content
+        # self.setUniformItemSizes(True) 
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        
+        # Color palette
+        p = self.palette()
+        p.setColor(QPalette.ColorRole.Highlight, QColor(74, 144, 226, 50))
+        p.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+        self.setPalette(p)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Delete:
+            self.delete_pressed.emit()
+        else:
+            super().keyPressEvent(event)
+
+    def mouseMoveEvent(self, e):
+        super().mouseMoveEvent(e)
+        self.viewport().update()
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -1103,6 +1037,7 @@ class MainWindow(QMainWindow):
         if not os.path.exists(self.base_output_dir): os.makedirs(self.base_output_dir)
 
         self.gallery_cache = GalleryCache()
+        self.favorites_manager = FavoritesManager()
         
         # Load Workflow
         try:
@@ -1512,6 +1447,11 @@ class MainWindow(QMainWindow):
         res_layout.addWidget(self.height_spin)
         tl3.addLayout(res_layout, 3, 1, 1, 2)
 
+        # Sage Attention Bypass
+        self.bypass_sage_chk = QCheckBox("Bypass Sage Attention (PathchSageAttentionKJ)")
+        self.bypass_sage_chk.setToolTip("Check to bypass/disable the Sage Attention optimization node.\nMay affect speed and VRAM usage.")
+        tl3.addWidget(self.bypass_sage_chk, 4, 0, 1, 3)
+
         tl3.setRowStretch(4, 1)
         self.config_tabs.addTab(tab_adv, "⚙️ Advanced")
 
@@ -1660,7 +1600,8 @@ class MainWindow(QMainWindow):
             "scheduler2": self.scheduler2_combo.currentText(),
             "upscale_factor": self.upscale_spin.value(),
             "width": self.width_spin.value(),
-            "height": self.height_spin.value()
+            "height": self.height_spin.value(),
+            "bypass_sage_attn": self.bypass_sage_chk.isChecked()
         }
         
         ref_settings = {
@@ -1891,6 +1832,11 @@ class MainWindow(QMainWindow):
         self.gallery_group_combo.currentTextChanged.connect(self.reset_gallery_to_root)
         fh.addWidget(self.gallery_group_combo)
         
+        fh.addSpacing(20)
+        self.gallery_fav_only_chk = QCheckBox("★ Favorites Only")
+        self.gallery_fav_only_chk.toggled.connect(self.reset_gallery_to_root)
+        fh.addWidget(self.gallery_fav_only_chk)
+        
         
         fh.addStretch()
         refresh_btn = QPushButton("Refresh")
@@ -1946,6 +1892,7 @@ class MainWindow(QMainWindow):
         self.image_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.image_list.customContextMenuRequested.connect(self.show_gallery_context_menu)
         self.image_list.itemDoubleClicked.connect(self.open_gallery_item)
+        self.image_list.delete_pressed.connect(self.delete_gallery_items)
         
         layout.addWidget(self.image_list)
 
@@ -1954,14 +1901,50 @@ class MainWindow(QMainWindow):
         if not item: return
 
         itype = item.data(Qt.ItemDataRole.UserRole)
-        data = item.data(Qt.ItemDataRole.UserRole + 1) # Path
+        path = item.data(Qt.ItemDataRole.UserRole + 1) # Path
         
+        menu = QMenu(self)
+        
+        if itype == "Folder":
+            open_act = QAction("Open", self)
+            open_act.triggered.connect(lambda: self.open_gallery_item(item))
+            menu.addAction(open_act)
+            
         if itype == "Image":
-            menu = QMenu(self)
+            # Favorites
+            is_fav = self.favorites_manager.is_favorite(path)
+            fav_text = "Remove from Favorites" if is_fav else "Add to Favorites"
+            fav_act = QAction(fav_text, self)
+            fav_act.triggered.connect(lambda: self.toggle_gallery_favorites([item]))
+            menu.addAction(fav_act)
+            
+            menu.addSeparator()
+            
+            # Copy Seed
             copy_seed_act = QAction("Copy Seed", self)
-            copy_seed_act.triggered.connect(lambda: self.copy_seed_from_path(data))
+            copy_seed_act.triggered.connect(lambda: self.copy_seed_from_path(path))
             menu.addAction(copy_seed_act)
-            menu.exec(self.image_list.mapToGlobal(pos))
+            
+            # Copy Path
+            copy_path_act = QAction("Copy Path", self)
+            copy_path_act.triggered.connect(lambda: QApplication.clipboard().setText(path))
+            menu.addAction(copy_path_act)
+            
+            # Open in Explorer
+            open_exp_act = QAction("Show in Explorer", self)
+            open_exp_act.triggered.connect(lambda: self.open_in_explorer(path))
+            menu.addAction(open_exp_act)
+            
+            menu.addSeparator()
+            
+            # Delete
+            del_act = QAction("Delete", self)
+            del_act.setProperty("class", "Danger") # Custom property if supported by stylesheet (not standard QAction but handled by some themes)
+            # We can set color manually or just rely on text
+            del_act.triggered.connect(self.delete_gallery_items)
+            menu.addAction(del_act)
+            
+        menu.exec(self.image_list.mapToGlobal(pos))
 
     def copy_seed_from_path(self, path):
         fname = os.path.basename(path)
@@ -1973,6 +1956,37 @@ class MainWindow(QMainWindow):
             self.status_bar.setText(f"Seed {seed} copied to clipboard!")
         else:
             self.status_bar.setText("Could not find seed in filename.")
+
+    def open_in_explorer(self, path):
+        if not os.path.exists(path): return
+        subprocess.Popen(f'explorer /select,"{os.path.normpath(path)}"')
+
+    def delete_gallery_items(self):
+        items = self.image_list.selectedItems()
+        if not items: return
+        
+        reply = QMessageBox.question(self, "Delete", f"Delete {len(items)} items permanently?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.No: return
+        
+        for item in items:
+            path = item.data(Qt.ItemDataRole.UserRole + 1)
+            itype = item.data(Qt.ItemDataRole.UserRole)
+            if itype == "Image" and path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                    if self.favorites_manager.is_favorite(path):
+                        self.favorites_manager.remove(path)
+                except Exception as e:
+                    print(f"Error deleting {path}: {e}")
+                    
+        self.update_gallery_view()
+
+    def toggle_gallery_favorites(self, items):
+        for item in items:
+            path = item.data(Qt.ItemDataRole.UserRole + 1)
+            if path:
+                self.favorites_manager.toggle(path)
+        self.update_gallery_view()
 
     def reset_gallery_to_root(self):
         self.gallery_current_level = "root"
@@ -2364,6 +2378,10 @@ class MainWindow(QMainWindow):
             
             self.gallery_cache.set_images(char, all_images)
 
+        # Filter by Favorites if needed
+        if hasattr(self, 'gallery_fav_only_chk') and self.gallery_fav_only_chk.isChecked():
+            all_images = [img for img in all_images if self.favorites_manager.is_favorite(img['path'])]
+
         items_to_load = []
         
         # Determine items to display based on level
@@ -2459,6 +2477,12 @@ class MainWindow(QMainWindow):
                 item.setIcon(default_icon) # Placeholder
                 item.setData(Qt.ItemDataRole.UserRole, "Image")
                 item.setData(Qt.ItemDataRole.UserRole + 1, layout_item['path'])
+                
+                # Mark Favorite
+                if self.favorites_manager.is_favorite(layout_item['path']):
+                    item.setText("★ " + item.text())
+                    item.setToolTip("Favorite")
+
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
                 item.setSizeHint(QSize(220, 240))
                 self.image_list.addItem(item)
