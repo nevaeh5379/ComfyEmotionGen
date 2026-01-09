@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar, 
                              QFileDialog, QTabWidget, QListWidget, QListWidgetItem, 
                              QAbstractItemView, QMessageBox, QSplitter, QComboBox, QFrame, QGridLayout, QSizePolicy, QDialog, QScrollArea, QCheckBox, QDoubleSpinBox, QStackedWidget, QMenu, QCompleter, QStyledItemDelegate)
-from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QSize, QEvent, QMimeData, QUrl, QPoint, QStringListModel)
+from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QSize, QEvent, QMimeData, QUrl, QPoint, QStringListModel, QTimer)
 from PyQt6.QtGui import (QIcon, QPixmap, QFont, QAction, QWheelEvent, QPalette, QPainter, QColor, QBrush, QPen, QDrag, QSyntaxHighlighter, QTextCharFormat)
 
 # ==========================================
@@ -480,7 +480,7 @@ class ResizingLabel(QLabel):
             super().setPixmap(QPixmap())
 
 class JobQueueItem:
-    def __init__(self, char_name, base_prompt, neg_prompt, custom_tags, ref_img, batch, seed, gen_settings, ref_enabled, ref_settings, is_test=False):
+    def __init__(self, char_name, base_prompt, neg_prompt, custom_tags, ref_img, batch, seed, gen_settings, ref_enabled, ref_settings, is_test=False, toggles=None):
         self.char_name = char_name
         self.base_prompt = base_prompt
         self.neg_prompt = neg_prompt
@@ -492,6 +492,7 @@ class JobQueueItem:
         self.ref_enabled = ref_enabled
         self.ref_settings = ref_settings
         self.is_test = is_test
+        self.toggles = toggles or {} # Dict: {"var_name": True/False}
         self.status = "Pending" # Pending, Running, Done, Error
 
 class AppConfigManager:
@@ -664,7 +665,9 @@ class GenerationWorker(QThread):
 
                 # Generate all tag combinations using TagParser
                 parser = TagParser(job.custom_tags)
-                all_combinations = parser.generate_combinations(job.base_prompt)
+                all_combinations = parser.generate_combinations(job.base_prompt, toggles=job.toggles)
+                
+                print(f"DEBUG: Worker - Combinations: {len(all_combinations)}, Batch: {job.batch}")
                 
                 total_steps = len(all_combinations) * job.batch
                 current_step = 0
@@ -672,11 +675,23 @@ class GenerationWorker(QThread):
                 for tag_values in all_combinations:
                     if not self.is_running: break
                     
+                    # Merge toggles into tag_values for logic processing
+                    current_values = tag_values.copy()
+                    
+                    if hasattr(job, 'toggles') and job.toggles:
+                         print(f"DEBUG: Applying toggles to generation: {job.toggles}")
+                         current_values.update(job.toggles)
+                    else:
+                         print("DEBUG: No toggles found in job object.")
+                    
+                    print(f"DEBUG: Final tag values for processing: {current_values}")
+                    
                     # Process prompt with this combination
-                    final_prompt = parser.process_prompt(job.base_prompt, tag_values)
+                    final_prompt = parser.process_prompt(job.base_prompt, current_values)
+                    print(f"DEBUG: FINAL PROMPT >> '{final_prompt}'")
                     
                     # Create a safe name for this combination (for folder/filename)
-                    combo_values = [v for v in tag_values.values() if v]
+                    combo_values = [v for v in tag_values.values() if v and isinstance(v, str)]
                     combo_name = "_".join([self.clean_name(v) for v in combo_values]) if combo_values else "default"
                     
                     if job.is_test:
@@ -704,7 +719,10 @@ class GenerationWorker(QThread):
                             ref_settings=job.ref_settings,
                             width=job.gen_settings.get("width", 896),
                             height=job.gen_settings.get("height", 1152),
-                            bypass_sage_attn=job.gen_settings.get("bypass_sage_attn", False)
+                            bypass_sage_attn=job.gen_settings.get("bypass_sage_attn", False),
+                            ckpt_name=job.gen_settings.get("ckpt_name"),
+                            ipadapter_model=job.gen_settings.get("ipadapter_model"),
+                            clip_vision_model=job.gen_settings.get("clip_vision_model")
                         )
                         
                         prompt_id = self.client.queue_prompt(new_workflow)
@@ -731,10 +749,16 @@ class GenerationWorker(QThread):
                 if self.is_running:
                     job.status = "Done"
                     self.job_started_signal.emit(-1) # Signal to refresh UI status
+                    
+                    # Remove from queue
+                    if self.job_queue:
+                        self.job_queue.pop(0)
 
             self.log_signal.emit("All Jobs Done.")
         except Exception as e:
             self.log_signal.emit(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             self.client.close()
             self.finished_signal.emit()
@@ -980,45 +1004,86 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
         self.comment_format.setFontItalic(True)
         
         self.error_format = QTextCharFormat()
+        self.error_format.setForeground(QColor("#FF5252"))  # Red text
         self.error_format.setUnderlineColor(QColor("#FF5252"))  # Red underline
         self.error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
+        self.error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
+        self.error_format.setFontWeight(QFont.Weight.Bold)
+        
+        self.toggle_format = QTextCharFormat()
+        self.toggle_format.setForeground(QColor("#D500F9"))  # Magenta for {{$toggle}}
+        self.toggle_format.setFontWeight(QFont.Weight.Bold)
+    
+    def _get_defined_tags(self):
+        """Get set of defined tag names."""
+        if not self.custom_tags_getter:
+            return set()
+        try:
+            tags = self.custom_tags_getter()
+            return set(tags.keys()) if tags else set()
+        except:
+            return set()
+    
+    def _is_tag_defined(self, tag_name, defined_tags):
+        """Check if tag is defined."""
+        if not defined_tags:
+            return True  # No tags defined = don't show errors
+        return tag_name in defined_tags
     
     def highlightBlock(self, text):
         import re
         
-        # Get defined tags
-        defined_tags = set()
-        if self.custom_tags_getter:
-            try:
-                tags = self.custom_tags_getter()
-                if tags:
-                    defined_tags = set(tags.keys())
-            except:
-                pass
+        defined_tags = self._get_defined_tags()
+        
+        # Default all {{...}} patterns to error first (catch-all for invalid syntax)
+        # This ensures that any pattern not matched by specific rules below (e.g. typos like {{$ifa...}})
+        for match in re.finditer(r'\{\{[^}]*\}\}', text):
+             self.setFormat(match.start(), match.end() - match.start(), self.error_format)
+             
+        # Toggle definitions: {{$toggle name}}
+        for match in re.finditer(r'\{\{\$toggle\s+(\w+)\}\}', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.toggle_format)
         
         # Required tags: {{tag}}
         for match in re.finditer(r'\{\{(\w+)\}\}', text):
             tag_name = match.group(1)
-            fmt = QTextCharFormat(self.tag_format)
-            if defined_tags and tag_name not in defined_tags:
-                fmt.merge(self.error_format)
-            self.setFormat(match.start(), match.end() - match.start(), fmt)
+            if self._is_tag_defined(tag_name, defined_tags):
+                self.setFormat(match.start(), match.end() - match.start(), self.tag_format)
+            else:
+                self.setFormat(match.start(), match.end() - match.start(), self.error_format)
         
-        # Optional tags: {{?tag}}
+        # Optional tags: {{?tag}} - also check if defined
         for match in re.finditer(r'\{\{\?(\w+)\}\}', text):
-            self.setFormat(match.start(), match.end() - match.start(), self.optional_tag_format)
+            tag_name = match.group(1)
+            if self._is_tag_defined(tag_name, defined_tags):
+                self.setFormat(match.start(), match.end() - match.start(), self.optional_tag_format)
+            else:
+                self.setFormat(match.start(), match.end() - match.start(), self.error_format)
         
         # Random tags: {{tag:random}}
         for match in re.finditer(r'\{\{(\w+):random\}\}', text):
-            self.setFormat(match.start(), match.end() - match.start(), self.optional_tag_format)
+            tag_name = match.group(1)
+            if self._is_tag_defined(tag_name, defined_tags):
+                self.setFormat(match.start(), match.end() - match.start(), self.optional_tag_format)
+            else:
+                self.setFormat(match.start(), match.end() - match.start(), self.error_format)
         
-        # Conditionals: {{$if}}, {{$else}}, {{$endif}}
-        for match in re.finditer(r'\{\{\$(?:if[^}]*|else|endif)\}\}', text):
+        # Conditionals: {{$if ...}} - Support complex logic (&&, ||)
+        # We relax the strict variable check here to allow for complex expressions.
+        for match in re.finditer(r'\{\{\$if\s+([^}]+)\}\}', text):
+             self.setFormat(match.start(), match.end() - match.start(), self.conditional_format)
+        
+        # {{$else}} and {{$endif}}
+        for match in re.finditer(r'\{\{\$(?:else|endif)\}\}', text):
             self.setFormat(match.start(), match.end() - match.start(), self.conditional_format)
         
         # Comments: {{#...}}
         for match in re.finditer(r'\{\{#[^}]*\}\}', text):
             self.setFormat(match.start(), match.end() - match.start(), self.comment_format)
+        
+        # Check for malformed syntax (unclosed braces)
+        for match in re.finditer(r'\{\{[^}]*$', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.error_format)
 
 
 class AutocompleteTextEdit(QTextEdit):
@@ -1037,6 +1102,12 @@ class AutocompleteTextEdit(QTextEdit):
         self._custom_tags_getter = getter
         if hasattr(self, '_highlighter'):
             self._highlighter.custom_tags_getter = getter
+            self._highlighter.rehighlight()  # Re-apply highlighting
+    
+    def refresh_highlighting(self):
+        """Force refresh of syntax highlighting."""
+        if hasattr(self, '_highlighter'):
+            self._highlighter.rehighlight()
     
     def _setup_highlighter(self):
         """Setup syntax highlighter."""
@@ -1169,6 +1240,9 @@ class MainWindow(QMainWindow):
         # Custom Tags Storage (in-memory, saved with character profile)
         # Format: {"tag_name": ["value1", "value2", ...], ...}
         self.custom_tags = {}
+        
+        # Dynamic Toggles Storage: {name: QCheckBox}
+        self.toggles_map = {}
         
         self.setup_ui()
         self.refresh_character_list()
@@ -1479,6 +1553,28 @@ class MainWindow(QMainWindow):
         
         grid_id.addWidget(ref_input_container, 1, 1)
 
+        # 3. Model Selector
+        grid_id.addWidget(QLabel("Model:"), 2, 0)
+        model_container = QWidget()
+        mc_layout = QHBoxLayout(model_container)
+        mc_layout.setContentsMargins(0,0,0,0)
+        mc_layout.setSpacing(5)
+        
+        self.model_combo = QComboBox()
+        self.model_combo.setMinimumWidth(200)
+        
+        refresh_models_btn = QPushButton("🔄")
+        refresh_models_btn.setFixedSize(40, 30)
+        refresh_models_btn.setToolTip("Refresh Models from ComfyUI")
+        refresh_models_btn.clicked.connect(self.populate_models_ui)
+        
+        mc_layout.addWidget(self.model_combo)
+        mc_layout.addWidget(refresh_models_btn)
+        
+        grid_id.addWidget(model_container, 2, 1)
+        
+        grid_id.addWidget(ref_input_container, 1, 1)
+
         # 3. Preview Image (Right side, spanning rows)
         preview_container = QFrame()
         preview_container.setStyleSheet("background: #1C1C1E; border: 1px solid #38383A; border-radius: 8px;")
@@ -1558,6 +1654,38 @@ class MainWindow(QMainWindow):
         ref_grid.addLayout(h_sc, 3, 0)
         ref_grid.addWidget(self.ref_scaling_combo, 3, 1, 1, 3)
 
+        # IPAdapter Model Selector
+        h_ipa = QHBoxLayout(); h_ipa.setContentsMargins(0,0,0,0); h_ipa.setSpacing(2)
+        h_ipa.addWidget(QLabel("IPAdapter Model:"))
+        h_ipa.addStretch()
+        ref_grid.addLayout(h_ipa, 4, 0)
+        
+        ipa_container = QWidget()
+        ipa_layout = QHBoxLayout(ipa_container)
+        ipa_layout.setContentsMargins(0,0,0,0)
+        ipa_layout.setSpacing(5)
+        self.ipadapter_model_combo = QComboBox()
+        self.ipadapter_model_combo.setMinimumWidth(200)
+        ipa_layout.addWidget(self.ipadapter_model_combo)
+        ipa_layout.addStretch()
+        ref_grid.addWidget(ipa_container, 4, 1, 1, 3)
+        
+        # CLIP Vision Model Selector
+        h_clip = QHBoxLayout(); h_clip.setContentsMargins(0,0,0,0); h_clip.setSpacing(2)
+        h_clip.addWidget(QLabel("CLIP Vision Model:"))
+        h_clip.addStretch()
+        ref_grid.addLayout(h_clip, 5, 0)
+        
+        clip_container = QWidget()
+        clip_layout = QHBoxLayout(clip_container)
+        clip_layout.setContentsMargins(0,0,0,0)
+        clip_layout.setSpacing(5)
+        self.clip_vision_model_combo = QComboBox()
+        self.clip_vision_model_combo.setMinimumWidth(200)
+        clip_layout.addWidget(self.clip_vision_model_combo)
+        clip_layout.addStretch()
+        ref_grid.addWidget(clip_container, 5, 1, 1, 3)
+
         tr.addWidget(self.ref_settings_frame)
         tr.addStretch()
         self.config_tabs.addTab(tab_ref, localized_text("Reference"))
@@ -1622,7 +1750,15 @@ class MainWindow(QMainWindow):
         self.subject_prompt_input = AutocompleteTextEdit()
         self.subject_prompt_input.setPlaceholderText("1girl, solo, {{emotion}}{{$if outfit}}, wearing {{outfit}}{{$endif}}")
         self.subject_prompt_input.set_custom_tags_getter(lambda: self.custom_tags)
+        self.subject_prompt_input.textChanged.connect(self.refresh_dynamic_toggles)
         tl2.addWidget(self.subject_prompt_input)
+        
+        # Toggles Container
+        self.toggles_container = QWidget()
+        self.toggles_layout = QHBoxLayout(self.toggles_container)
+        self.toggles_layout.setContentsMargins(0, 5, 0, 5)
+        self.toggles_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        tl2.addWidget(self.toggles_container)
 
         # Style
         tl2.addWidget(QLabel("🎨 Style/Artist Prompt"))
@@ -1852,6 +1988,9 @@ class MainWindow(QMainWindow):
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
 
+        # Try to populate models on startup (delayed to allow show first)
+        QTimer.singleShot(1000, self.populate_models_ui)
+
     def handle_generate(self):
         # Combine Prompts
         qual = self.quality_prompt_input.toPlainText().strip()
@@ -1882,14 +2021,16 @@ class MainWindow(QMainWindow):
         if empty_required:
             return QMessageBox.warning(self, "Validation Error", f"Required tag(s) have no values: {', '.join(empty_required)}")
         
-        # Calculate total combinations (including optional tag empty values)
-        from itertools import product
-        total_combos = 1
-        for tag in all_used_tags:
-            values = self.custom_tags.get(tag, [""])
-            if tag in optional_tags and "" not in values:
-                values = [""] + list(values)  # Include empty option
-            total_combos *= len(values) if values else 1
+        # Calculate total combinations using Parser (Single Source of Truth)
+        # We must re-instantiate parser or use existing one if available?
+        # We need to construct toggles first. 
+        # But wait, lines 2004 gets toggles. Move that up?
+        # Or just get them now.
+        temp_toggles = self.get_active_toggles()
+        parser = TagParser(self.custom_tags)
+        # Note: generate_combinations does the optimization!
+        combos_list = parser.generate_combinations(base_prompt, toggles=temp_toggles)
+        total_combos = len(combos_list)
         
         # Warn if too many combinations
         if total_combos > 50:
@@ -1909,7 +2050,10 @@ class MainWindow(QMainWindow):
             "upscale_factor": self.upscale_spin.value(),
             "width": self.width_spin.value(),
             "height": self.height_spin.value(),
-            "bypass_sage_attn": self.bypass_sage_chk.isChecked()
+            "bypass_sage_attn": self.bypass_sage_chk.isChecked(),
+            "ckpt_name": self.model_combo.currentText(),
+            "ipadapter_model": self.ipadapter_model_combo.currentText() or None,
+            "clip_vision_model": self.clip_vision_model_combo.currentText() or None
         }
         
         ref_settings = {
@@ -1922,8 +2066,11 @@ class MainWindow(QMainWindow):
             "embeds_scaling": self.ref_scaling_combo.currentText()
         }
         
+        active_toggles = self.get_active_toggles()
+        print(f"DEBUG: Handle Generate - Active Toggles: {active_toggles}")
+        
         job = JobQueueItem(
-            self.char_name_input.text(),
+            self.char_name_input.text() or "QuickGen",
             base_prompt,
             self.neg_prompt_input.toPlainText(),
             self.custom_tags.copy(),  # Pass a copy of custom_tags
@@ -1933,8 +2080,11 @@ class MainWindow(QMainWindow):
             gen_settings,
             self.ref_enabled_chk.isChecked(),
             ref_settings,
-            is_test=False
+            toggles=active_toggles
         )
+        
+        print(f"DEBUG: Created Job. Job Toggles: {job.toggles}")
+        print(f"DEBUG: Queue Length Before Append: {len(self.job_queue)}")
         
         self.job_queue.append(job)
         self.refresh_queue_ui()
@@ -1985,7 +2135,7 @@ class MainWindow(QMainWindow):
         }
 
         job = JobQueueItem(
-            self.char_name_input.text(),
+            "Test",
             base_prompt,
             self.neg_prompt_input.toPlainText(),
             test_tags,
@@ -1995,7 +2145,8 @@ class MainWindow(QMainWindow):
             gen_settings,
             self.ref_enabled_chk.isChecked(),
             ref_settings,
-            is_test=True
+            is_test=True,
+            toggles=self.get_active_toggles()
         )
         
         self.job_queue.append(job)
@@ -2069,7 +2220,8 @@ class MainWindow(QMainWindow):
             gen_settings,
             self.ref_enabled_chk.isChecked(),
             ref_settings,
-            is_test=True  # Don't save to gallery
+            is_test=True,  # Don't save to gallery
+            toggles=self.get_active_toggles()
         )
         
         self.job_queue.append(job)
@@ -2116,7 +2268,20 @@ class MainWindow(QMainWindow):
         self.queue_table.setRowCount(len(self.job_queue))
         for i, job in enumerate(self.job_queue):
             self.queue_table.setItem(i, 0, QTableWidgetItem(job.char_name))
-            emo_str = ", ".join([e[0] for e in job.emotions])
+            # emo_str logic is legacy or needs update. 
+            # Try to get 'emotion' tag values if available.
+            emotions = job.custom_tags.get("emotion", [])
+            # emotions list format might be [("Display", "Prompt"), ...] or just strings?
+            # User earlier saw `[3] emotion=sad`.
+            # Let's assume list of strings or tuples.
+            display_strs = []
+            for e in emotions:
+                 if isinstance(e, (list, tuple)) and len(e) > 0:
+                      display_strs.append(str(e[0]))
+                 else:
+                      display_strs.append(str(e))
+            
+            emo_str = ", ".join(display_strs) if display_strs else "Custom"
             self.queue_table.setItem(i, 1, QTableWidgetItem(emo_str))
             self.queue_table.setItem(i, 2, QTableWidgetItem(str(job.batch)))
             self.queue_table.setItem(i, 3, QTableWidgetItem(job.status))
@@ -2205,6 +2370,60 @@ class MainWindow(QMainWindow):
         last = self.app_config.get("last_active_character")
         if last and last in chars:
             self.char_select_combo.setCurrentText(last)
+
+    def populate_models_ui(self):
+        """Fetch available models from ComfyUI and populate combo boxes"""
+        # Ensure client is connected so we have server address correct
+        if not hasattr(self, 'comfy_client'):
+             self.comfy_client = ComfyClient(self.app_config.get("server_address"))
+        
+        info = self.comfy_client.get_object_info()
+        if not info:
+             self.status_bar.setText("Failed to fetch models: ComfyUI offline?")
+             return
+        
+        models_loaded = 0
+             
+        # 1. CheckpointLoaderSimple - SDXL checkpoints
+        if "CheckpointLoaderSimple" in info:
+             input_info = info["CheckpointLoaderSimple"].get("input", {}).get("required", {})
+             if "ckpt_name" in input_info:
+                  models = input_info["ckpt_name"][0]
+                  current = self.model_combo.currentText()
+                  self.model_combo.clear()
+                  self.model_combo.addItems(models)
+                  if current and current in models:
+                       self.model_combo.setCurrentText(current)
+                  models_loaded += len(models)
+        
+        # 2. IPAdapterModelLoader - IPAdapter models
+        if "IPAdapterModelLoader" in info:
+             input_info = info["IPAdapterModelLoader"].get("input", {}).get("required", {})
+             if "ipadapter_file" in input_info:
+                  models = input_info["ipadapter_file"][0]
+                  current = self.ipadapter_model_combo.currentText()
+                  self.ipadapter_model_combo.clear()
+                  self.ipadapter_model_combo.addItems(models)
+                  if current and current in models:
+                       self.ipadapter_model_combo.setCurrentText(current)
+                  models_loaded += len(models)
+        
+        # 3. CLIPVisionLoader - CLIP Vision models
+        if "CLIPVisionLoader" in info:
+             input_info = info["CLIPVisionLoader"].get("input", {}).get("required", {})
+             if "clip_name" in input_info:
+                  models = input_info["clip_name"][0]
+                  current = self.clip_vision_model_combo.currentText()
+                  self.clip_vision_model_combo.clear()
+                  self.clip_vision_model_combo.addItems(models)
+                  if current and current in models:
+                       self.clip_vision_model_combo.setCurrentText(current)
+                  models_loaded += len(models)
+        
+        if models_loaded > 0:
+             self.status_bar.setText(f"Loaded {models_loaded} models from ComfyUI.")
+        else:
+             self.status_bar.setText("Could not find model loaders in ComfyUI.")
 
     def new_character_profile(self):
         self.char_name_input.clear()
@@ -2442,22 +2661,32 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Empty", "Please enter a prompt first.")
             return
         
+        active_toggles = self.get_active_toggles()
+        
         # Use TagParser
         parser = TagParser(self.custom_tags)
-        all_used_tags = parser.get_all_unique_tags(base_prompt)
+        # Use proper generation logic with toggles optimization
+        all_combinations = parser.generate_combinations(base_prompt, toggles=active_toggles)
         
-        if not all_used_tags:
-            # No tags found - just show the cleaned prompt
-            cleaned = parser._cleanup_prompt(base_prompt)
-            QMessageBox.information(self, "No Tags", f"No tags found in prompt.\nOutput:\n\n{cleaned}")
+        if not all_combinations or all_combinations == [{}]:
+            # No tags found or empty combinations
+            # Just show the cleaned prompt (with toggles applied to see final static text)
+            clean_values = active_toggles.copy()
+            cleaned = parser.process_prompt(base_prompt, clean_values)
+            QMessageBox.information(self, "No Variations", f"No variable tags found.\nOutput:\n\n{cleaned}")
             return
-        
-        all_combinations = parser.generate_combinations(base_prompt)
         
         # Generate preview for each combination (limit to 20)
         previews = []
         for i, tag_values in enumerate(all_combinations[:20]):
-            final_prompt = parser.process_prompt(base_prompt, tag_values)
+            # Merge toggles for correct conditional processing
+            current_values = tag_values.copy()
+            current_values.update(active_toggles)
+            
+            print(f"DEBUG: Preview {i} - Tag Values: {current_values}")
+            
+            final_prompt = parser.process_prompt(base_prompt, current_values)
+            print(f"DEBUG: Preview {i} - Result: {final_prompt}")
             
             # Format tag values for display
             tag_info = " | ".join([f"{k}={v or '(empty)'}" for k, v in tag_values.items()])
@@ -2814,6 +3043,39 @@ class MainWindow(QMainWindow):
              self.status_bar.setText("Stopped by User.")
              
         self.gallery_tab.scan_output_folder()
+
+    def refresh_dynamic_toggles(self):
+        """Parse prompt for {{$toggle name}} and update checkboxes."""
+        text = self.subject_prompt_input.toPlainText()
+        
+        # Use simple regex directly here or TagParser helper to be safe
+        # We can use TagParser.get_toggles if available, but simple regex is fine for UI responsiveness
+        toggles = sorted(list(set(re.findall(r'\{\{\$toggle\s+(\w+)\}\}', text))))
+        
+        # 1. Identify existing, new, and removed
+        current_names = set(self.toggles_map.keys())
+        wanted_names = set(toggles)
+        
+        to_add = wanted_names - current_names
+        to_remove = current_names - wanted_names
+        
+        # 2. Remove
+        for name in to_remove:
+            cb = self.toggles_map.pop(name)
+            self.toggles_layout.removeWidget(cb)
+            cb.deleteLater()
+            
+        # 3. Add
+        for name in to_add:
+            cb = QCheckBox(name)
+            cb.setStyleSheet("color: #D500F9; font-weight: bold;") # Match highlighting
+            self.toggles_layout.addWidget(cb)
+            self.toggles_map[name] = cb
+            
+    def get_active_toggles(self):
+        """Get dict of {name: bool} for current toggles."""
+        return {name: cb.isChecked() for name, cb in self.toggles_map.items()}
+
 
 
 

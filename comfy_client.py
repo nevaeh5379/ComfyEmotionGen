@@ -122,6 +122,21 @@ class ComfyClient:
         except Exception as e:
             print(f"Failed to interrupt: {e}")
 
+    def get_object_info(self):
+        """
+        Fetches the object info from ComfyUI (definitions of nodes including available models).
+        Returns dict.
+        """
+        url = f"http://{self.server_address}/object_info"
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"Failed to fetch object info: {e}")
+            return {}
+        return {}
+            
     def close(self):
         if self.ws:
             self.ws.close()

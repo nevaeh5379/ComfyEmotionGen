@@ -8,7 +8,10 @@ def prepare_workflow(base_json, character_name, base_prompt, emotion_name, emoti
                      upscale_factor=1.5,
                      ref_enabled=True, ref_settings=None,
                      width=896, height=1152,
-                     bypass_sage_attn=False):
+                     bypass_sage_attn=False,
+                     ckpt_name=None,
+                     ipadapter_model=None,
+                     clip_vision_model=None):
     """
     Modifies the workflow JSON based on inputs.
     """
@@ -110,5 +113,17 @@ def prepare_workflow(base_json, character_name, base_prompt, emotion_name, emoti
                 workflow["59:13"]["inputs"]["model"] = source_model
             if "59:19" in workflow:
                 workflow["59:19"]["inputs"]["model"] = source_model
+
+    # 12. Checkpoint Logic (Node 59:11 - CheckpointLoaderSimple)
+    if ckpt_name and "59:11" in workflow:
+        workflow["59:11"]["inputs"]["ckpt_name"] = ckpt_name
+
+    # 13. IPAdapter Model Logic (Node 59:41 - IPAdapterModelLoader)
+    if ipadapter_model and "59:41" in workflow:
+        workflow["59:41"]["inputs"]["ipadapter_file"] = ipadapter_model
+
+    # 14. CLIP Vision Model Logic (Node 59:40 - CLIPVisionLoader)
+    if clip_vision_model and "59:40" in workflow:
+        workflow["59:40"]["inputs"]["clip_name"] = clip_vision_model
 
     return workflow, seed

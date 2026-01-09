@@ -144,7 +144,8 @@
   },
   "59:37": {
     "inputs": {
-      "provider": "CPU"
+      "provider": "CPU",
+      "model_name": "buffalo_l"
     },
     "class_type": "IPAdapterInsightFaceLoader",
     "_meta": {

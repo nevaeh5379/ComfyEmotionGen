@@ -5,3 +5,4 @@ __pycache__/**
 python_embed/**
 favorites.json
 danbooru_tags.csv
+ComfyUI/**
