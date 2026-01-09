@@ -1,18 +1,25 @@
 import sys
 import os
+
+# Ensure current directory is in path for standalone python_embed
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import json
 import shutil
 import re
 import webbrowser
 import tempfile
 import subprocess
+from tag_parser import TagParser
+from danbooru_tags import get_danbooru_tags
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QPushButton, QTextEdit, QSpinBox, 
                              QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar, 
                              QFileDialog, QTabWidget, QListWidget, QListWidgetItem, 
-                             QAbstractItemView, QMessageBox, QSplitter, QComboBox, QFrame, QGridLayout, QSizePolicy, QDialog, QScrollArea, QCheckBox, QDoubleSpinBox, QStackedWidget, QMenu)
-from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QSize, QEvent, QMimeData, QUrl, QPoint)
-from PyQt6.QtGui import (QIcon, QPixmap, QFont, QAction, QWheelEvent, QPalette, QPainter, QColor, QBrush, QPen, QDrag)
+                             QAbstractItemView, QMessageBox, QSplitter, QComboBox, QFrame, QGridLayout, QSizePolicy, QDialog, QScrollArea, QCheckBox, QDoubleSpinBox, QStackedWidget, QMenu, QCompleter, QStyledItemDelegate)
+from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QSize, QEvent, QMimeData, QUrl, QPoint, QStringListModel)
+from PyQt6.QtGui import (QIcon, QPixmap, QFont, QAction, QWheelEvent, QPalette, QPainter, QColor, QBrush, QPen, QDrag, QSyntaxHighlighter, QTextCharFormat)
 
 # ==========================================
 # LOCALIZATION & HELP HELPERS
@@ -473,11 +480,11 @@ class ResizingLabel(QLabel):
             super().setPixmap(QPixmap())
 
 class JobQueueItem:
-    def __init__(self, char_name, base_prompt, neg_prompt, emotions, ref_img, batch, seed, gen_settings, ref_enabled, ref_settings, is_test=False):
+    def __init__(self, char_name, base_prompt, neg_prompt, custom_tags, ref_img, batch, seed, gen_settings, ref_enabled, ref_settings, is_test=False):
         self.char_name = char_name
         self.base_prompt = base_prompt
         self.neg_prompt = neg_prompt
-        self.emotions = emotions # List of (name, prompt)
+        self.custom_tags = custom_tags  # Dict: {"tag_name": ["value1", "value2"], ...}
         self.ref_img = ref_img
         self.batch = batch
         self.seed = seed
@@ -655,28 +662,39 @@ class GenerationWorker(QThread):
                         shutil.copy(job.ref_img, os.path.join(char_dir, f"reference{ext}"))
                     except: pass
 
-                # Process Emotions
-                total_steps = len(job.emotions) * job.batch
+                # Generate all tag combinations using TagParser
+                parser = TagParser(job.custom_tags)
+                all_combinations = parser.generate_combinations(job.base_prompt)
+                
+                total_steps = len(all_combinations) * job.batch
                 current_step = 0
                 
-                for emotion_name, emotion_prompt in job.emotions:
+                for tag_values in all_combinations:
                     if not self.is_running: break
                     
-                    emotion_safe_name = self.clean_name(emotion_name)
+                    # Process prompt with this combination
+                    final_prompt = parser.process_prompt(job.base_prompt, tag_values)
+                    
+                    # Create a safe name for this combination (for folder/filename)
+                    combo_values = [v for v in tag_values.values() if v]
+                    combo_name = "_".join([self.clean_name(v) for v in combo_values]) if combo_values else "default"
+                    
                     if job.is_test:
-                        emotion_dir = char_dir
+                        combo_dir = char_dir
                     else:
-                        emotion_dir = os.path.join(char_dir, emotion_safe_name)
-                        if not os.path.exists(emotion_dir): os.makedirs(emotion_dir)
+                        combo_dir = char_dir  # Flat structure - all in char folder
+                    
+                    if not os.path.exists(combo_dir): os.makedirs(combo_dir)
 
                     for i in range(job.batch):
                         if not self.is_running: break
                         
                         current_seed = seeds[i]
-                        self.log_signal.emit(f"Generating: {emotion_name} ({i+1}/{job.batch}) - Seed: {current_seed}")
+                        self.log_signal.emit(f"Generating: {combo_name} ({i+1}/{job.batch}) - Seed: {current_seed}")
                         
+                        # Pass the substituted prompt to workflow
                         new_workflow, used_seed = prepare_workflow(
-                            self.workflow_json, job.char_name, job.base_prompt, emotion_name, emotion_prompt, ref_filename, current_seed,
+                            self.workflow_json, job.char_name, final_prompt, combo_name, "", ref_filename, current_seed,
                             sampler1_name=job.gen_settings.get("sampler1_name", "dpmpp_3m_sde"),
                             scheduler1=job.gen_settings.get("scheduler1", "simple"),
                             sampler2_name=job.gen_settings.get("sampler2_name", "dpmpp_3m_sde"),
@@ -697,12 +715,12 @@ class GenerationWorker(QThread):
                             if job.is_test:
                                 target_filename = "test_preview.png"
                             else:
-                                target_filename = f"{char_safe_name}__{emotion_safe_name}__Seed{used_seed}__{i+1}.png"
-                            self.client.download_image(fname, sub, os.path.join(emotion_dir, target_filename))
+                                target_filename = f"{char_safe_name}__{combo_name}__Seed{used_seed}__{i+1}.png"
+                            self.client.download_image(fname, sub, os.path.join(combo_dir, target_filename))
                             self.log_signal.emit(f"Saved: {target_filename}")
                             
                             try:
-                                with open(os.path.join(emotion_dir, target_filename), "rb") as f:
+                                with open(os.path.join(combo_dir, target_filename), "rb") as f:
                                     self.preview_signal.emit(f.read())
                             except: pass
                         
@@ -908,6 +926,218 @@ class FavoritesManager:
             return True
 
 
+class DanbooruAutocompleteDelegate(QStyledItemDelegate):
+    """Custom delegate that provides Danbooru tag autocomplete for table cells."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._danbooru = get_danbooru_tags()
+    
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        
+        # Only apply autocomplete to second column (Prompt)
+        if index.column() == 1 and self._danbooru.is_loaded:
+            completer = QCompleter(parent)
+            completer.setModel(QStringListModel(self._danbooru.get_all_tags()))
+            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            completer.setMaxVisibleItems(15)
+            editor.setCompleter(completer)
+        
+        return editor
+    
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, Qt.ItemDataRole.EditRole)
+        editor.setText(str(value) if value else "")
+    
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.text(), Qt.ItemDataRole.EditRole)
+
+
+class TagSyntaxHighlighter(QSyntaxHighlighter):
+    """Syntax highlighter for tag syntax in prompts."""
+    
+    def __init__(self, parent, custom_tags_getter=None):
+        super().__init__(parent)
+        self.custom_tags_getter = custom_tags_getter
+        
+        # Define formats
+        self.tag_format = QTextCharFormat()
+        self.tag_format.setForeground(QColor("#4FC3F7"))  # Light blue for {{tag}}
+        self.tag_format.setFontWeight(QFont.Weight.Bold)
+        
+        self.optional_tag_format = QTextCharFormat()
+        self.optional_tag_format.setForeground(QColor("#81C784"))  # Green for {{?tag}}
+        self.optional_tag_format.setFontWeight(QFont.Weight.Bold)
+        
+        self.conditional_format = QTextCharFormat()
+        self.conditional_format.setForeground(QColor("#FFB74D"))  # Orange for {{$if}}
+        self.conditional_format.setFontWeight(QFont.Weight.Bold)
+        
+        self.comment_format = QTextCharFormat()
+        self.comment_format.setForeground(QColor("#888888"))  # Gray for {{#...}}
+        self.comment_format.setFontItalic(True)
+        
+        self.error_format = QTextCharFormat()
+        self.error_format.setUnderlineColor(QColor("#FF5252"))  # Red underline
+        self.error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
+    
+    def highlightBlock(self, text):
+        import re
+        
+        # Get defined tags
+        defined_tags = set()
+        if self.custom_tags_getter:
+            try:
+                tags = self.custom_tags_getter()
+                if tags:
+                    defined_tags = set(tags.keys())
+            except:
+                pass
+        
+        # Required tags: {{tag}}
+        for match in re.finditer(r'\{\{(\w+)\}\}', text):
+            tag_name = match.group(1)
+            fmt = QTextCharFormat(self.tag_format)
+            if defined_tags and tag_name not in defined_tags:
+                fmt.merge(self.error_format)
+            self.setFormat(match.start(), match.end() - match.start(), fmt)
+        
+        # Optional tags: {{?tag}}
+        for match in re.finditer(r'\{\{\?(\w+)\}\}', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.optional_tag_format)
+        
+        # Random tags: {{tag:random}}
+        for match in re.finditer(r'\{\{(\w+):random\}\}', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.optional_tag_format)
+        
+        # Conditionals: {{$if}}, {{$else}}, {{$endif}}
+        for match in re.finditer(r'\{\{\$(?:if[^}]*|else|endif)\}\}', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.conditional_format)
+        
+        # Comments: {{#...}}
+        for match in re.finditer(r'\{\{#[^}]*\}\}', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.comment_format)
+
+
+class AutocompleteTextEdit(QTextEdit):
+    """QTextEdit with Danbooru tag autocomplete and syntax highlighting."""
+    
+    def __init__(self, parent=None, custom_tags_getter=None):
+        super().__init__(parent)
+        self._danbooru = get_danbooru_tags()
+        self._completer = None
+        self._custom_tags_getter = custom_tags_getter
+        self._setup_completer()
+        self._setup_highlighter()
+    
+    def set_custom_tags_getter(self, getter):
+        """Set function to get custom tags for error checking."""
+        self._custom_tags_getter = getter
+        if hasattr(self, '_highlighter'):
+            self._highlighter.custom_tags_getter = getter
+    
+    def _setup_highlighter(self):
+        """Setup syntax highlighter."""
+        self._highlighter = TagSyntaxHighlighter(self.document(), self._custom_tags_getter)
+    
+    def _setup_completer(self):
+        if not self._danbooru.is_loaded:
+            return
+        
+        self._completer = QCompleter(self)
+        self._completer.setModel(QStringListModel(self._danbooru.get_all_tags()))
+        self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        self._completer.setMaxVisibleItems(12)
+        self._completer.setWidget(self)
+        self._completer.activated.connect(self._insert_completion)
+        
+        # Dark theme for popup
+        popup = self._completer.popup()
+        popup.setStyleSheet("""
+            QListView {
+                background-color: #2D2D2D;
+                color: #FFFFFF;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 2px;
+                font-size: 12px;
+            }
+            QListView::item {
+                padding: 4px 8px;
+                border-radius: 2px;
+            }
+            QListView::item:selected {
+                background-color: #4FC3F7;
+                color: #000000;
+            }
+            QListView::item:hover {
+                background-color: #3A3A3A;
+            }
+        """)
+    
+    def _get_current_word(self):
+        """Get the word currently being typed (after last comma or start)."""
+        cursor = self.textCursor()
+        text = self.toPlainText()
+        pos = cursor.position()
+        
+        # Find start of current word (after comma, newline, or start)
+        start = pos
+        while start > 0 and text[start - 1] not in ',\n':
+            start -= 1
+        
+        word = text[start:pos].strip()
+        return word, start, pos
+    
+    def _insert_completion(self, completion):
+        """Insert the selected completion."""
+        word, start, pos = self._get_current_word()
+        
+        cursor = self.textCursor()
+        cursor.setPosition(start)
+        cursor.setPosition(pos, cursor.MoveMode.KeepAnchor)
+        cursor.insertText(completion)
+        self.setTextCursor(cursor)
+    
+    def keyPressEvent(self, event):
+        # Handle completer navigation
+        if self._completer and self._completer.popup().isVisible():
+            if event.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Tab):
+                index = self._completer.popup().currentIndex()
+                if index.isValid():
+                    self._completer.activated.emit(self._completer.completionModel().data(index))
+                    self._completer.popup().hide()
+                    return
+            elif event.key() == Qt.Key.Key_Escape:
+                self._completer.popup().hide()
+                return
+            elif event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+                self._completer.popup().keyPressEvent(event)
+                return
+        
+        super().keyPressEvent(event)
+        
+        # Show completions
+        if self._completer:
+            word, _, _ = self._get_current_word()
+            if len(word) >= 2:
+                self._completer.setCompletionPrefix(word)
+                if self._completer.completionCount() > 0:
+                    popup = self._completer.popup()
+                    cursor_rect = self.cursorRect()
+                    # Position popup below the cursor
+                    cursor_rect.moveTop(cursor_rect.bottom() + 5)
+                    popup.setCurrentIndex(self._completer.completionModel().index(0, 0))
+                    cursor_rect.setWidth(min(300, popup.sizeHintForColumn(0) + popup.verticalScrollBar().sizeHint().width() + 20))
+                    self._completer.complete(cursor_rect)
+                else:
+                    self._completer.popup().hide()
+            else:
+                self._completer.popup().hide()
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -931,6 +1161,15 @@ class MainWindow(QMainWindow):
         
         self.comfy_client = ComfyClient(server_address=self.app_config.get("server_address"))
         self.job_queue = [] # List of JobQueueItem
+        
+        # Prompt Presets Storage (in-memory, saved with character profile)
+        self.prompt_presets = []  # List of dicts: [{name, quality_prompt, subject_prompt, style_prompt, neg_prompt}, ...]
+        self.current_prompt_index = 0
+        
+        # Custom Tags Storage (in-memory, saved with character profile)
+        # Format: {"tag_name": ["value1", "value2", ...], ...}
+        self.custom_tags = {}
+        
         self.setup_ui()
         self.refresh_character_list()
         
@@ -1143,9 +1382,15 @@ class MainWindow(QMainWindow):
 
         self.test_btn = QPushButton("🧪 Test")
         self.test_btn.setFixedHeight(36)
-        self.test_btn.setToolTip("Generate 1 image (Happy) without saving")
+        self.test_btn.setToolTip("Generate 1 image (first value) without saving")
         self.test_btn.clicked.connect(self.handle_test_generate)
         tb_layout.addWidget(self.test_btn)
+
+        self.quick_random_btn = QPushButton("🎲 Quick")
+        self.quick_random_btn.setFixedHeight(36)
+        self.quick_random_btn.setToolTip("Generate 1 image with random tag values (for casual use)")
+        self.quick_random_btn.clicked.connect(self.handle_quick_random_generate)
+        tb_layout.addWidget(self.quick_random_btn)
 
         tb_layout.addStretch() # Spacer
 
@@ -1323,6 +1568,48 @@ class MainWindow(QMainWindow):
         tl2.setSpacing(10)
         tl2.setContentsMargins(20, 20, 20, 20)
 
+        # Prompt Preset Selector
+        prompt_header = QHBoxLayout()
+        prompt_header.addWidget(QLabel("📋 Prompt Preset:"))
+        self.prompt_preset_combo = QComboBox()
+        self.prompt_preset_combo.setMinimumWidth(150)
+        self.prompt_preset_combo.currentIndexChanged.connect(self.on_prompt_preset_changed)
+        prompt_header.addWidget(self.prompt_preset_combo)
+        
+        prompt_header.addSpacing(10)
+        
+        add_prompt_btn = QPushButton("➕ New")
+        add_prompt_btn.setToolTip("Create a new prompt preset from current content")
+        add_prompt_btn.clicked.connect(self.add_new_prompt_preset)
+        prompt_header.addWidget(add_prompt_btn)
+        
+        save_prompt_btn = QPushButton("💾 Save")
+        save_prompt_btn.setToolTip("Save changes to current prompt preset")
+        save_prompt_btn.clicked.connect(self.save_current_prompt_preset)
+        prompt_header.addWidget(save_prompt_btn)
+        
+        rename_prompt_btn = QPushButton("✏️")
+        rename_prompt_btn.setToolTip("Rename current prompt preset")
+        rename_prompt_btn.setFixedWidth(35)
+        rename_prompt_btn.clicked.connect(self.rename_current_prompt_preset)
+        prompt_header.addWidget(rename_prompt_btn)
+        
+        del_prompt_btn = QPushButton("🗑️")
+        del_prompt_btn.setToolTip("Delete current prompt preset")
+        del_prompt_btn.setFixedWidth(35)
+        del_prompt_btn.setProperty("class", "Danger")
+        del_prompt_btn.clicked.connect(self.delete_current_prompt_preset)
+        prompt_header.addWidget(del_prompt_btn)
+        
+        prompt_header.addStretch()
+        tl2.addLayout(prompt_header)
+        
+        # Separator line
+        sep_line = QFrame()
+        sep_line.setFrameShape(QFrame.Shape.HLine)
+        sep_line.setStyleSheet("color: #3A3A3C;")
+        tl2.addWidget(sep_line)
+
         # Quality
         tl2.addWidget(QLabel("✨ Quality Prompt"))
         self.quality_prompt_input = QTextEdit()
@@ -1331,9 +1618,10 @@ class MainWindow(QMainWindow):
         tl2.addWidget(self.quality_prompt_input)
 
         # Subject
-        tl2.addWidget(QLabel("👤 Subject Prompt (#emotion# tag required)"))
-        self.subject_prompt_input = QTextEdit()
-        self.subject_prompt_input.setPlaceholderText("1girl, solo, #emotion#")
+        tl2.addWidget(QLabel("👤 Subject Prompt (use {{tag}} syntax)"))
+        self.subject_prompt_input = AutocompleteTextEdit()
+        self.subject_prompt_input.setPlaceholderText("1girl, solo, {{emotion}}{{$if outfit}}, wearing {{outfit}}{{$endif}}")
+        self.subject_prompt_input.set_custom_tags_getter(lambda: self.custom_tags)
         tl2.addWidget(self.subject_prompt_input)
 
         # Style
@@ -1348,34 +1636,118 @@ class MainWindow(QMainWindow):
         self.neg_prompt_input = QTextEdit()
         self.neg_prompt_input.setMaximumHeight(60)
         tl2.addWidget(self.neg_prompt_input)
+        
+        # Preview Button
+        preview_btn = QPushButton("👁️ Preview Combinations")
+        preview_btn.setToolTip("Preview all prompt combinations that will be generated")
+        preview_btn.clicked.connect(self.preview_tag_combinations)
+        tl2.addWidget(preview_btn)
 
         self.config_tabs.addTab(tab_prompt, "📝 Prompting")
 
-        # Tab 4: Emotion Worklist
-        tab_emotions = QWidget()
-        wl = QVBoxLayout(tab_emotions); wl.setContentsMargins(15,15,15,15)
-        wh = QHBoxLayout()
-        wh.addStretch()
-        imp_btn = QPushButton("📂 Import"); imp_btn.clicked.connect(self.import_emotions)
-        wh.addWidget(imp_btn)
-        exp_btn = QPushButton("💾 Export"); exp_btn.clicked.connect(self.export_emotions)
-        wh.addWidget(exp_btn)
-        add_btn = QPushButton("➕ Add"); add_btn.clicked.connect(lambda: self.add_emotion_row_data("New", "prompt"))
-        wh.addWidget(add_btn)
-        rem_btn = QPushButton("➖ Remove"); rem_btn.setProperty("class", "Danger"); rem_btn.clicked.connect(self.remove_emotion_row)
-        wh.addWidget(rem_btn)
-        wl.addLayout(wh)
+        # Tab 4: Custom Tags (formerly Emotions)
+        tab_tags = QWidget()
+        tags_layout = QHBoxLayout(tab_tags)
+        tags_layout.setContentsMargins(15, 15, 15, 15)
+        tags_layout.setSpacing(10)
         
-        self.emotion_table = QTableWidget(0, 2)
-        self.emotion_table.setHorizontalHeaderLabels(["Emotion Name", "Prompt Modifier"])
-        header = self.emotion_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.emotion_table.setColumnWidth(0, 200)
-        self.emotion_table.verticalHeader().setVisible(False)
-        self.emotion_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        wl.addWidget(self.emotion_table)
-        self.config_tabs.addTab(tab_emotions, "🎭 Emotions")
+        # Left Panel: Tag List
+        left_tag_panel = QWidget()
+        left_tag_layout = QVBoxLayout(left_tag_panel)
+        left_tag_layout.setContentsMargins(0, 0, 0, 0)
+        
+        left_tag_layout.addWidget(QLabel("🏷️ Tags"))
+        
+        self.tag_list = QListWidget()
+        self.tag_list.setMaximumWidth(200)
+        self.tag_list.currentRowChanged.connect(self.on_tag_selected)
+        left_tag_layout.addWidget(self.tag_list)
+        
+        tag_btn_layout = QHBoxLayout()
+        add_tag_btn = QPushButton("➕")
+        add_tag_btn.setToolTip("Add new tag")
+        add_tag_btn.setFixedWidth(40)
+        add_tag_btn.clicked.connect(self.add_new_tag)
+        
+        rename_tag_btn = QPushButton("✏️")
+        rename_tag_btn.setToolTip("Rename tag")
+        rename_tag_btn.setFixedWidth(40)
+        rename_tag_btn.clicked.connect(self.rename_current_tag)
+        
+        del_tag_btn = QPushButton("🗑️")
+        del_tag_btn.setToolTip("Delete tag")
+        del_tag_btn.setFixedWidth(40)
+        del_tag_btn.setProperty("class", "Danger")
+        del_tag_btn.clicked.connect(self.delete_current_tag)
+        
+        tag_btn_layout.addWidget(add_tag_btn)
+        tag_btn_layout.addWidget(rename_tag_btn)
+        tag_btn_layout.addWidget(del_tag_btn)
+        tag_btn_layout.addStretch()
+        left_tag_layout.addLayout(tag_btn_layout)
+        
+        tags_layout.addWidget(left_tag_panel)
+        
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setStyleSheet("color: #3A3A3C;")
+        tags_layout.addWidget(sep)
+        
+        # Right Panel: Tag Values
+        right_tag_panel = QWidget()
+        right_tag_layout = QVBoxLayout(right_tag_panel)
+        right_tag_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.tag_values_label = QLabel("📋 Values for: (select a tag)")
+        right_tag_layout.addWidget(self.tag_values_label)
+        
+        # Table for tag values (Name | Prompt)
+        self.tag_values_table = QTableWidget()
+        self.tag_values_table.setColumnCount(2)
+        self.tag_values_table.setHorizontalHeaderLabels(["Name", "Prompt"])
+        self.tag_values_table.horizontalHeader().setStretchLastSection(True)
+        self.tag_values_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.tag_values_table.setColumnWidth(0, 100)
+        self.tag_values_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tag_values_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.tag_values_table.cellChanged.connect(self.on_tag_value_cell_changed)
+        
+        # Apply Danbooru autocomplete to Prompt column
+        self.tag_values_table.setItemDelegate(DanbooruAutocompleteDelegate(self.tag_values_table))
+        
+        right_tag_layout.addWidget(self.tag_values_table)
+        
+        value_btn_layout = QHBoxLayout()
+        add_value_btn = QPushButton("➕ Add Value")
+        add_value_btn.clicked.connect(self.add_tag_value)
+        
+        del_value_btn = QPushButton("➖ Remove")
+        del_value_btn.setProperty("class", "Danger")
+        del_value_btn.clicked.connect(self.remove_tag_value)
+        
+        value_btn_layout.addWidget(add_value_btn)
+        value_btn_layout.addWidget(del_value_btn)
+        value_btn_layout.addStretch()
+        
+        # Import/Export
+        imp_tags_btn = QPushButton("📂 Import")
+        imp_tags_btn.clicked.connect(self.import_tags)
+        exp_tags_btn = QPushButton("💾 Export")
+        exp_tags_btn.clicked.connect(self.export_tags)
+        value_btn_layout.addWidget(imp_tags_btn)
+        value_btn_layout.addWidget(exp_tags_btn)
+        
+        right_tag_layout.addLayout(value_btn_layout)
+        
+        # Info label showing usage hint
+        usage_hint = QLabel("💡 Use {{tag_name}} in your prompt. Double-click cells to edit.")
+        usage_hint.setStyleSheet("color: #888; font-size: 11px; margin-top: 5px;")
+        right_tag_layout.addWidget(usage_hint)
+        
+        tags_layout.addWidget(right_tag_panel, stretch=1)
+        
+        self.config_tabs.addTab(tab_tags, "🏷️ Tags")
         
         # Tab 5: Advanced
         tab_adv = QWidget()
@@ -1489,17 +1861,45 @@ class MainWindow(QMainWindow):
         parts = [p for p in [qual, subj, style] if p]
         base_prompt = ", ".join(parts)
 
-        # Validation
-        if "#emotion#" not in base_prompt:
-            return QMessageBox.warning(self, "Validation Error", "Combined Prompt must contain '#emotion#'. (Check Subject Prompt)")
-            
-        if self.emotion_table.rowCount() == 0:
-            return QMessageBox.warning(self, "Validation Error", "Worklist is empty.")
-            
-        # Gather Data
-        emotions = []
-        for r in range(self.emotion_table.rowCount()):
-            emotions.append((self.emotion_table.item(r,0).text(), self.emotion_table.item(r,1).text()))
+        # Validation: Check if any tag syntax exists in prompt
+        import re
+        required_tags = re.findall(r'\{\{(\w+)\}\}', base_prompt)
+        optional_tags = re.findall(r'\{\{\?(\w+)\}\}', base_prompt)
+        conditional_tags = re.findall(r'\{\{\$if (\w+)\}\}', base_prompt)
+        
+        all_used_tags = list(dict.fromkeys(required_tags + optional_tags + conditional_tags))
+        
+        if not all_used_tags:
+            return QMessageBox.warning(self, "Validation Error", "Prompt must contain at least one tag.\nExamples: {{emotion}}, {{?outfit}}, {{$if pose}}...{{$endif}}")
+        
+        # Check if all required tags are defined (optional and conditional tags can be undefined)
+        missing_required = [t for t in required_tags if t not in self.custom_tags]
+        if missing_required:
+            return QMessageBox.warning(self, "Validation Error", f"Required tag(s) not defined: {', '.join(missing_required)}\nPlease define them in the Tags tab.")
+        
+        # Check for empty required tag values
+        empty_required = [t for t in required_tags if not self.custom_tags.get(t, [])]
+        if empty_required:
+            return QMessageBox.warning(self, "Validation Error", f"Required tag(s) have no values: {', '.join(empty_required)}")
+        
+        # Calculate total combinations (including optional tag empty values)
+        from itertools import product
+        total_combos = 1
+        for tag in all_used_tags:
+            values = self.custom_tags.get(tag, [""])
+            if tag in optional_tags and "" not in values:
+                values = [""] + list(values)  # Include empty option
+            total_combos *= len(values) if values else 1
+        
+        # Warn if too many combinations
+        if total_combos > 50:
+            reply = QMessageBox.warning(
+                self, "Many Combinations",
+                f"This will generate {total_combos * self.batch_count_spin.value()} images!\nContinue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
             
         gen_settings = {
             "sampler1_name": self.sampler1_combo.currentText(),
@@ -1526,7 +1926,7 @@ class MainWindow(QMainWindow):
             self.char_name_input.text(),
             base_prompt,
             self.neg_prompt_input.toPlainText(),
-            emotions,
+            self.custom_tags.copy(),  # Pass a copy of custom_tags
             self.ref_img_path.text(),
             self.batch_count_spin.value(),
             self.seed_input.text(),
@@ -1546,7 +1946,7 @@ class MainWindow(QMainWindow):
             self.status_bar.setText("Job added to running queue.")
 
     def handle_test_generate(self):
-        # Quick Generate with Happy emotion, single batch, no save
+        # Quick Generate with first tag combination, single batch, no save
         qual = self.quality_prompt_input.toPlainText().strip()
         subj = self.subject_prompt_input.toPlainText().strip()
         style = self.style_prompt_input.toPlainText().strip()
@@ -1554,8 +1954,15 @@ class MainWindow(QMainWindow):
         parts = [p for p in [qual, subj, style] if p]
         base_prompt = ", ".join(parts)
 
-        if "#emotion#" not in base_prompt:
-             return QMessageBox.warning(self, "Validation Error", "Combined Prompt must contain '#emotion#'.")
+        # Use first value of each tag for test
+        import re
+        used_tags = re.findall(r'\{\{(\w+)\}\}', base_prompt)
+        test_tags = {}
+        for tag in used_tags:
+            if tag in self.custom_tags and self.custom_tags[tag]:
+                test_tags[tag] = [self.custom_tags[tag][0]]  # Only first value
+            else:
+                test_tags[tag] = ["test"]
 
         gen_settings = {
             "sampler1_name": self.sampler1_combo.currentText(),
@@ -1581,7 +1988,7 @@ class MainWindow(QMainWindow):
             self.char_name_input.text(),
             base_prompt,
             self.neg_prompt_input.toPlainText(),
-            [("Test", "happy")], # Force happy emotion
+            test_tags,
             self.ref_img_path.text(),
             1, # Force batch 1
             "-1",
@@ -1593,6 +2000,81 @@ class MainWindow(QMainWindow):
         
         self.job_queue.append(job)
         self.refresh_queue_ui()
+        
+        if not hasattr(self, 'worker') or not self.worker.isRunning():
+            self.start_worker_thread()
+
+    def handle_quick_random_generate(self):
+        """Quick Generate with random tag values - for casual AI image generation"""
+        import random
+        
+        qual = self.quality_prompt_input.toPlainText().strip()
+        subj = self.subject_prompt_input.toPlainText().strip()
+        style = self.style_prompt_input.toPlainText().strip()
+        
+        parts = [p for p in [qual, subj, style] if p]
+        base_prompt = ", ".join(parts)
+
+        if not base_prompt:
+            QMessageBox.warning(self, "Empty", "Please enter a prompt first.")
+            return
+
+        # Find all tags and pick random value for each
+        import re
+        required_tags = re.findall(r'\{\{(\w+)\}\}', base_prompt)
+        optional_tags = re.findall(r'\{\{\?(\w+)\}\}', base_prompt)
+        conditional_tags = re.findall(r'\{\{\$if (\w+)(?:=|!=)?[^}]*\}\}', base_prompt)
+        
+        all_used_tags = list(dict.fromkeys(required_tags + optional_tags + conditional_tags))
+        
+        random_tags = {}
+        for tag in all_used_tags:
+            if tag in self.custom_tags and self.custom_tags[tag]:
+                # For optional tags, 50% chance of being empty
+                if tag in optional_tags and random.random() < 0.3:
+                    random_tags[tag] = [""]
+                else:
+                    random_tags[tag] = [random.choice(self.custom_tags[tag])]
+            else:
+                random_tags[tag] = [""]  # Empty for undefined tags
+
+        gen_settings = {
+            "sampler1_name": self.sampler1_combo.currentText(),
+            "scheduler1": self.scheduler1_combo.currentText(),
+            "sampler2_name": self.sampler2_combo.currentText(),
+            "scheduler2": self.scheduler2_combo.currentText(),
+            "upscale_factor": self.upscale_spin.value(),
+            "width": self.width_spin.value(),
+            "height": self.height_spin.value()
+        }
+        
+        ref_settings = {
+            "weight": self.ref_weight_spin.value(),
+            "weight_faceidv2": self.ref_faceidv2_spin.value(),
+            "weight_type": self.ref_type_combo.currentText(),
+            "combine_embeds": self.ref_combine_combo.currentText(),
+            "start_at": self.ref_start_spin.value(),
+            "end_at": self.ref_end_spin.value(),
+            "embeds_scaling": self.ref_scaling_combo.currentText()
+        }
+
+        job = JobQueueItem(
+            self.char_name_input.text() or "QuickGen",
+            base_prompt,
+            self.neg_prompt_input.toPlainText(),
+            random_tags,
+            self.ref_img_path.text(),
+            1,
+            "-1",  # Random seed
+            gen_settings,
+            self.ref_enabled_chk.isChecked(),
+            ref_settings,
+            is_test=True  # Don't save to gallery
+        )
+        
+        self.job_queue.append(job)
+        self.refresh_queue_ui()
+        self.status_bar.setText("🎲 Quick Random job queued!")
         
         if not hasattr(self, 'worker') or not self.worker.isRunning():
             self.start_worker_thread()
@@ -1729,11 +2211,17 @@ class MainWindow(QMainWindow):
         self.ref_img_path.clear()
         self.update_ref_preview(None)
         
-        # Reset Prompts
-        self.quality_prompt_input.setText("best quality, masterpiece, 8k, highres")
-        self.subject_prompt_input.setText("1girl, solo, #emotion#")
-        self.style_prompt_input.clear()
-        self.neg_prompt_input.clear()
+        # Reset Prompts with default preset
+        self.prompt_presets = [{
+            "name": "Default",
+            "quality_prompt": "best quality, masterpiece, 8k, highres",
+            "subject_prompt": "1girl, solo, {{emotion}}",
+            "style_prompt": "",
+            "neg_prompt": ""
+        }]
+        self.current_prompt_index = 0
+        self._refresh_prompt_preset_combo()
+        self._load_prompt_preset_to_ui(0)
         
         self.sampler1_combo.setCurrentText("dpmpp_3m_sde")
         self.scheduler1_combo.setCurrentText("simple")
@@ -1753,29 +2241,30 @@ class MainWindow(QMainWindow):
         self.ref_end_spin.setValue(1.0)
         self.ref_scaling_combo.setCurrentText("V only")
         
-        self.emotion_table.setRowCount(0)
+        # Reset custom tags with default emotion tag
+        self.custom_tags = {
+            "emotion": [["Happy", "smile"], ["Sad", "tears"]]
+        }
+        self._refresh_tag_list()
+        
         self.char_select_combo.setCurrentIndex(0)
-        self.add_emotion_row_data("Happy", "smile")
-        self.add_emotion_row_data("Sad", "tears")
 
     def save_character_profile(self):
         name = self.char_name_input.text().strip()
         if not name: return QMessageBox.warning(self, "Error", "Name required")
         
-        emotions = []
-        for r in range(self.emotion_table.rowCount()):
-            emotions.append((self.emotion_table.item(r,0).text(), self.emotion_table.item(r,1).text()))
+        # Save current prompt preset before saving profile
+        self._save_current_prompt_to_memory()
         
         data = {
             "name": name,
             "ref_image": self.ref_img_path.text(),
-            # Split Prompts
-            "quality_prompt": self.quality_prompt_input.toPlainText(),
-            "subject_prompt": self.subject_prompt_input.toPlainText(),
-            "style_prompt": self.style_prompt_input.toPlainText(),
-            "neg_prompt": self.neg_prompt_input.toPlainText(),
+            # Multi-prompt support
+            "prompts": self.prompt_presets,
+            "active_prompt_index": self.current_prompt_index,
+            # Custom tags support
+            "custom_tags": self.custom_tags,
             "batch_count": self.batch_count_spin.value(),
-            "emotions": emotions,
             "sampler1_name": self.sampler1_combo.currentText(),
             "scheduler1": self.scheduler1_combo.currentText(),
             "sampler2_name": self.sampler2_combo.currentText(),
@@ -1811,17 +2300,37 @@ class MainWindow(QMainWindow):
         self.ref_img_path.setText(data.get("ref_image", ""))
         self.update_ref_preview(data.get("ref_image", ""))
         
-        # Load Prompts (Backward Compatibility)
-        if "base_prompt" in data and "subject_prompt" not in data:
-            self.subject_prompt_input.setText(data.get("base_prompt", ""))
-            self.quality_prompt_input.setText("best quality, masterpiece, 8k") # Default
-            self.style_prompt_input.clear()
+        # Load Prompts with backward compatibility
+        if "prompts" in data:
+            # New format: multiple presets
+            self.prompt_presets = data.get("prompts", [])
+            self.current_prompt_index = data.get("active_prompt_index", 0)
+            if self.current_prompt_index >= len(self.prompt_presets):
+                self.current_prompt_index = 0
         else:
-            self.quality_prompt_input.setText(data.get("quality_prompt", ""))
-            self.subject_prompt_input.setText(data.get("subject_prompt", ""))
-            self.style_prompt_input.setText(data.get("style_prompt", ""))
+            # Old format: migrate to new format
+            if "base_prompt" in data and "subject_prompt" not in data:
+                # Very old format
+                quality = "best quality, masterpiece, 8k"
+                subject = data.get("base_prompt", "")
+                style = ""
+            else:
+                quality = data.get("quality_prompt", "")
+                subject = data.get("subject_prompt", "")
+                style = data.get("style_prompt", "")
             
-        self.neg_prompt_input.setText(data.get("neg_prompt", ""))
+            self.prompt_presets = [{
+                "name": "Default",
+                "quality_prompt": quality,
+                "subject_prompt": subject,
+                "style_prompt": style,
+                "neg_prompt": data.get("neg_prompt", "")
+            }]
+            self.current_prompt_index = 0
+        
+        self._refresh_prompt_preset_combo()
+        self._load_prompt_preset_to_ui(self.current_prompt_index)
+        
         self.batch_count_spin.setValue(data.get("batch_count", 1))
         
         self.sampler1_combo.setCurrentText(data.get("sampler1_name", "dpmpp_3m_sde"))
@@ -1842,8 +2351,392 @@ class MainWindow(QMainWindow):
         self.ref_end_spin.setValue(data.get("ref_end", 1.0))
         self.ref_scaling_combo.setCurrentText(data.get("ref_scaling", "V only"))
         
-        self.emotion_table.setRowCount(0)
-        for e in data.get("emotions", []): self.add_emotion_row_data(e[0], e[1])
+        # Load Custom Tags with backward compatibility
+        if "custom_tags" in data:
+            self.custom_tags = data.get("custom_tags", {})
+        elif "emotions" in data:
+            # Migrate from old emotions format
+            emotions = data.get("emotions", [])
+            if emotions:
+                self.custom_tags = {
+                    "emotion": [e[1] for e in emotions]  # Use the prompt modifier as value
+                }
+            else:
+                self.custom_tags = {"emotion": ["smile"]}
+        else:
+            self.custom_tags = {"emotion": ["smile"]}
+        
+        self._refresh_tag_list()
+
+    # --- Prompt Preset Management ---
+    def _refresh_prompt_preset_combo(self):
+        """Refresh the prompt preset combobox with current presets"""
+        self.prompt_preset_combo.blockSignals(True)
+        self.prompt_preset_combo.clear()
+        for preset in self.prompt_presets:
+            self.prompt_preset_combo.addItem(preset.get("name", "Unnamed"))
+        if 0 <= self.current_prompt_index < self.prompt_preset_combo.count():
+            self.prompt_preset_combo.setCurrentIndex(self.current_prompt_index)
+        self.prompt_preset_combo.blockSignals(False)
+
+    def _load_prompt_preset_to_ui(self, index):
+        """Load a prompt preset from memory to UI inputs"""
+        if not self.prompt_presets or index < 0 or index >= len(self.prompt_presets):
+            return
+        preset = self.prompt_presets[index]
+        self.quality_prompt_input.setText(preset.get("quality_prompt", ""))
+        self.subject_prompt_input.setText(preset.get("subject_prompt", ""))
+        self.style_prompt_input.setText(preset.get("style_prompt", ""))
+        self.neg_prompt_input.setText(preset.get("neg_prompt", ""))
+
+    def _save_current_prompt_to_memory(self):
+        """Save current UI prompt values to the current preset in memory"""
+        if not self.prompt_presets or self.current_prompt_index < 0 or self.current_prompt_index >= len(self.prompt_presets):
+            return
+        self.prompt_presets[self.current_prompt_index]["quality_prompt"] = self.quality_prompt_input.toPlainText()
+        self.prompt_presets[self.current_prompt_index]["subject_prompt"] = self.subject_prompt_input.toPlainText()
+        self.prompt_presets[self.current_prompt_index]["style_prompt"] = self.style_prompt_input.toPlainText()
+        self.prompt_presets[self.current_prompt_index]["neg_prompt"] = self.neg_prompt_input.toPlainText()
+
+    def on_prompt_preset_changed(self, index):
+        """Handle prompt preset combobox selection change"""
+        if index < 0 or index >= len(self.prompt_presets):
+            return
+        # Save current before switching
+        self._save_current_prompt_to_memory()
+        # Load new preset
+        self.current_prompt_index = index
+        self._load_prompt_preset_to_ui(index)
+
+    def add_new_prompt_preset(self):
+        """Create a new prompt preset from current content"""
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "New Prompt Preset", "Enter preset name:")
+        if not ok or not name.strip():
+            return
+        
+        # Create new preset with current values
+        new_preset = {
+            "name": name.strip(),
+            "quality_prompt": self.quality_prompt_input.toPlainText(),
+            "subject_prompt": self.subject_prompt_input.toPlainText(),
+            "style_prompt": self.style_prompt_input.toPlainText(),
+            "neg_prompt": self.neg_prompt_input.toPlainText()
+        }
+        
+        self.prompt_presets.append(new_preset)
+        self.current_prompt_index = len(self.prompt_presets) - 1
+        self._refresh_prompt_preset_combo()
+
+    def preview_tag_combinations(self):
+        """Preview all prompt combinations that will be generated"""
+        # Combine prompts
+        qual = self.quality_prompt_input.toPlainText().strip()
+        subj = self.subject_prompt_input.toPlainText().strip()
+        style = self.style_prompt_input.toPlainText().strip()
+        
+        parts = [p for p in [qual, subj, style] if p]
+        base_prompt = ", ".join(parts)
+        
+        if not base_prompt:
+            QMessageBox.warning(self, "Empty", "Please enter a prompt first.")
+            return
+        
+        # Use TagParser
+        parser = TagParser(self.custom_tags)
+        all_used_tags = parser.get_all_unique_tags(base_prompt)
+        
+        if not all_used_tags:
+            # No tags found - just show the cleaned prompt
+            cleaned = parser._cleanup_prompt(base_prompt)
+            QMessageBox.information(self, "No Tags", f"No tags found in prompt.\nOutput:\n\n{cleaned}")
+            return
+        
+        all_combinations = parser.generate_combinations(base_prompt)
+        
+        # Generate preview for each combination (limit to 20)
+        previews = []
+        for i, tag_values in enumerate(all_combinations[:20]):
+            final_prompt = parser.process_prompt(base_prompt, tag_values)
+            
+            # Format tag values for display
+            tag_info = " | ".join([f"{k}={v or '(empty)'}" for k, v in tag_values.items()])
+            previews.append(f"[{i+1}] {tag_info}\n    → {final_prompt}\n")
+        
+        # Build result message
+        total = len(all_combinations)
+        msg = f"📊 Total combinations: {total}\n\n"
+        msg += "\n".join(previews)
+        
+        if total > 20:
+            msg += f"\n... and {total - 20} more combinations"
+        
+        # Show in dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Preview Combinations")
+        dialog.resize(700, 500)
+        layout = QVBoxLayout(dialog)
+        
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setPlainText(msg)
+        text_edit.setStyleSheet("font-family: Consolas, monospace; font-size: 12px;")
+        layout.addWidget(text_edit)
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.close)
+        layout.addWidget(close_btn)
+        
+        dialog.exec()
+
+    def save_current_prompt_preset(self):
+        """Save changes to current prompt preset (to memory only - full save needs Save Profile)"""
+        self._save_current_prompt_to_memory()
+        QMessageBox.information(self, "Saved", "Prompt preset updated in memory.\nDon't forget to Save Profile to persist changes!")
+
+    def rename_current_prompt_preset(self):
+        """Rename the current prompt preset"""
+        if not self.prompt_presets or self.current_prompt_index < 0:
+            return
+        
+        from PyQt6.QtWidgets import QInputDialog
+        current_name = self.prompt_presets[self.current_prompt_index].get("name", "")
+        name, ok = QInputDialog.getText(self, "Rename Preset", "Enter new name:", text=current_name)
+        if not ok or not name.strip():
+            return
+        
+        self.prompt_presets[self.current_prompt_index]["name"] = name.strip()
+        self._refresh_prompt_preset_combo()
+
+    def delete_current_prompt_preset(self):
+        """Delete the current prompt preset"""
+        if len(self.prompt_presets) <= 1:
+            QMessageBox.warning(self, "Cannot Delete", "You must have at least one prompt preset.")
+            return
+        
+        reply = QMessageBox.question(
+            self, "Delete Preset", 
+            f"Are you sure you want to delete '{self.prompt_presets[self.current_prompt_index].get('name', 'this preset')}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        del self.prompt_presets[self.current_prompt_index]
+        self.current_prompt_index = max(0, self.current_prompt_index - 1)
+        self._refresh_prompt_preset_combo()
+        self._load_prompt_preset_to_ui(self.current_prompt_index)
+
+    # --- Custom Tag Management ---
+    def _refresh_tag_list(self):
+        """Refresh the tag list widget from custom_tags"""
+        self.tag_list.blockSignals(True)
+        self.tag_list.clear()
+        for tag_name in sorted(self.custom_tags.keys()):
+            self.tag_list.addItem(tag_name)
+        self.tag_list.blockSignals(False)
+        
+        # Clear values if no tags
+        if not self.custom_tags:
+            self.tag_values_list.clear()
+            self.tag_values_label.setText("📋 Values for: (select a tag)")
+
+    def _refresh_tag_values_list(self, tag_name):
+        """Refresh the tag values table for a specific tag"""
+        self.tag_values_table.blockSignals(True)
+        self.tag_values_table.setRowCount(0)
+        
+        if tag_name and tag_name in self.custom_tags:
+            values = self.custom_tags[tag_name]
+            self.tag_values_table.setRowCount(len(values))
+            
+            for row, item in enumerate(values):
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    name_item = QTableWidgetItem(str(item[0]))
+                    prompt_item = QTableWidgetItem(str(item[1]))
+                else:
+                    name_item = QTableWidgetItem(str(item))
+                    prompt_item = QTableWidgetItem(str(item))
+                
+                self.tag_values_table.setItem(row, 0, name_item)
+                self.tag_values_table.setItem(row, 1, prompt_item)
+            
+            self.tag_values_label.setText(f"📋 Values for: {{{{{tag_name}}}}}")
+        else:
+            self.tag_values_label.setText("📋 Values for: (select a tag)")
+        
+        self.tag_values_table.blockSignals(False)
+
+    def on_tag_selected(self, row):
+        """Handle tag selection change"""
+        if row < 0:
+            self.tag_values_table.setRowCount(0)
+            return
+        tag_name = self.tag_list.item(row).text()
+        self._refresh_tag_values_list(tag_name)
+
+    def add_new_tag(self):
+        """Add a new custom tag"""
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "New Tag", "Enter tag name (no spaces, lowercase recommended):")
+        if not ok or not name.strip():
+            return
+        
+        # Sanitize tag name (no spaces, lowercase)
+        tag_name = name.strip().lower().replace(" ", "_")
+        
+        if tag_name in self.custom_tags:
+            QMessageBox.warning(self, "Duplicate", f"Tag '{tag_name}' already exists.")
+            return
+        
+        self.custom_tags[tag_name] = []
+        self._refresh_tag_list()
+        
+        # Select the new tag
+        for i in range(self.tag_list.count()):
+            if self.tag_list.item(i).text() == tag_name:
+                self.tag_list.setCurrentRow(i)
+                break
+
+    def rename_current_tag(self):
+        """Rename the currently selected tag"""
+        current_item = self.tag_list.currentItem()
+        if not current_item:
+            return
+        
+        old_name = current_item.text()
+        
+        from PyQt6.QtWidgets import QInputDialog
+        new_name, ok = QInputDialog.getText(self, "Rename Tag", "Enter new tag name:", text=old_name)
+        if not ok or not new_name.strip():
+            return
+        
+        new_name = new_name.strip().lower().replace(" ", "_")
+        
+        if new_name == old_name:
+            return
+        
+        if new_name in self.custom_tags:
+            QMessageBox.warning(self, "Duplicate", f"Tag '{new_name}' already exists.")
+            return
+        
+        # Rename in dict
+        self.custom_tags[new_name] = self.custom_tags.pop(old_name)
+        self._refresh_tag_list()
+        
+        # Re-select
+        for i in range(self.tag_list.count()):
+            if self.tag_list.item(i).text() == new_name:
+                self.tag_list.setCurrentRow(i)
+                break
+
+    def delete_current_tag(self):
+        """Delete the currently selected tag"""
+        current_item = self.tag_list.currentItem()
+        if not current_item:
+            return
+        
+        tag_name = current_item.text()
+        reply = QMessageBox.question(
+            self, "Delete Tag",
+            f"Are you sure you want to delete tag '{tag_name}' and all its values?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        del self.custom_tags[tag_name]
+        self._refresh_tag_list()
+
+    def add_tag_value(self):
+        """Add a value to the currently selected tag"""
+        current_item = self.tag_list.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "No Tag Selected", "Please select a tag first.")
+            return
+        
+        tag_name = current_item.text()
+        
+        # Add empty row for user to fill in
+        self.custom_tags[tag_name].append(["New", "new_value"])
+        self._refresh_tag_values_list(tag_name)
+        
+        # Select the new row for editing
+        last_row = self.tag_values_table.rowCount() - 1
+        self.tag_values_table.setCurrentCell(last_row, 0)
+        self.tag_values_table.editItem(self.tag_values_table.item(last_row, 0))
+
+    def remove_tag_value(self):
+        """Remove the selected value from the current tag"""
+        current_tag_item = self.tag_list.currentItem()
+        current_row = self.tag_values_table.currentRow()
+        
+        if not current_tag_item or current_row < 0:
+            return
+        
+        tag_name = current_tag_item.text()
+        
+        if current_row < len(self.custom_tags[tag_name]):
+            del self.custom_tags[tag_name][current_row]
+            self._refresh_tag_values_list(tag_name)
+
+    def on_tag_value_cell_changed(self, row, col):
+        """Handle cell edit in tag values table - save changes to data"""
+        current_tag_item = self.tag_list.currentItem()
+        if not current_tag_item:
+            return
+        
+        tag_name = current_tag_item.text()
+        if row >= len(self.custom_tags[tag_name]):
+            return
+        
+        item = self.tag_values_table.item(row, col)
+        if item:
+            self.custom_tags[tag_name][row][col] = item.text()
+
+    def import_tags(self):
+        """Import tags from JSON file"""
+        f, _ = QFileDialog.getOpenFileName(self, "Import Tags", "", "JSON Files (*.json)")
+        if not f:
+            return
+        
+        try:
+            with open(f, "r", encoding="utf-8") as file:
+                data = json.load(file)
+            
+            # Handle both old emotions format and new tags format
+            if isinstance(data, list):
+                # Old emotions format: [["Happy", "smile"], ...]
+                if data and isinstance(data[0], list):
+                    self.custom_tags["emotion"] = [item[1] for item in data]
+                else:
+                    # List of strings
+                    self.custom_tags["imported"] = data
+            elif isinstance(data, dict):
+                # New tags format
+                self.custom_tags.update(data)
+            
+            self._refresh_tag_list()
+            QMessageBox.information(self, "Success", "Tags imported successfully!")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to import: {e}")
+
+    def export_tags(self):
+        """Export tags to JSON file"""
+        if not self.custom_tags:
+            QMessageBox.warning(self, "Warning", "No tags to export!")
+            return
+        
+        f, _ = QFileDialog.getSaveFileName(self, "Export Tags", "tags.json", "JSON Files (*.json)")
+        if not f:
+            return
+        
+        try:
+            with open(f, "w", encoding="utf-8") as file:
+                json.dump(self.custom_tags, file, indent=4, ensure_ascii=False)
+            QMessageBox.information(self, "Success", "Tags exported successfully!")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to export: {e}")
 
     def browse_ref_image(self):
         f, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.webp)")

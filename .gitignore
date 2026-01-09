@@ -4,3 +4,4 @@ configs/**
 __pycache__/**
 python_embed/**
 favorites.json
+danbooru_tags.csv
