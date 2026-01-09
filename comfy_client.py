@@ -53,7 +53,7 @@ class ComfyClient:
         """
         Listens to the websocket for the execution completion of the specific prompt_id.
         Returns the filename of the generated image(s).
-        callback: function(type, data) where type is "progress" or "preview"
+        callback: function(type, data) where type is "progress", "preview", or "status"
         """
         if not self.ws:
             self.connect()
@@ -62,14 +62,32 @@ class ComfyClient:
             out = self.ws.recv()
             if isinstance(out, str):
                 message = json.loads(out)
-                if message['type'] == 'executing':
-                    data = message['data']
-                    if data['node'] is None and data['prompt_id'] == prompt_id:
+                msg_type = message.get('type', '')
+                data = message.get('data', {})
+                
+                if msg_type == 'executing':
+                    if data.get('node') is None and data.get('prompt_id') == prompt_id:
                         # Execution finished for this prompt
                         break
-                elif message['type'] == 'progress':
-                    data = message['data']
+                elif msg_type == 'execution_success':
+                    # Alternative completion signal (newer ComfyUI versions)
+                    if data.get('prompt_id') == prompt_id:
+                        break
+                elif msg_type == 'execution_error':
+                    # Error occurred during execution
+                    if data.get('prompt_id') == prompt_id:
+                        if callback: 
+                            callback("status", {"error": data.get('exception_message', 'Unknown error')})
+                        break
+                elif msg_type == 'execution_cached':
+                    # Workflow was fully cached, skip waiting for execution
+                    if data.get('prompt_id') == prompt_id:
+                        break
+                elif msg_type == 'progress':
                     if callback: callback("progress", data)
+                elif msg_type == 'status':
+                    # Status updates (queue info, etc.)
+                    if callback: callback("status", data)
             elif isinstance(out, bytes):
                 # Binary data is usually a preview image
                 # Offset 8 bytes are usually header (type + data), but standard ComfyUI preview is just JPEG bytes

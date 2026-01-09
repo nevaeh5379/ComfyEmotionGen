@@ -21,6 +21,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # 스크립트 레벨 변수
+$AppRoot = Get-Location
 $script:pythonExe = $null
 $script:pipExe = $null
 
@@ -57,6 +58,55 @@ try {
     exit 1
 }
 
+# Python Embedded 다운로드 및 설치 (루트 위치)
+$pythonEmbedFolder = "python_embed"
+$pythonEmbedPath = Join-Path $AppRoot $pythonEmbedFolder
+$script:pythonExe = Join-Path $pythonEmbedPath "python.exe"
+$script:pipExe = Join-Path $pythonEmbedPath "Scripts\pip.exe"
+
+if (-not (Test-Path $script:pythonExe)) {
+    Write-Step "Python $PythonVersion Embedded 다운로드 중... ($pythonEmbedFolder)"
+    
+    $pythonZipUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
+    $pythonZipPath = Join-Path $env:TEMP "python-embed.zip"
+    
+    curl.exe -L -# -o $pythonZipPath $pythonZipUrl
+    Write-Success "Python Embedded 다운로드 완료"
+    
+    Write-Step "Python Embedded 압축 해제 중..."
+    if (Test-Path $pythonEmbedPath) {
+        Remove-Item $pythonEmbedPath -Recurse -Force
+    }
+    Expand-Archive -Path $pythonZipPath -DestinationPath $pythonEmbedPath
+    Remove-Item $pythonZipPath
+    Write-Success "Python Embedded 설치 완료"
+    
+    # pip 설치
+    Write-Step "pip 설치 중..."
+    $getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
+    $getPipPath = Join-Path $pythonEmbedPath "get-pip.py"
+    curl.exe -L -# -o $getPipPath $getPipUrl
+    
+    # python*._pth 파일 수정하여 import 활성화
+    $pthFile = Get-ChildItem -Path $pythonEmbedPath -Filter "python*._pth" | Select-Object -First 1
+    if ($pthFile) {
+        $pthContent = Get-Content $pthFile.FullName
+        $pthContent = $pthContent -replace '#import site', 'import site'
+        # 현재 디렉토리, 상위 디렉토리, Lib\site-packages 추가
+        $pthContent += "`n."
+        $pthContent += "`n.."
+        $pthContent += "`nLib\site-packages"
+        Set-Content -Path $pthFile.FullName -Value $pthContent
+        Write-Success "Python path 설정 완료"
+    }
+    
+    & $script:pythonExe $getPipPath
+    Remove-Item $getPipPath
+    Write-Success "pip 설치 완료"
+} else {
+    Write-Warning "Python Embedded가 이미 설치되어 있습니다: $pythonEmbedFolder"
+}
+
 # ComfyUI 클론
 Write-Step "ComfyUI 클론 중..."
 if (Test-Path $InstallPath) {
@@ -74,54 +124,6 @@ if (Test-Path $InstallPath) {
 Push-Location $InstallPath
 
 try {
-    # Python Embedded 다운로드 및 설치
-    $pythonEmbedPath = "python_embeded"
-    $script:pythonExe = Join-Path (Get-Location) "$pythonEmbedPath\python.exe"
-    $script:pipExe = Join-Path (Get-Location) "$pythonEmbedPath\Scripts\pip.exe"
-    
-    if (-not (Test-Path $script:pythonExe)) {
-        Write-Step "Python $PythonVersion Embedded 다운로드 중..."
-        
-        $pythonZipUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
-        $pythonZipPath = Join-Path $env:TEMP "python-embed.zip"
-        
-        curl.exe -L -# -o $pythonZipPath $pythonZipUrl
-        Write-Success "Python Embedded 다운로드 완료"
-        
-        Write-Step "Python Embedded 압축 해제 중..."
-        if (Test-Path $pythonEmbedPath) {
-            Remove-Item $pythonEmbedPath -Recurse -Force
-        }
-        Expand-Archive -Path $pythonZipPath -DestinationPath $pythonEmbedPath
-        Remove-Item $pythonZipPath
-        Write-Success "Python Embedded 설치 완료"
-        
-        # pip 설치
-        Write-Step "pip 설치 중..."
-        $getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
-        $getPipPath = Join-Path $pythonEmbedPath "get-pip.py"
-        curl.exe -L -# -o $getPipPath $getPipUrl
-        
-        # python*._pth 파일 수정하여 import 활성화
-        $pthFile = Get-ChildItem -Path $pythonEmbedPath -Filter "python*._pth" | Select-Object -First 1
-        if ($pthFile) {
-            $pthContent = Get-Content $pthFile.FullName
-            $pthContent = $pthContent -replace '#import site', 'import site'
-            # 현재 디렉토리, 상위 디렉토리, Lib\site-packages 추가
-            $pthContent += "`n."
-            $pthContent += "`n.."
-            $pthContent += "`nLib\site-packages"
-            Set-Content -Path $pthFile.FullName -Value $pthContent
-            Write-Success "Python path 설정 완료"
-        }
-        
-        & $script:pythonExe $getPipPath
-        Remove-Item $getPipPath
-        Write-Success "pip 설치 완료"
-    } else {
-        Write-Warning "Python Embedded가 이미 설치되어 있습니다"
-    }
-
     # pip 업그레이드
     Write-Step "pip 업그레이드 중..."
     & $script:pythonExe -m pip install --upgrade pip
@@ -282,40 +284,34 @@ try {
         Write-Warning "모델 다운로드 건너뜀 (-SkipModels 옵션)"
     }
 
-    # 실행 배치 파일 생성
-    Write-Step "실행 스크립트 생성 중..."
-    $runBatContent = "@echo off`r`ncd /d %~dp0`r`npython_embeded\python.exe main.py --preview-method auto %*`r`npause"
-    Set-Content -Path "run_comfyui.bat" -Value $runBatContent -Encoding ASCII
-    Write-Success "run_comfyui.bat 생성 완료 (실시간 프리뷰 활성화)"
-
-    # 설치 완료 메시지
-    Write-Host ""
-    Write-Host "================================================================" -ForegroundColor Green
-    Write-Host "                    [+] 설치 완료!                             " -ForegroundColor Green
-    Write-Host "================================================================" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "설치된 항목:" -ForegroundColor White
-    Write-Host "  - ComfyUI" -ForegroundColor White
-    Write-Host "  - Python $PythonVersion Embedded (python_embeded 폴더)" -ForegroundColor White
-    Write-Host "  - PyTorch (CUDA 12.6)" -ForegroundColor White
-    Write-Host "  - triton-windows" -ForegroundColor White
-    Write-Host "  - SageAttention-for-windows (자동 설치 시도)" -ForegroundColor White
-    Write-Host "  - ComfyUI_IPAdapter_plus" -ForegroundColor White
-    Write-Host "  - cg-use-everywhere" -ForegroundColor White
-    Write-Host "  - ComfyUI-KJNodes" -ForegroundColor White
-    Write-Host ""
-    Write-Host "다운로드된 모델:" -ForegroundColor White
-    Write-Host "  - models/ipadapter/ip-adapter_sdxl.safetensors" -ForegroundColor White
-    Write-Host "  - models/clip_vision/CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors" -ForegroundColor White
-    Write-Host "  - models/upscale_models/RealESRGAN_x4plus_anime_6B.pth" -ForegroundColor White
-    Write-Host "  - models/checkpoints/sdxl_model.safetensors" -ForegroundColor White
-    Write-Host ""
-    Write-Host "실행 방법:" -ForegroundColor Cyan
-    Write-Host "  방법 1: run_comfyui.bat 더블클릭" -ForegroundColor White
-    Write-Host "  방법 2: cd $InstallPath; python_embeded\python.exe main.py" -ForegroundColor White
-    Write-Host ""
-    Write-Host "웹 UI: http://127.0.0.1:8188" -ForegroundColor Yellow
-
 } finally {
     Pop-Location
 }
+
+# 실행 배치 파일 생성 (루트 위치)
+Write-Step "실행 스크립트 생성 중..."
+$comfyDirName = Split-Path $InstallPath -Leaf
+$runBatContent = "@echo off`r`ncd /d %~dp0$comfyDirName`r`n..\$pythonEmbedFolder\python.exe main.py --preview-method auto %*`r`npause"
+$runBatPath = Join-Path $AppRoot "run_comfyui.bat"
+Set-Content -Path $runBatPath -Value $runBatContent -Encoding ASCII
+Write-Success "run_comfyui.bat 생성 완료 (위치: $runBatPath)"
+
+# 설치 완료 메시지
+Write-Host ""
+Write-Host "================================================================" -ForegroundColor Green
+Write-Host "                    [+] 설치 완료!                             " -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "설치된 항목:" -ForegroundColor White
+Write-Host "  - ComfyUI (폴더: $InstallPath)" -ForegroundColor White
+Write-Host "  - Python $PythonVersion Embedded (폴더: $pythonEmbedFolder)" -ForegroundColor White
+Write-Host "  - PyTorch (CUDA 12.6)" -ForegroundColor White
+Write-Host "  - triton-windows" -ForegroundColor White
+Write-Host "  - SageAttention-for-windows" -ForegroundColor White
+Write-Host "  - 필수 커스텀 노드 (IPAdapter, KJNodes 등)" -ForegroundColor White
+Write-Host ""
+Write-Host "실행 방법:" -ForegroundColor Cyan
+Write-Host "  방법 1: run_comfyui.bat 더블클릭 (루트 폴더)" -ForegroundColor White
+Write-Host "  방법 2: $pythonEmbedFolder\python.exe $comfyDirName\main.py" -ForegroundColor White
+Write-Host ""
+Write-Host "웹 UI: http://127.0.0.1:8188" -ForegroundColor Yellow
