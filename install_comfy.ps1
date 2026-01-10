@@ -305,7 +305,7 @@ Write-Host ""
 Write-Host "설치된 항목:" -ForegroundColor White
 Write-Host "  - ComfyUI (폴더: $InstallPath)" -ForegroundColor White
 Write-Host "  - Python $PythonVersion Embedded (폴더: $pythonEmbedFolder)" -ForegroundColor White
-Write-Host "  - PyTorch (CUDA 12.6)" -ForegroundColor White
+Write-Host "  - PyTorch (CUDA 13.0)" -ForegroundColor White
 Write-Host "  - triton-windows" -ForegroundColor White
 Write-Host "  - SageAttention-for-windows" -ForegroundColor White
 Write-Host "  - 필수 커스텀 노드 (IPAdapter, KJNodes 등)" -ForegroundColor White

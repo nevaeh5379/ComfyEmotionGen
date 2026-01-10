@@ -568,14 +568,14 @@ class GalleryTab(QWidget):
         fh.addWidget(QLabel("Character:"))
         self.gallery_char_combo = QComboBox()
         self.gallery_char_combo.setFixedWidth(200)
-        self.gallery_char_combo.currentTextChanged.connect(self.reset_gallery_to_root)
+        self.gallery_char_combo.currentTextChanged.connect(self.on_character_changed)
         fh.addWidget(self.gallery_char_combo)
         
         fh.addSpacing(20)
         fh.addWidget(QLabel("Group By:"))
         self.gallery_group_combo = QComboBox()
-        self.gallery_group_combo.addItems(["Emotion", "Seed"])
-        self.gallery_group_combo.setFixedWidth(120)
+        self.gallery_group_combo.addItems(["Folder", "Seed"])  # Default options, will be updated dynamically
+        self.gallery_group_combo.setFixedWidth(150)
         self.gallery_group_combo.currentTextChanged.connect(self.reset_gallery_to_root)
         fh.addWidget(self.gallery_group_combo)
         
@@ -703,7 +703,7 @@ class GalleryTab(QWidget):
     def scan_output_folder(self):
         if not os.path.exists(self.base_output_dir): return
         
-        chars = [d for d in os.listdir(self.base_output_dir) if os.path.isdir(os.path.join(self.base_output_dir, d))]
+        chars = [d for d in os.listdir(self.base_output_dir) if os.path.isdir(os.path.join(self.base_output_dir, d)) and not d.startswith('.')]
         chars.sort()
         
         curr = self.gallery_char_combo.currentText()
@@ -713,6 +713,56 @@ class GalleryTab(QWidget):
         if curr in chars: self.gallery_char_combo.setCurrentText(curr)
         elif chars: self.gallery_char_combo.setCurrentIndex(0)
         self.gallery_char_combo.blockSignals(False)
+        
+        # Trigger character change to update group options
+        self.on_character_changed()
+
+    def on_character_changed(self):
+        """Handle character selection change - detect available tags and update Group By options"""
+        char = self.gallery_char_combo.currentText()
+        if not char:
+            self.reset_gallery_to_root()
+            return
+        
+        path = os.path.join(self.base_output_dir, char)
+        if not os.path.exists(path):
+            self.reset_gallery_to_root()
+            return
+        
+        # Scan files to detect available tags from filenames
+        # Format: character__tag1-value1_tag2-value2__Seed12345__1.png
+        detected_tags = set()
+        detected_tags.add("Folder")  # Always available
+        detected_tags.add("Seed")     # Always available
+        
+        for r, _, fs in os.walk(path):
+            for f in fs:
+                if not f.endswith((".png", ".jpg", ".jpeg", ".webp")):
+                    continue
+                    
+                # Try to parse tags from filename
+                # Expected format: char__tag-val_tag-val__Seed__num.png
+                parts = f.split("__")
+                if len(parts) >= 3:
+                    # Middle parts contain tag-value pairs
+                    for part in parts[1:-2]:  # Skip first (char) and last two (Seed, num)
+                        tag_pairs = part.split("_")
+                        for pair in tag_pairs:
+                            if "-" in pair:
+                                tag_name = pair.split("-")[0]
+                                if tag_name:
+                                    detected_tags.add(tag_name)
+        
+        # Update Group By combo
+        current_group = self.gallery_group_combo.currentText()
+        self.gallery_group_combo.blockSignals(True)
+        self.gallery_group_combo.clear()
+        sorted_tags = ["Folder", "Seed"] + sorted([t for t in detected_tags if t not in ["Folder", "Seed"]])
+        self.gallery_group_combo.addItems(sorted_tags)
+        if current_group in sorted_tags:
+            self.gallery_group_combo.setCurrentText(current_group)
+        self.gallery_group_combo.blockSignals(False)
+        
         self.reset_gallery_to_root()
 
     def get_folder_icon(self, preview_images=None):
@@ -788,16 +838,63 @@ class GalleryTab(QWidget):
         all_images = self.gallery_cache.get_images(char)
         if all_images is None:
             all_images = []
-            for r, _, fs in os.walk(path):
+            for r, dirs, fs in os.walk(path):
+                # Skip hidden directories (starting with .)
+                dirs[:] = [d for d in dirs if not d.startswith('.')]
+                
+                # Skip hidden folder if current folder starts with .
+                if os.path.basename(r).startswith('.'):
+                    continue
+                    
                 for f in fs:
-                    if f.startswith("reference") or not f.endswith((".png",".jpg", ".jpeg", ".webp")):
+                    # Skip hidden files, reference files, and non-image files
+                    if f.startswith(".") or f.startswith("reference") or not f.endswith((".png",".jpg", ".jpeg", ".webp")):
                         continue
                     
+                    # Parse seed from filename
                     m = re.search(r"(?:Seed|_s)(\d+)", f)
                     seed = m.group(1) if m else "Unknown"
                     
-                    emotion = os.path.basename(r)
-                    all_images.append({"path": os.path.join(r, f), "seed": seed, "emotion": emotion})
+                    # Parse tags from filename: char__tag1-val1_tag2-val2__Seed12345__num.png
+                    # Parts: [char, tag-pairs, SeedNNN, num.png]
+                    tags = {"folder": os.path.basename(r)}  # Default to folder
+                    parts = f.split("__")
+                    
+                    # Debug first few files
+                    if not hasattr(self, '_debug_count'):
+                        self._debug_count = 0
+                    if self._debug_count < 5:
+                        print(f"DEBUG GALLERY: filename={f}, parts={parts}")
+                        self._debug_count += 1
+                    
+                    # New format: char__tag-val_tag-val__SeedXXX__N.png (4 parts)
+                    # Or: char__tag-val__SeedXXX__N.png (4 parts but single tag section)
+                    if len(parts) >= 4:
+                        # Parts[1] through parts[-2] are tag sections (excluding char and Seed__num)
+                        # But actually: parts[-2] is SeedXXX and parts[-1] is N.png
+                        # So tag sections are parts[1:-2]
+                        tag_section = "__".join(parts[1:-2]) if len(parts) > 4 else parts[1]
+                        tag_pairs = tag_section.split("_")
+                        for pair in tag_pairs:
+                            if "-" in pair:
+                                split_idx = pair.index("-")
+                                tag_name = pair[:split_idx].lower()
+                                tag_value = pair[split_idx+1:]
+                                if tag_name and tag_value:
+                                    tags[tag_name] = tag_value
+                    
+                    # Fallback for old format (use folder as emotion)
+                    if len([k for k in tags.keys() if k != "folder"]) == 0:
+                        tags["emotion"] = os.path.basename(r)
+                    
+                    all_images.append({
+                        "path": os.path.join(r, f), 
+                        "seed": seed, 
+                        "tags": tags,
+                        "folder": os.path.basename(r),
+                        # Keep emotion for backward compatibility
+                        "emotion": tags.get("emotion", os.path.basename(r))
+                    })
             
             self.gallery_cache.set_images(char, all_images)
 
@@ -812,7 +909,20 @@ class GalleryTab(QWidget):
             group_images = {} 
 
             for img in all_images:
-                val = img["emotion"] if group_by == "Emotion" else f"Seed {img['seed']}"
+                # Determine group value based on group_by setting
+                if group_by == "Folder":
+                    val = img.get("folder", os.path.basename(os.path.dirname(img["path"])))
+                elif group_by == "Seed":
+                    val = f"Seed {img['seed']}"
+                else:
+                    # Dynamic tag - look in tags dict
+                    tags = img.get("tags", {})
+                    tag_key = group_by.lower()
+                    if tag_key in tags:
+                        val = tags[tag_key]
+                    else:
+                        val = "(No Tag)"  # Show clearly when tag is missing
+                
                 groups.add(val)
                 if val not in group_images: group_images[val] = []
                 if len(group_images[val]) < 3:
@@ -824,23 +934,8 @@ class GalleryTab(QWidget):
             sorted_groups = sorted(list(groups), key=natural_sort_key)
             
             for g in sorted_groups:
-                # For folder, prompt said "copy folder as folder".
-                # We need to find the real directory path for this "group".
-                # If grouping by Emotion, the path is .../Character/Emotion
-                # If grouping by Seed, images are scattered, so we might not have a single folder to copy.
-                # But wait, user said "Folder (copy folder as folder)".
-                # If "Emotion" group, the items are in `.../Character/Emotion`.
-                # If "Seed" group, files share seed but might be in different emotion folders? 
-                # Actually, based on logic: `path = os.path.join(r, f)`. `r` is the dir.
-                # If GroupBy Emotion, key is `emotion` (basename of r).
-                # Implementation detail:
-                # `group_images[val]` is list of paths.
-                # If group by emotion, all paths in this group *should* be in the same folder `.../Character/Emotion`.
-                # Let's verify: `val = img["emotion"]`.
-                # Yes. So we can deduce folder path from the first image's directory.
-                
                 folder_path = None
-                if group_by == "Emotion" and group_images.get(g):
+                if group_by == "Folder" and group_images.get(g):
                      first_img = group_images[g][0]
                      folder_path = os.path.dirname(first_img)
                 
@@ -848,26 +943,44 @@ class GalleryTab(QWidget):
                     "type": "Folder",
                     "text": g,
                     "preview_images": group_images.get(g, []),
-                    "path": folder_path # This enables folder dragging
+                    "path": folder_path
                 })
                 
         else:
             target_group = self.gallery_current_folder
             filtered = []
             for img in all_images:
-                val = img["emotion"] if group_by == "Emotion" else f"Seed {img['seed']}"
+                # Determine group value based on group_by setting
+                if group_by == "Folder":
+                    val = img.get("folder", os.path.basename(os.path.dirname(img["path"])))
+                elif group_by == "Seed":
+                    val = f"Seed {img['seed']}"
+                else:
+                    tags = img.get("tags", {})
+                    tag_key = group_by.lower()
+                    if tag_key in tags:
+                        val = tags[tag_key]
+                    else:
+                        val = "(No Tag)"
+                
                 if val == target_group:
                     filtered.append(img)
             
-            if group_by == "Emotion":
+            if group_by != "Seed":
                 filtered.sort(key=lambda x: int(x['seed']) if x['seed'].isdigit() else 0)
             else:
-                filtered.sort(key=lambda x: x['emotion'])
+                filtered.sort(key=lambda x: x.get('folder', ''))
                 
             for img in filtered:
+                # Display text: show Seed when not grouping by Seed, otherwise show folder/tags
+                if group_by == "Seed":
+                    display_text = img.get('folder', os.path.basename(os.path.dirname(img['path'])))
+                else:
+                    display_text = f"Seed: {img['seed']}"
+                    
                 display_list.append({
                     "type": "Image",
-                    "text": f"Seed: {img['seed']}" if group_by == "Emotion" else f"{img['emotion']}",
+                    "text": display_text,
                     "data": img,
                     "path": img['path']
                 })

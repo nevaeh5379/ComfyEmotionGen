@@ -65,24 +65,30 @@ class ComfyClient:
                 msg_type = message.get('type', '')
                 data = message.get('data', {})
                 
+                print(f"DEBUG WS: type={msg_type}, prompt_id in data={data.get('prompt_id')}, our prompt_id={prompt_id}")
+                
                 if msg_type == 'executing':
                     if data.get('node') is None and data.get('prompt_id') == prompt_id:
                         # Execution finished for this prompt
+                        print("DEBUG WS: Execution finished (executing with node=None)")
                         break
                 elif msg_type == 'execution_success':
                     # Alternative completion signal (newer ComfyUI versions)
                     if data.get('prompt_id') == prompt_id:
+                        print("DEBUG WS: Execution success signal received")
                         break
                 elif msg_type == 'execution_error':
                     # Error occurred during execution
                     if data.get('prompt_id') == prompt_id:
+                        print(f"DEBUG WS: Execution ERROR: {data}")
                         if callback: 
                             callback("status", {"error": data.get('exception_message', 'Unknown error')})
                         break
                 elif msg_type == 'execution_cached':
-                    # Workflow was fully cached, skip waiting for execution
-                    if data.get('prompt_id') == prompt_id:
-                        break
+                    # Workflow was cached - DON'T break here!
+                    # Wait for the actual executing with node=None signal
+                    print(f"DEBUG WS: Execution cached (continuing to wait for completion signal)")
+                    # Don't break - continue waiting for the final execution status
                 elif msg_type == 'progress':
                     if callback: callback("progress", data)
                 elif msg_type == 'status':
@@ -90,38 +96,41 @@ class ComfyClient:
                     if callback: callback("status", data)
             elif isinstance(out, bytes):
                 # Binary data is usually a preview image
-                # Offset 8 bytes are usually header (type + data), but standard ComfyUI preview is just JPEG bytes
-                # Actually, ComfyUI sends 8 bytes header (uint32 type, uint32 image_type) then image data
-                # But simple viewing often works by skipping header if we know it's image
-                if callback: callback("preview", out[8:]) # Skip 8 bytes header which ComfyUI sends for binary previews
+                if callback: callback("preview", out[8:])
         
         # Now fetch history to get the image filename
         history_url = f"http://{self.server_address}/history/{prompt_id}"
+        print(f"DEBUG: Fetching history from {history_url}")
         with urllib.request.urlopen(history_url) as response:
             history = json.loads(response.read())
-            
+        
+        print(f"DEBUG: History keys: {list(history.keys())}")
+        
         # Parse history for outputs
-        # Structure: history[prompt_id]['outputs'][node_id]['images'][0]['filename']
         prompt_history = history.get(prompt_id, {})
+        print(f"DEBUG: prompt_history keys: {list(prompt_history.keys())}")
         outputs = prompt_history.get('outputs', {})
+        print(f"DEBUG: outputs node_ids: {list(outputs.keys())}")
         
         generated_files = []
         for node_id in outputs:
             node_output = outputs[node_id]
+            print(f"DEBUG: Node {node_id} output keys: {list(node_output.keys())}")
             if 'images' in node_output:
                 for image in node_output['images']:
-                    # Return tuple (filename, subfolder, type)
+                    print(f"DEBUG: Found image: {image}")
                     generated_files.append((image.get('filename'), image.get('subfolder', ''), image.get('type', 'output')))
         
+        print(f"DEBUG: generated_files = {generated_files}")
         if generated_files:
-            return generated_files[0] # Return the first one for simplicity
+            return generated_files[0]
         return None
 
-    def download_image(self, filename, subfolder, output_path):
+    def download_image(self, filename, subfolder, output_path, image_type='output'):
         """
         Downloads the image from ComfyUI and saves it to the specified output_path.
         """
-        data = {'filename': filename, 'subfolder': subfolder, 'type': 'output'}
+        data = {'filename': filename, 'subfolder': subfolder, 'type': image_type}
         url_values = urllib.parse.urlencode(data)
         url = f"http://{self.server_address}/view?{url_values}"
         
@@ -154,6 +163,20 @@ class ComfyClient:
             print(f"Failed to fetch object info: {e}")
             return {}
         return {}
+
+    def get_loras(self):
+        """
+        Fetches the list of available LoRAs from ComfyUI.
+        """
+        info = self.get_object_info()
+        if 'LoraLoader' in info:
+            try:
+                # Standard ComfyUI structure: node_info['input']['required']['lora_name'][0] is the list
+                return info['LoraLoader']['input']['required']['lora_name'][0]
+            except Exception as e:
+                print(f"Error parsing LoRA list: {e}")
+                return []
+        return []
             
     def close(self):
         if self.ws:

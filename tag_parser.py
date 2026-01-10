@@ -33,8 +33,9 @@ class TagParser:
     def _extract_values(self, tag_name: str) -> list:
         """
         Extract prompt values from tag definition.
-        Format: [[name, prompt], [name, prompt], ...]
+        Format: [[name, prompt], [name, prompt, enabled], ...]
         
+        Items with enabled=False are excluded.
         Returns list of prompt values only.
         """
         items = self.custom_tags.get(tag_name, [])
@@ -43,8 +44,16 @@ class TagParser:
         
         values = []
         for item in items:
-            if isinstance(item, (list, tuple)) and len(item) >= 2:
-                values.append(item[1])  # Use prompt part
+            if isinstance(item, (list, tuple)):
+                # Check if enabled (default True if not specified)
+                enabled = item[2] if len(item) > 2 else True
+                if not enabled:
+                    continue  # Skip disabled items
+                    
+                if len(item) >= 2:
+                    values.append(item[1])  # Use prompt part
+                elif len(item) == 1:
+                    values.append(str(item[0]))
             else:
                 values.append(str(item))  # Fallback for old format
         
@@ -434,3 +443,40 @@ def parse_and_process(prompt: str, custom_tags: dict, tag_values: dict = None) -
             tag_values[tag] = values[0] if values else ""
     
     return parser.process_prompt(prompt, tag_values)
+
+def extract_lora_tags(prompt: str) -> tuple[str, list[dict]]:
+    """
+    Extracts <lora:name:strength> tags from prompt.
+    Returns (cleaned_prompt, lora_list)
+    
+    Supported formats:
+    <lora:filename>
+    <lora:filename:strength>
+    """
+    # Regex to capture <lora:filename> or <lora:filename:strength>
+    # We use a non-greedy match for content
+    pattern = r'<lora:([^>]+)>'
+    
+    loras = []
+    
+    def replacer(match):
+        content = match.group(1)
+        parts = content.split(':')
+        name = parts[0].strip()
+        strength = 1.0
+        
+        if len(parts) > 1:
+            try:
+                strength = float(parts[1])
+            except:
+                pass
+                
+        loras.append({"name": name, "strength": strength})
+        return "" # Remove the tag from prompt
+        
+    cleaned_prompt = re.sub(pattern, replacer, prompt)
+    
+    # Clean up double spaces created by removal
+    cleaned_prompt = re.sub(r'\s+', ' ', cleaned_prompt).strip()
+    
+    return cleaned_prompt, loras

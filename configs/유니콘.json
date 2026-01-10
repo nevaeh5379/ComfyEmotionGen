@@ -5,7 +5,7 @@
         {
             "name": "Default",
             "quality_prompt": "",
-            "subject_prompt": "{{$toggle run_emotion}}{{$toggle run_nsfw}}1girl {{$if nsfw}},1boy{{$endif}},shortstack,{{$if !run_nsfw}}solo, {{$else}}blush,{{nsfw}},pussy, huge_nipples, huge_penis{{$endif}} rainbow_hair, white_hair,wide_hips,ahoge, unicorn_girl, huge_breasts,horn, white_background, unicorn_horn,unicorn,mesugaki,{{$if !nsfw}}{{$if run_emotion}}{{emotion}},{{$endif}}white dress shirt, black Miniskirt,{{$else}}naked,{{$endif}}looking at viewer",
+            "subject_prompt": "{{$toggle run_emotion}}{{$toggle run_nsfw}}1girl {{$if nsfw}},1boy{{$endif}},shortstack,{{$if !run_nsfw}}solo, {{$else}}blush,{{nsfw}},pussy, huge_nipples, huge_penis{{$endif}} rainbow_hair, white_hair,wide_hips,ahoge, unicorn_girl, huge_breasts,horn, white_background, unicorn_horn,unicorn,mesugaki,{{$if !nsfw}}{{$if run_emotion}}{{emotion}},{{$endif}}{{outfit}},{{$else}}naked,{{$endif}}looking at viewer",
             "style_prompt": "(dojirou:0.95), (eliskalti:0.4), (xilmo:0.7), (junsuina fujunbutsu:0.6), (aomushi mushamusha:0.9), (tianliang duohe fangdongye:0.8)",
             "neg_prompt": "lowres, (worst quality, bad quality:1.2), bad anatomy, sketch, jpeg artifacts, signature, watermark, old, oldest, censored, bar_censor, chibi, simple background, conjoined, futanari"
         }
@@ -43,19 +43,39 @@
         "nsfw": [
             [
                 "missionary sex",
-                "missionary, sex, Creampie"
-            ],
-            [
-                "doggy_style sex",
-                "doggy_style, sex"
+                "missionary, sex, Creampie, lying, spread_legs"
             ],
             [
                 "missionary after_sex",
-                "missionary, after_sex, cum"
+                "missionary, after_sex, cum, lying, spread_legs"
             ],
             [
-                "doggy_style after_sex",
-                "doggy_style, after_sex, cum"
+                "missionary sex Intravaginal_ejaculation",
+                "missionary, sex, Creampie, lying, spread_legs, bukkake, cum on body,x-ray,Intravaginal ejaculation"
+            ],
+            [
+                "missionary sex ahegao",
+                "missionary, sex, Creampie, lying, spread_legs, ahegao"
+            ],
+            [
+                "missionary sex Intravaginal_ejaculation, ahegao",
+                "missionary, sex, Creampie, lying, spread_legs, bukkake, cum on body,x-ray,Intravaginal ejaculation, ahegao"
+            ]
+        ],
+        "outfit": [
+            [
+                "default",
+                "white dress shirt, black Miniskirt",
+                false
+            ],
+            [
+                "naked",
+                "naked",
+                true
+            ],
+            [
+                "cowgirl bikini",
+                "cowgirl_bikini, cow bikini"
             ]
         ]
     },
@@ -67,7 +87,7 @@
     "upscale_factor": 1.5,
     "width": 896,
     "height": 1152,
-    "ref_enabled": false,
+    "ref_enabled": true,
     "ref_weight": 0.3,
     "ref_faceidv2": 0.8,
     "ref_type": "linear",

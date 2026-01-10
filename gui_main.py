@@ -11,7 +11,7 @@ import re
 import webbrowser
 import tempfile
 import subprocess
-from tag_parser import TagParser
+from tag_parser import TagParser, extract_lora_tags
 from danbooru_tags import get_danbooru_tags
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QPushButton, QTextEdit, QSpinBox, 
@@ -69,6 +69,7 @@ if current_dir not in sys.path:
 from comfy_client import ComfyClient
 from workflow_manager import prepare_workflow
 from gui_gallery import GalleryTab
+from gui_lora import LoRAManagerTab
 
 
 
@@ -233,17 +234,19 @@ QComboBox::down-arrow {
 QPushButton {
     background-color: #3A3A3C; /* Neutral Fill */
     border: 1px solid transparent;
-    border-radius: 8px; /* Slightly rounded, try 15px for full pill if height allows */
+    border-radius: 8px;
     color: #FFFFFF;
     padding: 6px 16px;
     font-weight: 500;
     font-size: 13px;
 }
 QPushButton:hover {
-    background-color: #48484A;
+    background-color: #505052;
+    border: 1px solid #0A84FF;
 }
 QPushButton:pressed {
     background-color: #2C2C2E;
+    border: 1px solid #0070E0;
 }
 QPushButton:disabled {
     background-color: #2C2C2E;
@@ -482,8 +485,8 @@ class AppConfigManager:
         except Exception as e:
             print(f"Error saving app config: {e}")
 
-    def get(self, key):
-        return self.config.get(key, self.defaults.get(key))
+    def get(self, key, default=None):
+        return self.config.get(key, self.defaults.get(key, default))
 
     def set(self, key, value):
         self.config[key] = value
@@ -559,15 +562,20 @@ class GenerationWorker(QThread):
                 job = None
                 job_idx = -1
                 
+                # Debug: Print queue status
+                print(f"DEBUG QUEUE: Total jobs={len(self.job_queue)}, Statuses={[j.status for j in self.job_queue]}")
+                
                 # Check for pending jobs safely
                 for i, j in enumerate(self.job_queue):
                     if j.status == "Pending":
                         job = j
                         job_idx = i
+                        print(f"DEBUG QUEUE: Found pending job at index {i}: {j.char_name}")
                         break
                 
                 if job is None:
                     # No pending jobs left, exit loop
+                    print("DEBUG QUEUE: No pending jobs found, exiting loop")
                     break
 
                 # Start Processing Job
@@ -617,9 +625,17 @@ class GenerationWorker(QThread):
                 parser = TagParser(job.custom_tags)
                 all_combinations = parser.generate_combinations(job.base_prompt, toggles=job.toggles)
                 
+                # Ensure at least one combination exists (empty dict for no-tag prompts)
+                if not all_combinations:
+                    all_combinations = [{}]
+                    print(f"DEBUG: Worker - No combinations found, using empty dict")
+                
                 print(f"DEBUG: Worker - Combinations: {len(all_combinations)}, Batch: {job.batch}")
                 
                 total_steps = len(all_combinations) * job.batch
+                if total_steps == 0:
+                    total_steps = 1  # Prevent division by zero
+                    print(f"DEBUG: Worker - WARNING: total_steps was 0, set to 1")
                 current_step = 0
                 
                 for tag_values in all_combinations:
@@ -637,12 +653,32 @@ class GenerationWorker(QThread):
                     print(f"DEBUG: Final tag values for processing: {current_values}")
                     
                     # Process prompt with this combination
-                    final_prompt = parser.process_prompt(job.base_prompt, current_values)
+                    raw_prompt = parser.process_prompt(job.base_prompt, current_values)
+                    
+                    # Extract LoRA tags <lora:name:strength>
+                    final_prompt, extracted_loras = extract_lora_tags(raw_prompt)
+                    
                     print(f"DEBUG: FINAL PROMPT >> '{final_prompt}'")
+                    if extracted_loras:
+                        print(f"DEBUG: EXTRACTED LORAS >> {extracted_loras}")
                     
                     # Create a safe name for this combination (for folder/filename)
-                    combo_values = [v for v in tag_values.values() if v and isinstance(v, str)]
-                    combo_name = "_".join([self.clean_name(v) for v in combo_values]) if combo_values else "default"
+                    # Format: tagname-displayname for each tag (e.g., emotion-happy_pose-standing)
+                    # We need to find the display name from job.custom_tags based on prompt value
+                    combo_parts = []
+                    for tag_name, tag_prompt_value in tag_values.items():
+                        if tag_prompt_value and isinstance(tag_prompt_value, str):
+                            # Try to find display name from custom_tags
+                            display_name = tag_prompt_value  # Default to prompt value
+                            if tag_name in job.custom_tags:
+                                for item in job.custom_tags[tag_name]:
+                                    if isinstance(item, (list, tuple)) and len(item) >= 2:
+                                        if item[1] == tag_prompt_value:  # Match by prompt value
+                                            display_name = item[0]  # Use display name
+                                            break
+                            clean_value = self.clean_name(display_name)
+                            combo_parts.append(f"{tag_name}-{clean_value}")
+                    combo_name = "_".join(combo_parts) if combo_parts else "default"
                     
                     if job.is_test:
                         combo_dir = char_dir
@@ -651,12 +687,17 @@ class GenerationWorker(QThread):
                     
                     if not os.path.exists(combo_dir): os.makedirs(combo_dir)
 
+                    print(f"DEBUG: About to enter batch loop. Batch={job.batch}, is_running={self.is_running}")
                     for i in range(job.batch):
-                        if not self.is_running: break
+                        print(f"DEBUG: Batch loop iteration {i}")
+                        if not self.is_running: 
+                            print("DEBUG: is_running is False, breaking")
+                            break
                         
                         current_seed = seeds[i]
                         self.log_signal.emit(f"Generating: {combo_name} ({i+1}/{job.batch}) - Seed: {current_seed}")
                         
+                        print(f"DEBUG: Preparing workflow...")
                         # Pass the substituted prompt to workflow
                         new_workflow, used_seed = prepare_workflow(
                             self.workflow_json, job.char_name, final_prompt, combo_name, "", ref_filename, current_seed,
@@ -672,19 +713,27 @@ class GenerationWorker(QThread):
                             bypass_sage_attn=job.gen_settings.get("bypass_sage_attn", False),
                             ckpt_name=job.gen_settings.get("ckpt_name"),
                             ipadapter_model=job.gen_settings.get("ipadapter_model"),
-                            clip_vision_model=job.gen_settings.get("clip_vision_model")
+                            clip_vision_model=job.gen_settings.get("clip_vision_model"),
+                            loras=extracted_loras
                         )
                         
+                        print(f"DEBUG: Queueing prompt...")
                         prompt_id = self.client.queue_prompt(new_workflow)
+                        print(f"DEBUG: Prompt queued with ID: {prompt_id}")
+                        print(f"DEBUG: Waiting for result...")
                         result = self.client.wait_for_result(prompt_id, callback=ws_callback)
+                        print(f"DEBUG: Got result: {result}")
                         
                         if result:
                             fname, sub, typ = result
+                            print(f"DEBUG: Download - filename={fname}, subfolder={sub}, type={typ}")
                             if job.is_test:
                                 target_filename = "test_preview.png"
                             else:
                                 target_filename = f"{char_safe_name}__{combo_name}__Seed{used_seed}__{i+1}.png"
-                            self.client.download_image(fname, sub, os.path.join(combo_dir, target_filename))
+                            target_path = os.path.join(combo_dir, target_filename)
+                            print(f"DEBUG: Saving to {target_path}")
+                            self.client.download_image(fname, sub, target_path, image_type=typ)
                             self.log_signal.emit(f"Saved: {target_filename}")
                             
                             try:
@@ -698,11 +747,12 @@ class GenerationWorker(QThread):
                 # Mark job as Done
                 if self.is_running:
                     job.status = "Done"
+                    print(f"DEBUG QUEUE: Job '{job.char_name}' marked as Done")
                     self.job_started_signal.emit(-1) # Signal to refresh UI status
                     
-                    # Remove from queue
-                    if self.job_queue:
-                        self.job_queue.pop(0)
+                    # Remove from queue - DON'T pop, just mark status
+                    # The while loop will skip Done jobs automatically
+                    print(f"DEBUG QUEUE: After marking done - Statuses={[j.status for j in self.job_queue]}")
 
             self.log_signal.emit("All Jobs Done.")
         except Exception as e:
@@ -940,8 +990,8 @@ class DanbooruAutocompleteDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
         
-        # Only apply autocomplete to second column (Prompt)
-        if index.column() == 1 and self._danbooru.is_loaded:
+        # Only apply autocomplete to Prompt column (column 2)
+        if index.column() == 2 and self._danbooru.is_loaded:
             completer = QCompleter(parent)
             completer.setModel(QStringListModel(self._danbooru.get_all_tags()))
             completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
@@ -962,6 +1012,16 @@ class DanbooruAutocompleteDelegate(QStyledItemDelegate):
 class TagSyntaxHighlighter(QSyntaxHighlighter):
     """Syntax highlighter for tag syntax in prompts."""
     
+    # Colors for nested conditionals (up to 5 levels)
+    # Avoids #4FC3F7 (tag color) and #81C784 (optional tag color)
+    CONDITIONAL_COLORS = [
+        "#FFB74D",  # Level 1: Orange
+        "#F48FB1",  # Level 2: Pink
+        "#CE93D8",  # Level 3: Light Purple
+        "#90CAF9",  # Level 4: Soft Blue
+        "#80CBC4",  # Level 5: Teal
+    ]
+    
     def __init__(self, parent, custom_tags_getter=None):
         super().__init__(parent)
         self.custom_tags_getter = custom_tags_getter
@@ -975,9 +1035,13 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
         self.optional_tag_format.setForeground(QColor("#81C784"))  # Green for {{?tag}}
         self.optional_tag_format.setFontWeight(QFont.Weight.Bold)
         
-        self.conditional_format = QTextCharFormat()
-        self.conditional_format.setForeground(QColor("#FFB74D"))  # Orange for {{$if}}
-        self.conditional_format.setFontWeight(QFont.Weight.Bold)
+        # Create formats for each nesting level
+        self.conditional_formats = []
+        for color in self.CONDITIONAL_COLORS:
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor(color))
+            fmt.setFontWeight(QFont.Weight.Bold)
+            self.conditional_formats.append(fmt)
         
         self.comment_format = QTextCharFormat()
         self.comment_format.setForeground(QColor("#888888"))  # Gray for {{#...}}
@@ -987,12 +1051,20 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
         self.error_format.setForeground(QColor("#FF5252"))  # Red text
         self.error_format.setUnderlineColor(QColor("#FF5252"))  # Red underline
         self.error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
-        self.error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
         self.error_format.setFontWeight(QFont.Weight.Bold)
         
         self.toggle_format = QTextCharFormat()
         self.toggle_format.setForeground(QColor("#D500F9"))  # Magenta for {{$toggle}}
         self.toggle_format.setFontWeight(QFont.Weight.Bold)
+        
+        self.lora_format = QTextCharFormat()
+        self.lora_format.setForeground(QColor("#FDD835"))  # Yellow for <lora:...>
+        self.lora_format.setFontWeight(QFont.Weight.Bold)
+    
+    def _get_conditional_format(self, level):
+        """Get format for conditional based on nesting level."""
+        idx = min(level, len(self.conditional_formats) - 1)
+        return self.conditional_formats[idx]
     
     def _get_defined_tags(self):
         """Get set of defined tag names."""
@@ -1016,7 +1088,6 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
         defined_tags = self._get_defined_tags()
         
         # Default all {{...}} patterns to error first (catch-all for invalid syntax)
-        # This ensures that any pattern not matched by specific rules below (e.g. typos like {{$ifa...}})
         for match in re.finditer(r'\{\{[^}]*\}\}', text):
              self.setFormat(match.start(), match.end() - match.start(), self.error_format)
              
@@ -1032,7 +1103,7 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
             else:
                 self.setFormat(match.start(), match.end() - match.start(), self.error_format)
         
-        # Optional tags: {{?tag}} - also check if defined
+        # Optional tags: {{?tag}}
         for match in re.finditer(r'\{\{\?(\w+)\}\}', text):
             tag_name = match.group(1)
             if self._is_tag_defined(tag_name, defined_tags):
@@ -1048,14 +1119,33 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
             else:
                 self.setFormat(match.start(), match.end() - match.start(), self.error_format)
         
-        # Conditionals: {{$if ...}} - Support complex logic (&&, ||)
-        # We relax the strict variable check here to allow for complex expressions.
-        for match in re.finditer(r'\{\{\$if\s+([^}]+)\}\}', text):
-             self.setFormat(match.start(), match.end() - match.start(), self.conditional_format)
+        # Nested Conditionals: Track nesting level and apply different colors
+        # Find all conditional tags and their positions
+        conditional_pattern = r'\{\{\$(?:if\s+[^}]+|else|endif)\}\}'
         
-        # {{$else}} and {{$endif}}
-        for match in re.finditer(r'\{\{\$(?:else|endif)\}\}', text):
-            self.setFormat(match.start(), match.end() - match.start(), self.conditional_format)
+        nesting_level = 0
+        for match in re.finditer(conditional_pattern, text):
+            tag_text = match.group(0)
+            
+            if '{{$if' in tag_text:
+                # Opening if - use current level, then increment
+                fmt = self._get_conditional_format(nesting_level)
+                self.setFormat(match.start(), match.end() - match.start(), fmt)
+                nesting_level += 1
+            elif '{{$endif}}' in tag_text:
+                # Closing endif - decrement, then use that level
+                nesting_level = max(0, nesting_level - 1)
+                fmt = self._get_conditional_format(nesting_level)
+                self.setFormat(match.start(), match.end() - match.start(), fmt)
+            elif '{{$else}}' in tag_text:
+                # Else - use level of the matching if (one level below current)
+                level = max(0, nesting_level - 1)
+                fmt = self._get_conditional_format(level)
+                self.setFormat(match.start(), match.end() - match.start(), fmt)
+        
+        # LoRA tags: <lora:name:strength>
+        for match in re.finditer(r'<lora:[^>]+>', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.lora_format)
         
         # Comments: {{#...}}
         for match in re.finditer(r'\{\{#[^}]*\}\}', text):
@@ -1069,13 +1159,21 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
 class AutocompleteTextEdit(QTextEdit):
     """QTextEdit with Danbooru tag autocomplete and syntax highlighting."""
     
-    def __init__(self, parent=None, custom_tags_getter=None):
+    def __init__(self, parent=None, custom_tags_getter=None, lora_getter=None):
         super().__init__(parent)
         self._danbooru = get_danbooru_tags()
         self._completer = None
         self._custom_tags_getter = custom_tags_getter
+        self._lora_getter = lora_getter
+        
+        # Models
+        self._tag_model = None
+        self._lora_model = None
+        
         self._setup_completer()
         self._setup_highlighter()
+        
+        self._current_mode = "tag" # "tag" or "lora"
     
     def set_custom_tags_getter(self, getter):
         """Set function to get custom tags for error checking."""
@@ -1083,6 +1181,9 @@ class AutocompleteTextEdit(QTextEdit):
         if hasattr(self, '_highlighter'):
             self._highlighter.custom_tags_getter = getter
             self._highlighter.rehighlight()  # Re-apply highlighting
+            
+    def set_lora_getter(self, getter):
+        self._lora_getter = getter
     
     def refresh_highlighting(self):
         """Force refresh of syntax highlighting."""
@@ -1094,11 +1195,7 @@ class AutocompleteTextEdit(QTextEdit):
         self._highlighter = TagSyntaxHighlighter(self.document(), self._custom_tags_getter)
     
     def _setup_completer(self):
-        if not self._danbooru.is_loaded:
-            return
-        
         self._completer = QCompleter(self)
-        self._completer.setModel(QStringListModel(self._danbooru.get_all_tags()))
         self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self._completer.setFilterMode(Qt.MatchFlag.MatchContains)
         self._completer.setMaxVisibleItems(12)
@@ -1128,6 +1225,22 @@ class AutocompleteTextEdit(QTextEdit):
                 background-color: #3A3A3A;
             }
         """)
+        
+        # Init Tag Data
+        if self._danbooru.is_loaded:
+            self._tag_model = QStringListModel(self._danbooru.get_all_tags())
+        else:
+             self._tag_model = QStringListModel([])
+             
+        # Init LoRA Data (Empty initially, populated on request or init)
+        self._lora_model = QStringListModel([])
+        
+        self._completer.setModel(self._tag_model)
+    
+    def _update_lora_model(self):
+        if self._lora_getter:
+            loras = self._lora_getter()
+            self._lora_model.setStringList(sorted(loras))
     
     def _get_current_word(self):
         """Get the word currently being typed (after last comma or start)."""
@@ -1135,9 +1248,29 @@ class AutocompleteTextEdit(QTextEdit):
         text = self.toPlainText()
         pos = cursor.position()
         
-        # Find start of current word (after comma, newline, or start)
+        # Find start of current word
+        # If inside <...>, split by < instead of comma
+        
+        # Look backwards to see if we are in a tag or lora context
+        # Scan back to find last delimiter that isn't a word char
+        # Delimiters: , \n <
+        
         start = pos
-        while start > 0 and text[start - 1] not in ',\n':
+        while start > 0:
+            char = text[start - 1]
+            if char in [',', '\n']:
+                break
+            if char == '<':
+                # LoRA trigger!
+                # Include the < in the word for now so logic knows
+                # Actually, let's stop AT the <
+                # start will be the position OF the < + 1?
+                # No, if we want to include <, stop before it.
+                # But wait, logic is simpler if we return the "content" and a "mode"
+                
+                # Check if this < is part of a closed tag? No, we are typing.
+                start -= 1 # Include <
+                break 
             start -= 1
         
         word = text[start:pos].strip()
@@ -1150,7 +1283,14 @@ class AutocompleteTextEdit(QTextEdit):
         cursor = self.textCursor()
         cursor.setPosition(start)
         cursor.setPosition(pos, cursor.MoveMode.KeepAnchor)
-        cursor.insertText(completion)
+        
+        if self._current_mode == "lora":
+            # LoRA insert format
+            text_to_insert = f"<lora:{completion}:1.0>"
+        else:
+            text_to_insert = completion
+            
+        cursor.insertText(text_to_insert)
         self.setTextCursor(cursor)
     
     def keyPressEvent(self, event):
@@ -1173,16 +1313,40 @@ class AutocompleteTextEdit(QTextEdit):
         
         # Show completions
         if self._completer:
-            word, _, _ = self._get_current_word()
-            if len(word) >= 2:
-                self._completer.setCompletionPrefix(word)
+            word, start, pos = self._get_current_word()
+            
+            # Detect Mode
+            if word.startswith('<'):
+                # LoRA Mode
+                self._current_mode = "lora"
+                
+                # Lazily update LoRA list if empty or on open?
+                # Better to update occasionally or if empty.
+                if self._lora_model.rowCount() == 0:
+                    self._update_lora_model()
+                    
+                self._completer.setModel(self._lora_model)
+                prefix = word[1:] # Strip <
+                
+            else:
+                # Normal Tag Mode
+                self._current_mode = "tag"
+                self._completer.setModel(self._tag_model)
+                prefix = word
+            
+            # For LoRA mode, show all loras when just '<' is typed (prefix is empty)
+            # For tag mode, require at least 1 character to trigger
+            should_show = (self._current_mode == "lora") or (len(prefix) >= 1)
+            
+            if should_show:
+                self._completer.setCompletionPrefix(prefix)
+                
                 if self._completer.completionCount() > 0:
                     popup = self._completer.popup()
                     cursor_rect = self.cursorRect()
-                    # Position popup below the cursor
-                    cursor_rect.moveTop(cursor_rect.bottom() + 5)
+                    # Set popup width to a reasonable size
+                    cursor_rect.setWidth(300)
                     popup.setCurrentIndex(self._completer.completionModel().index(0, 0))
-                    cursor_rect.setWidth(min(300, popup.sizeHintForColumn(0) + popup.verticalScrollBar().sizeHint().width() + 20))
                     self._completer.complete(cursor_rect)
                 else:
                     self._completer.popup().hide()
@@ -1376,7 +1540,7 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         content_layout.addWidget(self.stack)
         
-        main_layout.addWidget(content_container)
+        main_layout.addWidget(content_container, 1)
 
         # Gen Tab
         self.gen_tab = QWidget()
@@ -1386,6 +1550,10 @@ class MainWindow(QMainWindow):
         # Gallery Tab
         self.gallery_tab = GalleryTab(self, self.app_config, self.favorites_manager, self.base_output_dir)
         self.stack.addWidget(self.gallery_tab)
+        
+        # LoRA Manager Tab
+        self.lora_tab = LoRAManagerTab(self.comfy_client)
+        self.stack.addWidget(self.lora_tab)
         
         # Connect
         self.nav_list.currentRowChanged.connect(self.on_sidebar_changed)
@@ -1593,6 +1761,7 @@ class MainWindow(QMainWindow):
         
         self.model_combo = QComboBox()
         self.model_combo.setMinimumWidth(200)
+        self.model_combo.currentTextChanged.connect(lambda t: self.app_config.set("last_ckpt_model", t) if t else None)
         
         refresh_models_btn = QPushButton("🔄")
         refresh_models_btn.setFixedSize(40, 30)
@@ -1699,6 +1868,7 @@ class MainWindow(QMainWindow):
         ipa_layout.setSpacing(5)
         self.ipadapter_model_combo = QComboBox()
         self.ipadapter_model_combo.setMinimumWidth(200)
+        self.ipadapter_model_combo.currentTextChanged.connect(lambda t: self.app_config.set("last_ipadapter_model", t) if t else None)
         ipa_layout.addWidget(self.ipadapter_model_combo)
         ipa_layout.addStretch()
         ref_grid.addWidget(ipa_container, 4, 1, 1, 3)
@@ -1715,6 +1885,7 @@ class MainWindow(QMainWindow):
         clip_layout.setSpacing(5)
         self.clip_vision_model_combo = QComboBox()
         self.clip_vision_model_combo.setMinimumWidth(200)
+        self.clip_vision_model_combo.currentTextChanged.connect(lambda t: self.app_config.set("last_clip_vision_model", t) if t else None)
         clip_layout.addWidget(self.clip_vision_model_combo)
         clip_layout.addStretch()
         ref_grid.addWidget(clip_container, 5, 1, 1, 3)
@@ -1785,6 +1956,7 @@ class MainWindow(QMainWindow):
         self.subject_prompt_input = AutocompleteTextEdit()
         self.subject_prompt_input.setPlaceholderText("1girl, solo, {{emotion}}{{$if outfit}}, wearing {{outfit}}{{$endif}}")
         self.subject_prompt_input.set_custom_tags_getter(lambda: self.custom_tags)
+        self.subject_prompt_input.set_lora_getter(lambda: self.comfy_client.get_loras())
         self.subject_prompt_input.textChanged.connect(self.refresh_dynamic_toggles)
         tl2.addWidget(self.subject_prompt_input)
         
@@ -1797,15 +1969,19 @@ class MainWindow(QMainWindow):
 
         # Style
         tl2.addWidget(QLabel(localized_text("🎨 Style/Artist Prompt")))
-        self.style_prompt_input = QTextEdit()
+        self.style_prompt_input = AutocompleteTextEdit() # Also use autocomplete here
         self.style_prompt_input.setMaximumHeight(45)
         self.style_prompt_input.setPlaceholderText("anime style, by artgerm, vibrant colors")
+        self.style_prompt_input.set_custom_tags_getter(lambda: self.custom_tags)
+        self.style_prompt_input.set_lora_getter(lambda: self.comfy_client.get_loras())
         tl2.addWidget(self.style_prompt_input)
 
         # Negative
         tl2.addWidget(QLabel(localized_text("🚫 Negative Prompt")))
-        self.neg_prompt_input = QTextEdit()
+        self.neg_prompt_input = AutocompleteTextEdit() # Why not?
         self.neg_prompt_input.setMaximumHeight(60)
+        self.neg_prompt_input.set_custom_tags_getter(lambda: self.custom_tags)
+        self.neg_prompt_input.set_lora_getter(lambda: self.comfy_client.get_loras())
         tl2.addWidget(self.neg_prompt_input)
         
         # Preview Button
@@ -1876,18 +2052,24 @@ class MainWindow(QMainWindow):
         self.tag_values_label = QLabel(localized_text("📋 Values for: (select a tag)"))
         right_tag_layout.addWidget(self.tag_values_label)
         
-        # Table for tag values (Name | Prompt)
+        # Table for tag values (Enabled | Name | Prompt)
         self.tag_values_table = QTableWidget()
-        self.tag_values_table.setColumnCount(2)
-        self.tag_values_table.setHorizontalHeaderLabels([localized_text("Name"), localized_text("Prompt")])
+        self.tag_values_table.setColumnCount(3)
+        self.tag_values_table.setHorizontalHeaderLabels(["✓", localized_text("Name"), localized_text("Prompt")])
         self.tag_values_table.horizontalHeader().setStretchLastSection(True)
-        self.tag_values_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
-        self.tag_values_table.setColumnWidth(0, 100)
+        self.tag_values_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self.tag_values_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        self.tag_values_table.setColumnWidth(0, 30)  # Checkbox column
+        self.tag_values_table.setColumnWidth(1, 100)  # Name column
         self.tag_values_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tag_values_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tag_values_table.cellChanged.connect(self.on_tag_value_cell_changed)
         
-        # Apply Danbooru autocomplete to Prompt column
+        # Increase default row height for better text visibility
+        self.tag_values_table.verticalHeader().setDefaultSectionSize(35)
+        self.tag_values_table.verticalHeader().setMinimumSectionSize(30)
+        
+        # Apply Danbooru autocomplete to Prompt column (now column 2)
         self.tag_values_table.setItemDelegate(DanbooruAutocompleteDelegate(self.tag_values_table))
         
         right_tag_layout.addWidget(self.tag_values_table)
@@ -2247,6 +2429,16 @@ class MainWindow(QMainWindow):
             "embeds_scaling": self.ref_scaling_combo.currentText()
         }
 
+        # Randomize Toggles found in prompt
+        toggles_in_prompt = re.findall(r'\{\{\$toggle\s+(\w+)\}\}', base_prompt)
+        unique_toggles = list(set(toggles_in_prompt))
+        
+        random_toggles = {}
+        for t_name in unique_toggles:
+            random_toggles[t_name] = random.choice([True, False])
+            
+        print(f"DEBUG: Quick Gen Random Toggles: {random_toggles}")
+
         job = JobQueueItem(
             self.char_name_input.text() or "QuickGen",
             base_prompt,
@@ -2259,7 +2451,7 @@ class MainWindow(QMainWindow):
             self.ref_enabled_chk.isChecked(),
             ref_settings,
             is_test=True,  # Don't save to gallery
-            toggles=self.get_active_toggles()
+            toggles=random_toggles # Use randomized toggles
         )
         
         self.job_queue.append(job)
@@ -2438,11 +2630,17 @@ class MainWindow(QMainWindow):
              input_info = info["CheckpointLoaderSimple"].get("input", {}).get("required", {})
              if "ckpt_name" in input_info:
                   models = input_info["ckpt_name"][0]
+                  # Preserve current selection OR restore from config
                   current = self.model_combo.currentText()
+                  if not current:
+                      current = self.app_config.get("last_ckpt_model", "")
+                  
+                  self.model_combo.blockSignals(True)
                   self.model_combo.clear()
                   self.model_combo.addItems(models)
                   if current and current in models:
                        self.model_combo.setCurrentText(current)
+                  self.model_combo.blockSignals(False)
                   models_loaded += len(models)
         
         # 2. IPAdapterModelLoader - IPAdapter models
@@ -2451,10 +2649,15 @@ class MainWindow(QMainWindow):
              if "ipadapter_file" in input_info:
                   models = input_info["ipadapter_file"][0]
                   current = self.ipadapter_model_combo.currentText()
+                  if not current:
+                      current = self.app_config.get("last_ipadapter_model", "")
+                  
+                  self.ipadapter_model_combo.blockSignals(True)
                   self.ipadapter_model_combo.clear()
                   self.ipadapter_model_combo.addItems(models)
                   if current and current in models:
                        self.ipadapter_model_combo.setCurrentText(current)
+                  self.ipadapter_model_combo.blockSignals(False)
                   models_loaded += len(models)
         
         # 3. CLIPVisionLoader - CLIP Vision models
@@ -2463,16 +2666,19 @@ class MainWindow(QMainWindow):
              if "clip_name" in input_info:
                   models = input_info["clip_name"][0]
                   current = self.clip_vision_model_combo.currentText()
+                  if not current:
+                      current = self.app_config.get("last_clip_vision_model", "")
+                  
+                  self.clip_vision_model_combo.blockSignals(True)
                   self.clip_vision_model_combo.clear()
                   self.clip_vision_model_combo.addItems(models)
                   if current and current in models:
                        self.clip_vision_model_combo.setCurrentText(current)
+                  self.clip_vision_model_combo.blockSignals(False)
                   models_loaded += len(models)
         
         if models_loaded > 0:
              self.status_bar.setText(f"Loaded {models_loaded} models from ComfyUI.")
-        else:
-             self.status_bar.setText("Could not find model loaders in ComfyUI.")
 
     def new_character_profile(self):
         self.char_name_input.clear()
@@ -2829,15 +3035,29 @@ class MainWindow(QMainWindow):
             self.tag_values_table.setRowCount(len(values))
             
             for row, item in enumerate(values):
-                if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    name_item = QTableWidgetItem(str(item[0]))
-                    prompt_item = QTableWidgetItem(str(item[1]))
+                # Parse item: can be [name, prompt], [name, prompt, enabled], or just string
+                if isinstance(item, (list, tuple)):
+                    name = str(item[0]) if len(item) > 0 else ""
+                    prompt = str(item[1]) if len(item) > 1 else name
+                    enabled = item[2] if len(item) > 2 else True  # Default to enabled
                 else:
-                    name_item = QTableWidgetItem(str(item))
-                    prompt_item = QTableWidgetItem(str(item))
+                    name = str(item)
+                    prompt = str(item)
+                    enabled = True
                 
-                self.tag_values_table.setItem(row, 0, name_item)
-                self.tag_values_table.setItem(row, 1, prompt_item)
+                # Checkbox column (column 0)
+                checkbox_item = QTableWidgetItem()
+                checkbox_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+                checkbox_item.setCheckState(Qt.CheckState.Checked if enabled else Qt.CheckState.Unchecked)
+                self.tag_values_table.setItem(row, 0, checkbox_item)
+                
+                # Name column (column 1)
+                name_item = QTableWidgetItem(name)
+                self.tag_values_table.setItem(row, 1, name_item)
+                
+                # Prompt column (column 2)
+                prompt_item = QTableWidgetItem(prompt)
+                self.tag_values_table.setItem(row, 2, prompt_item)
             
             self.tag_values_label.setText(f"📋 Values for: {{{{{tag_name}}}}}")
         else:
@@ -2935,14 +3155,14 @@ class MainWindow(QMainWindow):
         
         tag_name = current_item.text()
         
-        # Add empty row for user to fill in
-        self.custom_tags[tag_name].append(["New", "new_value"])
+        # Add empty row for user to fill in: [name, prompt, enabled]
+        self.custom_tags[tag_name].append(["New", "new_value", True])
         self._refresh_tag_values_list(tag_name)
         
-        # Select the new row for editing
+        # Select the new row for editing (Name column is now 1)
         last_row = self.tag_values_table.rowCount() - 1
-        self.tag_values_table.setCurrentCell(last_row, 0)
-        self.tag_values_table.editItem(self.tag_values_table.item(last_row, 0))
+        self.tag_values_table.setCurrentCell(last_row, 1)
+        self.tag_values_table.editItem(self.tag_values_table.item(last_row, 1))
 
     def remove_tag_value(self):
         """Remove the selected value from the current tag"""
@@ -2971,18 +3191,33 @@ class MainWindow(QMainWindow):
         item = self.tag_values_table.item(row, col)
         if item:
             current_value = self.custom_tags[tag_name][row]
-            # Handle both string and list formats
+            
+            # Ensure current_value is a list with at least 3 elements [name, prompt, enabled]
             if isinstance(current_value, (list, tuple)):
-                # It's already a list, update the specific column
                 new_value = list(current_value)
-                new_value[col] = item.text()
-                self.custom_tags[tag_name][row] = new_value
+                # Extend to 3 elements if needed
+                while len(new_value) < 3:
+                    if len(new_value) == 0:
+                        new_value.append("")
+                    elif len(new_value) == 1:
+                        new_value.append(new_value[0])  # prompt = name
+                    else:
+                        new_value.append(True)  # enabled = True
             else:
-                # It's a string - convert to [name, prompt] format
-                if col == 0:
-                    self.custom_tags[tag_name][row] = [item.text(), str(current_value)]
-                else:
-                    self.custom_tags[tag_name][row] = [str(current_value), item.text()]
+                new_value = [str(current_value), str(current_value), True]
+            
+            # Update the specific column
+            if col == 0:
+                # Checkbox column - update enabled state
+                new_value[2] = (item.checkState() == Qt.CheckState.Checked)
+            elif col == 1:
+                # Name column
+                new_value[0] = item.text()
+            elif col == 2:
+                # Prompt column
+                new_value[1] = item.text()
+            
+            self.custom_tags[tag_name][row] = new_value
 
     def import_tags(self):
         """Import tags from JSON file"""

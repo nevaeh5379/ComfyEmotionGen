@@ -11,9 +11,11 @@ def prepare_workflow(base_json, character_name, base_prompt, emotion_name, emoti
                      bypass_sage_attn=False,
                      ckpt_name=None,
                      ipadapter_model=None,
-                     clip_vision_model=None):
+                     clip_vision_model=None,
+                     loras=None):
     """
     Modifies the workflow JSON based on inputs.
+    loras: List of dicts [{"name": "...", "strength": 1.0}]
     """
     workflow = copy.deepcopy(base_json)
 
@@ -125,5 +127,49 @@ def prepare_workflow(base_json, character_name, base_prompt, emotion_name, emoti
     # 14. CLIP Vision Model Logic (Node 59:40 - CLIPVisionLoader)
     if clip_vision_model and "59:40" in workflow:
         workflow["59:40"]["inputs"]["clip_name"] = clip_vision_model
+
+    # 15. LoRA Chaining Logic
+    if loras:
+        last_model_id = ["59:11", 0]
+        last_clip_id = ["59:11", 1]
+        
+        for i, lora in enumerate(loras):
+            node_id = f"lora_{i}"
+            workflow[node_id] = {
+                "inputs": {
+                    "lora_name": lora.get("name"),
+                    "strength_model": lora.get("strength", 1.0),
+                    "strength_clip": lora.get("strength", 1.0),
+                    "model": last_model_id,
+                    "clip": last_clip_id
+                },
+                "class_type": "LoraLoader",
+                "_meta": {
+                    "title": f"LoRA: {lora.get('name')}"
+                }
+            }
+            last_model_id = [node_id, 0]
+            last_clip_id = [node_id, 1]
+            
+        # Replace connections
+        # We need to traverse all nodes and check their inputs
+        # If any input == ["59:11", 0], replace with last_model_id
+        # If any input == ["59:11", 1], replace with last_clip_id
+        
+        target_model_src = ["59:11", 0]
+        target_clip_src = ["59:11", 1]
+        
+        for key, node in workflow.items():
+            if key.startswith("lora_"): continue # Skip our new nodes
+            
+            if "inputs" in node:
+                for input_name, input_val in node["inputs"].items():
+                    if isinstance(input_val, list) and len(input_val) == 2:
+                        # Check Model link
+                        if input_val[0] == target_model_src[0] and input_val[1] == target_model_src[1]:
+                           node["inputs"][input_name] = last_model_id
+                        # Check CLIP link
+                        elif input_val[0] == target_clip_src[0] and input_val[1] == target_clip_src[1]:
+                           node["inputs"][input_name] = last_clip_id
 
     return workflow, seed
