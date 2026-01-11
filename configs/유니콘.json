@@ -5,7 +5,7 @@
         {
             "name": "Default",
             "quality_prompt": "",
-            "subject_prompt": "{{$toggle run_emotion}}{{$toggle run_nsfw}}1girl {{$if nsfw}},1boy{{$endif}},shortstack,{{$if !run_nsfw}}solo, {{$else}}blush,{{nsfw}},pussy, huge_nipples, huge_penis{{$endif}} rainbow_hair, white_hair,wide_hips,ahoge, unicorn_girl, huge_breasts,horn, white_background, unicorn_horn,unicorn,mesugaki,{{$if !nsfw}}{{$if run_emotion}}{{emotion}},{{$endif}}{{outfit}},{{$else}}naked,{{$endif}}looking at viewer",
+            "subject_prompt": "{{$toggle run_emotion}}{{$toggle run_nsfw}}1girl,loli {{$if nsfw}},1boy{{$endif}},shortstack,\n{{$if nsfw||outfit=naked}}\n    huge_nipples,\n{{$endif}}{{?nsfw}},\n{{$if !nsfw}}\n    solo,\n{{$else}}\n    pussy, blush,huge_penis,full-face blush \n{{$endif}}\n{{$if !nsfw&&outfit=naked}}\npussy,\n{{$endif}}\nrainbow_hair, white_hair,wide_hips,ahoge, unicorn_girl, huge_breasts,horn, white_background, unicorn_horn,unicorn,mesugaki,\n{{outfit}},{{$if run_emotion&&!nsfw}}{{emotion}}{{$endif}}{{$if nsfw}}{{?nsfw_emotion}}{{$endif}},looking at viewer",
             "style_prompt": "(dojirou:0.95), (eliskalti:0.4), (xilmo:0.7), (junsuina fujunbutsu:0.6), (aomushi mushamusha:0.9), (tianliang duohe fangdongye:0.8)",
             "neg_prompt": "lowres, (worst quality, bad quality:1.2), bad anatomy, sketch, jpeg artifacts, signature, watermark, old, oldest, censored, bar_censor, chibi, simple background, conjoined, futanari"
         }
@@ -52,30 +52,50 @@
             [
                 "missionary sex Intravaginal_ejaculation",
                 "missionary, sex, Creampie, lying, spread_legs, bukkake, cum on body,x-ray,Intravaginal ejaculation"
-            ],
-            [
-                "missionary sex ahegao",
-                "missionary, sex, Creampie, lying, spread_legs, ahegao"
-            ],
-            [
-                "missionary sex Intravaginal_ejaculation, ahegao",
-                "missionary, sex, Creampie, lying, spread_legs, bukkake, cum on body,x-ray,Intravaginal ejaculation, ahegao"
             ]
         ],
         "outfit": [
             [
                 "default",
                 "white dress shirt, black Miniskirt",
-                false
+                true
             ],
             [
                 "naked",
-                "naked",
+                "naked, nude",
                 true
             ],
             [
                 "cowgirl bikini",
-                "cowgirl_bikini, cow bikini"
+                "cowgirl_bikini, cow bikini",
+                true
+            ],
+            [
+                "dress shirt",
+                "dress shirt,oversized shirt, thigh skimming oversized shirt ",
+                true
+            ],
+            [
+                "Leotard",
+                "leotard",
+                true
+            ],
+            [
+                "virgin_killer_sweater",
+                "virgin_killer_sweater",
+                true
+            ]
+        ],
+        "nsfw_emotion": [
+            [
+                "ahegao",
+                "ahegao",
+                true
+            ],
+            [
+                "spiral_eyes",
+                "@_@",
+                true
             ]
         ]
     },

@@ -7,3 +7,4 @@ favorites.json
 danbooru_tags.csv
 ComfyUI/**
 !configs/유니콘.json
+run_comfyui.bat

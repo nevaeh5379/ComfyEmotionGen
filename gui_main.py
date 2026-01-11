@@ -662,28 +662,26 @@ class GenerationWorker(QThread):
                     if extracted_loras:
                         print(f"DEBUG: EXTRACTED LORAS >> {extracted_loras}")
                     
-                    # Create a safe name for this combination (for folder/filename)
-                    # Format: tagname-displayname for each tag (e.g., emotion-happy_pose-standing)
-                    # We need to find the display name from job.custom_tags based on prompt value
-                    combo_parts = []
-                    for tag_name, tag_prompt_value in tag_values.items():
-                        if tag_prompt_value and isinstance(tag_prompt_value, str):
-                            # Try to find display name from custom_tags
-                            display_name = tag_prompt_value  # Default to prompt value
-                            if tag_name in job.custom_tags:
-                                for item in job.custom_tags[tag_name]:
-                                    if isinstance(item, (list, tuple)) and len(item) >= 2:
-                                        if item[1] == tag_prompt_value:  # Match by prompt value
-                                            display_name = item[0]  # Use display name
-                                            break
-                            clean_value = self.clean_name(display_name)
-                            combo_parts.append(f"{tag_name}-{clean_value}")
-                    combo_name = "_".join(combo_parts) if combo_parts else "default"
+                    # Create folder structure based on tag order in prompt
+                    # Get tags in the order they appear in the prompt
+                    ordered_tags = parser.get_ordered_tags(job.base_prompt)
+                    
+                    # Build folder path: char_dir / tag1_value / tag2_value / ...
+                    current_path = char_dir
+                    for tag_name in ordered_tags:
+                        if tag_name in tag_values:
+                            tag_val = tag_values[tag_name]
+                            if tag_val:  # Skip empty values
+                                clean_val = self.clean_name(str(tag_val))
+                                current_path = os.path.join(current_path, clean_val)
+                    
+                    combo_name = "_".join([self.clean_name(str(tag_values.get(t, ''))) 
+                                           for t in ordered_tags if tag_values.get(t)]) or "default"
                     
                     if job.is_test:
                         combo_dir = char_dir
                     else:
-                        combo_dir = char_dir  # Flat structure - all in char folder
+                        combo_dir = current_path
                     
                     if not os.path.exists(combo_dir): os.makedirs(combo_dir)
 
@@ -1121,23 +1119,24 @@ class TagSyntaxHighlighter(QSyntaxHighlighter):
         
         # Nested Conditionals: Track nesting level and apply different colors
         # Find all conditional tags and their positions
-        conditional_pattern = r'\{\{\$(?:if\s+[^}]+|else|endif)\}\}'
+        # Regex matches {{ $if ... }}, {{ $else }}, {{ $endif }} with flexible whitespace
+        conditional_pattern = r'\{\{\s*(\$(?:if\s+[^}]+|else|endif))\s*\}\}'
         
         nesting_level = 0
         for match in re.finditer(conditional_pattern, text):
-            tag_text = match.group(0)
+            tag_content = match.group(1).strip() # e.g. "$if foo", "$else", "$endif"
             
-            if '{{$if' in tag_text:
+            if tag_content.startswith('$if'):
                 # Opening if - use current level, then increment
                 fmt = self._get_conditional_format(nesting_level)
                 self.setFormat(match.start(), match.end() - match.start(), fmt)
                 nesting_level += 1
-            elif '{{$endif}}' in tag_text:
+            elif tag_content == '$endif':
                 # Closing endif - decrement, then use that level
                 nesting_level = max(0, nesting_level - 1)
                 fmt = self._get_conditional_format(nesting_level)
                 self.setFormat(match.start(), match.end() - match.start(), fmt)
-            elif '{{$else}}' in tag_text:
+            elif tag_content == '$else':
                 # Else - use level of the matching if (one level below current)
                 level = max(0, nesting_level - 1)
                 fmt = self._get_conditional_format(level)
@@ -1248,27 +1247,12 @@ class AutocompleteTextEdit(QTextEdit):
         text = self.toPlainText()
         pos = cursor.position()
         
-        # Find start of current word
-        # If inside <...>, split by < instead of comma
-        
-        # Look backwards to see if we are in a tag or lora context
-        # Scan back to find last delimiter that isn't a word char
-        # Delimiters: , \n <
-        
         start = pos
         while start > 0:
             char = text[start - 1]
             if char in [',', '\n']:
                 break
             if char == '<':
-                # LoRA trigger!
-                # Include the < in the word for now so logic knows
-                # Actually, let's stop AT the <
-                # start will be the position OF the < + 1?
-                # No, if we want to include <, stop before it.
-                # But wait, logic is simpler if we return the "content" and a "mode"
-                
-                # Check if this < is part of a closed tag? No, we are typing.
                 start -= 1 # Include <
                 break 
             start -= 1
@@ -1292,6 +1276,64 @@ class AutocompleteTextEdit(QTextEdit):
             
         cursor.insertText(text_to_insert)
         self.setTextCursor(cursor)
+        
+    def contextMenuEvent(self, event):
+        """Add Auto Format option to context menu"""
+        menu = self.createStandardContextMenu()
+        menu.addSeparator()
+        
+        format_action = menu.addAction("Auto Format Prompts")
+        format_action.triggered.connect(self.format_code)
+        
+        # PyQt6 safe global position
+        if hasattr(event, 'globalPosition'):
+            pos = event.globalPosition().toPoint()
+        else:
+            pos = event.globalPos()
+            
+        menu.exec(pos)
+        
+    def format_code(self):
+        """Auto-format code indentation (4 spaces)."""
+        text = self.toPlainText()
+        lines = text.split('\n')
+        
+        formatted_lines = []
+        current_indent = 0
+        indent_str = "    "
+        
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                formatted_lines.append("")
+                continue
+            
+            # Count structure tags in this line
+            # We match partial tags to be robust: {{$if, {{$else, {{$endif
+            # Regex to find tag types in order
+            tags = re.findall(r'\{\{\s*\$(if|else|endif)', stripped)
+            
+            # Determine print indentation level for THIS line
+            print_level = current_indent
+            
+            if tags:
+                first_tag = tags[0]
+                if first_tag == 'else' or first_tag == 'endif':
+                    print_level = max(0, current_indent - 1)
+            
+            # Construct line
+            formatted_lines.append((indent_str * print_level) + stripped)
+            
+            # Calculate next indent level
+            for tag in tags:
+                if tag == 'if':
+                    current_indent += 1
+                elif tag == 'endif':
+                    current_indent -= 1
+            
+            current_indent = max(0, current_indent)
+            
+        self.setPlainText('\n'.join(formatted_lines))
     
     def keyPressEvent(self, event):
         # Handle completer navigation
@@ -1309,6 +1351,15 @@ class AutocompleteTextEdit(QTextEdit):
                 self._completer.popup().keyPressEvent(event)
                 return
         
+        # Auto-complete closing braces
+        if event.text() == '{':
+            # Check if we should add another {
+            cursor = self.textCursor()
+            # If user types {, and next char is not {, we might want to suggest?
+            # Actually standard simple logic: if {{ typed, add }}?
+            # Let's keep it simple for now, standard key press
+            pass
+            
         super().keyPressEvent(event)
         
         # Show completions
@@ -1320,8 +1371,6 @@ class AutocompleteTextEdit(QTextEdit):
                 # LoRA Mode
                 self._current_mode = "lora"
                 
-                # Lazily update LoRA list if empty or on open?
-                # Better to update occasionally or if empty.
                 if self._lora_model.rowCount() == 0:
                     self._update_lora_model()
                     
@@ -1334,8 +1383,6 @@ class AutocompleteTextEdit(QTextEdit):
                 self._completer.setModel(self._tag_model)
                 prefix = word
             
-            # For LoRA mode, show all loras when just '<' is typed (prefix is empty)
-            # For tag mode, require at least 1 character to trigger
             should_show = (self._current_mode == "lora") or (len(prefix) >= 1)
             
             if should_show:
@@ -1344,7 +1391,6 @@ class AutocompleteTextEdit(QTextEdit):
                 if self._completer.completionCount() > 0:
                     popup = self._completer.popup()
                     cursor_rect = self.cursorRect()
-                    # Set popup width to a reasonable size
                     cursor_rect.setWidth(300)
                     popup.setCurrentIndex(self._completer.completionModel().index(0, 0))
                     self._completer.complete(cursor_rect)
@@ -1636,6 +1682,15 @@ class MainWindow(QMainWindow):
         dice_btn.setStyleSheet("font-size: 20px; padding: 0px;")
         dice_btn.clicked.connect(lambda: self.seed_input.setText("-1"))
         tb_layout.addWidget(dice_btn)
+
+        # Queue Count (how many jobs to add at once)
+        tb_layout.addWidget(QLabel(localized_text("Queue:")))
+        self.queue_count_spin = QSpinBox()
+        self.queue_count_spin.setRange(1, 1000)
+        self.queue_count_spin.setValue(1)
+        self.queue_count_spin.setFixedWidth(70)
+        self.queue_count_spin.setToolTip(localized_text("Number of jobs to add to queue"))
+        tb_layout.addWidget(self.queue_count_spin)
 
         # Big Buttons
         self.generate_btn = QPushButton(localized_text("▶ Generate"))
@@ -2289,31 +2344,40 @@ class MainWindow(QMainWindow):
         active_toggles = self.get_active_toggles()
         print(f"DEBUG: Handle Generate - Active Toggles: {active_toggles}")
         
-        job = JobQueueItem(
-            self.char_name_input.text() or "QuickGen",
-            base_prompt,
-            self.neg_prompt_input.toPlainText(),
-            self.custom_tags.copy(),  # Pass a copy of custom_tags
-            self.ref_img_path.text(),
-            self.batch_count_spin.value(),
-            self.seed_input.text(),
-            gen_settings,
-            self.ref_enabled_chk.isChecked(),
-            ref_settings,
-            toggles=active_toggles
-        )
+        # Get queue count - how many times to add this job
+        queue_count = self.queue_count_spin.value()
         
-        print(f"DEBUG: Created Job. Job Toggles: {job.toggles}")
-        print(f"DEBUG: Queue Length Before Append: {len(self.job_queue)}")
+        for q_idx in range(queue_count):
+            job = JobQueueItem(
+                self.char_name_input.text() or "QuickGen",
+                base_prompt,
+                self.neg_prompt_input.toPlainText(),
+                self.custom_tags.copy(),  # Pass a copy of custom_tags
+                self.ref_img_path.text(),
+                self.batch_count_spin.value(),
+                self.seed_input.text(),
+                gen_settings,
+                self.ref_enabled_chk.isChecked(),
+                ref_settings,
+                toggles=active_toggles
+            )
+            
+            if queue_count > 1:
+                print(f"DEBUG: Created Job {q_idx+1}/{queue_count}. Job Toggles: {job.toggles}")
+            else:
+                print(f"DEBUG: Created Job. Job Toggles: {job.toggles}")
+            
+            self.job_queue.append(job)
         
-        self.job_queue.append(job)
+        print(f"DEBUG: Queue Length After Append: {len(self.job_queue)}")
         self.refresh_queue_ui()
         
         # Start Worker if not running
         if not hasattr(self, 'worker') or not self.worker.isRunning():
             self.start_worker_thread()
         else:
-            self.status_bar.setText(localized_text("Job added to running queue."))
+            msg = localized_text("Job added to running queue.") if queue_count == 1 else f"{queue_count} jobs added to queue."
+            self.status_bar.setText(msg)
 
     def handle_test_generate(self):
         # Quick Generate with first tag combination, single batch, no save

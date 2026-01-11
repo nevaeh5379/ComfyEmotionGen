@@ -51,7 +51,7 @@ class TagParser:
                     continue  # Skip disabled items
                     
                 if len(item) >= 2:
-                    values.append(item[1])  # Use prompt part
+                    values.append(str(item[0]))  # Use NAME part (index 0)
                 elif len(item) == 1:
                     values.append(str(item[0]))
             else:
@@ -67,11 +67,11 @@ class TagParser:
             Dict with keys: required, optional, random, conditional, toggle
         """
         return {
-            'required': re.findall(r'\{\{(\w+)\}\}', prompt),
-            'optional': re.findall(r'\{\{\?(\w+)\}\}', prompt),
-            'random': re.findall(r'\{\{(\w+):random\}\}', prompt),
-            'conditional': re.findall(r'\{\{\$if\s+([^}]+)\}\}', prompt), # Changed to capture full condition string
-            'toggle': re.findall(r'\{\{\$toggle\s+(\w+)\}\}', prompt),
+            'required': re.findall(r'\{\{\s*(\w+)\s*\}\}', prompt),
+            'optional': re.findall(r'\{\{\s*\?\s*(\w+)\s*\}\}', prompt),
+            'random': re.findall(r'\{\{\s*(\w+)\s*:\s*random\s*\}\}', prompt),
+            'conditional': re.findall(r'\{\{\s*\$if\s+([^}]+?)\s*\}\}', prompt), # Uses non-greedy match for content
+            'toggle': re.findall(r'\{\{\s*\$toggle\s+(\w+)\s*\}\}', prompt),
         }
     
     def get_all_unique_tags(self, prompt: str) -> list:
@@ -90,16 +90,58 @@ class TagParser:
         
     def _extract_vars_from_condition(self, condition: str) -> list:
         """Extract variable names from a condition string."""
-        # Split by operators and spaces
-        # Operators: &&, ||, !, =, !=
-        # Simplest: replace all operators with spaces, then split
-        clean = condition.replace('&&', ' ').replace('||', ' ').replace('!', ' ').replace('=', ' ')
-        parts = clean.split()
-        return [p.strip() for p in parts if p.strip()]
+        # 1. Split by logical operators
+        # We can replace && and || with a special separator
+        temp = condition.replace('&&', '\0').replace('||', '\0')
+        parts = [p.strip() for p in temp.split('\0')]
+        
+        vars_list = []
+        for p in parts:
+            if not p: continue
+            
+            # 2. Handle comparisons
+            if '!=' in p:
+                tag = p.split('!=')[0].strip()
+                vars_list.append(tag)
+            elif '=' in p:
+                tag = p.split('=')[0].strip()
+                vars_list.append(tag)
+            elif p.startswith('!'):
+                vars_list.append(p[1:].strip())
+            else:
+                vars_list.append(p)
+                
+        return [v for v in vars_list if v]
     
     def get_toggles(self, prompt: str) -> list:
         """Get list of toggle variables defined in the prompt."""
         return list(dict.fromkeys(re.findall(r'\{\{\$toggle\s+(\w+)\}\}', prompt)))
+
+    def get_ordered_tags(self, prompt: str) -> list:
+        """
+        Get tag names in the order they appear in the prompt.
+        Used for creating folder structures based on tag order.
+        
+        Returns:
+            List of tag names in order of first appearance.
+        """
+        # Pattern to find all tag usages: {{tag}}, {{?tag}}, {{tag:random}}
+        # Also includes tags in conditionals like {{$if tag}} or {{$if tag=value}}
+        pattern = r'\{\{\s*\??\s*(\w+)(?:\s*:\s*random)?\s*\}\}'
+        
+        found_tags = []
+        seen = set()
+        
+        for match in re.finditer(pattern, prompt):
+            tag_name = match.group(1)
+            # Exclude special keywords
+            if tag_name in ('if', 'else', 'endif', 'toggle'):
+                continue
+            if tag_name not in seen:
+                found_tags.append(tag_name)
+                seen.add(tag_name)
+        
+        return found_tags
 
     def generate_combinations(self, prompt: str, toggles: dict = None) -> list:
         """
@@ -118,25 +160,21 @@ class TagParser:
         
         # 2. Find all tags remaining in the effective prompt
         # Note: We need to find tags that are NOT yet assigned.
-        # find_all_tags returns raw tag names.
+        # find_all_tags returns raw tag names. We need this for is_random/is_optional checks
         tags_info = self.find_all_tags(effective_prompt)
-        found_tags = tags_info['required'] + tags_info['optional'] + tags_info['random']
-        unique_tags = list(dict.fromkeys(found_tags))
         
-        # Filter out already assigned tags (unless they appear again? No, assignment is global for the prompt)
+        # Use get_all_unique_tags to include conditional variables properly
+        unique_tags = self.get_all_unique_tags(effective_prompt)
+        
+        # Filter out already assigned tags
         unassigned_tags = [t for t in unique_tags if t not in current_assigned]
         
         if not unassigned_tags:
             # Base case: No more tags to expand. Return the current assignment.
-            # We strip the 'toggles' from the result if we want only custom tags?
-            # But the caller expects full tag values probably.
-            # Actually, standard behavior returns all used tags.
             return [current_assigned]
         
         # 3. Pick the next tag to expand.
         # Priority: Tags used in conditions (Guard Variables).
-        # We need to detect which tags are in conditions.
-        # Regex to find '$if tag' or '$if tag=' etc.
         condition_pattern = r'\{\{\$if\s+(!?[\w]+)(?:=|!=)?'
         condition_vars = re.findall(condition_pattern, effective_prompt)
         # Clean up vars (remove !)
@@ -193,7 +231,6 @@ class TagParser:
         result = prompt
         
         # 0. Remove toggle definitions: {{$toggle var}}
-        # (Always safe to remove toggles as they are UI directives)
         result = re.sub(r'\{\{\$toggle\s+\w+\}\}', '', result)
         
         # 1. Remove comments: {{#...}}
@@ -205,21 +242,40 @@ class TagParser:
         if partial:
             return result
         
+        # Helper to resolve Name -> Prompt
+        def get_prompt_value(tag, name_val):
+            # If tag not in custom_tags, return value as is
+            if tag not in self.custom_tags: return str(name_val)
+            
+            items = self.custom_tags[tag]
+            for item in items:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    # item[0] is Name, item[1] is Prompt
+                    if str(item[0]) == str(name_val):
+                        return str(item[1])
+                elif str(item) == str(name_val):
+                    return str(name_val)
+            return str(name_val) # Fallback if not found
+        
         # 3. Substitute required tags: {{tag}}
         for tag_name, tag_value in tag_values.items():
+            prompt_val = get_prompt_value(tag_name, tag_value)
             # Use regex to handle potential whitespace, e.g. {{ tag }}
             pattern = r'\{\{\s*' + re.escape(tag_name) + r'\s*\}\}'
-            result = re.sub(pattern, str(tag_value), result)
+            result = re.sub(pattern, prompt_val, result)
         
         # 4. Substitute optional tags: {{?tag}}
         for tag_name, tag_value in tag_values.items():
+            # For optional tags, we might have empty string
+            prompt_val = get_prompt_value(tag_name, tag_value) if tag_value else ""
             pattern = r'\{\{\?\s*' + re.escape(tag_name) + r'\s*\}\}'
-            result = re.sub(pattern, str(tag_value), result)
+            result = re.sub(pattern, prompt_val, result)
         
         # 5. Substitute random tags: {{tag:random}}
         for tag_name, tag_value in tag_values.items():
+            prompt_val = get_prompt_value(tag_name, tag_value)
             pattern = r'\{\{\s*' + re.escape(tag_name) + r'\s*:\s*random\s*\}\}'
-            result = re.sub(pattern, str(tag_value), result)
+            result = re.sub(pattern, prompt_val, result)
         
         # 6. Clean up
         result = self._cleanup_prompt(result)
@@ -229,19 +285,12 @@ class TagParser:
     def _process_conditionals(self, prompt: str, tag_values: dict, partial: bool = False) -> str:
         """Process {{$if}}...{{$else}}...{{$endif}} blocks with nesting support."""
         
-        # We process from left to right. When we find an outermost {{$if}},
-        # we find its matching {{$endif}}, evaluate it, and replace it.
-        # Recursion is naturally handled because we will call process_prompt on the result content.
-        # But wait, to avoid infinite recursion if we just return the string, we should
-        # use a loop to process all top-level blocks in the current string.
-        # Then, inside the True/False block content, we recurse.
-        
         result = []
         pos = 0
         
         # Regex to find any control tag start
         # Captures: 1=full_tag_content
-        tag_pattern = re.compile(r'\{\{(\$(?:if\s+[^}]+|else|endif))\}\}')
+        tag_pattern = re.compile(r'\{\{\s*(\$(?:if\s+[^}]+|else|endif))\s*\}\}')
         
         while pos < len(prompt):
             match = tag_pattern.search(prompt, pos)
@@ -264,7 +313,6 @@ class TagParser:
                     next_tag = tag_pattern.search(prompt, search_pos)
                     if not next_tag:
                         # Unclosed block - append rest and exit
-                        # Or maybe just treat as text? Let's just append everything to avoid crash.
                         result.append(prompt[pos:])
                         return "".join(result)
                     
@@ -287,7 +335,6 @@ class TagParser:
                 result.append(prompt[pos:start_match.start()])
                 
                 # Extract Condition
-                # tag_content is "$if cond"
                 condition = tag_content[3:].strip()
                 
                 # Extract inner content
@@ -300,6 +347,7 @@ class TagParser:
                 
                 # Evaluate Condition
                 condition_met = self._evaluate_condition(condition, tag_values, partial=partial)
+                # print(f"DEBUG: Condition '{condition}' met? {condition_met} (Partial: {partial})")
                 
                 if condition_met is None:
                     # Indeterminate: Keep stricture, recurse for partial simplification
@@ -313,11 +361,6 @@ class TagParser:
                     result.append(block_str)
                 else:
                     selected_content = if_content if condition_met else else_content
-                    # Recurse (Normal or Partial based on arg)
-                    # Note: We must call process_prompt again, OR just _process_conditionals recursively.
-                    # Since process_prompt handles other tags too, and other tags might be inside,
-                    # calling process_prompt is safer but beware infinite loop if logic is flawed.
-                    # However, since we are consuming the $if block, we are strictly reducing problem size.
                     processed_inner = self.process_prompt(selected_content, tag_values, partial=partial)
                     result.append(processed_inner)
                 
@@ -325,8 +368,6 @@ class TagParser:
                 
             else:
                 # Found $else or $endif but we are at depth 0.
-                # This means it's an orphaned tag or malformed. Just treat as text.
-                # Or skip past it? Let's treat as text to be safe/visible error.
                 result.append(prompt[pos:match.end()])
                 pos = match.end()
                 
@@ -354,7 +395,7 @@ class TagParser:
             parts = [p.strip() for p in condition.split('||')]
             results = [self._evaluate_condition(p, tag_values, partial) for p in parts]
             if partial: return tri_or(results)
-            return any(results) # standard logic fallback (None treated as False if mixed? No, strictly boolean in standard mode)
+            return any(results)
 
         if '&&' in condition:
             parts = [p.strip() for p in condition.split('&&')]
@@ -380,7 +421,6 @@ class TagParser:
             target_tag = condition
             op = 'exists'
             
-        # Check existence
         if target_tag not in tag_values:
             if partial: return None
             # Standard mode: missing = False/Empty
@@ -389,12 +429,14 @@ class TagParser:
             actual_val = tag_values[target_tag]
             
         # Evaluate
+        # Note: actual_val is now the Name (e.g. "Business Suit"), and expected_val is from the prompt
+        # (e.g. "outfit=Business Suit"). So we compare them directly.
         if op == '!':
             return not bool(actual_val)
         elif op == '!=':
-            return str(actual_val) != expected_val
+            return str(actual_val) != str(expected_val)
         elif op == '=':
-            return str(actual_val) == expected_val
+            return str(actual_val) == str(expected_val)
         else: # exists
             return bool(actual_val)
     
@@ -409,8 +451,6 @@ class TagParser:
         
         # Fix comma issues
         result = re.sub(r',\s*,+', ',', result)      # Multiple commas -> single
-        # result = re.sub(r',\s*$', '', result)        # Trailing comma (Disabled per user feedback)
-        # result = re.sub(r'^\s*,', '', result)        # Leading comma (Disabled per user feedback)
         result = re.sub(r'\s+', ' ', result)         # Multiple spaces
         result = result.strip()
         
@@ -424,14 +464,6 @@ class TagParser:
 def parse_and_process(prompt: str, custom_tags: dict, tag_values: dict = None) -> str:
     """
     Convenience function to parse and process a prompt.
-    
-    Args:
-        prompt: Template prompt
-        custom_tags: Tag definitions
-        tag_values: Optional specific values (if None, uses first value of each tag)
-    
-    Returns:
-        Processed prompt
     """
     parser = TagParser(custom_tags)
     
@@ -448,13 +480,7 @@ def extract_lora_tags(prompt: str) -> tuple[str, list[dict]]:
     """
     Extracts <lora:name:strength> tags from prompt.
     Returns (cleaned_prompt, lora_list)
-    
-    Supported formats:
-    <lora:filename>
-    <lora:filename:strength>
     """
-    # Regex to capture <lora:filename> or <lora:filename:strength>
-    # We use a non-greedy match for content
     pattern = r'<lora:([^>]+)>'
     
     loras = []
@@ -472,11 +498,9 @@ def extract_lora_tags(prompt: str) -> tuple[str, list[dict]]:
                 pass
                 
         loras.append({"name": name, "strength": strength})
-        return "" # Remove the tag from prompt
+        return ""
         
     cleaned_prompt = re.sub(pattern, replacer, prompt)
-    
-    # Clean up double spaces created by removal
     cleaned_prompt = re.sub(r'\s+', ' ', cleaned_prompt).strip()
     
     return cleaned_prompt, loras
