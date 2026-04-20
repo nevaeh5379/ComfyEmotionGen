@@ -1,0 +1,45 @@
+// prompt_dsl.lark
+// AI 프롬프트 생성 DSL 문법 정의 (EBNF 스타일)
+
+start: statement*
+
+statement: set_stmt
+         | axis_def
+         | combine_stmt
+         | exclude_stmt
+         | template_block
+         | filename_block
+         | comment
+
+set_stmt: "{{set" NAME "=" STRING "}}"
+
+axis_def: "{{axis" NAME WEIGHTED? "}}" axis_entry* "{{/axis}}"
+WEIGHTED: "weighted"
+axis_entry: NAME ":" STRING ("@" NUMBER)?
+
+combine_stmt: "{{combine" NAME ("*" NAME)* (":" combine_opt+)? "}}"
+combine_opt: "sample=" INT  -> sample_opt
+           | "seed=" INT    -> seed_opt
+
+exclude_stmt: "{{exclude" condition ("AND" condition)* "}}"
+condition: NAME "=" NAME
+
+template_block: "{{template}}" TEMPLATE_BODY "{{/template}}"
+filename_block: "{{filename}}" TEMPLATE_BODY "{{/filename}}"
+
+comment: "{{#" COMMENT_BODY "#}}"
+
+// 터미널 정의
+NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
+STRING: /"(?:[^"\\]|\\.)*"/
+NUMBER: /[0-9]+(?:\.[0-9]+)?/
+INT: /[0-9]+/
+
+// 템플릿 본문: {{/template}} 또는 {{/filename}} 이 나올 때까지 전부
+TEMPLATE_BODY: /(?:(?!\{\{\/(?:template|filename)\}\}).)+/s
+
+// 주석 본문: #}} 가 나올 때까지
+COMMENT_BODY: /(?:(?!#\}\}).)+/s
+
+// 공백 무시
+%ignore /\s+/

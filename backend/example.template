@@ -1,0 +1,37 @@
+{{# ====== 봇 캐릭터 에셋 생성 템플릿 ====== #}}
+
+{{set character = "1girl, silver hair, blue eyes, detailed face"}}
+{{set quality = "masterpiece, best quality, highly detailed"}}
+
+{{axis outfit}}
+  uniform  : "school uniform, pleated skirt"
+  casual   : "hoodie, jeans, sneakers"
+  dress    : "elegant black dress"
+  swimsuit : "bikini, beach setting"
+{{/axis}}
+
+{{axis emotion weighted}}
+  happy   : "smiling, {{w:1.2:bright eyes}}, cheerful"  @ 3
+  neutral : "calm expression, relaxed"                  @ 3
+  sad     : "teary eyes, frowning, melancholic"         @ 1
+  angry   : "angry expression, furrowed brows"          @ 1
+{{/axis}}
+
+{{axis pose}}
+  standing : "standing pose, full body shot"
+  portrait : "upper body, portrait shot"
+{{/axis}}
+
+{{combine outfit * emotion * pose}}
+
+{{# 말이 안 되는 조합은 제외 #}}
+{{exclude outfit=swimsuit AND emotion=angry}}
+{{exclude outfit=dress AND emotion=angry}}
+
+{{template}}
+{{w:1.1:{{quality}}}}, {{character}},
+{{outfit}}, {{emotion}}, {{pose}},
+detailed background
+{{/template}}
+
+{{filename}}char_{{outfit.key}}_{{emotion.key}}_{{pose.key}}{{/filename}}
