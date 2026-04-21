@@ -5,3 +5,5 @@ backend/__pycache__/
 example_frontend/public
 example_frontend/node_modules
 example_frontend/dist
+frontend/web/node_modules
+frontend/web/dist
