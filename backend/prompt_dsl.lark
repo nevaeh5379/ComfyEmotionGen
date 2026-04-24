@@ -1,5 +1,4 @@
 // prompt_dsl.lark
-// AI 프롬프트 생성 DSL 문법 정의 (EBNF 스타일)
 
 start: statement*
 

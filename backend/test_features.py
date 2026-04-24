@@ -1,14 +1,8 @@
-"""
-test_features.py
-pytest 기반 테스트: 샘플링, 워크플로우 주입
-실행: pytest test_features.py -v
-"""
+
 
 import pytest
 from prompt_dsl import parse, render, inject_into_workflow
 
-
-# ====== 공통 픽스처 ======
 
 @pytest.fixture
 def mock_workflow():
@@ -60,8 +54,6 @@ def sampling_template():
 """
 
 
-# ====== TEST 1: 샘플링 ======
-
 class TestSampling:
     def test_sample_count_matches_request(self, sampling_template):
         """sample=5 옵션이 정확히 5개만 생성하는가."""
@@ -97,12 +89,9 @@ class TestWorkflowInjection:
         assert injected["3"]["inputs"]["seed"] == 12345
 
     def test_injection_is_non_destructive(self, mock_workflow):
-        """원본 워크플로우가 변형되지 않아야 한다."""
         inject_into_workflow(mock_workflow, "test prompt")
         assert mock_workflow["6"]["inputs"]["text"] == "{{input}}, masterpiece"
 
-
-# ====== TEST 3: 다중 placeholder ======
 
 class TestMultiPlaceholder:
     def test_positive_negative_split(self):

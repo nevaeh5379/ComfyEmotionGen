@@ -7,6 +7,8 @@
     "module": "ESNext",
     "types": ["vite/client"],
     "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -23,6 +25,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+    "exactOptionalPropertyTypes": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
