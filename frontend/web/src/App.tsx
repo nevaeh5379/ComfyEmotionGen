@@ -64,14 +64,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Input } from "./components/ui/input"
-import { useWebSocket } from "./WebSocketProvider"
+import { useWebSocket } from "../comfyui/WebSocketProvider"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
-import { set } from "zod"
-import { i } from "node_modules/vite/dist/node/chunks/moduleRunnerTransport"
+
 interface RenderItemsResponse {
   count: number
   items: RenderItem[]
@@ -98,9 +97,9 @@ export function App() {
   const [dslTemplate, setDslTemplate] = useState<string>(() => {
     const saved = localStorage.getItem("dslTemplate")
     return saved || ""
-  });
+  })
 
-   const [jobs, setJobs] = useState<Job[]>([])
+  const [jobs, setJobs] = useState<Job[]>([])
   const { subscribe, isConnected, clientId } = useWebSocket()
   const [lastImages, setLastImages] = useState<string[]>([])
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
@@ -108,22 +107,18 @@ export function App() {
 
   useEffect(() => {
     localStorage.setItem("workflow", workflow)
-  }, [workflow]);
+  }, [workflow])
   useEffect(() => {
     localStorage.setItem("dslTemplate", dslTemplate)
-  }, [dslTemplate]);
+  }, [dslTemplate])
 
   const handleRun = async () => {
     if (!workflow || !isConnected || !isAliveBackend) return
     const parserResult = await parser()
     if (!parserResult) return
-    const newJobs: Job[] = parserResult.items.map((item) => 
-      {
-        const promptId = crypto.randomUUID()
-   return   {id: promptId,
-      item,
-      status: "pending",
-      promptId,}
+    const newJobs: Job[] = parserResult.items.map((item) => {
+      const promptId = crypto.randomUUID()
+      return { id: promptId, item, status: "pending", promptId }
     })
     setJobs((prev) => [...prev, ...newJobs])
   }
@@ -151,6 +146,9 @@ export function App() {
     }
   }
 
+  /*
+  미리보기용
+  */
   const handleParser = async () => {
     await parser().then((data) => {
       if (data) {
@@ -159,32 +157,11 @@ export function App() {
     })
   }
 
-  const handleComfyUITest = async () => {
-    try {
-      const prompt = JSON.parse(workflow || "{}")
-      const response = await fetch("http://localhost:8188/prompt", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-        }),
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      console.log("Response from ComfyUI API:", data)
-    } catch (error) {
-      console.error("Error occurred while fetching ComfyUI API:", error)
-    }
-  }
 
   const renderContent = () => {
     const hasFakeQueue = fakeJobQueue.length > 0
     //파서 결과 혹은 현재 작업이 없을 경우
-    if (jobs.length === 0 && fakeJobQueue.length === 0){
+    if (jobs.length === 0 && fakeJobQueue.length === 0) {
       return (
         <Empty>
           <EmptyHeader>
@@ -201,39 +178,45 @@ export function App() {
       <div className="flex flex-col gap-4">
         {/* 작업이 있을 경우 */}
         {jobs.length > 0 && (
-
           <>
-          {lastImages.length > 0 && (
+            {lastImages.length > 0 && (
               <div className="grid grid-cols-3 gap-4">
                 {lastImages.map((url, index) => (
-                  <img key={index} src={url} alt={`Generated ${index}`} className="w-full h-auto rounded" />
+                  <img
+                    key={index}
+                    src={url}
+                    alt={`Generated ${index}`}
+                    className="h-auto w-full rounded"
+                  />
                 ))}
               </div>
             )}
-         <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>FileName</TableHead>
-            <TableHead>Prompt</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {jobs.map((j) => (
-            <TableRow key={j.id}>
-              <TableCell>{j.item.filename}</TableCell>
-              <TableCell>{j.item.prompt}</TableCell>
-              <TableCell>
-                {j.status === "pending" && "대기 중"}
-                {j.status === "queued" && "큐 대기 중"}
-                {j.status === "running" && "진행 중..."}
-                {j.status === "done" && "완료"}
-                {j.status === "error" && `실패: ${j.error}`}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table> </>)}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>FileName</TableHead>
+                  <TableHead>Prompt</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {jobs.map((j) => (
+                  <TableRow key={j.id}>
+                    <TableCell>{j.item.filename}</TableCell>
+                    <TableCell>{j.item.prompt}</TableCell>
+                    <TableCell>
+                      {j.status === "pending" && "대기 중"}
+                      {j.status === "queued" && "큐 대기 중"}
+                      {j.status === "running" && "진행 중..."}
+                      {j.status === "done" && "완료"}
+                      {j.status === "error" && `실패: ${j.error}`}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>{" "}
+          </>
+        )}
         {/* 파서 테스트 결과가 있을 경우 */}
         {hasFakeQueue && (
           <Table>
@@ -308,6 +291,9 @@ export function App() {
     )
   }
 
+  /*
+  나중에 백앤드 서버에 웹소켓 api 구현해야 할듯?
+  */
   const checkHealthBackend = async (): Promise<Boolean> => {
     try {
       const response = await fetch("http://localhost:8000/health")
@@ -335,107 +321,110 @@ export function App() {
     return () => clearInterval(timer)
   }, [])
 
+
   useEffect(() => {
-  return subscribe((msg) => {
-    if (msg.type === "executed" && msg.output?.images) {
-      const images = msg.output.images as Array<{
-        filename: string
-        subfolder: string
-        type: string
-      }>
-      const urls = images.map((img) => {
-        const params = new URLSearchParams({
-          filename: img.filename,
-          subfolder: img.subfolder,
-          type: img.type,
-        })
-        return `http://localhost:8188/view?${params}`
-      })
-      
-      setLastImages(urls)
-      // job에 이미지 URL 저장
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.promptId === msg.promptId ? { ...j, imageUrls: urls } : j
-        )
-      )
-    }
-  })
-}, [subscribe])
-
-useEffect(() => {
-  const hasInFlight = jobs.some(
-    (j) => j.status === "queued" || j.status === "running"
-  )
-  if (hasInFlight) return
-
-  const nextPending = jobs.find((j) => j.status === "pending")
-  if (!nextPending) return
-
-  const submit = async () => {
-    // 바로 queued로 (UI상 "큐에 넣는 중")
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === nextPending.id ? { ...j, status: "queued" } : j
-      )
+    const hasInFlight = jobs.some(
+      (j) => j.status === "queued" || j.status === "running"
     )
+    if (hasInFlight) return
 
-    try {
-      const parsedWorkflow = JSON.parse(
-        workflow
-          .replace("{input}", nextPending.item.prompt)
-          .replace("{filename}", nextPending.item.filename)
-      )
-      const res = await fetch("http://localhost:8188/prompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: parsedWorkflow,
-          client_id: clientId,
-          prompt_id: nextPending.promptId,  // ★ 핵심! 미리 정한 id 전달
-        }),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      // 응답의 prompt_id가 우리가 보낸 것과 같은지 sanity check만 해도 됨
-    } catch (error) {
+    const nextPending = jobs.find((j) => j.status === "pending")
+    if (!nextPending) return
+
+    const submit = async () => {
       setJobs((prev) =>
         prev.map((j) =>
-          j.id === nextPending.id
-            ? { ...j, status: "error", error: String(error) }
-            : j
+          j.id === nextPending.id ? { ...j, status: "queued" } : j
         )
       )
+
+      try {
+        const parsedWorkflow = JSON.parse(
+          workflow
+            .replace("{input}", nextPending.item.prompt)
+            .replace("{filename}", nextPending.item.filename)
+        )
+        const res = await fetch("http://localhost:8188/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: parsedWorkflow,
+            client_id: clientId,
+            prompt_id: nextPending.promptId,
+          }),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      } catch (error) {
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === nextPending.id
+              ? { ...j, status: "error", error: String(error) }
+              : j
+          )
+        )
+      }
     }
-  }
-  submit()
-}, [jobs, workflow, clientId])
+    submit()
+  }, [jobs, workflow, clientId])
 
-useEffect(() => {
-  return subscribe((msg) => {
-    if (msg.type === "execution_start") {
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.promptId === msg.promptId ? { ...j, status: "running" } : j
-        )
-      )
-    } else if (msg.type === "execution_success") {
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.promptId === msg.promptId ? { ...j, status: "done" } : j
-        )
-      )
-    } else if (msg.type === "execution_interrupted") {
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.promptId === msg.promptId
-            ? { ...j, status: "error", error: `interrupted at ${msg.nodeType}` }
-            : j
-        )
-      )
-    }
-  })
-}, [subscribe])
 
+  /**
+   * 상태 확인용 (리팩토링 필요)
+   * execution_start comfyUI에서 실행될 때 이벤트
+   * execution_success 노드 전부 성공했을 때 발생하는 이벤트
+   * executed 노드는 SaveImageWebsocket로 끝나지 않고 SaveImage 등 끝날 때 발생하는 이벤트. 만약 SaveImageWebsocket로 끝날 경우 웹소켓으로 이미지 바이너리 메시지가 옴 
+  */
+  useEffect(() => {
+    return subscribe((msg) => {
+      if (msg.type === "execution_start") {
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.promptId === msg.promptId ? { ...j, status: "running" } : j
+          )
+        )
+      } else if (msg.type === "execution_success") {
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.promptId === msg.promptId ? { ...j, status: "done" } : j
+          )
+        )
+      } else if (msg.type === "execution_interrupted") {
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.promptId === msg.promptId
+              ? {
+                  ...j,
+                  status: "error",
+                  error: `interrupted at ${msg.nodeType}`,
+                }
+              : j
+          )
+        )
+      }
+     else if (msg.type === "executed") {
+        const images = msg.output.images as Array<{
+          filename: string
+          subfolder: string
+          type: string
+        }>
+        const urls = images.map((img) => {
+          const params = new URLSearchParams({
+            filename: img.filename,
+            subfolder: img.subfolder,
+            type: img.type,
+          })
+          return `http://localhost:8188/view?${params}`
+        })
+
+        setLastImages(urls)
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.promptId === msg.promptId ? { ...j, imageUrls: urls } : j
+          )
+        )
+      }
+    })
+  }, [subscribe])
 
   const renderBackendStatus = () => {
     const statusColor = isAliveBackend ? "bg-green-500" : "bg-red-500"
@@ -567,9 +556,6 @@ useEffect(() => {
                     onClick={handleRun}
                   >
                     실행
-                  </Button>
-                  <Button onClick={handleComfyUITest}>
-                    ComfyUI 테스트 버튼
                   </Button>
                   <Button onClick={handleParser}>파서 테스트</Button>
                 </div>
