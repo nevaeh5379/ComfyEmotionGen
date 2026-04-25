@@ -31,5 +31,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "comfyui/WebSocketProvider.tsx"]
+  "include": ["src", "src/comfyui/WebSocketProvider.tsx"]
 }

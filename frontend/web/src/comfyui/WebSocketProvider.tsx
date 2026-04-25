@@ -7,7 +7,7 @@ import {
   useState,
 } from "react"
 import { z } from "zod"
-import { wsLogger, wsInLogger, wsOutLogger } from "../src/lib/logger"
+import { wsLogger, wsInLogger, wsOutLogger } from "../lib/logger"
 import { WebSocketMessageSchema } from "./Message"
 const WS_URL = "ws://127.0.0.1:8188/ws"
 
@@ -66,6 +66,9 @@ export const WebSocketProvider = ({
   const [lastStatus, setLastStatus] = useState<StatusData>()
   const reconnectTimeoutRef = useRef<number | null>(null)
   const maxReconnectAttemptsRef = useRef(0)
+  /**
+   * 이거 없애야 할듯
+   */
   const MAX_RECONNECT_ATTEMPTS = 10
   const listenersRef = useRef(new Set<(msg: WebSocketMessage) => void>())
   const binaryListenersRef = useRef(new Set<(frame: BinaryFrame) => void>())

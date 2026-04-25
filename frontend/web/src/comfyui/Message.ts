@@ -1,7 +1,9 @@
 import {z} from "zod"
 
 
-
+/**
+ * 대기열 얼마나 있는지 확인하는 이벤트 대기열 바뀔 때마다 발생함
+ */
 export const StatusMessage = z.object({
   type: z.literal("status"),
   data: z.object({
@@ -14,6 +16,10 @@ export const StatusMessage = z.object({
   }),
 })
 
+
+/**
+ * 노드별로 진행 상태를 알려주는 이벤트임
+ */
 export const ProgressStateMessage = z.object({
   type: z.literal("progress_state"),
   data: z.object({
@@ -33,6 +39,9 @@ export const ProgressStateMessage = z.object({
   }),
 })
 
+/**
+ * 거의 안 쓰는 것 같은데
+ */
 export const ProgressMessage = z.object({
   type: z.literal("progress"),
   data: z.object({
@@ -61,6 +70,10 @@ export const ExecutingMessage = z.object({
   }),
 })
 
+/**
+ * 완료되었을 때 발생하는 이벤트
+ */
+
 export const ExecutionSuccessMessage = z.object({
   type: z.literal("execution_success"),
   data: z.object({
@@ -68,6 +81,9 @@ export const ExecutionSuccessMessage = z.object({
   }),
 })
 
+/**
+ * /prompt GET 보내고 시작할때 발생하는 이벤트
+ */
 export const ExecutionStartMessage = z.object({
   type: z.literal("execution_start"),
   data: z.object({

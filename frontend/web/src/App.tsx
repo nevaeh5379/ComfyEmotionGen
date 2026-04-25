@@ -64,13 +64,15 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Input } from "./components/ui/input"
-import { useWebSocket } from "../comfyui/WebSocketProvider"
+import { useWebSocket } from "./comfyui/WebSocketProvider"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
-
+import { ComfyWorkflowSchema, type ComfyWorkflow } from "./lib/workflow"
+import { Checkbox } from "@/components/ui/checkbox"
+import { set } from "zod"
 interface RenderItemsResponse {
   count: number
   items: RenderItem[]
@@ -90,7 +92,7 @@ interface Job {
   error?: string
 }
 export function App() {
-  const [workflow, setWorkflow] = useState<string>(() => {
+  const [workflowJson, setWorkflowJson] = useState<string>(() => {
     const saved = localStorage.getItem("workflow")
     return saved || ""
   })
@@ -104,16 +106,17 @@ export function App() {
   const [lastImages, setLastImages] = useState<string[]>([])
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [isAliveBackend, setIsAliveBackend] = useState<Boolean>(false)
+  const [isSeedRandom, setIsSeedRandom] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    localStorage.setItem("workflow", workflow)
-  }, [workflow])
+    localStorage.setItem("workflow", workflowJson)
+  }, [workflowJson])
   useEffect(() => {
     localStorage.setItem("dslTemplate", dslTemplate)
   }, [dslTemplate])
 
   const handleRun = async () => {
-    if (!workflow || !isConnected || !isAliveBackend) return
+    if (!workflowJson || !isConnected || !isAliveBackend) return
     const parserResult = await parser()
     if (!parserResult) return
     const newJobs: Job[] = parserResult.items.map((item) => {
@@ -156,7 +159,6 @@ export function App() {
       }
     })
   }
-
 
   const renderContent = () => {
     const hasFakeQueue = fakeJobQueue.length > 0
@@ -214,7 +216,7 @@ export function App() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>{" "}
+            </Table>
           </>
         )}
         {/* 파서 테스트 결과가 있을 경우 */}
@@ -321,7 +323,6 @@ export function App() {
     return () => clearInterval(timer)
   }, [])
 
-
   useEffect(() => {
     const hasInFlight = jobs.some(
       (j) => j.status === "queued" || j.status === "running"
@@ -340,7 +341,7 @@ export function App() {
 
       try {
         const parsedWorkflow = JSON.parse(
-          workflow
+          workflowJson
             .replace("{input}", nextPending.item.prompt)
             .replace("{filename}", nextPending.item.filename)
         )
@@ -365,15 +366,14 @@ export function App() {
       }
     }
     submit()
-  }, [jobs, workflow, clientId])
-
+  }, [jobs, workflowJson, clientId])
 
   /**
    * 상태 확인용 (리팩토링 필요)
    * execution_start comfyUI에서 실행될 때 이벤트
    * execution_success 노드 전부 성공했을 때 발생하는 이벤트
-   * executed 노드는 SaveImageWebsocket로 끝나지 않고 SaveImage 등 끝날 때 발생하는 이벤트. 만약 SaveImageWebsocket로 끝날 경우 웹소켓으로 이미지 바이너리 메시지가 옴 
-  */
+   * executed 노드는 SaveImageWebsocket로 끝나지 않고 SaveImage 등 끝날 때 발생하는 이벤트. 만약 SaveImageWebsocket로 끝날 경우 웹소켓으로 이미지 바이너리 메시지가 옴
+   */
   useEffect(() => {
     return subscribe((msg) => {
       if (msg.type === "execution_start") {
@@ -400,8 +400,7 @@ export function App() {
               : j
           )
         )
-      }
-     else if (msg.type === "executed") {
+      } else if (msg.type === "executed") {
         const images = msg.output.images as Array<{
           filename: string
           subfolder: string
@@ -415,13 +414,19 @@ export function App() {
           })
           return `http://localhost:8188/view?${params}`
         })
+        // 발견되지 않을 경우 오류로 표시 (완성 되기전에 대기열이 삭제되었다는 소리인데 나중에 삭제 기능으로 인해 발생할 수 있음 나중에 로직 생각해야할듯)
+        const job = jobs.find((j) => j.promptId === msg.promptId)
+        if (!job) {
+          throw Error("Job not found")
+        }
 
         setLastImages(urls)
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.promptId === msg.promptId ? { ...j, imageUrls: urls } : j
-          )
-        )
+        // 굳이 필요없는듯?
+        // setJobs((prev) =>
+        //   prev.map((j) =>
+        //     j.promptId === msg.promptId ? { ...j, imageUrls: urls } : j
+        //   )
+        // )
       }
     })
   }, [subscribe])
@@ -491,6 +496,7 @@ export function App() {
         </NavigationMenu>
       </nav>
       <main>
+        {/* 사용자 설정 UI */}
         <div className="grid grid-cols-2">
           <div>
             {renderComfyUIStatus()}
@@ -521,8 +527,8 @@ export function App() {
                 <FieldLabel>ComfyUI API 워크플로우 입력</FieldLabel>
                 <Textarea
                   placeholder="ComfyUI API 워크플로우 입력 칸"
-                  value={workflow}
-                  onChange={(e) => setWorkflow(e.target.value)}
+                  value={workflowJson}
+                  onChange={(e) => setWorkflowJson(e.target.value)}
                 />
               </Field>
               <Field orientation="horizontal">
@@ -561,6 +567,86 @@ export function App() {
                 </div>
               </Field>
             </FieldGroup>
+
+            <div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>number</TableHead>
+                    <TableHead>seed 값</TableHead>
+                    <TableHead>랜덤 여부</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {workflowJson &&
+                    (() => {
+                      const workflow = ComfyWorkflowSchema.safeParse(
+                        JSON.parse(workflowJson)
+                      )
+                      if (!workflow.success) {
+                        return (
+                          <>
+                            <p>workflow 파싱 오류: {workflow.error.message}</p>
+                          </>
+                        )
+                      }
+
+                      return Object.entries(workflow.data)
+                        .filter(([nodeId, node]) => {
+                          return node.inputs["seed"] !== undefined
+                        })
+                        .map(([nodeId, node]) => (
+                          <>
+                            <TableRow key={nodeId}>
+                              <TableCell>
+                                {node._meta?.title || "Untitled"}
+                              </TableCell>
+                              <TableCell>{nodeId}</TableCell>
+                              <TableCell>
+                                <Input
+                                  value={String(node.inputs["seed"])}
+                                  onChange={(e) => {
+                                    const workflow =
+                                      ComfyWorkflowSchema.safeParse(
+                                        JSON.parse(workflowJson)
+                                      )
+                                    if (!workflow.success) {
+                                      console.error(
+                                        "Workflow parsing error:",
+                                        workflow.error
+                                      )
+                                      return
+                                    }
+
+                                    workflow.data[nodeId]!.inputs["seed"] =
+                                      Number(e.target.value)
+
+                                    setWorkflowJson(
+                                      JSON.stringify(workflow.data)
+                                    )
+                                    return
+                                  }}
+                                ></Input>
+                              </TableCell>
+                              <TableCell>
+                                <Checkbox
+                                  checked={isSeedRandom[nodeId] ?? false}
+                                  onCheckedChange={(checked) => {
+                                    setIsSeedRandom((prev) => ({
+                                      ...prev,
+                                      [nodeId]: checked === true,
+                                    }))
+                                  }}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          </>
+                        ))
+                    })()}
+                </TableBody>
+              </Table>
+            </div>
           </div>
           <div>{renderContent()}</div>
         </div>
