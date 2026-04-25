@@ -90,6 +90,8 @@ interface Job {
   status: JobStatus
   promptId: string
   error?: string
+  seed: Map<string, number>
+  workflow: ComfyWorkflow
 }
 export function App() {
   const [workflowJson, setWorkflowJson] = useState<string>(() => {
@@ -100,6 +102,9 @@ export function App() {
     const saved = localStorage.getItem("dslTemplate")
     return saved || ""
   })
+  /**
+   * seed 별 구분 해야할 것 같음
+   */
 
   const [jobs, setJobs] = useState<Job[]>([])
   const { subscribe, isConnected, clientId } = useWebSocket()
@@ -107,6 +112,20 @@ export function App() {
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [isAliveBackend, setIsAliveBackend] = useState<Boolean>(false)
   const [isSeedRandom, setIsSeedRandom] = useState<Record<string, boolean>>({})
+  function parseWorkflow(workflowJson: string): ComfyWorkflow {
+    try {
+      const workflow = JSON.parse(workflowJson)
+      const validation = ComfyWorkflowSchema.safeParse(workflow)
+      if (!validation.success) {
+        console.error("Workflow validation error:", validation.error)
+        throw new Error("Invalid workflow format")
+      }
+      return validation.data
+    } catch (error) {
+      console.error("Workflow parsing error:", error)
+      throw new Error("Failed to parse workflow")
+    }
+  }
 
   useEffect(() => {
     localStorage.setItem("workflow", workflowJson)
@@ -115,13 +134,51 @@ export function App() {
     localStorage.setItem("dslTemplate", dslTemplate)
   }, [dslTemplate])
 
+  const genereateRandomSeeds = (workflow: ComfyWorkflow): Map<string, number> => {
+    const seeds = new Map<string, number>();
+    Object.entries(workflow).forEach(([nodeId, node]) => {
+      if (node.inputs["seed"] === undefined) return;
+
+      isSeedRandom[nodeId] = isSeedRandom[nodeId] ?? false
+      if (isSeedRandom[nodeId]) {
+        seeds.set(nodeId, Math.floor(Math.random() * 1000000000))
+      } else {
+        seeds.set(nodeId, Number(node.inputs["seed"]))
+      }
+    })
+    return seeds
+  }
   const handleRun = async () => {
     if (!workflowJson || !isConnected || !isAliveBackend) return
     const parserResult = await parser()
     if (!parserResult) return
-    const newJobs: Job[] = parserResult.items.map((item) => {
+    const workflow = parseWorkflow(workflowJson)
+    const seeds = genereateRandomSeeds(workflow)
+    
+    const newJobs: Job[] = parserResult.items.map((item): Job => {
+      const tempWorkflow = parseWorkflow(workflowJson)
       const promptId = crypto.randomUUID()
-      return { id: promptId, item, status: "pending", promptId }
+      seeds.forEach((seed, nodeId) => {
+        tempWorkflow[nodeId]!.inputs["seed"] = seed
+      })
+      Object.entries(tempWorkflow).forEach(([nodeId, node]) => {
+        Object.entries(node.inputs).forEach(([inputKey, inputValue]) => {
+          if (typeof inputValue === "string") {
+            tempWorkflow[nodeId]!.inputs[inputKey] = inputValue.replace("{input}", item.prompt).replace("{filename}", item.filename)
+          }
+        })
+        
+      })
+
+      
+      return {
+        id: promptId,
+        promptId : promptId,
+        item: item,
+        status: "pending",
+        seed: seeds,
+        workflow: tempWorkflow
+      }
     })
     setJobs((prev) => [...prev, ...newJobs])
   }
@@ -198,6 +255,7 @@ export function App() {
                 <TableRow>
                   <TableHead>FileName</TableHead>
                   <TableHead>Prompt</TableHead>
+                  <TableHead>Seeds</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -206,6 +264,14 @@ export function App() {
                   <TableRow key={j.id}>
                     <TableCell>{j.item.filename}</TableCell>
                     <TableCell>{j.item.prompt}</TableCell>
+                    <TableCell>
+                      {Array.from(j.seed.entries()).map(([nodeId, seed]) => (
+                        <div key={nodeId}>
+                          {nodeId}: {seed}
+                        </div>
+                      ))}
+
+                    </TableCell>
                     <TableCell>
                       {j.status === "pending" && "대기 중"}
                       {j.status === "queued" && "큐 대기 중"}
@@ -340,16 +406,11 @@ export function App() {
       )
 
       try {
-        const parsedWorkflow = JSON.parse(
-          workflowJson
-            .replace("{input}", nextPending.item.prompt)
-            .replace("{filename}", nextPending.item.filename)
-        )
         const res = await fetch("http://localhost:8188/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: parsedWorkflow,
+            prompt: nextPending.workflow,
             client_id: clientId,
             prompt_id: nextPending.promptId,
           }),
