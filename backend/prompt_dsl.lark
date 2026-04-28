@@ -16,7 +16,18 @@ axis_def: "{{axis" NAME WEIGHTED? "}}" axis_entry* "{{/axis}}"
 WEIGHTED: "weighted"
 axis_entry: NAME ":" STRING ("@" NUMBER)?
 
-combine_stmt: "{{combine" NAME ("*" NAME)* (":" combine_opt+)? "}}"
+combine_stmt: "{{combine" combine_assignment (":" combine_opt+)? "}}"
+            | "{{combine" expr (":" combine_opt+)? "}}"
+
+combine_assignment: NAME "=" expr
+
+?expr: term ("+" term)* -> expr_add
+?term: factor ("*" factor)* -> expr_mul
+?factor: NAME -> expr_var
+       | STRING -> expr_str
+       | "~" factor -> expr_hide_key
+       | "(" expr ")"
+
 combine_opt: "sample=" INT  -> sample_opt
            | "seed=" INT    -> seed_opt
 

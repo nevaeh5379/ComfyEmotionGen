@@ -1,0 +1,20 @@
+{{# ====== Test Set Variable in Combine ====== #}}
+
+{{set user = "masterpiece, best quality"}}
+{{set ara = "1girl, dragon girl"}}
+
+{{axis char}}
+  ara: "{{ara}}"
+{{/axis}}
+
+{{axis emotion}}
+  happy: "happy"
+{{/axis}}
+
+{{combine c = user * char * emotion}}
+
+{{template}}
+{{c}}
+{{/template}}
+
+{{filename}}char_{{c.key}}{{/filename}}

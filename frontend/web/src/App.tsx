@@ -73,6 +73,7 @@ import {
 import { ComfyWorkflowSchema, type ComfyWorkflow } from "./lib/workflow"
 import { Checkbox } from "@/components/ui/checkbox"
 import { set } from "zod"
+import { Progress } from "@/components/ui/progress"
 interface RenderItemsResponse {
   count: number
   items: RenderItem[]
@@ -93,6 +94,11 @@ interface Job {
   seed: Map<string, number>
   workflow: ComfyWorkflow
 }
+
+interface ProgressState {
+  nodeParsent: number,
+  currentNodeName: string,
+}
 export function App() {
   const [workflowJson, setWorkflowJson] = useState<string>(() => {
     const saved = localStorage.getItem("workflow")
@@ -112,6 +118,16 @@ export function App() {
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [isAliveBackend, setIsAliveBackend] = useState<Boolean>(false)
   const [isSeedRandom, setIsSeedRandom] = useState<Record<string, boolean>>({})
+  // const [nodeParsent, setNodeParsent] = useState<Number>(0);
+  // const [currentNode, setCurrentNode] = useState<string>("")
+  const [progressState, setProgressState] = useState<ProgressState>({
+    nodeParsent: 0,
+    currentNodeName: "",
+  })
+  const jobsRef = useRef<Job[]>([])
+  useEffect(() => {
+  jobsRef.current = jobs
+}, [jobs])
   function parseWorkflow(workflowJson: string): ComfyWorkflow {
     try {
       const workflow = JSON.parse(workflowJson)
@@ -238,6 +254,14 @@ export function App() {
         {/* 작업이 있을 경우 */}
         {jobs.length > 0 && (
           <>
+            <Field>
+                  <FieldLabel>
+                    <span>노드: {progressState.currentNodeName}</span>
+                    <span  className="ml-auto">{Number(progressState.nodeParsent)}%</span>
+
+                  </FieldLabel>
+                  <Progress value={Number(progressState.nodeParsent)} className="w-full" />
+                </Field>
             {lastImages.length > 0 && (
               <div className="grid grid-cols-3 gap-4">
                 {lastImages.map((url, index) => (
@@ -462,7 +486,7 @@ export function App() {
           )
         )
       } else if (msg.type === "executed") {
-        const images = msg.output.images as Array<{
+        const images = msg.output?.images as Array<{
           filename: string
           subfolder: string
           type: string
@@ -476,7 +500,7 @@ export function App() {
           return `http://localhost:8188/view?${params}`
         })
         // 발견되지 않을 경우 오류로 표시 (완성 되기전에 대기열이 삭제되었다는 소리인데 나중에 삭제 기능으로 인해 발생할 수 있음 나중에 로직 생각해야할듯)
-        const job = jobs.find((j) => j.promptId === msg.promptId)
+        const job = jobsRef.current.find((j) => j.promptId === msg.promptId)
         if (!job) {
           throw Error("Job not found")
         }
@@ -488,6 +512,12 @@ export function App() {
         //     j.promptId === msg.promptId ? { ...j, imageUrls: urls } : j
         //   )
         // )
+      } else if (msg.type === "progress") {
+        const percent = (msg.value / msg.max) * 100
+        setProgressState({
+          nodeParsent: percent,
+          currentNodeName: jobsRef.current.find((j) => j.promptId === msg.promptId)?.workflow[msg.node]?._meta?.title || "",
+        })
       }
     })
   }, [subscribe])

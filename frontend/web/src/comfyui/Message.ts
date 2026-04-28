@@ -1,10 +1,8 @@
 import {z} from "zod"
 
 
-/**
- * 대기열 얼마나 있는지 확인하는 이벤트 대기열 바뀔 때마다 발생함
- */
-export const StatusMessage = z.object({
+/** 대기열 얼마나 있는지 확인하는 이벤트, 대기열 바뀔 때마다 발생 */
+const RawStatusMessageSchema = z.object({
   type: z.literal("status"),
   data: z.object({
     status: z.object({
@@ -16,11 +14,8 @@ export const StatusMessage = z.object({
   }),
 })
 
-
-/**
- * 노드별로 진행 상태를 알려주는 이벤트임
- */
-export const ProgressStateMessage = z.object({
+/** 노드별로 진행 상태를 알려주는 이벤트 */
+const RawProgressStateMessageSchema = z.object({
   type: z.literal("progress_state"),
   data: z.object({
     prompt_id: z.string(),
@@ -34,15 +29,13 @@ export const ProgressStateMessage = z.object({
         prompt_id: z.string(),
         real_node_id: z.string(),
         value: z.number().optional(),
-        })
-        ),
+      })
+    ),
   }),
 })
 
-/**
- * 거의 안 쓰는 것 같은데
- */
-export const ProgressMessage = z.object({
+/** 거의 안 쓰이는 듯 */
+const RawProgressMessageSchema = z.object({
   type: z.literal("progress"),
   data: z.object({
     value: z.number(),
@@ -52,16 +45,28 @@ export const ProgressMessage = z.object({
   }),
 })
 
-export const ExecutedMessage = z.object({
+const ComfyImageSchema = z.object({
+  filename: z.string(),
+  subfolder: z.string(),
+  type: z.string(),
+})
+
+const ComfyOutputSchema = z.object({
+  images: z.array(ComfyImageSchema).optional(),
+}).catchall(z.array(z.unknown()));
+
+const RawExecutedMessageSchema = z.object({
   type: z.literal("executed"),
   data: z.object({
     node: z.string(),
     display_node: z.string().optional(),
-    output: z.any(),
+    // output: z.unknown(),
+    output: ComfyOutputSchema.optional().nullable(),
+    prompt_id: z.string(),
   }),
 })
 
-export const ExecutingMessage = z.object({
+const RawExecutingMessageSchema = z.object({
   type: z.literal("executing"),
   data: z.object({
     node: z.string().nullable(),
@@ -70,28 +75,23 @@ export const ExecutingMessage = z.object({
   }),
 })
 
-/**
- * 완료되었을 때 발생하는 이벤트
- */
-
-export const ExecutionSuccessMessage = z.object({
+/** 완료되었을 때 발생하는 이벤트 */
+const RawExecutionSuccessMessageSchema = z.object({
   type: z.literal("execution_success"),
   data: z.object({
     prompt_id: z.string(),
   }),
 })
 
-/**
- * /prompt GET 보내고 시작할때 발생하는 이벤트
- */
-export const ExecutionStartMessage = z.object({
+/** /prompt 보내고 시작할 때 발생하는 이벤트 */
+const RawExecutionStartMessageSchema = z.object({
   type: z.literal("execution_start"),
   data: z.object({
     prompt_id: z.string(),
   }),
 })
 
-export const ExecutionInterruptedMessage = z.object({
+const RawExecutionInterruptedMessageSchema = z.object({
   type: z.literal("execution_interrupted"),
   data: z.object({
     prompt_id: z.string(),
@@ -101,7 +101,7 @@ export const ExecutionInterruptedMessage = z.object({
   }),
 })
 
-export const ExecutionCachedMessage = z.object({
+const RawExecutionCachedMessageSchema = z.object({
   type: z.literal("execution_cached"),
   data: z.object({
     nodes: z.array(z.string()),
@@ -110,31 +110,122 @@ export const ExecutionCachedMessage = z.object({
 })
 
 export const RawWebSocketMessageSchema = z.discriminatedUnion("type", [
-  StatusMessage,
-  ProgressStateMessage,
-  ProgressMessage,
-  ExecutedMessage,
-  ExecutingMessage,
-  ExecutionSuccessMessage,
-  ExecutionStartMessage,
-  ExecutionInterruptedMessage,
-  ExecutionCachedMessage,
+  RawStatusMessageSchema,
+  RawProgressStateMessageSchema,
+  RawProgressMessageSchema,
+  RawExecutedMessageSchema,
+  RawExecutingMessageSchema,
+  RawExecutionSuccessMessageSchema,
+  RawExecutionStartMessageSchema,
+  RawExecutionInterruptedMessageSchema,
+  RawExecutionCachedMessageSchema,
 ])
 
+export type RawWebSocketMessage = z.infer<typeof RawWebSocketMessageSchema>
+
+export type StatusMessage = {
+  type: "status"
+  execInfo: {queueRemaining: number}
+  sid?: string
+}
+
+export type ProgressNode = {
+  displayNodeId: string
+  max: number
+  nodeId: string
+  parentNodeId: string | null
+  promptId: string
+  realNodeId: string
+  value?: number
+}
+
+export type ProgressStateMessage = {
+  type: "progress_state"
+  promptId: string
+  nodes: ProgressNode[]
+}
+
+export type ProgressMessage = {
+  type: "progress"
+  value: number
+  max: number
+  node: string
+  promptId: string
+}
+
+export type ComfyOutput = z.infer<typeof ComfyOutputSchema>
+
+export type ExecutedMessage = {
+  type: "executed"
+  node: string
+  displayNode?: string
+  output: ComfyOutput | null
+  promptId: string
+}
+
+export type ExecutingMessage = {
+  type: "executing"
+  node: string | null
+  displayNode?: string
+  promptId: string
+}
+
+export type ExecutionSuccessMessage = {
+  type: "execution_success"
+  promptId: string
+}
+
+export type ExecutionStartMessage = {
+  type: "execution_start"
+  promptId: string
+}
+
+export type ExecutionInterruptedMessage = {
+  type: "execution_interrupted"
+  promptId: string
+  nodeId: string
+  nodeType: string
+  executed: string[]
+}
+
+export type ExecutionCachedMessage = {
+  type: "execution_cached"
+  nodes: string[]
+  promptId: string
+}
+
+export type WebSocketMessage =
+  | StatusMessage
+  | ProgressStateMessage
+  | ProgressMessage
+  | ExecutedMessage
+  | ExecutingMessage
+  | ExecutionSuccessMessage
+  | ExecutionStartMessage
+  | ExecutionInterruptedMessage
+  | ExecutionCachedMessage
+
+// 특정 타입만 좁혀서 받고 싶을 때 사용
+export type WebSocketMessageOf<T extends WebSocketMessage["type"]> = Extract<
+  WebSocketMessage,
+  {type: T}
+>
+
+
 export const WebSocketMessageSchema = RawWebSocketMessageSchema.transform(
-  (raw) => {
+  (raw): WebSocketMessage => {
     switch (raw.type) {
       case "status":
         return {
-          type: "status" as const,
+          type: "status",
           execInfo: {
             queueRemaining: raw.data.status.exec_info.queue_remaining,
           },
-          sid: raw.data.sid,
+          ...(raw.data.sid !== undefined ? {sid: raw.data.sid} : {}),
         }
       case "progress_state":
         return {
-          type: "progress_state" as const,
+          type: "progress_state",
           promptId: raw.data.prompt_id,
           nodes: Object.values(raw.data.nodes).map((node) => ({
             displayNodeId: node.display_node_id,
@@ -143,12 +234,12 @@ export const WebSocketMessageSchema = RawWebSocketMessageSchema.transform(
             parentNodeId: node.parent_node_id ?? null,
             promptId: node.prompt_id,
             realNodeId: node.real_node_id,
-            value: node.value,
+            ...(node.value !== undefined ? {value: node.value} : {}),
           })),
         }
       case "progress":
         return {
-          type: "progress" as const,
+          type: "progress",
           value: raw.data.value,
           max: raw.data.max,
           node: raw.data.node,
@@ -156,31 +247,36 @@ export const WebSocketMessageSchema = RawWebSocketMessageSchema.transform(
         }
       case "executed":
         return {
-          type: "executed" as const,
+          type: "executed",
           node: raw.data.node,
-          displayNode: raw.data.display_node,
-          output: raw.data.output,
+          output: raw.data.output ?? null,
+          promptId: raw.data.prompt_id,
+          ...(raw.data.display_node !== undefined
+            ? {displayNode: raw.data.display_node}
+            : {}),
         }
       case "executing":
         return {
-          type: "executing" as const,
+          type: "executing",
           node: raw.data.node,
-          displayNode: raw.data.display_node,
           promptId: raw.data.prompt_id,
+          ...(raw.data.display_node !== undefined
+            ? {displayNode: raw.data.display_node}
+            : {}),
         }
       case "execution_success":
         return {
-          type: "execution_success" as const,
+          type: "execution_success",
           promptId: raw.data.prompt_id,
         }
       case "execution_start":
         return {
-          type: "execution_start" as const,
+          type: "execution_start",
           promptId: raw.data.prompt_id,
         }
       case "execution_interrupted":
         return {
-          type: "execution_interrupted" as const,
+          type: "execution_interrupted",
           promptId: raw.data.prompt_id,
           nodeId: raw.data.node_id,
           nodeType: raw.data.node_type,
@@ -188,12 +284,10 @@ export const WebSocketMessageSchema = RawWebSocketMessageSchema.transform(
         }
       case "execution_cached":
         return {
-          type: "execution_cached" as const,
+          type: "execution_cached",
           nodes: raw.data.nodes,
           promptId: raw.data.prompt_id,
         }
-      default:
-        throw new Error(`Unhandled message type: ${(raw as any).type}`)
     }
   }
 )

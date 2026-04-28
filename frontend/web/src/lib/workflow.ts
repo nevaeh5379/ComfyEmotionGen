@@ -16,7 +16,8 @@ export type NodeInputValue =
   | boolean
   | null
   | NodeLink
-  | NodeInputValue[];
+  | NodeInputValue[]
+  | { [key: string]: NodeInputValue };
 
 export const NodeInputValueSchema: z.ZodType<NodeInputValue> = z.lazy(() =>
   z.union([
@@ -26,6 +27,7 @@ export const NodeInputValueSchema: z.ZodType<NodeInputValue> = z.lazy(() =>
     z.null(),
     NodeLinkSchema,
     z.array(NodeInputValueSchema),
+     z.record(z.string(), NodeInputValueSchema),
   ]),
 );
 

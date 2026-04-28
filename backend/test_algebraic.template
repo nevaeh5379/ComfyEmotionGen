@@ -1,0 +1,30 @@
+{{# ====== Algebraic Combine Test ====== #}}
+
+{{set ara = "1girl, dragon girl"}}
+{{set emotion_background = "cowboy shot, white background"}}
+
+{{axis char}}
+  ara: "{{ara}}"
+{{/axis}}
+
+{{axis outfit}}
+  default: ""
+  nude: "huge_nipples, nude"
+{{/axis}}
+
+{{axis emotion}}
+  happy: "happy"
+  sad: "sad"
+{{/axis}}
+
+{{axis nsfw_motion}}
+  doggy: "doggy style"
+{{/axis}}
+
+{{combine c = char * ( (~outfit * emotion) + (~outfit * nsfw_motion * "nude, sweating, nsfw") ) }}
+
+{{template}}
+{{c}}, {{emotion_background}}
+{{/template}}
+
+{{filename}}char_{{c.key}}{{/filename}}

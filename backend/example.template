@@ -24,7 +24,6 @@
 
 {{combine outfit * emotion * pose}}
 
-{{# 말이 안 되는 조합은 제외 #}}
 {{exclude outfit=swimsuit AND emotion=angry}}
 {{exclude outfit=dress AND emotion=angry}}
 
