@@ -34,6 +34,7 @@ class Axis:
     name: str
     values: List[AxisValue] = field(default_factory=list)
     weighted: bool = False
+    include: Optional[str] = None
 
 
 @dataclass
@@ -99,9 +100,22 @@ class _Builder(Transformer):
 
     def axis_def(self, items):
         name = str(items[0])
-        weighted = len(items) > 1 and str(items[1]) == "weighted"
-        entries = items[2:] if weighted else items[1:]
-        return ("axis", Axis(name=name, weighted=weighted, values=list(entries)))
+        weighted = False
+        include = None
+        entries = []
+        for item in items[1:]:
+            s = str(item)
+            if s == "weighted":
+                weighted = True
+            elif isinstance(item, AxisValue):
+                entries.append(item)
+            else:
+                # axis_include result: plain string
+                include = s
+        return ("axis", Axis(name=name, weighted=weighted, include=include, values=entries))
+
+    def axis_include(self, items):
+        return str(items[0])[1:-1]
 
     def axis_entry(self, items):
         key = str(items[0])
@@ -201,7 +215,14 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
     if kind == 'var':
         name = payload
         if name in axes:
-            return [{name: val} for val in axes[name].values]
+            axis = axes[name]
+            vals = axis.values
+            if axis.include:
+                vals = [
+                    AxisValue(key=v.key, value=f"{v.value}, {axis.include}", weight=v.weight, hide_key=v.hide_key)
+                    for v in vals
+                ]
+            return [{name: val} for val in vals]
         elif name in vars:
             return [{name: AxisValue(key=name, value=vars[name], weight=1.0)}]
         else:

@@ -12,8 +12,9 @@ statement: set_stmt
 
 set_stmt: "{{set" NAME "=" STRING "}}"
 
-axis_def: "{{axis" NAME WEIGHTED? "}}" axis_entry* "{{/axis}}"
+axis_def: "{{axis" NAME WEIGHTED? axis_include? "}}" axis_entry* "{{/axis}}"
 WEIGHTED: "weighted"
+axis_include: "include=" STRING
 axis_entry: NAME ":" STRING ("@" NUMBER)?
 
 combine_stmt: "{{combine" combine_assignment (":" combine_opt+)? "}}"
