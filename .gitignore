@@ -8,3 +8,6 @@ example_frontend/dist
 frontend/web/node_modules
 frontend/web/dist
 tools/dumps
+vscode-ceg/node_modules
+vscode-ceg/out
+

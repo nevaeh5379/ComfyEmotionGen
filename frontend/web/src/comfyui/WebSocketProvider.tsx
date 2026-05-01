@@ -1,175 +1,145 @@
+/**
+ * 백엔드 WebSocket 클라이언트.
+ *
+ * 단일 엔드포인트 `${backendUrl}/ws/events`에 연결하여 잡/워커 스냅샷 +
+ * 이후 변경 이벤트를 수신한다. 잡 상태와 워커 상태는 이 Provider가
+ * 직접 보유 → 자식 컴포넌트는 useBackend()로 읽기만.
+ *
+ * 자동 재연결(지수 백오프). 백엔드 URL이 바뀌면 끊고 재연결.
+ */
+
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react"
-import { z } from "zod"
-import { wsLogger, wsInLogger, wsOutLogger } from "../lib/logger"
-import { WebSocketMessageSchema } from "./Message"
-const WS_URL = "ws://127.0.0.1:8188/ws"
+import type { BackendEvent, JobView, WorkerView } from "./Message"
 
-
-export type WebSocketMessage = z.infer<typeof WebSocketMessageSchema>
-export type StatusData = Extract<WebSocketMessage, { type: "status" }>
-export type ProgressStateData = Extract<
-  WebSocketMessage,
-  { type: "progress_state" }
->
-export type ProgressData = Extract<WebSocketMessage, { type: "progress" }>
-export type ExecutedData = Extract<WebSocketMessage, { type: "executed" }>
-export type ExecutingData = Extract<WebSocketMessage, { type: "executing" }>
-export type ExecutionSuccessData = Extract<
-  WebSocketMessage,
-  { type: "execution_success" }
->
-export type ExecutionStartData = Extract<
-  WebSocketMessage,
-  { type: "execution_start" }
->
-export type ExecutionInterruptedData = Extract<
-  WebSocketMessage,
-  { type: "execution_interrupted" }
->
-export type ExecutionCachedData = Extract<
-  WebSocketMessage,
-  { type: "execution_cached" }
->
-
-interface WebSocketContextValue {
+interface BackendContextValue {
   isConnected: boolean
-  clientId: string | undefined
-  lastStatus: StatusData | undefined
-  sendMessage: (message: string) => void
-  subscribe: (listener: (msg: WebSocketMessage) => void) => () => void
-  subscribeBinary: (listener: (frame: BinaryFrame) => void) => () => void
-  
+  jobs: JobView[]
+  workers: WorkerView[]
+  paused: boolean
 }
-interface BinaryFrame {
-  eventType: number
-  format: number
-  data: ArrayBuffer  // 헤더 제외한 순수 이미지 바이트
-}
-const WebSocketContext = createContext<WebSocketContextValue | null>(null)
 
-export const WebSocketProvider = ({
-  children,
-}: {
+const BackendContext = createContext<BackendContextValue | null>(null)
+
+const INITIAL_BACKOFF_MS = 1000
+const MAX_BACKOFF_MS = 30_000
+
+const DEFAULT_BACKEND_URL = "http://localhost:8000"
+
+const httpToWs = (url: string): string =>
+  url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
+
+interface ProviderProps {
   children: React.ReactNode
-}) => {
-  const socketRef = useRef<WebSocket | null>(null)
+  /** 런타임에 변경 가능. 비워두면 localStorage('backendUrl') → 기본값 순으로 폴백. */
+  backendUrl?: string
+}
+
+const readStoredBackendUrl = (): string =>
+  localStorage.getItem("backendUrl") || DEFAULT_BACKEND_URL
+
+export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
+  const [url, setUrl] = useState<string>(
+    () => backendUrl ?? readStoredBackendUrl()
+  )
   const [isConnected, setIsConnected] = useState(false)
-  const [clientId, setClientId] = useState<string>()
+  const [jobs, setJobs] = useState<JobView[]>([])
+  const [workers, setWorkers] = useState<WorkerView[]>([])
+  const [paused, setPaused] = useState(false)
+
+  // backendUrl prop이 변경되거나 storage 이벤트 발생 시 url 갱신
+  useEffect(() => {
+    if (backendUrl !== undefined) setUrl(backendUrl)
+  }, [backendUrl])
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "backendUrl" && e.newValue) setUrl(e.newValue)
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
+  }, [])
+
+  const socketRef = useRef<WebSocket | null>(null)
   const shouldReconnectRef = useRef(true)
-  const [lastStatus, setLastStatus] = useState<StatusData>()
-  const reconnectTimeoutRef = useRef<number | null>(null)
-  const maxReconnectAttemptsRef = useRef(0)
-  /**
-   * 이거 없애야 할듯
-   */
-  const MAX_RECONNECT_ATTEMPTS = 10
-  const listenersRef = useRef(new Set<(msg: WebSocketMessage) => void>())
-  const binaryListenersRef = useRef(new Set<(frame: BinaryFrame) => void>())
-const subscribe = useCallback((listener: (msg: WebSocketMessage) => void) => {
-    listenersRef.current.add(listener)
-    return () => {
-      listenersRef.current.delete(listener)
+  const reconnectTimerRef = useRef<number | null>(null)
+
+  const applyEvent = useCallback((event: BackendEvent) => {
+    switch (event.type) {
+      case "snapshot":
+        setJobs(event.jobs)
+        setWorkers(event.workers)
+        setPaused(event.paused)
+        break
+      case "job.created":
+        setJobs((prev) => [...prev, event.job])
+        break
+      case "job.updated":
+        setJobs((prev) =>
+          prev.map((j) => (j.id === event.job.id ? event.job : j))
+        )
+        break
+      case "worker.updated":
+        setWorkers((prev) =>
+          prev.map((w) => (w.id === event.worker.id ? event.worker : w))
+        )
+        break
+      case "control.updated":
+        setPaused(event.paused)
+        break
     }
   }, [])
 
-  const subscribeBinary = useCallback((listener: (frame: BinaryFrame) => void) => {
-    binaryListenersRef.current.add(listener)
-    return () => {
-      binaryListenersRef.current.delete(listener)
-    }
-  }, [])
   useEffect(() => {
     shouldReconnectRef.current = true
-    maxReconnectAttemptsRef.current = 0
+    let backoff = INITIAL_BACKOFF_MS
+
+    const wsUrl = `${httpToWs(url)}/ws/events`
 
     const connect = () => {
-      wsLogger.info("Attempting to connect to WebSocket...")
-      const socket = new WebSocket(WS_URL)
-      socket.binaryType = "arraybuffer" 
+      console.info("[backend] connecting", wsUrl)
+      const socket = new WebSocket(wsUrl)
       socketRef.current = socket
 
       socket.onopen = () => {
         setIsConnected(true)
-        maxReconnectAttemptsRef.current = 0
-        wsLogger.info("WebSocket connected successfully")
+        backoff = INITIAL_BACKOFF_MS
+        console.info("[backend] connected")
       }
 
-      socket.onmessage = (event) => {
-        if (event.data instanceof ArrayBuffer) {
-          if (event.data.byteLength < 8) return
-          const view = new DataView(event.data)
-          const frame: BinaryFrame = {
-            eventType: view.getUint32(0, false),
-            format: view.getUint32(4, false),
-            data: event.data.slice(8),
-          }
-          wsInLogger.debug("binary", {
-            eventType: frame.eventType,
-            format: frame.format,
-            size: frame.data.byteLength,
-          })
-          binaryListenersRef.current.forEach((l) => l(frame))
-          return
-        }
+      socket.onmessage = (e) => {
+        if (typeof e.data !== "string") return
         try {
-          const message = JSON.parse(event.data)
-          wsInLogger.debug(message)
-          const result = WebSocketMessageSchema.safeParse(message)
-          if (!result.success) {
-            wsInLogger.error("parse failed", {
-              error: result.error.format(),
-              raw: message,
-            })
-            return
-          }
-          const normalized = result.data
-          if (normalized.type === "status") {
-            setLastStatus(normalized)
-            if (normalized.sid) setClientId(normalized.sid)  // undefined로 덮어쓰지 않음
-          }
-          // 리스너들에게 브로드캐스트
-          listenersRef.current.forEach((l) => l(normalized))
-        } catch (error) {
-          wsInLogger.error("JSON parse failed", error)
+          const event = JSON.parse(e.data) as BackendEvent
+          applyEvent(event)
+        } catch (err) {
+          console.warn("[backend] bad event", err)
         }
       }
 
-      socket.onerror = (event) => {
-        console.error("WebSocket error occurred:", event)
+      socket.onerror = () => {
+        // close가 따로 호출되니 여기서는 로깅만
       }
 
-      socket.onclose = (event) => {
+      socket.onclose = () => {
         setIsConnected(false)
         socketRef.current = null
-        wsLogger.info(
-          `WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}`
-        )
-
-        if (shouldReconnectRef.current && maxReconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-          maxReconnectAttemptsRef.current++
-          const delay = Math.min(1000 * Math.pow(2, maxReconnectAttemptsRef.current), 30000) // 지수 백오프 (최대 30초)
-          wsLogger.info(
-            `Reconnecting in ${delay / 1000} seconds... (Attempt ${maxReconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`
-          )
-          
-          if (reconnectTimeoutRef.current !== null) {
-            clearTimeout(reconnectTimeoutRef.current)
-          }
-          
-          reconnectTimeoutRef.current = window.setTimeout(() => {
-            reconnectTimeoutRef.current = null
-            connect()
-          }, delay)
-        } else if (maxReconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          wsLogger.error("Max reconnect attempts reached. Stopping reconnection.")
+        if (!shouldReconnectRef.current) return
+        if (reconnectTimerRef.current !== null) {
+          clearTimeout(reconnectTimerRef.current)
         }
+        reconnectTimerRef.current = window.setTimeout(() => {
+          reconnectTimerRef.current = null
+          connect()
+        }, backoff)
+        backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
       }
     }
 
@@ -177,21 +147,16 @@ const subscribe = useCallback((listener: (msg: WebSocketMessage) => void) => {
 
     return () => {
       shouldReconnectRef.current = false
-      
-
-      if (reconnectTimeoutRef.current !== null) {
-        clearTimeout(reconnectTimeoutRef.current)
-        reconnectTimeoutRef.current = null
+      if (reconnectTimerRef.current !== null) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
       }
-      
-
       const socket = socketRef.current
       if (socket) {
         socket.onopen = null
         socket.onmessage = null
         socket.onerror = null
         socket.onclose = null
-
         if (
           socket.readyState === WebSocket.OPEN ||
           socket.readyState === WebSocket.CONNECTING
@@ -200,38 +165,27 @@ const subscribe = useCallback((listener: (msg: WebSocketMessage) => void) => {
         }
         socketRef.current = null
       }
+      setIsConnected(false)
     }
-  }, [])
+  }, [url, applyEvent])
 
-  const sendMessage = useCallback((message: string) => {
-    const socket = socketRef.current
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(message)
-    } else {
-      console.warn("WebSocket is not open. Message not sent.")
-    }
-  }, [])
-
-  const value: WebSocketContextValue = {
-    isConnected,
-    clientId,
-    lastStatus,
-    sendMessage,
-    subscribe,
-    subscribeBinary,
-  }
+  const value = useMemo<BackendContextValue>(
+    () => ({ isConnected, jobs, workers, paused }),
+    [isConnected, jobs, workers, paused]
+  )
 
   return (
-    <WebSocketContext.Provider value={value}>
-      {children}
-    </WebSocketContext.Provider>
+    <BackendContext.Provider value={value}>{children}</BackendContext.Provider>
   )
 }
 
-export const useWebSocket = () => {
-  const context = useContext(WebSocketContext)
-  if (!context) {
-    throw new Error("useWebSocket must be used within a WebSocketProvider")
+export const useBackend = (): BackendContextValue => {
+  const ctx = useContext(BackendContext)
+  if (!ctx) {
+    throw new Error("useBackend must be used within a WebSocketProvider")
   }
-  return context
+  return ctx
 }
+
+// 하위 호환 — 기존 import 깨지지 않게
+export const useWebSocket = useBackend
