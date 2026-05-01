@@ -15,6 +15,7 @@ interface CodeEditorProps {
   placeholder?: string;
   className?: string;
   minHeight?: string;
+  maxHeight?: string;
 }
 
 const CodeEditor = ({
@@ -24,6 +25,7 @@ const CodeEditor = ({
   placeholder,
   className = "",
   minHeight = "8rem",
+  maxHeight = "24rem",
 }: CodeEditorProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -71,9 +73,7 @@ const CodeEditor = ({
     const code = value || " ";
     const grammar = Prism.languages[language];
     if (grammar) {
-      pre.innerHTML =
-        Prism.highlight(code, grammar, language) +
-        "\n";
+      pre.innerHTML = Prism.highlight(code, grammar, language) + "\n";
     } else {
       pre.textContent = code + "\n";
     }
@@ -81,8 +81,8 @@ const CodeEditor = ({
 
   return (
     <div
-      className={`relative rounded-md border bg-muted/50 ${className}`}
-      style={{ minHeight }}
+      className={`relative rounded-md border bg-muted/50 overflow-hidden ${className}`}
+      style={{ minHeight, maxHeight }}
     >
       <textarea
         ref={textareaRef}
@@ -95,13 +95,12 @@ const CodeEditor = ({
         autoCapitalize="off"
         autoComplete="off"
         autoCorrect="off"
-        className="absolute inset-0 z-10 w-full resize-none bg-transparent p-3 font-mono text-sm text-transparent caret-gray-700 dark:caret-gray-300 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
-        style={{ minHeight }}
+        className="absolute inset-0 z-10 h-full w-full resize-none bg-transparent p-3 font-mono text-sm text-transparent caret-gray-700 outline-none placeholder:text-gray-400 dark:caret-gray-300 dark:placeholder:text-gray-600 overflow-y-auto"
       />
       <pre
         ref={preRef}
-        className="pointer-events-none whitespace-pre-wrap wrap-break-word p-3 font-mono text-sm"
-        style={{ minHeight }}
+        className="pointer-events-none whitespace-pre-wrap break-words p-3 font-mono text-sm overflow-hidden"
+        style={{ minHeight, maxHeight, margin: 0 }}
         aria-hidden="true"
       />
     </div>
