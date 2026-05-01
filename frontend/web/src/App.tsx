@@ -190,6 +190,8 @@ export function App() {
     nodePercent: 0,
     currentNodeName: "",
   })
+  const [batchCount, setBatchCount] = useState(1)
+  const [isPaused, setIsPaused] = useState(false)
 
   const jobsRef = useRef<Job[]>([])
   useEffect(() => {
@@ -247,42 +249,67 @@ export function App() {
     const parserResult = await callParser()
     if (!parserResult) return
 
-    const seeds = generateSeeds(parseWorkflow(workflowJson))
+    const newJobs: Job[] = []
 
-    const newJobs: Job[] = parserResult.items.map((item): Job => {
-      const tempWorkflow = parseWorkflow(workflowJson)
-      const promptId = crypto.randomUUID()
+    for (let batch = 0; batch < batchCount; batch++) {
+      const seeds = generateSeeds(parseWorkflow(workflowJson))
 
-      seeds.forEach((seed, nodeId) => {
-        tempWorkflow[nodeId]!.inputs["seed"] = seed
-      })
+      parserResult.items.forEach((item) => {
+        const tempWorkflow = parseWorkflow(workflowJson)
+        const promptId = crypto.randomUUID()
 
-      Object.entries(tempWorkflow).forEach(([nodeId, node]) => {
-        Object.entries(node.inputs).forEach(([inputKey, inputValue]) => {
-          if (typeof inputValue === "string") {
-            tempWorkflow[nodeId]!.inputs[inputKey] = inputValue
-              .replace("{input}", item.prompt)
-              .replace("{filename}", item.filename)
-          }
+        seeds.forEach((seed, nodeId) => {
+          tempWorkflow[nodeId]!.inputs["seed"] = seed
+        })
+
+        Object.entries(tempWorkflow).forEach(([nodeId, node]) => {
+          Object.entries(node.inputs).forEach(([inputKey, inputValue]) => {
+            if (typeof inputValue === "string") {
+              tempWorkflow[nodeId]!.inputs[inputKey] = inputValue
+                .replace("{input}", item.prompt)
+                .replace("{filename}", item.filename)
+            }
+          })
+        })
+
+        newJobs.push({
+          id: promptId,
+          promptId,
+          item,
+          status: "pending",
+          seed: seeds,
+          workflow: tempWorkflow,
         })
       })
-
-      return {
-        id: promptId,
-        promptId,
-        item,
-        status: "pending",
-        seed: seeds,
-        workflow: tempWorkflow,
-      }
-    })
+    }
 
     setJobs((prev) => [...prev, ...newJobs])
+    setIsPaused(false)
   }
 
   const handleParser = async () => {
     const data = await callParser()
     if (data) setFakeJobQueue(data.items)
+  }
+
+  const handleCancelAll = async () => {
+    // ComfyUI에 interrupt 요청
+    try {
+      await fetch(`${comfyUrl}/interrupt`, { method: "POST" })
+    } catch (error) {
+      console.error("Interrupt request failed:", error)
+    }
+    // 모든 pending/queued/running job을 error로 표시하고, pending은 제거
+    setJobs((prev) =>
+      prev
+        .filter((j) => j.status !== "pending")
+        .map((j) =>
+          j.status === "queued" || j.status === "running"
+            ? { ...j, status: "error", error: "사용자에 의해 취소됨" }
+            : j
+        )
+    )
+    setIsPaused(false)
   }
 
   const updateSeedValue = (nodeId: string, value: string) => {
@@ -323,6 +350,8 @@ export function App() {
 
   // 잡 큐 디스패처
   useEffect(() => {
+    if (isPaused) return
+
     const hasInFlight = jobs.some(
       (j) => j.status === "queued" || j.status === "running"
     )
@@ -361,7 +390,7 @@ export function App() {
     }
 
     submit()
-  }, [jobs, clientId, comfyUrl])
+  }, [jobs, clientId, comfyUrl, isPaused])
 
   /**
    * execution_start: comfyUI에서 실행될 때
@@ -624,13 +653,20 @@ export function App() {
                       <input
                         type="number"
                         className="h-full w-24 bg-transparent px-3 outline-none"
-                        placeholder="0"
+                        placeholder="1"
+                        min={1}
+                        value={batchCount}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10)
+                          if (!isNaN(v) && v >= 1) setBatchCount(v)
+                        }}
                       />
                       <div className="flex w-8 flex-col border-l">
                         <Button
                           variant="ghost"
                           className="flex-1"
                           aria-label="Increase"
+                          onClick={() => setBatchCount((n) => n + 1)}
                         >
                           <PlusIcon className="h-3 w-3" />
                         </Button>
@@ -638,6 +674,7 @@ export function App() {
                           variant="ghost"
                           className="flex-1"
                           aria-label="Decrease"
+                          onClick={() => setBatchCount((n) => Math.max(1, n - 1))}
                         >
                           <MinusIcon className="h-3 w-3" />
                         </Button>
@@ -650,6 +687,22 @@ export function App() {
                       disabled={!canRun}
                     >
                       실행
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10"
+                      onClick={() => setIsPaused((p) => !p)}
+                      disabled={!isConnected}
+                    >
+                      {isPaused ? "재개" : "일시정지"}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="h-10"
+                      onClick={handleCancelAll}
+                      disabled={!isConnected}
+                    >
+                      전부 취소
                     </Button>
                     <Button
                       variant="secondary"
