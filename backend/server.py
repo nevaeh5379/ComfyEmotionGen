@@ -191,6 +191,24 @@ async def jobs_cancel(job_id: str):
     return {"ok": True}
 
 
+@app.post("/jobs/cancel-all")
+async def jobs_cancel_all():
+    count = await job_manager.cancel_all()
+    return {"cancelled": count}
+
+
+@app.post("/jobs/pause")
+async def jobs_pause():
+    await job_manager.set_paused(True)
+    return {"paused": True}
+
+
+@app.post("/jobs/resume")
+async def jobs_resume():
+    await job_manager.set_paused(False)
+    return {"paused": False}
+
+
 # ====== 이미지 프록시 ======
 
 
@@ -235,6 +253,7 @@ async def ws_events(websocket: WebSocket):
                 "type": "snapshot",
                 "jobs": snapshot,
                 "workers": worker_infos,
+                "paused": job_manager.paused,
             }
         )
         # 클라이언트가 보내는 메시지는 현재는 무시 (keepalive)

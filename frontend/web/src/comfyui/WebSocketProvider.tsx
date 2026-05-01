@@ -23,6 +23,7 @@ interface BackendContextValue {
   isConnected: boolean
   jobs: JobView[]
   workers: WorkerView[]
+  paused: boolean
 }
 
 const BackendContext = createContext<BackendContextValue | null>(null)
@@ -51,6 +52,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const [isConnected, setIsConnected] = useState(false)
   const [jobs, setJobs] = useState<JobView[]>([])
   const [workers, setWorkers] = useState<WorkerView[]>([])
+  const [paused, setPaused] = useState(false)
 
   // backendUrl prop이 변경되거나 storage 이벤트 발생 시 url 갱신
   useEffect(() => {
@@ -74,6 +76,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       case "snapshot":
         setJobs(event.jobs)
         setWorkers(event.workers)
+        setPaused(event.paused)
         break
       case "job.created":
         setJobs((prev) => [...prev, event.job])
@@ -87,6 +90,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         setWorkers((prev) =>
           prev.map((w) => (w.id === event.worker.id ? event.worker : w))
         )
+        break
+      case "control.updated":
+        setPaused(event.paused)
         break
     }
   }, [])
@@ -164,8 +170,8 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   }, [url, applyEvent])
 
   const value = useMemo<BackendContextValue>(
-    () => ({ isConnected, jobs, workers }),
-    [isConnected, jobs, workers]
+    () => ({ isConnected, jobs, workers, paused }),
+    [isConnected, jobs, workers, paused]
   )
 
   return (
