@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { MinusIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -39,11 +39,11 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 
-import { useWebSocket } from "./comfyui/WebSocketProvider"
+import { useBackend } from "./comfyui/WebSocketProvider"
+import type { JobView, WorkerView } from "./comfyui/Message"
 import { ComfyWorkflowSchema, type ComfyWorkflow } from "./lib/workflow"
 
 const DEFAULT_BACKEND_URL = "http://localhost:8000"
-const DEFAULT_COMFYUI_URL = "http://localhost:8188"
 const HEALTH_CHECK_INTERVAL_MS = 5000
 const MAX_RANDOM_SEED = 1_000_000_000
 
@@ -51,15 +51,15 @@ const STORAGE_KEYS = {
   workflow: "workflow",
   dslTemplate: "dslTemplate",
   backendUrl: "backendUrl",
-  comfyUrl: "comfyUrl",
 } as const
 
-const JOB_STATUS_LABEL: Record<JobStatus, string> = {
+const JOB_STATUS_LABEL: Record<JobView["status"], string> = {
   pending: "대기 중",
   queued: "큐 대기 중",
   running: "진행 중...",
   done: "완료",
   error: "실패",
+  cancelled: "취소됨",
 }
 
 interface RenderItem {
@@ -71,23 +71,6 @@ interface RenderItem {
 interface RenderItemsResponse {
   count: number
   items: RenderItem[]
-}
-
-type JobStatus = "pending" | "queued" | "running" | "done" | "error"
-
-interface Job {
-  id: string
-  item: RenderItem
-  status: JobStatus
-  promptId: string
-  error?: string
-  seed: Map<string, number>
-  workflow: ComfyWorkflow
-}
-
-interface ProgressState {
-  nodePercent: number
-  currentNodeName: string
 }
 
 interface ServerStatusProps {
@@ -129,7 +112,7 @@ const ServerStatus = ({
         side="bottom"
         align="start"
         sideOffset={10}
-        className="w-48"
+        className="w-56"
       >
         <div className="flex flex-col gap-1">
           <p className="text-sm font-bold">
@@ -138,6 +121,95 @@ const ServerStatus = ({
           <p className="text-xs text-muted-foreground">
             {isConnected ? okHint : failHint}
           </p>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
+
+interface WorkerStatusProps {
+  workers: WorkerView[]
+  backendAlive: boolean
+}
+
+const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
+  const aliveCount = workers.filter((w) => w.alive).length
+  const total = workers.length
+  const allAlive = backendAlive && total > 0 && aliveCount === total
+  const someAlive = backendAlive && aliveCount > 0
+  const dot = allAlive
+    ? "bg-green-500"
+    : someAlive
+      ? "bg-yellow-500"
+      : "bg-red-500"
+  const ping = allAlive
+    ? "bg-green-400"
+    : someAlive
+      ? "bg-yellow-400"
+      : "bg-red-400"
+
+  return (
+    <HoverCard openDelay={200} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <div className="w-fit cursor-help">
+          <Item className="flex items-center gap-2 border-none bg-transparent p-2">
+            <span className="relative flex h-3 w-3">
+              <span
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${dot}`}
+              />
+              <span
+                className={`relative inline-flex h-3 w-3 rounded-full ${ping}`}
+              />
+            </span>
+            <ItemContent>
+              <ItemTitle className="text-sm font-semibold">
+                ComfyUI 워커 {backendAlive ? `${aliveCount}/${total}` : "—"}
+              </ItemTitle>
+            </ItemContent>
+          </Item>
+        </div>
+      </HoverCardTrigger>
+      <HoverCardContent
+        side="bottom"
+        align="end"
+        sideOffset={10}
+        className="w-72"
+      >
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-bold">
+            {allAlive
+              ? "모든 워커 연결됨"
+              : someAlive
+                ? "일부 워커만 연결됨"
+                : backendAlive
+                  ? "워커 연결 안 됨"
+                  : "백엔드 연결 안 됨"}
+          </p>
+          {workers.length === 0 && backendAlive && (
+            <p className="text-xs text-muted-foreground">
+              백엔드에 등록된 워커가 없습니다 (COMFYUI_WORKERS 환경변수 확인).
+            </p>
+          )}
+          {workers.map((w) => (
+            <div
+              key={w.id}
+              className="flex items-center justify-between gap-2 text-xs"
+            >
+              <span className="font-mono">{w.id}</span>
+              <span className="truncate text-muted-foreground">{w.url}</span>
+              <span
+                className={
+                  w.alive
+                    ? w.busy
+                      ? "text-yellow-600"
+                      : "text-green-600"
+                    : "text-red-600"
+                }
+              >
+                {w.alive ? (w.busy ? "busy" : "idle") : "down"}
+              </span>
+            </div>
+          ))}
         </div>
       </HoverCardContent>
     </HoverCard>
@@ -163,14 +235,31 @@ const parseWorkflow = (json: string): ComfyWorkflow => {
   return parsed.data
 }
 
+const buildWorkflowForItem = (
+  workflowJson: string,
+  item: RenderItem,
+  seeds: Map<string, number>
+): ComfyWorkflow => {
+  const workflow = parseWorkflow(workflowJson)
+  seeds.forEach((seed, nodeId) => {
+    workflow[nodeId]!.inputs["seed"] = seed
+  })
+  Object.entries(workflow).forEach(([nodeId, node]) => {
+    Object.entries(node.inputs).forEach(([inputKey, inputValue]) => {
+      if (typeof inputValue === "string") {
+        workflow[nodeId]!.inputs[inputKey] = inputValue
+          .replace("{input}", item.prompt)
+          .replace("{filename}", item.filename)
+      }
+    })
+  })
+  return workflow
+}
+
 export function App() {
   const [backendUrl, setBackendUrl] = useLocalStorageState(
     STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL
-  )
-  const [comfyUrl, setComfyUrl] = useLocalStorageState(
-    STORAGE_KEYS.comfyUrl,
-    DEFAULT_COMFYUI_URL
   )
   const [workflowJson, setWorkflowJson] = useLocalStorageState(
     STORAGE_KEYS.workflow
@@ -179,22 +268,11 @@ export function App() {
     STORAGE_KEYS.dslTemplate
   )
 
-  const { subscribe, isConnected, clientId } = useWebSocket()
+  const { isConnected: backendAlive, jobs, workers } = useBackend()
 
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [lastImages, setLastImages] = useState<string[]>([])
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [isAliveBackend, setIsAliveBackend] = useState(false)
   const [isSeedRandom, setIsSeedRandom] = useState<Record<string, boolean>>({})
-  const [progressState, setProgressState] = useState<ProgressState>({
-    nodePercent: 0,
-    currentNodeName: "",
-  })
-
-  const jobsRef = useRef<Job[]>([])
-  useEffect(() => {
-    jobsRef.current = jobs
-  }, [jobs])
 
   const parsedWorkflow = useMemo(() => {
     if (!workflowJson) return undefined
@@ -213,7 +291,27 @@ export function App() {
     )
   }, [parsedWorkflow])
 
-  const generateSeeds = (workflow: ComfyWorkflow): Map<string, number> => {
+  // 잡별 진행률을 위한 가장 최근 활성 잡
+  const activeJob = useMemo<JobView | undefined>(
+    () =>
+      [...jobs]
+        .reverse()
+        .find((j) => j.status === "running" || j.status === "queued"),
+    [jobs]
+  )
+
+  // 가장 최근 done 잡의 이미지를 미리보기로 사용
+  const lastImages = useMemo<string[]>(() => {
+    const lastDone = [...jobs]
+      .reverse()
+      .find((j) => j.status === "done" && j.imageUrls.length > 0)
+    if (!lastDone) return []
+    return lastDone.imageUrls.map((path) =>
+      path.startsWith("http") ? path : `${backendUrl}${path}`
+    )
+  }, [jobs, backendUrl])
+
+  const generateSeedsFor = (workflow: ComfyWorkflow): Map<string, number> => {
     const seeds = new Map<string, number>()
     Object.entries(workflow).forEach(([nodeId, node]) => {
       if (node.inputs["seed"] === undefined) return
@@ -243,46 +341,42 @@ export function App() {
   }
 
   const handleRun = async () => {
-    if (!workflowJson || !isConnected || !isAliveBackend) return
+    if (!workflowJson || !isAliveBackend) return
     const parserResult = await callParser()
     if (!parserResult) return
 
-    const seeds = generateSeeds(parseWorkflow(workflowJson))
+    // 시드는 한 배치 안에서 동일하게 (기존 동작 유지)
+    const seeds = generateSeedsFor(parseWorkflow(workflowJson))
 
-    const newJobs: Job[] = parserResult.items.map((item): Job => {
-      const tempWorkflow = parseWorkflow(workflowJson)
-      const promptId = crypto.randomUUID()
+    const items = parserResult.items.map((item) => ({
+      filename: item.filename,
+      prompt: item.prompt,
+      workflow: buildWorkflowForItem(workflowJson, item, seeds),
+    }))
 
-      seeds.forEach((seed, nodeId) => {
-        tempWorkflow[nodeId]!.inputs["seed"] = seed
+    try {
+      const res = await fetch(`${backendUrl}/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
       })
-
-      Object.entries(tempWorkflow).forEach(([nodeId, node]) => {
-        Object.entries(node.inputs).forEach(([inputKey, inputValue]) => {
-          if (typeof inputValue === "string") {
-            tempWorkflow[nodeId]!.inputs[inputKey] = inputValue
-              .replace("{input}", item.prompt)
-              .replace("{filename}", item.filename)
-          }
-        })
-      })
-
-      return {
-        id: promptId,
-        promptId,
-        item,
-        status: "pending",
-        seed: seeds,
-        workflow: tempWorkflow,
-      }
-    })
-
-    setJobs((prev) => [...prev, ...newJobs])
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch (error) {
+      console.error("Failed to submit jobs:", error)
+    }
   }
 
   const handleParser = async () => {
     const data = await callParser()
     if (data) setFakeJobQueue(data.items)
+  }
+
+  const handleCancel = async (jobId: string) => {
+    try {
+      await fetch(`${backendUrl}/jobs/${jobId}`, { method: "DELETE" })
+    } catch (error) {
+      console.error("Failed to cancel job:", error)
+    }
   }
 
   const updateSeedValue = (nodeId: string, value: string) => {
@@ -301,7 +395,7 @@ export function App() {
         const response = await fetch(`${backendUrl}/health`)
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
-        return data["status"] === "ok"
+        return data["backend"] === "ok"
       } catch (error) {
         console.error("Error occurred during backend health check:", error)
         return false
@@ -321,136 +415,42 @@ export function App() {
     }
   }, [backendUrl])
 
-  // 잡 큐 디스패처
-  useEffect(() => {
-    const hasInFlight = jobs.some(
-      (j) => j.status === "queued" || j.status === "running"
-    )
-    if (hasInFlight) return
-
-    const nextPending = jobs.find((j) => j.status === "pending")
-    if (!nextPending) return
-
-    const submit = async () => {
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.id === nextPending.id ? { ...j, status: "queued" } : j
-        )
-      )
-
-      try {
-        const res = await fetch(`${comfyUrl}/prompt`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: nextPending.workflow,
-            client_id: clientId,
-            prompt_id: nextPending.promptId,
-          }),
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      } catch (error) {
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.id === nextPending.id
-              ? { ...j, status: "error", error: String(error) }
-              : j
-          )
-        )
-      }
-    }
-
-    submit()
-  }, [jobs, clientId, comfyUrl])
-
-  /**
-   * execution_start: comfyUI에서 실행될 때
-   * execution_success: 노드 전부 성공
-   * executed: SaveImage 등으로 끝났을 때 (SaveImageWebsocket는 바이너리 메시지로 옴)
-   */
-  useEffect(() => {
-    return subscribe((msg) => {
-      if (msg.type === "execution_start") {
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.promptId === msg.promptId ? { ...j, status: "running" } : j
-          )
-        )
-      } else if (msg.type === "execution_success") {
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.promptId === msg.promptId ? { ...j, status: "done" } : j
-          )
-        )
-      } else if (msg.type === "execution_interrupted") {
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.promptId === msg.promptId
-              ? {
-                  ...j,
-                  status: "error",
-                  error: `interrupted at ${msg.nodeType}`,
-                }
-              : j
-          )
-        )
-      } else if (msg.type === "executed") {
-        const images = msg.output?.images as Array<{
-          filename: string
-          subfolder: string
-          type: string
-        }>
-        const urls = images.map((img) => {
-          const params = new URLSearchParams({
-            filename: img.filename,
-            subfolder: img.subfolder,
-            type: img.type,
-          })
-          return `${comfyUrl}/view?${params}`
-        })
-        const job = jobsRef.current.find((j) => j.promptId === msg.promptId)
-        if (!job) {
-          throw Error("Job not found")
-        }
-        setLastImages(urls)
-      } else if (msg.type === "progress") {
-        const percent = (msg.value / msg.max) * 100
-        setProgressState({
-          nodePercent: percent,
-          currentNodeName:
-            jobsRef.current.find((j) => j.promptId === msg.promptId)
-              ?.workflow[msg.node]?._meta?.title ?? "",
-        })
-      }
-    })
-  }, [subscribe, comfyUrl])
-
   const renderJobsTable = () => (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead>FileName</TableHead>
           <TableHead>Prompt</TableHead>
-          <TableHead>Seeds</TableHead>
+          <TableHead>Worker</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
       <TableBody>
         {jobs.map((j) => (
           <TableRow key={j.id}>
-            <TableCell className="font-mono text-xs">{j.item.filename}</TableCell>
-            <TableCell className="max-w-xs truncate">{j.item.prompt}</TableCell>
-            <TableCell>
-              {Array.from(j.seed.entries()).map(([nodeId, seed]) => (
-                <div key={nodeId} className="font-mono text-xs">
-                  {nodeId}: {seed}
-                </div>
-              ))}
+            <TableCell className="font-mono text-xs">{j.filename}</TableCell>
+            <TableCell className="max-w-xs truncate">{j.prompt}</TableCell>
+            <TableCell className="font-mono text-xs">
+              {j.workerId ?? "—"}
             </TableCell>
             <TableCell>
               {j.status === "error"
-                ? `${JOB_STATUS_LABEL.error}: ${j.error}`
+                ? `${JOB_STATUS_LABEL.error}: ${j.error ?? ""}`
                 : JOB_STATUS_LABEL[j.status]}
+            </TableCell>
+            <TableCell>
+              {(j.status === "pending" ||
+                j.status === "queued" ||
+                j.status === "running") && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleCancel(j.id)}
+                >
+                  취소
+                </Button>
+              )}
             </TableCell>
           </TableRow>
         ))}
@@ -482,13 +482,18 @@ export function App() {
             <Field>
               <FieldLabel>
                 <span className="truncate">
-                  노드: {progressState.currentNodeName || "—"}
+                  {activeJob
+                    ? `${activeJob.filename} · ${activeJob.currentNodeName || "—"}`
+                    : "대기 중"}
                 </span>
                 <span className="ml-auto tabular-nums">
-                  {Math.round(progressState.nodePercent)}%
+                  {Math.round(activeJob?.progressPercent ?? 0)}%
                 </span>
               </FieldLabel>
-              <Progress value={progressState.nodePercent} className="w-full" />
+              <Progress
+                value={activeJob?.progressPercent ?? 0}
+                className="w-full"
+              />
             </Field>
 
             {lastImages.length > 0 && (
@@ -532,7 +537,7 @@ export function App() {
     )
   }
 
-  const canRun = Boolean(workflowJson) && isConnected && isAliveBackend
+  const canRun = Boolean(workflowJson) && isAliveBackend && backendAlive
 
   return (
     <div className="min-h-screen bg-background">
@@ -550,17 +555,12 @@ export function App() {
           </NavigationMenu>
           <div className="flex items-center gap-1">
             <ServerStatus
-              name="ComfyUI 서버"
-              isConnected={isConnected}
-              okHint="서버가 응답하고 있습니다."
-              failHint="ComfyUI 서버 상태를 확인해주세요."
-            />
-            <ServerStatus
               name="백엔드 서버"
-              isConnected={isAliveBackend}
-              okHint="서버가 응답하고 있습니다."
+              isConnected={isAliveBackend && backendAlive}
+              okHint="백엔드와 연결되어 있습니다."
               failHint="백엔드 서버 상태를 확인해주세요."
             />
+            <WorkerStatus workers={workers} backendAlive={isAliveBackend} />
           </div>
         </div>
       </nav>
@@ -579,19 +579,9 @@ export function App() {
                     value={backendUrl}
                     onChange={(e) => setBackendUrl(e.target.value)}
                   />
-                </Field>
-                <Field>
-                  <FieldLabel>ComfyUI API 서버 URL</FieldLabel>
-                  <Input
-                    type="url"
-                    placeholder={DEFAULT_COMFYUI_URL}
-                    value={comfyUrl}
-                    onChange={(e) => setComfyUrl(e.target.value)}
-                  />
                   <FieldDescription>
-                    ComfyUI에서 cors 정책 허용해야 합니다.
-                    <br />
-                    예시: python .\main.py --enable-cors-header *
+                    ComfyUI 서버 URL은 백엔드 환경변수
+                    (<code>COMFYUI_WORKERS</code>)에서 관리합니다.
                   </FieldDescription>
                 </Field>
               </FieldGroup>
