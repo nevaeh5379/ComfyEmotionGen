@@ -10,4 +10,5 @@ frontend/web/dist
 tools/dumps
 vscode-ceg/node_modules
 vscode-ceg/out
-
+backend/jobs.db
+backend/jobs.db-*

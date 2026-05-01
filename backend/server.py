@@ -209,6 +209,40 @@ async def jobs_resume():
     return {"paused": False}
 
 
+# ====== 잡 로그 ======
+
+
+@app.get("/jobs/{job_id}/events")
+async def job_events(job_id: str):
+    """특정 잡의 상태 전환 이력 (audit log)을 반환."""
+    events = await job_manager._store.get_job_events(job_id)
+    return {"jobId": job_id, "events": events}
+
+
+@app.get("/jobs/{job_id}/execution-events")
+async def job_execution_events(job_id: str):
+    """특정 잡의 ComfyUI 실행 이벤트를 반환."""
+    events = await job_manager._store.get_execution_events(job_id)
+    return {"jobId": job_id, "events": events}
+
+
+@app.get("/logs")
+async def logs_all(
+    limit: int = 100,
+    offset: int = 0,
+    status: str | None = None,
+    worker_id: str | None = None,
+):
+    """필터링된 전체 job_events 목록을 반환."""
+    events = await job_manager._store.get_all_events(
+        limit=limit,
+        offset=offset,
+        status=status,
+        worker_id=worker_id,
+    )
+    return {"events": events, "limit": limit, "offset": offset}
+
+
 # ====== 이미지 프록시 ======
 
 

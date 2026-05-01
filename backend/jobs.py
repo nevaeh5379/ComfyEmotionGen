@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Literal, Optional
 
 from comfy_client import ComfyWorker
+from job_store import JobStore
 from worker_pool import WorkerPool
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ JobStatus = Literal[
 ]
 
 
-MAX_RETRIES = 3
+RETRY_DELAY = 1.0  # 재시도 간격 (초)
 
 
 @dataclass
@@ -53,12 +54,14 @@ class Job:
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
     retry_count: int = 0
+    execution_duration_ms: Optional[float] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "filename": self.filename,
             "prompt": self.prompt,
+            "_workflow": self.workflow,
             "status": self.status,
             "workerId": self.worker_id,
             "error": self.error,
@@ -69,7 +72,28 @@ class Job:
             "startedAt": self.started_at,
             "finishedAt": self.finished_at,
             "retryCount": self.retry_count,
+            "executionDurationMs": self.execution_duration_ms,
         }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Job:
+        return cls(
+            id=d["id"],
+            filename=d["filename"],
+            prompt=d["prompt"],
+            workflow=d.get("_workflow", {}),
+            status=d.get("status", "pending"),
+            worker_id=d.get("workerId"),
+            error=d.get("error"),
+            image_urls=d.get("imageUrls", []),
+            progress_percent=d.get("progressPercent", 0.0),
+            current_node_name=d.get("currentNodeName", ""),
+            created_at=d.get("createdAt", time.time()),
+            started_at=d.get("startedAt"),
+            finished_at=d.get("finishedAt"),
+            retry_count=d.get("retryCount", 0),
+            execution_duration_ms=d.get("executionDurationMs"),
+        )
 
 
 # 정규화된 이벤트 타입
@@ -88,8 +112,9 @@ class JobManager:
         - subscribe(listener) → 정규화 이벤트 수신
     """
 
-    def __init__(self, pool: WorkerPool) -> None:
+    def __init__(self, pool: WorkerPool, store: Optional[JobStore] = None) -> None:
         self._pool = pool
+        self._store = store or JobStore()
         self._jobs: dict[str, Job] = {}
         self._lock = asyncio.Lock()
         self._wakeup = asyncio.Event()
@@ -107,11 +132,29 @@ class JobManager:
     # ---------- lifecycle ----------
 
     async def start(self) -> None:
+        await self._store.open()
+        # DB에서 기존 잡 복원
+        stored = await self._store.load_all()
+        async with self._lock:
+            for d in stored:
+                job = Job.from_dict(d)
+                # queued/running 상태였던 잡은 pending으로 되돌림 (백엔드 재시작)
+                if job.status in ("queued", "running"):
+                    job.status = "pending"
+                    job.worker_id = None
+                    job.progress_percent = 0.0
+                    job.current_node_name = ""
+                    job.started_at = None
+                self._jobs[job.id] = job
+        if stored:
+            logger.info("restored %d jobs from %s", len(stored), self._store._db_path)
         await self._pool.start()
         if self._dispatcher_task is None:
             self._dispatcher_task = asyncio.create_task(
                 self._dispatch_loop(), name="dispatcher"
             )
+        # 복원된 pending 잡이 있으면 디스패처 깨우기
+        self._wakeup.set()
 
     async def stop(self) -> None:
         self._stopping = True
@@ -124,6 +167,7 @@ class JobManager:
                 pass
             self._dispatcher_task = None
         await self._pool.stop()
+        await self._store.close()
 
     # ---------- public API ----------
 
@@ -146,6 +190,11 @@ class JobManager:
                 self._jobs[job.id] = job
                 created.append(job)
         for job in created:
+            await self._store.save(job.to_dict())
+            await self._store.save_event(
+                job.id, "created",
+                details={"filename": job.filename, "prompt": job.prompt},
+            )
             await self._emit({"type": "job.created", "job": job.to_dict()})
         self._wakeup.set()
         return created
@@ -187,12 +236,18 @@ class JobManager:
             worker_id = job.worker_id
             job.status = "cancelled"
             job.finished_at = time.time()
+            job_dict = job.to_dict()
         if worker_id is not None:
             worker = self._pool.get(worker_id)
             if worker is not None and worker.current_job_id == job_id:
                 await worker.interrupt()
                 worker.current_job_id = None
-        await self._emit({"type": "job.updated", "job": (await self._get_dict(job_id))})
+        await self._store.save(job_dict)
+        await self._store.save_event(
+            job_id, "cancelled",
+            worker_id=worker_id,
+        )
+        await self._emit({"type": "job.updated", "job": job_dict})
         self._wakeup.set()
         return True
 
@@ -239,6 +294,12 @@ class JobManager:
                 job_dict = pending.to_dict()
                 workflow = pending.workflow
                 job_id = pending.id
+            await self._store.save(job_dict)
+            await self._store.save_event(
+                job_id, "dispatched",
+                worker_id=worker.id,
+                details={"worker_url": worker.base_url},
+            )
             await self._emit({"type": "job.updated", "job": job_dict})
 
             try:
@@ -265,9 +326,22 @@ class JobManager:
         if not prompt_id:
             return
 
+        # 모든 ComfyUI 이벤트를 execution_events에 기록
+        if msg_type in (
+            "execution_start", "execution_success", "execution_error",
+            "execution_interrupted", "progress", "executed",
+        ):
+            await self._store.save_execution_event(
+                prompt_id, worker.id, msg_type, payload,
+            )
+
         if msg_type == "execution_start":
             await self._update(
                 prompt_id, status="running", started_at=time.time()
+            )
+            await self._store.save_event(
+                prompt_id, "started",
+                worker_id=worker.id,
             )
         elif msg_type == "execution_success":
             await self._finish(prompt_id, status="done")
@@ -346,6 +420,7 @@ class JobManager:
             if urls_append:
                 job.image_urls.extend(urls_append)
             payload = job.to_dict()
+        await self._store.save(payload)
         await self._emit({"type": "job.updated", "job": payload})
 
     async def _finish(self, job_id: str, **changes: Any) -> None:
@@ -357,17 +432,31 @@ class JobManager:
             for key, value in changes.items():
                 setattr(job, key, value)
             job.finished_at = time.time()
+            # 실행 시간 계산 (ms)
+            if job.started_at is not None:
+                job.execution_duration_ms = (
+                    (job.finished_at - job.started_at) * 1000
+                )
             worker_id_to_clear = job.worker_id
             payload = job.to_dict()
         if worker_id_to_clear:
             worker = self._pool.get(worker_id_to_clear)
             if worker is not None and worker.current_job_id == job_id:
                 worker.current_job_id = None
+        await self._store.save(payload)
+        await self._store.save_event(
+            job_id, "completed",
+            worker_id=worker_id_to_clear,
+            details={
+                "executionDurationMs": payload.get("executionDurationMs"),
+                "imageCount": len(payload.get("imageUrls", [])),
+            },
+        )
         await self._emit({"type": "job.updated", "job": payload})
         self._wakeup.set()
 
     async def _reset_to_pending(self, job_id: str, error: str) -> None:
-        """오류 발생 시 잡을 pending으로 되돌림. 최대 재시도 초과 시 error로 마감."""
+        """오류 발생 시 잡을 pending으로 되돌림. 성공할 때까지 무한 재시도."""
         worker_id_to_clear: Optional[str] = None
         async with self._lock:
             job = self._jobs.get(job_id)
@@ -375,24 +464,29 @@ class JobManager:
                 return
             worker_id_to_clear = job.worker_id
             job.retry_count += 1
-            if job.retry_count > MAX_RETRIES:
-                job.status = "error"
-                job.error = f"{error} (retried {MAX_RETRIES}x)"
-                job.finished_at = time.time()
-                payload = job.to_dict()
-            else:
-                job.status = "pending"
-                job.worker_id = None
-                job.error = f"[retry {job.retry_count}/{MAX_RETRIES}] {error}"
-                job.progress_percent = 0.0
-                job.current_node_name = ""
-                job.started_at = None
-                payload = job.to_dict()
+            job.status = "pending"
+            job.worker_id = None
+            job.error = f"[retry {job.retry_count}] {error}"
+            job.progress_percent = 0.0
+            job.current_node_name = ""
+            job.started_at = None
+            payload = job.to_dict()
         if worker_id_to_clear:
             worker = self._pool.get(worker_id_to_clear)
             if worker is not None and worker.current_job_id == job_id:
                 worker.current_job_id = None
+        await self._store.save(payload)
+        await self._store.save_event(
+            job_id, "retrying",
+            worker_id=worker_id_to_clear,
+            details={
+                "retryCount": job.retry_count,
+                "error": error,
+            },
+        )
         await self._emit({"type": "job.updated", "job": payload})
+        # 1초 대기 후 디스패처 깨우기
+        await asyncio.sleep(RETRY_DELAY)
         self._wakeup.set()
 
     async def _get_dict(self, job_id: str) -> dict[str, Any]:
