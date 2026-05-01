@@ -91,6 +91,7 @@ class JobManager:
         self._listeners: set[EventListener] = set()
         self._dispatcher_task: Optional[asyncio.Task[None]] = None
         self._stopping = False
+        self._paused = False
 
         pool.set_handlers(
             on_message=self._on_worker_message,
@@ -144,6 +145,33 @@ class JobManager:
         self._wakeup.set()
         return created
 
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
+    async def set_paused(self, paused: bool) -> None:
+        if self._paused == paused:
+            return
+        self._paused = paused
+        await self._emit({"type": "control.updated", "paused": self._paused})
+        if not paused:
+            # 재개 시 즉시 디스패처 깨움
+            self._wakeup.set()
+
+    async def cancel_all(self) -> int:
+        """pending/queued/running 잡 전부 취소. 취소된 잡 개수 반환."""
+        async with self._lock:
+            targets = [
+                j.id
+                for j in self._jobs.values()
+                if j.status in ("pending", "queued", "running")
+            ]
+        count = 0
+        for job_id in targets:
+            if await self.cancel(job_id):
+                count += 1
+        return count
+
     async def cancel(self, job_id: str) -> bool:
         async with self._lock:
             job = self._jobs.get(job_id)
@@ -186,8 +214,10 @@ class JobManager:
             await self._try_dispatch()
 
     async def _try_dispatch(self) -> None:
-        """idle 워커가 있는 한 pending 잡을 채워 넣는다."""
+        """idle 워커가 있는 한 pending 잡을 채워 넣는다 (paused일 땐 스킵)."""
         while True:
+            if self._paused:
+                return
             async with self._lock:
                 pending = next(
                     (j for j in self._jobs.values() if j.status == "pending"),

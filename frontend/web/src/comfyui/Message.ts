@@ -37,7 +37,8 @@ export interface WorkerView {
 }
 
 export type BackendEvent =
-  | { type: "snapshot"; jobs: JobView[]; workers: WorkerView[] }
+  | { type: "snapshot"; jobs: JobView[]; workers: WorkerView[]; paused: boolean }
   | { type: "job.created"; job: JobView }
   | { type: "job.updated"; job: JobView }
   | { type: "worker.updated"; worker: WorkerView }
+  | { type: "control.updated"; paused: boolean }
