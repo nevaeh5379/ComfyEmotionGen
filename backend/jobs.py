@@ -17,10 +17,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
+import random
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Literal, Optional
 
 from comfy_client import ComfyWorker
@@ -36,6 +39,7 @@ JobStatus = Literal[
 
 
 RETRY_DELAY = 1.0  # 재시도 간격 (초)
+DEFAULT_IMAGES_DIR = Path("images")
 
 
 @dataclass
@@ -112,7 +116,12 @@ class JobManager:
         - subscribe(listener) → 정규화 이벤트 수신
     """
 
-    def __init__(self, pool: WorkerPool, store: Optional[JobStore] = None) -> None:
+    def __init__(
+        self,
+        pool: WorkerPool,
+        store: Optional[JobStore] = None,
+        images_dir: Optional[Path] = None,
+    ) -> None:
         self._pool = pool
         self._store = store or JobStore()
         self._jobs: dict[str, Job] = {}
@@ -122,6 +131,9 @@ class JobManager:
         self._dispatcher_task: Optional[asyncio.Task[None]] = None
         self._stopping = False
         self._paused = False
+        self._images_dir = images_dir or DEFAULT_IMAGES_DIR
+        self._images_dir.mkdir(parents=True, exist_ok=True)
+        self._persist_tasks: set[asyncio.Task[None]] = set()
 
         pool.set_handlers(
             on_message=self._on_worker_message,
@@ -369,6 +381,13 @@ class JobManager:
             ]
             if urls:
                 await self._update(prompt_id, image_urls_append=urls)
+            for img in images:
+                task = asyncio.create_task(
+                    self._persist_image(prompt_id, worker, img),
+                    name=f"persist:{prompt_id}",
+                )
+                self._persist_tasks.add(task)
+                task.add_done_callback(self._persist_tasks.discard)
         elif msg_type == "progress":
             value = data.get("value", 0)
             maximum = data.get("max") or 1
@@ -500,3 +519,193 @@ class JobManager:
                 await listener(event)
             except Exception:
                 logger.exception("listener failed")
+
+    # ---------- image persistence ----------
+
+    async def _persist_image(
+        self, job_id: str, worker: ComfyWorker, img: dict[str, Any]
+    ) -> None:
+        """ComfyUI 결과 이미지를 받아 sha256 이름으로 디스크에 저장 + DB 기록."""
+        filename = img.get("filename", "")
+        subfolder = img.get("subfolder", "")
+        type_ = img.get("type", "output") or "output"
+        if not filename:
+            return
+        ext = Path(filename).suffix.lower() or ".png"
+        tmp_path = self._images_dir / f".tmp-{uuid.uuid4().hex}{ext}"
+        hasher = hashlib.sha256()
+        size = 0
+        try:
+            try:
+                with tmp_path.open("wb") as f:
+                    async for chunk in worker.stream_view(
+                        {"filename": filename, "subfolder": subfolder, "type": type_}
+                    ):
+                        if not chunk:
+                            continue
+                        hasher.update(chunk)
+                        f.write(chunk)
+                        size += len(chunk)
+            except Exception:
+                tmp_path.unlink(missing_ok=True)
+                raise
+            sha = hasher.hexdigest()
+            target = self._images_dir / f"{sha}{ext}"
+            if target.exists():
+                tmp_path.unlink(missing_ok=True)
+            else:
+                tmp_path.replace(target)
+
+            async with self._lock:
+                job = self._jobs.get(job_id)
+                original_filename = job.filename if job else ""
+                prompt = job.prompt if job else ""
+
+            await self._store.save_image_record(
+                hash=sha,
+                job_id=job_id,
+                original_filename=original_filename,
+                comfy_filename=filename,
+                subfolder=subfolder,
+                type_=type_,
+                worker_id=worker.id,
+                extension=ext,
+                size_bytes=size,
+                prompt=prompt,
+            )
+            await self._emit(
+                {
+                    "type": "image.saved",
+                    "jobId": job_id,
+                    "hash": sha,
+                    "extension": ext,
+                    "sizeBytes": size,
+                    "originalFilename": original_filename,
+                    "status": "pending",
+                }
+            )
+        except Exception:
+            logger.exception(
+                "persist image failed: job=%s filename=%s", job_id, filename
+            )
+
+    # ---------- 큐레이션 ----------
+
+    async def update_curation(
+        self,
+        hash: str,
+        *,
+        status: Optional[str] = None,
+        note: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        existing = await self._store.get_saved_image(hash)
+        if existing is None:
+            return None
+        old_status = existing.get("status")
+        updated = await self._store.update_curation(hash, status=status, note=note)
+        if updated is None:
+            return None
+        if status is not None and status != old_status:
+            await self._store.save_event(
+                updated.get("jobId", ""),
+                "curation_changed",
+                details={
+                    "hash": hash,
+                    "oldStatus": old_status,
+                    "newStatus": status,
+                },
+            )
+        await self._emit({"type": "image.curation", "image": updated})
+        return updated
+
+    async def add_image_tags(self, hash: str, tags: list[str]) -> Optional[list[str]]:
+        if await self._store.get_saved_image(hash) is None:
+            return None
+        result = await self._store.add_tags(hash, tags)
+        await self._emit({"type": "image.curation", "hash": hash, "tags": result})
+        return result
+
+    async def remove_image_tag(self, hash: str, tag: str) -> Optional[list[str]]:
+        if await self._store.get_saved_image(hash) is None:
+            return None
+        result = await self._store.remove_tag(hash, tag)
+        await self._emit({"type": "image.curation", "hash": hash, "tags": result})
+        return result
+
+    async def empty_trash(self) -> int:
+        """status='trashed' 이미지의 디스크 파일 + DB 행 영구 삭제."""
+        targets = await self._store.list_trashed_for_purge()
+        deleted = 0
+        for item in targets:
+            hash_val = item["hash"]
+            ext = item["extension"] or ".png"
+            path = self._images_dir / f"{hash_val}{ext}"
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("failed to unlink trashed image %s", path)
+            if await self._store.delete_saved_image(hash_val):
+                deleted += 1
+                await self._emit({"type": "image.deleted", "hash": hash_val})
+        return deleted
+
+    # ---------- 재생성 ----------
+
+    async def regenerate_group(
+        self, filename: str, *, count: int, seed_strategy: str = "random"
+    ) -> list[Job]:
+        """같은 filename의 가장 최근 Job 워크플로우를 재사용해 시드만 바꿔 N건 재제출."""
+        if count < 1:
+            return []
+        latest = await self._store.get_latest_job_by_filename(filename)
+        if latest is None:
+            raise ValueError(f"no prior job for filename: {filename}")
+        base_workflow = latest["_workflow"]
+        prompt = latest["prompt"]
+        items: list[dict[str, Any]] = []
+        for i in range(count):
+            wf = _clone_workflow_with_new_seed(
+                base_workflow, strategy=seed_strategy, increment_offset=i + 1
+            )
+            items.append({"filename": filename, "prompt": prompt, "workflow": wf})
+        return await self.submit(items)
+
+
+# ---------- workflow seed helpers ----------
+
+_SEED_KEYS = ("seed", "noise_seed")
+_MAX_SEED = 2**32 - 1
+
+
+def _clone_workflow_with_new_seed(
+    workflow: dict[str, Any],
+    *,
+    strategy: str,
+    increment_offset: int,
+) -> dict[str, Any]:
+    """워크플로우 JSON을 깊은 복사해 seed/noise_seed를 갱신한다.
+
+    KSampler 등 시드를 갖는 모든 노드를 갱신.
+    strategy="random": 새 랜덤 시드.
+    strategy="increment": 기존 시드 + increment_offset (없으면 랜덤).
+    """
+    import copy
+
+    cloned = copy.deepcopy(workflow)
+    if not isinstance(cloned, dict):
+        return cloned
+    for node in cloned.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for key in _SEED_KEYS:
+            if key not in inputs:
+                continue
+            old = inputs[key]
+            if strategy == "increment" and isinstance(old, int):
+                inputs[key] = (old + increment_offset) & _MAX_SEED
+            else:
+                inputs[key] = random.randint(0, _MAX_SEED)
+    return cloned
