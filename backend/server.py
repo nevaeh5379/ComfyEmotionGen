@@ -7,31 +7,51 @@
        잡 큐 디스패치, 이미지 프록시, WebSocket 이벤트 브로드캐스트
 
 엔드포인트:
-    GET  /health                  - 백엔드 + 워커 풀 상태
-    POST /render                  - DSL 템플릿 → 프롬프트 리스트
-    POST /workflow/inject         - 워크플로우에 프롬프트 주입
-    POST /jobs                    - 잡 N개 등록 (프론트가 시드/치환 박은 워크플로우 제출)
-    GET  /jobs                    - 잡 스냅샷
-    DELETE /jobs/{id}             - 잡 취소
-    GET  /images/{worker_id}/view - ComfyUI view 프록시
-    WS   /ws/events               - 정규화 이벤트 스트림
+    GET  /health                       - 백엔드 + 워커 풀 상태
+    POST /render                       - DSL 템플릿 → 프롬프트 리스트
+    POST /workflow/inject              - 워크플로우에 프롬프트 주입
+    POST /jobs                         - 잡 N개 등록 (프론트가 시드/치환 박은 워크플로우 제출)
+    GET  /jobs                         - 잡 스냅샷
+    DELETE /jobs/{id}                  - 잡 취소
+    GET  /images/{worker_id}/view      - ComfyUI view 프록시 (실시간)
+    GET  /saved-images                 - 디스크 영속화된 이미지 목록 (필터: status,tag,filename,job_id)
+    GET  /saved-images/{hash}          - 영속 이미지 바이트 서빙
+    GET  /saved-images/{hash}/meta     - 메타데이터만
+    PATCH /saved-images/{hash}         - 큐레이션 (status/note)
+    POST /saved-images/{hash}/tags     - 태그 추가
+    DELETE /saved-images/{hash}/tags/{tag} - 태그 제거
+    POST /saved-images/{hash}/restore  - 휴지통 → pending
+    GET  /tags                         - 태그별 사용 카운트
+    GET  /trash                        - 휴지통 목록
+    POST /trash/empty                  - 휴지통 비우기 (디스크/DB 영구 삭제)
+    GET  /asset-groups                 - filename별 후보군 집계
+    GET  /asset-groups/{filename}      - 그룹 내 이미지 전체
+    POST /asset-groups/{filename}/regenerate - 같은 워크플로우 새 시드로 재생성
+    POST /export                       - 큐레이션 결과 zip 다운로드
+    GET  /jobs/{id}/saved-images       - 특정 잡이 만든 영속 이미지 목록
+    WS   /ws/events                    - 정규화 이벤트 스트림
 """
 
 from __future__ import annotations
 
 import asyncio
+import io
+import json
 import logging
+import mimetypes
+import zipfile
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Union
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
 from worker_pool import WorkerPool
-from jobs import JobManager
+from jobs import JobManager, DEFAULT_IMAGES_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +97,26 @@ class JobItem(BaseModel):
 
 class JobsCreateRequest(BaseModel):
     items: List[JobItem]
+
+
+class CurationPatch(BaseModel):
+    status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = None
+    note: Optional[str] = None
+
+
+class TagsAddRequest(BaseModel):
+    tags: List[str]
+
+
+class ExportRequest(BaseModel):
+    status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = "approved"
+    filenames: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+
+
+class RegenerateRequest(BaseModel):
+    count: int = Field(1, ge=1, le=64)
+    seedStrategy: Literal["random", "increment"] = "random"
 
 
 # ====== lifespan ======
@@ -260,6 +300,209 @@ async def images_view(worker_id: str, filename: str, subfolder: str = "", type: 
 
     media_type = "image/png" if filename.lower().endswith(".png") else "application/octet-stream"
     return StreamingResponse(stream(), media_type=media_type)
+
+
+# ====== 영속 이미지 ======
+
+
+@app.get("/saved-images")
+async def saved_images_list(
+    limit: int = 100,
+    offset: int = 0,
+    job_id: str | None = None,
+    status: str | None = None,
+    filename: str | None = None,
+    tag: str | None = None,
+):
+    items = await job_manager._store.list_saved_images(
+        limit=limit,
+        offset=offset,
+        job_id=job_id,
+        status=status,
+        filename=filename,
+        tag=tag,
+    )
+    return {"items": items, "limit": limit, "offset": offset}
+
+
+@app.get("/jobs/{job_id}/saved-images")
+async def saved_images_for_job(job_id: str):
+    items = await job_manager._store.list_saved_images(
+        limit=10_000, offset=0, job_id=job_id
+    )
+    return {"jobId": job_id, "items": items}
+
+
+@app.get("/saved-images/{hash}")
+async def saved_image_serve(hash: str):
+    record = await job_manager._store.get_saved_image(hash)
+    if record is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    ext = record.get("extension") or ".png"
+    path = DEFAULT_IMAGES_DIR / f"{hash}{ext}"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="image file missing on disk")
+    media_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return FileResponse(str(path), media_type=media_type)
+
+
+@app.get("/saved-images/{hash}/meta")
+async def saved_image_meta(hash: str):
+    record = await job_manager._store.get_saved_image(hash)
+    if record is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return record
+
+
+@app.patch("/saved-images/{hash}")
+async def saved_image_patch(hash: str, body: CurationPatch):
+    updated = await job_manager.update_curation(
+        hash, status=body.status, note=body.note
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return updated
+
+
+@app.post("/saved-images/{hash}/tags")
+async def saved_image_add_tags(hash: str, body: TagsAddRequest):
+    tags = await job_manager.add_image_tags(hash, body.tags)
+    if tags is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return {"hash": hash, "tags": tags}
+
+
+@app.delete("/saved-images/{hash}/tags/{tag}")
+async def saved_image_remove_tag(hash: str, tag: str):
+    tags = await job_manager.remove_image_tag(hash, tag)
+    if tags is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return {"hash": hash, "tags": tags}
+
+
+@app.post("/saved-images/{hash}/restore")
+async def saved_image_restore(hash: str):
+    updated = await job_manager.update_curation(hash, status="pending")
+    if updated is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return updated
+
+
+@app.get("/tags")
+async def tags_list():
+    return {"tags": await job_manager._store.list_tag_counts()}
+
+
+# ====== 휴지통 ======
+
+
+@app.get("/trash")
+async def trash_list(limit: int = 200, offset: int = 0):
+    items = await job_manager._store.list_saved_images(
+        limit=limit, offset=offset, status="trashed"
+    )
+    return {"items": items, "limit": limit, "offset": offset}
+
+
+@app.post("/trash/empty")
+async def trash_empty():
+    deleted = await job_manager.empty_trash()
+    return {"deleted": deleted}
+
+
+# ====== filename 그룹 ======
+
+
+@app.get("/asset-groups")
+async def asset_groups_list(limit: int = 100, offset: int = 0, sort: str = "latest"):
+    groups = await job_manager._store.list_asset_groups(
+        limit=limit, offset=offset, sort=sort
+    )
+    return {"groups": groups, "limit": limit, "offset": offset, "sort": sort}
+
+
+@app.get("/asset-groups/{filename}")
+async def asset_group_detail(filename: str, status: str | None = None):
+    items = await job_manager._store.list_saved_images(
+        limit=10_000, offset=0, filename=filename, status=status
+    )
+    return {"filename": filename, "items": items}
+
+
+@app.post("/asset-groups/{filename}/regenerate")
+async def asset_group_regenerate(filename: str, body: RegenerateRequest):
+    try:
+        jobs = await job_manager.regenerate_group(
+            filename, count=body.count, seed_strategy=body.seedStrategy
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return {"jobIds": [j.id for j in jobs]}
+
+
+# ====== 데이터셋 익스포트 ======
+
+
+@app.post("/export")
+async def export_dataset(body: ExportRequest):
+    items_all: list[dict[str, Any]] = []
+    if body.filenames:
+        for fn in body.filenames:
+            items_all.extend(
+                await job_manager._store.list_saved_images(
+                    limit=10_000, offset=0, filename=fn, status=body.status
+                )
+            )
+    else:
+        items_all = await job_manager._store.list_saved_images(
+            limit=100_000, offset=0, status=body.status
+        )
+
+    if body.tags:
+        required = set(body.tags)
+        items_all = [
+            it for it in items_all if required.issubset(set(it.get("tags") or []))
+        ]
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        manifest_lines: list[str] = []
+        metadata: list[dict[str, Any]] = []
+        for item in items_all:
+            h = item["hash"]
+            ext = item.get("extension") or ".png"
+            disk_path = DEFAULT_IMAGES_DIR / f"{h}{ext}"
+            if not disk_path.exists():
+                continue
+            zf.write(disk_path, arcname=f"images/{h}{ext}")
+            manifest_lines.append(f"{h}{ext}\t{item.get('originalFilename','')}")
+            metadata.append(
+                {
+                    "hash": h,
+                    "filename": item.get("originalFilename", ""),
+                    "prompt": item.get("prompt", ""),
+                    "status": item.get("status", ""),
+                    "tags": item.get("tags", []),
+                    "note": item.get("note", ""),
+                    "workerId": item.get("workerId"),
+                    "createdAt": item.get("createdAt"),
+                    "sizeBytes": item.get("sizeBytes", 0),
+                    "extension": ext,
+                }
+            )
+        zf.writestr(
+            "metadata.json",
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+        )
+        zf.writestr("manifest.txt", "\n".join(manifest_lines))
+
+    buf.seek(0)
+    headers = {
+        "Content-Disposition": 'attachment; filename="dataset.zip"',
+    }
+    return StreamingResponse(
+        buf, media_type="application/zip", headers=headers
+    )
 
 
 # ====== WebSocket ======
