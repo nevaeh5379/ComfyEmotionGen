@@ -1,0 +1,80 @@
+{
+  "name": "ceg-support",
+  "displayName": "CEG Language Support",
+  "description": "Syntax highlighting & preview for CEG (ComfyEmotionGen) template files",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:ceg"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ceg",
+        "aliases": [
+          "CEG",
+          "ceg"
+        ],
+        "extensions": [
+          ".ceg"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ceg",
+        "scopeName": "source.ceg",
+        "path": "./syntaxes/ceg.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "ceg.preview",
+        "title": "CEG: Preview Parser Output",
+        "icon": "$(preview)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "ceg.preview",
+          "when": "resourceLangId == ceg",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "ceg.preview",
+          "when": "resourceLangId == ceg"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "ceg.preview",
+        "key": "ctrl+shift+p",
+        "when": "resourceLangId == ceg"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.3.0"
+  }
+}

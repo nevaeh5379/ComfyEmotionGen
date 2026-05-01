@@ -1,0 +1,74 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "CEG",
+  "scopeName": "source.ceg",
+  "fileTypes": ["ceg"],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#tags"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#variables"
+    },
+    {
+      "include": "#axis-keys"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.block.ceg",
+      "begin": "\\{\\{#",
+      "end": "#\\}\\}"
+    },
+    "tags": {
+      "name": "keyword.control.ceg",
+      "match": "\\{\\{/(?:axis|template|filename)\\}\\}|\\{\\{(?:axis|set|combine|exclude|template|filename)\\}\\}"
+    },
+    "strings": {
+      "name": "string.quoted.double.ceg",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.ceg",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "keywords": {
+      "name": "keyword.other.ceg",
+      "match": "\\b(?:weighted|include|sample|seed|AND)\\b"
+    },
+    "operators": {
+      "name": "keyword.operator.ceg",
+      "match": "[@~+*()=:]"
+    },
+    "numbers": {
+      "name": "constant.numeric.ceg",
+      "match": "\\b\\d+(?:\\.\\d+)?\\b"
+    },
+    "variables": {
+      "name": "variable.other.ceg",
+      "match": "\\{\\{[a-zA-Z_][a-zA-Z0-9_]*\\}\\}"
+    },
+    "axis-keys": {
+      "name": "entity.name.tag.ceg",
+      "match": "^[ \\t]*[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*:)"
+    }
+  }
+}

@@ -26,6 +26,7 @@ export interface JobView {
   createdAt: number
   startedAt: number | null
   finishedAt: number | null
+  retryCount: number
 }
 
 export interface WorkerView {

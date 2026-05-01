@@ -34,6 +34,9 @@ JobStatus = Literal[
 ]
 
 
+MAX_RETRIES = 3
+
+
 @dataclass
 class Job:
     id: str
@@ -49,6 +52,7 @@ class Job:
     created_at: float = field(default_factory=time.time)
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
+    retry_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -64,6 +68,7 @@ class Job:
             "createdAt": self.created_at,
             "startedAt": self.started_at,
             "finishedAt": self.finished_at,
+            "retryCount": self.retry_count,
         }
 
 
@@ -240,18 +245,12 @@ class JobManager:
                 await worker.submit_prompt(prompt=workflow, prompt_id=job_id)
             except Exception as exc:
                 logger.exception("worker %s submit failed", worker.id)
-                async with self._lock:
-                    job = self._jobs.get(job_id)
-                    if job is not None:
-                        job.status = "error"
-                        job.error = f"submit failed: {exc}"
-                        job.finished_at = time.time()
-                    if worker.current_job_id == job_id:
-                        worker.current_job_id = None
-                await self._emit(
-                    {"type": "job.updated", "job": (await self._get_dict(job_id))}
+                if worker.current_job_id == job_id:
+                    worker.current_job_id = None
+                await self._reset_to_pending(
+                    job_id,
+                    error=f"submit failed: {exc}",
                 )
-                # 다음 pending 시도 계속
 
     # ---------- ComfyUI raw → 정규화 ----------
 
@@ -274,10 +273,15 @@ class JobManager:
             await self._finish(prompt_id, status="done")
         elif msg_type == "execution_interrupted":
             node_type = data.get("node_type", "?")
-            await self._finish(
+            await self._reset_to_pending(
                 prompt_id,
-                status="error",
                 error=f"interrupted at {node_type}",
+            )
+        elif msg_type == "execution_error":
+            error_msg = data.get("exception_message", "unknown error")
+            await self._reset_to_pending(
+                prompt_id,
+                error=f"execution error: {error_msg}",
             )
         elif msg_type == "executed":
             output = data.get("output") or {}
@@ -311,13 +315,12 @@ class JobManager:
             )
 
     async def _on_worker_status_change(self, worker: ComfyWorker) -> None:
-        # 워커가 죽었으면 그 워커가 들고 있던 잡을 error 처리
+        # 워커가 죽었으면 그 워커가 들고 있던 잡을 pending으로 되돌림 (재시도)
         if not worker.alive and worker.current_job_id is not None:
             failed_id = worker.current_job_id
             worker.current_job_id = None
-            await self._finish(
+            await self._reset_to_pending(
                 failed_id,
-                status="error",
                 error=f"worker {worker.id} disconnected",
             )
         await self._emit(
@@ -356,6 +359,35 @@ class JobManager:
             job.finished_at = time.time()
             worker_id_to_clear = job.worker_id
             payload = job.to_dict()
+        if worker_id_to_clear:
+            worker = self._pool.get(worker_id_to_clear)
+            if worker is not None and worker.current_job_id == job_id:
+                worker.current_job_id = None
+        await self._emit({"type": "job.updated", "job": payload})
+        self._wakeup.set()
+
+    async def _reset_to_pending(self, job_id: str, error: str) -> None:
+        """오류 발생 시 잡을 pending으로 되돌림. 최대 재시도 초과 시 error로 마감."""
+        worker_id_to_clear: Optional[str] = None
+        async with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            worker_id_to_clear = job.worker_id
+            job.retry_count += 1
+            if job.retry_count > MAX_RETRIES:
+                job.status = "error"
+                job.error = f"{error} (retried {MAX_RETRIES}x)"
+                job.finished_at = time.time()
+                payload = job.to_dict()
+            else:
+                job.status = "pending"
+                job.worker_id = None
+                job.error = f"[retry {job.retry_count}/{MAX_RETRIES}] {error}"
+                job.progress_percent = 0.0
+                job.current_node_name = ""
+                job.started_at = None
+                payload = job.to_dict()
         if worker_id_to_clear:
             worker = self._pool.get(worker_id_to_clear)
             if worker is not None and worker.current_job_id == job_id:
