@@ -16,3 +16,4 @@ portable/build
 portable/dist
 portable/frontend_dist
 portable/ComfyEmotionGen.spec
+backend/images
