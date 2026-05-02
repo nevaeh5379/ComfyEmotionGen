@@ -31,7 +31,9 @@ const BackendContext = createContext<BackendContextValue | null>(null)
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30_000
 
-const DEFAULT_BACKEND_URL = "http://localhost:8000"
+// Allow dynamic backend URL injection via a global variable (set by launcher.py)
+const globalConfigUrl = (window as any).COMFY_EMOTION_GEN_BACKEND_URL
+const DEFAULT_BACKEND_URL = globalConfigUrl || "http://localhost:8000"
 
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")

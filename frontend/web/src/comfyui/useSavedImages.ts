@@ -9,14 +9,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { AssetGroup, BackendEvent, CurationStatus, SavedImage } from "./Message"
 
+const globalConfigUrl = (window as any).COMFY_EMOTION_GEN_BACKEND_URL
+const DEFAULT_BACKEND_URL = globalConfigUrl || "http://localhost:8000"
+
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
 
 interface UseSavedImagesOptions {
-  backendUrl: string
-  status?: CurationStatus | "all"
-  filename?: string
-  tag?: string
+  backendUrl?: string
+  status?: CurationStatus | "all" | undefined
+  filename?: string | undefined
+  tag?: string | undefined
 }
 
 interface SavedImagesState {
@@ -50,7 +53,8 @@ export const useSavedImages = (
       if (status && status !== "all") params.set("status", status)
       if (filename) params.set("filename", filename)
       if (tag) params.set("tag", tag)
-      const res = await fetch(`${backendUrl}/saved-images?${params}`, {
+      const urlToUse = backendUrl || DEFAULT_BACKEND_URL
+      const res = await fetch(`${urlToUse}/saved-images?${params}`, {
         signal: ac.signal,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -66,7 +70,8 @@ export const useSavedImages = (
 
   const fetchGroups = useCallback(async () => {
     try {
-      const res = await fetch(`${backendUrl}/asset-groups?limit=500`)
+      const urlToUse = backendUrl || DEFAULT_BACKEND_URL
+      const res = await fetch(`${urlToUse}/asset-groups?limit=500`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = (await res.json()) as { groups: AssetGroup[] }
       setGroups(data.groups)
@@ -82,7 +87,7 @@ export const useSavedImages = (
 
   // WebSocket으로 image.* 이벤트 수신 → 자동 갱신
   useEffect(() => {
-    const wsUrl = `${httpToWs(backendUrl)}/ws/events`
+    const wsUrl = `${httpToWs(backendUrl || DEFAULT_BACKEND_URL)}/ws/events`
     let socket: WebSocket | null = null
     let cancelled = false
 

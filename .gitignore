@@ -12,3 +12,7 @@ vscode-ceg/node_modules
 vscode-ceg/out
 backend/jobs.db
 backend/jobs.db-*
+portable/build
+portable/dist
+portable/frontend_dist
+portable/ComfyEmotionGen.spec
