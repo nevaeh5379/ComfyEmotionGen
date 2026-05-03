@@ -3,6 +3,7 @@ import CodeMirror from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { StreamLanguage, type StringStream } from "@codemirror/language"
 import { EditorView } from "@codemirror/view"
+import { useTheme } from "./theme-provider"
 
 type Language = "json" | "ceg"
 
@@ -62,6 +63,9 @@ const baseTheme = EditorView.theme({
   ".cm-focused": { outline: "none" },
   "&.cm-focused": { outline: "none" },
   ".cm-scroller": { overflow: "auto" },
+  ".cm-activeLine, .cm-activeLineGutter": {
+    backgroundColor: "transparent",
+  },
 })
 
 const CodeEditor = ({
@@ -73,6 +77,14 @@ const CodeEditor = ({
   minHeight = "8rem",
   maxHeight = "24rem",
 }: CodeEditorProps) => {
+  const { theme } = useTheme()
+  const resolvedTheme =
+    theme === "system"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : theme
+
   const extensions = useMemo(() => {
     const lang = language === "json" ? json() : cegLanguage
     return [lang, baseTheme, EditorView.lineWrapping]
@@ -83,10 +95,13 @@ const CodeEditor = ({
       className={`rounded-md border bg-muted/50 overflow-hidden ${className}`}
       style={{ minHeight, maxHeight }}
     >
+
+
       <CodeMirror
         value={value}
         onChange={onChange}
         extensions={extensions}
+        theme={resolvedTheme}
         {...(placeholder !== undefined ? { placeholder } : {})}
         basicSetup={{
           lineNumbers: false,
@@ -98,6 +113,7 @@ const CodeEditor = ({
         }}
         height="100%"
         style={{ minHeight, maxHeight }}
+        className="overflow-y-auto"
       />
     </div>
   )
