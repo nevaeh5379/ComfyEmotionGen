@@ -346,7 +346,7 @@ function ImageGrid({ items, backendUrl, setStatus, onOpen }: GridProps) {
               src={`${backendUrl}/saved-images/${img.hash}`}
               alt={img.originalFilename}
               loading="lazy"
-              className="h-40 w-full object-cover"
+              className=" w-full object-cover"
             />
           </button>
           <div className="flex items-center gap-1 text-xs">
