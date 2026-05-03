@@ -20,11 +20,16 @@ interface UseSavedImagesOptions {
   status?: CurationStatus | "all" | undefined
   filename?: string | undefined
   tag?: string | undefined
+  /** 1-based page index. Default 1. */
+  page?: number
+  /** 페이지당 항목 수. Default 48. */
+  pageSize?: number
 }
 
 interface SavedImagesState {
   images: SavedImage[]
   groups: AssetGroup[]
+  total: number
   loading: boolean
   error: string | null
   reload: () => void
@@ -34,9 +39,17 @@ interface SavedImagesState {
 export const useSavedImages = (
   options: UseSavedImagesOptions
 ): SavedImagesState => {
-  const { backendUrl, status, filename, tag } = options
+  const {
+    backendUrl,
+    status,
+    filename,
+    tag,
+    page = 1,
+    pageSize = 48,
+  } = options
   const [images, setImages] = useState<SavedImage[]>([])
   const [groups, setGroups] = useState<AssetGroup[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,7 +62,11 @@ export const useSavedImages = (
     setLoading(true)
     setError(null)
     try {
-      const params = new URLSearchParams({ limit: "500" })
+      const offset = Math.max(0, (page - 1) * pageSize)
+      const params = new URLSearchParams({
+        limit: String(pageSize),
+        offset: String(offset),
+      })
       if (status && status !== "all") params.set("status", status)
       if (filename) params.set("filename", filename)
       if (tag) params.set("tag", tag)
@@ -58,15 +75,19 @@ export const useSavedImages = (
         signal: ac.signal,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as { items: SavedImage[] }
+      const data = (await res.json()) as {
+        items: SavedImage[]
+        total?: number
+      }
       setImages(data.items)
+      setTotal(typeof data.total === "number" ? data.total : data.items.length)
     } catch (err) {
       if ((err as Error).name === "AbortError") return
       setError((err as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [backendUrl, status, filename, tag])
+  }, [backendUrl, status, filename, tag, page, pageSize])
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -127,12 +148,13 @@ export const useSavedImages = (
     () => ({
       images,
       groups,
+      total,
       loading,
       error,
       reload: fetchImages,
       reloadGroups: fetchGroups,
     }),
-    [images, groups, loading, error, fetchImages, fetchGroups]
+    [images, groups, total, loading, error, fetchImages, fetchGroups]
   )
 }
 

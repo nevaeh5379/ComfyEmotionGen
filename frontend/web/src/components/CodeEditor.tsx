@@ -1,22 +1,68 @@
-import { useCallback, useEffect, useRef } from "react";
-import Prism from "prismjs";
-import "prismjs/components/prism-json";
-import cegPrismLanguage from "@/lib/ceg-prism-language";
+import { useMemo } from "react"
+import CodeMirror from "@uiw/react-codemirror"
+import { json } from "@codemirror/lang-json"
+import { StreamLanguage, type StringStream } from "@codemirror/language"
+import { EditorView } from "@codemirror/view"
 
-// Register custom CEG language once
-Prism.languages.ceg = cegPrismLanguage;
-
-type Language = "json" | "ceg";
+type Language = "json" | "ceg"
 
 interface CodeEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  language: Language;
-  placeholder?: string;
-  className?: string;
-  minHeight?: string;
-  maxHeight?: string;
+  value: string
+  onChange: (value: string) => void
+  language: Language
+  placeholder?: string
+  className?: string
+  minHeight?: string
+  maxHeight?: string
 }
+
+const cegKeywords = /^(?:weighted|include|sample|seed|AND)\b/i
+const cegTags =
+  /^\{\{\/?(?:axis|template|filename|set|combine|exclude)\}\}/
+
+const cegLanguage = StreamLanguage.define<{ inComment: boolean }>({
+  startState: () => ({ inComment: false }),
+  token: (stream: StringStream, state: { inComment: boolean }) => {
+    if (state.inComment) {
+      if (stream.match(/^[\s\S]*?#\}\}/)) {
+        state.inComment = false
+        return "comment"
+      }
+      stream.skipToEnd()
+      return "comment"
+    }
+    if (stream.match(/^\{\{#/)) {
+      if (stream.match(/^[\s\S]*?#\}\}/)) return "comment"
+      state.inComment = true
+      stream.skipToEnd()
+      return "comment"
+    }
+    if (stream.match(cegTags)) return "tag"
+    if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\}/)) return "variableName"
+    if (stream.match(/^"(?:[^"\\]|\\.)*"/)) return "string"
+    if (stream.match(/^\d+(?:\.\d+)?\b/)) return "number"
+    if (stream.match(cegKeywords)) return "keyword"
+    if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*(?=\s*:)/)) return "propertyName"
+    if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/)) return "variableName"
+    if (stream.match(/^[@~+*()=:]/)) return "operator"
+    stream.next()
+    return null
+  },
+  languageData: { commentTokens: { block: { open: "{{#", close: "#}}" } } },
+})
+
+const baseTheme = EditorView.theme({
+  "&": { fontSize: "0.875rem" },
+  ".cm-content": {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    padding: "0.75rem 0",
+  },
+  ".cm-gutters": { display: "none" },
+  ".cm-focused": { outline: "none" },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": { overflow: "auto" },
+})
 
 const CodeEditor = ({
   value,
@@ -27,84 +73,34 @@ const CodeEditor = ({
   minHeight = "8rem",
   maxHeight = "24rem",
 }: CodeEditorProps) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
-
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      onChange(e.target.value);
-    },
-    [onChange],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Tab") {
-        e.preventDefault();
-        const textarea = textareaRef.current;
-        if (!textarea) return;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const newValue =
-          value.substring(0, start) + "  " + value.substring(end);
-        onChange(newValue);
-        requestAnimationFrame(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + 2;
-        });
-      }
-    },
-    [value, onChange],
-  );
-
-  // Sync scroll between textarea and pre
-  const handleScroll = useCallback(() => {
-    const textarea = textareaRef.current;
-    const pre = preRef.current;
-    if (textarea && pre) {
-      pre.scrollTop = textarea.scrollTop;
-      pre.scrollLeft = textarea.scrollLeft;
-    }
-  }, []);
-
-  // Highlight code whenever value or language changes
-  useEffect(() => {
-    const pre = preRef.current;
-    if (!pre) return;
-    const code = value || " ";
-    const grammar = Prism.languages[language];
-    if (grammar) {
-      pre.innerHTML = Prism.highlight(code, grammar, language) + "\n";
-    } else {
-      pre.textContent = code + "\n";
-    }
-  }, [value, language]);
+  const extensions = useMemo(() => {
+    const lang = language === "json" ? json() : cegLanguage
+    return [lang, baseTheme, EditorView.lineWrapping]
+  }, [language])
 
   return (
     <div
-      className={`relative rounded-md border bg-muted/50 overflow-hidden ${className}`}
+      className={`rounded-md border bg-muted/50 overflow-hidden ${className}`}
       style={{ minHeight, maxHeight }}
     >
-      <textarea
-        ref={textareaRef}
+      <CodeMirror
         value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onScroll={handleScroll}
-        placeholder={placeholder}
-        spellCheck={false}
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        className="absolute inset-0 z-10 h-full w-full resize-none bg-transparent p-3 font-mono text-sm text-transparent caret-gray-700 outline-none placeholder:text-gray-400 dark:caret-gray-300 dark:placeholder:text-gray-600 overflow-y-auto"
-      />
-      <pre
-        ref={preRef}
-        className="pointer-events-none whitespace-pre-wrap break-words p-3 font-mono text-sm overflow-hidden"
-        style={{ minHeight, maxHeight, margin: 0 }}
-        aria-hidden="true"
+        onChange={onChange}
+        extensions={extensions}
+        {...(placeholder !== undefined ? { placeholder } : {})}
+        basicSetup={{
+          lineNumbers: false,
+          foldGutter: false,
+          highlightActiveLine: false,
+          highlightActiveLineGutter: false,
+          highlightSelectionMatches: false,
+          autocompletion: false,
+        }}
+        height="100%"
+        style={{ minHeight, maxHeight }}
       />
     </div>
-  );
-};
+  )
+}
 
-export default CodeEditor;
+export default CodeEditor

@@ -398,17 +398,15 @@ class JobStore:
         tags = await self.get_tags(hash)
         return _saved_image_row_to_dict(row, tags=tags)
 
-    async def list_saved_images(
+    def _saved_images_filter_clause(
         self,
         *,
-        limit: int = 100,
-        offset: int = 0,
         job_id: Optional[str] = None,
         status: Optional[str] = None,
         filename: Optional[str] = None,
         tag: Optional[str] = None,
-    ) -> list[dict[str, Any]]:
-        assert self._conn is not None
+    ) -> tuple[str, str, list[Any]]:
+        """list/count가 공유하는 JOIN/WHERE/params 빌더."""
         conditions: list[str] = []
         params: list[Any] = []
         joins = ""
@@ -425,8 +423,40 @@ class JobStore:
         if filename is not None:
             conditions.append("si.original_filename = ?")
             params.append(filename)
-
         where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+        return joins, where, params
+
+    async def count_saved_images(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        status: Optional[str] = None,
+        filename: Optional[str] = None,
+        tag: Optional[str] = None,
+    ) -> int:
+        assert self._conn is not None
+        joins, where, params = self._saved_images_filter_clause(
+            job_id=job_id, status=status, filename=filename, tag=tag
+        )
+        query = f"SELECT COUNT(*) AS c FROM saved_images si{joins}{where}"
+        cursor = await self._conn.execute(query, params)
+        row = await cursor.fetchone()
+        return int(row["c"]) if row is not None else 0
+
+    async def list_saved_images(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        job_id: Optional[str] = None,
+        status: Optional[str] = None,
+        filename: Optional[str] = None,
+        tag: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
+        assert self._conn is not None
+        joins, where, params = self._saved_images_filter_clause(
+            job_id=job_id, status=status, filename=filename, tag=tag
+        )
         query = (
             f"SELECT si.* FROM saved_images si{joins}{where} "
             "ORDER BY si.created_at DESC LIMIT ? OFFSET ?"

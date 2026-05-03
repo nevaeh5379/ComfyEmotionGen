@@ -322,7 +322,10 @@ async def saved_images_list(
         filename=filename,
         tag=tag,
     )
-    return {"items": items, "limit": limit, "offset": offset}
+    total = await job_manager._store.count_saved_images(
+        job_id=job_id, status=status, filename=filename, tag=tag
+    )
+    return {"items": items, "limit": limit, "offset": offset, "total": total}
 
 
 @app.get("/jobs/{job_id}/saved-images")
