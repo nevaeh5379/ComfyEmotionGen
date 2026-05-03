@@ -24,6 +24,8 @@ interface BackendContextValue {
   jobs: JobView[]
   workers: WorkerView[]
   paused: boolean
+  /** 이 탭이 로드된 시점 (ms epoch). 잡을 세션 단위로 필터링하는 데 사용. */
+  sessionStartedAt: number
 }
 
 const BackendContext = createContext<BackendContextValue | null>(null)
@@ -55,6 +57,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const [jobs, setJobs] = useState<JobView[]>([])
   const [workers, setWorkers] = useState<WorkerView[]>([])
   const [paused, setPaused] = useState(false)
+  const [sessionStartedAt] = useState<number>(() => Date.now())
 
   // backendUrl prop이 변경되거나 storage 이벤트 발생 시 url 갱신
   useEffect(() => {
@@ -172,8 +175,14 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   }, [url, applyEvent])
 
   const value = useMemo<BackendContextValue>(
-    () => ({ isConnected, jobs, workers, paused }),
-    [isConnected, jobs, workers, paused]
+    () => ({
+      isConnected,
+      jobs,
+      workers,
+      paused,
+      sessionStartedAt,
+    }),
+    [isConnected, jobs, workers, paused, sessionStartedAt]
   )
 
   return (

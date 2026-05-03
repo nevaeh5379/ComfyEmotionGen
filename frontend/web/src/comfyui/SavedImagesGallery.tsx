@@ -20,9 +20,36 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import type { CurationStatus, SavedImage } from "./Message"
 import { curationApi, useSavedImages } from "./useSavedImages"
+
+const PAGE_SIZE = 48
+
+/** 1..totalPages를 ellipsis와 함께 압축. 현재 페이지 ±1 표시. */
+function buildPageList(current: number, totalPages: number): (number | "…")[] {
+  if (totalPages <= 1) return [1]
+  const pages = new Set<number>([1, totalPages, current])
+  for (let i = current - 1; i <= current + 1; i++) {
+    if (i >= 1 && i <= totalPages) pages.add(i)
+  }
+  const sorted = Array.from(pages).sort((a, b) => a - b)
+  const out: (number | "…")[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    out.push(sorted[i]!)
+    if (i < sorted.length - 1 && sorted[i + 1]! - sorted[i]! > 1) out.push("…")
+  }
+  return out
+}
 
 const STATUS_LABEL: Record<CurationStatus | "all", string> = {
   all: "전체",
@@ -49,13 +76,29 @@ export function SavedImagesGallery({ backendUrl }: Props) {
   const [tagFilter, setTagFilter] = useState("")
   const [groupMode, setGroupMode] = useState(false)
   const [selected, setSelected] = useState<SavedImage | null>(null)
+  const [page, setPage] = useState(1)
 
-  const { images, groups, loading, error, reload } = useSavedImages({
+  // 필터 변경 시 첫 페이지로
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, filenameFilter, tagFilter, groupMode])
+
+  const { images, groups, total, loading, error, reload } = useSavedImages({
     backendUrl,
     status: statusFilter,
     filename: filenameFilter || undefined,
     tag: tagFilter || undefined,
+    page: groupMode ? 1 : page,
+    pageSize: groupMode ? 500 : PAGE_SIZE,
   })
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const pageList = useMemo(() => buildPageList(page, totalPages), [page, totalPages])
+
+  // total 변동으로 현재 page가 범위 밖이면 클램프
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   const grouped = useMemo(() => {
     if (!groupMode) return null
@@ -216,6 +259,54 @@ export function SavedImagesGallery({ backendUrl }: Props) {
           setStatus={setStatus}
           onOpen={setSelected}
         />
+      )}
+
+      {!groupMode && total > PAGE_SIZE && (
+        <div className="flex flex-col items-center gap-2">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => page > 1 && setPage(page - 1)}
+                  aria-disabled={page <= 1}
+                  className={
+                    page <= 1 ? "pointer-events-none opacity-50" : undefined
+                  }
+                />
+              </PaginationItem>
+              {pageList.map((p, i) =>
+                p === "…" ? (
+                  <PaginationItem key={`e-${i}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={p}>
+                    <PaginationLink
+                      isActive={p === page}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => page < totalPages && setPage(page + 1)}
+                  aria-disabled={page >= totalPages}
+                  className={
+                    page >= totalPages
+                      ? "pointer-events-none opacity-50"
+                      : undefined
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+          <p className="text-xs text-muted-foreground">
+            총 {total}개 · {page}/{totalPages} 페이지
+          </p>
+        </div>
       )}
 
       {selected && (
