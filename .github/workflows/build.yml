@@ -12,8 +12,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_BACKEND: ${{ github.repository }}/ceg-backend
-  IMAGE_FRONTEND: ${{ github.repository }}/ceg-frontend
 
 jobs:
   version:
@@ -23,11 +21,14 @@ jobs:
       docker_tag: ${{ steps.v.outputs.docker_tag }}
       commit: ${{ steps.v.outputs.commit }}
       is_release: ${{ steps.v.outputs.is_release }}
+      image_backend: ${{ steps.v.outputs.image_backend }}
+      image_frontend: ${{ steps.v.outputs.image_frontend }}
     steps:
       - uses: actions/checkout@v4
       - id: v
         run: |
           SHORT=$(git rev-parse --short HEAD)
+          REPO_LC="${GITHUB_REPOSITORY,,}"   # ghcr requires lowercase
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             BUNDLE="${GITHUB_REF#refs/tags/}"
             IS_RELEASE=true
@@ -38,11 +39,13 @@ jobs:
           fi
           # Docker tags cannot contain '+'
           DOCKER_TAG="${BUNDLE//+/.}"
-          echo "bundle=$BUNDLE"        >> $GITHUB_OUTPUT
-          echo "docker_tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
-          echo "commit=$SHORT"         >> $GITHUB_OUTPUT
-          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
-          echo "Resolved bundle=$BUNDLE  docker_tag=$DOCKER_TAG  release=$IS_RELEASE"
+          echo "bundle=$BUNDLE"               >> $GITHUB_OUTPUT
+          echo "docker_tag=$DOCKER_TAG"       >> $GITHUB_OUTPUT
+          echo "commit=$SHORT"                >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE"       >> $GITHUB_OUTPUT
+          echo "image_backend=$REPO_LC/ceg-backend"   >> $GITHUB_OUTPUT
+          echo "image_frontend=$REPO_LC/ceg-frontend" >> $GITHUB_OUTPUT
+          echo "Resolved bundle=$BUNDLE  docker_tag=$DOCKER_TAG  release=$IS_RELEASE  repo=$REPO_LC"
 
   portable:
     needs: version
@@ -109,8 +112,8 @@ jobs:
             CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
       - name: Build & push frontend
@@ -122,8 +125,8 @@ jobs:
             CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
 
@@ -148,5 +151,5 @@ jobs:
             Commit: `${{ needs.version.outputs.commit }}`
 
             Docker:
-            - `${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ needs.version.outputs.docker_tag }}`
-            - `${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ needs.version.outputs.docker_tag }}`
+            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}`
+            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}`
