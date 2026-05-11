@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -267,6 +267,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   const [selectedJobId,   setSelectedJobId]   = useState<string | null>(null)
   const [jobEvents,       setJobEvents]       = useState<JobEvent[] | null>(null)
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+  const [fetchedImages,   setFetchedImages]   = useState<Map<string, string[]>>(new Map())
   const [dismissedUrl,    setDismissedUrl]    = useState("")
   const [, setTick] = useState(0)
 
@@ -367,10 +368,10 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   )
 
   const lastImages = useMemo(() => {
-    const last = [...sessionJobs].reverse().find(j => j.status === "done" && (j.savedImageHashes?.length ?? 0) > 0)
+    const last = [...sessionJobs].reverse().find(j => j.status === "done" && (fetchedImages.get(j.id)?.length ?? 0) > 0)
     if (!last) return []
-    return last.savedImageHashes!.slice(0, 4).map(h => `${backendUrl}/saved-images/${h}`)
-  }, [sessionJobs, backendUrl])
+    return fetchedImages.get(last.id)!.slice(0, 4).map(h => `${backendUrl}/saved-images/${h}`)
+  }, [sessionJobs, backendUrl, fetchedImages])
 
   const previewVisible = lastImages.length > 0 && lastImages[0] !== dismissedUrl
   const selectedJob    = selectedJobId ? (jobs.find(j => j.id === selectedJobId) ?? null) : null
@@ -468,15 +469,39 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     }
   }
 
+  const fetchingRef = useRef<Set<string>>(new Set())
+
+  const fetchJobImages = useCallback(async (jobId: string) => {
+    if (fetchedImages.has(jobId) || fetchingRef.current.has(jobId)) return
+    fetchingRef.current.add(jobId)
+    try {
+      const res = await fetch(`${backendUrl}/jobs/${jobId}/saved-images`)
+      if (res.ok) {
+        const data = await res.json()
+        const hashes: string[] = (data.items ?? []).map((img: { hash: string }) => img.hash)
+        setFetchedImages(prev => { const next = new Map(prev); next.set(jobId, hashes); return next })
+      }
+    } catch {} finally {
+      fetchingRef.current.delete(jobId)
+    }
+  }, [backendUrl, fetchedImages])
+
   const openDetail = async (jobId: string) => {
     setSelectedJobId(jobId)
     setJobEvents(null)
     setIsLoadingEvents(true)
+    fetchJobImages(jobId)
     try {
       const res = await fetch(`${backendUrl}/jobs/${jobId}/events`)
       if (res.ok) setJobEvents((await res.json()).events)
     } finally { setIsLoadingEvents(false) }
   }
+
+  // 완료된 job의 saved image 해시를 prefetch
+  useEffect(() => {
+    const doneJobs = sessionJobs.filter(j => j.status === "done" && !fetchedImages.has(j.id)).slice(0, 3)
+    for (const j of doneJobs) fetchJobImages(j.id)
+  }, [sessionJobs, fetchedImages, fetchJobImages])
 
   // ── quick date filters ──────────────────────────────────────────────────────
 
@@ -755,9 +780,10 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
             const statusLabel = j.status === "pending" && j.retryCount > 0
               ? `대기 중 (재시도 ${j.retryCount})`
               : STATUS_STYLE[j.status].label
-            return (
+            const previewHashes = fetchedImages.get(j.id) ?? []
+            const row = (
               <TableRow key={j.id} className="cursor-pointer" onClick={() => openDetail(j.id)}>
-                <TableCell className="max-w-[140px] truncate font-mono text-xs">{j.filename}</TableCell>
+                <TableCell className="max-w-35 truncate font-mono text-xs">{j.filename}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center gap-1">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status].badge}`}>
@@ -770,7 +796,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                         </HoverCardTrigger>
                         <HoverCardContent side="top" align="start" className="max-w-[320px]">
                           <p className="text-xs font-semibold text-destructive">오류 내용</p>
-                          <p className="mt-1 max-h-[120px] overflow-y-auto text-xs whitespace-pre-wrap break-all">{j.error}</p>
+                          <p className="mt-1 max-h-30 overflow-y-auto text-xs whitespace-pre-wrap break-all">{j.error}</p>
                         </HoverCardContent>
                       </HoverCard>
                     )}
@@ -787,6 +813,39 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                 </TableCell>
               </TableRow>
             )
+            if (j.status === "done") {
+              const displayHashes = previewHashes.slice(0, 6)
+              const totalCount = previewHashes.length
+              return (
+                <HoverCard key={j.id} openDelay={400} closeDelay={100} onOpenChange={open => { if (open) fetchJobImages(j.id) }}>
+                  <HoverCardTrigger asChild>
+                    {row}
+                  </HoverCardTrigger>
+                  <HoverCardContent side="left" align="start" className="w-auto p-2">
+                    {displayHashes.length > 0 ? (
+                      <div className="flex gap-1">
+                        {displayHashes.map((h, i) => (
+                          <img
+                            key={h}
+                            src={`${backendUrl}/saved-images/${h}`}
+                            alt={`Preview ${i + 1}`}
+                            className="h-16 w-16 rounded border object-cover"
+                          />
+                        ))}
+                        {totalCount > 6 && (
+                          <div className="flex h-16 w-16 items-center justify-center rounded border bg-muted text-xs text-muted-foreground">
+                            +{totalCount - 6}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">로드 중…</p>
+                    )}
+                  </HoverCardContent>
+                </HoverCard>
+              )
+            }
+            return row
           })}
           {pagedJobs.length === 0 && (
             <TableRow>
@@ -840,7 +899,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
 
       {/* Job detail sheet */}
       <Sheet open={selectedJobId !== null} onOpenChange={open => { if (!open) setSelectedJobId(null) }}>
-        <SheetContent className="flex min-w-[420px] flex-col gap-4 overflow-y-auto">
+        <SheetContent className="flex min-w-105 flex-col gap-4 overflow-y-auto">
           <SheetHeader><SheetTitle>잡 상세</SheetTitle></SheetHeader>
           {selectedJob && (
             <div className="flex flex-col gap-4">
@@ -881,13 +940,16 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                 )}
               </div>
 
-              {(selectedJob.savedImageHashes?.length ?? 0) > 0 && (
+              {(() => {
+                const hashes = fetchedImages.get(selectedJob.id) ?? []
+                if (hashes.length === 0) return null
+                return (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">생성된 이미지 ({selectedJob.savedImageHashes!.length})</h4>
+                  <h4 className="text-sm font-semibold">생성된 이미지 ({hashes.length})</h4>
                   <div className="grid grid-cols-2 gap-2">
-                    {selectedJob.savedImageHashes!.map((h, i) => {
+                    {hashes.map((h, i) => {
                       const url = `${backendUrl}/saved-images/${h}`
-                      const allUrls = selectedJob.savedImageHashes!.map(hh => `${backendUrl}/saved-images/${hh}`)
+                      const allUrls = hashes.map(hh => `${backendUrl}/saved-images/${hh}`)
                       return (
                         <button
                           key={h}
@@ -900,7 +962,8 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                     })}
                   </div>
                 </div>
-              )}
+                )
+              })()}
 
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold">이벤트 로그</h4>
