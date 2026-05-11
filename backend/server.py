@@ -116,6 +116,7 @@ class ExportRequest(BaseModel):
     status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = "approved"
     filenames: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    duplicateStrategy: Literal["hash", "number"] = "hash"
 
 
 class RegenerateRequest(BaseModel):
@@ -524,14 +525,25 @@ async def export_dataset(body: ExportRequest):
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         manifest_lines: list[str] = []
         metadata: list[dict[str, Any]] = []
+        used_names: set[str] = set()
+        dup_counters: dict[str, int] = {}
         for item in items_all:
             h = item["hash"]
             ext = item.get("extension") or ".png"
             disk_path = DEFAULT_IMAGES_DIR / f"{h}{ext}"
             if not disk_path.exists():
                 continue
-            zf.write(disk_path, arcname=f"images/{h}{ext}")
-            manifest_lines.append(f"{h}{ext}\t{item.get('originalFilename','')}")
+            orig = item.get("originalFilename") or h
+            name = f"{orig}{ext}"
+            if name in used_names:
+                if body.duplicateStrategy == "number":
+                    dup_counters[orig] = dup_counters.get(orig, 0) + 1
+                    name = f"{orig}_{dup_counters[orig]}{ext}"
+                else:
+                    name = f"{orig}_{h[:8]}{ext}"
+            used_names.add(name)
+            zf.write(disk_path, arcname=f"images/{name}")
+            manifest_lines.append(f"{name}\t{item.get('originalFilename','')}")
             metadata.append(
                 {
                     "hash": h,

@@ -240,7 +240,7 @@ export const curationApi = {
   },
   async exportDataset(
     backendUrl: string,
-    body: { status?: CurationStatus; filenames?: string[]; tags?: string[] }
+    body: { status?: CurationStatus; filenames?: string[]; tags?: string[]; duplicateStrategy?: "hash" | "number" }
   ): Promise<void> {
     const res = await fetch(`${backendUrl}/export`, {
       method: "POST",

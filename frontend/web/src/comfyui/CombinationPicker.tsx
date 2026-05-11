@@ -3,6 +3,7 @@ import {
   CheckCircle2Icon,
   CheckIcon,
   CircleIcon,
+  DownloadIcon,
   Loader2Icon,
   RefreshCwIcon,
 } from "lucide-react"
@@ -35,6 +36,9 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
   const [regenCount, setRegenCount] = useState(4)
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenMessage, setRegenMessage] = useState<string | null>(null)
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportMessage, setExportMessage] = useState<string | null>(null)
+  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
 
   // 실제로 렌더링에 사용할 템플릿 — 저장된 것 선택 시 그것, 아니면 현재 편집 중인 것
   const activeTemplate =
@@ -158,6 +162,27 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     [backendUrl, imagesByFilename, renderItems]
   )
 
+  const handleExport = useCallback(async () => {
+    if (exportLoading || doneCount === 0) return
+    setExportLoading(true)
+    setExportMessage(null)
+    try {
+      const approvedFilenames = renderItems
+        .filter((ri) =>
+          (imagesByFilename.get(ri.filename) ?? []).some((img) => img.status === "approved")
+        )
+        .map((ri) => ri.filename)
+      await curationApi.exportDataset(backendUrl, { filenames: approvedFilenames, duplicateStrategy })
+      setExportMessage(`${approvedFilenames.length}개 파일 내보내기 완료`)
+      setTimeout(() => setExportMessage(null), 3000)
+    } catch {
+      setExportMessage("내보내기 실패")
+      setTimeout(() => setExportMessage(null), 3000)
+    } finally {
+      setExportLoading(false)
+    }
+  }, [backendUrl, exportLoading, doneCount, renderItems, imagesByFilename, duplicateStrategy])
+
   const handleRegenerate = useCallback(async () => {
     if (!selectedFilename || regenLoading) return
     setRegenLoading(true)
@@ -256,6 +281,30 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
         <Button variant="outline" size="sm" onClick={fetchData}>
           <RefreshCwIcon className="h-4 w-4" />
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exportLoading || doneCount === 0}
+        >
+          {exportLoading ? (
+            <Loader2Icon className="h-4 w-4 animate-spin" />
+          ) : (
+            <DownloadIcon className="h-4 w-4" />
+          )}
+          내보내기
+        </Button>
+        <select
+          value={duplicateStrategy}
+          onChange={(e) => setDuplicateStrategy(e.target.value as "hash" | "number")}
+          className="h-9 rounded-md border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="hash">중복 시 해시</option>
+          <option value="number">중복 시 번호</option>
+        </select>
+        {exportMessage && (
+          <span className="text-xs text-muted-foreground">{exportMessage}</span>
+        )}
       </div>
 
       {/* 마스터-디테일 */}
