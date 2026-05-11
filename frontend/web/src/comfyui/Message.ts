@@ -21,6 +21,7 @@ export interface JobView {
   workerId: string | null
   error: string | null
   imageUrls: string[]
+  savedImageHashes: string[]
   progressPercent: number
   currentNodeName: string
   createdAt: number

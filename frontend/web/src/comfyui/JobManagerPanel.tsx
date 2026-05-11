@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, X } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -9,8 +9,22 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Field, FieldLabel } from "@/components/ui/field"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import {
   Sheet,
   SheetContent,
@@ -38,6 +52,7 @@ interface SessionMarker {
 }
 
 const SESSIONS_KEY = "ceg_sessions"
+const PAGE_SIZE = 50
 
 function loadMarkers(): SessionMarker[] {
   try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]") } catch { return [] }
@@ -139,6 +154,22 @@ function jobDuration(job: JobView): number | null {
 function dateToEpochStart(s: string): number { const d = new Date(s); d.setHours(0, 0, 0, 0); return d.getTime() / 1000 }
 function dateToEpochEnd(s: string):   number { const d = new Date(s); d.setHours(23, 59, 59, 999); return d.getTime() / 1000 }
 
+/** 1..totalPages를 ellipsis와 함께 압축 */
+function buildPageList(current: number, totalPages: number): (number | "…")[] {
+  if (totalPages <= 1) return [1]
+  const pages = new Set<number>([1, totalPages, current])
+  for (let i = current - 1; i <= current + 1; i++) {
+    if (i >= 1 && i <= totalPages) pages.add(i)
+  }
+  const sorted = Array.from(pages).sort((a, b) => a - b)
+  const out: (number | "…")[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    out.push(sorted[i]!)
+    if (i < sorted.length - 1 && sorted[i + 1]! - sorted[i]! > 1) out.push("…")
+  }
+  return out
+}
+
 // ── sub-components ────────────────────────────────────────────────────────────
 
 interface SortableHeadProps {
@@ -165,6 +196,26 @@ function TimingRow({ label, value }: { label: string; value: string }) {
       <span className="shrink-0 text-muted-foreground">{label}</span>
       <span className="text-right tabular-nums">{value}</span>
     </div>
+  )
+}
+
+function ClipButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+  return (
+    <button
+      className="absolute right-2 top-2 rounded p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+      onClick={handleCopy}
+      title="복사"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
   )
 }
 
@@ -198,6 +249,10 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
 
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
 
+  // ── session rename state ────────────────────────────────────────────────────
+  const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null)
+  const [editingLabel, setEditingLabel] = useState("")
+
   // ── filter / sort / date-range state ───────────────────────────────────────
   const [filterTab, setFilterTab] = useState<FilterTab>("all")
   const [sortKey, setSortKey]     = useState<SortKey>("createdAt")
@@ -205,12 +260,19 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   const [dateFrom, setDateFrom]   = useState("")
   const [dateTo,   setDateTo]     = useState("")
 
+  // ── pagination state ────────────────────────────────────────────────────────
+  const [page, setPage] = useState(1)
+
   // ── detail sheet ────────────────────────────────────────────────────────────
   const [selectedJobId,   setSelectedJobId]   = useState<string | null>(null)
   const [jobEvents,       setJobEvents]       = useState<JobEvent[] | null>(null)
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
   const [dismissedUrl,    setDismissedUrl]    = useState("")
   const [, setTick] = useState(0)
+
+  // ── lightbox state ──────────────────────────────────────────────────────────
+  const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
 
   // ── session computations ────────────────────────────────────────────────────
 
@@ -281,21 +343,37 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     return arr
   }, [dateFiltered, sortKey, sortDir])
 
+  // ── pagination computed ─────────────────────────────────────────────────────
+
+  const totalPages = Math.max(1, Math.ceil(sortedJobs.length / PAGE_SIZE))
+  const pageList = useMemo(() => buildPageList(page, totalPages), [page, totalPages])
+
+  // Reset to page 1 when filter/dates change
+  useEffect(() => { setPage(1) }, [filterTab, dateFrom, dateTo])
+
+  // Clamp page when totalPages shrinks
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+
+  const pagedJobs = useMemo(
+    () => sortedJobs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [sortedJobs, page],
+  )
+
   // ── misc computed ───────────────────────────────────────────────────────────
 
-  const activeJob = useMemo(
-    () => [...sessionJobs].reverse().find(j => j.status === "running" || j.status === "queued"),
+  const activeJobs = useMemo(
+    () => sessionJobs.filter(j => j.status === "running" || j.status === "queued" || j.status === "pending"),
     [sessionJobs],
   )
 
   const lastImages = useMemo(() => {
-    const last = [...sessionJobs].reverse().find(j => j.status === "done" && j.imageUrls.length > 0)
+    const last = [...sessionJobs].reverse().find(j => j.status === "done" && (j.savedImageHashes?.length ?? 0) > 0)
     if (!last) return []
-    return last.imageUrls.slice(0, 4).map(u => u.startsWith("http") ? u : `${backendUrl}${u}`)
+    return last.savedImageHashes!.slice(0, 4).map(h => `${backendUrl}/saved-images/${h}`)
   }, [sessionJobs, backendUrl])
 
   const previewVisible = lastImages.length > 0 && lastImages[0] !== dismissedUrl
-  const selectedJob    = selectedJobId ? jobs.find(j => j.id === selectedJobId) ?? null : null
+  const selectedJob    = selectedJobId ? (jobs.find(j => j.id === selectedJobId) ?? null) : null
   const hasDateFilter  = dateFrom !== "" || dateTo !== ""
 
   const sessionButtonLabel = (() => {
@@ -315,8 +393,13 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   // ── session actions ─────────────────────────────────────────────────────────
 
   const createNewSession = () => {
-    const newMarker: SessionMarker = { id: genId(), startAt: Date.now(), label: makeSessionLabel(markers.length + 1) }
-    persistMarkers([...markers, newMarker])
+    // Prevent empty sessions: delete existing empty markers before creating new one
+    const nonEmpty = markers.filter(m => (sessionJobCounts.get(m.id) ?? 0) > 0)
+    if (nonEmpty.length < markers.length) {
+      persistMarkers(nonEmpty)
+    }
+    const newMarker: SessionMarker = { id: genId(), startAt: Date.now(), label: makeSessionLabel(nonEmpty.length + 1) }
+    persistMarkers([...nonEmpty, newMarker])
     setSelectedId(newMarker.id)
     setSessionPickerOpen(false)
   }
@@ -324,6 +407,32 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   const goToCurrentSession = () => {
     const newest = sortedMarkers[0]
     if (newest) { setSelectedId(newest.id); setSessionPickerOpen(false) }
+  }
+
+  const startRename = (m: SessionMarker) => {
+    setEditingMarkerId(m.id)
+    setEditingLabel(m.label)
+  }
+
+  const saveRename = () => {
+    if (editingMarkerId && editingLabel.trim()) {
+      persistMarkers(markers.map(m => m.id === editingMarkerId ? { ...m, label: editingLabel.trim() } : m))
+    }
+    setEditingMarkerId(null)
+  }
+
+  const deleteSession = (markerId: string) => {
+    if (!confirm("이 세션을 삭제하시겠습니까? 세션의 마커만 제거되며 잡 데이터는 삭제되지 않습니다.")) return
+    const next = markers.filter(m => m.id !== markerId)
+    if (next.length === 0) {
+      // Ensure at least one marker exists
+      const init: SessionMarker = { id: genId(), startAt: 0, label: "세션 1" }
+      persistMarkers([init])
+      setSelectedId(init.id)
+    } else {
+      persistMarkers(next)
+      if (selectedId === markerId) setSelectedId(next.sort((a, b) => b.startAt - a.startAt)[0]!.id)
+    }
   }
 
   // ── api ─────────────────────────────────────────────────────────────────────
@@ -339,6 +448,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   }
 
   const handleCancelAll = async () => {
+    if (!window.confirm("진행 중인 모든 작업을 취소하시겠습니까?")) return
     try { await fetch(`${backendUrl}/jobs/cancel-all`, { method: "POST" }) } catch {}
   }
 
@@ -351,6 +461,13 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     try { await fetch(`${backendUrl}/jobs/${jobId}/retry`, { method: "POST" }) } catch {}
   }
 
+  const handleRetryAllFailed = async () => {
+    const failed = sessionJobs.filter(j => j.status === "error" || j.status === "cancelled")
+    for (const j of failed) {
+      try { await fetch(`${backendUrl}/jobs/${j.id}/retry`, { method: "POST" }) } catch {}
+    }
+  }
+
   const openDetail = async (jobId: string) => {
     setSelectedJobId(jobId)
     setJobEvents(null)
@@ -359,6 +476,31 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
       const res = await fetch(`${backendUrl}/jobs/${jobId}/events`)
       if (res.ok) setJobEvents((await res.json()).events)
     } finally { setIsLoadingEvents(false) }
+  }
+
+  // ── quick date filters ──────────────────────────────────────────────────────
+
+  const setQuickDate = (label: string) => {
+    const now = new Date()
+    const toStr = now.toISOString().slice(0, 10)
+    setDateTo(toStr)
+
+    switch (label) {
+      case "1h": {
+        const d = new Date(now.getTime() - 3600_000)
+        setDateFrom(d.toISOString().slice(0, 10))
+        break
+      }
+      case "today": {
+        setDateFrom(toStr)
+        break
+      }
+      case "24h": {
+        const d = new Date(now.getTime() - 86_400_000)
+        setDateFrom(d.toISOString().slice(0, 10))
+        break
+      }
+    }
   }
 
   // ── empty state ─────────────────────────────────────────────────────────────
@@ -417,6 +559,11 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
         <Button size="sm" variant="destructive" onClick={handleCancelAll} disabled={!isAliveBackend || counts.active === 0}>
           전부 취소
         </Button>
+        {(counts.error + counts.cancelled) > 0 && (
+          <Button size="sm" variant="outline" onClick={handleRetryAllFailed} disabled={!isAliveBackend}>
+            실패/취소 모두 재시도 ({counts.error + counts.cancelled})
+          </Button>
+        )}
         {paused && <span className="text-xs text-muted-foreground">새 잡이 워커로 전송되지 않습니다.</span>}
 
         {/* Session picker button */}
@@ -454,40 +601,76 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
               const isActive = m.id === selectedId
               const isNewest = i === 0
               const isEmpty  = count === 0
+              const isEditing = editingMarkerId === m.id
               return (
-                <button
+                <div
                   key={m.id}
-                  className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/60 ${isActive ? "bg-muted" : ""}`}
-                  onClick={() => { setSelectedId(m.id); setSessionPickerOpen(false) }}
+                  className={`flex items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-muted/60 ${isActive ? "bg-muted" : ""}`}
                 >
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? "bg-foreground" : "border border-muted-foreground/40"}`} />
-                  <span className={`flex-1 text-sm ${isEmpty ? "text-muted-foreground" : ""}`}>{m.label}</span>
+                  <button
+                    className="flex flex-1 items-center gap-2 text-left"
+                    onClick={() => { setSelectedId(m.id); setSessionPickerOpen(false) }}
+                  >
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? "bg-foreground" : "border border-muted-foreground/40"}`} />
+                    {isEditing ? (
+                      <input
+                        className="flex-1 rounded border bg-background px-1 py-0 text-sm"
+                        value={editingLabel}
+                        onChange={e => setEditingLabel(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") saveRename()
+                          if (e.key === "Escape") setEditingMarkerId(null)
+                        }}
+                        onBlur={saveRename}
+                        autoFocus
+                        onClick={e => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className={`flex-1 text-sm ${isEmpty ? "text-muted-foreground" : ""}`}>{m.label}</span>
+                    )}
+                  </button>
                   {isNewest && (
                     <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                       현재
                     </span>
                   )}
+                  <button
+                    className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-muted hover:text-foreground"
+                    onClick={() => startRename(m)}
+                    title="이름 변경"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-destructive/20 hover:text-destructive"
+                    onClick={() => deleteSession(m.id)}
+                    title="세션 삭제"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                   <span className={`w-12 text-right text-xs tabular-nums ${isEmpty ? "text-muted-foreground/50" : "font-medium"}`}>
                     {count}개
                   </span>
-                </button>
+                </div>
               )
             })}
           </div>
         </div>
       )}
 
-      {/* Progress bar */}
+      {/* Overall progress bar */}
       <Field>
         <FieldLabel>
           <span className="truncate">
-            {activeJob
-              ? `${activeJob.filename} · ${activeJob.currentNodeName || "—"}`
+            {activeJobs.length > 0
+              ? `진행 중: ${activeJobs.length}개 (완료: ${counts.done} / 전체: ${sessionJobs.length})`
               : paused ? "일시중지됨" : "대기 중"}
           </span>
-          <span className="ml-auto tabular-nums">{Math.round(activeJob?.progressPercent ?? 0)}%</span>
+          <span className="ml-auto tabular-nums">
+            {sessionJobs.length > 0 ? Math.round((counts.done / sessionJobs.length) * 100) : 0}%
+          </span>
         </FieldLabel>
-        <Progress value={activeJob?.progressPercent ?? 0} className="w-full" />
+        <Progress value={sessionJobs.length > 0 ? (counts.done / sessionJobs.length) * 100 : 0} className="w-full" />
       </Field>
 
       {/* Preview images */}
@@ -523,6 +706,25 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
         <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-7 w-36 text-xs" />
         <span className="text-xs text-muted-foreground">—</span>
         <Input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="h-7 w-36 text-xs" />
+        <span className="text-muted-foreground/40">|</span>
+        <button
+          className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setQuickDate("1h")}
+        >
+          최근 1시간
+        </button>
+        <button
+          className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setQuickDate("today")}
+        >
+          오늘
+        </button>
+        <button
+          className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setQuickDate("24h")}
+        >
+          최근 24시간
+        </button>
         {hasDateFilter && (
           <>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => { setDateFrom(""); setDateTo("") }}>
@@ -546,7 +748,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedJobs.map(j => {
+          {pagedJobs.map(j => {
             const isActive = j.status === "pending" || j.status === "queued" || j.status === "running"
             const isFailed = j.status === "error" || j.status === "cancelled"
             const dur = jobDuration(j)
@@ -557,8 +759,21 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
               <TableRow key={j.id} className="cursor-pointer" onClick={() => openDetail(j.id)}>
                 <TableCell className="max-w-[140px] truncate font-mono text-xs">{j.filename}</TableCell>
                 <TableCell>
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status].badge}`}>
-                    {statusLabel}
+                  <span className="inline-flex items-center gap-1">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status].badge}`}>
+                      {statusLabel}
+                    </span>
+                    {j.status === "error" && j.error && (
+                      <HoverCard openDelay={200} closeDelay={100}>
+                        <HoverCardTrigger asChild>
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 cursor-help text-destructive/70" />
+                        </HoverCardTrigger>
+                        <HoverCardContent side="top" align="start" className="max-w-[320px]">
+                          <p className="text-xs font-semibold text-destructive">오류 내용</p>
+                          <p className="mt-1 max-h-[120px] overflow-y-auto text-xs whitespace-pre-wrap break-all">{j.error}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    )}
                   </span>
                 </TableCell>
                 <TableCell className="font-mono text-xs">{j.workerId ?? "—"}</TableCell>
@@ -573,7 +788,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
               </TableRow>
             )
           })}
-          {sortedJobs.length === 0 && (
+          {pagedJobs.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="py-8 text-center text-xs text-muted-foreground">
                 {hasDateFilter ? "선택한 날짜 범위에 맞는 잡이 없습니다." : "해당 필터에 맞는 잡이 없습니다."}
@@ -582,6 +797,46 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
           )}
         </TableBody>
       </Table>
+
+      {/* Pagination */}
+      {sortedJobs.length > PAGE_SIZE && (
+        <div className="flex flex-col items-center gap-2">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => page > 1 && setPage(page - 1)}
+                  aria-disabled={page <= 1}
+                  className={page <= 1 ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+              {pageList.map((p, i) =>
+                p === "…" ? (
+                  <PaginationItem key={`e-${i}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={p}>
+                    <PaginationLink isActive={p === page} onClick={() => setPage(p)}>
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => page < totalPages && setPage(page + 1)}
+                  aria-disabled={page >= totalPages}
+                  className={page >= totalPages ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+          <p className="text-xs text-muted-foreground">
+            총 {sortedJobs.length}개 · {page}/{totalPages} 페이지
+          </p>
+        </div>
+      )}
 
       {/* Job detail sheet */}
       <Sheet open={selectedJobId !== null} onOpenChange={open => { if (!open) setSelectedJobId(null) }}>
@@ -597,9 +852,15 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                   <span className="font-mono text-xs text-muted-foreground">{selectedJob.id.slice(0, 8)}…</span>
                 </div>
                 <p className="font-mono text-sm font-semibold">{selectedJob.filename}</p>
-                <p className="line-clamp-4 text-sm text-muted-foreground">{selectedJob.prompt}</p>
+                <div className="relative">
+                  <p className="line-clamp-4 pr-8 text-sm text-muted-foreground">{selectedJob.prompt}</p>
+                  {selectedJob.prompt && <ClipButton text={selectedJob.prompt} />}
+                </div>
                 {selectedJob.error && (
-                  <p className="rounded-md bg-destructive/10 px-2 py-1 text-sm text-destructive">{selectedJob.error}</p>
+                  <div className="relative">
+                    <p className="rounded-md bg-destructive/10 px-2 py-1 pr-8 text-sm text-destructive">{selectedJob.error}</p>
+                    <ClipButton text={selectedJob.error} />
+                  </div>
                 )}
               </div>
 
@@ -620,16 +881,21 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                 )}
               </div>
 
-              {selectedJob.imageUrls.length > 0 && (
+              {(selectedJob.savedImageHashes?.length ?? 0) > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">생성된 이미지 ({selectedJob.imageUrls.length})</h4>
+                  <h4 className="text-sm font-semibold">생성된 이미지 ({selectedJob.savedImageHashes!.length})</h4>
                   <div className="grid grid-cols-2 gap-2">
-                    {selectedJob.imageUrls.map((url, i) => {
-                      const full = url.startsWith("http") ? url : `${backendUrl}${url}`
+                    {selectedJob.savedImageHashes!.map((h, i) => {
+                      const url = `${backendUrl}/saved-images/${h}`
+                      const allUrls = selectedJob.savedImageHashes!.map(hh => `${backendUrl}/saved-images/${hh}`)
                       return (
-                        <a key={url} href={full} target="_blank" rel="noreferrer">
-                          <img src={full} alt={`Generated ${i}`} className="h-auto w-full rounded-md border transition-opacity hover:opacity-80" />
-                        </a>
+                        <button
+                          key={h}
+                          onClick={() => { setLightboxUrls(allUrls); setLightboxIndex(i) }}
+                          className="block w-full"
+                        >
+                          <img src={url} alt={`Generated ${i}`} className="h-auto w-full rounded-md border transition-opacity hover:opacity-80" />
+                        </button>
                       )
                     })}
                   </div>
@@ -664,6 +930,50 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Image lightbox */}
+      {lightboxUrls && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxUrls(null)}
+        >
+          <button
+            className="absolute right-4 top-4 rounded-full bg-background/20 p-2 text-white hover:bg-background/40"
+            onClick={() => setLightboxUrls(null)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {lightboxUrls.length > 1 && (
+            <>
+              <button
+                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-background/20 p-2 text-white hover:bg-background/40"
+                onClick={e => { e.stopPropagation(); setLightboxIndex(i => Math.max(0, i - 1)) }}
+                disabled={lightboxIndex === 0}
+              >
+                <ChevronDown className="h-5 w-5 rotate-90" />
+              </button>
+              <button
+                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-background/20 p-2 text-white hover:bg-background/40"
+                onClick={e => { e.stopPropagation(); setLightboxIndex(i => Math.min(lightboxUrls.length - 1, i + 1)) }}
+                disabled={lightboxIndex === lightboxUrls.length - 1}
+              >
+                <ChevronDown className="h-5 w-5 -rotate-90" />
+              </button>
+            </>
+          )}
+          <img
+            src={lightboxUrls[lightboxIndex]!}
+            alt="확대 이미지"
+            className="max-h-[90vh] max-w-[90vw] rounded-md object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+          {lightboxUrls.length > 1 && (
+            <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-background/20 px-3 py-1 text-sm text-white">
+              {lightboxIndex + 1} / {lightboxUrls.length}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

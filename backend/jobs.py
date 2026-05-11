@@ -52,6 +52,7 @@ class Job:
     worker_id: Optional[str] = None
     error: Optional[str] = None
     image_urls: list[str] = field(default_factory=list)
+    saved_image_hashes: list[str] = field(default_factory=list)
     progress_percent: float = 0.0
     current_node_name: str = ""
     created_at: float = field(default_factory=time.time)
@@ -70,6 +71,7 @@ class Job:
             "workerId": self.worker_id,
             "error": self.error,
             "imageUrls": self.image_urls,
+            "savedImageHashes": self.saved_image_hashes,
             "progressPercent": self.progress_percent,
             "currentNodeName": self.current_node_name,
             "createdAt": self.created_at,
@@ -90,6 +92,7 @@ class Job:
             worker_id=d.get("workerId"),
             error=d.get("error"),
             image_urls=d.get("imageUrls", []),
+            saved_image_hashes=d.get("savedImageHashes", []),
             progress_percent=d.get("progressPercent", 0.0),
             current_node_name=d.get("currentNodeName", ""),
             created_at=d.get("createdAt", time.time()),
@@ -588,6 +591,14 @@ class JobManager:
                     "status": "pending",
                 }
             )
+            # Update job with saved image hash so frontend can use /saved-images/{hash}
+            async with self._lock:
+                job = self._jobs.get(job_id)
+                if job:
+                    job.saved_image_hashes.append(sha)
+                    payload = job.to_dict()
+                    await self._store.save(payload)
+                    await self._emit({"type": "job.updated", "job": payload})
         except Exception:
             logger.exception(
                 "persist image failed: job=%s filename=%s", job_id, filename
