@@ -87,9 +87,10 @@ jobs:
           pip install -r backend/requirements.txt pyinstaller
       - name: Build portable
         run: ${{ matrix.build }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
-          name: ${{ matrix.artifact }}-${{ needs.version.outputs.bundle }}
+          # Artifact names disallow '+', so use the sanitized docker_tag form.
+          name: ${{ matrix.artifact }}-${{ needs.version.outputs.docker_tag }}
           path: ${{ matrix.binary }}
 
   docker:
@@ -134,9 +135,10 @@ jobs:
     needs: [version, portable, docker]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts
+          merge-multiple: false
       - name: Create / update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
