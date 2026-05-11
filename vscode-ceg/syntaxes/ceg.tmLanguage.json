@@ -52,7 +52,7 @@
     },
     "keywords": {
       "name": "keyword.other.ceg",
-      "match": "\\b(?:weighted|include|sample|seed|AND)\\b"
+      "match": "\\b(?:include|AND)\\b"
     },
     "operators": {
       "name": "keyword.operator.ceg",

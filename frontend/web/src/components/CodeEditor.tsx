@@ -17,7 +17,7 @@ interface CodeEditorProps {
   maxHeight?: string
 }
 
-const cegKeywords = /^(?:weighted|include|sample|seed|AND)\b/i
+const cegKeywords = /^(?:include|AND)\b/i
 const cegTags =
   /^\{\{\/?(?:axis|template|filename|set|combine|exclude)\}\}/
 

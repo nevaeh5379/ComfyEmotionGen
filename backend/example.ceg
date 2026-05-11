@@ -10,11 +10,11 @@
   swimsuit : "bikini, beach setting"
 {{/axis}}
 
-{{axis emotion weighted}}
-  happy   : "smiling, {{w:1.2:bright eyes}}, cheerful"  @ 3
-  neutral : "calm expression, relaxed"                  @ 3
-  sad     : "teary eyes, frowning, melancholic"         @ 1
-  angry   : "angry expression, furrowed brows"          @ 1
+{{axis emotion}}
+  happy   : "smiling, bright eyes, cheerful"
+  neutral : "calm expression, relaxed"
+  sad     : "teary eyes, frowning, melancholic"
+  angry   : "angry expression, furrowed brows"
 {{/axis}}
 
 {{axis pose}}
@@ -28,7 +28,7 @@
 {{exclude outfit=dress AND emotion=angry}}
 
 {{template}}
-{{w:1.1:{{quality}}}}, {{character}},
+{{quality}}, {{character}},
 {{outfit}}, {{emotion}}, {{pose}},
 detailed background
 {{/template}}

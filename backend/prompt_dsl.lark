@@ -12,13 +12,12 @@ statement: set_stmt
 
 set_stmt: "{{set" NAME "=" STRING "}}"
 
-axis_def: "{{axis" NAME WEIGHTED? axis_include? "}}" axis_entry* "{{/axis}}"
-WEIGHTED: "weighted"
+axis_def: "{{axis" NAME axis_include? "}}" axis_entry* "{{/axis}}"
 axis_include: "include=" STRING
 axis_entry: NAME ":" STRING ("@" NUMBER)?
 
-combine_stmt: "{{combine" combine_assignment (":" combine_opt+)? "}}"
-            | "{{combine" expr (":" combine_opt+)? "}}"
+combine_stmt: "{{combine" combine_assignment "}}"
+            | "{{combine" expr "}}"
 
 combine_assignment: NAME "=" expr
 
@@ -28,9 +27,6 @@ combine_assignment: NAME "=" expr
        | STRING -> expr_str
        | "~" factor -> expr_hide_key
        | "(" expr ")"
-
-combine_opt: "sample=" INT  -> sample_opt
-           | "seed=" INT    -> seed_opt
 
 exclude_stmt: "{{exclude" condition ("AND" condition)* "}}"
 condition: NAME "=" NAME

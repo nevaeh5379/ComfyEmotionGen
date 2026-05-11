@@ -9,10 +9,6 @@ AI 이미지 프롬프트 배치 생성을 위한 DSL.
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
-from functools import reduce
-from operator import mul
-import itertools
-import random
 import re
 import json
 
@@ -33,7 +29,6 @@ class AxisValue:
 class Axis:
     name: str
     values: List[AxisValue] = field(default_factory=list)
-    weighted: bool = False
     include: Optional[str] = None
 
 
@@ -48,12 +43,9 @@ class Program:
     axes: Dict[str, Axis] = field(default_factory=dict)
     combine_alias: Optional[str] = None
     combine_expr: Any = None
-    combine_opts: Dict[str, Any] = field(default_factory=dict)
     excludes: List[ExcludeRule] = field(default_factory=list)
     template: str = ""
     filename: str = ""
-    sample: int = 0
-    seed: Optional[int] = None
 
 
 # ====== 파서 (Lark 기반) ======
@@ -79,11 +71,6 @@ class _Builder(Transformer):
                 case "combine":
                     prog.combine_alias = payload.get("alias")
                     prog.combine_expr = payload.get("expr")
-                    for k, v in payload.items():
-                        if k not in ("alias", "expr"):
-                            prog.combine_opts[k] = v
-                    prog.sample = payload.get("sample", 0)
-                    prog.seed = payload.get("seed")
                 case "exclude":
                     prog.excludes.append(payload)
                 case "template":
@@ -100,19 +87,15 @@ class _Builder(Transformer):
 
     def axis_def(self, items):
         name = str(items[0])
-        weighted = False
         include = None
         entries = []
         for item in items[1:]:
-            s = str(item)
-            if s == "weighted":
-                weighted = True
-            elif isinstance(item, AxisValue):
+            if isinstance(item, AxisValue):
                 entries.append(item)
             else:
                 # axis_include result: plain string
-                include = s
-        return ("axis", Axis(name=name, weighted=weighted, include=include, values=entries))
+                include = str(item)
+        return ("axis", Axis(name=name, include=include, values=entries))
 
     def axis_include(self, items):
         return str(items[0])[1:-1]
@@ -127,18 +110,10 @@ class _Builder(Transformer):
         if len(items) >= 1 and isinstance(items[0], tuple) and items[0][0] == "assign":
             alias = items[0][1]
             expr = items[0][2]
-            opts_start = 1
         else:
             alias = None
             expr = items[0]
-            opts_start = 1
-
-        opts = {}
-        for item in items[opts_start:]:
-            if isinstance(item, tuple):
-                opts[item[0]] = item[1]
-
-        return ("combine", {"alias": alias, "expr": expr, **opts})
+        return ("combine", {"alias": alias, "expr": expr})
 
     def combine_assignment(self, items):
         return ("assign", str(items[0]), items[1])
@@ -161,12 +136,6 @@ class _Builder(Transformer):
 
     def expr_hide_key(self, items):
         return ("hide_key", items[0])
-
-    def sample_opt(self, items):
-        return ("sample", int(items[0]))
-
-    def seed_opt(self, items):
-        return ("seed", int(items[0]))
 
     def exclude_stmt(self, items):
         return ("exclude", ExcludeRule(conditions=dict(items)))
@@ -283,11 +252,6 @@ def _substitute(template: str, ctx: Dict[str, Any], keys: Dict[str, str]) -> str
         if prev == out:
             break
 
-    out = re.sub(
-        r'\{\{w:([\d.]+):([^{}]+?)\}\}',
-        lambda m: f"({m.group(2).strip()}:{m.group(1)})",
-        out,
-    )
     return out
 
 
@@ -296,24 +260,6 @@ def _clean_prompt(s: str) -> str:
     s = re.sub(r'\s*,\s*', ', ', s)
     s = re.sub(r'(,\s*)+', ', ', s)
     return s.strip(" ,\n")
-
-
-def _weighted_sample(items, weights, k, rng):
-    items, weights = list(items), list(weights)
-    picked = []
-    for _ in range(min(k, len(items))):
-        total = sum(weights)
-        if total <= 0:
-            break
-        r = rng.uniform(0, total)
-        cum = 0.0
-        for i, w in enumerate(weights):
-            cum += w
-            if cum >= r:
-                picked.append(items.pop(i))
-                weights.pop(i)
-                break
-    return picked
 
 
 def render(prog: Program) -> List[Dict]:
@@ -334,11 +280,6 @@ def render(prog: Program) -> List[Dict]:
         )
 
     combos = [c for c in combos if not excluded(c)]
-
-    if prog.sample > 0 and prog.sample < len(combos):
-        rng = random.Random(prog.seed)
-        weights = [reduce(mul, (v.weight for v in combo.values()), 1.0) for combo in combos]
-        combos = _weighted_sample(combos, weights, prog.sample, rng)
 
     results = []
     for combo in combos:
