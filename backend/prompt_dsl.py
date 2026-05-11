@@ -23,6 +23,7 @@ class AxisValue:
     value: str
     weight: float = 1.0
     hide_key: bool = False
+    props: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -33,8 +34,16 @@ class Axis:
 
 
 @dataclass
+class Condition:
+    axis: str
+    op: str         # "eq", "in", "not_in"
+    values: List[str]
+
+
+@dataclass
 class ExcludeRule:
-    conditions: Dict[str, str]
+    conditions: List[Condition]
+    connective: str = "AND"
 
 
 @dataclass
@@ -102,9 +111,25 @@ class _Builder(Transformer):
 
     def axis_entry(self, items):
         key = str(items[0])
-        value = str(items[1])[1:-1]
+        val = items[1]
         weight = float(items[2]) if len(items) > 2 else 1.0
-        return AxisValue(key=key, value=value, weight=weight)
+        if isinstance(val, dict):
+            props = val
+            value = ", ".join(props.values())
+        else:
+            props = {}
+            value = val
+        return AxisValue(key=key, value=value, weight=weight, props=props)
+
+    def axis_value(self, items):
+        if not items:
+            return {}
+        if isinstance(items[0], tuple):
+            return dict(items)
+        return str(items[0])[1:-1]
+
+    def axis_property(self, items):
+        return (str(items[0]), str(items[1])[1:-1])
 
     def combine_stmt(self, items):
         if len(items) >= 1 and isinstance(items[0], tuple) and items[0][0] == "assign":
@@ -138,10 +163,26 @@ class _Builder(Transformer):
         return ("hide_key", items[0])
 
     def exclude_stmt(self, items):
-        return ("exclude", ExcludeRule(conditions=dict(items)))
+        conditions = []
+        connective = "AND"
+        for item in items:
+            if isinstance(item, Condition):
+                conditions.append(item)
+            elif item.type == 'OR':
+                connective = "OR"
+        return ("exclude", ExcludeRule(conditions=conditions, connective=connective))
 
     def condition(self, items):
-        return (str(items[0]), str(items[1]))
+        return items[0]
+
+    def eq_condition(self, items):
+        return Condition(axis=str(items[0]), op="eq", values=[str(items[1])])
+
+    def in_condition(self, items):
+        return Condition(axis=str(items[0]), op="in", values=[str(v) for v in items[1:]])
+
+    def not_in_condition(self, items):
+        return Condition(axis=str(items[0]), op="not_in", values=[str(v) for v in items[1:]])
 
     def template_block(self, items):
         return ("template", str(items[0]))
@@ -245,6 +286,11 @@ def _substitute(template: str, ctx: Dict[str, Any], keys: Dict[str, str]) -> str
             out,
         )
         out = re.sub(
+            r'\{\{(\w+)\.(\w+)\}\}',
+            lambda m: str(ctx.get(f"{m.group(1)}.{m.group(2)}", m.group(0))),
+            out,
+        )
+        out = re.sub(
             r'\{\{(\w+)\}\}',
             lambda m: str(ctx.get(m.group(1), m.group(0))),
             out,
@@ -274,10 +320,25 @@ def render(prog: Program) -> List[Dict]:
 
     def excluded(combo_dict):
         cks = {k: v.key for k, v in combo_dict.items()}
-        return any(
-            all(cks.get(k) == v for k, v in rule.conditions.items())
-            for rule in prog.excludes
-        )
+        for rule in prog.excludes:
+            results = []
+            for cond in rule.conditions:
+                val = cks.get(cond.axis)
+                if val is None:
+                    results.append(False)
+                elif cond.op == "eq":
+                    results.append(val == cond.values[0])
+                elif cond.op == "in":
+                    results.append(val in cond.values)
+                elif cond.op == "not_in":
+                    results.append(val not in cond.values)
+            if rule.connective == "AND":
+                if all(results):
+                    return True
+            else:
+                if any(results):
+                    return True
+        return False
 
     combos = [c for c in combos if not excluded(c)]
 
@@ -288,6 +349,8 @@ def render(prog: Program) -> List[Dict]:
         for k, v in combo.items():
             ctx[k] = v.value
             keys[k] = v.key
+            for prop_name, prop_val in v.props.items():
+                ctx[f"{k}.{prop_name}"] = prop_val
             
         if prog.combine_alias:
             alias = prog.combine_alias

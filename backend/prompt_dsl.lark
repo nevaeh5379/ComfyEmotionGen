@@ -14,7 +14,10 @@ set_stmt: "{{set" NAME "=" STRING "}}"
 
 axis_def: "{{axis" NAME axis_include? "}}" axis_entry* "{{/axis}}"
 axis_include: "include=" STRING
-axis_entry: NAME ":" STRING ("@" NUMBER)?
+axis_entry: NAME ":" axis_value ("@" NUMBER)?
+axis_value: STRING
+          | "{" [axis_property ("," axis_property)* [","]] "}"
+axis_property: NAME ":" STRING
 
 combine_stmt: "{{combine" combine_assignment "}}"
             | "{{combine" expr "}}"
@@ -28,15 +31,20 @@ combine_assignment: NAME "=" expr
        | "~" factor -> expr_hide_key
        | "(" expr ")"
 
-exclude_stmt: "{{exclude" condition ("AND" condition)* "}}"
-condition: NAME "=" NAME
+exclude_stmt: "{{exclude" condition ((AND | OR) condition)* "}}"
+condition: eq_condition | in_condition | not_in_condition
+eq_condition: NAME "=" NAME
+in_condition: NAME "in" "[" NAME ("," NAME)* "]"
+not_in_condition: NAME "not" "in" "[" NAME ("," NAME)* "]"
 
 template_block: "{{template}}" TEMPLATE_BODY "{{/template}}"
 filename_block: "{{filename}}" TEMPLATE_BODY "{{/filename}}"
 
 comment: "{{#" COMMENT_BODY "#}}"
 
-// 터미널 정의
+// 터미널 정의 (AND/OR는 NAME보다 먼저 정의하여 우선권 부여)
+AND: "AND"
+OR: "OR"
 NAME: /[a-zA-Z_\-][a-zA-Z0-9_\-]*/
 STRING: /"(?:[^"\\]|\\.)*"/
 NUMBER: /[0-9]+(?:\.[0-9]+)?/
