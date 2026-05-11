@@ -53,6 +53,7 @@ from pydantic import BaseModel, Field
 from prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
 from worker_pool import WorkerPool
 from jobs import JobManager, DEFAULT_IMAGES_DIR
+from _version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ComfyEmotionGen Backend",
-    version="0.1.0",
+    version=BACKEND_VERSION,
     lifespan=lifespan,
 )
 
@@ -186,6 +187,15 @@ async def get_object_info():
     if not _OBJECT_INFO_PATH.exists():
         raise HTTPException(status_code=404, detail="object_info.json not found")
     return FileResponse(_OBJECT_INFO_PATH, media_type="application/json")
+
+
+@app.get("/version")
+def version():
+    return {
+        "backend": BACKEND_VERSION,
+        "bundle": BUNDLE_VERSION,
+        "commit": COMMIT,
+    }
 
 
 @app.get("/health")
