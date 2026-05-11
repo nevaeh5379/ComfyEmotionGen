@@ -19,6 +19,19 @@ else:
 
 sys.path.insert(0, backend_dir)
 
+# Persist runtime data (jobs.db, images/) next to the executable instead of
+# the user's launch cwd (Desktop/Downloads). Honour CEG_DATA_DIR for overrides.
+# This must run BEFORE importing server, since JobStore/JobManager resolve
+# their default paths at import/construction time relative to cwd.
+if getattr(sys, 'frozen', False):
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    default_data_dir = os.path.join(exe_dir, 'data')
+else:
+    default_data_dir = os.getcwd()
+data_dir = os.environ.get('CEG_DATA_DIR') or default_data_dir
+os.makedirs(data_dir, exist_ok=True)
+os.chdir(data_dir)
+
 # Now we can import the FastAPI app from backend/server.py
 from server import app
 
