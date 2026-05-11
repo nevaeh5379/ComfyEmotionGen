@@ -1,0 +1,152 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # for creating releases
+  packages: write   # for pushing to ghcr.io
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ${{ github.repository }}/ceg-backend
+  IMAGE_FRONTEND: ${{ github.repository }}/ceg-frontend
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      bundle: ${{ steps.v.outputs.bundle }}
+      docker_tag: ${{ steps.v.outputs.docker_tag }}
+      commit: ${{ steps.v.outputs.commit }}
+      is_release: ${{ steps.v.outputs.is_release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            BUNDLE="${GITHUB_REF#refs/tags/}"
+            IS_RELEASE=true
+          else
+            DATE=$(date -u +%Y.%m.%d)
+            BUNDLE="v${DATE}-dev+${SHORT}"
+            IS_RELEASE=false
+          fi
+          # Docker tags cannot contain '+'
+          DOCKER_TAG="${BUNDLE//+/.}"
+          echo "bundle=$BUNDLE"        >> $GITHUB_OUTPUT
+          echo "docker_tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
+          echo "commit=$SHORT"         >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+          echo "Resolved bundle=$BUNDLE  docker_tag=$DOCKER_TAG  release=$IS_RELEASE"
+
+  portable:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: ComfyEmotionGen-windows
+            build: pwsh portable/build.ps1
+            binary: portable/dist/ComfyEmotionGen.exe
+          - os: ubuntu-latest
+            artifact: ComfyEmotionGen-linux
+            build: bash portable/build.sh
+            binary: portable/dist/ComfyEmotionGen
+          - os: macos-latest
+            artifact: ComfyEmotionGen-macos
+            build: bash portable/build.sh
+            binary: portable/dist/ComfyEmotionGen
+    runs-on: ${{ matrix.os }}
+    env:
+      CEG_BUNDLE_VERSION: ${{ needs.version.outputs.bundle }}
+      CEG_COMMIT: ${{ needs.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/web/package-lock.json
+      - name: Install backend deps + PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt pyinstaller
+      - name: Build portable
+        run: ${{ matrix.build }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-${{ needs.version.outputs.bundle }}
+          path: ${{ matrix.binary }}
+
+  docker:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          build-args: |
+            CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
+            CEG_COMMIT=${{ needs.version.outputs.commit }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend/web
+          push: true
+          build-args: |
+            CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
+            CEG_COMMIT=${{ needs.version.outputs.commit }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+  release:
+    needs: [version, portable, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Git tags reject '+', so use the sanitized form for the tag itself.
+          # The canonical bundle version (with '+') is still embedded in binaries.
+          tag_name: ${{ needs.version.outputs.docker_tag }}
+          name: ${{ needs.version.outputs.bundle }}
+          prerelease: ${{ needs.version.outputs.is_release != 'true' }}
+          files: artifacts/**/*
+          body: |
+            Bundle: `${{ needs.version.outputs.bundle }}`
+            Commit: `${{ needs.version.outputs.commit }}`
+
+            Docker:
+            - `${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ needs.version.outputs.docker_tag }}`
+            - `${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ needs.version.outputs.docker_tag }}`

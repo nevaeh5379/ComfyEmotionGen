@@ -71,9 +71,8 @@ class FrontendHandler(SimpleHTTPRequestHandler):
                 with open(index_path, 'rb') as f:
                     content = f.read().decode('utf-8')
                 
-                # Inject the config script before the closing </head>
-                injection = '<script src="/config.js"></script></head>'
-                content = content.replace('</head>', injection)
+                # index.html already references /config.js; we serve it
+                # dynamically above. No injection needed.
                 
                 self.wfile.write(content.encode('utf-8'))
             return

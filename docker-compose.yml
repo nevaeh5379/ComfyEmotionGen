@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
+        CEG_COMMIT: ${CEG_COMMIT:-}
+    environment:
+      # Comma-separated list of ComfyUI server URLs (one per GPU).
+      # On Docker Desktop (Win/Mac) use host.docker.internal to reach the host.
+      # On Linux either add extra_hosts below or use the host's LAN IP.
+      COMFYUI_WORKERS: ${COMFYUI_WORKERS:-http://host.docker.internal:8188}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ceg-data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend/web
+      args:
+        CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
+        CEG_COMMIT: ${CEG_COMMIT:-}
+    environment:
+      # URL the browser uses to reach the backend (resolved client-side).
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  ceg-data:
