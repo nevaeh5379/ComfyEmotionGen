@@ -1,0 +1,44 @@
+# All-in-one image: backend + frontend in a single container.
+# Frontend dist is served by FastAPI as static files (CEG_STATIC_DIR).
+# Use this when you want one container instead of two.
+
+FROM node:22-alpine AS frontend
+WORKDIR /app
+ARG CEG_BUNDLE_VERSION=dev
+ARG CEG_COMMIT=
+ENV CEG_BUNDLE_VERSION=${CEG_BUNDLE_VERSION} \
+    CEG_COMMIT=${CEG_COMMIT}
+COPY frontend/web/package.json frontend/web/package-lock.json ./
+RUN npm ci
+COPY frontend/web/ ./
+RUN npm run build
+
+
+FROM python:3.11-slim AS final
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app/backend
+
+COPY backend/requirements.txt ./
+RUN pip install -r requirements.txt
+
+COPY backend/ ./
+
+COPY --from=frontend /app/dist /app/static
+
+RUN mkdir -p /data
+WORKDIR /data
+
+ARG CEG_BUNDLE_VERSION=dev
+ARG CEG_COMMIT=
+ENV CEG_BUNDLE_VERSION=${CEG_BUNDLE_VERSION} \
+    CEG_COMMIT=${CEG_COMMIT} \
+    CEG_STATIC_DIR=/app/static \
+    PYTHONPATH=/app/backend
+
+EXPOSE 8000
+
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]

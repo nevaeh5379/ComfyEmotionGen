@@ -33,5 +33,26 @@ services:
       - backend
     restart: unless-stopped
 
+  # Alternative single-container deployment. Run with:
+  #   docker compose --profile aio up
+  # Disables the split backend/frontend services above when used standalone.
+  all-in-one:
+    profiles: ["aio"]
+    build:
+      context: .
+      dockerfile: Dockerfile.all-in-one
+      args:
+        CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
+        CEG_COMMIT: ${CEG_COMMIT:-}
+    environment:
+      COMFYUI_WORKERS: ${COMFYUI_WORKERS:-http://host.docker.internal:8188}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${AIO_PORT:-8000}:8000"
+    volumes:
+      - ceg-data:/data
+    restart: unless-stopped
+
 volumes:
   ceg-data:

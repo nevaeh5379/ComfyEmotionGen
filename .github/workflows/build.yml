@@ -23,6 +23,7 @@ jobs:
       is_release: ${{ steps.v.outputs.is_release }}
       image_backend: ${{ steps.v.outputs.image_backend }}
       image_frontend: ${{ steps.v.outputs.image_frontend }}
+      image_aio: ${{ steps.v.outputs.image_aio }}
     steps:
       - uses: actions/checkout@v4
       - id: v
@@ -45,6 +46,7 @@ jobs:
           echo "is_release=$IS_RELEASE"       >> $GITHUB_OUTPUT
           echo "image_backend=$REPO_LC/ceg-backend"   >> $GITHUB_OUTPUT
           echo "image_frontend=$REPO_LC/ceg-frontend" >> $GITHUB_OUTPUT
+          echo "image_aio=$REPO_LC/ceg-all-in-one"    >> $GITHUB_OUTPUT
           echo "Resolved bundle=$BUNDLE  docker_tag=$DOCKER_TAG  release=$IS_RELEASE  repo=$REPO_LC"
 
   portable:
@@ -147,6 +149,20 @@ jobs:
             ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+      - name: Build & push all-in-one
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.all-in-one
+          push: true
+          build-args: |
+            CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
+            CEG_COMMIT=${{ needs.version.outputs.commit }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+          cache-from: type=gha,scope=aio
+          cache-to: type=gha,scope=aio,mode=max
 
   release:
     needs: [version, portable, docker]
@@ -172,3 +188,4 @@ jobs:
             Docker:
             - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}`
             - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}`
+            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.docker_tag }}` (single-container)

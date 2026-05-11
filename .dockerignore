@@ -1,0 +1,16 @@
+**/node_modules
+**/__pycache__
+**/.venv
+**/.pytest_cache
+**/*.pyc
+**/dist
+**/build
+**/.git
+**/.github
+.claude
+example_frontend
+tools
+vscode-ceg
+backend/test_*.py
+backend/*.db
+backend/images/
