@@ -87,11 +87,21 @@ jobs:
           pip install -r backend/requirements.txt pyinstaller
       - name: Build portable
         run: ${{ matrix.build }}
-      - uses: actions/upload-artifact@v5
+      - name: Verify binary exists
+        shell: bash
+        run: |
+          if [[ ! -f "${{ matrix.binary }}" ]]; then
+            echo "::error::Build produced no binary at ${{ matrix.binary }}"
+            ls -la portable/dist/ || true
+            exit 1
+          fi
+          ls -la "${{ matrix.binary }}"
+      - uses: actions/upload-artifact@v4
         with:
           # Artifact names disallow '+', so use the sanitized docker_tag form.
           name: ${{ matrix.artifact }}-${{ needs.version.outputs.docker_tag }}
           path: ${{ matrix.binary }}
+          if-no-files-found: error
 
   docker:
     needs: version
@@ -135,10 +145,10 @@ jobs:
     needs: [version, portable, docker]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: false
+          pattern: ComfyEmotionGen-*
       - name: Create / update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
