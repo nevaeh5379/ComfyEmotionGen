@@ -2,11 +2,13 @@
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Get-Item ..).FullName
-$PortableDir = $PWD.Path
+$PortableDir = $PSScriptRoot
+$ProjectRoot = (Get-Item $PortableDir).Parent.FullName
 $FrontendDir = Join-Path $ProjectRoot "frontend/web"
 $BackendDir = Join-Path $ProjectRoot "backend"
 $DistDir = Join-Path $PortableDir "frontend_dist"
+
+Set-Location $PortableDir
 
 Write-Host "🚀 Building ComfyEmotionGen Portable Executable..." -ForegroundColor Cyan
 

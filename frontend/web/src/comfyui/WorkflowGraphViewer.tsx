@@ -155,10 +155,11 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
       lgCanvas.setDirty(true, true)
 
       const resizeObserver = new ResizeObserver(([entry]) => {
+        if (!entry) return
         const { width, height } = entry.contentRect
         if (width > 0 && height > 0) lgCanvas.resize(width, height)
       })
-      resizeObserver.observe(containerEl)
+      resizeObserver.observe(containerEl!)
 
       stopFn = () => {
         resizeObserver.disconnect()
@@ -169,7 +170,7 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
 
     function waitForSize() {
       rafId = requestAnimationFrame(() => {
-        if (cancelled) return
+        if (cancelled || !containerEl) return
         const w = containerEl.clientWidth
         const h = containerEl.clientHeight
         if (w === 0 || h === 0) { waitForSize(); return }
