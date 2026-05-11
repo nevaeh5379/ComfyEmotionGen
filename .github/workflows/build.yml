@@ -56,20 +56,35 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: ComfyEmotionGen-windows
+            artifact: ComfyEmotionGen-windows-amd64
             build: pwsh portable/build.ps1
             binary: portable/dist/ComfyEmotionGen.exe
-            release_name: ComfyEmotionGen-windows.exe
+            release_name: ComfyEmotionGen-windows-amd64.exe
+          - os: windows-11-arm
+            artifact: ComfyEmotionGen-windows-arm64
+            build: pwsh portable/build.ps1
+            binary: portable/dist/ComfyEmotionGen.exe
+            release_name: ComfyEmotionGen-windows-arm64.exe
           - os: ubuntu-latest
-            artifact: ComfyEmotionGen-linux
+            artifact: ComfyEmotionGen-linux-amd64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
-            release_name: ComfyEmotionGen-linux
+            release_name: ComfyEmotionGen-linux-amd64
+          - os: ubuntu-24.04-arm
+            artifact: ComfyEmotionGen-linux-arm64
+            build: bash portable/build.sh
+            binary: portable/dist/ComfyEmotionGen
+            release_name: ComfyEmotionGen-linux-arm64
           - os: macos-latest
-            artifact: ComfyEmotionGen-macos
+            artifact: ComfyEmotionGen-macos-arm64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
-            release_name: ComfyEmotionGen-macos
+            release_name: ComfyEmotionGen-macos-arm64
+          - os: macos-13
+            artifact: ComfyEmotionGen-macos-amd64
+            build: bash portable/build.sh
+            binary: portable/dist/ComfyEmotionGen
+            release_name: ComfyEmotionGen-macos-amd64
     runs-on: ${{ matrix.os }}
     env:
       CEG_BUNDLE_VERSION: ${{ needs.version.outputs.bundle }}
