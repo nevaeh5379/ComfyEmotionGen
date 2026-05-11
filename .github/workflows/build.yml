@@ -34,8 +34,11 @@ jobs:
             BUNDLE="${GITHUB_REF#refs/tags/}"
             IS_RELEASE=true
           else
-            DATE=$(date -u +%Y.%m.%d)
-            BUNDLE="v${DATE}-dev+${SHORT}"
+            # KST timestamp so the tag is self-describing in local time and
+            # lexicographic sort = chronological sort (same-day builds no longer
+            # collapse to one date label ordered by SHA).
+            STAMP=$(TZ=Asia/Seoul date +%Y.%m.%d.%H%M%S)
+            BUNDLE="v${STAMP}-dev+${SHORT}"
             IS_RELEASE=false
           fi
           # Docker tags cannot contain '+'
