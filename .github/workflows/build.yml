@@ -23,6 +23,7 @@ jobs:
       is_release: ${{ steps.v.outputs.is_release }}
       image_backend: ${{ steps.v.outputs.image_backend }}
       image_frontend: ${{ steps.v.outputs.image_frontend }}
+      image_aio: ${{ steps.v.outputs.image_aio }}
     steps:
       - uses: actions/checkout@v4
       - id: v
@@ -45,6 +46,7 @@ jobs:
           echo "is_release=$IS_RELEASE"       >> $GITHUB_OUTPUT
           echo "image_backend=$REPO_LC/ceg-backend"   >> $GITHUB_OUTPUT
           echo "image_frontend=$REPO_LC/ceg-frontend" >> $GITHUB_OUTPUT
+          echo "image_aio=$REPO_LC/ceg-all-in-one"    >> $GITHUB_OUTPUT
           echo "Resolved bundle=$BUNDLE  docker_tag=$DOCKER_TAG  release=$IS_RELEASE  repo=$REPO_LC"
 
   portable:
@@ -57,14 +59,17 @@ jobs:
             artifact: ComfyEmotionGen-windows
             build: pwsh portable/build.ps1
             binary: portable/dist/ComfyEmotionGen.exe
+            release_name: ComfyEmotionGen-windows.exe
           - os: ubuntu-latest
             artifact: ComfyEmotionGen-linux
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
+            release_name: ComfyEmotionGen-linux
           - os: macos-latest
             artifact: ComfyEmotionGen-macos
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
+            release_name: ComfyEmotionGen-macos
     runs-on: ${{ matrix.os }}
     env:
       CEG_BUNDLE_VERSION: ${{ needs.version.outputs.bundle }}
@@ -87,7 +92,7 @@ jobs:
           pip install -r backend/requirements.txt pyinstaller
       - name: Build portable
         run: ${{ matrix.build }}
-      - name: Verify binary exists
+      - name: Stage release binary
         shell: bash
         run: |
           if [[ ! -f "${{ matrix.binary }}" ]]; then
@@ -95,12 +100,16 @@ jobs:
             ls -la portable/dist/ || true
             exit 1
           fi
-          ls -la "${{ matrix.binary }}"
+          mkdir -p release
+          # Rename so the release asset is self-describing (Linux/macOS would
+          # otherwise collide on the basename 'ComfyEmotionGen').
+          cp "${{ matrix.binary }}" "release/${{ matrix.release_name }}"
+          ls -la release/
       - uses: actions/upload-artifact@v4
         with:
           # Artifact names disallow '+', so use the sanitized docker_tag form.
           name: ${{ matrix.artifact }}-${{ needs.version.outputs.docker_tag }}
-          path: ${{ matrix.binary }}
+          path: release/${{ matrix.release_name }}
           if-no-files-found: error
 
   docker:
@@ -140,6 +149,20 @@ jobs:
             ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+      - name: Build & push all-in-one
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.all-in-one
+          push: true
+          build-args: |
+            CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
+            CEG_COMMIT=${{ needs.version.outputs.commit }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+          cache-from: type=gha,scope=aio
+          cache-to: type=gha,scope=aio,mode=max
 
   release:
     needs: [version, portable, docker]
@@ -165,3 +188,4 @@ jobs:
             Docker:
             - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}`
             - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}`
+            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.docker_tag }}` (single-container)
