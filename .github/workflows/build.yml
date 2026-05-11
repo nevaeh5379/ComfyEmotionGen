@@ -75,12 +75,12 @@ jobs:
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
             release_name: ComfyEmotionGen-linux-arm64
-          - os: macos-latest
+          - os: macos-26
             artifact: ComfyEmotionGen-macos-arm64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
             release_name: ComfyEmotionGen-macos-arm64
-          - os: macos-13
+          - os: macos-26-intel
             artifact: ComfyEmotionGen-macos-amd64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
