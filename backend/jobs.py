@@ -267,6 +267,10 @@ class JobManager:
         async with self._lock:
             return [j.to_dict() for j in self._jobs.values()]
 
+    async def get_job(self, job_id: str) -> Optional[Job]:
+        async with self._lock:
+            return self._jobs.get(job_id)
+
     def subscribe(self, listener: EventListener) -> Callable[[], None]:
         self._listeners.add(listener)
 

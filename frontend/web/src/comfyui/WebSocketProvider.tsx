@@ -32,8 +32,6 @@ const BackendContext = createContext<BackendContextValue | null>(null)
 
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30_000
-// 메모리 보호: 가장 최근 잡만 유지 (오래된 것은 갤러리에서 확인)
-const MAX_JOBS_IN_MEMORY = 500
 
 // Allow dynamic backend URL injection via a global variable (set by launcher.py)
 const globalConfigUrl = (window as any).COMFY_EMOTION_GEN_BACKEND_URL
@@ -81,15 +79,12 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const applyEvent = useCallback((event: BackendEvent) => {
     switch (event.type) {
       case "snapshot":
-        setJobs(event.jobs.slice(-MAX_JOBS_IN_MEMORY))
+        setJobs(event.jobs)
         setWorkers(event.workers)
         setPaused(event.paused)
         break
       case "job.created":
-        setJobs((prev) => {
-          const next = [...prev, event.job]
-          return next.length > MAX_JOBS_IN_MEMORY ? next.slice(-MAX_JOBS_IN_MEMORY) : next
-        })
+        setJobs((prev) => [...prev, event.job])
         break
       case "job.updated":
         setJobs((prev) =>

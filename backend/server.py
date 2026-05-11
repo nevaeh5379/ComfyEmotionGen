@@ -29,6 +29,7 @@
     POST /asset-groups/{filename}/regenerate - 같은 워크플로우 새 시드로 재생성
     POST /export                       - 큐레이션 결과 zip 다운로드
     GET  /jobs/{id}/saved-images       - 특정 잡이 만든 영속 이미지 목록
+    GET  /object_info                  - ComfyUI 노드 정의 (object_info.json)
     WS   /ws/events                    - 정규화 이벤트 스트림
 """
 
@@ -177,6 +178,15 @@ async def _dsl_error_handler(_request, exc: DSLSyntaxError):
 
 # ====== 헬스/파서 ======
 
+_OBJECT_INFO_PATH = Path(__file__).parent.parent / "object_info.json"
+
+
+@app.get("/object_info")
+async def get_object_info():
+    if not _OBJECT_INFO_PATH.exists():
+        raise HTTPException(status_code=404, detail="object_info.json not found")
+    return FileResponse(_OBJECT_INFO_PATH, media_type="application/json")
+
 
 @app.get("/health")
 def health():
@@ -235,6 +245,18 @@ async def jobs_cancel(job_id: str):
 async def jobs_cancel_all():
     count = await job_manager.cancel_all()
     return {"cancelled": count}
+
+
+@app.post("/jobs/{job_id}/retry")
+async def jobs_retry(job_id: str):
+    """동일한 filename/prompt/workflow로 새 잡을 생성한다."""
+    job = await job_manager.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    new_jobs = await job_manager.submit([
+        {"filename": job.filename, "prompt": job.prompt, "workflow": job.workflow}
+    ])
+    return {"jobId": new_jobs[0].id}
 
 
 @app.post("/jobs/pause")
@@ -300,6 +322,25 @@ async def images_view(worker_id: str, filename: str, subfolder: str = "", type: 
 
     media_type = "image/png" if filename.lower().endswith(".png") else "application/octet-stream"
     return StreamingResponse(stream(), media_type=media_type)
+
+
+# ====== object_info 프록시 ======
+
+
+@app.get("/object_info")
+async def object_info():
+    worker = worker_pool.find_idle()
+    if worker is None:
+        for w in worker_pool.all():
+            if w.alive:
+                worker = w
+                break
+    if worker is None:
+        raise HTTPException(status_code=503, detail="no available worker")
+    try:
+        return await worker.get_object_info()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"worker request failed: {exc}")
 
 
 # ====== 영속 이미지 ======

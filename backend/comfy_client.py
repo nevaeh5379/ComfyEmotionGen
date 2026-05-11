@@ -150,6 +150,12 @@ class ComfyWorker:
             async for chunk in resp.aiter_bytes():
                 yield chunk
 
+    async def get_object_info(self) -> dict[str, Any]:
+        """GET /object_info from the ComfyUI server."""
+        resp = await self._http.get("/object_info")
+        resp.raise_for_status()
+        return resp.json()
+
     # ---------- WebSocket loop ----------
 
     async def _ws_loop(self) -> None:

@@ -5,19 +5,13 @@
       "name": "Debug Backend (FastAPI)",
       "type": "debugpy",
       "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "server:app",
-        "--port",
-        "8000"
-      ],
+      "program": "${workspaceFolder}/backend/run.py",
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
       "justMyCode": true,
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend"
-      },
-      "subProcess": true
+      }
     },
     {
       "name": "Debug Frontend (Chrome)",
