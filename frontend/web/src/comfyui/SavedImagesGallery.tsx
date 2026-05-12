@@ -735,7 +735,7 @@ function ImageGrid({
   selectionMode = false,
   selectedHashes = new Set(),
   onToggleSelect,
-  onLongPress,
+  // onLongPress,
   togglePin,
   pinnedHashes = [],
 }: GridProps) {
