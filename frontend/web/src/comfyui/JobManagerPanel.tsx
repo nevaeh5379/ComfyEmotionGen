@@ -268,7 +268,6 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   const [jobEvents,       setJobEvents]       = useState<JobEvent[] | null>(null)
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
   const [fetchedImages,   setFetchedImages]   = useState<Map<string, string[]>>(new Map())
-  const [dismissedUrl,    setDismissedUrl]    = useState("")
   const [, setTick] = useState(0)
 
   // ── lightbox state ──────────────────────────────────────────────────────────
@@ -367,13 +366,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     [sessionJobs],
   )
 
-  const lastImages = useMemo(() => {
-    const last = [...sessionJobs].reverse().find(j => j.status === "done" && (fetchedImages.get(j.id)?.length ?? 0) > 0)
-    if (!last) return []
-    return fetchedImages.get(last.id)!.slice(0, 4).map(h => `${backendUrl}/saved-images/${h}`)
-  }, [sessionJobs, backendUrl, fetchedImages])
 
-  const previewVisible = lastImages.length > 0 && lastImages[0] !== dismissedUrl
   const selectedJob    = selectedJobId ? (jobs.find(j => j.id === selectedJobId) ?? null) : null
   const hasDateFilter  = dateFrom !== "" || dateTo !== ""
 
@@ -497,11 +490,6 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     } finally { setIsLoadingEvents(false) }
   }
 
-  // 완료된 job의 saved image 해시를 prefetch
-  useEffect(() => {
-    const doneJobs = sessionJobs.filter(j => j.status === "done" && !fetchedImages.has(j.id)).slice(0, 3)
-    for (const j of doneJobs) fetchJobImages(j.id)
-  }, [sessionJobs, fetchedImages, fetchJobImages])
 
   // ── quick date filters ──────────────────────────────────────────────────────
 
@@ -698,22 +686,6 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
         <Progress value={sessionJobs.length > 0 ? (counts.done / sessionJobs.length) * 100 : 0} className="w-full" />
       </Field>
 
-      {/* Preview images */}
-      {previewVisible && (
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">미리보기</span>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground" onClick={() => setDismissedUrl(lastImages[0]!)}>
-              닫기
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {lastImages.map((url, i) => (
-              <img key={url} src={url} alt={`Generated ${i}`} className="h-auto w-full rounded-md border" />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Filter tabs */}
       <Tabs value={filterTab} onValueChange={v => setFilterTab(v as FilterTab)}>
@@ -829,6 +801,8 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                             key={h}
                             src={`${backendUrl}/saved-images/${h}`}
                             alt={`Preview ${i + 1}`}
+                            loading="lazy"
+                            decoding="async"
                             className="h-16 w-16 rounded border object-cover"
                           />
                         ))}
@@ -956,7 +930,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                           onClick={() => { setLightboxUrls(allUrls); setLightboxIndex(i) }}
                           className="block w-full"
                         >
-                          <img src={url} alt={`Generated ${i}`} className="h-auto w-full rounded-md border transition-opacity hover:opacity-80" />
+                          <img src={url} alt={`Generated ${i}`} loading="lazy" decoding="async" className="h-auto w-full rounded-md border transition-opacity hover:opacity-80" />
                         </button>
                       )
                     })}
