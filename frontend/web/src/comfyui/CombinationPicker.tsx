@@ -6,18 +6,139 @@ import {
   DownloadIcon,
   Loader2Icon,
   RefreshCwIcon,
+  PinIcon,
+  PinOffIcon,
+  Maximize2Icon,
+  LayoutGridIcon,
+  SwordsIcon,
+  ColumnsIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { curationApi } from "./useSavedImages"
 import type { SavedImage } from "./Message"
 import type { SavedTemplate } from "./useSavedTemplates"
+
+type ViewMode = "grid" | "compare" | "tournament"
 
 interface RenderItem {
   filename: string
   prompt: string
   meta: Record<string, string>
+}
+
+function Magnifier({ src }: { src: string }) {
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const [show, setShow] = useState(false)
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
+    const x = ((e.clientX - left) / width) * 100
+    const y = ((e.clientY - top) / height) * 100
+    setPos({ x, y })
+  }
+
+  return (
+    <div
+      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black/5"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onMouseMove={handleMouseMove}
+    >
+      <img src={src} className="max-h-full max-w-full object-contain" alt="" />
+      {show && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10"
+          style={{
+            backgroundImage: `url(${src})`,
+            backgroundPosition: `${pos.x}% ${pos.y}%`,
+            backgroundSize: "250%",
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function TournamentView({
+  images,
+  backendUrl,
+  onComplete,
+}: {
+  images: SavedImage[]
+  backendUrl: string
+  onComplete: (winnerHash: string) => void
+}) {
+  const [matches, setMatches] = useState<SavedImage[]>(() => [...images].sort(() => Math.random() - 0.5))
+  const [nextRound, setNextRound] = useState<SavedImage[]>([])
+
+  if (matches.length === 0 && nextRound.length === 0) {
+    return <div className="flex h-full items-center justify-center text-muted-foreground">이미지 없음</div>
+  }
+
+  if (matches.length === 1 && nextRound.length === 0) {
+    const winner = matches[0]!
+    return (
+      <div className="flex h-full flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+        <h2 className="text-2xl font-bold mb-6 text-green-500">🏆 최종 우승 🏆</h2>
+        <img src={`${backendUrl}/saved-images/${winner.hash}`} className="max-h-[60%] max-w-full rounded-lg shadow-2xl" alt="Winner" />
+        <Button className="mt-8 px-8 py-6 text-lg" onClick={() => onComplete(winner.hash)}>
+          선택 완료 및 다음 조합으로
+        </Button>
+      </div>
+    )
+  }
+
+  const left = matches[0]!
+  const right = matches[1]!
+
+  const handlePick = (winner: SavedImage) => {
+    const newNext = [...nextRound, winner]
+    const remaining = matches.slice(2)
+
+    if (remaining.length === 0) {
+      setMatches(newNext.sort(() => Math.random() - 0.5))
+      setNextRound([])
+    } else if (remaining.length === 1) {
+      setMatches([...newNext, remaining[0]!].sort(() => Math.random() - 0.5))
+      setNextRound([])
+    } else {
+      setNextRound(newNext)
+      setMatches(remaining)
+    }
+  }
+
+  const totalMatchesThisRound = Math.floor((matches.length + nextRound.length * 2) / 2)
+  const currentMatchNum = nextRound.length + 1
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center p-4">
+      <div className="mb-6 flex flex-col items-center">
+        <h3 className="text-xl font-bold">이상형 월드컵</h3>
+        <span className="text-sm font-medium text-muted-foreground">
+          라운드 매치: {currentMatchNum} / {totalMatchesThisRound}
+        </span>
+      </div>
+      <div className="flex w-full flex-1 gap-6 overflow-hidden">
+        {[left, right].map((img) => (
+          <button
+            key={img.hash}
+            onClick={() => handlePick(img)}
+            className="group relative flex-1 overflow-hidden rounded-2xl border-4 border-transparent bg-black/5 transition-all hover:scale-[1.02] hover:border-primary hover:shadow-xl focus:outline-none"
+          >
+            <img src={`${backendUrl}/saved-images/${img.hash}`} className="h-full w-full object-contain transition-transform group-hover:scale-[1.01]" alt="" />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 text-center opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="font-bold text-white">이 이미지 선택</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 interface Props {
@@ -39,6 +160,14 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
   const [exportLoading, setExportLoading] = useState(false)
   const [exportMessage, setExportMessage] = useState<string | null>(null)
   const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
+
+  // Phase 1: 빠른 큐레이션 상태
+  const [hideRejected, setHideRejected] = useState(false)
+  const [autoAdvance, setAutoAdvance] = useState(true)
+
+  // Phase 2: 뷰 모드 및 핀 고정 상태
+  const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
 
   // 실제로 렌더링에 사용할 템플릿 — 저장된 것 선택 시 그것, 아니면 현재 편집 중인 것
   const activeTemplate =
@@ -119,6 +248,11 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
   )
   const selectedApprovedHash = selectedImages.find((img) => img.status === "approved")?.hash
 
+  const visibleImages = useMemo(
+    () => selectedImages.filter((img) => !hideRejected || img.status !== "rejected"),
+    [selectedImages, hideRejected]
+  )
+
   const navigateTo = useCallback(
     (direction: "prev" | "next") => {
       const currentIdx = renderItems.findIndex((ri) => ri.filename === selectedFilename)
@@ -142,12 +276,14 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
       )
 
       const currentIdx = renderItems.findIndex((ri) => ri.filename === filename)
-      const next = renderItems.find((ri, idx) => {
-        if (idx <= currentIdx) return false
-        const nextImgs = imagesByFilename.get(ri.filename) ?? []
-        return !nextImgs.some((img) => img.status === "approved")
-      })
-      if (next) setSelectedFilename(next.filename)
+      if (autoAdvance) {
+        const next = renderItems.find((ri, idx) => {
+          if (idx <= currentIdx) return false
+          const nextImgs = imagesByFilename.get(ri.filename) ?? []
+          return !nextImgs.some((img) => img.status === "approved")
+        })
+        if (next) setSelectedFilename(next.filename)
+      }
 
       await Promise.all(
         imgs.map((img) =>
@@ -159,7 +295,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
         )
       )
     },
-    [backendUrl, imagesByFilename, renderItems]
+    [backendUrl, imagesByFilename, renderItems, autoAdvance]
   )
 
   const handleExport = useCallback(async () => {
@@ -199,6 +335,11 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     }
   }, [backendUrl, selectedFilename, regenCount, regenLoading])
 
+  const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPinnedHashes((prev) => (prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]))
+  }, [])
+
   // 키보드 단축키
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -215,19 +356,19 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
         handleRegenerate()
       } else if (e.key >= "1" && e.key <= "9") {
         const idx = parseInt(e.key) - 1
-        if (selectedItem && idx < selectedImages.length) {
-          selectImage(selectedItem.filename, selectedImages[idx]!.hash)
+        if (selectedItem && idx < visibleImages.length) {
+          selectImage(selectedItem.filename, visibleImages[idx]!.hash)
         }
       }
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [navigateTo, handleRegenerate, selectImage, selectedItem, selectedImages])
+  }, [navigateTo, handleRegenerate, selectImage, selectedItem, visibleImages])
 
   const colClass =
-    selectedImages.length <= 2
+    visibleImages.length <= 2
       ? "grid-cols-2"
-      : selectedImages.length <= 6
+      : visibleImages.length <= 6
         ? "grid-cols-3"
         : "grid-cols-4"
 
@@ -302,6 +443,27 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
           <option value="hash">중복 시 해시</option>
           <option value="number">중복 시 번호</option>
         </select>
+        
+        {/* 빠른 큐레이션 토글 */}
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
+          <input 
+            type="checkbox" 
+            checked={hideRejected} 
+            onChange={(e) => setHideRejected(e.target.checked)} 
+            className="rounded border-gray-300"
+          />
+          리젝 숨기기
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <input 
+            type="checkbox" 
+            checked={autoAdvance} 
+            onChange={(e) => setAutoAdvance(e.target.checked)} 
+            className="rounded border-gray-300"
+          />
+          자동 다음 이동
+        </label>
+
         {exportMessage && (
           <span className="text-xs text-muted-foreground">{exportMessage}</span>
         )}
@@ -371,6 +533,15 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                       {v}
                     </span>
                   ))}
+                  <div className="ml-4">
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                      <TabsList className="h-8">
+                        <TabsTrigger value="grid" className="text-xs px-2"><LayoutGridIcon className="mr-1 h-3 w-3" />그리드</TabsTrigger>
+                        <TabsTrigger value="compare" className="text-xs px-2" disabled={pinnedHashes.length === 0}><ColumnsIcon className="mr-1 h-3 w-3" />비교 ({pinnedHashes.length})</TabsTrigger>
+                        <TabsTrigger value="tournament" className="text-xs px-2" disabled={visibleImages.length < 2}><SwordsIcon className="mr-1 h-3 w-3" />토너먼트</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
                   {/* 재생성 컨트롤 */}
                   <div className="ml-auto flex items-center gap-2">
                     {regenMessage && (
@@ -411,50 +582,100 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                 </div>
               </div>
 
-              {/* 이미지 그리드 */}
-              <div className="flex-1 overflow-y-auto p-4">
-                {selectedImages.length === 0 ? (
+              {/* 이미지 영역 */}
+              <div className="flex-1 overflow-y-auto p-4 relative">
+                {visibleImages.length === 0 ? (
                   <div className="flex h-48 items-center justify-center rounded border border-dashed text-sm text-muted-foreground">
                     이미지 없음
                   </div>
-                ) : (
+                ) : viewMode === "grid" ? (
                   <div className={`grid gap-3 ${colClass}`}>
-                    {selectedImages.map((img, idx) => {
+                    {visibleImages.map((img, idx) => {
                       const isSelected = img.hash === selectedApprovedHash
                       const isRejected = img.status === "rejected"
+                      const isPinned = pinnedHashes.includes(img.hash)
                       return (
-                        <button
-                          key={img.hash}
-                          onClick={() => selectImage(selectedItem.filename, img.hash)}
-                          title={isSelected ? "선택됨" : `이미지 선택 [${idx + 1}]`}
-                          className={`group relative overflow-hidden rounded-lg transition-all focus:outline-none ${
-                            isSelected
-                              ? "ring-4 ring-green-500"
-                              : isRejected
-                                ? "opacity-40 hover:opacity-80 hover:ring-2 hover:ring-primary/40"
-                                : "opacity-85 hover:opacity-100 hover:ring-2 hover:ring-primary/40"
-                          }`}
-                        >
-                          <img
-                            src={`${backendUrl}/saved-images/${img.hash}`}
-                            alt={img.originalFilename}
-                            className="w-full object-cover"
-                          />
-                          {/* 번호 배지 */}
-                          {idx < 9 && (
-                            <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                              {idx + 1}
-                            </span>
-                          )}
-                          {isSelected && (
-                            <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-white shadow-lg">
-                              <CheckIcon className="h-4 w-4" />
-                            </span>
-                          )}
-                        </button>
+                        <HoverCard key={img.hash} openDelay={400} closeDelay={100}>
+                          <HoverCardTrigger asChild>
+                            <button
+                              onClick={() => selectImage(selectedItem.filename, img.hash)}
+                              title={isSelected ? "선택됨" : `이미지 선택 [${idx + 1}]`}
+                              className={`group relative overflow-hidden rounded-lg transition-all focus:outline-none ${
+                                isSelected
+                                  ? "ring-4 ring-green-500"
+                                  : isRejected
+                                    ? "opacity-40 hover:opacity-80 hover:ring-2 hover:ring-primary/40"
+                                    : "opacity-85 hover:opacity-100 hover:ring-2 hover:ring-primary/40"
+                              }`}
+                            >
+                              <img
+                                src={`${backendUrl}/saved-images/${img.hash}`}
+                                alt={img.originalFilename}
+                                className="w-full object-cover"
+                              />
+                              {/* 핀 고정 버튼 */}
+                              <button
+                                type="button"
+                                onClick={(e) => togglePin(img.hash, e)}
+                                className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow-lg transition-all z-10 ${
+                                  isPinned ? "bg-blue-500 text-white" : "bg-black/50 text-white/50 opacity-0 group-hover:opacity-100 hover:text-white"
+                                }`}
+                              >
+                                {isPinned ? <PinIcon className="h-4 w-4" /> : <PinOffIcon className="h-4 w-4" />}
+                              </button>
+                              {/* 번호 배지 */}
+                              {idx < 9 && (
+                                <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none z-10">
+                                  {idx + 1}
+                                </span>
+                              )}
+                              {isSelected && (
+                                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-white shadow-lg pointer-events-none z-10">
+                                  <CheckIcon className="h-6 w-6" />
+                                </span>
+                              )}
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 whitespace-pre-wrap font-mono text-xs overflow-hidden text-ellipsis break-all bg-card/95 backdrop-blur-md" side="right" align="start">
+                            <div className="space-y-2">
+                              <div className="flex justify-between border-b pb-1">
+                                <span className="font-bold">Prompt Data</span>
+                                <span>{(img.sizeBytes / 1024).toFixed(1)} KB</span>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto scrollbar-thin">
+                                <p className="text-muted-foreground">{img.prompt}</p>
+                              </div>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
                       )
                     })}
                   </div>
+                ) : viewMode === "compare" ? (
+                  <div className={`grid gap-2 h-full ${pinnedHashes.length === 1 ? 'grid-cols-1' : pinnedHashes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {pinnedHashes.map(hash => (
+                      <div key={hash} className="relative rounded-lg border overflow-hidden bg-black/5">
+                        <button
+                          type="button"
+                          onClick={(e) => togglePin(hash, e)}
+                          className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white shadow-lg transition-transform hover:scale-110"
+                        >
+                          <PinIcon className="h-4 w-4" />
+                        </button>
+                        <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <TournamentView
+                    key={selectedItem.filename}
+                    images={visibleImages}
+                    backendUrl={backendUrl}
+                    onComplete={(winnerHash) => {
+                      selectImage(selectedItem.filename, winnerHash)
+                      setViewMode("grid")
+                    }}
+                  />
                 )}
               </div>
             </>
