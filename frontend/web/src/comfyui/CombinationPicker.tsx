@@ -18,6 +18,8 @@ import {
   CheckSquareIcon,
   SquareIcon,
   XIcon,
+  SearchIcon,
+  FilterIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -455,7 +457,7 @@ function LongPressWrapper({
   )
 
   const handleMouseUp = useCallback(
-    (e: React.MouseEvent) => {
+    (_: React.MouseEvent) => {
       clear()
       setPressing(false)
       if (!longPressTriggeredRef.current) {
@@ -521,6 +523,11 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
   const [bulkRegenLoading, setBulkRegenLoading] = useState(false)
   const [bulkRegenMessage, setBulkRegenMessage] = useState<string | null>(null)
 
+  // 필터 관련 상태
+  const [statusFilter, setStatusFilter] = useState<"all" | "done" | "pending">("all")
+  const [filenameFilter, setFilenameFilter] = useState("")
+  const [metadataFilter, setMetadataFilter] = useState("")
+
   const activeTemplate =
     savedTemplates.find((t) => t.id === selectedTemplateId)?.template ?? cegTemplate
 
@@ -575,6 +582,37 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
       ).length,
     [renderItems, imagesByFilename]
   )
+
+  // 필터링된 렌더 아이템
+  const filteredRenderItems = useMemo(() => {
+    return renderItems.filter((ri) => {
+      const imgs = imagesByFilename.get(ri.filename) ?? []
+      const isDone = imgs.some((img) => img.status === "approved")
+
+      // 상태 필터
+      if (statusFilter === "done" && !isDone) return false
+      if (statusFilter === "pending" && isDone) return false
+
+      // 파일명 필터 (대소문자 구분 없이 포함 검색)
+      if (filenameFilter.trim()) {
+        const lowerFilename = ri.filename.toLowerCase()
+        const lowerFilter = filenameFilter.toLowerCase().trim()
+        if (!lowerFilename.includes(lowerFilter)) return false
+      }
+
+      // 메타데이터 필터 (meta 값들 중 하나라도 포함되면 통과 - 대소문자 구분 없이)
+      if (metadataFilter.trim()) {
+        const lowerMetaFilter = metadataFilter.toLowerCase().trim()
+        const metaValues = Object.values(ri.meta)
+        const anyMetaMatch = metaValues.some((v) =>
+          v.toLowerCase().includes(lowerMetaFilter)
+        )
+        if (!anyMetaMatch) return false
+      }
+
+      return true
+    })
+  }, [renderItems, imagesByFilename, statusFilter, filenameFilter, metadataFilter])
 
   const selectedItem = renderItems.find((ri) => ri.filename === selectedFilename)
   const selectedImages = useMemo(
@@ -893,6 +931,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
             </label>
           </div>
           {exportMessage && <span className="text-xs font-bold text-green-600">{exportMessage}</span>}
+          {regenMessage && <span className="text-xs font-bold text-blue-600">{regenMessage}</span>}
         </div>
       </div>
 
@@ -984,48 +1023,109 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
         {/* 오른쪽: 콘텐츠 영역 */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden rounded-lg border bg-card">
           {isBrowsing ? (
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <FolderIcon className="h-4 w-4" /> 모든 조합 탐색
-                </h3>
-                {!selectionMode && (
-                  <span className="text-[10px] text-muted-foreground font-medium">길게 누르면 선택 모드 진입</span>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* 필터 바 */}
+              <div className="flex-none border-b bg-muted/10 px-4 py-2.5">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <FilterIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">필터</span>
+                  </div>
+                  {/* 상태 필터 */}
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as "all" | "done" | "pending")}
+                    className="h-7 rounded border bg-background px-2 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="all">전체 상태</option>
+                    <option value="done">완료만</option>
+                    <option value="pending">미완료만</option>
+                  </select>
+                  {/* 파일명 필터 */}
+                  <div className="relative">
+                    <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="파일명 검색..."
+                      value={filenameFilter}
+                      onChange={(e) => setFilenameFilter(e.target.value)}
+                      className="h-7 w-40 pl-7 text-[10px] font-bold"
+                    />
+                  </div>
+                  {/* 메타데이터 필터 */}
+                  <div className="relative">
+                    <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="메타데이터 검색..."
+                      value={metadataFilter}
+                      onChange={(e) => setMetadataFilter(e.target.value)}
+                      className="h-7 w-44 pl-7 text-[10px] font-bold"
+                    />
+                  </div>
+                  {/* 필터 초기화 버튼 (필터가 활성화되었을 때만 표시) */}
+                  {(statusFilter !== "all" || filenameFilter || metadataFilter) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[10px] font-bold text-muted-foreground"
+                      onClick={() => {
+                        setStatusFilter("all")
+                        setFilenameFilter("")
+                        setMetadataFilter("")
+                      }}
+                    >
+                      <XIcon className="h-3 w-3 mr-1" /> 초기화
+                    </Button>
+                  )}
+                  <div className="ml-auto text-[10px] font-bold text-muted-foreground">
+                    {filteredRenderItems.length} / {renderItems.length}개
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <FolderIcon className="h-4 w-4" /> 모든 조합 탐색
+                  </h3>
+                  {!selectionMode && (
+                    <span className="text-[10px] text-muted-foreground font-medium">길게 누르면 선택 모드 진입</span>
+                  )}
+                </div>
+                {viewMode === "gallery" ? (
+                  <GalleryView 
+                    items={filteredRenderItems} 
+                    imagesByFilename={imagesByFilename} 
+                    backendUrl={backendUrl}
+                    onSelect={(filename) => {
+                      if (!selectionMode) {
+                        setSelectedFilename(filename)
+                        setViewMode("grid")
+                      }
+                    }}
+                    selectionMode={selectionMode}
+                    selectedFilenames={selectedFilenames}
+                    onToggleSelect={handleToggleSelect}
+                    onLongPress={handleLongPress}
+                  />
+                ) : (
+                  <TableView 
+                    items={filteredRenderItems} 
+                    imagesByFilename={imagesByFilename} 
+                    backendUrl={backendUrl}
+                    onSelect={(filename) => {
+                      if (!selectionMode) {
+                        setSelectedFilename(filename)
+                        setViewMode("grid")
+                      }
+                    }}
+                    selectionMode={selectionMode}
+                    selectedFilenames={selectedFilenames}
+                    onToggleSelect={handleToggleSelect}
+                    onLongPress={handleLongPress}
+                  />
                 )}
               </div>
-              {viewMode === "gallery" ? (
-                <GalleryView 
-                  items={renderItems} 
-                  imagesByFilename={imagesByFilename} 
-                  backendUrl={backendUrl}
-                  onSelect={(filename) => {
-                    if (!selectionMode) {
-                      setSelectedFilename(filename)
-                      setViewMode("grid")
-                    }
-                  }}
-                  selectionMode={selectionMode}
-                  selectedFilenames={selectedFilenames}
-                  onToggleSelect={handleToggleSelect}
-                  onLongPress={handleLongPress}
-                />
-              ) : (
-                <TableView 
-                  items={renderItems} 
-                  imagesByFilename={imagesByFilename} 
-                  backendUrl={backendUrl}
-                  onSelect={(filename) => {
-                    if (!selectionMode) {
-                      setSelectedFilename(filename)
-                      setViewMode("grid")
-                    }
-                  }}
-                  selectionMode={selectionMode}
-                  selectedFilenames={selectedFilenames}
-                  onToggleSelect={handleToggleSelect}
-                  onLongPress={handleLongPress}
-                />
-              )}
             </div>
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
