@@ -19,6 +19,9 @@ import {
   XIcon,
   SearchIcon,
   FilterIcon,
+  AlertTriangleIcon,
+  Trash2Icon,
+  EyeIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -527,6 +530,15 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
   const [filenameFilter, setFilenameFilter] = useState("")
   const [metadataFilter, setMetadataFilter] = useState("")
 
+  // 미할당 이미지(고아) 관리 관련 상태
+  const [showUnassignedPanel, setShowUnassignedPanel] = useState(false)
+  const [unassignedSelectedFilenames, setUnassignedSelectedFilenames] = useState<Set<string>>(new Set())
+  const [showTrueOrphansOnly, setShowTrueOrphansOnly] = useState(false)
+  const [templateAffiliationCache, setTemplateAffiliationCache] = useState<Map<string, string[]>>(new Map())
+  const [checkingTemplates, setCheckingTemplates] = useState(false)
+  const [bulkTrashLoading, setBulkTrashLoading] = useState(false)
+  const [bulkTrashMessage, setBulkTrashMessage] = useState<string | null>(null)
+
   const activeTemplate =
     savedTemplates.find((t) => t.id === selectedTemplateId)?.template ?? cegTemplate
 
@@ -581,6 +593,154 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
       ).length,
     [renderItems, imagesByFilename]
   )
+
+  // 현재 템플릿에 매칭되지 않는 미할당(unassigned) 이미지 그룹
+  const unassignedGroups = useMemo(() => {
+    const renderFilenames = new Set(renderItems.map((ri) => ri.filename))
+    const map = new Map<string, SavedImage[]>()
+    for (const img of allImages) {
+      if (img.status === "trashed") continue
+      if (!renderFilenames.has(img.originalFilename)) {
+        if (!map.has(img.originalFilename)) map.set(img.originalFilename, [])
+        map.get(img.originalFilename)!.push(img)
+      }
+    }
+    return map
+  }, [allImages, renderItems])
+
+  // 총 미할당 이미지 수
+  const unassignedTotalCount = useMemo(
+    () => Array.from(unassignedGroups.values()).reduce((sum, imgs) => sum + imgs.length, 0),
+    [unassignedGroups]
+  )
+
+  // 선택된 템플릿의 renderItems에서 filename set (템플릿 소속 확인용 캐시)
+  const currentRenderFilenameSet = useMemo(
+    () => new Set(renderItems.map((ri) => ri.filename)),
+    [renderItems]
+  )
+
+  // 템플릿 소속 확인 함수 (lazy: 사용자가 패널 열었을 때)
+  const checkTemplateAffiliation = useCallback(async () => {
+    if (checkingTemplates || savedTemplates.length === 0) return
+    setCheckingTemplates(true)
+    const cache = new Map<string, string[]>()
+    try {
+      // "현재 편집 중인 템플릿" + 저장된 모든 템플릿
+      const allTemplateSpecs: { id: string; name: string; template: string }[] = [
+        { id: "__current__", name: "현재 편집 중인 템플릿", template: cegTemplate },
+        ...savedTemplates.map((st) => ({ id: st.id, name: st.name, template: st.template })),
+      ]
+      for (const spec of allTemplateSpecs) {
+        if (!spec.template.trim()) continue
+        try {
+          const res = await fetch(`${backendUrl}/render`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ template: spec.template }),
+          })
+          if (!res.ok) continue
+          const data = (await res.json()) as { items: RenderItem[] }
+          for (const item of data.items) {
+            const existing = cache.get(item.filename) ?? []
+            if (!existing.includes(spec.name)) {
+              existing.push(spec.name)
+              cache.set(item.filename, existing)
+            }
+          }
+        } catch {
+          // 템플릿 렌더 실패 시 스킵
+        }
+      }
+      setTemplateAffiliationCache(cache)
+    } finally {
+      setCheckingTemplates(false)
+    }
+  }, [backendUrl, savedTemplates, cegTemplate, checkingTemplates])
+
+  // 미할당 패널 열릴 때 템플릿 소속 확인 실행
+  useEffect(() => {
+    if (showUnassignedPanel && templateAffiliationCache.size === 0) {
+      checkTemplateAffiliation()
+    }
+  }, [showUnassignedPanel, templateAffiliationCache.size, checkTemplateAffiliation])
+
+  // 미할당 그룹 - 완전 고아 필터 적용
+  const filteredUnassignedGroups = useMemo(() => {
+    if (!showTrueOrphansOnly) return unassignedGroups
+    const filtered = new Map<string, SavedImage[]>()
+    for (const [filename, imgs] of unassignedGroups) {
+      const affiliations = templateAffiliationCache.get(filename)
+      if (!affiliations || affiliations.length === 0) {
+        filtered.set(filename, imgs)
+      }
+    }
+    return filtered
+  }, [unassignedGroups, showTrueOrphansOnly, templateAffiliationCache])
+
+  // 미할당 그룹에서 선택 토글
+  const handleUnassignedToggleSelect = useCallback((filename: string) => {
+    setUnassignedSelectedFilenames((prev) => {
+      const next = new Set(prev)
+      if (next.has(filename)) {
+        next.delete(filename)
+      } else {
+        next.add(filename)
+      }
+      return next
+    })
+  }, [])
+
+  // 미할당 그룹 전체 선택 / 해제
+  const handleUnassignedSelectAll = useCallback(() => {
+    const allFilenames = Array.from(filteredUnassignedGroups.keys())
+    if (unassignedSelectedFilenames.size === allFilenames.length && allFilenames.length > 0) {
+      setUnassignedSelectedFilenames(new Set())
+    } else {
+      setUnassignedSelectedFilenames(new Set(allFilenames))
+    }
+  }, [filteredUnassignedGroups, unassignedSelectedFilenames])
+
+  // 미할당 이미지 선택 항목 일괄 trash 처리
+  const handleBulkTrash = useCallback(async () => {
+    if (bulkTrashLoading || unassignedSelectedFilenames.size === 0) return
+    setBulkTrashLoading(true)
+    setBulkTrashMessage(null)
+    let trashedCount = 0
+    try {
+      for (const filename of unassignedSelectedFilenames) {
+        const imgs = unassignedGroups.get(filename) ?? []
+        for (const img of imgs) {
+          if (img.status !== "trashed") {
+            await curationApi.patchStatus(backendUrl, img.hash, "trashed")
+            trashedCount++
+          }
+        }
+      }
+      // allImages에서 제거 (trash된 이미지 제외)
+      setAllImages((prev) =>
+        prev.map((img) =>
+          unassignedSelectedFilenames.has(img.originalFilename) && img.status !== "trashed"
+            ? { ...img, status: "trashed" as const, trashedAt: Date.now() }
+            : img
+        )
+      )
+      setBulkTrashMessage(`${unassignedSelectedFilenames.size}개 그룹, ${trashedCount}장 휴지통으로 이동`)
+      setUnassignedSelectedFilenames(new Set())
+      setTimeout(() => setBulkTrashMessage(null), 4000)
+    } catch {
+      setBulkTrashMessage("삭제 실패")
+      setTimeout(() => setBulkTrashMessage(null), 4000)
+    } finally {
+      setBulkTrashLoading(false)
+    }
+  }, [backendUrl, unassignedSelectedFilenames, unassignedGroups, bulkTrashLoading])
+
+  // 미할당 패널 닫기
+  const closeUnassignedPanel = useCallback(() => {
+    setShowUnassignedPanel(false)
+    setUnassignedSelectedFilenames(new Set())
+  }, [])
 
   // 필터링된 렌더 아이템
   const filteredRenderItems = useMemo(() => {
@@ -931,6 +1091,17 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
           </div>
           {exportMessage && <span className="text-xs font-bold text-green-600">{exportMessage}</span>}
           {regenMessage && <span className="text-xs font-bold text-blue-600">{regenMessage}</span>}
+          {unassignedGroups.size > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
+              className={`h-7 gap-1.5 text-[10px] font-bold border-amber-400/60 bg-amber-50/50 hover:bg-amber-100/60 ${showUnassignedPanel ? "ring-2 ring-amber-400" : ""}`}
+            >
+              <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600" />
+              미할당: {unassignedGroups.size}파일 ({unassignedTotalCount}장)
+            </Button>
+          )}
         </div>
       </div>
 
@@ -978,6 +1149,175 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
           {bulkRegenMessage && (
             <span className="text-xs font-bold text-blue-600">{bulkRegenMessage}</span>
           )}
+        </div>
+      )}
+
+      {/* 미할당 이미지 관리 패널 */}
+      {showUnassignedPanel && (
+        <div className="flex flex-col gap-3 rounded-lg border border-amber-400/60 bg-amber-50/20 px-4 py-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-bold text-amber-800">
+                미할당 이미지: {unassignedGroups.size}개 파일 ({unassignedTotalCount}장)
+              </span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={checkTemplateAffiliation}
+                disabled={checkingTemplates}
+                className="h-7 gap-1.5 text-[10px] font-bold"
+              >
+                {checkingTemplates ? (
+                  <Loader2Icon className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCwIcon className="h-3 w-3" />
+                )}
+                템플릿 연결 확인
+              </Button>
+              <label className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showTrueOrphansOnly}
+                  onChange={(e) => {
+                    setShowTrueOrphansOnly(e.target.checked)
+                    setUnassignedSelectedFilenames(new Set())
+                  }}
+                  className="rounded"
+                />
+                ⚠ 완전 고아만 보기
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 text-[10px] font-bold text-muted-foreground"
+                onClick={closeUnassignedPanel}
+              >
+                <XIcon className="h-3.5 w-3.5" />
+                닫기
+              </Button>
+            </div>
+          </div>
+
+          {/* 액션 바 */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] font-bold"
+              onClick={handleUnassignedSelectAll}
+            >
+              {unassignedSelectedFilenames.size === filteredUnassignedGroups.size && filteredUnassignedGroups.size > 0
+                ? "전체 해제"
+                : "전체 선택"}
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 gap-1.5 text-[10px] font-bold bg-red-600 hover:bg-red-700"
+              onClick={handleBulkTrash}
+              disabled={bulkTrashLoading || unassignedSelectedFilenames.size === 0}
+            >
+              {bulkTrashLoading ? (
+                <Loader2Icon className="h-3 w-3 animate-spin" />
+              ) : (
+                <Trash2Icon className="h-3 w-3" />
+              )}
+              선택 항목 휴지통으로 ({unassignedSelectedFilenames.size}개)
+            </Button>
+            {bulkTrashMessage && (
+              <span className="text-xs font-bold text-red-600">{bulkTrashMessage}</span>
+            )}
+          </div>
+
+          {/* 미할당 이미지 그리드 */}
+          <div className="max-h-96 overflow-y-auto">
+            {filteredUnassignedGroups.size === 0 ? (
+              <div className="py-8 text-center text-[11px] font-bold text-muted-foreground">
+                {showTrueOrphansOnly
+                  ? "완전 고아 이미지가 없습니다. 모든 미할당 이미지가 다른 템플릿에 속해 있습니다."
+                  : "미할당 이미지가 없습니다."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {Array.from(filteredUnassignedGroups.entries()).map(([filename, imgs]) => {
+                  const preview = imgs[0]
+                  const isSelected = unassignedSelectedFilenames.has(filename)
+                  const affiliations = templateAffiliationCache.get(filename)
+                  const isTrueOrphan = !affiliations || affiliations.length === 0
+
+                  return (
+                    <button
+                      key={filename}
+                      onClick={() => handleUnassignedToggleSelect(filename)}
+                      className={`group relative flex flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors ${
+                        isSelected
+                          ? "ring-2 ring-red-500 bg-red-50/30"
+                          : isTrueOrphan && templateAffiliationCache.size > 0
+                            ? "border-red-300/60 bg-red-50/20 hover:border-red-400"
+                            : "border-muted bg-card hover:border-amber-400/60"
+                      }`}
+                    >
+                      <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                        {preview ? (
+                          <img
+                            src={`${backendUrl}/saved-images/${preview.hash}`}
+                            className="h-full w-full object-cover"
+                            alt=""
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <FolderIcon className="h-8 w-8 text-muted-foreground/20" />
+                          </div>
+                        )}
+                        {/* 선택 체크 */}
+                        <div className="absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded z-10">
+                          {isSelected ? (
+                            <CheckSquareIcon className="h-5 w-5 text-red-500 drop-shadow-sm" />
+                          ) : (
+                            <SquareIcon className="h-5 w-5 text-white/60 drop-shadow-sm" />
+                          )}
+                        </div>
+                        {/* 완전 고아 표시 */}
+                        {isTrueOrphan && templateAffiliationCache.size > 0 && (
+                          <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded bg-red-500 text-white shadow-sm">
+                            <AlertTriangleIcon className="h-3 w-3" />
+                          </div>
+                        )}
+                        <div className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-medium text-white">
+                          {imgs.length}장
+                        </div>
+                      </div>
+
+                      <div className="px-0.5 min-w-0">
+                        <div className="truncate font-mono text-[10px] font-bold">{filename}</div>
+                        {/* 템플릿 소속 정보 */}
+                        {templateAffiliationCache.size > 0 && (
+                          <div className="mt-0.5 flex flex-wrap gap-0.5">
+                            {isTrueOrphan ? (
+                              <span className="rounded bg-red-100 px-1 py-0.5 text-[8px] font-bold text-red-700">
+                                완전 고아
+                              </span>
+                            ) : (
+                              affiliations!.map((name, i) => (
+                                <span
+                                  key={i}
+                                  className="rounded bg-green-100 px-1 py-0.5 text-[8px] font-bold text-green-700"
+                                >
+                                  ✅ {name}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
