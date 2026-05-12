@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil, Trash2, X } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil, RotateCcw, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty"
 import { Field, FieldLabel } from "@/components/ui/field"
 import {
   HoverCard,
@@ -51,7 +45,13 @@ interface SessionMarker {
   label: string
 }
 
+interface ActiveState {
+  activeSessionId: string
+  activatedAt: number  // ms epoch; jobs created on/after this time go to activeSessionId
+}
+
 const SESSIONS_KEY = "ceg_sessions"
+const ACTIVE_STATE_KEY = "ceg_active_state"
 const PAGE_SIZE = 50
 
 function loadMarkers(): SessionMarker[] {
@@ -60,6 +60,18 @@ function loadMarkers(): SessionMarker[] {
 
 function saveMarkers(ms: SessionMarker[]): void {
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(ms))
+}
+
+function loadActiveState(): ActiveState | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_STATE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as ActiveState
+  } catch { return null }
+}
+
+function saveActiveState(state: ActiveState): void {
+  localStorage.setItem(ACTIVE_STATE_KEY, JSON.stringify(state))
 }
 
 function genId(): string {
@@ -74,10 +86,23 @@ function initMarkers(): SessionMarker[] {
   return [init]
 }
 
-// A job belongs to the newest marker whose startAt <= job.createdAt * 1000.
+function initActiveState(markers: SessionMarker[]): ActiveState {
+  const stored = loadActiveState()
+  if (stored) return stored
+  // Default: newest marker is active, activated at its startAt
+  const sorted = [...markers].sort((a, b) => b.startAt - a.startAt)
+  const newest = sorted[0]!
+  return { activeSessionId: newest.id, activatedAt: newest.startAt }
+}
+
+// A job belongs to the active session if createdAt >= activatedAt.
+// Otherwise, it belongs to the newest marker whose startAt <= job.createdAt * 1000.
 // sortedDesc must be sorted newest-first (largest startAt first).
-function jobSessionId(createdAtSec: number, sortedDesc: SessionMarker[]): string {
+function jobSessionId(createdAtSec: number, sortedDesc: SessionMarker[], activeState: ActiveState | null): string {
   const t = createdAtSec * 1000
+  if (activeState && t >= activeState.activatedAt) {
+    return activeState.activeSessionId
+  }
   for (const m of sortedDesc) {
     if (t >= m.startAt) return m.id
   }
@@ -237,6 +262,15 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     setMarkersRaw(ms)
   }
 
+  const [activeState, setActiveStateRaw] = useState<ActiveState>(() =>
+    initActiveState(initMarkers()),
+  )
+
+  const persistActiveState = (as: ActiveState) => {
+    saveActiveState(as)
+    setActiveStateRaw(as)
+  }
+
   const sortedMarkers = useMemo(
     () => [...markers].sort((a, b) => b.startAt - a.startAt),
     [markers],
@@ -244,7 +278,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
 
   // Default: newest marker
   const [selectedId, setSelectedId] = useState<string>(
-    () => initMarkers().sort((a, b) => b.startAt - a.startAt)[0]!.id,
+    () => activeState?.activeSessionId ?? initMarkers().sort((a, b) => b.startAt - a.startAt)[0]!.id,
   )
 
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
@@ -279,15 +313,15 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   const sessionJobCounts = useMemo(() => {
     const map = new Map<string, number>()
     for (const j of jobs) {
-      const sid = jobSessionId(j.createdAt, sortedMarkers)
+      const sid = jobSessionId(j.createdAt, sortedMarkers, activeState)
       map.set(sid, (map.get(sid) ?? 0) + 1)
     }
     return map
-  }, [jobs, sortedMarkers])
+  }, [jobs, sortedMarkers, activeState])
 
   const sessionJobs = useMemo(
-    () => jobs.filter(j => jobSessionId(j.createdAt, sortedMarkers) === selectedId),
-    [jobs, sortedMarkers, selectedId],
+    () => jobs.filter(j => jobSessionId(j.createdAt, sortedMarkers, activeState) === selectedId),
+    [jobs, sortedMarkers, activeState, selectedId],
   )
 
   // ── status counts ───────────────────────────────────────────────────────────
@@ -394,6 +428,8 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     }
     const newMarker: SessionMarker = { id: genId(), startAt: Date.now(), label: makeSessionLabel(nonEmpty.length + 1) }
     persistMarkers([...nonEmpty, newMarker])
+    // Make the new session active
+    persistActiveState({ activeSessionId: newMarker.id, activatedAt: Date.now() })
     setSelectedId(newMarker.id)
     setSessionPickerOpen(false)
   }
@@ -427,6 +463,13 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
       persistMarkers(next)
       if (selectedId === markerId) setSelectedId(next.sort((a, b) => b.startAt - a.startAt)[0]!.id)
     }
+  }
+
+  const activateSession = (markerId: string) => {
+    // Set this marker as the active session; new jobs from now on go here
+    persistActiveState({ activeSessionId: markerId, activatedAt: Date.now() })
+    setSelectedId(markerId)
+    setSessionPickerOpen(false)
   }
 
   // ── api ─────────────────────────────────────────────────────────────────────
@@ -516,37 +559,6 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     }
   }
 
-  // ── empty state ─────────────────────────────────────────────────────────────
-
-  if (sessionJobs.length === 0) {
-    const currentMarker  = sortedMarkers[0]
-    const currentIsEmpty = !currentMarker || (sessionJobCounts.get(currentMarker.id) ?? 0) === 0
-    const viewingCurrent = currentMarker && selectedId === currentMarker.id
-    const otherSessions  = sortedMarkers.filter(m => m.id !== selectedId && (sessionJobCounts.get(m.id) ?? 0) > 0)
-
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyTitle>
-            {viewingCurrent && currentIsEmpty ? "새 세션이 시작되었어요" : "선택한 세션에 작업이 없어요"}
-          </EmptyTitle>
-          <EmptyDescription>
-            {viewingCurrent && currentIsEmpty
-              ? "잡을 제출하면 여기에 표시됩니다."
-              : "다른 세션을 선택하면 이전 잡을 볼 수 있어요."}
-          </EmptyDescription>
-        </EmptyHeader>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {otherSessions.map(m => (
-            <Button key={m.id} size="sm" variant="outline" onClick={() => setSelectedId(m.id)}>
-              {m.label} ({sessionJobCounts.get(m.id)})
-            </Button>
-          ))}
-        </div>
-      </Empty>
-    )
-  }
-
   // ── render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -579,97 +591,133 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
         )}
         {paused && <span className="text-xs text-muted-foreground">새 잡이 워커로 전송되지 않습니다.</span>}
 
-        {/* Session picker button */}
-        <Button size="sm" variant="outline" className="ml-auto gap-1" onClick={() => setSessionPickerOpen(o => !o)}>
-          <span className="text-xs">{sessionButtonLabel}</span>
-          {sessionPickerOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        </Button>
-      </div>
+        {/* Session selector dropdown */}
+        <div className="relative ml-auto">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setSessionPickerOpen(o => !o)}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500" title="현재 활성 세션" />
+            <span className="max-w-40 truncate text-xs">{sessionButtonLabel}</span>
+            {sessionPickerOpen ? <ChevronUp className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
+          </Button>
 
-      {/* Session picker panel */}
-      {sessionPickerOpen && (
-        <div className="rounded-md border bg-card p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">세션 선택</span>
-            <div className="flex items-center gap-1">
-              <button
-                className="rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                onClick={goToCurrentSession}
-              >
-                현재 세션
-              </button>
-              <span className="text-muted-foreground/40">|</span>
-              <button
-                className="rounded px-2 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-                onClick={createNewSession}
-              >
-                + 새 세션 시작
-              </button>
-            </div>
-          </div>
+          {sessionPickerOpen && (
+            <>
+              {/* Backdrop to close on outside click */}
+              <div className="fixed inset-0 z-10" onClick={() => setSessionPickerOpen(false)} />
+              <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-md border bg-popover shadow-lg">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b px-3 py-2">
+                  <span className="text-xs font-medium text-muted-foreground">세션 관리</span>
+                  <button
+                    className="rounded px-2 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                    onClick={createNewSession}
+                  >
+                    + 새 세션
+                  </button>
+                </div>
 
-          <div className="space-y-0.5">
-            {sortedMarkers.map((m, i) => {
-              const count    = sessionJobCounts.get(m.id) ?? 0
-              const isActive = m.id === selectedId
-              const isNewest = i === 0
-              const isEmpty  = count === 0
-              const isEditing = editingMarkerId === m.id
-              return (
-                <div
-                  key={m.id}
-                  className={`flex items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-muted/60 ${isActive ? "bg-muted" : ""}`}
-                >
-                  <button
-                    className="flex flex-1 items-center gap-2 text-left"
-                    onClick={() => { setSelectedId(m.id); setSessionPickerOpen(false) }}
-                  >
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? "bg-foreground" : "border border-muted-foreground/40"}`} />
-                    {isEditing ? (
-                      <input
-                        className="flex-1 rounded border bg-background px-1 py-0 text-sm"
-                        value={editingLabel}
-                        onChange={e => setEditingLabel(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === "Enter") saveRename()
-                          if (e.key === "Escape") setEditingMarkerId(null)
-                        }}
-                        onBlur={saveRename}
-                        autoFocus
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className={`flex-1 text-sm ${isEmpty ? "text-muted-foreground" : ""}`}>{m.label}</span>
-                    )}
-                  </button>
-                  {isNewest && (
-                    <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                      현재
-                    </span>
-                  )}
-                  <button
-                    className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-muted hover:text-foreground"
-                    onClick={() => startRename(m)}
-                    title="이름 변경"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                  <button
-                    className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-destructive/20 hover:text-destructive"
-                    onClick={() => deleteSession(m.id)}
-                    title="세션 삭제"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                  <span className={`w-12 text-right text-xs tabular-nums ${isEmpty ? "text-muted-foreground/50" : "font-medium"}`}>
-                    {count}개
+                {/* Session list */}
+                <div className="max-h-64 overflow-y-auto px-1 py-1">
+                  {sortedMarkers.map((m) => {
+                    const count    = sessionJobCounts.get(m.id) ?? 0
+                    const isSelected = m.id === selectedId
+                    const isActive = m.id === activeState.activeSessionId
+                    const isEmpty  = count === 0
+                    const isEditing = editingMarkerId === m.id
+                    return (
+                      <div
+                        key={m.id}
+                        className={`flex items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-muted/60 ${isSelected ? "bg-muted" : ""}`}
+                      >
+                        {/* Select/view button */}
+                        <button
+                          className="flex flex-1 items-center gap-2 text-left min-w-0"
+                          onClick={() => { setSelectedId(m.id); setSessionPickerOpen(false) }}
+                        >
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? "bg-green-500" : isSelected ? "bg-foreground" : "border border-muted-foreground/40"}`}
+                            title={isActive ? "현재 새 잡이 이 세션에 할당됩니다" : isSelected ? "현재 보고 있는 세션" : ""}
+                          />
+                          {isEditing ? (
+                            <input
+                              className="min-w-0 flex-1 rounded border bg-background px-1 py-0 text-sm"
+                              value={editingLabel}
+                              onChange={e => setEditingLabel(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") saveRename()
+                                if (e.key === "Escape") setEditingMarkerId(null)
+                              }}
+                              onBlur={saveRename}
+                              autoFocus
+                              onClick={e => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span className={`min-w-0 flex-1 truncate text-sm ${isEmpty ? "text-muted-foreground" : ""}`}>
+                              {m.label}
+                            </span>
+                          )}
+                          {isActive && (
+                            <span className="shrink-0 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
+                              활성
+                            </span>
+                          )}
+                        </button>
+
+                        {/* Activate button (only show for non-active) */}
+                        {!isActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 shrink-0 px-2 text-xs"
+                            onClick={(e) => { e.stopPropagation(); activateSession(m.id) }}
+                            title="이 세션을 활성 세션으로 지정하여 새 잡이 여기에 할당되도록 합니다"
+                          >
+                            활성화
+                          </Button>
+                        )}
+
+                        {/* Edit */}
+                        <button
+                          className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-muted hover:text-foreground"
+                          onClick={() => startRename(m)}
+                          title="이름 변경"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+
+                        {/* Delete */}
+                        <button
+                          className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-destructive/20 hover:text-destructive"
+                          onClick={() => deleteSession(m.id)}
+                          title="세션 삭제"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+
+                        {/* Count */}
+                        <span className={`w-10 shrink-0 text-right text-xs tabular-nums ${isEmpty ? "text-muted-foreground/50" : "font-medium"}`}>
+                          {count}개
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Footer tip */}
+                <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-1 w-1 rounded-full bg-green-500" />
+                    활성 세션 — 새로 제출하는 잡이 이 세션에 저장됩니다
                   </span>
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Overall progress bar */}
       <Field>
