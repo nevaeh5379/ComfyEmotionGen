@@ -15,6 +15,8 @@ const DEFAULT_BACKEND_URL = globalConfigUrl || "http://localhost:8000"
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
 
+const DEFAULT_GROUP_IMG_LIMIT = 10_000
+
 interface UseSavedImagesOptions {
   backendUrl?: string
   status?: CurationStatus | "all" | undefined
@@ -24,12 +26,20 @@ interface UseSavedImagesOptions {
   page?: number
   /** 페이지당 항목 수. Default 48. */
   pageSize?: number
+  /** 그룹 모드 여부. true면 /asset-groups 기반으로 동작. */
+  groupMode?: boolean
+  /** 그룹 모드 전용: 그룹 목록 1-based page. Default 1. */
+  groupPage?: number
+  /** 그룹 모드 전용: 페이지당 그룹 수. Default 20. */
+  groupPageSize?: number
 }
 
-interface SavedImagesState {
+export interface SavedImagesState {
   images: SavedImage[]
   groups: AssetGroup[]
+  groupImagesMap: Map<string, SavedImage[]>
   total: number
+  groupTotal: number
   loading: boolean
   error: string | null
   reload: () => void
@@ -46,16 +56,25 @@ export const useSavedImages = (
     tag,
     page = 1,
     pageSize = 48,
+    groupMode = false,
+    groupPage = 1,
+    groupPageSize = 20,
   } = options
   const [images, setImages] = useState<SavedImage[]>([])
   const [groups, setGroups] = useState<AssetGroup[]>([])
+  const [groupImagesMap, setGroupImagesMap] = useState<Map<string, SavedImage[]>>(new Map())
   const [total, setTotal] = useState(0)
+  const [groupTotal, setGroupTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
 
+  const urlToUse = backendUrl || DEFAULT_BACKEND_URL
+
+  // ──── 그리드 모드: 이미지 fetch ────
   const fetchImages = useCallback(async () => {
+    if (groupMode) return
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
@@ -70,7 +89,6 @@ export const useSavedImages = (
       if (status && status !== "all") params.set("status", status)
       if (filename) params.set("filename", filename)
       if (tag) params.set("tag", tag)
-      const urlToUse = backendUrl || DEFAULT_BACKEND_URL
       const res = await fetch(`${urlToUse}/saved-images?${params}`, {
         signal: ac.signal,
       })
@@ -87,28 +105,94 @@ export const useSavedImages = (
     } finally {
       setLoading(false)
     }
-  }, [backendUrl, status, filename, tag, page, pageSize])
+  }, [groupMode, urlToUse, status, filename, tag, page, pageSize])
 
+  // ──── 그룹 모드: 그룹 목록 fetch (페이징) ────
   const fetchGroups = useCallback(async () => {
+    if (!groupMode) return
+    abortRef.current?.abort()
+    const ac = new AbortController()
+    abortRef.current = ac
+    setLoading(true)
+    setError(null)
     try {
-      const urlToUse = backendUrl || DEFAULT_BACKEND_URL
-      const res = await fetch(`${urlToUse}/asset-groups?limit=500`)
+      const offset = Math.max(0, (groupPage - 1) * groupPageSize)
+      const params = new URLSearchParams({
+        limit: String(groupPageSize),
+        offset: String(offset),
+        sort: "latest",
+      })
+      const res = await fetch(`${urlToUse}/asset-groups?${params}`, {
+        signal: ac.signal,
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as { groups: AssetGroup[] }
+      const data = (await res.json()) as {
+        groups: AssetGroup[]
+        limit: number
+        offset: number
+      }
       setGroups(data.groups)
+
+      // 전체 그룹 수 추정: 현재 페이지가 마지막이 아니면 대략적인 total 사용
+      // 마지막 페이지면 offset + 받은 개수
+      if (data.groups.length < groupPageSize) {
+        setGroupTotal(offset + data.groups.length)
+      } else {
+        // 다음 페이지가 있을 수 있으므로 여유 있게
+        setGroupTotal(Math.max(groupTotal, offset + data.groups.length + 1))
+      }
     } catch (err) {
-      console.error("fetch asset-groups failed", err)
+      if ((err as Error).name === "AbortError") return
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
     }
-  }, [backendUrl])
+  }, [groupMode, urlToUse, groupPage, groupPageSize, groupTotal])
 
-  useEffect(() => {
-    fetchImages()
-    fetchGroups()
-  }, [fetchImages, fetchGroups])
+  // ──── 그룹 모드: 각 그룹의 이미지 fetch ────
+  const fetchGroupImages = useCallback(async (filenames: string[], currentStatus: CurationStatus | "all" | undefined) => {
+    if (!groupMode || filenames.length === 0) return
+    const newMap = new Map<string, SavedImage[]>()
+    const statusParam = currentStatus && currentStatus !== "all" ? `?status=${currentStatus}` : ""
+    const fetches = filenames.map(async (fn) => {
+      try {
+        const res = await fetch(
+          `${urlToUse}/asset-groups/${encodeURIComponent(fn)}${statusParam}`
+        )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = (await res.json()) as { filename: string; items: SavedImage[] }
+        newMap.set(fn, data.items)
+      } catch (err) {
+        console.error(`fetch group images failed for ${fn}`, err)
+        newMap.set(fn, [])
+      }
+    })
+    await Promise.all(fetches)
+    setGroupImagesMap(newMap)
+  }, [groupMode, urlToUse])
 
-  // WebSocket으로 image.* 이벤트 수신 → 자동 갱신
+  // ──── 메인 effect ────
   useEffect(() => {
-    const wsUrl = `${httpToWs(backendUrl || DEFAULT_BACKEND_URL)}/ws/events`
+    if (groupMode) {
+      fetchGroups()
+    } else {
+      fetchImages()
+    }
+  }, [fetchImages, fetchGroups, groupMode])
+
+  // 그룹 목록이 바뀌면 이미지 fetch
+  useEffect(() => {
+    if (groupMode && groups.length > 0) {
+      const filenames = groups.map((g) => g.filename)
+      fetchGroupImages(filenames, status)
+    } else if (groups.length === 0) {
+      setGroupImagesMap(new Map())
+    }
+  }, [groups, groupMode, fetchGroupImages, status])
+
+  // ──── WebSocket으로 image.* 이벤트 수신 → 자동 갱신 ────
+  useEffect(() => {
+    const wsUrl = `${httpToWs(urlToUse)}/ws/events`
     let socket: WebSocket | null = null
     let cancelled = false
 
@@ -123,9 +207,11 @@ export const useSavedImages = (
             event.type === "image.curation" ||
             event.type === "image.deleted"
           ) {
-            // 가벼운 갱신: 현재 필터 조건 그대로 다시 페치
-            fetchImages()
-            fetchGroups()
+            if (groupMode) {
+              fetchGroups()
+            } else {
+              fetchImages()
+            }
           }
         } catch {
           /* ignore */
@@ -133,7 +219,6 @@ export const useSavedImages = (
       }
       socket.onclose = () => {
         if (cancelled) return
-        // WebSocketProvider가 별도로 재연결을 처리하므로 여기서는 단순 재시도
         setTimeout(connect, 2000)
       }
     }
@@ -142,19 +227,21 @@ export const useSavedImages = (
       cancelled = true
       socket?.close()
     }
-  }, [backendUrl, fetchImages, fetchGroups])
+  }, [urlToUse, fetchImages, fetchGroups, groupMode])
 
   return useMemo(
     () => ({
       images,
       groups,
+      groupImagesMap,
       total,
+      groupTotal,
       loading,
       error,
-      reload: fetchImages,
+      reload: groupMode ? fetchGroups : fetchImages,
       reloadGroups: fetchGroups,
     }),
-    [images, groups, total, loading, error, fetchImages, fetchGroups]
+    [images, groups, groupImagesMap, total, groupTotal, loading, error, fetchImages, fetchGroups, groupMode]
   )
 }
 

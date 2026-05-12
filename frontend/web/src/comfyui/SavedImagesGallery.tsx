@@ -27,11 +27,9 @@ import {
   CheckSquareIcon,
   SquareIcon,
   XIcon,
-  Loader2Icon,
   Trash2Icon,
   CheckIcon,
   CopyIcon,
-  ImagePlusIcon,
   EyeIcon,
 } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
@@ -100,6 +98,8 @@ interface Props {
   backendUrl: string
 }
 
+const GROUP_PAGE_SIZE = 20
+
 export function SavedImagesGallery({ backendUrl }: Props) {
   const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">("pending")
   const [filenameFilter, setFilenameFilter] = useState("")
@@ -110,6 +110,7 @@ export function SavedImagesGallery({ backendUrl }: Props) {
   const [page, setPage] = useState(1)
   const [hideRejected, setHideRejected] = useState(false)
   const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
+  const [groupPage, setGroupPage] = useState(1)
 
   // 선택 모드
   const [selectionMode, setSelectionMode] = useState(false)
@@ -124,35 +125,40 @@ export function SavedImagesGallery({ backendUrl }: Props) {
   // 필터 변경 시 첫 페이지로
   useEffect(() => {
     setPage(1)
-  }, [statusFilter, filenameFilter, tagFilter, metadataFilter, groupMode])
+  }, [statusFilter, filenameFilter, tagFilter, metadataFilter])
 
-  const { images, groups, total, loading, error, reload } = useSavedImages({
+  // 그룹 모드 전환 / 필터 변경 시 groupPage 초기화
+  useEffect(() => {
+    setGroupPage(1)
+  }, [groupMode, statusFilter, filenameFilter, tagFilter, metadataFilter])
+
+  const { images, groups, groupImagesMap, total, groupTotal, loading, error, reload } = useSavedImages({
     backendUrl,
     status: groupMode ? "all" : statusFilter,
     filename: filenameFilter || undefined,
     tag: tagFilter || undefined,
     page: groupMode ? 1 : page,
     pageSize: groupMode ? 500 : PAGE_SIZE,
+    groupMode,
+    groupPage,
+    groupPageSize: GROUP_PAGE_SIZE,
   })
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const pageList = useMemo(() => buildPageList(page, totalPages), [page, totalPages])
+
+  const groupTotalPages = Math.max(1, Math.ceil(groupTotal / GROUP_PAGE_SIZE))
+  const groupPageList = useMemo(() => buildPageList(groupPage, groupTotalPages), [groupPage, groupTotalPages])
 
   // total 변동으로 현재 page가 범위 밖이면 클램프
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
-  const grouped = useMemo(() => {
-    if (!groupMode) return null
-    const map = new Map<string, SavedImage[]>()
-    for (const img of images) {
-      const list = map.get(img.originalFilename) ?? []
-      list.push(img)
-      map.set(img.originalFilename, list)
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-  }, [images, groupMode])
+  // groupTotal 변동으로 groupPage 범위 밖이면 클램프
+  useEffect(() => {
+    if (groupPage > groupTotalPages) setGroupPage(groupTotalPages)
+  }, [groupPage, groupTotalPages])
 
   // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
   const metadataFilteredImages = useMemo(() => {
@@ -170,22 +176,25 @@ export function SavedImagesGallery({ backendUrl }: Props) {
     [metadataFilteredImages, hideRejected]
   )
 
-  // 그룹 모드에서 리젝 숨기기 + 메타데이터 필터 적용
-  const visibleGrouped = useMemo(() => {
-    if (!grouped) return null
-    if (!hideRejected && !metadataFilter.trim()) return grouped
-    return grouped
-      .map(([filename, items]) => {
-        let filtered = items
-        if (hideRejected) filtered = filtered.filter((img) => img.status !== "rejected")
-        if (metadataFilter.trim()) {
-          const lowerFilter = metadataFilter.toLowerCase().trim()
-          filtered = filtered.filter((img) => img.prompt.toLowerCase().includes(lowerFilter))
-        }
-        return [filename, filtered] as [string, SavedImage[]]
-      })
-      .filter(([, items]) => items.length > 0)
-  }, [grouped, hideRejected, metadataFilter])
+  // 그룹 모드: groups + groupImagesMap 기반 visible 데이터
+  const visibleGroups = useMemo(() => {
+    if (!groupMode) return []
+    const lowerMeta = metadataFilter.trim().toLowerCase() || null
+    const result: { name: string; items: SavedImage[] }[] = []
+    for (const g of groups) {
+      let items = groupImagesMap.get(g.filename) ?? []
+      if (metadataFilter.trim() && lowerMeta) {
+        items = items.filter((img) => img.prompt.toLowerCase().includes(lowerMeta))
+      }
+      if (hideRejected) {
+        items = items.filter((img) => img.status !== "rejected")
+      }
+      if (items.length > 0) {
+        result.push({ name: g.filename, items })
+      }
+    }
+    return result
+  }, [groupMode, groups, groupImagesMap, metadataFilter, hideRejected])
 
   const setStatus = async (hash: string, status: CurationStatus) => {
     try {
@@ -205,6 +214,7 @@ export function SavedImagesGallery({ backendUrl }: Props) {
         if (next.size === 0) setSelectionMode(false)
       } else {
         next.add(hash)
+        setSelectionMode(true)
       }
       return next
     })
@@ -476,7 +486,7 @@ export function SavedImagesGallery({ backendUrl }: Props) {
 
       {!loading &&
         ((!groupMode && visibleImages.length === 0) ||
-          (groupMode && visibleGrouped && visibleGrouped.length === 0)) && (
+          (groupMode && visibleGroups.length === 0)) && (
           <Empty>
             <EmptyHeader>
               <EmptyTitle>표시할 이미지가 없습니다</EmptyTitle>
@@ -523,15 +533,15 @@ export function SavedImagesGallery({ backendUrl }: Props) {
       )}
 
       {/* 그룹 모드 */}
-      {groupMode && visibleGrouped ? (
+      {groupMode ? (
         <div className="flex flex-col gap-4">
-          {visibleGrouped.map(([filename, items]) => {
-            const groupMeta = groups.find((g) => g.filename === filename)
+          {visibleGroups.map(({ name, items }) => {
+            const groupMeta = groups.find((g) => g.filename === name)
             return (
-              <div key={filename} className="rounded-md border p-3">
+              <div key={name} className="rounded-md border p-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="font-mono text-sm font-semibold">
-                    {filename}
+                    {name}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     총 {groupMeta?.total ?? items.length} · 통과{" "}
@@ -543,7 +553,7 @@ export function SavedImagesGallery({ backendUrl }: Props) {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleRegenerate(filename)}
+                      onClick={() => handleRegenerate(name)}
                     >
                       재생성
                     </Button>
@@ -564,6 +574,55 @@ export function SavedImagesGallery({ backendUrl }: Props) {
               </div>
             )
           })}
+
+          {/* 그룹 페이지네이션 */}
+          {groupTotal > GROUP_PAGE_SIZE && (
+            <div className="flex flex-col items-center gap-2">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => groupPage > 1 && setGroupPage(groupPage - 1)}
+                      aria-disabled={groupPage <= 1}
+                      className={
+                        groupPage <= 1 ? "pointer-events-none opacity-50" : undefined
+                      }
+                    />
+                  </PaginationItem>
+                  {groupPageList.map((p, i) =>
+                    p === "…" ? (
+                      <PaginationItem key={`ge-${i}`}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    ) : (
+                      <PaginationItem key={p}>
+                        <PaginationLink
+                          isActive={p === groupPage}
+                          onClick={() => setGroupPage(p)}
+                        >
+                          {p}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => groupPage < groupTotalPages && setGroupPage(groupPage + 1)}
+                      aria-disabled={groupPage >= groupTotalPages}
+                      className={
+                        groupPage >= groupTotalPages
+                          ? "pointer-events-none opacity-50"
+                          : undefined
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+              <p className="text-xs text-muted-foreground">
+                총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages} 페이지
+              </p>
+            </div>
+          )}
         </div>
       ) : galleryViewMode === "grid" || (galleryViewMode === "compare" && pinnedHashes.length === 0) ? (
         <ImageGrid
@@ -625,22 +684,6 @@ export function SavedImagesGallery({ backendUrl }: Props) {
           <p className="text-xs text-muted-foreground">
             총 {total}개 · {page}/{totalPages} 페이지
           </p>
-          {!selectionMode && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-[10px] font-bold"
-                onClick={() => {
-                  setSelectionMode(true)
-                  setSelectedHashes(new Set())
-                }}
-              >
-                <CheckSquareIcon className="h-3.5 w-3.5 mr-1" />선택 모드 진입
-              </Button>
-            </div>
-          )}
-
           {selectionMode && (
             <div className="flex items-center gap-2">
               <Button
@@ -692,7 +735,7 @@ function ImageGrid({
   selectionMode = false,
   selectedHashes = new Set(),
   onToggleSelect,
-  // onLongPress,
+  onLongPress,
   togglePin,
   pinnedHashes = [],
 }: GridProps) {
@@ -741,7 +784,7 @@ function ImageGrid({
                   >
                     {isSelected ? (
                       <CheckSquareIcon className="h-5 w-5 text-blue-500 drop-shadow-sm" />
-                    ) : pinnedHashes.includes(img.hash) ? (
+                    ) : isPinned ? (
                       <PinIcon className="h-5 w-5 text-blue-400 drop-shadow-sm" />
                     ) : (
                       <SquareIcon className="h-5 w-5 text-white/70 drop-shadow-sm" />

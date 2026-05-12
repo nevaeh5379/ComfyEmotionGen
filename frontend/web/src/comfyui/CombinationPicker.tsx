@@ -21,7 +21,6 @@ import {
   FilterIcon,
   AlertTriangleIcon,
   Trash2Icon,
-  EyeIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -614,11 +613,6 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     [unassignedGroups]
   )
 
-  // 선택된 템플릿의 renderItems에서 filename set (템플릿 소속 확인용 캐시)
-  const currentRenderFilenameSet = useMemo(
-    () => new Set(renderItems.map((ri) => ri.filename)),
-    [renderItems]
-  )
 
   // 템플릿 소속 확인 함수 (lazy: 사용자가 패널 열었을 때)
   const checkTemplateAffiliation = useCallback(async () => {
