@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil, RotateCcw, Trash2, X } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil,  Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
@@ -434,10 +434,6 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     setSessionPickerOpen(false)
   }
 
-  const goToCurrentSession = () => {
-    const newest = sortedMarkers[0]
-    if (newest) { setSelectedId(newest.id); setSessionPickerOpen(false) }
-  }
 
   const startRename = (m: SessionMarker) => {
     setEditingMarkerId(m.id)
