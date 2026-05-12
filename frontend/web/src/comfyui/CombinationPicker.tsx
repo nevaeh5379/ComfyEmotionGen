@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   CheckCircle2Icon,
   CheckIcon,
@@ -15,6 +15,9 @@ import {
   FolderIcon,
   LayoutListIcon,
   ArrowLeftIcon,
+  CheckSquareIcon,
+  SquareIcon,
+  XIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -149,11 +152,19 @@ function GalleryView({
   imagesByFilename,
   backendUrl,
   onSelect,
+  selectionMode,
+  selectedFilenames,
+  onToggleSelect,
+  onLongPress,
 }: {
   items: RenderItem[]
   imagesByFilename: Map<string, SavedImage[]>
   backendUrl: string
   onSelect: (filename: string) => void
+  selectionMode: boolean
+  selectedFilenames: Set<string>
+  onToggleSelect: (filename: string) => void
+  onLongPress: (filename: string) => void
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -162,13 +173,21 @@ function GalleryView({
         const approved = imgs.find((img) => img.status === "approved")
         const preview = approved || imgs[0]
         const isDone = !!approved
+        const isSelected = selectedFilenames.has(item.filename)
 
         return (
           <HoverCard key={item.filename} openDelay={500} closeDelay={100}>
             <HoverCardTrigger asChild>
-              <button
-                onClick={() => onSelect(item.filename)}
-                className="group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md"
+              <LongPressWrapper
+                onLongPress={() => onLongPress(item.filename)}
+                onClick={() => {
+                  if (selectionMode) {
+                    onToggleSelect(item.filename)
+                  } else {
+                    onSelect(item.filename)
+                  }
+                }}
+                className={`group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md ${isSelected ? "ring-2 ring-blue-500 bg-blue-50/30" : ""}`}
               >
                 <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
                   {preview ? (
@@ -183,9 +202,22 @@ function GalleryView({
                     </div>
                   )}
 
-                  <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
-                    <FolderIcon className="h-3.5 w-3.5" />
-                  </div>
+                  {/* 선택 모드 체크박스 */}
+                  {selectionMode && (
+                    <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded z-10">
+                      {isSelected ? (
+                        <CheckSquareIcon className="h-6 w-6 text-blue-500 drop-shadow-sm" />
+                      ) : (
+                        <SquareIcon className="h-6 w-6 text-white/70 drop-shadow-sm" />
+                      )}
+                    </div>
+                  )}
+
+                  {!selectionMode && (
+                    <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
+                      <FolderIcon className="h-3.5 w-3.5" />
+                    </div>
+                  )}
 
                   {isDone && (
                     <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-green-500 text-white shadow-sm">
@@ -208,7 +240,7 @@ function GalleryView({
                     ))}
                   </div>
                 </div>
-              </button>
+              </LongPressWrapper>
             </HoverCardTrigger>
             <HoverCardContent className="w-72 p-3" side="right" align="start">
               <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
@@ -258,17 +290,26 @@ function TableView({
   imagesByFilename,
   backendUrl,
   onSelect,
+  selectionMode,
+  selectedFilenames,
+  onToggleSelect,
+  onLongPress,
 }: {
   items: RenderItem[]
   imagesByFilename: Map<string, SavedImage[]>
   backendUrl: string
   onSelect: (filename: string) => void
+  selectionMode: boolean
+  selectedFilenames: Set<string>
+  onToggleSelect: (filename: string) => void
+  onLongPress: (filename: string) => void
 }) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
       <table className="w-full text-left text-sm">
         <thead className="bg-muted/50 border-b">
           <tr>
+            {selectionMode && <th className="px-2 py-2 font-bold text-muted-foreground w-8"></th>}
             <th className="px-4 py-2 font-bold text-muted-foreground w-12">상태</th>
             <th className="px-4 py-2 font-bold text-muted-foreground">파일명</th>
             <th className="px-4 py-2 font-bold text-muted-foreground">메타데이터</th>
@@ -279,13 +320,31 @@ function TableView({
           {items.map((item) => {
             const imgs = imagesByFilename.get(item.filename) ?? []
             const isDone = imgs.some((img) => img.status === "approved")
+            const isSelected = selectedFilenames.has(item.filename)
 
             return (
-              <tr 
+              <LongPressWrapper
                 key={item.filename}
-                onClick={() => onSelect(item.filename)}
-                className="group cursor-pointer hover:bg-accent/50"
+                onLongPress={() => onLongPress(item.filename)}
+                onClick={() => {
+                  if (selectionMode) {
+                    onToggleSelect(item.filename)
+                  } else {
+                    onSelect(item.filename)
+                  }
+                }}
+                className={`group cursor-pointer hover:bg-accent/50 ${isSelected ? "bg-blue-50/30 ring-1 ring-inset ring-blue-300" : ""}`}
+                as="tr"
               >
+                {selectionMode && (
+                  <td className="px-2 py-2">
+                    {isSelected ? (
+                      <CheckSquareIcon className="h-5 w-5 text-blue-500" />
+                    ) : (
+                      <SquareIcon className="h-5 w-5 text-muted-foreground/40" />
+                    )}
+                  </td>
+                )}
                 <td className="px-4 py-2">
                   {isDone ? <CheckCircle2Icon className="h-4 w-4 text-green-500" /> : <CircleIcon className="h-4 w-4 text-muted-foreground/30" />}
                 </td>
@@ -344,12 +403,89 @@ function TableView({
                 <td className="px-4 py-2 text-right">
                   <span className="font-mono text-xs text-muted-foreground">{imgs.length}</span>
                 </td>
-              </tr>
+              </LongPressWrapper>
             )
           })}
         </tbody>
       </table>
     </div>
+  )
+}
+
+// LongPressWrapper: 500ms 이상 누르면 long press 이벤트 발생
+function LongPressWrapper({
+  children,
+  onLongPress,
+  onClick,
+  className,
+  as: Component = "button" as any,
+  ...rest
+}: {
+  children: React.ReactNode
+  onLongPress: () => void
+  onClick: () => void
+  className?: string
+  as?: any
+  [key: string]: any
+}) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTriggeredRef = useRef(false)
+  const [pressing, setPressing] = useState(false)
+
+  const clear = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // 오른쪽 클릭은 무시
+      if (e.button !== 0) return
+      longPressTriggeredRef.current = false
+      setPressing(true)
+      timerRef.current = setTimeout(() => {
+        longPressTriggeredRef.current = true
+        setPressing(false)
+        onLongPress()
+      }, 500)
+    },
+    [onLongPress]
+  )
+
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      clear()
+      setPressing(false)
+      if (!longPressTriggeredRef.current) {
+        onClick()
+      }
+    },
+    [clear, onClick]
+  )
+
+  const handleMouseLeave = useCallback(() => {
+    clear()
+    setPressing(false)
+  }, [clear])
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => clear()
+  }, [clear])
+
+  return (
+    <Component
+      className={className}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      style={pressing ? { opacity: 0.7 } : undefined}
+      {...rest}
+    >
+      {children}
+    </Component>
   )
 }
 
@@ -378,6 +514,12 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
 
   const [viewMode, setViewMode] = useState<ViewMode>("gallery")
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
+
+  // 선택 모드 관련 상태
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedFilenames, setSelectedFilenames] = useState<Set<string>>(new Set())
+  const [bulkRegenLoading, setBulkRegenLoading] = useState(false)
+  const [bulkRegenMessage, setBulkRegenMessage] = useState<string | null>(null)
 
   const activeTemplate =
     savedTemplates.find((t) => t.id === selectedTemplateId)?.template ?? cegTemplate
@@ -531,6 +673,64 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     }
   }, [backendUrl, selectedFilename, regenCount, regenLoading])
 
+  // 선택 모드 진입 (long press)
+  const handleLongPress = useCallback(
+    (filename: string) => {
+      if (!selectionMode) {
+        setSelectionMode(true)
+        setSelectedFilenames(new Set([filename]))
+      }
+    },
+    [selectionMode]
+  )
+
+  // 선택 토글
+  const handleToggleSelect = useCallback((filename: string) => {
+    setSelectedFilenames((prev) => {
+      const next = new Set(prev)
+      if (next.has(filename)) {
+        next.delete(filename)
+        // 마지막 선택 해제 시 선택 모드 종료
+        if (next.size === 0) {
+          setSelectionMode(false)
+        }
+      } else {
+        next.add(filename)
+      }
+      return next
+    })
+  }, [])
+
+  // 선택 모드 종료
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedFilenames(new Set())
+  }, [])
+
+  // 선택된 항목들 일괄 재생성
+  const handleBulkRegenerate = useCallback(async () => {
+    if (bulkRegenLoading || selectedFilenames.size === 0) return
+    setBulkRegenLoading(true)
+    setBulkRegenMessage(null)
+    try {
+      const filenames = Array.from(selectedFilenames)
+      let totalJobs = 0
+      // 순차적으로 각 filename에 대해 regenerate 호출
+      for (const filename of filenames) {
+        const jobIds = await curationApi.regenerate(backendUrl, filename, regenCount)
+        totalJobs += jobIds.length
+      }
+      setBulkRegenMessage(`${filenames.length}개 항목, 총 ${totalJobs}개 작업 생성 완료`)
+      setTimeout(() => setBulkRegenMessage(null), 4000)
+      exitSelectionMode()
+    } catch {
+      setBulkRegenMessage("일괄 재생성 실패")
+      setTimeout(() => setBulkRegenMessage(null), 4000)
+    } finally {
+      setBulkRegenLoading(false)
+    }
+  }, [backendUrl, selectedFilenames, regenCount, bulkRegenLoading, exitSelectionMode])
+
   const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
     e.stopPropagation()
     setPinnedHashes((prev) => (prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]))
@@ -540,6 +740,13 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+
+      if (selectionMode) {
+        if (e.key === "Escape") {
+          exitSelectionMode()
+        }
+        return
+      }
 
       if (selectedFilename) {
         if (e.key === "ArrowDown" || e.key === "j") {
@@ -563,7 +770,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [selectedFilename, navigateTo, handleRegenerate, selectImage, selectedItem, visibleImages])
+  }, [selectedFilename, navigateTo, handleRegenerate, selectImage, selectedItem, visibleImages, selectionMode, exitSelectionMode])
 
   const colClass =
     visibleImages.length <= 2
@@ -577,6 +784,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     setViewMode(mode)
     if (mode === "gallery" || mode === "table") {
       setSelectedFilename(null)
+      exitSelectionMode()
     } else if (!selectedFilename && renderItems.length > 0) {
       setSelectedFilename(renderItems[0]!.filename)
     }
@@ -688,6 +896,53 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
         </div>
       </div>
 
+      {/* 선택 모드 액션 바 */}
+      {selectionMode && (
+        <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
+          <span className="text-sm font-bold text-blue-700">
+            {selectedFilenames.size}개 항목 선택됨
+          </span>
+          <div className="flex items-center gap-2 bg-background p-1 rounded border shadow-sm">
+            <div className="flex flex-col items-center px-2">
+              <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none mb-0.5">Regen Count</span>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={regenCount}
+                onChange={(e) => setRegenCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                className="h-6 w-10 text-center text-[11px] font-bold border-none focus-visible:ring-0 p-0"
+              />
+            </div>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-[10px] font-bold"
+              onClick={handleBulkRegenerate}
+              disabled={bulkRegenLoading || selectedFilenames.size === 0}
+            >
+              {bulkRegenLoading ? (
+                <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCwIcon className="h-3.5 w-3.5" />
+              )}
+              선택 항목 재생성
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
+            onClick={exitSelectionMode}
+          >
+            <XIcon className="h-3.5 w-3.5" />
+            선택 모드 종료
+          </Button>
+          {bulkRegenMessage && (
+            <span className="text-xs font-bold text-blue-600">{bulkRegenMessage}</span>
+          )}
+        </div>
+      )}
+
       {/* 메인 레이아웃 */}
       <div className="flex gap-4" style={{ height: "calc(100vh - 250px)", minHeight: 500 }}>
         {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
@@ -734,16 +989,25 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                 <h3 className="text-sm font-bold flex items-center gap-2">
                   <FolderIcon className="h-4 w-4" /> 모든 조합 탐색
                 </h3>
+                {!selectionMode && (
+                  <span className="text-[10px] text-muted-foreground font-medium">길게 누르면 선택 모드 진입</span>
+                )}
               </div>
               {viewMode === "gallery" ? (
                 <GalleryView 
                   items={renderItems} 
                   imagesByFilename={imagesByFilename} 
-                  backendUrl={backendUrl} 
+                  backendUrl={backendUrl}
                   onSelect={(filename) => {
-                    setSelectedFilename(filename)
-                    setViewMode("grid")
-                  }} 
+                    if (!selectionMode) {
+                      setSelectedFilename(filename)
+                      setViewMode("grid")
+                    }
+                  }}
+                  selectionMode={selectionMode}
+                  selectedFilenames={selectedFilenames}
+                  onToggleSelect={handleToggleSelect}
+                  onLongPress={handleLongPress}
                 />
               ) : (
                 <TableView 
@@ -751,9 +1015,15 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                   imagesByFilename={imagesByFilename} 
                   backendUrl={backendUrl}
                   onSelect={(filename) => {
-                    setSelectedFilename(filename)
-                    setViewMode("grid")
-                  }} 
+                    if (!selectionMode) {
+                      setSelectedFilename(filename)
+                      setViewMode("grid")
+                    }
+                  }}
+                  selectionMode={selectionMode}
+                  selectedFilenames={selectedFilenames}
+                  onToggleSelect={handleToggleSelect}
+                  onLongPress={handleLongPress}
                 />
               )}
             </div>
