@@ -12,6 +12,9 @@ import {
   LayoutGridIcon,
   SwordsIcon,
   ColumnsIcon,
+  FolderIcon,
+  LayoutListIcon,
+  ArrowLeftIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +25,7 @@ import { curationApi } from "./useSavedImages"
 import type { SavedImage } from "./Message"
 import type { SavedTemplate } from "./useSavedTemplates"
 
-type ViewMode = "grid" | "compare" | "tournament"
+type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
 interface RenderItem {
   filename: string
@@ -77,17 +80,17 @@ function TournamentView({
   const [nextRound, setNextRound] = useState<SavedImage[]>([])
 
   if (matches.length === 0 && nextRound.length === 0) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">이미지 없음</div>
+    return <div className="flex h-full items-center justify-center text-muted-foreground font-bold">이미지 없음</div>
   }
 
   if (matches.length === 1 && nextRound.length === 0) {
     const winner = matches[0]!
     return (
-      <div className="flex h-full flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+      <div className="flex h-full flex-col items-center justify-center">
         <h2 className="text-2xl font-bold mb-6 text-green-500">🏆 최종 우승 🏆</h2>
-        <img src={`${backendUrl}/saved-images/${winner.hash}`} className="max-h-[60%] max-w-full rounded-lg shadow-2xl" alt="Winner" />
-        <Button className="mt-8 px-8 py-6 text-lg" onClick={() => onComplete(winner.hash)}>
-          선택 완료 및 다음 조합으로
+        <img src={`${backendUrl}/saved-images/${winner.hash}`} className="max-h-[60%] max-w-full rounded-lg shadow-lg border" alt="Winner" />
+        <Button className="mt-8 px-8 py-6 text-lg font-bold" onClick={() => onComplete(winner.hash)}>
+          이 이미지 선택 완료
         </Button>
       </div>
     )
@@ -128,15 +131,143 @@ function TournamentView({
           <button
             key={img.hash}
             onClick={() => handlePick(img)}
-            className="group relative flex-1 overflow-hidden rounded-2xl border-4 border-transparent bg-black/5 transition-all hover:scale-[1.02] hover:border-primary hover:shadow-xl focus:outline-none"
+            className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 focus:outline-none"
           >
-            <img src={`${backendUrl}/saved-images/${img.hash}`} className="h-full w-full object-contain transition-transform group-hover:scale-[1.01]" alt="" />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 text-center opacity-0 transition-opacity group-hover:opacity-100">
-              <span className="font-bold text-white">이 이미지 선택</span>
+            <img src={`${backendUrl}/saved-images/${img.hash}`} className="h-full w-full object-contain" alt="" />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 text-center opacity-0 group-hover:opacity-100 font-bold text-white">
+              이 이미지 선택
             </div>
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+function GalleryView({
+  items,
+  imagesByFilename,
+  backendUrl,
+  onSelect,
+}: {
+  items: RenderItem[]
+  imagesByFilename: Map<string, SavedImage[]>
+  backendUrl: string
+  onSelect: (filename: string) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      {items.map((item) => {
+        const imgs = imagesByFilename.get(item.filename) ?? []
+        const approved = imgs.find((img) => img.status === "approved")
+        const preview = approved || imgs[0]
+        const isDone = !!approved
+
+        return (
+          <button
+            key={item.filename}
+            onClick={() => onSelect(item.filename)}
+            className="group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md"
+          >
+            <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+              {preview ? (
+                <img
+                  src={`${backendUrl}/saved-images/${preview.hash}`}
+                  className="h-full w-full object-cover"
+                  alt=""
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <FolderIcon className="h-10 w-10 text-muted-foreground/20" />
+                </div>
+              )}
+
+              <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
+                <FolderIcon className="h-3.5 w-3.5" />
+              </div>
+
+              {isDone && (
+                <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-green-500 text-white shadow-sm">
+                  <CheckIcon className="h-4 w-4" strokeWidth={3} />
+                </div>
+              )}
+
+              <div className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {imgs.length}장
+              </div>
+            </div>
+
+            <div className="px-1 text-left">
+              <div className="truncate font-mono text-[11px] font-bold">{item.filename}</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {Object.values(item.meta).slice(0, 2).map((v, i) => (
+                  <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground font-medium">
+                    {v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function TableView({
+  items,
+  imagesByFilename,
+  onSelect,
+}: {
+  items: RenderItem[]
+  imagesByFilename: Map<string, SavedImage[]>
+  onSelect: (filename: string) => void
+}) {
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-muted/50 border-b">
+          <tr>
+            <th className="px-4 py-2 font-bold text-muted-foreground w-12">상태</th>
+            <th className="px-4 py-2 font-bold text-muted-foreground">파일명</th>
+            <th className="px-4 py-2 font-bold text-muted-foreground">메타데이터</th>
+            <th className="px-4 py-2 font-bold text-muted-foreground text-right w-20">수</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {items.map((item) => {
+            const imgs = imagesByFilename.get(item.filename) ?? []
+            const isDone = imgs.some((img) => img.status === "approved")
+
+            return (
+              <tr 
+                key={item.filename}
+                onClick={() => onSelect(item.filename)}
+                className="group cursor-pointer hover:bg-accent/50"
+              >
+                <td className="px-4 py-2">
+                  {isDone ? <CheckCircle2Icon className="h-4 w-4 text-green-500" /> : <CircleIcon className="h-4 w-4 text-muted-foreground/30" />}
+                </td>
+                <td className="px-4 py-2">
+                  <span className="font-mono text-xs font-bold">{item.filename}</span>
+                </td>
+                <td className="px-4 py-2">
+                  <div className="flex flex-wrap gap-1">
+                    {Object.values(item.meta).map((v, i) => (
+                      <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <span className="font-mono text-xs text-muted-foreground">{imgs.length}</span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -161,21 +292,18 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
   const [exportMessage, setExportMessage] = useState<string | null>(null)
   const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
 
-  // Phase 1: 빠른 큐레이션 상태
   const [hideRejected, setHideRejected] = useState(false)
   const [autoAdvance, setAutoAdvance] = useState(true)
 
-  // Phase 2: 뷰 모드 및 핀 고정 상태
-  const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const [viewMode, setViewMode] = useState<ViewMode>("gallery")
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
 
-  // 실제로 렌더링에 사용할 템플릿 — 저장된 것 선택 시 그것, 아니면 현재 편집 중인 것
   const activeTemplate =
     savedTemplates.find((t) => t.id === selectedTemplateId)?.template ?? cegTemplate
 
   const fetchData = useCallback(async () => {
     if (!activeTemplate.trim()) {
-      setError("잡 탭에서 CEG 템플릿을 먼저 작성해주세요.")
+      setError("CEG 템플릿을 먼저 작성해주세요.")
       setRenderItems([])
       return
     }
@@ -196,19 +324,6 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
       const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
       setRenderItems(renderData.items)
       setAllImages(imagesData.items)
-
-      if (renderData.items.length > 0) {
-        const imageMap = new Map<string, SavedImage[]>()
-        for (const img of imagesData.items) {
-          if (img.status === "trashed") continue
-          if (!imageMap.has(img.originalFilename)) imageMap.set(img.originalFilename, [])
-          imageMap.get(img.originalFilename)!.push(img)
-        }
-        const firstIncomplete = renderData.items.find(
-          (ri) => !(imageMap.get(ri.filename) ?? []).some((img) => img.status === "approved")
-        )
-        setSelectedFilename(firstIncomplete?.filename ?? renderData.items[0]!.filename)
-      }
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -340,30 +455,34 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
     setPinnedHashes((prev) => (prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]))
   }, [])
 
-  // 키보드 단축키
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
 
-      if (e.key === "ArrowDown" || e.key === "j") {
-        e.preventDefault()
-        navigateTo("next")
-      } else if (e.key === "ArrowUp" || e.key === "k") {
-        e.preventDefault()
-        navigateTo("prev")
-      } else if (e.key === "r" || e.key === "R") {
-        handleRegenerate()
-      } else if (e.key >= "1" && e.key <= "9") {
-        const idx = parseInt(e.key) - 1
-        if (selectedItem && idx < visibleImages.length) {
-          selectImage(selectedItem.filename, visibleImages[idx]!.hash)
+      if (selectedFilename) {
+        if (e.key === "ArrowDown" || e.key === "j") {
+          e.preventDefault()
+          navigateTo("next")
+        } else if (e.key === "ArrowUp" || e.key === "k") {
+          e.preventDefault()
+          navigateTo("prev")
+        } else if (e.key === "r" || e.key === "R") {
+          handleRegenerate()
+        } else if (e.key === "Escape") {
+          setSelectedFilename(null)
+          setViewMode("gallery")
+        } else if (e.key >= "1" && e.key <= "9") {
+          const idx = parseInt(e.key) - 1
+          if (selectedItem && idx < visibleImages.length) {
+            selectImage(selectedItem.filename, visibleImages[idx]!.hash)
+          }
         }
       }
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [navigateTo, handleRegenerate, selectImage, selectedItem, visibleImages])
+  }, [selectedFilename, navigateTo, handleRegenerate, selectImage, selectedItem, visibleImages])
 
   const colClass =
     visibleImages.length <= 2
@@ -372,224 +491,244 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
         ? "grid-cols-3"
         : "grid-cols-4"
 
+  const handleTabChange = (v: string) => {
+    const mode = v as ViewMode
+    setViewMode(mode)
+    if (mode === "gallery" || mode === "table") {
+      setSelectedFilename(null)
+    } else if (!selectedFilename && renderItems.length > 0) {
+      setSelectedFilename(renderItems[0]!.filename)
+    }
+  }
+
+  const isBrowsing = !selectedFilename
+
   if (loading)
-    return <div className="py-20 text-center text-muted-foreground">로드 중...</div>
+    return <div className="py-20 text-center text-muted-foreground font-bold italic">데이터를 불러오는 중...</div>
 
   if (error)
     return (
       <div className="py-20 text-center">
-        <p className="mb-4 text-destructive">{error}</p>
-        <Button onClick={fetchData}>다시 시도</Button>
+        <p className="mb-4 text-destructive font-bold">{error}</p>
+        <Button onClick={fetchData} className="font-bold">다시 시도</Button>
       </div>
     )
 
   if (renderItems.length === 0)
     return (
-      <div className="py-20 text-center text-muted-foreground">
+      <div className="py-20 text-center text-muted-foreground font-bold">
         렌더링된 조합이 없습니다.
       </div>
     )
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* 템플릿 선택 */}
-      <select
-        value={selectedTemplateId}
-        onChange={(e) => setSelectedTemplateId(e.target.value)}
-        className="h-9 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        <option value="">현재 편집 중인 탬플릿</option>
-        {savedTemplates.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
-
-      {/* 진행률 */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">조합 선택 완료</span>
-            <span className="font-medium">
-              {doneCount} / {renderItems.length}
-            </span>
+    <div className="flex flex-col gap-4">
+      {/* 글로벌 툴바 */}
+      <div className="flex flex-col gap-3 border-b pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold">템플릿:</span>
+            <select
+              value={selectedTemplateId}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              className="h-9 w-64 rounded-md border bg-background px-3 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">현재 편집 중인 탬플릿</option>
+              {savedTemplates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
           </div>
-          <Progress
-            value={renderItems.length > 0 ? (doneCount / renderItems.length) * 100 : 0}
-          />
+          <div className="flex items-center gap-3">
+            <Tabs value={viewMode} onValueChange={handleTabChange}>
+              <TabsList className="h-9">
+                <TabsTrigger value="gallery" className="text-xs px-3 gap-1.5 font-bold">
+                  <FolderIcon className="h-3.5 w-3.5" />갤러리
+                </TabsTrigger>
+                <TabsTrigger value="table" className="text-xs px-3 gap-1.5 font-bold">
+                  <LayoutListIcon className="h-3.5 w-3.5" />리스트
+                </TabsTrigger>
+                <div className="mx-1 h-4 w-px bg-muted-foreground/30" />
+                <TabsTrigger value="grid" className="text-xs px-3 gap-1.5 font-bold" disabled={isBrowsing}>
+                  <Maximize2Icon className="h-3.5 w-3.5" />그리드
+                </TabsTrigger>
+                <TabsTrigger value="compare" className="text-xs px-3 gap-1.5 font-bold" disabled={isBrowsing || pinnedHashes.length === 0}>
+                  <ColumnsIcon className="h-3.5 w-3.5" />비교
+                </TabsTrigger>
+                <TabsTrigger value="tournament" className="text-xs px-3 gap-1.5 font-bold" disabled={isBrowsing || visibleImages.length < 2}>
+                  <SwordsIcon className="h-3.5 w-3.5" />월드컵
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData}>
-          <RefreshCwIcon className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExport}
-          disabled={exportLoading || doneCount === 0}
-        >
-          {exportLoading ? (
-            <Loader2Icon className="h-4 w-4 animate-spin" />
-          ) : (
-            <DownloadIcon className="h-4 w-4" />
-          )}
-          내보내기
-        </Button>
-        <select
-          value={duplicateStrategy}
-          onChange={(e) => setDuplicateStrategy(e.target.value as "hash" | "number")}
-          className="h-9 rounded-md border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="hash">중복 시 해시</option>
-          <option value="number">중복 시 번호</option>
-        </select>
-        
-        {/* 빠른 큐레이션 토글 */}
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
-          <input 
-            type="checkbox" 
-            checked={hideRejected} 
-            onChange={(e) => setHideRejected(e.target.checked)} 
-            className="rounded border-gray-300"
-          />
-          리젝 숨기기
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <input 
-            type="checkbox" 
-            checked={autoAdvance} 
-            onChange={(e) => setAutoAdvance(e.target.checked)} 
-            className="rounded border-gray-300"
-          />
-          자동 다음 이동
-        </label>
 
-        {exportMessage && (
-          <span className="text-xs text-muted-foreground">{exportMessage}</span>
-        )}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
+              <span>진행률</span>
+              <span>{doneCount} / {renderItems.length}</span>
+            </div>
+            <Progress value={(doneCount / renderItems.length) * 100} className="h-1.5" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={fetchData} title="새로고침"><RefreshCwIcon className="h-4 w-4" /></Button>
+            <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+              <select
+                value={duplicateStrategy}
+                onChange={(e) => setDuplicateStrategy(e.target.value as "hash" | "number")}
+                className="h-7 bg-transparent px-2 text-[10px] font-bold focus:outline-none"
+              >
+                <option value="hash">HASH</option>
+                <option value="number">NUM</option>
+              </select>
+              <Button
+                size="sm"
+                className="h-7 text-[10px] font-black px-3"
+                onClick={handleExport}
+                disabled={exportLoading || doneCount === 0}
+              >
+                {exportLoading ? <Loader2Icon className="h-3 w-3 animate-spin mr-1" /> : <DownloadIcon className="h-3 w-3 mr-1" />}
+                DATASET EXPORT
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 border-l pl-4">
+            <label className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)} className="rounded" />
+              리젝 숨기기
+            </label>
+            <label className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} className="rounded" />
+              자동 다음 이동
+            </label>
+          </div>
+          {exportMessage && <span className="text-xs font-bold text-green-600">{exportMessage}</span>}
+        </div>
       </div>
 
-      {/* 마스터-디테일 */}
-      <div className="flex gap-3" style={{ height: "calc(100vh - 220px)", minHeight: 500 }}>
-        {/* 왼쪽: 조합 목록 */}
-        <div className="w-64 flex-none overflow-y-auto rounded-lg border bg-card">
-          <div className="space-y-0.5 p-2">
-            {renderItems.map((item) => {
-              const imgs = imagesByFilename.get(item.filename) ?? []
-              const isDone = imgs.some((img) => img.status === "approved")
-              const isActive = item.filename === selectedFilename
-              return (
-                <button
-                  key={item.filename}
-                  onClick={() => setSelectedFilename(item.filename)}
-                  className={`flex w-full items-start gap-2 rounded px-2 py-2 text-left transition-colors ${
-                    isActive ? "bg-accent" : "hover:bg-accent/50"
-                  }`}
-                >
-                  <span
-                    className={`mt-0.5 flex-none ${isDone ? "text-green-500" : "text-muted-foreground/30"}`}
+      {/* 메인 레이아웃 */}
+      <div className="flex gap-4" style={{ height: "calc(100vh - 250px)", minHeight: 500 }}>
+        {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
+        {!isBrowsing && (
+          <div className="w-64 flex-none flex flex-col overflow-hidden rounded-lg border bg-card">
+            <div className="p-2 border-b bg-muted/30 font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Combinations</div>
+            <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
+              {renderItems.map((item) => {
+                const imgs = imagesByFilename.get(item.filename) ?? []
+                const isDone = imgs.some((img) => img.status === "approved")
+                const isActive = item.filename === selectedFilename
+                return (
+                  <button
+                    key={item.filename}
+                    onClick={() => setSelectedFilename(item.filename)}
+                    className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors ${
+                      isActive ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-accent/50 text-foreground"
+                    }`}
                   >
-                    {isDone ? (
-                      <CheckCircle2Icon className="h-4 w-4" />
-                    ) : (
-                      <CircleIcon className="h-4 w-4" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono text-xs">{item.filename}</div>
-                    <div className="mt-0.5 flex flex-wrap gap-x-1.5">
-                      {Object.values(item.meta).map((v, i) => (
-                        <span key={i} className="text-[10px] text-muted-foreground">
-                          {v}
-                        </span>
+                    <span className={`mt-0.5 flex-none ${isActive ? "" : isDone ? "text-green-500" : "text-muted-foreground/30"}`}>
+                      {isDone ? <CheckCircle2Icon className="h-4 w-4" /> : <CircleIcon className="h-4 w-4" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-mono text-[10px] font-bold leading-tight">{item.filename}</div>
+                      <div className="mt-0.5 flex flex-wrap gap-x-1">
+                        {Object.values(item.meta).map((v, i) => (
+                          <span key={i} className={`text-[9px] uppercase font-medium ${isActive ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{v}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-bold opacity-50">{imgs.length}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 오른쪽: 콘텐츠 영역 */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden rounded-lg border bg-card">
+          {isBrowsing ? (
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  <FolderIcon className="h-4 w-4" /> 모든 조합 탐색
+                </h3>
+              </div>
+              {viewMode === "gallery" ? (
+                <GalleryView 
+                  items={renderItems} 
+                  imagesByFilename={imagesByFilename} 
+                  backendUrl={backendUrl} 
+                  onSelect={(filename) => {
+                    setSelectedFilename(filename)
+                    setViewMode("grid")
+                  }} 
+                />
+              ) : (
+                <TableView 
+                  items={renderItems} 
+                  imagesByFilename={imagesByFilename} 
+                  onSelect={(filename) => {
+                    setSelectedFilename(filename)
+                    setViewMode("grid")
+                  }} 
+                />
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* 상세 헤더 */}
+              <div className="flex-none border-b px-4 py-3 bg-muted/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setSelectedFilename(null)
+                        setViewMode("gallery")
+                      }} 
+                      className="h-8 gap-1.5 font-bold"
+                    >
+                      <ArrowLeftIcon className="h-3.5 w-3.5" />목록
+                    </Button>
+                    <span className="font-mono text-sm font-bold truncate">{selectedFilename}</span>
+                    <div className="flex gap-1 overflow-hidden">
+                      {Object.values(selectedItem?.meta || {}).map((v, i) => (
+                        <span key={i} className="rounded bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary whitespace-nowrap border border-primary/10">{v}</span>
                       ))}
                     </div>
                   </div>
-                  <span className="mt-0.5 flex-none text-[10px] text-muted-foreground">
-                    {imgs.length}장
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* 오른쪽: 이미지 그리드 */}
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden rounded-lg border bg-card">
-          {!selectedItem ? (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              왼쪽에서 조합을 선택하세요
-            </div>
-          ) : (
-            <>
-              {/* 헤더 */}
-              <div className="flex-none border-b px-4 py-3 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-medium">
-                    {selectedItem.filename}
-                  </span>
-                  {Object.values(selectedItem.meta).map((v, i) => (
-                    <span key={i} className="rounded bg-muted px-2 py-0.5 text-xs">
-                      {v}
-                    </span>
-                  ))}
-                  <div className="ml-4">
-                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-                      <TabsList className="h-8">
-                        <TabsTrigger value="grid" className="text-xs px-2"><LayoutGridIcon className="mr-1 h-3 w-3" />그리드</TabsTrigger>
-                        <TabsTrigger value="compare" className="text-xs px-2" disabled={pinnedHashes.length === 0}><ColumnsIcon className="mr-1 h-3 w-3" />비교 ({pinnedHashes.length})</TabsTrigger>
-                        <TabsTrigger value="tournament" className="text-xs px-2" disabled={visibleImages.length < 2}><SwordsIcon className="mr-1 h-3 w-3" />토너먼트</TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </div>
-                  {/* 재생성 컨트롤 */}
-                  <div className="ml-auto flex items-center gap-2">
-                    {regenMessage && (
-                      <span className="text-xs text-muted-foreground">{regenMessage}</span>
-                    )}
-                    <Input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={regenCount}
-                      onChange={(e) =>
-                        setRegenCount(
-                          Math.max(1, Math.min(20, parseInt(e.target.value) || 1))
-                        )
-                      }
-                      className="h-8 w-16 text-center text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRegenerate}
-                      disabled={regenLoading}
-                    >
-                      {regenLoading ? (
-                        <Loader2Icon className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCwIcon className="h-4 w-4" />
-                      )}
+                  <div className="flex items-center gap-2 bg-background p-1 rounded border shadow-sm">
+                    <div className="flex flex-col items-center px-2">
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none mb-0.5">Regen Count</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={regenCount}
+                        onChange={(e) => setRegenCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                        className="h-6 w-10 text-center text-[11px] font-bold border-none focus-visible:ring-0 p-0"
+                      />
+                    </div>
+                    <Button size="sm" className="h-8 gap-1.5 text-[10px] font-bold" onClick={handleRegenerate} disabled={regenLoading}>
+                      {regenLoading ? <Loader2Icon className="h-3.5 w-3.5 animate-spin" /> : <RefreshCwIcon className="h-3.5 w-3.5" />}
                       재생성
                     </Button>
                   </div>
                 </div>
-                {/* 단축키 힌트 */}
-                <div className="flex gap-3 text-[10px] text-muted-foreground/60">
-                  <span><kbd className="font-sans">↑↓</kbd> / <kbd className="font-sans">J K</kbd> 조합 이동</span>
-                  <span><kbd className="font-sans">1–9</kbd> 이미지 선택</span>
-                  <span><kbd className="font-sans">R</kbd> 재생성</span>
-                </div>
               </div>
 
-              {/* 이미지 영역 */}
+              {/* 이미지 뷰어 */}
               <div className="flex-1 overflow-y-auto p-4 relative">
                 {visibleImages.length === 0 ? (
-                  <div className="flex h-48 items-center justify-center rounded border border-dashed text-sm text-muted-foreground">
-                    이미지 없음
+                  <div className="flex h-full flex-col items-center justify-center text-muted-foreground space-y-4">
+                    <Maximize2Icon className="h-10 w-10 opacity-20" />
+                    <p className="text-sm font-bold">생성된 이미지가 없습니다</p>
+                    <Button variant="outline" size="sm" onClick={handleRegenerate} className="font-bold">이미지 생성 시작</Button>
                   </div>
                 ) : viewMode === "grid" ? (
-                  <div className={`grid gap-3 ${colClass}`}>
+                  <div className={`grid gap-4 ${colClass}`}>
                     {visibleImages.map((img, idx) => {
                       const isSelected = img.hash === selectedApprovedHash
                       const isRejected = img.status === "rejected"
@@ -598,87 +737,45 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                         <HoverCard key={img.hash} openDelay={400} closeDelay={100}>
                           <HoverCardTrigger asChild>
                             <button
-                              onClick={() => selectImage(selectedItem.filename, img.hash)}
-                              title={isSelected ? "선택됨" : `이미지 선택 [${idx + 1}]`}
-                              className={`group relative overflow-hidden rounded-lg transition-all focus:outline-none ${
-                                isSelected
-                                  ? "ring-4 ring-green-500"
-                                  : isRejected
-                                    ? "opacity-40 hover:opacity-80 hover:ring-2 hover:ring-primary/40"
-                                    : "opacity-85 hover:opacity-100 hover:ring-2 hover:ring-primary/40"
+                              onClick={() => selectImage(selectedItem!.filename, img.hash)}
+                              className={`group relative overflow-hidden rounded-lg transition-colors ${
+                                isSelected ? "ring-4 ring-green-500 scale-[0.98] shadow-lg" : isRejected ? "opacity-30 hover:opacity-100" : "hover:ring-2 hover:ring-primary/40 hover:-translate-y-1 shadow-sm"
                               }`}
                             >
-                              <img
-                                src={`${backendUrl}/saved-images/${img.hash}`}
-                                alt={img.originalFilename}
-                                className="w-full object-cover"
-                              />
-                              {/* 핀 고정 버튼 */}
+                              <img src={`${backendUrl}/saved-images/${img.hash}`} alt="" className="w-full object-cover" />
                               <button
                                 type="button"
                                 onClick={(e) => togglePin(img.hash, e)}
-                                className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow-lg transition-all z-10 ${
-                                  isPinned ? "bg-blue-500 text-white" : "bg-black/50 text-white/50 opacity-0 group-hover:opacity-100 hover:text-white"
-                                }`}
+                                className={`absolute right-2 top-2 h-7 w-7 flex items-center justify-center rounded-full transition-colors backdrop-blur-sm ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
                               >
                                 {isPinned ? <PinIcon className="h-4 w-4" /> : <PinOffIcon className="h-4 w-4" />}
                               </button>
-                              {/* 번호 배지 */}
-                              {idx < 9 && (
-                                <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none z-10">
-                                  {idx + 1}
-                                </span>
-                              )}
-                              {isSelected && (
-                                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-white shadow-lg pointer-events-none z-10">
-                                  <CheckIcon className="h-6 w-6" />
-                                </span>
-                              )}
+                              {idx < 9 && <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 backdrop-blur-sm">{idx + 1}</span>}
+                              {isSelected && <div className="absolute inset-0 flex items-center justify-center bg-green-500/10"><div className="bg-green-500 rounded-full p-2 text-white shadow-2xl"><CheckIcon className="h-8 w-8" strokeWidth={4} /></div></div>}
                             </button>
                           </HoverCardTrigger>
-                          <HoverCardContent className="w-80 whitespace-pre-wrap font-mono text-xs overflow-hidden text-ellipsis break-all bg-card/95 backdrop-blur-md" side="right" align="start">
-                            <div className="space-y-2">
-                              <div className="flex justify-between border-b pb-1">
-                                <span className="font-bold">Prompt Data</span>
-                                <span>{(img.sizeBytes / 1024).toFixed(1)} KB</span>
-                              </div>
-                              <div className="max-h-48 overflow-y-auto scrollbar-thin">
-                                <p className="text-muted-foreground">{img.prompt}</p>
-                              </div>
-                            </div>
+                          <HoverCardContent className="w-80 p-4 text-[10px] font-mono whitespace-pre-wrap break-all bg-card/95 backdrop-blur-md" side="right">
+                            <div className="border-b pb-2 mb-2 font-black text-primary uppercase tracking-widest">Metadata</div>
+                            {img.prompt}
                           </HoverCardContent>
                         </HoverCard>
                       )
                     })}
                   </div>
                 ) : viewMode === "compare" ? (
-                  <div className={`grid gap-2 h-full ${pinnedHashes.length === 1 ? 'grid-cols-1' : pinnedHashes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  <div className={`grid gap-3 h-full ${pinnedHashes.length === 1 ? 'grid-cols-1' : pinnedHashes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                     {pinnedHashes.map(hash => (
-                      <div key={hash} className="relative rounded-lg border overflow-hidden bg-black/5">
-                        <button
-                          type="button"
-                          onClick={(e) => togglePin(hash, e)}
-                          className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white shadow-lg transition-transform hover:scale-110"
-                        >
-                          <PinIcon className="h-4 w-4" />
-                        </button>
+                      <div key={hash} className="relative rounded-lg border overflow-hidden bg-black/5 shadow-inner">
+                        <button type="button" onClick={(e) => togglePin(hash, e)} className="absolute right-4 top-4 z-20 h-9 w-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"><PinIcon className="h-5 w-5" /></button>
                         <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <TournamentView
-                    key={selectedItem.filename}
-                    images={visibleImages}
-                    backendUrl={backendUrl}
-                    onComplete={(winnerHash) => {
-                      selectImage(selectedItem.filename, winnerHash)
-                      setViewMode("grid")
-                    }}
-                  />
+                  <TournamentView images={visibleImages} backendUrl={backendUrl} onComplete={(hash) => selectImage(selectedItem!.filename, hash)} />
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
