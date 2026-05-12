@@ -159,6 +159,7 @@ function GalleryView({
   selectedFilenames,
   onToggleSelect,
   onLongPress,
+  enableHover,
 }: {
   items: RenderItem[]
   imagesByFilename: Map<string, SavedImage[]>
@@ -168,6 +169,7 @@ function GalleryView({
   selectedFilenames: Set<string>
   onToggleSelect: (filename: string) => void
   onLongPress: (filename: string) => void
+  enableHover?: boolean
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -179,7 +181,7 @@ function GalleryView({
         const isSelected = selectedFilenames.has(item.filename)
 
         return (
-          <HoverCard key={item.filename} openDelay={500} closeDelay={100}>
+          <HoverCard key={item.filename} openDelay={enableHover ? 500 : 99999} closeDelay={100}>
             <HoverCardTrigger asChild>
               <LongPressWrapper
                 onLongPress={() => onLongPress(item.filename)}
@@ -245,42 +247,44 @@ function GalleryView({
                 </div>
               </LongPressWrapper>
             </HoverCardTrigger>
-            <HoverCardContent className="w-72 p-3" side="right" align="start">
-              <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
-                {item.filename} ({imgs.length}장)
-              </div>
-              {imgs.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
-              ) : (
-                <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
-                  {imgs.slice(0, 12).map((img) => (
-                    <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                      <img
-                        src={`${backendUrl}/saved-images/${img.hash}`}
-                        className="h-full w-full object-cover"
-                        alt=""
-                        loading="lazy"
-                      />
-                      {img.status === "approved" && (
-                        <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
-                          <CheckIcon className="h-3 w-3" strokeWidth={3} />
-                        </div>
-                      )}
-                      {img.status === "rejected" && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-white/80">REJ</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {imgs.length > 12 && (
-                    <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
-                      +{imgs.length - 12}
-                    </div>
-                  )}
+            {enableHover && (
+              <HoverCardContent className="w-72 p-3" side="right" align="start">
+                <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
+                  {item.filename} ({imgs.length}장)
                 </div>
-              )}
-            </HoverCardContent>
+                {imgs.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
+                    {imgs.slice(0, 12).map((img) => (
+                      <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                        <img
+                          src={`${backendUrl}/saved-images/${img.hash}`}
+                          className="h-full w-full object-cover"
+                          alt=""
+                          loading="lazy"
+                        />
+                        {img.status === "approved" && (
+                          <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
+                            <CheckIcon className="h-3 w-3" strokeWidth={3} />
+                          </div>
+                        )}
+                        {img.status === "rejected" && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <span className="text-[8px] font-bold text-white/80">REJ</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {imgs.length > 12 && (
+                      <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                        +{imgs.length - 12}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </HoverCardContent>
+            )}
           </HoverCard>
         )
       })}
@@ -297,6 +301,7 @@ function TableView({
   selectedFilenames,
   onToggleSelect,
   onLongPress,
+  enableHover,
 }: {
   items: RenderItem[]
   imagesByFilename: Map<string, SavedImage[]>
@@ -306,6 +311,7 @@ function TableView({
   selectedFilenames: Set<string>
   onToggleSelect: (filename: string) => void
   onLongPress: (filename: string) => void
+  enableHover?: boolean
 }) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -351,48 +357,50 @@ function TableView({
                 <td className="px-4 py-2">
                   {isDone ? <CheckCircle2Icon className="h-4 w-4 text-green-500" /> : <CircleIcon className="h-4 w-4 text-muted-foreground/30" />}
                 </td>
-                <HoverCard openDelay={500} closeDelay={100}>
+                <HoverCard openDelay={enableHover ? 500 : 99999} closeDelay={100}>
                   <HoverCardTrigger asChild>
                     <td className="px-4 py-2 cursor-default">
                       <span className="font-mono text-xs font-bold">{item.filename}</span>
                     </td>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-72 p-3" side="right" align="start">
-                    <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
-                      {item.filename} ({imgs.length}장)
-                    </div>
-                    {imgs.length === 0 ? (
-                      <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
-                    ) : (
-                      <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
-                        {imgs.slice(0, 12).map((img) => (
-                          <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                            <img
-                              src={`${backendUrl}/saved-images/${img.hash}`}
-                              className="h-full w-full object-cover"
-                              alt=""
-                              loading="lazy"
-                            />
-                            {img.status === "approved" && (
-                              <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
-                                <CheckIcon className="h-3 w-3" strokeWidth={3} />
-                              </div>
-                            )}
-                            {img.status === "rejected" && (
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                <span className="text-[8px] font-bold text-white/80">REJ</span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                        {imgs.length > 12 && (
-                          <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
-                            +{imgs.length - 12}
-                          </div>
-                        )}
+                  {enableHover && (
+                    <HoverCardContent className="w-72 p-3" side="right" align="start">
+                      <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
+                        {item.filename} ({imgs.length}장)
                       </div>
-                    )}
-                  </HoverCardContent>
+                      {imgs.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
+                          {imgs.slice(0, 12).map((img) => (
+                            <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                              <img
+                                src={`${backendUrl}/saved-images/${img.hash}`}
+                                className="h-full w-full object-cover"
+                                alt=""
+                                loading="lazy"
+                              />
+                              {img.status === "approved" && (
+                                <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
+                                  <CheckIcon className="h-3 w-3" strokeWidth={3} />
+                                </div>
+                              )}
+                              {img.status === "rejected" && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                  <span className="text-[8px] font-bold text-white/80">REJ</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {imgs.length > 12 && (
+                            <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                              +{imgs.length - 12}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </HoverCardContent>
+                  )}
                 </HoverCard>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1">
@@ -496,9 +504,11 @@ interface Props {
   backendUrl: string
   cegTemplate: string
   savedTemplates: SavedTemplate[]
+  enableHover?: boolean
+  autoApplyReject?: boolean
 }
 
-export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: Props) {
+export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, enableHover = true, autoApplyReject = true }: Props) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("")
   const [renderItems, setRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])
@@ -513,7 +523,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
   const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
 
   const [hideRejected, setHideRejected] = useState(false)
-  const [autoAdvance, setAutoAdvance] = useState(true)
+  const [autoAdvance, setAutoAdvance] = useState(autoApplyReject)
 
   const [viewMode, setViewMode] = useState<ViewMode>("gallery")
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
@@ -1426,9 +1436,9 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                   )}
                 </div>
                 {viewMode === "gallery" ? (
-                  <GalleryView 
-                    items={filteredRenderItems} 
-                    imagesByFilename={imagesByFilename} 
+                  <GalleryView
+                    items={filteredRenderItems}
+                    imagesByFilename={imagesByFilename}
                     backendUrl={backendUrl}
                     onSelect={(filename) => {
                       if (!selectionMode) {
@@ -1440,6 +1450,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                     selectedFilenames={selectedFilenames}
                     onToggleSelect={handleToggleSelect}
                     onLongPress={handleLongPress}
+                    enableHover={enableHover}
                   />
                 ) : (
                   <TableView 
@@ -1456,6 +1467,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                     selectedFilenames={selectedFilenames}
                     onToggleSelect={handleToggleSelect}
                     onLongPress={handleLongPress}
+                    enableHover={enableHover}
                   />
                 )}
               </div>
@@ -1519,7 +1531,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                       const isRejected = img.status === "rejected"
                       const isPinned = pinnedHashes.includes(img.hash)
                       return (
-                        <HoverCard key={img.hash} openDelay={400} closeDelay={100}>
+                        <HoverCard key={img.hash} openDelay={enableHover ? 400 : 99999} closeDelay={100}>
                           <HoverCardTrigger asChild>
                             <button
                               onClick={() => selectImage(selectedItem!.filename, img.hash)}
@@ -1539,10 +1551,12 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                               {isSelected && <div className="absolute inset-0 flex items-center justify-center bg-green-500/10"><div className="bg-green-500 rounded-full p-2 text-white shadow-2xl"><CheckIcon className="h-8 w-8" strokeWidth={4} /></div></div>}
                             </button>
                           </HoverCardTrigger>
-                          <HoverCardContent className="w-80 p-4 text-[10px] font-mono whitespace-pre-wrap break-all bg-card/95 backdrop-blur-md" side="right">
-                            <div className="border-b pb-2 mb-2 font-black text-primary uppercase tracking-widest">Metadata</div>
-                            {img.prompt}
-                          </HoverCardContent>
+                          {enableHover && (
+                            <HoverCardContent className="w-80 p-4 text-[10px] font-mono whitespace-pre-wrap break-all bg-card/95 backdrop-blur-md" side="right">
+                              <div className="border-b pb-2 mb-2 font-black text-primary uppercase tracking-widest">Metadata</div>
+                              {img.prompt}
+                            </HoverCardContent>
+                          )}
                         </HoverCard>
                       )
                     })}

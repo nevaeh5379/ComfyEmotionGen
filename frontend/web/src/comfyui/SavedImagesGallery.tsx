@@ -59,8 +59,6 @@ import type { CurationStatus, SavedImage } from "./Message"
 import { curationApi, useSavedImages } from "./useSavedImages"
 import { Magnifier } from "./CombinationPicker"
 
-const PAGE_SIZE = 48
-
 type GalleryViewMode = "grid" | "compare"
 
 /** 1..totalPages를 ellipsis와 함께 압축. 현재 페이지 ±1 표시. */
@@ -96,11 +94,20 @@ const STATUS_TINT: Record<CurationStatus, string> = {
 
 interface Props {
   backendUrl: string
+  enableHover?: boolean
+  imagePageSize?: 24 | 48 | 96
+  imageLazyLoad?: boolean
 }
 
+const DEFAULT_PAGE_SIZE = 48
 const GROUP_PAGE_SIZE = 20
 
-export function SavedImagesGallery({ backendUrl }: Props) {
+export function SavedImagesGallery({
+  backendUrl,
+  enableHover = true,
+  imagePageSize = DEFAULT_PAGE_SIZE,
+  imageLazyLoad = true,
+}: Props) {
   const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">("pending")
   const [filenameFilter, setFilenameFilter] = useState("")
   const [tagFilter, setTagFilter] = useState("")
@@ -138,13 +145,13 @@ export function SavedImagesGallery({ backendUrl }: Props) {
     filename: filenameFilter || undefined,
     tag: tagFilter || undefined,
     page: groupMode ? 1 : page,
-    pageSize: groupMode ? 500 : PAGE_SIZE,
+    pageSize: groupMode ? 500 : imagePageSize,
     groupMode,
     groupPage,
     groupPageSize: GROUP_PAGE_SIZE,
   })
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / imagePageSize))
   const pageList = useMemo(() => buildPageList(page, totalPages), [page, totalPages])
 
   const groupTotalPages = Math.max(1, Math.ceil(groupTotal / GROUP_PAGE_SIZE))
@@ -524,7 +531,9 @@ export function SavedImagesGallery({ backendUrl }: Props) {
                   <PinIcon className="h-5 w-5" />
                 </button>
                 {img && (
-                  <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                  enableHover
+                    ? <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                    : <img src={`${backendUrl}/saved-images/${hash}`} className="max-h-full max-w-full object-contain" alt="" />
                 )}
               </div>
             )
@@ -570,6 +579,7 @@ export function SavedImagesGallery({ backendUrl }: Props) {
                   onLongPress={handleLongPress}
                   togglePin={togglePin}
                   pinnedHashes={pinnedHashes}
+                  imageLazyLoad={imageLazyLoad}
                 />
               </div>
             )
@@ -636,10 +646,11 @@ export function SavedImagesGallery({ backendUrl }: Props) {
           onLongPress={handleLongPress}
           togglePin={togglePin}
           pinnedHashes={pinnedHashes}
+          imageLazyLoad={imageLazyLoad}
         />
       ) : null}
 
-      {!groupMode && galleryViewMode === "grid" && total > PAGE_SIZE && (
+      {!groupMode && galleryViewMode === "grid" && total > imagePageSize && (
         <div className="flex flex-col items-center gap-2">
           <Pagination>
             <PaginationContent>
@@ -725,6 +736,7 @@ interface GridProps {
   onLongPress?: (hash: string) => void
   togglePin?: (hash: string) => void
   pinnedHashes?: string[]
+  imageLazyLoad?: boolean
 }
 
 function ImageGrid({
@@ -738,6 +750,7 @@ function ImageGrid({
   // onLongPress,
   togglePin,
   pinnedHashes = [],
+  imageLazyLoad = true,
 }: GridProps) {
   if (items.length === 0) return null
   return (
@@ -769,7 +782,7 @@ function ImageGrid({
                     <img
                       src={`${backendUrl}/saved-images/${img.hash}`}
                       alt={img.originalFilename}
-                      loading="lazy"
+                      loading={imageLazyLoad ? "lazy" : "eager"}
                       className="w-full object-cover aspect-square"
                     />
                   </button>
