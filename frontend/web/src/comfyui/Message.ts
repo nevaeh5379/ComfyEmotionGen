@@ -75,6 +75,8 @@ export type BackendEvent =
   | { type: "job.created"; job: JobView }
   | { type: "job.updated"; job: JobView }
   | { type: "worker.updated"; worker: WorkerView }
+  | { type: "worker.added"; worker: WorkerView }
+  | { type: "worker.removed"; workerId: string }
   | { type: "control.updated"; paused: boolean }
   | {
       type: "image.saved"

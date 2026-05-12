@@ -51,6 +51,8 @@ class JobStore:
         self._conn: Optional[aiosqlite.Connection] = None
 
     async def open(self) -> None:
+        if self._conn is not None:
+            return
         self._conn = await aiosqlite.connect(str(self._db_path))
         self._conn.row_factory = aiosqlite.Row
         await self._conn.execute("PRAGMA journal_mode=WAL")
@@ -167,6 +169,15 @@ class JobStore:
         )
         await self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag)"
+        )
+
+        await self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS workers (
+                url TEXT PRIMARY KEY,
+                added_at REAL NOT NULL
+            )
+            """
         )
 
         await self._conn.commit()
@@ -345,6 +356,34 @@ class JobStore:
             }
             for row in rows
         ]
+
+    # ---------- workers (persistent ComfyUI URL list) ----------
+
+    async def list_worker_urls(self) -> list[str]:
+        assert self._conn is not None
+        cursor = await self._conn.execute(
+            "SELECT url FROM workers ORDER BY added_at ASC"
+        )
+        rows = await cursor.fetchall()
+        return [row["url"] for row in rows]
+
+    async def add_worker_url(self, url: str) -> bool:
+        """URL 추가. 이미 존재하면 False, 새로 추가했으면 True."""
+        assert self._conn is not None
+        cursor = await self._conn.execute(
+            "INSERT OR IGNORE INTO workers (url, added_at) VALUES (?, ?)",
+            (url, time.time()),
+        )
+        await self._conn.commit()
+        return cursor.rowcount > 0
+
+    async def remove_worker_url(self, url: str) -> bool:
+        assert self._conn is not None
+        cursor = await self._conn.execute(
+            "DELETE FROM workers WHERE url = ?", (url,)
+        )
+        await self._conn.commit()
+        return cursor.rowcount > 0
 
     # ---------- saved_images ----------
 

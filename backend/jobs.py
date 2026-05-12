@@ -26,9 +26,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Literal, Optional
 
-from comfy_client import ComfyWorker
+from comfy_client import ComfyWorker, WorkerInfo
 from job_store import JobStore
 from worker_pool import WorkerPool
+
+
+def _worker_view(info: WorkerInfo) -> dict[str, Any]:
+    return {
+        "id": info.id,
+        "url": info.url,
+        "alive": info.alive,
+        "busy": info.busy,
+        "currentJobId": info.current_job_id,
+    }
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +50,15 @@ JobStatus = Literal[
 
 RETRY_DELAY = 1.0  # 재시도 간격 (초)
 DEFAULT_IMAGES_DIR = Path("images")
+
+
+class ActiveJobError(Exception):
+    """워커에 진행 중인 잡이 있는데 force=False로 삭제 시도한 경우."""
+
+    def __init__(self, worker_id: str, job_id: str) -> None:
+        super().__init__(f"worker {worker_id} has active job {job_id}")
+        self.worker_id = worker_id
+        self.job_id = job_id
 
 
 @dataclass
@@ -226,6 +245,45 @@ class JobManager:
         if not paused:
             # 재개 시 즉시 디스패처 깨움
             self._wakeup.set()
+
+    # ---------- worker management ----------
+
+    async def add_worker(self, url: str) -> dict[str, Any]:
+        """새 ComfyUI URL 추가 (영속화 + 풀 등록 + 이벤트 브로드캐스트).
+
+        반환: 새 워커의 info dict. URL 중복이면 ValueError.
+        """
+        url = url.strip().rstrip("/")
+        if not url:
+            raise ValueError("URL is empty")
+        if self._pool.has_url(url):
+            raise ValueError(f"URL already registered: {url}")
+        worker = await self._pool.add(url)
+        await self._store.add_worker_url(url)
+        view = _worker_view(worker.info())
+        await self._emit({"type": "worker.added", "worker": view})
+        # 새 워커가 alive 되면 dispatch loop이 자동 픽업.
+        return view
+
+    async def remove_worker(self, worker_id: str, *, force: bool = False) -> bool:
+        """워커 제거. 진행 중인 잡이 있으면 force=False 시 ValueError.
+
+        force=True면 잡을 취소(pending으로 되돌림)하고 워커를 제거한다.
+        """
+        worker = self._pool.get(worker_id)
+        if worker is None:
+            return False
+        active_job_id = worker.current_job_id
+        if active_job_id is not None and not force:
+            raise ActiveJobError(worker_id=worker_id, job_id=active_job_id)
+        url = worker.base_url
+        if active_job_id is not None:
+            # cancel()은 worker.interrupt() + current_job_id 클리어를 처리한다.
+            await self.cancel(active_job_id)
+        await self._pool.remove(worker_id)
+        await self._store.remove_worker_url(url)
+        await self._emit({"type": "worker.removed", "workerId": worker_id})
+        return True
 
     async def cancel_all(self) -> int:
         """pending/queued/running 잡 전부 취소. 취소된 잡 개수 반환."""
@@ -426,7 +484,7 @@ class JobManager:
         await self._emit(
             {
                 "type": "worker.updated",
-                "worker": worker.info().__dict__,
+                "worker": _worker_view(worker.info()),
             }
         )
         # 워커 살아나면 디스패처 깨우기

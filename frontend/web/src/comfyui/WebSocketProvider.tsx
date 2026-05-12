@@ -18,6 +18,11 @@ import {
   useState,
 } from "react"
 import type { BackendEvent, JobView, WorkerView } from "./Message"
+import {
+  DEFAULT_BACKEND_URL,
+  IS_PACKAGE_MODE,
+  PACKAGE_BACKEND_URL,
+} from "../lib/runtime"
 
 interface BackendContextValue {
   isConnected: boolean
@@ -33,10 +38,6 @@ const BackendContext = createContext<BackendContextValue | null>(null)
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30_000
 
-// Allow dynamic backend URL injection via a global variable (set by launcher.py)
-const globalConfigUrl = (window as any).COMFY_EMOTION_GEN_BACKEND_URL
-const DEFAULT_BACKEND_URL = globalConfigUrl || "http://localhost:8000"
-
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
 
@@ -46,8 +47,11 @@ interface ProviderProps {
   backendUrl?: string
 }
 
-const readStoredBackendUrl = (): string =>
-  localStorage.getItem("backendUrl") || DEFAULT_BACKEND_URL
+const readStoredBackendUrl = (): string => {
+  // 패키지 모드: 런처 주입 URL 강제. localStorage 무시 (포트가 매 실행마다 바뀜).
+  if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL as string
+  return localStorage.getItem("backendUrl") || DEFAULT_BACKEND_URL
+}
 
 export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const [url, setUrl] = useState<string>(
@@ -95,6 +99,16 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         setWorkers((prev) =>
           prev.map((w) => (w.id === event.worker.id ? event.worker : w))
         )
+        break
+      case "worker.added":
+        setWorkers((prev) =>
+          prev.some((w) => w.id === event.worker.id)
+            ? prev
+            : [...prev, event.worker]
+        )
+        break
+      case "worker.removed":
+        setWorkers((prev) => prev.filter((w) => w.id !== event.workerId))
         break
       case "control.updated":
         setPaused(event.paused)

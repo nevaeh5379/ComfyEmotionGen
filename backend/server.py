@@ -30,6 +30,9 @@
     POST /export                       - 큐레이션 결과 zip 다운로드
     GET  /jobs/{id}/saved-images       - 특정 잡이 만든 영속 이미지 목록
     GET  /object_info                  - ComfyUI 노드 정의 (object_info.json)
+    GET  /workers                      - 워커 스냅샷
+    POST /workers                      - 새 ComfyUI 워커 URL 등록
+    DELETE /workers/{id}               - 워커 제거 (force=true로 활성 잡 강제 취소)
     WS   /ws/events                    - 정규화 이벤트 스트림
 """
 
@@ -53,8 +56,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
-from worker_pool import WorkerPool
-from jobs import JobManager, DEFAULT_IMAGES_DIR
+from worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
+from jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR
+from job_store import JobStore
 from _version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 
 logger = logging.getLogger(__name__)
@@ -124,14 +128,36 @@ class RegenerateRequest(BaseModel):
     seedStrategy: Literal["random", "increment"] = "random"
 
 
+class WorkerCreateRequest(BaseModel):
+    url: str = Field(..., description="ComfyUI 서버 URL (http://host:port)")
+
+
 # ====== lifespan ======
+
+
+async def _resolve_initial_worker_urls(store: JobStore) -> list[str]:
+    """DB → (비어 있으면) env → (그래도 비어 있으면) DEFAULT 시드.
+
+    이후 추가/삭제는 DB가 권위. env는 첫 부팅 시 seed로만 사용.
+    """
+    urls = await store.list_worker_urls()
+    if urls:
+        return urls
+    env_urls = read_env_worker_urls()
+    seed = env_urls or [DEFAULT_COMFYUI_URL]
+    for url in seed:
+        await store.add_worker_url(url)
+    return seed
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global worker_pool, job_manager
-    worker_pool = WorkerPool()
-    job_manager = JobManager(worker_pool)
+    store = JobStore()
+    await store.open()
+    initial_urls = await _resolve_initial_worker_urls(store)
+    worker_pool = WorkerPool(urls=initial_urls)
+    job_manager = JobManager(worker_pool, store=store)
 
     async def broadcast(event: dict[str, Any]) -> None:
         dead: list[WebSocket] = []
@@ -216,6 +242,53 @@ def health():
             for info in worker_pool.info()
         ],
     }
+
+
+@app.get("/workers")
+def workers_list():
+    """현재 등록된 ComfyUI 워커 스냅샷."""
+    return {
+        "workers": [
+            {
+                "id": info.id,
+                "url": info.url,
+                "alive": info.alive,
+                "busy": info.busy,
+                "currentJobId": info.current_job_id,
+            }
+            for info in worker_pool.info()
+        ],
+    }
+
+
+@app.post("/workers")
+async def workers_create(req: WorkerCreateRequest):
+    """새 ComfyUI 워커 URL 등록. DB 영속화 + 풀에 추가."""
+    try:
+        view = await job_manager.add_worker(req.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"worker": view}
+
+
+@app.delete("/workers/{worker_id}")
+async def workers_delete(worker_id: str, force: bool = False):
+    """워커 제거. force=False일 때 진행 중인 잡이 있으면 409로 차단."""
+    try:
+        removed = await job_manager.remove_worker(worker_id, force=force)
+    except ActiveJobError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "ActiveJob",
+                "workerId": exc.worker_id,
+                "jobId": exc.job_id,
+                "message": "진행 중인 잡이 있습니다. force=true로 다시 호출하면 잡을 취소하고 삭제합니다.",
+            },
+        )
+    if not removed:
+        raise HTTPException(status_code=404, detail="worker not found")
+    return {"ok": True}
 
 
 @app.post("/render", response_model=RenderResponse)
