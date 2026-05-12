@@ -40,7 +40,7 @@ interface RenderItem {
   meta: Record<string, string>
 }
 
-function Magnifier({ src }: { src: string }) {
+export function Magnifier({ src }: { src: string }) {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [show, setShow] = useState(false)
 
@@ -74,7 +74,7 @@ function Magnifier({ src }: { src: string }) {
   )
 }
 
-function TournamentView({
+export function TournamentView({
   images,
   backendUrl,
   onComplete,

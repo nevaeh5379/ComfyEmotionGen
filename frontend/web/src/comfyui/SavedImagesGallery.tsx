@@ -3,18 +3,35 @@
  *
  * 기능:
  *  - 상태 필터 (pending/approved/rejected/trashed/all)
- *  - filename 필터, 태그 필터
+ *  - filename 필터, 태그 필터, 메타데이터 필터
  *  - 그리드/그룹 모드 토글
  *  - 통과(approved)/탈락(rejected)/휴지통(trashed) 액션
+ *  - 선택 모드 + 일괄 작업 (approve/reject/trash)
+ *  - 핀 고정 비교 뷰
+ *  - 토너먼트 뷰 (이상형 월드컵)
+ *  - 리젝 숨기기
  *  - 노트 + 태그 인라인 편집
- *  - 데이터셋 익스포트 (zip 다운로드)
+ *  - 데이터셋 익스포트 (zip 다운로드) + duplicateStrategy
  *  - 휴지통 비우기, filename 그룹 재생성
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  PinIcon,
+  PinOffIcon,
+  ColumnsIcon,
+  Maximize2Icon,
+  CheckSquareIcon,
+  SquareIcon,
+  XIcon,
+  Loader2Icon,
+  Trash2Icon,
+  CheckIcon,
+} from "lucide-react"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import {
   Tabs,
   TabsList,
@@ -32,8 +49,11 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import type { CurationStatus, SavedImage } from "./Message"
 import { curationApi, useSavedImages } from "./useSavedImages"
+import { Magnifier } from "./CombinationPicker"
 
 const PAGE_SIZE = 48
+
+type GalleryViewMode = "grid" | "compare"
 
 /** 1..totalPages를 ellipsis와 함께 압축. 현재 페이지 ±1 표시. */
 function buildPageList(current: number, totalPages: number): (number | "…")[] {
@@ -74,14 +94,27 @@ export function SavedImagesGallery({ backendUrl }: Props) {
   const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">("pending")
   const [filenameFilter, setFilenameFilter] = useState("")
   const [tagFilter, setTagFilter] = useState("")
+  const [metadataFilter, setMetadataFilter] = useState("")
   const [groupMode, setGroupMode] = useState(false)
   const [selected, setSelected] = useState<SavedImage | null>(null)
   const [page, setPage] = useState(1)
+  const [hideRejected, setHideRejected] = useState(false)
+  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
+
+  // 선택 모드
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
+  const [bulkActionLoading, setBulkActionLoading] = useState(false)
+  const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(null)
+
+  // 핀 고정 + 뷰 모드
+  const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
+  const [galleryViewMode, setGalleryViewMode] = useState<GalleryViewMode>("grid")
 
   // 필터 변경 시 첫 페이지로
   useEffect(() => {
     setPage(1)
-  }, [statusFilter, filenameFilter, tagFilter, groupMode])
+  }, [statusFilter, filenameFilter, tagFilter, metadataFilter, groupMode])
 
   const { images, groups, total, loading, error, reload } = useSavedImages({
     backendUrl,
@@ -111,13 +144,114 @@ export function SavedImagesGallery({ backendUrl }: Props) {
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
   }, [images, groupMode])
 
+  // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
+  const metadataFilteredImages = useMemo(() => {
+    if (!metadataFilter.trim()) return images
+    const lowerFilter = metadataFilter.toLowerCase().trim()
+    return images.filter((img) => {
+      const prompt = img.prompt.toLowerCase()
+      return prompt.includes(lowerFilter)
+    })
+  }, [images, metadataFilter])
+
+  // 리젝 숨기기 적용
+  const visibleImages = useMemo(
+    () => metadataFilteredImages.filter((img) => !hideRejected || img.status !== "rejected"),
+    [metadataFilteredImages, hideRejected]
+  )
+
+  // 그룹 모드에서 리젝 숨기기 + 메타데이터 필터 적용
+  const visibleGrouped = useMemo(() => {
+    if (!grouped) return null
+    if (!hideRejected && !metadataFilter.trim()) return grouped
+    return grouped
+      .map(([filename, items]) => {
+        let filtered = items
+        if (hideRejected) filtered = filtered.filter((img) => img.status !== "rejected")
+        if (metadataFilter.trim()) {
+          const lowerFilter = metadataFilter.toLowerCase().trim()
+          filtered = filtered.filter((img) => img.prompt.toLowerCase().includes(lowerFilter))
+        }
+        return [filename, filtered] as [string, SavedImage[]]
+      })
+      .filter(([, items]) => items.length > 0)
+  }, [grouped, hideRejected, metadataFilter])
+
   const setStatus = async (hash: string, status: CurationStatus) => {
     try {
       await curationApi.patchStatus(backendUrl, hash, status)
+      reload()
     } catch (err) {
       console.error("setStatus failed", err)
     }
   }
+
+  // 선택 모드 토글
+  const toggleSelectHash = useCallback((hash: string) => {
+    setSelectedHashes((prev) => {
+      const next = new Set(prev)
+      if (next.has(hash)) {
+        next.delete(hash)
+        if (next.size === 0) setSelectionMode(false)
+      } else {
+        next.add(hash)
+      }
+      return next
+    })
+  }, [])
+
+  const handleLongPress = useCallback(
+    (hash: string) => {
+      if (!selectionMode) {
+        setSelectionMode(true)
+        setSelectedHashes(new Set([hash]))
+      }
+    },
+    [selectionMode]
+  )
+
+  const selectAll = useCallback(() => {
+    const allHashes = visibleImages.map((img) => img.hash)
+    if (selectedHashes.size === allHashes.length && allHashes.length > 0) {
+      setSelectedHashes(new Set())
+      setSelectionMode(false)
+    } else {
+      setSelectedHashes(new Set(allHashes))
+    }
+  }, [visibleImages, selectedHashes])
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedHashes(new Set())
+  }, [])
+
+  // 일괄 상태 변경
+  const handleBulkAction = useCallback(
+    async (targetStatus: CurationStatus) => {
+      if (bulkActionLoading || selectedHashes.size === 0) return
+      setBulkActionLoading(true)
+      setBulkActionMessage(null)
+      let count = 0
+      try {
+        for (const hash of selectedHashes) {
+          await curationApi.patchStatus(backendUrl, hash, targetStatus)
+          count++
+        }
+        setBulkActionMessage(
+          `${count}개 → ${STATUS_LABEL[targetStatus]} 완료`
+        )
+        exitSelectionMode()
+        setTimeout(() => setBulkActionMessage(null), 3000)
+        reload()
+      } catch {
+        setBulkActionMessage("일괄 작업 실패")
+        setTimeout(() => setBulkActionMessage(null), 3000)
+      } finally {
+        setBulkActionLoading(false)
+      }
+    },
+    [backendUrl, selectedHashes, bulkActionLoading, exitSelectionMode, reload]
+  )
 
   const handleEmptyTrash = async () => {
     if (!confirm("휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?")) return
@@ -132,7 +266,10 @@ export function SavedImagesGallery({ backendUrl }: Props) {
 
   const handleExport = async () => {
     try {
-      await curationApi.exportDataset(backendUrl, { status: "approved" })
+      await curationApi.exportDataset(backendUrl, {
+        status: "approved",
+        duplicateStrategy,
+      })
     } catch (err) {
       console.error(err)
     }
@@ -149,6 +286,12 @@ export function SavedImagesGallery({ backendUrl }: Props) {
       console.error(err)
     }
   }
+
+  const togglePin = useCallback((hash: string) => {
+    setPinnedHashes((prev) =>
+      prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]
+    )
+  }, [])
 
   return (
     <div className="flex flex-col gap-4">
@@ -181,6 +324,22 @@ export function SavedImagesGallery({ backendUrl }: Props) {
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}
         />
+        <Input
+          className="h-8 w-48"
+          type="search"
+          placeholder="메타데이터/prmpt 검색"
+          value={metadataFilter}
+          onChange={(e) => setMetadataFilter(e.target.value)}
+        />
+        <label className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hideRejected}
+            onChange={(e) => setHideRejected(e.target.checked)}
+            className="rounded"
+          />
+          리젝 숨기기
+        </label>
         <Button
           size="sm"
           variant={groupMode ? "default" : "outline"}
@@ -188,10 +347,48 @@ export function SavedImagesGallery({ backendUrl }: Props) {
         >
           {groupMode ? "그리드 모드" : "그룹 모드"}
         </Button>
+        {/* 뷰 모드 토글 (그리드 모드일 때만) */}
+        {!groupMode && (
+          <div className="flex items-center gap-1 rounded-md border bg-background p-0.5">
+            <Button
+              size="sm"
+              variant={galleryViewMode === "grid" ? "default" : "ghost"}
+              className="h-7 px-2 text-[10px] font-bold"
+              onClick={() => setGalleryViewMode("grid")}
+            >
+              <Maximize2Icon className="h-3 w-3 mr-1" />그리드
+            </Button>
+            <Button
+              size="sm"
+              variant={galleryViewMode === "compare" ? "default" : "ghost"}
+              className="h-7 px-2 text-[10px] font-bold"
+              disabled={pinnedHashes.length === 0}
+              onClick={() => setGalleryViewMode("compare")}
+            >
+              <ColumnsIcon className="h-3 w-3 mr-1" />비교
+            </Button>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="default" onClick={handleExport}>
-            데이터셋 익스포트
-          </Button>
+          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+            <select
+              value={duplicateStrategy}
+              onChange={(e) =>
+                setDuplicateStrategy(e.target.value as "hash" | "number")
+              }
+              className="h-7 bg-transparent px-2 text-[10px] font-bold focus:outline-none"
+            >
+              <option value="hash">HASH</option>
+              <option value="number">NUM</option>
+            </select>
+            <Button
+              size="sm"
+              className="h-7 text-[10px] font-black px-3"
+              onClick={handleExport}
+            >
+              데이터셋 익스포트
+            </Button>
+          </div>
           <Button size="sm" variant="destructive" onClick={handleEmptyTrash}>
             휴지통 비우기
           </Button>
@@ -201,31 +398,125 @@ export function SavedImagesGallery({ backendUrl }: Props) {
         </div>
       </div>
 
+      {/* 선택 모드 액션 바 */}
+      {selectionMode && (
+        <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
+          <span className="text-sm font-bold text-blue-700">
+            {selectedHashes.size}개 이미지 선택됨
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-[10px] font-bold bg-green-600 hover:bg-green-700"
+              onClick={() => handleBulkAction("approved")}
+              disabled={bulkActionLoading}
+            >
+              <CheckIcon className="h-3.5 w-3.5" />
+              일괄 통과
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-[10px] font-bold border-red-300 text-red-700 hover:bg-red-50"
+              onClick={() => handleBulkAction("rejected")}
+              disabled={bulkActionLoading}
+            >
+              <XIcon className="h-3.5 w-3.5" />
+              일괄 탈락
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-[10px] font-bold"
+              onClick={() => handleBulkAction("trashed")}
+              disabled={bulkActionLoading}
+            >
+              <Trash2Icon className="h-3.5 w-3.5" />
+              일괄 휴지통
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
+            onClick={exitSelectionMode}
+          >
+            <XIcon className="h-3.5 w-3.5" />
+            선택 종료
+          </Button>
+          {bulkActionMessage && (
+            <span className="text-xs font-bold text-blue-600">
+              {bulkActionMessage}
+            </span>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {!loading && images.length === 0 && (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>표시할 이미지가 없습니다</EmptyTitle>
-            <EmptyDescription>
-              잡을 실행하거나 필터 조건을 바꿔보세요.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+      {!loading &&
+        ((!groupMode && visibleImages.length === 0) ||
+          (groupMode && visibleGrouped && visibleGrouped.length === 0)) && (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>표시할 이미지가 없습니다</EmptyTitle>
+              <EmptyDescription>
+                잡을 실행하거나 필터 조건을 바꿔보세요.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+
+      {/* 비교 뷰 (그룹 모드 off + 비교 선택 시) */}
+      {!groupMode && galleryViewMode === "compare" && pinnedHashes.length > 0 && (
+        <div
+          className={`grid gap-3 ${
+            pinnedHashes.length === 1
+              ? "grid-cols-1"
+              : pinnedHashes.length === 2
+                ? "grid-cols-2"
+                : "grid-cols-3"
+          }`}
+          style={{ minHeight: 400 }}
+        >
+          {pinnedHashes.map((hash) => {
+            const img = visibleImages.find((i) => i.hash === hash)
+            return (
+              <div
+                key={hash}
+                className="relative rounded-lg border overflow-hidden bg-black/5 shadow-inner"
+              >
+                <button
+                  type="button"
+                  onClick={() => togglePin(hash)}
+                  className="absolute right-4 top-4 z-20 h-9 w-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+                >
+                  <PinIcon className="h-5 w-5" />
+                </button>
+                {img && (
+                  <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
 
-      {groupMode && grouped ? (
+      {/* 그룹 모드 */}
+      {groupMode && visibleGrouped ? (
         <div className="flex flex-col gap-4">
-          {grouped.map(([filename, items]) => {
+          {visibleGrouped.map(([filename, items]) => {
             const groupMeta = groups.find((g) => g.filename === filename)
             return (
               <div key={filename} className="rounded-md border p-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-semibold">{filename}</span>
+                  <span className="font-mono text-sm font-semibold">
+                    {filename}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     총 {groupMeta?.total ?? items.length} · 통과{" "}
                     {groupMeta?.approvedCount ?? 0} · 탈락{" "}
@@ -247,21 +538,33 @@ export function SavedImagesGallery({ backendUrl }: Props) {
                   backendUrl={backendUrl}
                   setStatus={setStatus}
                   onOpen={setSelected}
+                  selectionMode={selectionMode}
+                  selectedHashes={selectedHashes}
+                  onToggleSelect={toggleSelectHash}
+                  onLongPress={handleLongPress}
+                  togglePin={togglePin}
+                  pinnedHashes={pinnedHashes}
                 />
               </div>
             )
           })}
         </div>
-      ) : (
+      ) : galleryViewMode === "grid" || (galleryViewMode === "compare" && pinnedHashes.length === 0) ? (
         <ImageGrid
-          items={images}
+          items={visibleImages}
           backendUrl={backendUrl}
           setStatus={setStatus}
           onOpen={setSelected}
+          selectionMode={selectionMode}
+          selectedHashes={selectedHashes}
+          onToggleSelect={toggleSelectHash}
+          onLongPress={handleLongPress}
+          togglePin={togglePin}
+          pinnedHashes={pinnedHashes}
         />
-      )}
+      ) : null}
 
-      {!groupMode && total > PAGE_SIZE && (
+      {!groupMode && galleryViewMode === "grid" && total > PAGE_SIZE && (
         <div className="flex flex-col items-center gap-2">
           <Pagination>
             <PaginationContent>
@@ -306,6 +609,37 @@ export function SavedImagesGallery({ backendUrl }: Props) {
           <p className="text-xs text-muted-foreground">
             총 {total}개 · {page}/{totalPages} 페이지
           </p>
+          {!selectionMode && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[10px] font-bold"
+                onClick={() => {
+                  setSelectionMode(true)
+                  setSelectedHashes(new Set())
+                }}
+              >
+                <CheckSquareIcon className="h-3.5 w-3.5 mr-1" />선택 모드 진입
+              </Button>
+            </div>
+          )}
+
+          {selectionMode && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[10px] font-bold"
+                onClick={selectAll}
+              >
+                {selectedHashes.size === visibleImages.length &&
+                visibleImages.length > 0
+                  ? "전체 해제"
+                  : "전체 선택"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -326,82 +660,152 @@ interface GridProps {
   backendUrl: string
   setStatus: (hash: string, status: CurationStatus) => void
   onOpen: (img: SavedImage) => void
+  selectionMode?: boolean
+  selectedHashes?: Set<string>
+  onToggleSelect?: (hash: string) => void
+  onLongPress?: (hash: string) => void
+  togglePin?: (hash: string) => void
+  pinnedHashes?: string[]
 }
 
-function ImageGrid({ items, backendUrl, setStatus, onOpen }: GridProps) {
+function ImageGrid({
+  items,
+  backendUrl,
+  setStatus,
+  onOpen,
+  selectionMode = false,
+  selectedHashes = new Set(),
+  onToggleSelect,
+  onLongPress,
+  togglePin,
+  pinnedHashes = [],
+}: GridProps) {
   if (items.length === 0) return null
   return (
     <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-      {items.map((img) => (
-        <div
-          key={img.hash}
-          className="flex flex-col gap-1 rounded-md border bg-card p-2"
-        >
-          <button
-            type="button"
-            className="block w-full overflow-hidden rounded"
-            onClick={() => onOpen(img)}
+      {items.map((img) => {
+        const isSelected = selectedHashes.has(img.hash)
+        const isPinned = pinnedHashes.includes(img.hash)
+
+        return (
+          <div
+            key={img.hash}
+            className={`flex flex-col gap-1 rounded-md border bg-card p-2 ${
+              isSelected ? "ring-2 ring-blue-500 bg-blue-50/30" : ""
+            }`}
           >
-            <img
-              src={`${backendUrl}/saved-images/${img.hash}`}
-              alt={img.originalFilename}
-              loading="lazy"
-              className=" w-full object-cover"
-            />
-          </button>
-          <div className="flex items-center gap-1 text-xs">
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_TINT[img.status]}`}
-            >
-              {STATUS_LABEL[img.status]}
-            </span>
-            <span className="truncate font-mono">{img.originalFilename}</span>
-          </div>
-          {img.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 text-[10px]">
-              {img.tags.map((t) => (
-                <span
-                  key={t}
-                  className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground"
+            <div className="relative">
+              <button
+                type="button"
+                className="block w-full overflow-hidden rounded"
+                onClick={() => {
+                  if (selectionMode && onToggleSelect) {
+                    onToggleSelect(img.hash)
+                  } else {
+                    onOpen(img)
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  if (onLongPress) onLongPress(img.hash)
+                }}
+              >
+                <img
+                  src={`${backendUrl}/saved-images/${img.hash}`}
+                  alt={img.originalFilename}
+                  loading="lazy"
+                  className="w-full object-cover aspect-square"
+                />
+              </button>
+
+              {/* 핀 버튼 */}
+              {togglePin && (
+                <button
+                  type="button"
+                  onClick={() => togglePin(img.hash)}
+                  className={`absolute right-1.5 top-1.5 h-6 w-6 flex items-center justify-center rounded-full transition-colors backdrop-blur-sm ${
+                    isPinned
+                      ? "bg-blue-500 text-white shadow-lg"
+                      : "bg-black/40 text-white/50 opacity-0 hover:opacity-100"
+                  }`}
                 >
-                  #{t}
-                </span>
-              ))}
+                  {isPinned ? (
+                    <PinIcon className="h-3.5 w-3.5" />
+                  ) : (
+                    <PinOffIcon className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+
+              {/* 선택 체크박스 */}
+              {selectionMode && (
+                <div
+                  className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded z-10 cursor-pointer"
+                  onClick={() => onToggleSelect?.(img.hash)}
+                >
+                  {isSelected ? (
+                    <CheckSquareIcon className="h-5 w-5 text-blue-500 drop-shadow-sm" />
+                  ) : (
+                    <SquareIcon className="h-5 w-5 text-white/70 drop-shadow-sm" />
+                  )}
+                </div>
+              )}
             </div>
-          )}
-          <div className="mt-1 flex items-center justify-between gap-1">
-            <Button
-              size="sm"
-              variant={img.status === "approved" ? "default" : "outline"}
-              className="h-7 px-2 text-xs"
-              onClick={() => setStatus(img.hash, "approved")}
-            >
-              ✓
-            </Button>
-            <Button
-              size="sm"
-              variant={img.status === "rejected" ? "default" : "outline"}
-              className="h-7 px-2 text-xs"
-              onClick={() => setStatus(img.hash, "rejected")}
-            >
-              ✗
-            </Button>
-            <Button
-              size="sm"
-              variant={img.status === "trashed" ? "destructive" : "ghost"}
-              className="h-7 px-2 text-xs"
-              onClick={() =>
-                setStatus(
-                  img.hash,
-                  img.status === "trashed" ? "pending" : "trashed"
-                )
-              }
-            >
-              🗑
-            </Button>
+
+            <div className="flex items-center gap-1 text-xs">
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_TINT[img.status]}`}
+              >
+                {STATUS_LABEL[img.status]}
+              </span>
+              <span className="truncate font-mono">{img.originalFilename}</span>
+            </div>
+            {img.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 text-[10px]">
+                {img.tags.map((t) => (
+                  <span
+                    key={t}
+                    className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground"
+                  >
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="mt-1 flex items-center justify-between gap-1">
+              <Button
+                size="sm"
+                variant={img.status === "approved" ? "default" : "outline"}
+                className="h-7 px-2 text-xs"
+                onClick={() => setStatus(img.hash, "approved")}
+              >
+                ✓
+              </Button>
+              <Button
+                size="sm"
+                variant={img.status === "rejected" ? "default" : "outline"}
+                className="h-7 px-2 text-xs"
+                onClick={() => setStatus(img.hash, "rejected")}
+              >
+                ✗
+              </Button>
+              <Button
+                size="sm"
+                variant={img.status === "trashed" ? "destructive" : "ghost"}
+                className="h-7 px-2 text-xs"
+                onClick={() =>
+                  setStatus(
+                    img.hash,
+                    img.status === "trashed" ? "pending" : "trashed"
+                  )
+                }
+              >
+                🗑
+              </Button>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -456,7 +860,9 @@ function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailProps) {
           >
             {STATUS_LABEL[image.status]}
           </span>
-          <h3 className="truncate font-mono text-sm">{image.originalFilename}</h3>
+          <h3 className="truncate font-mono text-sm">
+            {image.originalFilename}
+          </h3>
           <Button
             size="sm"
             variant="ghost"
@@ -479,7 +885,8 @@ function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailProps) {
             <span className="font-semibold">prompt:</span> {image.prompt}
           </div>
           <div className="text-muted-foreground">
-            {(image.sizeBytes / 1024).toFixed(1)} KB · worker {image.workerId ?? "—"}
+            {(image.sizeBytes / 1024).toFixed(1)} KB · worker{" "}
+            {image.workerId ?? "—"}
           </div>
         </div>
         <div className="space-y-1">
