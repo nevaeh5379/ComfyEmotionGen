@@ -164,50 +164,89 @@ function GalleryView({
         const isDone = !!approved
 
         return (
-          <button
-            key={item.filename}
-            onClick={() => onSelect(item.filename)}
-            className="group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md"
-          >
-            <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
-              {preview ? (
-                <img
-                  src={`${backendUrl}/saved-images/${preview.hash}`}
-                  className="h-full w-full object-cover"
-                  alt=""
-                />
+          <HoverCard key={item.filename} openDelay={500} closeDelay={100}>
+            <HoverCardTrigger asChild>
+              <button
+                onClick={() => onSelect(item.filename)}
+                className="group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md"
+              >
+                <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                  {preview ? (
+                    <img
+                      src={`${backendUrl}/saved-images/${preview.hash}`}
+                      className="h-full w-full object-cover"
+                      alt=""
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <FolderIcon className="h-10 w-10 text-muted-foreground/20" />
+                    </div>
+                  )}
+
+                  <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
+                    <FolderIcon className="h-3.5 w-3.5" />
+                  </div>
+
+                  {isDone && (
+                    <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-green-500 text-white shadow-sm">
+                      <CheckIcon className="h-4 w-4" strokeWidth={3} />
+                    </div>
+                  )}
+
+                  <div className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    {imgs.length}장
+                  </div>
+                </div>
+
+                <div className="px-1 text-left">
+                  <div className="truncate font-mono text-[11px] font-bold">{item.filename}</div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {Object.values(item.meta).slice(0, 2).map((v, i) => (
+                      <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground font-medium">
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </button>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-72 p-3" side="right" align="start">
+              <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
+                {item.filename} ({imgs.length}장)
+              </div>
+              {imgs.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
               ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <FolderIcon className="h-10 w-10 text-muted-foreground/20" />
+                <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
+                  {imgs.slice(0, 12).map((img) => (
+                    <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                      <img
+                        src={`${backendUrl}/saved-images/${img.hash}`}
+                        className="h-full w-full object-cover"
+                        alt=""
+                        loading="lazy"
+                      />
+                      {img.status === "approved" && (
+                        <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
+                          <CheckIcon className="h-3 w-3" strokeWidth={3} />
+                        </div>
+                      )}
+                      {img.status === "rejected" && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <span className="text-[8px] font-bold text-white/80">REJ</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {imgs.length > 12 && (
+                    <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                      +{imgs.length - 12}
+                    </div>
+                  )}
                 </div>
               )}
-
-              <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
-                <FolderIcon className="h-3.5 w-3.5" />
-              </div>
-
-              {isDone && (
-                <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-green-500 text-white shadow-sm">
-                  <CheckIcon className="h-4 w-4" strokeWidth={3} />
-                </div>
-              )}
-
-              <div className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                {imgs.length}장
-              </div>
-            </div>
-
-            <div className="px-1 text-left">
-              <div className="truncate font-mono text-[11px] font-bold">{item.filename}</div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {Object.values(item.meta).slice(0, 2).map((v, i) => (
-                  <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground font-medium">
-                    {v}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </button>
+            </HoverCardContent>
+          </HoverCard>
         )
       })}
     </div>
@@ -217,10 +256,12 @@ function GalleryView({
 function TableView({
   items,
   imagesByFilename,
+  backendUrl,
   onSelect,
 }: {
   items: RenderItem[]
   imagesByFilename: Map<string, SavedImage[]>
+  backendUrl: string
   onSelect: (filename: string) => void
 }) {
   return (
@@ -248,9 +289,49 @@ function TableView({
                 <td className="px-4 py-2">
                   {isDone ? <CheckCircle2Icon className="h-4 w-4 text-green-500" /> : <CircleIcon className="h-4 w-4 text-muted-foreground/30" />}
                 </td>
-                <td className="px-4 py-2">
-                  <span className="font-mono text-xs font-bold">{item.filename}</span>
-                </td>
+                <HoverCard openDelay={500} closeDelay={100}>
+                  <HoverCardTrigger asChild>
+                    <td className="px-4 py-2 cursor-default">
+                      <span className="font-mono text-xs font-bold">{item.filename}</span>
+                    </td>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-72 p-3" side="right" align="start">
+                    <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
+                      {item.filename} ({imgs.length}장)
+                    </div>
+                    {imgs.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
+                        {imgs.slice(0, 12).map((img) => (
+                          <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                            <img
+                              src={`${backendUrl}/saved-images/${img.hash}`}
+                              className="h-full w-full object-cover"
+                              alt=""
+                              loading="lazy"
+                            />
+                            {img.status === "approved" && (
+                              <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
+                                <CheckIcon className="h-3 w-3" strokeWidth={3} />
+                              </div>
+                            )}
+                            {img.status === "rejected" && (
+                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                <span className="text-[8px] font-bold text-white/80">REJ</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {imgs.length > 12 && (
+                          <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                            +{imgs.length - 12}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </HoverCardContent>
+                </HoverCard>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1">
                     {Object.values(item.meta).map((v, i) => (
@@ -668,6 +749,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates }: P
                 <TableView 
                   items={renderItems} 
                   imagesByFilename={imagesByFilename} 
+                  backendUrl={backendUrl}
                   onSelect={(filename) => {
                     setSelectedFilename(filename)
                     setViewMode("grid")
