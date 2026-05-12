@@ -9,7 +9,6 @@ import {
   PinIcon,
   PinOffIcon,
   Maximize2Icon,
-  LayoutGridIcon,
   SwordsIcon,
   ColumnsIcon,
   FolderIcon,
@@ -139,7 +138,7 @@ function TournamentView({
             className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 focus:outline-none"
           >
             <img src={`${backendUrl}/saved-images/${img.hash}`} className="h-full w-full object-contain" alt="" />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 text-center opacity-0 group-hover:opacity-100 font-bold text-white">
+            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-4 text-center opacity-0 group-hover:opacity-100 font-bold text-white">
               이 이미지 선택
             </div>
           </button>
