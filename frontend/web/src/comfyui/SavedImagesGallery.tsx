@@ -30,6 +30,9 @@ import {
   Loader2Icon,
   Trash2Icon,
   CheckIcon,
+  CopyIcon,
+  ImagePlusIcon,
+  EyeIcon,
 } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import {
@@ -47,6 +50,13 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import type { CurationStatus, SavedImage } from "./Message"
 import { curationApi, useSavedImages } from "./useSavedImages"
 import { Magnifier } from "./CombinationPicker"
@@ -118,7 +128,7 @@ export function SavedImagesGallery({ backendUrl }: Props) {
 
   const { images, groups, total, loading, error, reload } = useSavedImages({
     backendUrl,
-    status: statusFilter,
+    status: groupMode ? "all" : statusFilter,
     filename: filenameFilter || undefined,
     tag: tagFilter || undefined,
     page: groupMode ? 1 : page,
@@ -347,28 +357,34 @@ export function SavedImagesGallery({ backendUrl }: Props) {
         >
           {groupMode ? "그리드 모드" : "그룹 모드"}
         </Button>
-        {/* 뷰 모드 토글 (그리드 모드일 때만) */}
-        {!groupMode && (
-          <div className="flex items-center gap-1 rounded-md border bg-background p-0.5">
-            <Button
-              size="sm"
-              variant={galleryViewMode === "grid" ? "default" : "ghost"}
-              className="h-7 px-2 text-[10px] font-bold"
-              onClick={() => setGalleryViewMode("grid")}
-            >
-              <Maximize2Icon className="h-3 w-3 mr-1" />그리드
-            </Button>
-            <Button
-              size="sm"
-              variant={galleryViewMode === "compare" ? "default" : "ghost"}
-              className="h-7 px-2 text-[10px] font-bold"
-              disabled={pinnedHashes.length === 0}
-              onClick={() => setGalleryViewMode("compare")}
-            >
-              <ColumnsIcon className="h-3 w-3 mr-1" />비교
-            </Button>
-          </div>
-        )}
+        {/* 뷰 모드 토글 */}
+        <div className="flex items-center gap-1 rounded-md border bg-background p-0.5">
+          <Button
+            size="sm"
+            variant={galleryViewMode === "grid" ? "default" : "ghost"}
+            className="h-7 px-2 text-[10px] font-bold"
+            onClick={() => setGalleryViewMode("grid")}
+          >
+            <Maximize2Icon className="h-3 w-3 mr-1" />그리드
+          </Button>
+          <HoverCard openDelay={200}>
+            <HoverCardTrigger asChild>
+              <Button
+                size="sm"
+                variant={galleryViewMode === "compare" ? "default" : "ghost"}
+                className="h-7 px-2 text-[10px] font-bold"
+                onClick={() => setGalleryViewMode("compare")}
+              >
+                <ColumnsIcon className="h-3 w-3 mr-1" />비교
+              </Button>
+            </HoverCardTrigger>
+            {pinnedHashes.length === 0 && (
+              <HoverCardContent side="bottom" className="w-auto px-3 py-2 text-[11px] font-bold">
+                이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
+              </HoverCardContent>
+            )}
+          </HoverCard>
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-md border bg-background p-1">
             <select
@@ -676,7 +692,7 @@ function ImageGrid({
   selectionMode = false,
   selectedHashes = new Set(),
   onToggleSelect,
-  onLongPress,
+  // onLongPress,
   togglePin,
   pinnedHashes = [],
 }: GridProps) {
@@ -688,122 +704,165 @@ function ImageGrid({
         const isPinned = pinnedHashes.includes(img.hash)
 
         return (
-          <div
-            key={img.hash}
-            className={`flex flex-col gap-1 rounded-md border bg-card p-2 ${
-              isSelected ? "ring-2 ring-blue-500 bg-blue-50/30" : ""
-            }`}
-          >
-            <div className="relative">
-              <button
-                type="button"
-                className="block w-full overflow-hidden rounded"
-                onClick={() => {
-                  if (selectionMode && onToggleSelect) {
-                    onToggleSelect(img.hash)
-                  } else {
-                    onOpen(img)
-                  }
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  if (onLongPress) onLongPress(img.hash)
-                }}
+          <ContextMenu key={img.hash}>
+            <ContextMenuTrigger>
+              <div
+                className={`flex flex-col h-full gap-1 rounded-md border bg-card p-2 ${
+                  isSelected ? "ring-2 ring-blue-500 bg-blue-50/30" : ""
+                }`}
               >
-                <img
-                  src={`${backendUrl}/saved-images/${img.hash}`}
-                  alt={img.originalFilename}
-                  loading="lazy"
-                  className="w-full object-cover aspect-square"
-                />
-              </button>
-
-              {/* 핀 버튼 */}
-              {togglePin && (
-                <button
-                  type="button"
-                  onClick={() => togglePin(img.hash)}
-                  className={`absolute right-1.5 top-1.5 h-6 w-6 flex items-center justify-center rounded-full transition-colors backdrop-blur-sm ${
-                    isPinned
-                      ? "bg-blue-500 text-white shadow-lg"
-                      : "bg-black/40 text-white/50 opacity-0 hover:opacity-100"
-                  }`}
-                >
-                  {isPinned ? (
-                    <PinIcon className="h-3.5 w-3.5" />
-                  ) : (
-                    <PinOffIcon className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              )}
-
-              {/* 선택 체크박스 */}
-              {selectionMode && (
-                <div
-                  className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded z-10 cursor-pointer"
-                  onClick={() => onToggleSelect?.(img.hash)}
-                >
-                  {isSelected ? (
-                    <CheckSquareIcon className="h-5 w-5 text-blue-500 drop-shadow-sm" />
-                  ) : (
-                    <SquareIcon className="h-5 w-5 text-white/70 drop-shadow-sm" />
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1 text-xs">
-              <span
-                className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_TINT[img.status]}`}
-              >
-                {STATUS_LABEL[img.status]}
-              </span>
-              <span className="truncate font-mono">{img.originalFilename}</span>
-            </div>
-            {img.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 text-[10px]">
-                {img.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground"
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="block w-full overflow-hidden rounded"
+                    onClick={() => {
+                      if (isSelected || selectionMode) {
+                        onToggleSelect?.(img.hash)
+                      } else {
+                        onOpen(img)
+                      }
+                    }}
                   >
-                    #{t}
+                    <img
+                      src={`${backendUrl}/saved-images/${img.hash}`}
+                      alt={img.originalFilename}
+                      loading="lazy"
+                      className="w-full object-cover aspect-square"
+                    />
+                  </button>
+
+                  {/* 선택 체크박스 - 항상 표시 */}
+                  <div
+                    className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onToggleSelect?.(img.hash)
+                    }}
+                  >
+                    {isSelected ? (
+                      <CheckSquareIcon className="h-5 w-5 text-blue-500 drop-shadow-sm" />
+                    ) : pinnedHashes.includes(img.hash) ? (
+                      <PinIcon className="h-5 w-5 text-blue-400 drop-shadow-sm" />
+                    ) : (
+                      <SquareIcon className="h-5 w-5 text-white/70 drop-shadow-sm" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_TINT[img.status]}`}
+                  >
+                    {STATUS_LABEL[img.status]}
                   </span>
-                ))}
+                  <span className="truncate font-mono">{img.originalFilename}</span>
+                </div>
+                {img.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 text-[10px]">
+                    {img.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground"
+                      >
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-auto pt-1 flex items-center justify-between gap-1">
+                  <Button
+                    size="sm"
+                    variant={img.status === "approved" ? "default" : "outline"}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setStatus(img.hash, "approved")}
+                  >
+                    ✓
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={img.status === "rejected" ? "default" : "outline"}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setStatus(img.hash, "rejected")}
+                  >
+                    ✗
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={img.status === "trashed" ? "destructive" : "ghost"}
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      setStatus(
+                        img.hash,
+                        img.status === "trashed" ? "pending" : "trashed"
+                      )
+                    }
+                  >
+                    🗑
+                  </Button>
+                </div>
               </div>
-            )}
-            <div className="mt-1 flex items-center justify-between gap-1">
-              <Button
-                size="sm"
-                variant={img.status === "approved" ? "default" : "outline"}
-                className="h-7 px-2 text-xs"
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              <ContextMenuItem
+                onClick={() => togglePin?.(img.hash) }
+                className="gap-2 font-bold"
+              >
+                {isPinned ? (
+                  <>
+                    <PinOffIcon className="h-3.5 w-3.5" />
+                    비교에서 제거
+                  </>
+                ) : (
+                  <>
+                    <PinIcon className="h-3.5 w-3.5" />
+                    비교에 추가
+                  </>
+                )}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
                 onClick={() => setStatus(img.hash, "approved")}
+                className="gap-2 font-bold text-green-700"
               >
-                ✓
-              </Button>
-              <Button
-                size="sm"
-                variant={img.status === "rejected" ? "default" : "outline"}
-                className="h-7 px-2 text-xs"
+                <CheckIcon className="h-3.5 w-3.5" />
+                통과
+              </ContextMenuItem>
+              <ContextMenuItem
                 onClick={() => setStatus(img.hash, "rejected")}
+                className="gap-2 font-bold text-red-700"
               >
-                ✗
-              </Button>
-              <Button
-                size="sm"
-                variant={img.status === "trashed" ? "destructive" : "ghost"}
-                className="h-7 px-2 text-xs"
+                <XIcon className="h-3.5 w-3.5" />
+                탈락
+              </ContextMenuItem>
+              <ContextMenuItem
                 onClick={() =>
-                  setStatus(
-                    img.hash,
-                    img.status === "trashed" ? "pending" : "trashed"
-                  )
+                  setStatus(img.hash, img.status === "trashed" ? "pending" : "trashed")
                 }
+                className="gap-2 font-bold"
               >
-                🗑
-              </Button>
-            </div>
-          </div>
+                <Trash2Icon className="h-3.5 w-3.5" />
+                {img.status === "trashed" ? "복원" : "휴지통"}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onClick={() => onOpen(img)}
+                className="gap-2 font-bold"
+              >
+                <EyeIcon className="h-3.5 w-3.5" />
+                상세 보기
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  const url = `${backendUrl}/saved-images/${img.hash}`
+                  navigator.clipboard.writeText(url).catch(() => {})
+                }}
+                className="gap-2 font-bold"
+              >
+                <CopyIcon className="h-3.5 w-3.5" />
+                이미지 URL 복사
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         )
       })}
     </div>
