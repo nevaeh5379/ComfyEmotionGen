@@ -4,7 +4,6 @@ import {
   CheckIcon,
   CircleIcon,
   DownloadIcon,
-  Loader2Icon,
   RefreshCwIcon,
   PinIcon,
   PinOffIcon,
@@ -31,21 +30,16 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { curationApi } from "./useSavedImages"
+import { useAsyncAction } from "./hooks/useAsyncAction"
 import type { SavedImage } from "./Message"
 import type { SavedTemplate } from "./useSavedTemplates"
+import type { RenderItem, CombinationViewProps } from "./CombinationPickerComponents"
+import { ImagePreviewHoverCard, CombinationContextMenu, RegenCountControl, hasApproved, findApproved, LoadingButton } from "./CombinationPickerComponents"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
-
-interface RenderItem {
-  filename: string
-  prompt: string
-  meta: Record<string, string>
-}
 
 export function Magnifier({ src }: { src: string }) {
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -170,26 +164,14 @@ function GalleryView({
   onLongPress,
   onRegenerate,
   enableHover,
-}: {
-  items: RenderItem[]
-  imagesByFilename: Map<string, SavedImage[]>
-  backendUrl: string
-  onSelect: (filename: string) => void
-  onOpen: (filename: string) => void
-  selectionMode: boolean
-  selectedFilenames: Set<string>
-  onToggleSelect: (filename: string) => void
-  onLongPress: (filename: string) => void
-  onRegenerate?: (filename: string) => void
-  enableHover?: boolean
-}) {
+}: CombinationViewProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
       {items.map((item) => {
         const imgs = imagesByFilename.get(item.filename) ?? []
-        const approved = imgs.find((img) => img.status === "approved")
+        const approved = findApproved(imgs)
         const preview = approved || imgs[0]
-        const isDone = !!approved
+        const isDone = hasApproved(imgs)
         const isSelected = selectedFilenames.has(item.filename)
 
         return (
@@ -263,65 +245,24 @@ function GalleryView({
                   </LongPressWrapper>
               </HoverCardTrigger>
               {enableHover && (
-                <HoverCardContent className="w-72 p-3" side="right" align="start">
-                  <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
-                    {item.filename} ({imgs.length}장)
-                  </div>
-                  {imgs.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
-                      {imgs.slice(0, 12).map((img) => (
-                        <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                          <img
-                            src={`${backendUrl}/saved-images/${img.hash}`}
-                            className="h-full w-full object-cover"
-                            alt=""
-                            loading="lazy"
-                          />
-                          {img.status === "approved" && (
-                            <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
-                              <CheckIcon className="h-3 w-3" strokeWidth={3} />
-                            </div>
-                          )}
-                          {img.status === "rejected" && (
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                              <span className="text-[8px] font-bold text-white/80">REJ</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      {imgs.length > 12 && (
-                        <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
-                          +{imgs.length - 12}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </HoverCardContent>
+                <ImagePreviewHoverCard
+                  filename={item.filename}
+                  images={imgs}
+                  backendUrl={backendUrl}
+                />
               )}
             </HoverCard>
               </div>
             </ContextMenuTrigger>
-            <ContextMenuContent className="w-52">
-              <ContextMenuLabel className="font-mono text-[10px] truncate">{item.filename}</ContextMenuLabel>
-              <ContextMenuSeparator />
-              <ContextMenuItem onClick={() => onOpen(item.filename)}>
-                <FolderIcon className="h-4 w-4" /> 열기
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => selectionMode ? onToggleSelect(item.filename) : onLongPress(item.filename)}>
-                {isSelected ? <CheckSquareIcon className="h-4 w-4" /> : <SquareIcon className="h-4 w-4" />}
-                {isSelected ? "선택 해제" : "선택하기"}
-              </ContextMenuItem>
-              {onRegenerate && (
-                <>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem onClick={() => onRegenerate(item.filename)}>
-                    <RefreshCwIcon className="h-4 w-4" /> 재생성
-                  </ContextMenuItem>
-                </>
-              )}
-            </ContextMenuContent>
+            <CombinationContextMenu
+              filename={item.filename}
+              isSelected={isSelected}
+              selectionMode={selectionMode}
+              onOpen={onOpen}
+              onToggleSelect={onToggleSelect}
+              onLongPress={onLongPress}
+              {...(onRegenerate && { onRegenerate })}
+            />
           </ContextMenu>
         )
       })}
@@ -341,19 +282,7 @@ function TableView({
   onLongPress,
   onRegenerate,
   enableHover,
-}: {
-  items: RenderItem[]
-  imagesByFilename: Map<string, SavedImage[]>
-  backendUrl: string
-  onSelect: (filename: string) => void
-  onOpen: (filename: string) => void
-  selectionMode: boolean
-  selectedFilenames: Set<string>
-  onToggleSelect: (filename: string) => void
-  onLongPress: (filename: string) => void
-  onRegenerate?: (filename: string) => void
-  enableHover?: boolean
-}) {
+}: CombinationViewProps) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
       <table className="w-full text-left text-sm">
@@ -369,7 +298,7 @@ function TableView({
         <tbody className="divide-y">
           {items.map((item) => {
             const imgs = imagesByFilename.get(item.filename) ?? []
-            const isDone = imgs.some((img) => img.status === "approved")
+            const isDone = hasApproved(imgs)
             const isSelected = selectedFilenames.has(item.filename)
 
             return (
@@ -406,42 +335,11 @@ function TableView({
                         </td>
                       </HoverCardTrigger>
                       {enableHover && (
-                        <HoverCardContent className="w-72 p-3" side="right" align="start">
-                          <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
-                            {item.filename} ({imgs.length}장)
-                          </div>
-                          {imgs.length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
-                          ) : (
-                            <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
-                              {imgs.slice(0, 12).map((img) => (
-                                <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                                  <img
-                                    src={`${backendUrl}/saved-images/${img.hash}`}
-                                    className="h-full w-full object-cover"
-                                    alt=""
-                                    loading="lazy"
-                                  />
-                                  {img.status === "approved" && (
-                                    <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
-                                      <CheckIcon className="h-3 w-3" strokeWidth={3} />
-                                    </div>
-                                  )}
-                                  {img.status === "rejected" && (
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                      <span className="text-[8px] font-bold text-white/80">REJ</span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                              {imgs.length > 12 && (
-                                <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
-                                  +{imgs.length - 12}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </HoverCardContent>
+                        <ImagePreviewHoverCard
+                          filename={item.filename}
+                          images={imgs}
+                          backendUrl={backendUrl}
+                        />
                       )}
                     </HoverCard>
                     <td className="px-4 py-2">
@@ -458,25 +356,15 @@ function TableView({
                     </td>
                   </LongPressWrapper>
                 </ContextMenuTrigger>
-                <ContextMenuContent className="w-52">
-                  <ContextMenuLabel className="font-mono text-[10px] truncate">{item.filename}</ContextMenuLabel>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem onClick={() => onOpen(item.filename)}>
-                    <FolderIcon className="h-4 w-4" /> 열기
-                  </ContextMenuItem>
-                  <ContextMenuItem onClick={() => selectionMode ? onToggleSelect(item.filename) : onLongPress(item.filename)}>
-                    {isSelected ? <CheckSquareIcon className="h-4 w-4" /> : <SquareIcon className="h-4 w-4" />}
-                    {isSelected ? "선택 해제" : "선택하기"}
-                  </ContextMenuItem>
-                  {onRegenerate && (
-                    <>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem onClick={() => onRegenerate(item.filename)}>
-                        <RefreshCwIcon className="h-4 w-4" /> 재생성
-                      </ContextMenuItem>
-                    </>
-                  )}
-                </ContextMenuContent>
+                <CombinationContextMenu
+                  filename={item.filename}
+                  isSelected={isSelected}
+                  selectionMode={selectionMode}
+                  onOpen={onOpen}
+                  onToggleSelect={onToggleSelect}
+                  onLongPress={onLongPress}
+                  {...(onRegenerate && { onRegenerate })}
+                />
               </ContextMenu>
             )
           })}
@@ -580,11 +468,10 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
   const [error, setError] = useState<string | null>(null)
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null)
   const [regenCount, setRegenCount] = useState(4)
-  const [regenLoading, setRegenLoading] = useState(false)
-  const [regenMessage, setRegenMessage] = useState<string | null>(null)
-  const [exportLoading, setExportLoading] = useState(false)
-  const [exportMessage, setExportMessage] = useState<string | null>(null)
   const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
+
+  const exportAction = useAsyncAction(3000)
+  const regenAction = useAsyncAction(3000)
 
   const [hideRejected, setHideRejected] = useState(false)
   const [autoAdvance, setAutoAdvance] = useState(autoApplyReject)
@@ -595,8 +482,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
   // 선택 모드 관련 상태
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedFilenames, setSelectedFilenames] = useState<Set<string>>(new Set())
-  const [bulkRegenLoading, setBulkRegenLoading] = useState(false)
-  const [bulkRegenMessage, setBulkRegenMessage] = useState<string | null>(null)
+  const bulkRegenAction = useAsyncAction(4000)
 
   // 필터 관련 상태
   const [statusFilter, setStatusFilter] = useState<"all" | "done" | "pending">("all")
@@ -609,8 +495,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
   const [showTrueOrphansOnly, setShowTrueOrphansOnly] = useState(false)
   const [templateAffiliationCache, setTemplateAffiliationCache] = useState<Map<string, string[]>>(new Map())
   const [checkingTemplates, setCheckingTemplates] = useState(false)
-  const [bulkTrashLoading, setBulkTrashLoading] = useState(false)
-  const [bulkTrashMessage, setBulkTrashMessage] = useState<string | null>(null)
+  const bulkTrashAction = useAsyncAction(4000)
 
   const activeTemplate =
     savedTemplates.find((t) => t.id === selectedTemplateId)?.template ?? cegTemplate
@@ -660,10 +545,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
   }, [allImages])
 
   const doneCount = useMemo(
-    () =>
-      renderItems.filter((ri) =>
-        (imagesByFilename.get(ri.filename) ?? []).some((img) => img.status === "approved")
-      ).length,
+    () => renderItems.filter((ri) => hasApproved(imagesByFilename.get(ri.filename) ?? [])).length,
     [renderItems, imagesByFilename]
   )
 
@@ -771,38 +653,36 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
 
   // 미할당 이미지 선택 항목 일괄 trash 처리
   const handleBulkTrash = useCallback(async () => {
-    if (bulkTrashLoading || unassignedSelectedFilenames.size === 0) return
-    setBulkTrashLoading(true)
-    setBulkTrashMessage(null)
-    let trashedCount = 0
-    try {
-      for (const filename of unassignedSelectedFilenames) {
-        const imgs = unassignedGroups.get(filename) ?? []
-        for (const img of imgs) {
-          if (img.status !== "trashed") {
-            await curationApi.patchStatus(backendUrl, img.hash, "trashed")
-            trashedCount++
+    if (bulkTrashAction.isLoading || unassignedSelectedFilenames.size === 0) return
+    const selectedCount = unassignedSelectedFilenames.size
+    const result = await bulkTrashAction.execute(
+      async () => {
+        let trashedCount = 0
+        for (const filename of unassignedSelectedFilenames) {
+          const imgs = unassignedGroups.get(filename) ?? []
+          for (const img of imgs) {
+            if (img.status !== "trashed") {
+              await curationApi.patchStatus(backendUrl, img.hash, "trashed")
+              trashedCount++
+            }
           }
         }
-      }
-      // allImages에서 제거 (trash된 이미지 제외)
+        return trashedCount
+      },
+      (trashedCount) => `${selectedCount}개 그룹, ${trashedCount}장 휴지통으로 이동`,
+      "삭제 실패",
+    )
+    if (result !== null) {
       setAllImages((prev) =>
         prev.map((img) =>
           unassignedSelectedFilenames.has(img.originalFilename) && img.status !== "trashed"
             ? { ...img, status: "trashed" as const, trashedAt: Date.now() }
-            : img
-        )
+            : img,
+        ),
       )
-      setBulkTrashMessage(`${unassignedSelectedFilenames.size}개 그룹, ${trashedCount}장 휴지통으로 이동`)
       setUnassignedSelectedFilenames(new Set())
-      setTimeout(() => setBulkTrashMessage(null), 4000)
-    } catch {
-      setBulkTrashMessage("삭제 실패")
-      setTimeout(() => setBulkTrashMessage(null), 4000)
-    } finally {
-      setBulkTrashLoading(false)
     }
-  }, [backendUrl, unassignedSelectedFilenames, unassignedGroups, bulkTrashLoading])
+  }, [backendUrl, unassignedSelectedFilenames, unassignedGroups, bulkTrashAction])
 
   // 미할당 패널 닫기
   const closeUnassignedPanel = useCallback(() => {
@@ -814,7 +694,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
   const filteredRenderItems = useMemo(() => {
     return renderItems.filter((ri) => {
       const imgs = imagesByFilename.get(ri.filename) ?? []
-      const isDone = imgs.some((img) => img.status === "approved")
+      const isDone = hasApproved(imgs)
 
       // 상태 필터
       if (statusFilter === "done" && !isDone) return false
@@ -849,7 +729,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
       ),
     [selectedFilename, imagesByFilename]
   )
-  const selectedApprovedHash = selectedImages.find((img) => img.status === "approved")?.hash
+  const selectedApprovedHash = findApproved(selectedImages)?.hash
 
   const visibleImages = useMemo(
     () => selectedImages.filter((img) => !hideRejected || img.status !== "rejected"),
@@ -883,7 +763,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
         const next = renderItems.find((ri, idx) => {
           if (idx <= currentIdx) return false
           const nextImgs = imagesByFilename.get(ri.filename) ?? []
-          return !nextImgs.some((img) => img.status === "approved")
+          return !hasApproved(nextImgs)
         })
         if (next) setSelectedFilename(next.filename)
       }
@@ -902,41 +782,33 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
   )
 
   const handleExport = useCallback(async () => {
-    if (exportLoading || doneCount === 0) return
-    setExportLoading(true)
-    setExportMessage(null)
-    try {
-      const approvedFilenames = renderItems
-        .filter((ri) =>
-          (imagesByFilename.get(ri.filename) ?? []).some((img) => img.status === "approved")
-        )
-        .map((ri) => ri.filename)
-      await curationApi.exportDataset(backendUrl, { filenames: approvedFilenames, duplicateStrategy })
-      setExportMessage(`${approvedFilenames.length}개 파일 내보내기 완료`)
-      setTimeout(() => setExportMessage(null), 3000)
-    } catch {
-      setExportMessage("내보내기 실패")
-      setTimeout(() => setExportMessage(null), 3000)
-    } finally {
-      setExportLoading(false)
-    }
-  }, [backendUrl, exportLoading, doneCount, renderItems, imagesByFilename, duplicateStrategy])
+    if (exportAction.isLoading || doneCount === 0) return
+    await exportAction.execute(
+      async () => {
+        const approvedFilenames = renderItems
+          .filter((ri) => hasApproved(imagesByFilename.get(ri.filename) ?? []))
+          .map((ri) => ri.filename)
+        await curationApi.exportDataset(backendUrl, { filenames: approvedFilenames, duplicateStrategy })
+        return approvedFilenames.length
+      },
+      (count) => `${count}개 파일 내보내기 완료`,
+      "내보내기 실패",
+    )
+  }, [backendUrl, exportAction, doneCount, renderItems, imagesByFilename, duplicateStrategy])
+
+  const handleContextMenuRegenerate = useCallback(async (filename: string) => {
+    if (regenAction.isLoading) return
+    await regenAction.execute(
+      () => curationApi.regenerate(backendUrl, filename, regenCount),
+      (jobIds) => `잡 ${jobIds.length}개 추가됨`,
+      "재생성 실패",
+    )
+  }, [backendUrl, regenAction, regenCount])
 
   const handleRegenerate = useCallback(async () => {
-    if (!selectedFilename || regenLoading) return
-    setRegenLoading(true)
-    setRegenMessage(null)
-    try {
-      const jobIds = await curationApi.regenerate(backendUrl, selectedFilename, regenCount)
-      setRegenMessage(`잡 ${jobIds.length}개 추가됨`)
-      setTimeout(() => setRegenMessage(null), 3000)
-    } catch {
-      setRegenMessage("재생성 실패")
-      setTimeout(() => setRegenMessage(null), 3000)
-    } finally {
-      setRegenLoading(false)
-    }
-  }, [backendUrl, selectedFilename, regenCount, regenLoading])
+    if (!selectedFilename) return
+    await handleContextMenuRegenerate(selectedFilename)
+  }, [selectedFilename, handleContextMenuRegenerate])
 
   const handleOpen = useCallback((filename: string) => {
     setSelectionMode(false)
@@ -944,22 +816,6 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
     setSelectedFilename(filename)
     setViewMode("grid")
   }, [])
-
-  const handleContextMenuRegenerate = useCallback(async (filename: string) => {
-    if (regenLoading) return
-    setRegenLoading(true)
-    setRegenMessage(null)
-    try {
-      const jobIds = await curationApi.regenerate(backendUrl, filename, regenCount)
-      setRegenMessage(`잡 ${jobIds.length}개 추가됨`)
-      setTimeout(() => setRegenMessage(null), 3000)
-    } catch {
-      setRegenMessage("재생성 실패")
-      setTimeout(() => setRegenMessage(null), 3000)
-    } finally {
-      setRegenLoading(false)
-    }
-  }, [backendUrl, regenCount, regenLoading])
 
   const handleRejectImage = useCallback(
     async (hash: string) => {
@@ -1058,27 +914,24 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
 
   // 선택된 항목들 일괄 재생성
   const handleBulkRegenerate = useCallback(async () => {
-    if (bulkRegenLoading || selectedFilenames.size === 0) return
-    setBulkRegenLoading(true)
-    setBulkRegenMessage(null)
-    try {
-      const filenames = Array.from(selectedFilenames)
-      let totalJobs = 0
-      // 순차적으로 각 filename에 대해 regenerate 호출
-      for (const filename of filenames) {
-        const jobIds = await curationApi.regenerate(backendUrl, filename, regenCount)
-        totalJobs += jobIds.length
-      }
-      setBulkRegenMessage(`${filenames.length}개 항목, 총 ${totalJobs}개 작업 생성 완료`)
-      setTimeout(() => setBulkRegenMessage(null), 4000)
+    if (bulkRegenAction.isLoading || selectedFilenames.size === 0) return
+    const result = await bulkRegenAction.execute(
+      async () => {
+        const filenames = Array.from(selectedFilenames)
+        let totalJobs = 0
+        for (const filename of filenames) {
+          const jobIds = await curationApi.regenerate(backendUrl, filename, regenCount)
+          totalJobs += jobIds.length
+        }
+        return { count: filenames.length, totalJobs }
+      },
+      ({ count, totalJobs }) => `${count}개 항목, 총 ${totalJobs}개 작업 생성 완료`,
+      "일괄 재생성 실패",
+    )
+    if (result !== null) {
       exitSelectionMode()
-    } catch {
-      setBulkRegenMessage("일괄 재생성 실패")
-      setTimeout(() => setBulkRegenMessage(null), 4000)
-    } finally {
-      setBulkRegenLoading(false)
     }
-  }, [backendUrl, selectedFilenames, regenCount, bulkRegenLoading, exitSelectionMode])
+  }, [backendUrl, selectedFilenames, regenCount, bulkRegenAction, exitSelectionMode])
 
   const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -1220,15 +1073,16 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
                 <option value="hash">HASH</option>
                 <option value="number">NUM</option>
               </select>
-              <Button
+              <LoadingButton
                 size="sm"
                 className="h-7 text-[10px] font-black px-3"
                 onClick={handleExport}
-                disabled={exportLoading || doneCount === 0}
+                isLoading={exportAction.isLoading}
+                disabled={doneCount === 0}
+                icon={DownloadIcon}
               >
-                {exportLoading ? <Loader2Icon className="h-3 w-3 animate-spin mr-1" /> : <DownloadIcon className="h-3 w-3 mr-1" />}
                 DATASET EXPORT
-              </Button>
+              </LoadingButton>
             </div>
           </div>
           <div className="flex items-center gap-3 border-l pl-4">
@@ -1241,8 +1095,8 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
               자동 다음 이동
             </label>
           </div>
-          {exportMessage && <span className="text-xs font-bold text-green-600">{exportMessage}</span>}
-          {regenMessage && <span className="text-xs font-bold text-blue-600">{regenMessage}</span>}
+          {exportAction.message && <span className="text-xs font-bold text-green-600">{exportAction.message}</span>}
+          {regenAction.message && <span className="text-xs font-bold text-blue-600">{regenAction.message}</span>}
           {unassignedGroups.size > 0 && (
             <Button
               variant="outline"
@@ -1263,32 +1117,14 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
           <span className="text-sm font-bold text-blue-700">
             {selectedFilenames.size}개 항목 선택됨
           </span>
-          <div className="flex items-center gap-2 bg-background p-1 rounded border shadow-sm">
-            <div className="flex flex-col items-center px-2">
-              <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none mb-0.5">Regen Count</span>
-              <Input
-                type="number"
-                min={1}
-                max={20}
-                value={regenCount}
-                onChange={(e) => setRegenCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-                className="h-6 w-10 text-center text-[11px] font-bold border-none focus-visible:ring-0 p-0"
-              />
-            </div>
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-[10px] font-bold"
-              onClick={handleBulkRegenerate}
-              disabled={bulkRegenLoading || selectedFilenames.size === 0}
-            >
-              {bulkRegenLoading ? (
-                <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCwIcon className="h-3.5 w-3.5" />
-              )}
-              선택 항목 재생성
-            </Button>
-          </div>
+          <RegenCountControl
+            value={regenCount}
+            onChange={setRegenCount}
+            buttonText="선택 항목 재생성"
+            isLoading={bulkRegenAction.isLoading}
+            isDisabled={bulkRegenAction.isLoading || selectedFilenames.size === 0}
+            onAction={handleBulkRegenerate}
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -1298,8 +1134,8 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
             <XIcon className="h-3.5 w-3.5" />
             선택 모드 종료
           </Button>
-          {bulkRegenMessage && (
-            <span className="text-xs font-bold text-blue-600">{bulkRegenMessage}</span>
+          {bulkRegenAction.message && (
+            <span className="text-xs font-bold text-blue-600">{bulkRegenAction.message}</span>
           )}
         </div>
       )}
@@ -1315,20 +1151,16 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
               </span>
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <Button
+              <LoadingButton
                 variant="outline"
                 size="sm"
                 onClick={checkTemplateAffiliation}
-                disabled={checkingTemplates}
+                isLoading={checkingTemplates}
+                icon={RefreshCwIcon}
                 className="h-7 gap-1.5 text-[10px] font-bold"
               >
-                {checkingTemplates ? (
-                  <Loader2Icon className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RefreshCwIcon className="h-3 w-3" />
-                )}
                 템플릿 연결 확인
-              </Button>
+              </LoadingButton>
               <label className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
@@ -1365,21 +1197,18 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
                 ? "전체 해제"
                 : "전체 선택"}
             </Button>
-            <Button
+            <LoadingButton
               size="sm"
               className="h-7 gap-1.5 text-[10px] font-bold bg-red-600 hover:bg-red-700"
               onClick={handleBulkTrash}
-              disabled={bulkTrashLoading || unassignedSelectedFilenames.size === 0}
+              isLoading={bulkTrashAction.isLoading}
+              disabled={unassignedSelectedFilenames.size === 0}
+              icon={Trash2Icon}
             >
-              {bulkTrashLoading ? (
-                <Loader2Icon className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2Icon className="h-3 w-3" />
-              )}
               선택 항목 휴지통으로 ({unassignedSelectedFilenames.size}개)
-            </Button>
-            {bulkTrashMessage && (
-              <span className="text-xs font-bold text-red-600">{bulkTrashMessage}</span>
+            </LoadingButton>
+            {bulkTrashAction.message && (
+              <span className="text-xs font-bold text-red-600">{bulkTrashAction.message}</span>
             )}
           </div>
 
@@ -1482,7 +1311,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
             <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
               {renderItems.map((item) => {
                 const imgs = imagesByFilename.get(item.filename) ?? []
-                const isDone = imgs.some((img) => img.status === "approved")
+                const isDone = hasApproved(imgs)
                 const isActive = item.filename === selectedFilename
                 return (
                   <button
@@ -1651,23 +1480,14 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
                   </div>
                   {/* Row 2: 액션 버튼 그룹 */}
                   <div className="flex items-center gap-2 justify-end flex-wrap">
-                    <div className="flex items-center gap-2 bg-background p-1 rounded border shadow-sm">
-                      <div className="flex flex-col items-center px-2">
-                        <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none mb-0.5">Regen Count</span>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={20}
-                          value={regenCount}
-                          onChange={(e) => setRegenCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-                          className="h-6 w-10 text-center text-[11px] font-bold border-none focus-visible:ring-0 p-0"
-                        />
-                      </div>
-                      <Button size="sm" className="h-8 gap-1.5 text-[10px] font-bold" onClick={handleRegenerate} disabled={regenLoading}>
-                        {regenLoading ? <Loader2Icon className="h-3.5 w-3.5 animate-spin" /> : <RefreshCwIcon className="h-3.5 w-3.5" />}
-                        재생성
-                      </Button>
-                    </div>
+                    <RegenCountControl
+                      value={regenCount}
+                      onChange={setRegenCount}
+                      buttonText="재생성"
+                      isLoading={regenAction.isLoading}
+                      isDisabled={regenAction.isLoading}
+                      onAction={handleRegenerate}
+                    />
                     <div className="h-4 w-px bg-border" />
                     <div className="flex items-center gap-1">
                       <Button
@@ -1694,7 +1514,7 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
                         variant="outline"
                         className="h-8 gap-1 text-[10px] font-bold text-amber-600 border-amber-300 hover:bg-amber-50"
                         onClick={handleCancelApproval}
-                        disabled={!selectedImages.some((img) => img.status === "approved")}
+                        disabled={!hasApproved(selectedImages)}
                       >
                         <XIcon className="h-3 w-3" />선택 취소
                       </Button>
