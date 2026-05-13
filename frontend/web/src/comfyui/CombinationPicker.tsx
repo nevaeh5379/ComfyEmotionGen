@@ -27,6 +27,14 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { curationApi } from "./useSavedImages"
 import type { SavedImage } from "./Message"
 import type { SavedTemplate } from "./useSavedTemplates"
@@ -155,20 +163,24 @@ function GalleryView({
   imagesByFilename,
   backendUrl,
   onSelect,
+  onOpen,
   selectionMode,
   selectedFilenames,
   onToggleSelect,
   onLongPress,
+  onRegenerate,
   enableHover,
 }: {
   items: RenderItem[]
   imagesByFilename: Map<string, SavedImage[]>
   backendUrl: string
   onSelect: (filename: string) => void
+  onOpen: (filename: string) => void
   selectionMode: boolean
   selectedFilenames: Set<string>
   onToggleSelect: (filename: string) => void
   onLongPress: (filename: string) => void
+  onRegenerate?: (filename: string) => void
   enableHover?: boolean
 }) {
   return (
@@ -181,111 +193,136 @@ function GalleryView({
         const isSelected = selectedFilenames.has(item.filename)
 
         return (
-          <HoverCard key={item.filename} openDelay={enableHover ? 500 : 99999} closeDelay={100}>
-            <HoverCardTrigger asChild>
-              <LongPressWrapper
-                onLongPress={() => onLongPress(item.filename)}
-                onClick={() => {
-                  if (selectionMode) {
-                    onToggleSelect(item.filename)
-                  } else {
-                    onSelect(item.filename)
-                  }
-                }}
-                className={`group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md ${isSelected ? "ring-2 ring-blue-500 bg-blue-50/30" : ""}`}
-              >
-                <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                  {preview ? (
-                    <img
-                      src={`${backendUrl}/saved-images/${preview.hash}`}
-                      className="h-full w-full object-cover"
-                      alt=""
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <FolderIcon className="h-10 w-10 text-muted-foreground/20" />
-                    </div>
-                  )}
-
-                  {/* 선택 모드 체크박스 */}
-                  {selectionMode && (
-                    <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded z-10">
-                      {isSelected ? (
-                        <CheckSquareIcon className="h-6 w-6 text-blue-500 drop-shadow-sm" />
+          <ContextMenu key={item.filename}>
+            <ContextMenuTrigger asChild>
+              <div className="contents">
+            <HoverCard openDelay={enableHover ? 500 : 99999} closeDelay={100}>
+              <HoverCardTrigger asChild>
+                  <LongPressWrapper
+                    onLongPress={() => onLongPress(item.filename)}
+                    onClick={() => {
+                      if (selectionMode) {
+                        onToggleSelect(item.filename)
+                      } else {
+                        onSelect(item.filename)
+                      }
+                    }}
+                    className={`group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md ${isSelected ? "ring-2 ring-blue-500 bg-blue-50/30" : ""}`}
+                  >
+                    <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                      {preview ? (
+                        <img
+                          src={`${backendUrl}/saved-images/${preview.hash}`}
+                          className="h-full w-full object-cover"
+                          alt=""
+                        />
                       ) : (
-                        <SquareIcon className="h-6 w-6 text-white/70 drop-shadow-sm" />
+                        <div className="flex h-full w-full items-center justify-center">
+                          <FolderIcon className="h-10 w-10 text-muted-foreground/20" />
+                        </div>
+                      )}
+
+                      {/* 선택 모드 체크박스 */}
+                      {selectionMode && (
+                        <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded z-10">
+                          {isSelected ? (
+                            <CheckSquareIcon className="h-6 w-6 text-blue-500 drop-shadow-sm" />
+                          ) : (
+                            <SquareIcon className="h-6 w-6 text-white/70 drop-shadow-sm" />
+                          )}
+                        </div>
+                      )}
+
+                      {!selectionMode && (
+                        <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
+                          <FolderIcon className="h-3.5 w-3.5" />
+                        </div>
+                      )}
+
+                      {isDone && (
+                        <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-green-500 text-white shadow-sm">
+                          <CheckIcon className="h-4 w-4" strokeWidth={3} />
+                        </div>
+                      )}
+
+                      <div className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        {imgs.length}장
+                      </div>
+                    </div>
+
+                    <div className="px-1 text-left">
+                      <div className="truncate font-mono text-[11px] font-bold">{item.filename}</div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {Object.values(item.meta).slice(0, 2).map((v, i) => (
+                          <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground font-medium">
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </LongPressWrapper>
+              </HoverCardTrigger>
+              {enableHover && (
+                <HoverCardContent className="w-72 p-3" side="right" align="start">
+                  <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
+                    {item.filename} ({imgs.length}장)
+                  </div>
+                  {imgs.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
+                      {imgs.slice(0, 12).map((img) => (
+                        <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                          <img
+                            src={`${backendUrl}/saved-images/${img.hash}`}
+                            className="h-full w-full object-cover"
+                            alt=""
+                            loading="lazy"
+                          />
+                          {img.status === "approved" && (
+                            <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
+                              <CheckIcon className="h-3 w-3" strokeWidth={3} />
+                            </div>
+                          )}
+                          {img.status === "rejected" && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                              <span className="text-[8px] font-bold text-white/80">REJ</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {imgs.length > 12 && (
+                        <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                          +{imgs.length - 12}
+                        </div>
                       )}
                     </div>
                   )}
-
-                  {!selectionMode && (
-                    <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
-                      <FolderIcon className="h-3.5 w-3.5" />
-                    </div>
-                  )}
-
-                  {isDone && (
-                    <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded bg-green-500 text-white shadow-sm">
-                      <CheckIcon className="h-4 w-4" strokeWidth={3} />
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                    {imgs.length}장
-                  </div>
-                </div>
-
-                <div className="px-1 text-left">
-                  <div className="truncate font-mono text-[11px] font-bold">{item.filename}</div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {Object.values(item.meta).slice(0, 2).map((v, i) => (
-                      <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground font-medium">
-                        {v}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </LongPressWrapper>
-            </HoverCardTrigger>
-            {enableHover && (
-              <HoverCardContent className="w-72 p-3" side="right" align="start">
-                <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
-                  {item.filename} ({imgs.length}장)
-                </div>
-                {imgs.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
-                    {imgs.slice(0, 12).map((img) => (
-                      <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                        <img
-                          src={`${backendUrl}/saved-images/${img.hash}`}
-                          className="h-full w-full object-cover"
-                          alt=""
-                          loading="lazy"
-                        />
-                        {img.status === "approved" && (
-                          <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
-                            <CheckIcon className="h-3 w-3" strokeWidth={3} />
-                          </div>
-                        )}
-                        {img.status === "rejected" && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <span className="text-[8px] font-bold text-white/80">REJ</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {imgs.length > 12 && (
-                      <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
-                        +{imgs.length - 12}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </HoverCardContent>
-            )}
-          </HoverCard>
+                </HoverCardContent>
+              )}
+            </HoverCard>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-52">
+              <ContextMenuLabel className="font-mono text-[10px] truncate">{item.filename}</ContextMenuLabel>
+              <ContextMenuSeparator />
+              <ContextMenuItem onClick={() => onOpen(item.filename)}>
+                <FolderIcon className="h-4 w-4" /> 열기
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => selectionMode ? onToggleSelect(item.filename) : onLongPress(item.filename)}>
+                {isSelected ? <CheckSquareIcon className="h-4 w-4" /> : <SquareIcon className="h-4 w-4" />}
+                {isSelected ? "선택 해제" : "선택하기"}
+              </ContextMenuItem>
+              {onRegenerate && (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => onRegenerate(item.filename)}>
+                    <RefreshCwIcon className="h-4 w-4" /> 재생성
+                  </ContextMenuItem>
+                </>
+              )}
+            </ContextMenuContent>
+          </ContextMenu>
         )
       })}
     </div>
@@ -297,20 +334,24 @@ function TableView({
   imagesByFilename,
   backendUrl,
   onSelect,
+  onOpen,
   selectionMode,
   selectedFilenames,
   onToggleSelect,
   onLongPress,
+  onRegenerate,
   enableHover,
 }: {
   items: RenderItem[]
   imagesByFilename: Map<string, SavedImage[]>
   backendUrl: string
   onSelect: (filename: string) => void
+  onOpen: (filename: string) => void
   selectionMode: boolean
   selectedFilenames: Set<string>
   onToggleSelect: (filename: string) => void
   onLongPress: (filename: string) => void
+  onRegenerate?: (filename: string) => void
   enableHover?: boolean
 }) {
   return (
@@ -332,89 +373,111 @@ function TableView({
             const isSelected = selectedFilenames.has(item.filename)
 
             return (
-              <LongPressWrapper
-                key={item.filename}
-                onLongPress={() => onLongPress(item.filename)}
-                onClick={() => {
-                  if (selectionMode) {
-                    onToggleSelect(item.filename)
-                  } else {
-                    onSelect(item.filename)
-                  }
-                }}
-                className={`group cursor-pointer hover:bg-accent/50 ${isSelected ? "bg-blue-50/30 ring-1 ring-inset ring-blue-300" : ""}`}
-                as="tr"
-              >
-                {selectionMode && (
-                  <td className="px-2 py-2">
-                    {isSelected ? (
-                      <CheckSquareIcon className="h-5 w-5 text-blue-500" />
-                    ) : (
-                      <SquareIcon className="h-5 w-5 text-muted-foreground/40" />
+              <ContextMenu key={item.filename}>
+                <ContextMenuTrigger asChild>
+                  <LongPressWrapper
+                    onLongPress={() => onLongPress(item.filename)}
+                    onClick={() => {
+                      if (selectionMode) {
+                        onToggleSelect(item.filename)
+                      } else {
+                        onSelect(item.filename)
+                      }
+                    }}
+                    className={`group cursor-pointer hover:bg-accent/50 ${isSelected ? "bg-blue-50/30 ring-1 ring-inset ring-blue-300" : ""}`}
+                    as="tr"
+                  >
+                    {selectionMode && (
+                      <td className="px-2 py-2">
+                        {isSelected ? (
+                          <CheckSquareIcon className="h-5 w-5 text-blue-500" />
+                        ) : (
+                          <SquareIcon className="h-5 w-5 text-muted-foreground/40" />
+                        )}
+                      </td>
                     )}
-                  </td>
-                )}
-                <td className="px-4 py-2">
-                  {isDone ? <CheckCircle2Icon className="h-4 w-4 text-green-500" /> : <CircleIcon className="h-4 w-4 text-muted-foreground/30" />}
-                </td>
-                <HoverCard openDelay={enableHover ? 500 : 99999} closeDelay={100}>
-                  <HoverCardTrigger asChild>
-                    <td className="px-4 py-2 cursor-default">
-                      <span className="font-mono text-xs font-bold">{item.filename}</span>
+                    <td className="px-4 py-2">
+                      {isDone ? <CheckCircle2Icon className="h-4 w-4 text-green-500" /> : <CircleIcon className="h-4 w-4 text-muted-foreground/30" />}
                     </td>
-                  </HoverCardTrigger>
-                  {enableHover && (
-                    <HoverCardContent className="w-72 p-3" side="right" align="start">
-                      <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
-                        {item.filename} ({imgs.length}장)
-                      </div>
-                      {imgs.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
-                          {imgs.slice(0, 12).map((img) => (
-                            <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                              <img
-                                src={`${backendUrl}/saved-images/${img.hash}`}
-                                className="h-full w-full object-cover"
-                                alt=""
-                                loading="lazy"
-                              />
-                              {img.status === "approved" && (
-                                <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
-                                  <CheckIcon className="h-3 w-3" strokeWidth={3} />
+                    <HoverCard openDelay={enableHover ? 500 : 99999} closeDelay={100}>
+                      <HoverCardTrigger asChild>
+                        <td className="px-4 py-2 cursor-default">
+                          <span className="font-mono text-xs font-bold">{item.filename}</span>
+                        </td>
+                      </HoverCardTrigger>
+                      {enableHover && (
+                        <HoverCardContent className="w-72 p-3" side="right" align="start">
+                          <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
+                            {item.filename} ({imgs.length}장)
+                          </div>
+                          {imgs.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
+                          ) : (
+                            <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
+                              {imgs.slice(0, 12).map((img) => (
+                                <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                                  <img
+                                    src={`${backendUrl}/saved-images/${img.hash}`}
+                                    className="h-full w-full object-cover"
+                                    alt=""
+                                    loading="lazy"
+                                  />
+                                  {img.status === "approved" && (
+                                    <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
+                                      <CheckIcon className="h-3 w-3" strokeWidth={3} />
+                                    </div>
+                                  )}
+                                  {img.status === "rejected" && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                      <span className="text-[8px] font-bold text-white/80">REJ</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              {imgs.length > 12 && (
+                                <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                                  +{imgs.length - 12}
                                 </div>
                               )}
-                              {img.status === "rejected" && (
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                  <span className="text-[8px] font-bold text-white/80">REJ</span>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          {imgs.length > 12 && (
-                            <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
-                              +{imgs.length - 12}
                             </div>
                           )}
-                        </div>
+                        </HoverCardContent>
                       )}
-                    </HoverCardContent>
+                    </HoverCard>
+                    <td className="px-4 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        {Object.values(item.meta).map((v, i) => (
+                          <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <span className="font-mono text-xs text-muted-foreground">{imgs.length}</span>
+                    </td>
+                  </LongPressWrapper>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-52">
+                  <ContextMenuLabel className="font-mono text-[10px] truncate">{item.filename}</ContextMenuLabel>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => onOpen(item.filename)}>
+                    <FolderIcon className="h-4 w-4" /> 열기
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => selectionMode ? onToggleSelect(item.filename) : onLongPress(item.filename)}>
+                    {isSelected ? <CheckSquareIcon className="h-4 w-4" /> : <SquareIcon className="h-4 w-4" />}
+                    {isSelected ? "선택 해제" : "선택하기"}
+                  </ContextMenuItem>
+                  {onRegenerate && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => onRegenerate(item.filename)}>
+                        <RefreshCwIcon className="h-4 w-4" /> 재생성
+                      </ContextMenuItem>
+                    </>
                   )}
-                </HoverCard>
-                <td className="px-4 py-2">
-                  <div className="flex flex-wrap gap-1">
-                    {Object.values(item.meta).map((v, i) => (
-                      <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        {v}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <span className="font-mono text-xs text-muted-foreground">{imgs.length}</span>
-                </td>
-              </LongPressWrapper>
+                </ContextMenuContent>
+              </ContextMenu>
             )
           })}
         </tbody>
@@ -466,7 +529,8 @@ function LongPressWrapper({
   )
 
   const handleMouseUp = useCallback(
-    (_: React.MouseEvent) => {
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return
       clear()
       setPressing(false)
       if (!longPressTriggeredRef.current) {
@@ -873,6 +937,29 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
       setRegenLoading(false)
     }
   }, [backendUrl, selectedFilename, regenCount, regenLoading])
+
+  const handleOpen = useCallback((filename: string) => {
+    setSelectionMode(false)
+    setSelectedFilenames(new Set())
+    setSelectedFilename(filename)
+    setViewMode("grid")
+  }, [])
+
+  const handleContextMenuRegenerate = useCallback(async (filename: string) => {
+    if (regenLoading) return
+    setRegenLoading(true)
+    setRegenMessage(null)
+    try {
+      const jobIds = await curationApi.regenerate(backendUrl, filename, regenCount)
+      setRegenMessage(`잡 ${jobIds.length}개 추가됨`)
+      setTimeout(() => setRegenMessage(null), 3000)
+    } catch {
+      setRegenMessage("재생성 실패")
+      setTimeout(() => setRegenMessage(null), 3000)
+    } finally {
+      setRegenLoading(false)
+    }
+  }, [backendUrl, regenCount, regenLoading])
 
   // 선택 모드 진입 (long press)
   const handleLongPress = useCallback(
@@ -1446,16 +1533,18 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
                         setViewMode("grid")
                       }
                     }}
+                    onOpen={handleOpen}
                     selectionMode={selectionMode}
                     selectedFilenames={selectedFilenames}
                     onToggleSelect={handleToggleSelect}
                     onLongPress={handleLongPress}
+                    onRegenerate={handleContextMenuRegenerate}
                     enableHover={enableHover}
                   />
                 ) : (
-                  <TableView 
-                    items={filteredRenderItems} 
-                    imagesByFilename={imagesByFilename} 
+                  <TableView
+                    items={filteredRenderItems}
+                    imagesByFilename={imagesByFilename}
                     backendUrl={backendUrl}
                     onSelect={(filename) => {
                       if (!selectionMode) {
@@ -1463,10 +1552,12 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
                         setViewMode("grid")
                       }
                     }}
+                    onOpen={handleOpen}
                     selectionMode={selectionMode}
                     selectedFilenames={selectedFilenames}
                     onToggleSelect={handleToggleSelect}
                     onLongPress={handleLongPress}
+                    onRegenerate={handleContextMenuRegenerate}
                     enableHover={enableHover}
                   />
                 )}
