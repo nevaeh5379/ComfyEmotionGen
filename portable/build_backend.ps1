@@ -11,17 +11,13 @@ Set-Location $PortableDir
 Write-Host "Building ComfyEmotionGen Backend Executable..." -ForegroundColor Cyan
 
 # Ensure PyInstaller is available
-try {
-    python -c "import PyInstaller" 2>$null
-} catch {
+python -c "import PyInstaller" 2>$null
+if ($LASTEXITCODE -ne 0) {
     Write-Host "PyInstaller not found. Installing..." -ForegroundColor Gray
-    python -m pip install --user pyinstaller 2>$null
+    python -m pip install pyinstaller
     if ($LASTEXITCODE -ne 0) {
-        python -m pip install pyinstaller
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Failed to install PyInstaller."
-            exit 1
-        }
+        Write-Error "Failed to install PyInstaller."
+        exit 1
     }
 }
 
