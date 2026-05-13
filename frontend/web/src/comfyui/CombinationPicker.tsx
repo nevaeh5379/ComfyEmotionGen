@@ -961,6 +961,67 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
     }
   }, [backendUrl, regenCount, regenLoading])
 
+  const handleRejectImage = useCallback(
+    async (hash: string) => {
+      setAllImages((prev) =>
+        prev.map((img) => (img.hash === hash ? { ...img, status: "rejected" as const } : img))
+      )
+      await curationApi.patchStatus(backendUrl, hash, "rejected")
+    },
+    [backendUrl]
+  )
+
+  const handleCancelReject = useCallback(
+    async (hash: string) => {
+      setAllImages((prev) =>
+        prev.map((img) => (img.hash === hash ? { ...img, status: "pending" as const } : img))
+      )
+      await curationApi.patchStatus(backendUrl, hash, "pending")
+    },
+    [backendUrl]
+  )
+
+  const handleRejectAll = useCallback(async () => {
+    const targets = selectedImages.filter((img) => img.status !== "approved" && img.status !== "rejected")
+    if (targets.length === 0) return
+    setAllImages((prev) =>
+      prev.map((img) => {
+        if (img.originalFilename !== selectedFilename || img.status === "approved") return img
+        return { ...img, status: "rejected" as const }
+      })
+    )
+    await Promise.all(targets.map((img) => curationApi.patchStatus(backendUrl, img.hash, "rejected")))
+  }, [backendUrl, selectedImages, selectedFilename])
+
+  const handleCancelAllRejects = useCallback(async () => {
+    const targets = selectedImages.filter((img) => img.status === "rejected")
+    if (targets.length === 0) return
+    setAllImages((prev) =>
+      prev.map((img) => {
+        if (img.originalFilename !== selectedFilename) return img
+        return img.status === "rejected" ? { ...img, status: "pending" as const } : img
+      })
+    )
+    await Promise.all(targets.map((img) => curationApi.patchStatus(backendUrl, img.hash, "pending")))
+  }, [backendUrl, selectedImages, selectedFilename])
+
+  const handleCancelApproval = useCallback(async () => {
+    const allInGroup = selectedImages.filter(
+      (img) => img.status === "approved" || img.status === "rejected"
+    )
+    if (allInGroup.length === 0) return
+    setAllImages((prev) =>
+      prev.map((img) => {
+        if (img.originalFilename !== selectedFilename) return img
+        if (img.status === "approved" || img.status === "rejected") {
+          return { ...img, status: "pending" as const }
+        }
+        return img
+      })
+    )
+    await Promise.all(allInGroup.map((img) => curationApi.patchStatus(backendUrl, img.hash, "pending")))
+  }, [backendUrl, selectedImages, selectedFilename])
+
   // 선택 모드 진입 (long press)
   const handleLongPress = useCallback(
     (filename: string) => {
@@ -1567,42 +1628,77 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* 상세 헤더 */}
               <div className="flex-none border-b px-4 py-3 bg-muted/10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                <div className="flex flex-col gap-2">
+                  {/* Row 1: 네비게이션 + 파일명 + 메타 태그 */}
+                  <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => {
                         setSelectedFilename(null)
                         setViewMode("gallery")
-                      }} 
-                      className="h-8 gap-1.5 font-bold"
+                      }}
+                      className="h-8 gap-1.5 font-bold shrink-0"
                     >
                       <ArrowLeftIcon className="h-3.5 w-3.5" />목록
                     </Button>
                     <span className="font-mono text-sm font-bold truncate">{selectedFilename}</span>
-                    <div className="flex gap-1 overflow-hidden">
+                    <div className="flex gap-1 flex-wrap">
                       {Object.values(selectedItem?.meta || {}).map((v, i) => (
                         <span key={i} className="rounded bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary whitespace-nowrap border border-primary/10">{v}</span>
                       ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 bg-background p-1 rounded border shadow-sm">
-                    <div className="flex flex-col items-center px-2">
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none mb-0.5">Regen Count</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={20}
-                        value={regenCount}
-                        onChange={(e) => setRegenCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-                        className="h-6 w-10 text-center text-[11px] font-bold border-none focus-visible:ring-0 p-0"
-                      />
+                  {/* Row 2: 액션 버튼 그룹 */}
+                  <div className="flex items-center gap-2 justify-end flex-wrap">
+                    <div className="flex items-center gap-2 bg-background p-1 rounded border shadow-sm">
+                      <div className="flex flex-col items-center px-2">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none mb-0.5">Regen Count</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={regenCount}
+                          onChange={(e) => setRegenCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                          className="h-6 w-10 text-center text-[11px] font-bold border-none focus-visible:ring-0 p-0"
+                        />
+                      </div>
+                      <Button size="sm" className="h-8 gap-1.5 text-[10px] font-bold" onClick={handleRegenerate} disabled={regenLoading}>
+                        {regenLoading ? <Loader2Icon className="h-3.5 w-3.5 animate-spin" /> : <RefreshCwIcon className="h-3.5 w-3.5" />}
+                        재생성
+                      </Button>
                     </div>
-                    <Button size="sm" className="h-8 gap-1.5 text-[10px] font-bold" onClick={handleRegenerate} disabled={regenLoading}>
-                      {regenLoading ? <Loader2Icon className="h-3.5 w-3.5 animate-spin" /> : <RefreshCwIcon className="h-3.5 w-3.5" />}
-                      재생성
-                    </Button>
+                    <div className="h-4 w-px bg-border" />
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-[10px] font-bold text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={handleRejectAll}
+                        disabled={!selectedImages.some((img) => img.status !== "approved" && img.status !== "rejected")}
+                      >
+                        <XIcon className="h-3 w-3" />모두 리젝
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-[10px] font-bold"
+                        onClick={handleCancelAllRejects}
+                        disabled={!selectedImages.some((img) => img.status === "rejected")}
+                      >
+                        <RefreshCwIcon className="h-3 w-3" />리젝 취소
+                      </Button>
+                      <div className="h-4 w-px bg-border" />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-[10px] font-bold text-amber-600 border-amber-300 hover:bg-amber-50"
+                        onClick={handleCancelApproval}
+                        disabled={!selectedImages.some((img) => img.status === "approved")}
+                      >
+                        <XIcon className="h-3 w-3" />선택 취소
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1622,33 +1718,52 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
                       const isRejected = img.status === "rejected"
                       const isPinned = pinnedHashes.includes(img.hash)
                       return (
-                        <HoverCard key={img.hash} openDelay={enableHover ? 400 : 99999} closeDelay={100}>
-                          <HoverCardTrigger asChild>
-                            <button
-                              onClick={() => selectImage(selectedItem!.filename, img.hash)}
-                              className={`group relative overflow-hidden rounded-lg transition-colors ${
-                                isSelected ? "ring-4 ring-green-500 scale-[0.98] shadow-lg" : isRejected ? "opacity-30 hover:opacity-100" : "hover:ring-2 hover:ring-primary/40 hover:-translate-y-1 shadow-sm"
-                              }`}
-                            >
-                              <img src={`${backendUrl}/saved-images/${img.hash}`} alt="" className="w-full object-cover" />
-                              <button
-                                type="button"
-                                onClick={(e) => togglePin(img.hash, e)}
-                                className={`absolute right-2 top-2 h-7 w-7 flex items-center justify-center rounded-full transition-colors backdrop-blur-sm ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
-                              >
-                                {isPinned ? <PinIcon className="h-4 w-4" /> : <PinOffIcon className="h-4 w-4" />}
-                              </button>
-                              {idx < 9 && <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 backdrop-blur-sm">{idx + 1}</span>}
-                              {isSelected && <div className="absolute inset-0 flex items-center justify-center bg-green-500/10"><div className="bg-green-500 rounded-full p-2 text-white shadow-2xl"><CheckIcon className="h-8 w-8" strokeWidth={4} /></div></div>}
-                            </button>
-                          </HoverCardTrigger>
-                          {enableHover && (
-                            <HoverCardContent className="w-80 p-4 text-[10px] font-mono whitespace-pre-wrap break-all bg-card/95 backdrop-blur-md" side="right">
-                              <div className="border-b pb-2 mb-2 font-black text-primary uppercase tracking-widest">Metadata</div>
-                              {img.prompt}
-                            </HoverCardContent>
-                          )}
-                        </HoverCard>
+                        <ContextMenu key={img.hash}>
+                          <ContextMenuTrigger asChild>
+                            <HoverCard openDelay={enableHover ? 400 : 99999} closeDelay={100}>
+                              <HoverCardTrigger asChild>
+                                <button
+                                  onClick={() => selectImage(selectedItem!.filename, img.hash)}
+                                  className={`group relative overflow-hidden rounded-lg transition-colors ${
+                                    isSelected ? "ring-4 ring-green-500 scale-[0.98] shadow-lg" : isRejected ? "opacity-30 hover:opacity-100" : "hover:ring-2 hover:ring-primary/40 hover:-translate-y-1 shadow-sm"
+                                  }`}
+                                >
+                                  <img src={`${backendUrl}/saved-images/${img.hash}`} alt="" className="w-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => togglePin(img.hash, e)}
+                                    className={`absolute right-2 top-2 h-7 w-7 flex items-center justify-center rounded-full transition-colors backdrop-blur-sm ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
+                                  >
+                                    {isPinned ? <PinIcon className="h-4 w-4" /> : <PinOffIcon className="h-4 w-4" />}
+                                  </button>
+                                  {idx < 9 && <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 backdrop-blur-sm">{idx + 1}</span>}
+                                  {isSelected && <div className="absolute inset-0 flex items-center justify-center bg-green-500/10"><div className="bg-green-500 rounded-full p-2 text-white shadow-2xl"><CheckIcon className="h-8 w-8" strokeWidth={4} /></div></div>}
+                                </button>
+                              </HoverCardTrigger>
+                              {enableHover && (
+                                <HoverCardContent className="w-80 p-4 text-[10px] font-mono whitespace-pre-wrap break-all bg-card/95 backdrop-blur-md" side="right">
+                                  <div className="border-b pb-2 mb-2 font-black text-primary uppercase tracking-widest">Metadata</div>
+                                  {img.prompt}
+                                </HoverCardContent>
+                              )}
+                            </HoverCard>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-40">
+                            {isSelected ? (
+                              <ContextMenuItem onClick={() => handleCancelApproval()}>
+                                <XIcon className="h-3.5 w-3.5" /> 선택 취소
+                              </ContextMenuItem>
+                            ) : isRejected ? (
+                              <ContextMenuItem onClick={() => handleCancelReject(img.hash)}>
+                                <RefreshCwIcon className="h-3.5 w-3.5" /> 리젝 취소
+                              </ContextMenuItem>
+                            ) : (
+                              <ContextMenuItem onClick={() => handleRejectImage(img.hash)}>
+                                <XIcon className="h-3.5 w-3.5" /> 리젝
+                              </ContextMenuItem>
+                            )}
+                          </ContextMenuContent>
+                        </ContextMenu>
                       )
                     })}
                   </div>

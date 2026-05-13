@@ -378,7 +378,7 @@ export function App() {
           return title.includes("positive") || title.includes("prompt")
         }) || clipNodes[0]
 
-        setPromptMapping({ nodeId: bestMatch[0], inputKey: "text" })
+        setPromptMapping({ nodeId: bestMatch![0], inputKey: "text" })
       }
     }
 
