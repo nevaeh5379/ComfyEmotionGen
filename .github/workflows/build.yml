@@ -59,35 +59,117 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            variant: full
             artifact: ComfyEmotionGen-windows-amd64
             build: pwsh portable/build.ps1
             binary: portable/dist/ComfyEmotionGen.exe
             release_name: ComfyEmotionGen-windows-amd64.exe
           - os: windows-11-arm
+            variant: full
             artifact: ComfyEmotionGen-windows-arm64
             build: pwsh portable/build.ps1
             binary: portable/dist/ComfyEmotionGen.exe
             release_name: ComfyEmotionGen-windows-arm64.exe
           - os: ubuntu-latest
+            variant: full
             artifact: ComfyEmotionGen-linux-amd64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
             release_name: ComfyEmotionGen-linux-amd64
           - os: ubuntu-24.04-arm
+            variant: full
             artifact: ComfyEmotionGen-linux-arm64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
             release_name: ComfyEmotionGen-linux-arm64
           - os: macos-26
+            variant: full
             artifact: ComfyEmotionGen-macos-arm64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
             release_name: ComfyEmotionGen-macos-arm64
           - os: macos-26-intel
+            variant: full
             artifact: ComfyEmotionGen-macos-amd64
             build: bash portable/build.sh
             binary: portable/dist/ComfyEmotionGen
             release_name: ComfyEmotionGen-macos-amd64
+
+          # --- backend-only ---
+          - os: windows-latest
+            variant: backend
+            artifact: ComfyEmotionGen-backend-windows-amd64
+            build: pwsh portable/build_backend.ps1
+            binary: portable/dist/ComfyEmotionGen-backend.exe
+            release_name: ComfyEmotionGen-backend-windows-amd64.exe
+          - os: windows-11-arm
+            variant: backend
+            artifact: ComfyEmotionGen-backend-windows-arm64
+            build: pwsh portable/build_backend.ps1
+            binary: portable/dist/ComfyEmotionGen-backend.exe
+            release_name: ComfyEmotionGen-backend-windows-arm64.exe
+          - os: ubuntu-latest
+            variant: backend
+            artifact: ComfyEmotionGen-backend-linux-amd64
+            build: bash portable/build_backend.sh
+            binary: portable/dist/ComfyEmotionGen-backend
+            release_name: ComfyEmotionGen-backend-linux-amd64
+          - os: ubuntu-24.04-arm
+            variant: backend
+            artifact: ComfyEmotionGen-backend-linux-arm64
+            build: bash portable/build_backend.sh
+            binary: portable/dist/ComfyEmotionGen-backend
+            release_name: ComfyEmotionGen-backend-linux-arm64
+          - os: macos-26
+            variant: backend
+            artifact: ComfyEmotionGen-backend-macos-arm64
+            build: bash portable/build_backend.sh
+            binary: portable/dist/ComfyEmotionGen-backend
+            release_name: ComfyEmotionGen-backend-macos-arm64
+          - os: macos-26-intel
+            variant: backend
+            artifact: ComfyEmotionGen-backend-macos-amd64
+            build: bash portable/build_backend.sh
+            binary: portable/dist/ComfyEmotionGen-backend
+            release_name: ComfyEmotionGen-backend-macos-amd64
+
+          # --- frontend ---
+          - os: windows-latest
+            variant: frontend
+            artifact: ComfyEmotionGen-frontend-windows-amd64
+            build: pwsh portable/build_frontend.ps1
+            binary: portable/dist/ComfyEmotionGen-frontend.exe
+            release_name: ComfyEmotionGen-frontend-windows-amd64.exe
+          - os: windows-11-arm
+            variant: frontend
+            artifact: ComfyEmotionGen-frontend-windows-arm64
+            build: pwsh portable/build_frontend.ps1
+            binary: portable/dist/ComfyEmotionGen-frontend.exe
+            release_name: ComfyEmotionGen-frontend-windows-arm64.exe
+          - os: ubuntu-latest
+            variant: frontend
+            artifact: ComfyEmotionGen-frontend-linux-amd64
+            build: bash portable/build_frontend.sh
+            binary: portable/dist/ComfyEmotionGen-frontend
+            release_name: ComfyEmotionGen-frontend-linux-amd64
+          - os: ubuntu-24.04-arm
+            variant: frontend
+            artifact: ComfyEmotionGen-frontend-linux-arm64
+            build: bash portable/build_frontend.sh
+            binary: portable/dist/ComfyEmotionGen-frontend
+            release_name: ComfyEmotionGen-frontend-linux-arm64
+          - os: macos-26
+            variant: frontend
+            artifact: ComfyEmotionGen-frontend-macos-arm64
+            build: bash portable/build_frontend.sh
+            binary: portable/dist/ComfyEmotionGen-frontend
+            release_name: ComfyEmotionGen-frontend-macos-arm64
+          - os: macos-26-intel
+            variant: frontend
+            artifact: ComfyEmotionGen-frontend-macos-amd64
+            build: bash portable/build_frontend.sh
+            binary: portable/dist/ComfyEmotionGen-frontend
+            release_name: ComfyEmotionGen-frontend-macos-amd64
     runs-on: ${{ matrix.os }}
     env:
       CEG_BUNDLE_VERSION: ${{ needs.version.outputs.bundle }}
@@ -95,19 +177,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
+        if: matrix.variant == 'full' || matrix.variant == 'backend' || matrix.variant == 'frontend-exe'
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - uses: actions/setup-node@v4
+        if: matrix.variant == 'full' || matrix.variant == 'frontend-exe'
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/web/package-lock.json
       - name: Install backend deps + PyInstaller
+        if: matrix.variant == 'full' || matrix.variant == 'backend'
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt pyinstaller
+      - name: Install PyInstaller (frontend only)
+        if: matrix.variant == 'frontend-exe'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
       - name: Build portable
         run: ${{ matrix.build }}
       - name: Stage release binary
@@ -128,6 +218,31 @@ jobs:
           # Artifact names disallow '+', so use the sanitized docker_tag form.
           name: ${{ matrix.artifact }}-${{ needs.version.outputs.docker_tag }}
           path: release/${{ matrix.release_name }}
+          if-no-files-found: error
+
+  frontend-zip:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/web/package-lock.json
+      - name: Build frontend
+        run: |
+          cd frontend/web
+          npm ci
+          npm run build
+      - name: Create ZIP
+        run: |
+          cd frontend/web/dist
+          zip -r ../../../frontend-dist.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ComfyEmotionGen-frontend-dist-${{ needs.version.outputs.docker_tag }}
+          path: frontend-dist.zip
           if-no-files-found: error
 
   docker:
@@ -183,7 +298,7 @@ jobs:
           cache-to: type=gha,scope=aio,mode=max
 
   release:
-    needs: [version, portable, docker]
+    needs: [version, portable, frontend-zip, docker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -202,6 +317,12 @@ jobs:
           body: |
             Bundle: `${{ needs.version.outputs.bundle }}`
             Commit: `${{ needs.version.outputs.commit }}`
+
+            Portable executables:
+            - `ComfyEmotionGen-{platform}` — full stack (API + UI)
+            - `ComfyEmotionGen-backend-{platform}` — API server only (`--port`, `--host`)
+            - `ComfyEmotionGen-frontend-{platform}` — UI server only (`--port`, `--backend-url`, `--no-browser`)
+            - `ComfyEmotionGen-frontend-dist-${{ needs.version.outputs.docker_tag }}.zip` — static web assets
 
             Docker:
             - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}`
