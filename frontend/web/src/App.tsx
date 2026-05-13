@@ -67,12 +67,17 @@ const STORAGE_KEYS = {
   backendUrl: "backendUrl",
   promptMapping: "promptMapping",
   filenameMapping: "filenameMapping",
+  seedMappings: "seedMappings",
 } as const
 
 interface Mapping {
   nodeId: string
   inputKey: string
 }
+
+type SeedMapping = Mapping
+
+type SeedValue = { nodeId: string; inputKey: string; value: number }
 
 interface RenderItem {
   filename: string
@@ -271,13 +276,13 @@ const itemKey = (item: RenderItem): string =>
 const buildWorkflowForItem = (
   workflowJson: string,
   item: RenderItem,
-  seeds: Map<string, number>,
+  seeds: SeedValue[],
   promptMapping?: Mapping,
   filenameMapping?: Mapping
 ): ComfyWorkflow => {
   const workflow = parseWorkflow(workflowJson)
-  seeds.forEach((seed, nodeId) => {
-    workflow[nodeId]!.inputs["seed"] = seed
+  seeds.forEach(({ nodeId, inputKey, value }) => {
+    if (workflow[nodeId]) workflow[nodeId]!.inputs[inputKey] = value
   })
 
   // 명시적 매핑 적용
@@ -326,6 +331,9 @@ export function App() {
   const [filenameMapping, setFilenameMapping] = useLocalStorageObjectState<
     Mapping | undefined
   >(STORAGE_KEYS.filenameMapping, undefined)
+  const [seedMappings, setSeedMappings] = useLocalStorageObjectState<
+    SeedMapping[]
+  >(STORAGE_KEYS.seedMappings, [])
 
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
@@ -431,24 +439,55 @@ export function App() {
     return options
   }, [parsedWorkflow, promptMapping, filenameMapping])
 
-  const seedNodes = useMemo(() => {
+  const numericInputOptions = useMemo(() => {
     if (!parsedWorkflow?.success) return []
-    return Object.entries(parsedWorkflow.data).filter(
-      ([, node]) => node.inputs["seed"] !== undefined
-    )
+    const inUse = new Set(seedMappings.map((m) => `${m.nodeId}.${m.inputKey}`))
+    const opts: { nodeId: string; title: string; inputKey: string }[] = []
+    Object.entries(parsedWorkflow.data).forEach(([nodeId, node]) => {
+      Object.entries(node.inputs).forEach(([inputKey, value]) => {
+        if (typeof value === "number" && !inUse.has(`${nodeId}.${inputKey}`)) {
+          opts.push({ nodeId, title: node._meta?.title || node.class_type, inputKey })
+        }
+      })
+    })
+    return opts
+  }, [parsedWorkflow, seedMappings])
+
+  // 워크플로우 변경 시 seedMappings 동기화: stale 제거 + 새 seed 입력 자동 추가
+  useEffect(() => {
+    if (!parsedWorkflow?.success) return
+    const workflow = parsedWorkflow.data
+    setSeedMappings((prev) => {
+      const valid = prev.filter(
+        (m) => workflow[m.nodeId]?.inputs[m.inputKey] !== undefined
+      )
+      const existingKeys = new Set(valid.map((m) => `${m.nodeId}.${m.inputKey}`))
+      const detected: SeedMapping[] = []
+      Object.entries(workflow).forEach(([nodeId, node]) => {
+        Object.entries(node.inputs).forEach(([inputKey, value]) => {
+          if (
+            typeof value === "number" &&
+            inputKey.toLowerCase().includes("seed") &&
+            !existingKeys.has(`${nodeId}.${inputKey}`)
+          ) {
+            detected.push({ nodeId, inputKey })
+          }
+        })
+      })
+      return [...valid, ...detected]
+    })
   }, [parsedWorkflow])
 
-  const generateSeedsFor = (workflow: ComfyWorkflow): Map<string, number> => {
-    const seeds = new Map<string, number>()
-    Object.entries(workflow).forEach(([nodeId, node]) => {
-      if (node.inputs["seed"] === undefined) return
-      const seed = isSeedRandom[nodeId]
-        ? Math.floor(Math.random() * MAX_RANDOM_SEED)
-        : Number(node.inputs["seed"])
-      seeds.set(nodeId, seed)
-    })
-    return seeds
-  }
+  const generateSeedsFor = (workflow: ComfyWorkflow): SeedValue[] =>
+    seedMappings
+      .filter((m) => workflow[m.nodeId] !== undefined)
+      .map(({ nodeId, inputKey }) => ({
+        nodeId,
+        inputKey,
+        value: isSeedRandom[`${nodeId}.${inputKey}`]
+          ? Math.floor(Math.random() * MAX_RANDOM_SEED)
+          : Number(workflow[nodeId]!.inputs[inputKey]),
+      }))
 
   const callParser = async (): Promise<RenderItemsResponse | undefined> => {
     try {
@@ -568,10 +607,10 @@ export function App() {
     await submitJobs(runnablePreview)
   }
 
-  const updateSeedValue = (nodeId: string, value: string) => {
+  const updateSeedValue = (nodeId: string, inputKey: string, value: string) => {
     if (!parsedWorkflow?.success) return
     const next = parseWorkflow(workflowJson)
-    next[nodeId]!.inputs["seed"] = Number(value)
+    next[nodeId]!.inputs[inputKey] = Number(value)
     setWorkflowJson(JSON.stringify(next))
   }
 
@@ -1036,48 +1075,96 @@ export function App() {
                 </div>
               )}
 
-              {parsedWorkflow?.success && seedNodes.length > 0 && (
+              {parsedWorkflow?.success && (seedMappings.length > 0 || numericInputOptions.length > 0) && (
                 <div className="rounded-lg border bg-card p-6 shadow-sm">
                   <h2 className="mb-4 text-lg font-semibold">시드 노드</h2>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Number</TableHead>
-                        <TableHead>seed 값</TableHead>
-                        <TableHead>랜덤 여부</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {seedNodes.map(([nodeId, node]) => (
-                        <TableRow key={nodeId}>
-                          <TableCell>
-                            {node._meta?.title || "Untitled"}
-                          </TableCell>
-                          <TableCell className="font-mono">{nodeId}</TableCell>
-                          <TableCell>
-                            <Input
-                              value={String(node.inputs["seed"])}
-                              onChange={(e) =>
-                                updateSeedValue(nodeId, e.target.value)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Checkbox
-                              checked={isSeedRandom[nodeId] ?? false}
-                              onCheckedChange={(checked) => {
-                                setIsSeedRandom((prev) => ({
-                                  ...prev,
-                                  [nodeId]: checked === true,
-                                }))
-                              }}
-                            />
-                          </TableCell>
+                  {seedMappings.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Number</TableHead>
+                          <TableHead>Input Key</TableHead>
+                          <TableHead>seed 값</TableHead>
+                          <TableHead>랜덤 여부</TableHead>
+                          <TableHead />
                         </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {seedMappings.map(({ nodeId, inputKey }) => {
+                          const node = parsedWorkflow.data[nodeId]
+                          const randomKey = `${nodeId}.${inputKey}`
+                          return (
+                            <TableRow key={randomKey}>
+                              <TableCell>
+                                {node?._meta?.title || "Untitled"}
+                              </TableCell>
+                              <TableCell className="font-mono">{nodeId}</TableCell>
+                              <TableCell className="font-mono text-xs">{inputKey}</TableCell>
+                              <TableCell>
+                                <Input
+                                  value={String(node?.inputs[inputKey] ?? "")}
+                                  onChange={(e) =>
+                                    updateSeedValue(nodeId, inputKey, e.target.value)
+                                  }
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Checkbox
+                                  checked={isSeedRandom[randomKey] ?? false}
+                                  onCheckedChange={(checked) => {
+                                    setIsSeedRandom((prev) => ({
+                                      ...prev,
+                                      [randomKey]: checked === true,
+                                    }))
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() =>
+                                    setSeedMappings((prev) =>
+                                      prev.filter(
+                                        (m) =>
+                                          !(m.nodeId === nodeId && m.inputKey === inputKey)
+                                      )
+                                    )
+                                  }
+                                >
+                                  ×
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                  {numericInputOptions.length > 0 && (
+                    <select
+                      className="mt-3 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
+                      value=""
+                      onChange={(e) => {
+                        const index = Number(e.target.value)
+                        const opt = numericInputOptions[index]
+                        if (!opt) return
+                        setSeedMappings((prev) => [
+                          ...prev,
+                          { nodeId: opt.nodeId, inputKey: opt.inputKey },
+                        ])
+                      }}
+                    >
+                      <option value="">시드로 추가할 입력 선택...</option>
+                      {numericInputOptions.map((opt, index) => (
+                        <option key={index} value={index}>
+                          [{opt.nodeId}] {opt.title} - {opt.inputKey}
+                        </option>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </select>
+                  )}
                 </div>
               )}
             </section>
