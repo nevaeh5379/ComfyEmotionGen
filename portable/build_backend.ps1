@@ -10,37 +10,8 @@ Set-Location $PortableDir
 
 Write-Host "Building ComfyEmotionGen Backend Executable..." -ForegroundColor Cyan
 
-$VenvPython = Join-Path $BackendDir ".venv\Scripts\python.exe"
-
-if (!(Test-Path $VenvPython)) {
-    Write-Host "Virtual environment not found at $VenvPython. Using global python..." -ForegroundColor Yellow
-    $VenvPython = "python"
-} else {
-    Write-Host "Using virtual environment python at $VenvPython" -ForegroundColor Gray
-}
-
-& $VenvPython -m pip --version > $null 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "pip not found. Attempting to bootstrap pip..." -ForegroundColor Gray
-    & $VenvPython -m ensurepip --upgrade
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to install pip."
-        exit 1
-    }
-}
-
-& $VenvPython -m PyInstaller --version > $null 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "PyInstaller not found. Attempting to install..." -ForegroundColor Gray
-    & $VenvPython -m pip install pyinstaller
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to install PyInstaller."
-        exit 1
-    }
-}
-
 Write-Host "Running PyInstaller compilation..." -ForegroundColor Gray
-& $VenvPython -m PyInstaller --name "ComfyEmotionGen-backend" `
+& python -m PyInstaller --name "ComfyEmotionGen-backend" `
             --noconfirm `
             --onefile `
             --paths $BackendDir `

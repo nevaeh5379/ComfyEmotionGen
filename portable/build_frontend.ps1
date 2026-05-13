@@ -30,31 +30,8 @@ if (Test-Path $DistDir) {
 }
 Copy-Item -Path (Join-Path $FrontendDir "dist") -Destination $DistDir -Recurse
 
-# PyInstaller
-$VenvPython = "python"
-
-& $VenvPython -m pip --version > $null 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "pip not found. Attempting to bootstrap pip..." -ForegroundColor Gray
-    & $VenvPython -m ensurepip --upgrade
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to install pip."
-        exit 1
-    }
-}
-
-& $VenvPython -m PyInstaller --version > $null 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "PyInstaller not found. Attempting to install..." -ForegroundColor Gray
-    & $VenvPython -m pip install pyinstaller
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to install PyInstaller."
-        exit 1
-    }
-}
-
 Write-Host "Running PyInstaller compilation..." -ForegroundColor Gray
-& $VenvPython -m PyInstaller --name "ComfyEmotionGen-frontend" `
+& python -m PyInstaller --name "ComfyEmotionGen-frontend" `
             --noconfirm `
             --onefile `
             --add-data "$DistDir;frontend_dist" `

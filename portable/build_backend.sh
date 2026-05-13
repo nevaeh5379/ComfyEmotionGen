@@ -8,25 +8,8 @@ BACKEND_DIR="$PROJECT_ROOT/backend"
 
 echo "Building ComfyEmotionGen Backend Executable..."
 
-VENV_PY="$BACKEND_DIR/.venv/bin/python"
-if [[ ! -x "$VENV_PY" ]]; then
-  echo "Virtual environment not found at $VENV_PY. Using system python..."
-  VENV_PY="$(command -v python3 || command -v python)"
-fi
-echo "Using python: $VENV_PY"
-
-if ! "$VENV_PY" -m pip --version >/dev/null 2>&1; then
-  echo "pip not found. Bootstrapping..."
-  "$VENV_PY" -m ensurepip --upgrade
-fi
-
-if ! "$VENV_PY" -m PyInstaller --version >/dev/null 2>&1; then
-  echo "Installing PyInstaller..."
-  "$VENV_PY" -m pip install pyinstaller
-fi
-
 cd "$SCRIPT_DIR"
-"$VENV_PY" -m PyInstaller \
+python3 -m PyInstaller \
   --name "ComfyEmotionGen-backend" \
   --noconfirm \
   --onefile \

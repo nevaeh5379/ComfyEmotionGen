@@ -25,21 +25,8 @@ echo "[2/2] Preparing frontend assets and packaging..."
 rm -rf "$DIST_DIR"
 cp -r "$FRONTEND_DIR/dist" "$DIST_DIR"
 
-VENV_PY="$(command -v python3 || command -v python)"
-echo "Using python: $VENV_PY"
-
-if ! "$VENV_PY" -m pip --version >/dev/null 2>&1; then
-  echo "pip not found. Bootstrapping..."
-  "$VENV_PY" -m ensurepip --upgrade
-fi
-
-if ! "$VENV_PY" -m PyInstaller --version >/dev/null 2>&1; then
-  echo "Installing PyInstaller..."
-  "$VENV_PY" -m pip install pyinstaller
-fi
-
 cd "$SCRIPT_DIR"
-"$VENV_PY" -m PyInstaller \
+python3 -m PyInstaller \
   --name "ComfyEmotionGen-frontend" \
   --noconfirm \
   --onefile \
