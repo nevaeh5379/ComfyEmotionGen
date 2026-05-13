@@ -199,7 +199,8 @@ const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
           </p>
           {workers.length === 0 && backendAlive && (
             <p className="text-xs text-muted-foreground">
-              등록된 워커가 없습니다. '서버 설정' &gt; 'ComfyUI 워커'에서 추가하세요.
+              등록된 워커가 없습니다. '서버 설정' &gt; 'ComfyUI 워커'에서
+              추가하세요.
             </p>
           )}
           {workers.map((w) => (
@@ -284,7 +285,8 @@ const buildWorkflowForItem = (
     workflow[promptMapping.nodeId]!.inputs[promptMapping.inputKey] = item.prompt
   }
   if (filenameMapping && workflow[filenameMapping.nodeId]) {
-    workflow[filenameMapping.nodeId]!.inputs[filenameMapping.inputKey] = item.filename
+    workflow[filenameMapping.nodeId]!.inputs[filenameMapping.inputKey] =
+      item.filename
   }
 
   // 기존 탬플릿 방식(치환)도 유지 (폴백용)
@@ -318,33 +320,36 @@ export function App() {
   const [cegTemplate, setCegTemplate] = useLocalStorageState(
     STORAGE_KEYS.cegTemplate
   )
-  const [promptMapping, setPromptMapping] = useLocalStorageObjectState<Mapping | undefined>(
-    STORAGE_KEYS.promptMapping,
-    undefined
-  )
-  const [filenameMapping, setFilenameMapping] = useLocalStorageObjectState<Mapping | undefined>(
-    STORAGE_KEYS.filenameMapping,
-    undefined
-  )
+  const [promptMapping, setPromptMapping] = useLocalStorageObjectState<
+    Mapping | undefined
+  >(STORAGE_KEYS.promptMapping, undefined)
+  const [filenameMapping, setFilenameMapping] = useLocalStorageObjectState<
+    Mapping | undefined
+  >(STORAGE_KEYS.filenameMapping, undefined)
 
-  const {
-    isConnected: backendAlive,
-    jobs,
-    workers,
-    paused,
-  } = useBackend()
+  const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
   const { settings, updateSetting } = useSettings()
 
-  const [activeTab, setActiveTab] = useState<"jobs" | "gallery" | "curation" | "settings">("jobs")
+  const [activeTab, setActiveTab] = useState<
+    "jobs" | "gallery" | "curation" | "settings"
+  >("jobs")
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAliveBackend, setIsAliveBackend] = useState(false)
   const [isSeedRandom, setIsSeedRandom] = useState<Record<string, boolean>>({})
   const [templateSaveName, setTemplateSaveName] = useState("")
-  const { templates: savedTemplates, saveTemplate, deleteTemplate } = useSavedTemplates()
-  const { workflows: savedWorkflows, saveWorkflow, deleteWorkflow } = useSavedWorkflows()
+  const {
+    templates: savedTemplates,
+    saveTemplate,
+    deleteTemplate,
+  } = useSavedTemplates()
+  const {
+    workflows: savedWorkflows,
+    saveWorkflow,
+    deleteWorkflow,
+  } = useSavedWorkflows()
   const [workflowSaveName, setWorkflowSaveName] = useState("")
 
   // 파서 미리보기 필터 / 선택 상태
@@ -370,13 +375,16 @@ export function App() {
 
     // 프롬프트 매핑 자동 감지
     if (!promptMapping) {
-      const clipNodes = Object.entries(workflow).filter(([, n]) => n.class_type === "CLIPTextEncode")
+      const clipNodes = Object.entries(workflow).filter(
+        ([, n]) => n.class_type === "CLIPTextEncode"
+      )
       if (clipNodes.length > 0) {
         // Positive나 Prompt 제목이 있는 노드 우선
-        const bestMatch = clipNodes.find(([_, n]) => {
-          const title = (n._meta?.title || "").toLowerCase()
-          return title.includes("positive") || title.includes("prompt")
-        }) || clipNodes[0]
+        const bestMatch =
+          clipNodes.find(([_, n]) => {
+            const title = (n._meta?.title || "").toLowerCase()
+            return title.includes("positive") || title.includes("prompt")
+          }) || clipNodes[0]
 
         setPromptMapping({ nodeId: bestMatch![0], inputKey: "text" })
       }
@@ -384,12 +392,20 @@ export function App() {
 
     // 파일명 매핑 자동 감지
     if (!filenameMapping) {
-      const saveNode = Object.entries(workflow).find(([, n]) => n.class_type === "SaveImage")
+      const saveNode = Object.entries(workflow).find(
+        ([, n]) => n.class_type === "SaveImage"
+      )
       if (saveNode) {
         setFilenameMapping({ nodeId: saveNode[0], inputKey: "filename_prefix" })
       }
     }
-  }, [parsedWorkflow, promptMapping, filenameMapping, setPromptMapping, setFilenameMapping])
+  }, [
+    parsedWorkflow,
+    promptMapping,
+    filenameMapping,
+    setPromptMapping,
+    setFilenameMapping,
+  ])
 
   const stringInputOptions = useMemo(() => {
     if (!parsedWorkflow?.success) return []
@@ -399,8 +415,10 @@ export function App() {
         // 문자열 필드이거나 이미 매핑된 필드라면 후보에 포함
         if (
           typeof value === "string" ||
-          (promptMapping?.nodeId === nodeId && promptMapping?.inputKey === inputKey) ||
-          (filenameMapping?.nodeId === nodeId && filenameMapping?.inputKey === inputKey)
+          (promptMapping?.nodeId === nodeId &&
+            promptMapping?.inputKey === inputKey) ||
+          (filenameMapping?.nodeId === nodeId &&
+            filenameMapping?.inputKey === inputKey)
         ) {
           options.push({
             nodeId,
@@ -441,7 +459,9 @@ export function App() {
       })
       if (!response.ok) {
         const errorText = await response.text().catch(() => "")
-        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`)
+        throw new Error(
+          `HTTP ${response.status}: ${errorText || response.statusText}`
+        )
       }
       return (await response.json()) as RenderItemsResponse
     } catch (error) {
@@ -695,7 +715,8 @@ export function App() {
                     <FieldLabel>ComfyUI 워커</FieldLabel>
                     <WorkerManager backendUrl={backendUrl} workers={workers} />
                     <FieldDescription>
-                      여러 ComfyUI 인스턴스를 추가하면 잡이 idle 워커에 자동 분배됩니다.
+                      여러 ComfyUI 인스턴스를 추가하면 잡이 idle 워커에 자동
+                      분배됩니다.
                     </FieldDescription>
                   </Field>
                 </FieldGroup>
@@ -720,7 +741,11 @@ export function App() {
                         value={templateSaveName}
                         onChange={(e) => setTemplateSaveName(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && templateSaveName.trim() && cegTemplate.trim()) {
+                          if (
+                            e.key === "Enter" &&
+                            templateSaveName.trim() &&
+                            cegTemplate.trim()
+                          ) {
                             saveTemplate(templateSaveName, cegTemplate)
                             setTemplateSaveName("")
                           }
@@ -730,7 +755,9 @@ export function App() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={!templateSaveName.trim() || !cegTemplate.trim()}
+                        disabled={
+                          !templateSaveName.trim() || !cegTemplate.trim()
+                        }
                         onClick={() => {
                           saveTemplate(templateSaveName, cegTemplate)
                           setTemplateSaveName("")
@@ -803,7 +830,11 @@ export function App() {
                         value={workflowSaveName}
                         onChange={(e) => setWorkflowSaveName(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && workflowSaveName.trim() && workflowJson.trim()) {
+                          if (
+                            e.key === "Enter" &&
+                            workflowSaveName.trim() &&
+                            workflowJson.trim()
+                          ) {
                             saveWorkflow(workflowSaveName, workflowJson)
                             setWorkflowSaveName("")
                           }
@@ -813,7 +844,9 @@ export function App() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={!workflowSaveName.trim() || !workflowJson.trim()}
+                        disabled={
+                          !workflowSaveName.trim() || !workflowJson.trim()
+                        }
                         onClick={() => {
                           saveWorkflow(workflowSaveName, workflowJson)
                           setWorkflowSaveName("")
@@ -856,20 +889,31 @@ export function App() {
                         <Label className="text-xs">프롬프트 주입 대상</Label>
                         <select
                           className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                          value={promptMapping ? `${promptMapping.nodeId}.${promptMapping.inputKey}` : ""}
+                          value={stringInputOptions.findIndex(
+                            (opt) =>
+                              opt.nodeId === promptMapping?.nodeId &&
+                              opt.inputKey === promptMapping?.inputKey
+                          )}
                           onChange={(e) => {
-                            const val = e.target.value
-                            if (!val) {
+                            const index = e.target.value
+                            if (index === "" || index === "-1") {
                               setPromptMapping(undefined)
-                              return
+                            } else {
+                              const selected = stringInputOptions[Number(index)]
+                              if (!selected)
+                                throw new Error(
+                                  "Invalid prompt mapping selection"
+                                )
+                              setPromptMapping({
+                                nodeId: selected.nodeId,
+                                inputKey: selected.inputKey,
+                              })
                             }
-                            const [nodeId, inputKey] = val.split(".")
-                            setPromptMapping({ nodeId, inputKey })
                           }}
                         >
                           <option value="">자동 또는 {`{input}`} 사용</option>
-                          {stringInputOptions.map((opt) => (
-                            <option key={`${opt.nodeId}.${opt.inputKey}`} value={`${opt.nodeId}.${opt.inputKey}`}>
+                          {stringInputOptions.map((opt, index) => (
+                            <option key={index} value={index}>
                               [{opt.nodeId}] {opt.title} - {opt.inputKey}
                             </option>
                           ))}
@@ -879,20 +923,33 @@ export function App() {
                         <Label className="text-xs">파일명 주입 대상</Label>
                         <select
                           className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                          value={filenameMapping ? `${filenameMapping.nodeId}.${filenameMapping.inputKey}` : ""}
+                          value={stringInputOptions.findIndex(
+                            (opt) =>
+                              opt.nodeId === filenameMapping?.nodeId &&
+                              opt.inputKey === filenameMapping?.inputKey
+                          )}
                           onChange={(e) => {
-                            const val = e.target.value
-                            if (!val) {
+                            const index = e.target.value
+                            if (index === "" || index === "-1") {
                               setFilenameMapping(undefined)
                               return
                             }
-                            const [nodeId, inputKey] = val.split(".")
-                            setFilenameMapping({ nodeId, inputKey })
+                            const selected = stringInputOptions[Number(index)]
+                            if (!selected)
+                              throw new Error(
+                                "Invalid filename mapping selection"
+                              )
+                            setFilenameMapping({
+                              nodeId: selected.nodeId,
+                              inputKey: selected.inputKey,
+                            })
                           }}
                         >
-                          <option value="">자동 또는 {`{filename}`} 사용</option>
-                          {stringInputOptions.map((opt) => (
-                            <option key={`${opt.nodeId}.${opt.inputKey}`} value={`${opt.nodeId}.${opt.inputKey}`}>
+                          <option value="">
+                            자동 또는 {`{filename}`} 사용
+                          </option>
+                          {stringInputOptions.map((opt, index) => (
+                            <option key={index} value={index}>
                               [{opt.nodeId}] {opt.title} - {opt.inputKey}
                             </option>
                           ))}
@@ -900,7 +957,8 @@ export function App() {
                       </div>
                     </div>
                     <FieldDescription>
-                      워크플로우 JSON에 {`{input}`}이나 {`{filename}`}이 없어도 선택한 필드에 직접 주입합니다.
+                      워크플로우 JSON에 {`{input}`}이나 {`{filename}`}이 없어도
+                      선택한 필드에 직접 주입합니다.
                     </FieldDescription>
                   </Field>
                   <Field orientation="horizontal">
@@ -945,7 +1003,9 @@ export function App() {
                         파서 테스트
                       </Button>
                       {parserError && (
-                        <span className="text-sm text-destructive">{parserError}</span>
+                        <span className="text-sm text-destructive">
+                          {parserError}
+                        </span>
                       )}
                       {fakeJobQueue.length > 0 && (
                         <Button
@@ -991,7 +1051,9 @@ export function App() {
                     <TableBody>
                       {seedNodes.map(([nodeId, node]) => (
                         <TableRow key={nodeId}>
-                          <TableCell>{node._meta?.title || "Untitled"}</TableCell>
+                          <TableCell>
+                            {node._meta?.title || "Untitled"}
+                          </TableCell>
                           <TableCell className="font-mono">{nodeId}</TableCell>
                           <TableCell>
                             <Input
@@ -1038,7 +1100,7 @@ export function App() {
       </main>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="flex flex-col min-w-[30vw]">
+        <SheetContent className="flex min-w-[30vw] flex-col">
           <SheetHeader>
             <SheetTitle>파서 결과</SheetTitle>
             <SheetDescription>
@@ -1047,7 +1109,6 @@ export function App() {
             </SheetDescription>
           </SheetHeader>
           <Field orientation="horizontal" className="px-4">
-
             <Input
               type="search"
               placeholder="filename/prompt 필터..."
@@ -1072,10 +1133,9 @@ export function App() {
               선택 실행 ({runnablePreview.length})
             </Button>
           </Field>
-          <div className="flex flex-wrap items-center gap-2 py-4">
-          </div>
+          <div className="flex flex-wrap items-center gap-2 py-4"></div>
 
-          <ScrollArea className="flex-1 rounded-md border overflow-y-auto">
+          <ScrollArea className="flex-1 overflow-y-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
