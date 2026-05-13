@@ -19,14 +19,32 @@ echo "[1/2] Building React Frontend..."
   npm run build
 )
 
-# 2. Copy Frontend Dist and package
+# 2. Copy Frontend Dist
 echo
 echo "[2/2] Preparing frontend assets and packaging..."
 rm -rf "$DIST_DIR"
 cp -r "$FRONTEND_DIR/dist" "$DIST_DIR"
 
+# Resolve a Python that has PyInstaller (or install it)
+PY=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)
+if [[ -z "$PY" ]]; then
+  echo "ERROR: Python not found"
+  exit 1
+fi
+echo "Using python: $PY"
+
+if ! "$PY" -c "import PyInstaller" 2>/dev/null; then
+  echo "PyInstaller not found. Installing..."
+  "$PY" -m ensurepip --upgrade 2>/dev/null || true
+  "$PY" -m pip install --user pyinstaller 2>/dev/null || \
+  "$PY" -m pip install --break-system-packages pyinstaller 2>/dev/null || {
+    echo "ERROR: Failed to install PyInstaller"
+    exit 1
+  }
+fi
+
 cd "$SCRIPT_DIR"
-python -m PyInstaller \
+"$PY" -m PyInstaller \
   --name "ComfyEmotionGen-frontend" \
   --noconfirm \
   --onefile \

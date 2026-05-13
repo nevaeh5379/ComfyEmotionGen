@@ -1,4 +1,4 @@
-# build_frontend_exe.ps1 - Builds the frontend-only portable executable
+# build_frontend.ps1 - Builds the frontend-only portable executable
 
 $ErrorActionPreference = "Stop"
 
@@ -30,8 +30,23 @@ if (Test-Path $DistDir) {
 }
 Copy-Item -Path (Join-Path $FrontendDir "dist") -Destination $DistDir -Recurse
 
+# Ensure PyInstaller is available
+try {
+    python -c "import PyInstaller" 2>$null
+} catch {
+    Write-Host "PyInstaller not found. Installing..." -ForegroundColor Gray
+    python -m pip install --user pyinstaller 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        python -m pip install pyinstaller
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to install PyInstaller."
+            exit 1
+        }
+    }
+}
+
 Write-Host "Running PyInstaller compilation..." -ForegroundColor Gray
-& python -m PyInstaller --name "ComfyEmotionGen-frontend" `
+python -m PyInstaller --name "ComfyEmotionGen-frontend" `
             --noconfirm `
             --onefile `
             --add-data "$DistDir;frontend_dist" `
