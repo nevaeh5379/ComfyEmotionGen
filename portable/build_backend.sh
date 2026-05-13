@@ -9,7 +9,7 @@ BACKEND_DIR="$PROJECT_ROOT/backend"
 echo "Building ComfyEmotionGen Backend Executable..."
 
 cd "$SCRIPT_DIR"
-python3 -m PyInstaller \
+python -m PyInstaller \
   --name "ComfyEmotionGen-backend" \
   --noconfirm \
   --onefile \

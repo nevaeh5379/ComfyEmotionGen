@@ -26,7 +26,7 @@ rm -rf "$DIST_DIR"
 cp -r "$FRONTEND_DIR/dist" "$DIST_DIR"
 
 cd "$SCRIPT_DIR"
-python3 -m PyInstaller \
+python -m PyInstaller \
   --name "ComfyEmotionGen-frontend" \
   --noconfirm \
   --onefile \
