@@ -552,10 +552,11 @@ interface PreviewTableProps {
   items: RenderItem[]
   accent?: string
   summary?: string
+  className?: string
 }
 
-const PreviewTable = ({ title, items, accent, summary }: PreviewTableProps) => (
-  <div className="flex min-h-0 flex-1 flex-col">
+const PreviewTable = ({ title, items, accent, summary, className }: PreviewTableProps) => (
+  <div className={`flex min-h-0 flex-col ${className ?? "flex-1"}`}>
     <div className="mb-1 flex items-baseline gap-2 shrink-0">
       <span className="text-sm font-semibold">{title}</span>
       <span className={accent}>{items.length}</span>
@@ -658,6 +659,15 @@ export function App() {
   const [axisValueFilter, setAxisValueFilter] = useState<
     Record<string, Record<string, boolean>>
   >({})
+  const [collapsedAxes, setCollapsedAxes] = useState<Set<string>>(new Set())
+
+  const toggleAxisCollapse = (axis: string) =>
+    setCollapsedAxes((prev) => {
+      const next = new Set(prev)
+      if (next.has(axis)) next.delete(axis)
+      else next.add(axis)
+      return next
+    })
 
   const parsedWorkflow = useMemo(() => {
     if (!workflowJson) return undefined
@@ -1525,7 +1535,41 @@ export function App() {
           </SheetHeader>
           <div className="flex gap-4 h-[65vh]">
             <div className="w-[35%] flex flex-col gap-2">
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setAxisValueFilter((prev) => {
+                      const allEnabled = Object.values(prev).every((vals) =>
+                        Object.values(vals).every(Boolean)
+                      )
+                      return Object.fromEntries(
+                        Object.entries(prev).map(([k, vals]) => [
+                          k,
+                          Object.fromEntries(
+                            Object.keys(vals).map((v) => [v, !allEnabled])
+                          ),
+                        ])
+                      )
+                    })
+                  }
+                >
+                  전체 {Object.values(axisValueFilter).every((vals) => Object.values(vals).every(Boolean)) ? "비활성화" : "활성화"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setCollapsedAxes((prev) => {
+                      const allCollapsed = prev.size === Object.keys(axisValueFilter).length
+                      if (allCollapsed) return new Set()
+                      return new Set(Object.keys(axisValueFilter))
+                    })
+                  }
+                >
+                  {collapsedAxes.size === Object.keys(axisValueFilter).length ? "모두 펴기" : "모두 접기"}
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1540,7 +1584,7 @@ export function App() {
                     )
                   }
                 >
-                  전체 초기화
+                  초기화
                 </Button>
               </div>
               <ScrollArea className="flex-1 min-h-0 rounded-md border">
@@ -1554,9 +1598,16 @@ export function App() {
                       : enabledCount === totalCount
                         ? true
                         : "indeterminate"
+                  const isCollapsed = collapsedAxes.has(axis)
                   return (
                     <div key={axis}>
-                      <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5">
+                      <div
+                        className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3 py-1.5 select-none"
+                        onClick={() => toggleAxisCollapse(axis)}
+                      >
+                        <span className="text-xs text-muted-foreground transition-transform w-3">
+                          {isCollapsed ? "▸" : "▾"}
+                        </span>
                         <Checkbox
                           checked={axisChecked}
                           onCheckedChange={() => {
@@ -1571,6 +1622,7 @@ export function App() {
                               ),
                             }))
                           }}
+                          onClick={(e) => e.stopPropagation()}
                         />
                         <span className="font-mono text-sm font-semibold">
                           {axis}
@@ -1579,7 +1631,8 @@ export function App() {
                           {enabledCount}/{totalCount}
                         </span>
                       </div>
-                      {Object.entries(values).map(([value, enabled]) => (
+                      {!isCollapsed &&
+                        Object.entries(values).map(([value, enabled]) => (
                         <div
                           key={value}
                           className="flex items-center gap-2 px-3 py-1 pl-9"
@@ -1613,16 +1666,12 @@ export function App() {
                 title="제외된 항목"
                 items={axisExcludedItems}
                 accent="text-destructive"
+                className="max-h-[40%]"
               />
               <PreviewTable
                 title="포함된 항목"
                 items={axisFilteredItems}
                 accent="text-green-600"
-              />
-              <PreviewTable
-                title="총 결과"
-                items={axisFilteredItems}
-                accent="text-primary"
                 summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
               />
             </div>
