@@ -287,17 +287,21 @@ class JobManager:
 
     async def cancel_all(self) -> int:
         """pending/queued/running 잡 전부 취소. 취소된 잡 개수 반환."""
-        async with self._lock:
-            targets = [
-                j.id
-                for j in self._jobs.values()
-                if j.status in ("pending", "queued", "running")
-            ]
         count = 0
-        for job_id in targets:
-            if await self.cancel(job_id):
+        while True:
+            async with self._lock:
+                target = next(
+                    (
+                        j.id
+                        for j in self._jobs.values()
+                        if j.status in ("pending", "queued", "running")
+                    ),
+                    None,
+                )
+            if target is None:
+                return count
+            if await self.cancel(target):
                 count += 1
-        return count
 
     async def cancel(self, job_id: str) -> bool:
         async with self._lock:
@@ -545,6 +549,8 @@ class JobManager:
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
+                return
+            if job.status in ("cancelled", "done"):
                 return
             worker_id_to_clear = job.worker_id
             job.retry_count += 1

@@ -38,6 +38,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/WebSocketProvider"
@@ -461,6 +468,22 @@ const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
   return auto
 }
 
+const applyAxisFilters = (
+  items: RenderItem[],
+  filter: Record<string, Record<string, boolean>>
+): RenderItem[] => {
+  const hasAnyDisabled = Object.values(filter).some((vals) =>
+    Object.values(vals).some((v) => !v)
+  )
+  if (!hasAnyDisabled) return items
+  return items.filter((item) =>
+    Object.entries(item.meta).every(([key, value]) => {
+      const axisVals = filter[key]
+      if (!axisVals) return true
+      return axisVals[value] !== false
+    })
+  )
+}
 
 const buildWorkflowForItem = (
   workflowJson: string,
@@ -564,6 +587,7 @@ export function App() {
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
+  const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
   const [isAliveBackend, setIsAliveBackend] = useState(false)
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
   const [imageUploads, setImageUploads] = useState<
@@ -585,10 +609,12 @@ export function App() {
   } = useSavedWorkflows()
   const [workflowSaveName, setWorkflowSaveName] = useState("")
 
-  // 파서 미리보기 필터 / 선택 상태
+  // 파서 미리보기 필터
   const [previewFilter, setPreviewFilter] = useState("")
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [parserError, setParserError] = useState<string | null>(null)
+  const [axisValueFilter, setAxisValueFilter] = useState<
+    Record<string, Record<string, boolean>>
+  >({})
 
   const parsedWorkflow = useMemo(() => {
     if (!workflowJson) return undefined
@@ -748,22 +774,11 @@ export function App() {
     if (!workflowJson || !isAliveBackend) return
     const parserResult = await callParser()
     if (!parserResult) return
-    await submitJobs(parserResult.items)
+    await submitJobs(applyAxisFilters(parserResult.items, axisValueFilter))
   }
 
-  const handleParser = async () => {
-    setParserError(null)
-    const data = await callParser()
-    if (data) {
-      setFakeJobQueue(data.items)
-      // 새 파서 결과: 모두 선택 + 필터 초기화
-      setSelectedKeys(new Set(data.items.map((it) => itemKey(it))))
-      setPreviewFilter("")
-      setIsSheetOpen(true)
-    }
-  }
 
-  // 필터 적용된 미리보기 (검색어가 filename/prompt에 부분일치)
+  // 파서 테스트 시트 검색 필터
   const filteredPreview = useMemo(() => {
     const needle = previewFilter.trim().toLowerCase()
     if (!needle) return fakeJobQueue
@@ -774,42 +789,64 @@ export function App() {
     )
   }, [fakeJobQueue, previewFilter])
 
-  // 실제 실행 후보 = 필터된 것 ∩ 선택된 것
-  const runnablePreview = useMemo(
-    () => filteredPreview.filter((it) => selectedKeys.has(itemKey(it))),
-    [filteredPreview, selectedKeys]
+  const estimatedRunCount = useMemo(
+    () =>
+      fakeJobQueue.length > 0
+        ? applyAxisFilters(fakeJobQueue, axisValueFilter).length
+        : null,
+    [fakeJobQueue, axisValueFilter]
   )
 
-  const allFilteredSelected =
-    filteredPreview.length > 0 &&
-    filteredPreview.every((it) => selectedKeys.has(itemKey(it)))
+  const filteredByAxisSet = useMemo(() => {
+    if (Object.keys(axisValueFilter).length === 0) return null
+    return new Set(applyAxisFilters(fakeJobQueue, axisValueFilter).map(itemKey))
+  }, [fakeJobQueue, axisValueFilter])
 
-  const toggleItemSelected = (item: RenderItem) => {
-    const key = itemKey(item)
-    setSelectedKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
+  const hasActiveFilter = Object.values(axisValueFilter).some((vals) =>
+    Object.values(vals).some((v) => !v)
+  )
 
-  const toggleSelectAllFiltered = () => {
-    setSelectedKeys((prev) => {
-      const next = new Set(prev)
-      if (allFilteredSelected) {
-        for (const it of filteredPreview) next.delete(itemKey(it))
-      } else {
-        for (const it of filteredPreview) next.add(itemKey(it))
+  // CEG 템플릿 변경 시 자동 파싱 (600ms debounce)
+  useEffect(() => {
+    if (!isAliveBackend || !cegTemplate.trim()) return
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      setParserError(null)
+      try {
+        const res = await fetch(`${backendUrl}/render`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ template: cegTemplate }),
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = (await res.json()) as RenderItemsResponse
+        setFakeJobQueue(data.items)
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return
+        setParserError(err instanceof Error ? err.message : String(err))
       }
+    }, 600)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [cegTemplate, isAliveBackend, backendUrl])
+
+  // 파서 결과에서 축 값 자동 감지 (새 값만 추가, 기존 설정 유지)
+  useEffect(() => {
+    if (fakeJobQueue.length === 0) return
+    setAxisValueFilter((prev) => {
+      const next = { ...prev }
+      fakeJobQueue.forEach((item) => {
+        Object.entries(item.meta).forEach(([key, value]) => {
+          if (!next[key]) next[key] = {}
+          if (next[key]![value] === undefined) next[key]![value] = true
+        })
+      })
       return next
     })
-  }
-
-  const handleRunSelected = async () => {
-    if (!workflowJson || !isAliveBackend) return
-    await submitJobs(runnablePreview)
-  }
+  }, [fakeJobQueue])
 
   const updateMapping = (id: string, patch: Partial<NodeMapping>) =>
     setNodeMappings((prev) =>
@@ -1072,15 +1109,7 @@ export function App() {
                         onClick={handleRun}
                         disabled={!canRun}
                       >
-                        실행
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="h-10"
-                        onClick={handleParser}
-                        disabled={!isAliveBackend}
-                      >
-                        파서 테스트
+                        실행{estimatedRunCount !== null ? ` (${estimatedRunCount})` : ""}
                       </Button>
                       {parserError && (
                         <span className="text-sm text-destructive">
@@ -1094,6 +1123,15 @@ export function App() {
                           onClick={() => setIsSheetOpen(true)}
                         >
                           파서 결과 보기 ({fakeJobQueue.length})
+                        </Button>
+                      )}
+                      {Object.keys(axisValueFilter).length > 0 && (
+                        <Button
+                          variant={hasActiveFilter ? "secondary" : "outline"}
+                          className="h-10"
+                          onClick={() => setIsAxisFilterOpen(true)}
+                        >
+                          축 필터{hasActiveFilter ? ` (${estimatedRunCount})` : ""}
                         </Button>
                       )}
                       {parsedWorkflow?.success && (
@@ -1336,6 +1374,7 @@ export function App() {
                   </p>
                 </div>
               )}
+
             </section>
             <div className="relative">
               <section className="absolute inset-0 flex flex-col rounded-lg border bg-card p-6 shadow-sm">
@@ -1360,42 +1399,28 @@ export function App() {
           <SheetHeader>
             <SheetTitle>파서 결과</SheetTitle>
             <SheetDescription>
-              ({selectedKeys.size}/{fakeJobQueue.length} 선택
-              {previewFilter ? `, ${filteredPreview.length} 필터됨` : ""})
+              전체 {fakeJobQueue.length}개
+              {previewFilter ? ` · 검색 ${filteredPreview.length}개` : ""}
+              {estimatedRunCount !== null &&
+              estimatedRunCount < fakeJobQueue.length
+                ? ` · 축 필터 후 ${estimatedRunCount}개 실행 예정`
+                : ""}
             </SheetDescription>
           </SheetHeader>
-          <Field orientation="horizontal" className="px-4">
+          <div className="px-4">
             <Input
               type="search"
-              placeholder="filename/prompt 필터..."
+              placeholder="filename/prompt 검색..."
               value={previewFilter}
               onChange={(e) => setPreviewFilter(e.target.value)}
-              className="h-8 flex-1"
+              className="h-8"
             />
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={toggleSelectAllFiltered}
-              disabled={filteredPreview.length === 0}
-            >
-              {allFilteredSelected ? "선택 해제" : "전체 선택"}
-            </Button>
-            <Button
-              size="sm"
-              variant="default"
-              onClick={handleRunSelected}
-              disabled={!canRun || runnablePreview.length === 0}
-            >
-              선택 실행 ({runnablePreview.length})
-            </Button>
-          </Field>
-          <div className="flex flex-wrap items-center gap-2 py-4"></div>
+          </div>
 
           <ScrollArea className="flex-1 overflow-y-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10" />
                   <TableHead>FileName</TableHead>
                   <TableHead>Prompt</TableHead>
                 </TableRow>
@@ -1403,14 +1428,13 @@ export function App() {
               <TableBody id="rendered-items-table-body">
                 {filteredPreview.map((item, index) => {
                   const key = itemKey(item)
+                  const wouldRun =
+                    !filteredByAxisSet || filteredByAxisSet.has(key)
                   return (
-                    <TableRow key={`fake-${key}-${index}`}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedKeys.has(key)}
-                          onCheckedChange={() => toggleItemSelected(item)}
-                        />
-                      </TableCell>
+                    <TableRow
+                      key={`fake-${key}-${index}`}
+                      className={!wouldRun ? "opacity-40" : ""}
+                    >
                       <TableCell className="font-mono text-xs">
                         {item.filename}
                       </TableCell>
@@ -1421,10 +1445,10 @@ export function App() {
                 {filteredPreview.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={2}
                       className="text-center text-xs text-muted-foreground"
                     >
-                      필터에 매치되는 항목이 없습니다.
+                      검색 결과가 없습니다.
                     </TableCell>
                   </TableRow>
                 )}
@@ -1434,6 +1458,102 @@ export function App() {
           </ScrollArea>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isAxisFilterOpen} onOpenChange={setIsAxisFilterOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>축 필터</DialogTitle>
+            <DialogDescription>
+              체크 해제된 값은 실행에서 제외됩니다.
+              {estimatedRunCount !== null
+                ? ` 현재 설정 기준 ${estimatedRunCount}개 실행 예정.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setAxisValueFilter((prev) =>
+                  Object.fromEntries(
+                    Object.entries(prev).map(([k, vals]) => [
+                      k,
+                      Object.fromEntries(Object.keys(vals).map((v) => [v, true])),
+                    ])
+                  )
+                )
+              }
+            >
+              전체 초기화
+            </Button>
+          </div>
+          <ScrollArea className="max-h-[55vh] rounded-md border">
+            {Object.entries(axisValueFilter).map(([axis, values]) => {
+              const enabledCount =
+                Object.values(values).filter(Boolean).length
+              const totalCount = Object.keys(values).length
+              const axisChecked: boolean | "indeterminate" =
+                enabledCount === 0
+                  ? false
+                  : enabledCount === totalCount
+                    ? true
+                    : "indeterminate"
+              return (
+                <div key={axis}>
+                  <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5">
+                    <Checkbox
+                      checked={axisChecked}
+                      onCheckedChange={() => {
+                        const shouldEnable = enabledCount < totalCount
+                        setAxisValueFilter((prev) => ({
+                          ...prev,
+                          [axis]: Object.fromEntries(
+                            Object.keys(prev[axis] ?? {}).map((v) => [
+                              v,
+                              shouldEnable,
+                            ])
+                          ),
+                        }))
+                      }}
+                    />
+                    <span className="font-mono text-sm font-semibold">
+                      {axis}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {enabledCount}/{totalCount}
+                    </span>
+                  </div>
+                  {Object.entries(values).map(([value, enabled]) => (
+                    <div
+                      key={value}
+                      className="flex items-center gap-2 px-3 py-1 pl-9"
+                    >
+                      <Checkbox
+                        checked={enabled}
+                        onCheckedChange={(checked) =>
+                          setAxisValueFilter((prev) => ({
+                            ...prev,
+                            [axis]: {
+                              ...prev[axis],
+                              [value]: checked === true,
+                            },
+                          }))
+                        }
+                      />
+                      <span
+                        className={`font-mono text-xs ${!enabled ? "text-muted-foreground line-through" : ""}`}
+                      >
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       {parsedWorkflow?.success && (
         <WorkflowGraphViewer
