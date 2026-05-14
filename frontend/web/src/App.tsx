@@ -16,7 +16,6 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item"
 import {
   NavigationMenu,
@@ -65,20 +64,19 @@ const STORAGE_KEYS = {
   workflow: "workflow",
   cegTemplate: "cegTemplate",
   backendUrl: "backendUrl",
-  promptMapping: "promptMapping",
-  filenameMapping: "filenameMapping",
-  seedMappings: "seedMappings",
-  customMappings: "customMappings",
-  imageMappings: "imageMappings",
+  nodeMappings: "nodeMappings",
 } as const
 
-interface Mapping {
+type MappingSourceType = "prompt" | "filename" | "seed" | "image" | "fixed"
+
+interface NodeMapping {
+  id: string
   nodeId: string
   inputKey: string
-}
-
-interface CustomMapping extends Mapping {
-  value: string
+  sourceType: MappingSourceType
+  seedValue?: number
+  seedRandom?: boolean
+  fixedValue?: string
 }
 
 type ObjectInfoInputSpec = [string[] | string, Record<string, unknown>?]
@@ -88,10 +86,6 @@ type ObjectInfo = Record<string, {
     optional?: Record<string, ObjectInfoInputSpec>
   }
 }>
-
-type SeedMapping = Mapping
-
-type SeedValue = { nodeId: string; inputKey: string; value: number }
 
 interface RenderItem {
   filename: string
@@ -290,32 +284,40 @@ const itemKey = (item: RenderItem): string =>
 const buildWorkflowForItem = (
   workflowJson: string,
   item: RenderItem,
-  seeds: SeedValue[],
-  promptMapping?: Mapping,
-  filenameMapping?: Mapping,
-  imageInjections?: { nodeId: string; inputKey: string; name: string }[],
-  customMappings?: CustomMapping[]
+  nodeMappings: NodeMapping[],
+  imageNameMap: Record<string, string>
 ): ComfyWorkflow => {
   const workflow = parseWorkflow(workflowJson)
-  seeds.forEach(({ nodeId, inputKey, value }) => {
-    if (workflow[nodeId]) workflow[nodeId]!.inputs[inputKey] = value
-  })
 
-  // 명시적 매핑 적용
-  if (promptMapping && workflow[promptMapping.nodeId]) {
-    workflow[promptMapping.nodeId]!.inputs[promptMapping.inputKey] = item.prompt
-  }
-  if (filenameMapping && workflow[filenameMapping.nodeId]) {
-    workflow[filenameMapping.nodeId]!.inputs[filenameMapping.inputKey] =
-      item.filename
-  }
-  customMappings?.forEach(({ value, nodeId, inputKey }) => {
-    if (workflow[nodeId]) {
-      workflow[nodeId]!.inputs[inputKey] = value
+  let firstImageName = ""
+  nodeMappings.forEach(({ nodeId, inputKey, sourceType, seedValue, seedRandom, fixedValue }) => {
+    if (!workflow[nodeId]) return
+    switch (sourceType) {
+      case "prompt":
+        workflow[nodeId]!.inputs[inputKey] = item.prompt
+        break
+      case "filename":
+        workflow[nodeId]!.inputs[inputKey] = item.filename
+        break
+      case "seed": {
+        const v = seedRandom
+          ? Math.floor(Math.random() * MAX_RANDOM_SEED)
+          : (seedValue ?? 0)
+        workflow[nodeId]!.inputs[inputKey] = v
+        break
+      }
+      case "image": {
+        const name = imageNameMap[`${nodeId}.${inputKey}`]
+        if (name) {
+          workflow[nodeId]!.inputs[inputKey] = name
+          if (!firstImageName) firstImageName = name
+        }
+        break
+      }
+      case "fixed":
+        workflow[nodeId]!.inputs[inputKey] = fixedValue ?? ""
+        break
     }
-  })
-  imageInjections?.forEach(({ nodeId, inputKey, name }) => {
-    if (workflow[nodeId]) workflow[nodeId]!.inputs[inputKey] = name
   })
 
   // 플레이스홀더 치환: meta 변수 + 내장 변수 + 하위호환 단일중괄호
@@ -323,7 +325,7 @@ const buildWorkflowForItem = (
     ...Object.fromEntries(Object.entries(item.meta).map(([k, v]) => [`{{${k}}}`, v])),
     "{{input}}": item.prompt,
     "{{filename}}": item.filename,
-    "{{image}}": imageInjections?.[0]?.name ?? "",
+    "{{image}}": firstImageName,
     "{input}": item.prompt,
     "{filename}": item.filename,
   }
@@ -359,21 +361,9 @@ export function App() {
   const [cegTemplate, setCegTemplate] = useLocalStorageState(
     STORAGE_KEYS.cegTemplate
   )
-  const [promptMapping, setPromptMapping] = useLocalStorageObjectState<
-    Mapping | undefined
-  >(STORAGE_KEYS.promptMapping, undefined)
-  const [filenameMapping, setFilenameMapping] = useLocalStorageObjectState<
-    Mapping | undefined
-  >(STORAGE_KEYS.filenameMapping, undefined)
-  const [seedMappings, setSeedMappings] = useLocalStorageObjectState<
-    SeedMapping[]
-  >(STORAGE_KEYS.seedMappings, [])
-  const [customMappings, setCustomMappings] = useLocalStorageObjectState<
-    CustomMapping[]
-  >(STORAGE_KEYS.customMappings, [])
-  const [imageMappings, setImageMappings] = useLocalStorageObjectState<
-    Mapping[]
-  >(STORAGE_KEYS.imageMappings, [])
+  const [nodeMappings, setNodeMappings] = useLocalStorageObjectState<
+    NodeMapping[]
+  >(STORAGE_KEYS.nodeMappings, [])
 
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
@@ -387,7 +377,6 @@ export function App() {
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAliveBackend, setIsAliveBackend] = useState(false)
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
-  const [isSeedRandom, setIsSeedRandom] = useState<Record<string, boolean>>({})
   const [imageUploads, setImageUploads] = useState<
     Record<string, { uploadedName: string | null; error: string | null; uploading: boolean }>
   >({})
@@ -419,143 +408,62 @@ export function App() {
     }
   }, [workflowJson])
 
-  // 워크플로우 분석하여 프롬프트/파일명 매핑 자동 제안
+  // 워크플로우 로드 시 nodeMappings 자동 감지 (비어있을 때만)
   useEffect(() => {
-    if (!parsedWorkflow?.success) return
-
+    if (!parsedWorkflow?.success || nodeMappings.length > 0) return
     const workflow = parsedWorkflow.data
+    const auto: NodeMapping[] = []
 
-    // 프롬프트 매핑 자동 감지
-    if (!promptMapping) {
-      const clipNodes = Object.entries(workflow).filter(
-        ([, n]) => n.class_type === "CLIPTextEncode"
-      )
-      if (clipNodes.length > 0) {
-        // Positive나 Prompt 제목이 있는 노드 우선
-        const bestMatch =
-          clipNodes.find(([_, n]) => {
-            const title = (n._meta?.title || "").toLowerCase()
-            return title.includes("positive") || title.includes("prompt")
-          }) || clipNodes[0]
+    const clipNode =
+      Object.entries(workflow).find(([, n]) => {
+        if (n.class_type !== "CLIPTextEncode") return false
+        const title = (n._meta?.title || "").toLowerCase()
+        return title.includes("positive") || title.includes("prompt")
+      }) ?? Object.entries(workflow).find(([, n]) => n.class_type === "CLIPTextEncode")
+    if (clipNode)
+      auto.push({ id: crypto.randomUUID(), nodeId: clipNode[0], inputKey: "text", sourceType: "prompt" })
 
-        setPromptMapping({ nodeId: bestMatch![0], inputKey: "text" })
-      }
-    }
+    const saveNode = Object.entries(workflow).find(([, n]) => n.class_type === "SaveImage")
+    if (saveNode)
+      auto.push({ id: crypto.randomUUID(), nodeId: saveNode[0], inputKey: "filename_prefix", sourceType: "filename" })
 
-    // 파일명 매핑 자동 감지
-    if (!filenameMapping) {
-      const saveNode = Object.entries(workflow).find(
-        ([, n]) => n.class_type === "SaveImage"
-      )
-      if (saveNode) {
-        setFilenameMapping({ nodeId: saveNode[0], inputKey: "filename_prefix" })
-      }
-    }
+    Object.entries(workflow).forEach(([nodeId, node]) => {
+      if (node.class_type === "LoadImage")
+        auto.push({ id: crypto.randomUUID(), nodeId, inputKey: "image", sourceType: "image" })
+    })
 
-    // 이미지 매핑 자동 감지 (LoadImage 노드 전체)
-    if (imageMappings.length === 0) {
-      const loadImageNodes = Object.entries(workflow).filter(
-        ([, n]) => n.class_type === "LoadImage"
-      )
-      if (loadImageNodes.length > 0) {
-        setImageMappings(loadImageNodes.map(([nodeId]) => ({ nodeId, inputKey: "image" })))
-      }
-    }
-  }, [
-    parsedWorkflow,
-    promptMapping,
-    filenameMapping,
-    imageMappings,
-    setPromptMapping,
-    setFilenameMapping,
-    setImageMappings,
-  ])
-
-  const stringInputOptions = useMemo(() => {
-    if (!parsedWorkflow?.success) return []
-    const options: { nodeId: string; title: string; inputKey: string }[] = []
-    Object.entries(parsedWorkflow.data).forEach(([nodeId, node]) => {
+    Object.entries(workflow).forEach(([nodeId, node]) => {
       Object.entries(node.inputs).forEach(([inputKey, value]) => {
-        // 문자열 필드이거나 이미 매핑된 필드라면 후보에 포함
-        if (
-          typeof value === "string" ||
-          (promptMapping?.nodeId === nodeId &&
-            promptMapping?.inputKey === inputKey) ||
-          (filenameMapping?.nodeId === nodeId &&
-            filenameMapping?.inputKey === inputKey) ||
-          imageMappings.some((m) => m.nodeId === nodeId && m.inputKey === inputKey)
-        ) {
-          options.push({
-            nodeId,
-            title: node._meta?.title || node.class_type,
-            inputKey,
+        if (typeof value === "number" && inputKey.toLowerCase().includes("seed"))
+          auto.push({
+            id: crypto.randomUUID(), nodeId, inputKey, sourceType: "seed",
+            seedValue: Number(value), seedRandom: true,
           })
-        }
       })
     })
-    return options
-  }, [parsedWorkflow, promptMapping, filenameMapping, imageMappings])
 
-  const numericInputOptions = useMemo(() => {
+    if (auto.length > 0) setNodeMappings(auto)
+  }, [parsedWorkflow, nodeMappings, setNodeMappings])
+
+  const availableNodeOptions = useMemo(() => {
     if (!parsedWorkflow?.success) return []
-    const inUse = new Set(seedMappings.map((m) => `${m.nodeId}.${m.inputKey}`))
-    const opts: { nodeId: string; title: string; inputKey: string }[] = []
+    const inUse = new Set(nodeMappings.map((m) => `${m.nodeId}.${m.inputKey}`))
+    const opts: { nodeId: string; title: string; inputKey: string; isNumeric: boolean; isLoadImage: boolean }[] = []
     Object.entries(parsedWorkflow.data).forEach(([nodeId, node]) => {
       Object.entries(node.inputs).forEach(([inputKey, value]) => {
-        if (typeof value === "number" && !inUse.has(`${nodeId}.${inputKey}`)) {
+        if (!inUse.has(`${nodeId}.${inputKey}`) && (typeof value === "string" || typeof value === "number")) {
           opts.push({
             nodeId,
             title: node._meta?.title || node.class_type,
             inputKey,
+            isNumeric: typeof value === "number",
+            isLoadImage: node.class_type === "LoadImage" && inputKey === "image",
           })
         }
       })
     })
     return opts
-  }, [parsedWorkflow, seedMappings])
-
-  const imageNodeInputOptions = useMemo(() => {
-    const inUse = new Set(imageMappings.map((m) => `${m.nodeId}.${m.inputKey}`))
-    return stringInputOptions.filter((opt) => !inUse.has(`${opt.nodeId}.${opt.inputKey}`))
-  }, [stringInputOptions, imageMappings])
-
-  // 워크플로우 변경 시 seedMappings 동기화: stale 제거 + 새 seed 입력 자동 추가
-  useEffect(() => {
-    if (!parsedWorkflow?.success) return
-    const workflow = parsedWorkflow.data
-    setSeedMappings((prev) => {
-      const valid = prev.filter(
-        (m) => workflow[m.nodeId]?.inputs[m.inputKey] !== undefined
-      )
-      const existingKeys = new Set(
-        valid.map((m) => `${m.nodeId}.${m.inputKey}`)
-      )
-      const detected: SeedMapping[] = []
-      Object.entries(workflow).forEach(([nodeId, node]) => {
-        Object.entries(node.inputs).forEach(([inputKey, value]) => {
-          if (
-            typeof value === "number" &&
-            inputKey.toLowerCase().includes("seed") &&
-            !existingKeys.has(`${nodeId}.${inputKey}`)
-          ) {
-            detected.push({ nodeId, inputKey })
-          }
-        })
-      })
-      return [...valid, ...detected]
-    })
-  }, [parsedWorkflow])
-
-  const generateSeedsFor = (workflow: ComfyWorkflow): SeedValue[] =>
-    seedMappings
-      .filter((m) => workflow[m.nodeId] !== undefined)
-      .map(({ nodeId, inputKey }) => ({
-        nodeId,
-        inputKey,
-        value: isSeedRandom[`${nodeId}.${inputKey}`]
-          ? Math.floor(Math.random() * MAX_RANDOM_SEED)
-          : Number(workflow[nodeId]!.inputs[inputKey]),
-      }))
+  }, [parsedWorkflow, nodeMappings])
 
   const handleImageUpload = async (file: File, nodeId: string, inputKey: string) => {
     const key = `${nodeId}.${inputKey}`
@@ -601,26 +509,17 @@ export function App() {
 
   const submitJobs = async (renderItems: RenderItem[]): Promise<boolean> => {
     if (!workflowJson || renderItems.length === 0) return false
-    // 시드는 한 배치 안에서 동일하게 (기존 동작 유지)
-    const seeds = generateSeedsFor(parseWorkflow(workflowJson))
+    const imageNameMap: Record<string, string> = {}
+    for (const m of nodeMappings) {
+      if (m.sourceType === "image") {
+        const name = imageUploads[`${m.nodeId}.${m.inputKey}`]?.uploadedName
+        if (name) imageNameMap[`${m.nodeId}.${m.inputKey}`] = name
+      }
+    }
     const items = renderItems.map((item) => ({
       filename: item.filename,
       prompt: item.prompt,
-      workflow: buildWorkflowForItem(
-        workflowJson,
-        item,
-        seeds,
-        promptMapping,
-        filenameMapping,
-        imageMappings
-          .map(({ nodeId, inputKey }) => ({
-            nodeId,
-            inputKey,
-            name: imageUploads[`${nodeId}.${inputKey}`]?.uploadedName ?? null,
-          }))
-          .filter((i): i is { nodeId: string; inputKey: string; name: string } => i.name !== null),
-        customMappings
-      ),
+      workflow: buildWorkflowForItem(workflowJson, item, nodeMappings, imageNameMap),
     }))
     try {
       const res = await fetch(`${backendUrl}/jobs`, {
@@ -703,12 +602,8 @@ export function App() {
     await submitJobs(runnablePreview)
   }
 
-  const updateSeedValue = (nodeId: string, inputKey: string, value: string) => {
-    if (!parsedWorkflow?.success) return
-    const next = parseWorkflow(workflowJson)
-    next[nodeId]!.inputs[inputKey] = Number(value)
-    setWorkflowJson(JSON.stringify(next))
-  }
+  const updateMapping = (id: string, patch: Partial<NodeMapping>) =>
+    setNodeMappings((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
 
   // 백엔드 헬스 체크
   useEffect(() => {
@@ -1034,177 +929,6 @@ export function App() {
                       </div>
                     )}
                   </Field>
-                  <Field>
-                    <FieldLabel>데이터 매핑</FieldLabel>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs">프롬프트 주입 대상</Label>
-                        <select
-                          className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                          value={stringInputOptions.findIndex(
-                            (opt) =>
-                              opt.nodeId === promptMapping?.nodeId &&
-                              opt.inputKey === promptMapping?.inputKey
-                          )}
-                          onChange={(e) => {
-                            const index = e.target.value
-                            if (index === "" || index === "-1") {
-                              setPromptMapping(undefined)
-                            } else {
-                              const selected = stringInputOptions[Number(index)]
-                              if (!selected)
-                                throw new Error(
-                                  "Invalid prompt mapping selection"
-                                )
-                              setPromptMapping({
-                                nodeId: selected.nodeId,
-                                inputKey: selected.inputKey,
-                              })
-                            }
-                          }}
-                        >
-                          <option value="">자동 또는 {`{input}`} 사용</option>
-                          {stringInputOptions.map((opt, index) => (
-                            <option key={index} value={index}>
-                              [{opt.nodeId}] {opt.title} - {opt.inputKey}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">파일명 주입 대상</Label>
-                        <select
-                          className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                          value={stringInputOptions.findIndex(
-                            (opt) =>
-                              opt.nodeId === filenameMapping?.nodeId &&
-                              opt.inputKey === filenameMapping?.inputKey
-                          )}
-                          onChange={(e) => {
-                            const index = e.target.value
-                            if (index === "" || index === "-1") {
-                              setFilenameMapping(undefined)
-                              return
-                            }
-                            const selected = stringInputOptions[Number(index)]
-                            if (!selected)
-                              throw new Error(
-                                "Invalid filename mapping selection"
-                              )
-                            setFilenameMapping({
-                              nodeId: selected.nodeId,
-                              inputKey: selected.inputKey,
-                            })
-                          }}
-                        >
-                          <option value="">
-                            자동 또는 {`{filename}`} 사용
-                          </option>
-                          {stringInputOptions.map((opt, index) => (
-                            <option key={index} value={index}>
-                              [{opt.nodeId}] {opt.title} - {opt.inputKey}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    {/* 추가 필드 매핑 */}
-                    {customMappings.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <Label className="text-xs">추가 필드 매핑</Label>
-                        {customMappings.map((cm, idx) => {
-                          const optIndex = stringInputOptions.findIndex(
-                            (o) => o.nodeId === cm.nodeId && o.inputKey === cm.inputKey
-                          )
-                          const spec = getNodeInputSpec(cm.nodeId, cm.inputKey)
-                          const enumOptions = Array.isArray(spec?.[0]) ? (spec![0] as string[]) : null
-                          const updateValue = (val: string) =>
-                            setCustomMappings((prev) =>
-                              prev.map((m, i) => (i === idx ? { ...m, value: val } : m))
-                            )
-                          return (
-                            <div key={idx} className="flex items-center gap-2">
-                              {enumOptions ? (
-                                <select
-                                  value={cm.value}
-                                  onChange={(e) => updateValue(e.target.value)}
-                                  className="h-8 w-40 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                >
-                                  <option value="">선택...</option>
-                                  {enumOptions.map((opt) => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  type="text"
-                                  placeholder="입력할 값"
-                                  value={cm.value}
-                                  onChange={(e) => updateValue(e.target.value)}
-                                  className="h-8 w-36 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                />
-                              )}
-                              <span className="text-xs text-muted-foreground">→</span>
-                              <select
-                                className="flex h-8 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                value={optIndex === -1 ? "" : optIndex}
-                                onChange={(e) => {
-                                  const opt = stringInputOptions[Number(e.target.value)]
-                                  if (!opt) return
-                                  setCustomMappings((prev) =>
-                                    prev.map((m, i) =>
-                                      i === idx
-                                        ? { ...m, nodeId: opt.nodeId, inputKey: opt.inputKey }
-                                        : m
-                                    )
-                                  )
-                                }}
-                              >
-                                <option value="">노드 선택...</option>
-                                {stringInputOptions.map((opt, i) => (
-                                  <option key={i} value={i}>
-                                    [{opt.nodeId}] {opt.title} - {opt.inputKey}
-                                  </option>
-                                ))}
-                              </select>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 flex-none p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() =>
-                                  setCustomMappings((prev) => prev.filter((_, i) => i !== idx))
-                                }
-                              >
-                                ×
-                              </Button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                    <select
-                      className="mt-2 flex h-8 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                      value=""
-                      onChange={(e) => {
-                        const opt = stringInputOptions[Number(e.target.value)]
-                        if (!opt) return
-                        setCustomMappings((prev) => [
-                          ...prev,
-                          { value: "", nodeId: opt.nodeId, inputKey: opt.inputKey },
-                        ])
-                      }}
-                    >
-                      <option value="">필드 매핑 추가...</option>
-                      {stringInputOptions.map((opt, i) => (
-                        <option key={i} value={i}>
-                          [{opt.nodeId}] {opt.title} - {opt.inputKey}
-                        </option>
-                      ))}
-                    </select>
-                    <FieldDescription>
-                      워크플로우 JSON에 {`{{input}}`}, {`{{filename}}`}, {`{{image}}`}, DSL axis 변수명({`{{outfit}}`} 등)을 직접 쓸 수도 있습니다.
-                    </FieldDescription>
-                  </Field>
                   <Field orientation="horizontal">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="flex h-10 items-stretch overflow-hidden rounded-md border bg-background">
@@ -1280,168 +1004,107 @@ export function App() {
                 </div>
               )}
 
-              {parsedWorkflow?.success &&
-                (seedMappings.length > 0 || numericInputOptions.length > 0) && (
+              {parsedWorkflow?.success && (
                   <div className="rounded-lg border bg-card p-6 shadow-sm">
-                    <h2 className="mb-4 text-lg font-semibold">시드 노드</h2>
-                    {seedMappings.length > 0 && (
+                    <h2 className="mb-4 text-lg font-semibold">노드 매핑</h2>
+                    {nodeMappings.length > 0 && (
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>Title</TableHead>
-                            <TableHead>Number</TableHead>
-                            <TableHead>Input Key</TableHead>
-                            <TableHead>seed 값</TableHead>
-                            <TableHead>랜덤 여부</TableHead>
+                            <TableHead>Node#</TableHead>
+                            <TableHead>Input</TableHead>
+                            <TableHead>소스</TableHead>
+                            <TableHead>값 / 파일</TableHead>
+                            <TableHead>랜덤</TableHead>
                             <TableHead />
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {seedMappings.map(({ nodeId, inputKey }) => {
-                            const node = parsedWorkflow.data[nodeId]
-                            const randomKey = `${nodeId}.${inputKey}`
+                          {nodeMappings.map((m) => {
+                            const node = parsedWorkflow.data[m.nodeId]
+                            const spec = getNodeInputSpec(m.nodeId, m.inputKey)
+                            const enumOptions = Array.isArray(spec?.[0]) ? (spec![0] as string[]) : null
+                            const upload = imageUploads[`${m.nodeId}.${m.inputKey}`]
                             return (
-                              <TableRow key={randomKey}>
+                              <TableRow key={m.id}>
+                                <TableCell className="text-sm">{node?._meta?.title || "Untitled"}</TableCell>
+                                <TableCell className="font-mono text-sm">{m.nodeId}</TableCell>
+                                <TableCell className="font-mono text-xs">{m.inputKey}</TableCell>
                                 <TableCell>
-                                  {node?._meta?.title || "Untitled"}
-                                </TableCell>
-                                <TableCell className="font-mono">
-                                  {nodeId}
-                                </TableCell>
-                                <TableCell className="font-mono text-xs">
-                                  {inputKey}
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={String(node?.inputs[inputKey] ?? "")}
-                                    onChange={(e) =>
-                                      updateSeedValue(
-                                        nodeId,
-                                        inputKey,
-                                        e.target.value
-                                      )
-                                    }
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Checkbox
-                                    checked={isSeedRandom[randomKey] ?? false}
-                                    onCheckedChange={(checked) => {
-                                      setIsSeedRandom((prev) => ({
-                                        ...prev,
-                                        [randomKey]: checked === true,
-                                      }))
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                    onClick={() =>
-                                      setSeedMappings((prev) =>
-                                        prev.filter(
-                                          (m) =>
-                                            m.nodeId !== nodeId &&
-                                            m.inputKey !== inputKey
-                                        )
-                                      )
-                                    }
+                                  <select
+                                    className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                                    value={m.sourceType}
+                                    onChange={(e) => updateMapping(m.id, { sourceType: e.target.value as MappingSourceType })}
                                   >
-                                    ×
-                                  </Button>
+                                    <option value="prompt">프롬프트</option>
+                                    <option value="filename">파일명</option>
+                                    <option value="seed">시드</option>
+                                    <option value="image">이미지</option>
+                                    <option value="fixed">고정값</option>
+                                  </select>
                                 </TableCell>
-                              </TableRow>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
-                    )}
-                    {numericInputOptions.length > 0 && (
-                      <select
-                        className="mt-3 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                        value=""
-                        onChange={(e) => {
-                          const index = Number(e.target.value)
-                          const opt = numericInputOptions[index]
-                          if (!opt) return
-                          setSeedMappings((prev) => [
-                            ...prev,
-                            { nodeId: opt.nodeId, inputKey: opt.inputKey },
-                          ])
-                        }}
-                      >
-                        <option value="">시드로 추가할 입력 선택...</option>
-                        {numericInputOptions.map((opt, index) => (
-                          <option key={index} value={index}>
-                            [{opt.nodeId}] {opt.title} - {opt.inputKey}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                )}
-
-              {parsedWorkflow?.success &&
-                (imageMappings.length > 0 || imageNodeInputOptions.length > 0) && (
-                  <div className="rounded-lg border bg-card p-6 shadow-sm">
-                    <h2 className="mb-4 text-lg font-semibold">이미지 노드</h2>
-                    {imageMappings.length > 0 && (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Title</TableHead>
-                            <TableHead>Number</TableHead>
-                            <TableHead>Input Key</TableHead>
-                            <TableHead>이미지 파일</TableHead>
-                            <TableHead />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {imageMappings.map(({ nodeId, inputKey }) => {
-                            const node = parsedWorkflow.data[nodeId]
-                            const uploadKey = `${nodeId}.${inputKey}`
-                            const upload = imageUploads[uploadKey]
-                            return (
-                              <TableRow key={uploadKey}>
-                                <TableCell>{node?._meta?.title || "Untitled"}</TableCell>
-                                <TableCell className="font-mono">{nodeId}</TableCell>
-                                <TableCell className="font-mono text-xs">{inputKey}</TableCell>
                                 <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="text-sm"
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0]
-                                        if (f) handleImageUpload(f, nodeId, inputKey)
-                                      }}
+                                  {m.sourceType === "seed" && (
+                                    <Input
+                                      type="number"
+                                      value={m.seedValue ?? 0}
+                                      onChange={(e) => updateMapping(m.id, { seedValue: Number(e.target.value) })}
+                                      className="h-8 w-28"
                                     />
-                                    {upload?.uploading && (
-                                      <span className="text-xs text-muted-foreground">업로드 중...</span>
-                                    )}
-                                    {upload?.uploadedName && (
-                                      <span className="text-xs text-green-600">✓ {upload.uploadedName}</span>
-                                    )}
-                                    {upload?.error && (
-                                      <span className="text-xs text-destructive">{upload.error}</span>
-                                    )}
-                                  </div>
+                                  )}
+                                  {m.sourceType === "image" && (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="text-sm"
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0]
+                                          if (f) handleImageUpload(f, m.nodeId, m.inputKey)
+                                        }}
+                                      />
+                                      {upload?.uploading && <span className="text-xs text-muted-foreground">업로드 중...</span>}
+                                      {upload?.uploadedName && <span className="text-xs text-green-600">✓ {upload.uploadedName}</span>}
+                                      {upload?.error && <span className="text-xs text-destructive">{upload.error}</span>}
+                                    </div>
+                                  )}
+                                  {m.sourceType === "fixed" && (
+                                    enumOptions ? (
+                                      <select
+                                        value={m.fixedValue ?? ""}
+                                        onChange={(e) => updateMapping(m.id, { fixedValue: e.target.value })}
+                                        className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                                      >
+                                        <option value="">선택...</option>
+                                        {enumOptions.map((opt) => (
+                                          <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <Input
+                                        value={m.fixedValue ?? ""}
+                                        onChange={(e) => updateMapping(m.id, { fixedValue: e.target.value })}
+                                        className="h-8 w-36"
+                                        placeholder="값 입력"
+                                      />
+                                    )
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {m.sourceType === "seed" && (
+                                    <Checkbox
+                                      checked={m.seedRandom ?? false}
+                                      onCheckedChange={(checked) => updateMapping(m.id, { seedRandom: checked === true })}
+                                    />
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                    onClick={() =>
-                                      setImageMappings((prev) =>
-                                        prev.filter(
-                                          (m) => !(m.nodeId === nodeId && m.inputKey === inputKey)
-                                        )
-                                      )
-                                    }
+                                    onClick={() => setNodeMappings((prev) => prev.filter((x) => x.id !== m.id))}
                                   >
                                     ×
                                   </Button>
@@ -1452,28 +1115,42 @@ export function App() {
                         </TableBody>
                       </Table>
                     )}
-                    {imageNodeInputOptions.length > 0 && (
+                    {availableNodeOptions.length > 0 && (
                       <select
                         className="mt-3 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
                         value=""
                         onChange={(e) => {
                           const index = Number(e.target.value)
-                          const opt = imageNodeInputOptions[index]
+                          const opt = availableNodeOptions[index]
                           if (!opt) return
-                          setImageMappings((prev) => [
+                          const sourceType: MappingSourceType = opt.isLoadImage
+                            ? "image"
+                            : opt.isNumeric
+                              ? "seed"
+                              : "fixed"
+                          setNodeMappings((prev) => [
                             ...prev,
-                            { nodeId: opt.nodeId, inputKey: opt.inputKey },
+                            {
+                              id: crypto.randomUUID(),
+                              nodeId: opt.nodeId,
+                              inputKey: opt.inputKey,
+                              sourceType,
+                              ...(sourceType === "seed" ? { seedValue: 0, seedRandom: true } : {}),
+                            },
                           ])
                         }}
                       >
-                        <option value="">이미지 노드 추가...</option>
-                        {imageNodeInputOptions.map((opt, i) => (
+                        <option value="">매핑 추가...</option>
+                        {availableNodeOptions.map((opt, i) => (
                           <option key={i} value={i}>
                             [{opt.nodeId}] {opt.title} - {opt.inputKey}
                           </option>
                         ))}
                       </select>
                     )}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      워크플로우 JSON에 {`{{input}}`}, {`{{filename}}`}, {`{{image}}`}, DSL 변수명({`{{outfit}}`} 등)을 직접 써도 됩니다.
+                    </p>
                   </div>
                 )}
             </section>
