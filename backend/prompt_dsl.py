@@ -6,9 +6,11 @@ AI 이미지 프롬프트 배치 생성을 위한 DSL.
 사용:       python prompt_dsl.py <template_file>
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Any, cast, Dict, List, Optional, Union
 import re
 import json
 
@@ -205,7 +207,7 @@ class DSLSyntaxError(Exception):
 
 def parse(src: str) -> Program:
     try:
-        return _parser.parse(src)
+        return cast(Program, _parser.parse(src))
     except UnexpectedInput as e:
         context = e.get_context(src, span=40)
         expected = getattr(e, "expected", None) or getattr(e, "allowed", None)
@@ -312,13 +314,19 @@ def render(prog: Program, *,
            skip_excludes: bool = False,
            extra_excludes: Optional[List[Dict[str, Any]]] = None,
            limit: int = 0,
-           offset: int = 0) -> List[Dict]:
+           offset: int = 0) -> Dict[str, Any]:
     if not prog.combine_expr:
-        return [{
-            "filename": _substitute(prog.filename, prog.vars, {}).strip(),
-            "prompt": _clean_prompt(_substitute(prog.template, prog.vars, {})),
-            "meta": {},
-        }]
+        return {
+            "total": 1,
+            "items": [{
+                "filename": _substitute(prog.filename, prog.vars, {}).strip(),
+                "prompt": _clean_prompt(_substitute(prog.template, prog.vars, {})),
+                "meta": {},
+            }],
+            "axes": {},
+            "sets": dict(prog.vars),
+            "excludes": [],
+        }
 
     combos = eval_expr(prog.combine_expr, prog.axes, prog.vars)
 
@@ -460,10 +468,13 @@ def render(prog: Program, *,
 
 # ====== ComfyUI 연동 ======
 
-def inject_into_workflow(workflow: dict, prompt, placeholder: str = "{{input}}") -> dict:
-    mapping = prompt if isinstance(prompt, dict) else {placeholder: prompt}
+WorkflowNode = Union[Dict[str, 'WorkflowNode'], List['WorkflowNode'], str, int, float, bool, None]
 
-    def walk(obj):
+
+def inject_into_workflow(workflow: WorkflowNode, prompt: Union[str, Dict[str, str]], placeholder: str = "{{input}}") -> WorkflowNode:
+    mapping: Dict[str, str] = prompt if isinstance(prompt, dict) else {placeholder: prompt}
+
+    def walk(obj: WorkflowNode) -> WorkflowNode:
         if isinstance(obj, dict):
             return {k: walk(v) for k, v in obj.items()}
         if isinstance(obj, list):
