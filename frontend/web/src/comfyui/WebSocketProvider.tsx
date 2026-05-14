@@ -113,6 +113,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       case "control.updated":
         setPaused(event.paused)
         break
+      case "job.deleted":
+        setJobs((prev) => prev.filter((j) => j.id !== event.jobId))
+        break
     }
   }, [])
 

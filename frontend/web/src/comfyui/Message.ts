@@ -89,3 +89,4 @@ export type BackendEvent =
     }
   | { type: "image.curation"; image?: SavedImage; hash?: string; tags?: string[] }
   | { type: "image.deleted"; hash: string }
+  | { type: "job.deleted"; jobId: string }

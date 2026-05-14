@@ -38,6 +38,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/WebSocketProvider"
@@ -112,9 +119,34 @@ interface RenderItem {
   meta: Record<string, string>
 }
 
+interface AxisValueOut {
+  key: string
+  value: string
+  props: Record<string, string>
+}
+
+interface AxisOut {
+  include?: string
+  values: AxisValueOut[]
+}
+
+interface ExcludeConditionOut {
+  axis: string
+  op: string
+  values: string[]
+}
+
+interface ExcludeRuleOut {
+  conditions: ExcludeConditionOut[]
+  connective: string
+}
+
 interface RenderItemsResponse {
   count: number
   items: RenderItem[]
+  axes: Record<string, AxisOut>
+  sets: Record<string, string>
+  excludes: ExcludeRuleOut[]
 }
 
 // ---- saved-items-manager contracts ----
@@ -576,9 +608,12 @@ interface PreviewTableProps {
   summary?: string
   className?: string
   onItemClick?: (item: RenderItem) => void
+  showCheckboxes?: boolean
+  getItemChecked?: (item: RenderItem) => boolean
+  onToggleItem?: (item: RenderItem) => void
 }
 
-const PreviewTable = ({ title, items, accent, summary, className, onItemClick }: PreviewTableProps) => (
+const PreviewTable = ({ title, items, accent, summary, className, onItemClick, showCheckboxes, getItemChecked, onToggleItem }: PreviewTableProps) => (
   <div className={`flex min-h-0 flex-col ${className ?? "flex-1"}`}>
     <div className="mb-1 flex items-baseline gap-2 shrink-0">
       <span className="text-sm font-semibold">{title}</span>
@@ -591,6 +626,7 @@ const PreviewTable = ({ title, items, accent, summary, className, onItemClick }:
       <Table>
         <TableHeader>
           <TableRow>
+            {showCheckboxes && <TableHead className="w-8" />}
             <TableHead className="w-[40%]">FileName</TableHead>
             <TableHead>Prompt</TableHead>
           </TableRow>
@@ -602,6 +638,14 @@ const PreviewTable = ({ title, items, accent, summary, className, onItemClick }:
               className={onItemClick ? "cursor-pointer" : ""}
               onClick={onItemClick ? () => onItemClick(item) : undefined}
             >
+              {showCheckboxes && (
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={getItemChecked?.(item) ?? true}
+                    onCheckedChange={() => onToggleItem?.(item)}
+                  />
+                </TableCell>
+              )}
               <TableCell className="font-mono text-xs">{item.filename}</TableCell>
               <TableCell className="text-xs">{item.prompt}</TableCell>
             </TableRow>
@@ -609,7 +653,7 @@ const PreviewTable = ({ title, items, accent, summary, className, onItemClick }:
           {items.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={2}
+                colSpan={showCheckboxes ? 3 : 2}
                 className="text-center text-xs text-muted-foreground"
               >
                 없음
@@ -659,6 +703,7 @@ export function App() {
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false)
   const [isAliveBackend, setIsAliveBackend] = useState(false)
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
   const [imageUploads, setImageUploads] = useState<
@@ -687,6 +732,19 @@ export function App() {
     Record<string, Record<string, boolean>>
   >({})
   const [collapsedAxes, setCollapsedAxes] = useState<Set<string>>(new Set())
+  const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
+
+  const toggleItemCheck = (key: string) => {
+    setUncheckedItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+  const checkAllItems = () => setUncheckedItems(new Set())
+  const uncheckAllItems = () =>
+    setUncheckedItems(new Set(fakeJobQueue.map(itemKey)))
 
   const toggleAxisCollapse = (axis: string) =>
     setCollapsedAxes((prev) => {
@@ -857,6 +915,16 @@ export function App() {
     await submitJobs(applyAxisFilters(parserResult.items, axisValueFilter))
   }
 
+  const handleRunSelected = async () => {
+    if (!workflowJson || !isAliveBackend) return false
+    const parserResult = await callParser()
+    if (!parserResult) return false
+    const selected = parserResult.items.filter(
+      (item) => !uncheckedItems.has(itemKey(item))
+    )
+    return await submitJobs(selected)
+  }
+
 
   // 파서 테스트 시트 검색 필터
   const filteredPreview = useMemo(() => {
@@ -896,6 +964,15 @@ export function App() {
     return fakeJobQueue.filter((item) => !includedSet.has(itemKey(item)))
   }, [fakeJobQueue, axisFilteredItems])
 
+  const selectedCount = useMemo(
+    () =>
+      fakeJobQueue.length > 0
+        ? fakeJobQueue.filter((item) => !uncheckedItems.has(itemKey(item)))
+            .length
+        : null,
+    [fakeJobQueue, uncheckedItems]
+  )
+
   // CEG 템플릿 변경 시 자동 파싱 (600ms debounce)
   useEffect(() => {
     if (!isAliveBackend || !cegTemplate.trim()) return
@@ -912,6 +989,7 @@ export function App() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = (await res.json()) as RenderItemsResponse
         setFakeJobQueue(data.items)
+        setUncheckedItems(new Set())
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return
         setParserError(err instanceof Error ? err.message : String(err))
@@ -1201,6 +1279,14 @@ export function App() {
                       >
                         실행{estimatedRunCount !== null ? ` (${estimatedRunCount})` : ""}
                       </Button>
+                      <Button
+                        variant="secondary"
+                        className="h-10"
+                        onClick={() => setIsSelectionOpen(true)}
+                        disabled={!canRun}
+                      >
+                        선택 실행
+                      </Button>
                       {parserError && (
                         <span className="text-sm text-destructive">
                           {parserError}
@@ -1212,7 +1298,7 @@ export function App() {
                           className="h-10"
                           onClick={() => setIsSheetOpen(true)}
                         >
-                          파서 결과 보기 ({fakeJobQueue.length})
+                          미리보기
                         </Button>
                       )}
                       {Object.keys(axisValueFilter).length > 0 && (
@@ -1470,7 +1556,7 @@ export function App() {
               <section className="absolute inset-0 flex flex-col rounded-lg border bg-card p-6 shadow-sm">
                 <h2 className="mb-4 shrink-0 text-lg font-semibold">결과</h2>
 
-                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+                <div className="min-h-0 flex-1 pr-2">
                   <JobManagerPanel
                     jobs={jobs}
                     paused={paused}
@@ -1484,20 +1570,16 @@ export function App() {
         )}
       </main>
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="flex min-w-[30vw] flex-col">
-          <SheetHeader>
-            <SheetTitle>파서 결과</SheetTitle>
-            <SheetDescription>
+      <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>파서 결과</DialogTitle>
+            <DialogDescription>
               전체 {fakeJobQueue.length}개
               {previewFilter ? ` · 검색 ${filteredPreview.length}개` : ""}
-              {estimatedRunCount !== null &&
-              estimatedRunCount < fakeJobQueue.length
-                ? ` · 축 필터 후 ${estimatedRunCount}개 실행 예정`
-                : ""}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="px-4">
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-1">
             <Input
               type="search"
               placeholder="filename/prompt 검색..."
@@ -1506,8 +1588,7 @@ export function App() {
               className="h-8"
             />
           </div>
-
-          <ScrollArea className="flex-1 overflow-y-auto rounded-md border">
+          <ScrollArea className="max-h-[50vh] overflow-y-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1523,17 +1604,11 @@ export function App() {
                   return (
                     <TableRow
                       key={`fake-${key}-${index}`}
-                      className={`cursor-pointer ${!wouldRun ? "opacity-40" : ""}`}
-                      onClick={() => {
-                        filterByItem(item, setAxisValueFilter)
-                        setIsSheetOpen(false)
-                        setIsAxisFilterOpen(true)
-                      }}
+                      className={!wouldRun ? "opacity-40" : ""}
                     >
                       <TableCell className="font-mono text-xs">
                         {item.filename}
                       </TableCell>
-                      <TableCell>{item.prompt}</TableCell>
                     </TableRow>
                   )
                 })}
@@ -1551,8 +1626,8 @@ export function App() {
             </Table>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={isAxisFilterOpen} onOpenChange={setIsAxisFilterOpen}>
         <SheetContent className="min-w-[65vw]">
@@ -1700,6 +1775,9 @@ export function App() {
                 accent="text-destructive"
                 className="max-h-[40%]"
                 onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
+                showCheckboxes
+                getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
+                onToggleItem={(item) => toggleItemCheck(itemKey(item))}
               />
               <PreviewTable
                 title="포함된 항목"
@@ -1707,8 +1785,93 @@ export function App() {
                 accent="text-green-600"
                 summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
                 onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
+                showCheckboxes
+                getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
+                onToggleItem={(item) => toggleItemCheck(itemKey(item))}
               />
             </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={isSelectionOpen} onOpenChange={setIsSelectionOpen}>
+        <SheetContent className="flex min-w-[30vw] flex-col">
+          <SheetHeader>
+            <SheetTitle>선택 실행</SheetTitle>
+            <SheetDescription>
+              전체 {fakeJobQueue.length}개 중 {selectedCount}개 선택됨
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex items-center gap-2 px-4">
+            <Input
+              type="search"
+              placeholder="filename/prompt 검색..."
+              value={previewFilter}
+              onChange={(e) => setPreviewFilter(e.target.value)}
+              className="h-8 flex-1"
+            />
+            <Button variant="ghost" size="sm" onClick={checkAllItems}>
+              전체 선택
+            </Button>
+            <Button variant="ghost" size="sm" onClick={uncheckAllItems}>
+              전체 해제
+            </Button>
+          </div>
+          <ScrollArea className="flex-1 overflow-y-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8" />
+                  <TableHead>FileName</TableHead>
+                  <TableHead>Prompt</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPreview.map((item, index) => {
+                  const key = itemKey(item)
+                  return (
+                    <TableRow
+                      key={`sel-${key}-${index}`}
+                      className={!uncheckedItems.has(key) ? "" : "opacity-40"}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={!uncheckedItems.has(key)}
+                          onCheckedChange={() => toggleItemCheck(key)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {item.filename}
+                      </TableCell>
+                      <TableCell>{item.prompt}</TableCell>
+                    </TableRow>
+                  )
+                })}
+                {filteredPreview.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="text-center text-xs text-muted-foreground"
+                    >
+                      검색 결과가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+          <div className="flex justify-end px-4">
+            <Button
+              variant="default"
+              onClick={async () => {
+                const ok = await handleRunSelected()
+                if (ok) setIsSelectionOpen(false)
+              }}
+              disabled={!canRun || selectedCount === 0}
+            >
+              실행 ({selectedCount})
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

@@ -170,6 +170,10 @@ class RegenerateRequest(BaseModel):
     seedStrategy: Literal["random", "increment"] = "random"
 
 
+class JobsDeleteRequest(BaseModel):
+    job_ids: list[str] = Field(..., min_length=1, description="삭제할 잡 ID 목록")
+
+
 class WorkerCreateRequest(BaseModel):
     url: str = Field(..., description="ComfyUI 서버 URL (http://host:port)")
 
@@ -387,6 +391,22 @@ async def jobs_cancel(job_id: str):
 async def jobs_cancel_all():
     count = await job_manager.cancel_all()
     return {"cancelled": count}
+
+
+@app.post("/jobs/delete")
+async def jobs_delete(req: JobsDeleteRequest):
+    """잡 영구 삭제 (DB + 메모리에서 제거)."""
+    count = await job_manager.remove_batch(req.job_ids)
+    return {"deleted": count}
+
+
+@app.delete("/jobs/{job_id}/remove")
+async def jobs_remove(job_id: str):
+    """단일 잡 영구 삭제."""
+    ok = await job_manager.remove(job_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="job not found")
+    return {"ok": True}
 
 
 @app.post("/jobs/{job_id}/retry")

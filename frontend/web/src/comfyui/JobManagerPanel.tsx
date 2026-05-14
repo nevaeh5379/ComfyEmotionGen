@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil,  Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldLabel } from "@/components/ui/field"
 import {
   HoverCard,
@@ -297,6 +298,9 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   // ── pagination state ────────────────────────────────────────────────────────
   const [page, setPage] = useState(1)
 
+  // ── delete selection state ───────────────────────────────────────────────────
+  const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set())
+
   // ── detail sheet ────────────────────────────────────────────────────────────
   const [selectedJobId,   setSelectedJobId]   = useState<string | null>(null)
   const [jobEvents,       setJobEvents]       = useState<JobEvent[] | null>(null)
@@ -383,7 +387,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   const pageList = useMemo(() => buildPageList(page, totalPages), [page, totalPages])
 
   // Reset to page 1 when filter/dates change
-  useEffect(() => { setPage(1) }, [filterTab, dateFrom, dateTo])
+  useEffect(() => { setPage(1); setSelectedForDelete(new Set()) }, [filterTab, dateFrom, dateTo])
 
   // Clamp page when totalPages shrinks
   useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
@@ -417,6 +421,13 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     const id = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(id)
   }, [selectedJob])
+
+  // Auto-close detail sheet when the selected job is deleted
+  useEffect(() => {
+    if (selectedJobId && !jobs.find(j => j.id === selectedJobId)) {
+      setSelectedJobId(null)
+    }
+  }, [jobs, selectedJobId])
 
   // ── session actions ─────────────────────────────────────────────────────────
 
@@ -501,6 +512,50 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
     }
   }
 
+  const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
+    e.stopPropagation()
+    if (!window.confirm("이 잡을 영구 삭제하시겠습니까?")) return
+    try { await fetch(`${backendUrl}/jobs/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job_ids: [jobId] }) }) } catch {}
+  }
+
+  const handleDeleteAllFailed = async () => {
+    const failed = sessionJobs.filter(j => j.status === "error" || j.status === "cancelled")
+    if (failed.length === 0) return
+    if (!window.confirm(`실패/취소된 잡 ${failed.length}개를 모두 영구 삭제하시겠습니까?`)) return
+    try {
+      await fetch(`${backendUrl}/jobs/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job_ids: failed.map(j => j.id) }) })
+    } catch {}
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedForDelete.size === 0) return
+    if (!window.confirm(`선택한 ${selectedForDelete.size}개 잡을 영구 삭제하시겠습니까?`)) return
+    try {
+      await fetch(`${backendUrl}/jobs/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job_ids: [...selectedForDelete] }) })
+    } catch {}
+    setSelectedForDelete(new Set())
+  }
+
+  const toggleSelectForDelete = (jobId: string) => {
+    setSelectedForDelete(prev => {
+      const next = new Set(prev)
+      if (next.has(jobId)) next.delete(jobId)
+      else next.add(jobId)
+      return next
+    })
+  }
+
+  const selectAllFailed = () => {
+    const failedIds = new Set(
+      dateFiltered
+        .filter(j => j.status === "error" || j.status === "cancelled")
+        .map(j => j.id)
+    )
+    setSelectedForDelete(failedIds)
+  }
+
+  const deselectAll = () => setSelectedForDelete(new Set())
+
   const fetchingRef = useRef<Set<string>>(new Set())
 
   const fetchJobImages = useCallback(async (jobId: string) => {
@@ -558,7 +613,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
   // ── render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 h-full min-h-0">
 
       {/* Stats bar */}
       <div className="grid grid-cols-6 gap-1.5">
@@ -581,9 +636,14 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
           전부 취소
         </Button>
         {(counts.error + counts.cancelled) > 0 && (
+          <>
           <Button size="sm" variant="outline" onClick={handleRetryAllFailed} disabled={!isAliveBackend}>
             실패/취소 모두 재시도 ({counts.error + counts.cancelled})
           </Button>
+          <Button size="sm" variant="destructive" onClick={handleDeleteAllFailed}>
+            실패/취소 모두 삭제 ({counts.error + counts.cancelled})
+          </Button>
+          </>
         )}
         {paused && <span className="text-xs text-muted-foreground">새 잡이 워커로 전송되지 않습니다.</span>}
 
@@ -776,16 +836,31 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
         )}
       </div>
 
+      {/* Delete selection controls — visible only on failed tab */}
+      {filterTab === "failed" && (
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={selectAllFailed}>전체 선택</Button>
+          <Button size="sm" variant="ghost" onClick={deselectAll}>선택 해제</Button>
+          {selectedForDelete.size > 0 && (
+            <Button size="sm" variant="destructive" onClick={handleDeleteSelected}>
+              선택 삭제 ({selectedForDelete.size})
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Job table */}
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
+            {filterTab === "failed" && <TableHead className="w-8" />}
             <SortableHead label="파일명"   sortKey="filename"  current={sortKey} dir={sortDir} onSort={toggleSort} />
             <SortableHead label="상태"     sortKey="status"    current={sortKey} dir={sortDir} onSort={toggleSort} />
             <TableHead>워커</TableHead>
             <SortableHead label="생성"     sortKey="createdAt" current={sortKey} dir={sortDir} onSort={toggleSort} />
             <SortableHead label="소요시간" sortKey="duration"  current={sortKey} dir={sortDir} onSort={toggleSort} />
-            <TableHead className="w-20" />
+            <TableHead className="w-28" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -799,6 +874,14 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
             const previewHashes = fetchedImages.get(j.id) ?? []
             const row = (
               <TableRow key={j.id} className="cursor-pointer" onClick={() => openDetail(j.id)}>
+                {filterTab === "failed" && (
+                  <TableCell onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedForDelete.has(j.id)}
+                      onCheckedChange={() => toggleSelectForDelete(j.id)}
+                    />
+                  </TableCell>
+                )}
                 <TableCell className="max-w-35 truncate font-mono text-xs">{j.filename}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center gap-1">
@@ -825,6 +908,7 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                   <div className="flex justify-end gap-1">
                     {isActive && <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={e => handleCancel(e, j.id)}>취소</Button>}
                     {isFailed && <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={e => handleRetry(e, j.id)}>재시도</Button>}
+                    {isFailed && <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={e => handleDeleteOne(e, j.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                   </div>
                 </TableCell>
               </TableRow>
@@ -867,13 +951,14 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
           })}
           {pagedJobs.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="py-8 text-center text-xs text-muted-foreground">
+              <TableCell colSpan={filterTab === "failed" ? 7 : 6} className="py-8 text-center text-xs text-muted-foreground">
                 {hasDateFilter ? "선택한 날짜 범위에 맞는 잡이 없습니다." : "해당 필터에 맞는 잡이 없습니다."}
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
+      </div>
 
       {/* Pagination */}
       {sortedJobs.length > PAGE_SIZE && (
@@ -954,7 +1039,10 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
                   <Button size="sm" variant="destructive" onClick={e => { handleCancel(e, selectedJob.id); setSelectedJobId(null) }}>취소</Button>
                 )}
                 {(selectedJob.status === "error" || selectedJob.status === "cancelled") && (
+                  <>
                   <Button size="sm" variant="outline" onClick={e => { handleRetry(e, selectedJob.id); setSelectedJobId(null) }}>재시도</Button>
+                  <Button size="sm" variant="destructive" onClick={e => { handleDeleteOne(e, selectedJob.id); setSelectedJobId(null) }}>삭제</Button>
+                  </>
                 )}
               </div>
 
