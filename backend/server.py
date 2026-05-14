@@ -76,6 +76,45 @@ ws_clients: set[WebSocket] = set()
 
 class RenderRequest(BaseModel):
     template: str = Field(..., description="DSL 템플릿 소스")
+    only: Optional[Dict[str, List[str]]] = Field(None, description="특정 axis 값만 포함 (예: {\"emotion\": [\"happy\",\"sad\"]})")
+    fix: Optional[Dict[str, str]] = Field(None, description="특정 axis를 단일 값으로 고정 (예: {\"emotion\": \"happy\"})")
+    skip_excludes: bool = Field(False, description="DSL 내 exclude 규칙 무시")
+    extra_excludes: Optional[List[Dict[str, Any]]] = Field(None, description="추가 제외 규칙")
+    limit: int = Field(0, ge=0, description="페이지 크기 (0=전체)")
+    offset: int = Field(0, ge=0, description="오프셋")
+
+
+class ExcludeConditionIn(BaseModel):
+    axis: str
+    op: Literal["eq", "in", "not_in"] = "eq"
+    values: List[str]
+
+
+class ExcludeRuleIn(BaseModel):
+    conditions: List[ExcludeConditionIn]
+    connective: Literal["AND", "OR"] = "AND"
+
+
+class AxisValueOut(BaseModel):
+    key: str
+    value: str
+    props: Dict[str, str] = {}
+
+
+class AxisOut(BaseModel):
+    include: Optional[str] = None
+    values: List[AxisValueOut]
+
+
+class ExcludeConditionOut(BaseModel):
+    axis: str
+    op: str
+    values: List[str]
+
+
+class ExcludeRuleOut(BaseModel):
+    conditions: List[ExcludeConditionOut]
+    connective: str = "AND"
 
 
 class RenderItem(BaseModel):
@@ -87,6 +126,9 @@ class RenderItem(BaseModel):
 class RenderResponse(BaseModel):
     count: int
     items: List[RenderItem]
+    axes: Dict[str, AxisOut] = {}
+    sets: Dict[str, str] = {}
+    excludes: List[ExcludeRuleOut] = []
 
 
 class InjectRequest(BaseModel):
@@ -294,8 +336,22 @@ async def workers_delete(worker_id: str, force: bool = False):
 @app.post("/render", response_model=RenderResponse)
 def render_endpoint(req: RenderRequest):
     prog = parse(req.template)
-    items = render(prog)
-    return {"count": len(items), "items": items}
+    rendered = render(
+        prog,
+        only=req.only,
+        fix=req.fix,
+        skip_excludes=req.skip_excludes,
+        extra_excludes=req.extra_excludes,
+        limit=req.limit,
+        offset=req.offset,
+    )
+    return {
+        "count": rendered["total"],
+        "items": rendered["items"],
+        "axes": rendered["axes"],
+        "sets": rendered["sets"],
+        "excludes": rendered["excludes"],
+    }
 
 
 @app.post("/workflow/inject")

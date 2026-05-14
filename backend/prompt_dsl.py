@@ -21,7 +21,6 @@ from lark import Lark, Transformer, UnexpectedInput
 class AxisValue:
     key: str
     value: str
-    weight: float = 1.0
     hide_key: bool = False
     props: Dict[str, str] = field(default_factory=dict)
 
@@ -112,14 +111,13 @@ class _Builder(Transformer):
     def axis_entry(self, items):
         key = str(items[0])
         val = items[1]
-        weight = float(items[2]) if len(items) > 2 else 1.0
         if isinstance(val, dict):
             props = val
             value = ", ".join(props.values())
         else:
             props = {}
             value = val
-        return AxisValue(key=key, value=value, weight=weight, props=props)
+        return AxisValue(key=key, value=value, props=props)
 
     def axis_value(self, items):
         if not items:
@@ -229,12 +227,12 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
             vals = axis.values
             if axis.include:
                 vals = [
-                    AxisValue(key=v.key, value=f"{v.value}, {axis.include}", weight=v.weight, hide_key=v.hide_key)
+                    AxisValue(key=v.key, value=f"{v.value}, {axis.include}", hide_key=v.hide_key)
                     for v in vals
                 ]
             return [{name: val} for val in vals]
         elif name in vars:
-            return [{name: AxisValue(key=name, value=vars[name], weight=1.0)}]
+            return [{name: AxisValue(key=name, value=vars[name])}]
         else:
             raise DSLSyntaxError(f"정의되지 않은 축 또는 변수: {name}")
     
@@ -248,7 +246,7 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
         for combo in res:
             new_combo = {}
             for k, v in combo.items():
-                new_combo[k] = AxisValue(key=v.key, value=v.value, weight=v.weight, hide_key=True)
+                new_combo[k] = AxisValue(key=v.key, value=v.value, hide_key=True)
             new_res.append(new_combo)
         return new_res
 
@@ -308,7 +306,13 @@ def _clean_prompt(s: str) -> str:
     return s.strip(" ,\n")
 
 
-def render(prog: Program) -> List[Dict]:
+def render(prog: Program, *,
+           only: Optional[Dict[str, List[str]]] = None,
+           fix: Optional[Dict[str, str]] = None,
+           skip_excludes: bool = False,
+           extra_excludes: Optional[List[Dict[str, Any]]] = None,
+           limit: int = 0,
+           offset: int = 0) -> List[Dict]:
     if not prog.combine_expr:
         return [{
             "filename": _substitute(prog.filename, prog.vars, {}).strip(),
@@ -318,29 +322,82 @@ def render(prog: Program) -> List[Dict]:
 
     combos = eval_expr(prog.combine_expr, prog.axes, prog.vars)
 
-    def excluded(combo_dict):
-        cks = {k: v.key for k, v in combo_dict.items()}
-        for rule in prog.excludes:
-            results = []
-            for cond in rule.conditions:
-                val = cks.get(cond.axis)
-                if val is None:
-                    results.append(False)
-                elif cond.op == "eq":
-                    results.append(val == cond.values[0])
-                elif cond.op == "in":
-                    results.append(val in cond.values)
-                elif cond.op == "not_in":
-                    results.append(val not in cond.values)
-            if rule.connective == "AND":
-                if all(results):
-                    return True
-            else:
-                if any(results):
-                    return True
-        return False
+    # -- only: axis 값 선택적 포함 --
+    if only:
+        combos = [c for c in combos if all(
+            c.get(ax) is not None and c[ax].key in keys
+            for ax, keys in only.items()
+        )]
 
-    combos = [c for c in combos if not excluded(c)]
+    # -- fix: 특정 축을 단일 값으로 고정 --
+    if fix:
+        combos = [c for c in combos if all(
+            c.get(ax) is not None and c[ax].key == val
+            for ax, val in fix.items()
+        )]
+
+    # -- skip_excludes: 기존 exclude 규칙 무시 --
+    if not skip_excludes:
+        def program_excluded(combo_dict):
+            cks = {k: v.key for k, v in combo_dict.items()}
+            for rule in prog.excludes:
+                results = []
+                for cond in rule.conditions:
+                    val = cks.get(cond.axis)
+                    if val is None:
+                        results.append(False)
+                    elif cond.op == "eq":
+                        results.append(val == cond.values[0])
+                    elif cond.op == "in":
+                        results.append(val in cond.values)
+                    elif cond.op == "not_in":
+                        results.append(val not in cond.values)
+                if rule.connective == "AND":
+                    if all(results):
+                        return True
+                else:
+                    if any(results):
+                        return True
+            return False
+        combos = [c for c in combos if not program_excluded(c)]
+
+    # -- extra_excludes: 추가 제외 규칙 --
+    if extra_excludes:
+        _extra_rules = [ExcludeRule(
+            [Condition(**c) for c in r["conditions"]],
+            r.get("connective", "AND")
+        ) for r in extra_excludes]
+
+        def extra_excluded(combo_dict):
+            cks = {k: v.key for k, v in combo_dict.items()}
+            for rule in _extra_rules:
+                results = []
+                for cond in rule.conditions:
+                    val = cks.get(cond.axis)
+                    if val is None:
+                        results.append(False)
+                    elif cond.op == "eq":
+                        results.append(val == cond.values[0])
+                    elif cond.op == "in":
+                        results.append(val in cond.values)
+                    elif cond.op == "not_in":
+                        results.append(val not in cond.values)
+                if rule.connective == "AND":
+                    if all(results):
+                        return True
+                else:
+                    if any(results):
+                        return True
+            return False
+        combos = [c for c in combos if not extra_excluded(c)]
+
+    total = len(combos)
+
+    # -- 페이지네이션 --
+    if offset:
+        combos = combos[offset:]
+    if limit:
+        combos = combos[:limit]
 
     results = []
     for combo in combos:
@@ -366,7 +423,39 @@ def render(prog: Program) -> List[Dict]:
             "prompt": _clean_prompt(_substitute(prog.template, ctx, keys)),
             "meta": {k: v for k, v in keys.items() if k != prog.combine_alias},
         })
-    return results
+
+    axes_info = {}
+    for name, axis in prog.axes.items():
+        axes_info[name] = {
+            "include": axis.include,
+            "values": [
+                {
+                    "key": v.key,
+                    "value": v.value,
+                    "props": dict(v.props),
+                }
+                for v in axis.values
+            ]
+        }
+
+    excludes_info = [
+        {
+            "conditions": [
+                {"axis": c.axis, "op": c.op, "values": list(c.values)}
+                for c in rule.conditions
+            ],
+            "connective": rule.connective,
+        }
+        for rule in prog.excludes
+    ]
+
+    return {
+        "total": total,
+        "items": results,
+        "axes": axes_info,
+        "sets": dict(prog.vars),
+        "excludes": excludes_info,
+    }
 
 
 # ====== ComfyUI 연동 ======
@@ -403,9 +492,9 @@ if __name__ == "__main__":
     except DSLSyntaxError as e:
         print(e)
         sys.exit(1)
-    results = render(prog)
-    for r in results:
+    rendered = render(prog)
+    for r in rendered["items"]:
         print(f"=== {r['filename']} ===")
         print(r["prompt"])
         print()
-    print(f"Total: {len(results)} combinations")
+    print(f"Total: {rendered['total']} combinations")

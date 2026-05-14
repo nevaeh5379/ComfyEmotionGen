@@ -14,7 +14,7 @@ set_stmt: "{{set" NAME "=" STRING "}}"
 
 axis_def: "{{axis" NAME axis_include? "}}" axis_entry* "{{/axis}}"
 axis_include: "include=" STRING
-axis_entry: NAME ":" axis_value ("@" NUMBER)?
+axis_entry: NAME ":" axis_value
 axis_value: STRING
           | "{" [axis_property ("," axis_property)* [","]] "}"
 axis_property: NAME ":" STRING
@@ -47,7 +47,6 @@ AND: "AND"
 OR: "OR"
 NAME: /[a-zA-Z_\-][a-zA-Z0-9_\-]*/
 STRING: /"(?:[^"\\]|\\.)*"/
-NUMBER: /[0-9]+(?:\.[0-9]+)?/
 INT: /[0-9]+/
 
 // 템플릿 본문: {{/template}} 또는 {{/filename}} 이 나올 때까지 전부
