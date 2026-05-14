@@ -38,13 +38,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
 import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/WebSocketProvider"
@@ -552,6 +545,56 @@ const buildWorkflowForItem = (
 }
 
 // ---------------------------------------------------------------------------
+// PreviewTable – reusable table section for axis filter preview
+// ---------------------------------------------------------------------------
+interface PreviewTableProps {
+  title: string
+  items: RenderItem[]
+  accent?: string
+  summary?: string
+}
+
+const PreviewTable = ({ title, items, accent, summary }: PreviewTableProps) => (
+  <div className="flex min-h-0 flex-1 flex-col">
+    <div className="mb-1 flex items-baseline gap-2 shrink-0">
+      <span className="text-sm font-semibold">{title}</span>
+      <span className={accent}>{items.length}</span>
+      {summary && (
+        <span className="text-xs text-muted-foreground">{summary}</span>
+      )}
+    </div>
+    <ScrollArea className="min-h-0 flex-1 rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[40%]">FileName</TableHead>
+            <TableHead>Prompt</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item, i) => (
+            <TableRow key={`${title}-${itemKey(item)}-${i}`}>
+              <TableCell className="font-mono text-xs">{item.filename}</TableCell>
+              <TableCell className="text-xs">{item.prompt}</TableCell>
+            </TableRow>
+          ))}
+          {items.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={2}
+                className="text-center text-xs text-muted-foreground"
+              >
+                없음
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </ScrollArea>
+  </div>
+)
+
+// ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
 export function App() {
@@ -805,6 +848,16 @@ export function App() {
   const hasActiveFilter = Object.values(axisValueFilter).some((vals) =>
     Object.values(vals).some((v) => !v)
   )
+
+  const axisFilteredItems = useMemo(
+    () => applyAxisFilters(fakeJobQueue, axisValueFilter),
+    [fakeJobQueue, axisValueFilter]
+  )
+
+  const axisExcludedItems = useMemo(() => {
+    const includedSet = new Set(axisFilteredItems.map(itemKey))
+    return fakeJobQueue.filter((item) => !includedSet.has(itemKey(item)))
+  }, [fakeJobQueue, axisFilteredItems])
 
   // CEG 템플릿 변경 시 자동 파싱 (600ms debounce)
   useEffect(() => {
@@ -1459,101 +1512,123 @@ export function App() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={isAxisFilterOpen} onOpenChange={setIsAxisFilterOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>축 필터</DialogTitle>
-            <DialogDescription>
+      <Sheet open={isAxisFilterOpen} onOpenChange={setIsAxisFilterOpen}>
+        <SheetContent className="min-w-[65vw]">
+          <SheetHeader>
+            <SheetTitle>축 필터</SheetTitle>
+            <SheetDescription>
               체크 해제된 값은 실행에서 제외됩니다.
               {estimatedRunCount !== null
                 ? ` 현재 설정 기준 ${estimatedRunCount}개 실행 예정.`
                 : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-end">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                setAxisValueFilter((prev) =>
-                  Object.fromEntries(
-                    Object.entries(prev).map(([k, vals]) => [
-                      k,
-                      Object.fromEntries(Object.keys(vals).map((v) => [v, true])),
-                    ])
-                  )
-                )
-              }
-            >
-              전체 초기화
-            </Button>
-          </div>
-          <ScrollArea className="max-h-[55vh] rounded-md border">
-            {Object.entries(axisValueFilter).map(([axis, values]) => {
-              const enabledCount =
-                Object.values(values).filter(Boolean).length
-              const totalCount = Object.keys(values).length
-              const axisChecked: boolean | "indeterminate" =
-                enabledCount === 0
-                  ? false
-                  : enabledCount === totalCount
-                    ? true
-                    : "indeterminate"
-              return (
-                <div key={axis}>
-                  <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5">
-                    <Checkbox
-                      checked={axisChecked}
-                      onCheckedChange={() => {
-                        const shouldEnable = enabledCount < totalCount
-                        setAxisValueFilter((prev) => ({
-                          ...prev,
-                          [axis]: Object.fromEntries(
-                            Object.keys(prev[axis] ?? {}).map((v) => [
-                              v,
-                              shouldEnable,
-                            ])
-                          ),
-                        }))
-                      }}
-                    />
-                    <span className="font-mono text-sm font-semibold">
-                      {axis}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {enabledCount}/{totalCount}
-                    </span>
-                  </div>
-                  {Object.entries(values).map(([value, enabled]) => (
-                    <div
-                      key={value}
-                      className="flex items-center gap-2 px-3 py-1 pl-9"
-                    >
-                      <Checkbox
-                        checked={enabled}
-                        onCheckedChange={(checked) =>
-                          setAxisValueFilter((prev) => ({
-                            ...prev,
-                            [axis]: {
-                              ...prev[axis],
-                              [value]: checked === true,
-                            },
-                          }))
-                        }
-                      />
-                      <span
-                        className={`font-mono text-xs ${!enabled ? "text-muted-foreground line-through" : ""}`}
-                      >
-                        {value}
-                      </span>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex gap-4 h-[65vh]">
+            <div className="w-[35%] flex flex-col gap-2">
+              <div className="flex items-center justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setAxisValueFilter((prev) =>
+                      Object.fromEntries(
+                        Object.entries(prev).map(([k, vals]) => [
+                          k,
+                          Object.fromEntries(Object.keys(vals).map((v) => [v, true])),
+                        ])
+                      )
+                    )
+                  }
+                >
+                  전체 초기화
+                </Button>
+              </div>
+              <ScrollArea className="flex-1 min-h-0 rounded-md border">
+                {Object.entries(axisValueFilter).map(([axis, values]) => {
+                  const enabledCount =
+                    Object.values(values).filter(Boolean).length
+                  const totalCount = Object.keys(values).length
+                  const axisChecked: boolean | "indeterminate" =
+                    enabledCount === 0
+                      ? false
+                      : enabledCount === totalCount
+                        ? true
+                        : "indeterminate"
+                  return (
+                    <div key={axis}>
+                      <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5">
+                        <Checkbox
+                          checked={axisChecked}
+                          onCheckedChange={() => {
+                            const shouldEnable = enabledCount < totalCount
+                            setAxisValueFilter((prev) => ({
+                              ...prev,
+                              [axis]: Object.fromEntries(
+                                Object.keys(prev[axis] ?? {}).map((v) => [
+                                  v,
+                                  shouldEnable,
+                                ])
+                              ),
+                            }))
+                          }}
+                        />
+                        <span className="font-mono text-sm font-semibold">
+                          {axis}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {enabledCount}/{totalCount}
+                        </span>
+                      </div>
+                      {Object.entries(values).map(([value, enabled]) => (
+                        <div
+                          key={value}
+                          className="flex items-center gap-2 px-3 py-1 pl-9"
+                        >
+                          <Checkbox
+                            checked={enabled}
+                            onCheckedChange={(checked) =>
+                              setAxisValueFilter((prev) => ({
+                                ...prev,
+                                [axis]: {
+                                  ...prev[axis],
+                                  [value]: checked === true,
+                                },
+                              }))
+                            }
+                          />
+                          <span
+                            className={`font-mono text-xs ${!enabled ? "text-muted-foreground line-through" : ""}`}
+                          >
+                            {value}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )
-            })}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+                  )
+                })}
+              </ScrollArea>
+            </div>
+            <div className="flex w-[65%] flex-col gap-2">
+              <PreviewTable
+                title="제외된 항목"
+                items={axisExcludedItems}
+                accent="text-destructive"
+              />
+              <PreviewTable
+                title="포함된 항목"
+                items={axisFilteredItems}
+                accent="text-green-600"
+              />
+              <PreviewTable
+                title="총 결과"
+                items={axisFilteredItems}
+                accent="text-primary"
+                summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
+              />
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {parsedWorkflow?.success && (
         <WorkflowGraphViewer
