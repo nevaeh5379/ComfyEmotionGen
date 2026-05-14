@@ -348,7 +348,8 @@ def render(prog: Program) -> List[Dict]:
         keys = {}
         for k, v in combo.items():
             ctx[k] = v.value
-            keys[k] = v.key
+            if not getattr(v, "hide_key", False):
+                keys[k] = v.key
             for prop_name, prop_val in v.props.items():
                 ctx[f"{k}.{prop_name}"] = prop_val
             
@@ -363,7 +364,7 @@ def render(prog: Program) -> List[Dict]:
         results.append({
             "filename": _substitute(prog.filename, ctx, keys).strip(),
             "prompt": _clean_prompt(_substitute(prog.template, ctx, keys)),
-            "meta": dict(keys),
+            "meta": {k: v for k, v in keys.items() if k != prog.combine_alias},
         })
     return results
 

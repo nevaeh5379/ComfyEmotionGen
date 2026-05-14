@@ -478,6 +478,28 @@ const applyAxisFilters = (
   )
 }
 
+const filterByItem = (
+  item: RenderItem,
+  setFilter: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, boolean>>>
+  >
+) => {
+  setFilter((prev) => {
+    const next: Record<string, Record<string, boolean>> = {}
+    for (const axis of Object.keys(prev)) {
+      const itemValue = item.meta[axis]
+      if (itemValue === undefined) {
+        next[axis] = { ...prev[axis] }
+      } else {
+        next[axis] = Object.fromEntries(
+          Object.keys(prev[axis]!).map((v) => [v, v === itemValue])
+        )
+      }
+    }
+    return next
+  })
+}
+
 const buildWorkflowForItem = (
   workflowJson: string,
   item: RenderItem,
@@ -553,9 +575,10 @@ interface PreviewTableProps {
   accent?: string
   summary?: string
   className?: string
+  onItemClick?: (item: RenderItem) => void
 }
 
-const PreviewTable = ({ title, items, accent, summary, className }: PreviewTableProps) => (
+const PreviewTable = ({ title, items, accent, summary, className, onItemClick }: PreviewTableProps) => (
   <div className={`flex min-h-0 flex-col ${className ?? "flex-1"}`}>
     <div className="mb-1 flex items-baseline gap-2 shrink-0">
       <span className="text-sm font-semibold">{title}</span>
@@ -574,7 +597,11 @@ const PreviewTable = ({ title, items, accent, summary, className }: PreviewTable
         </TableHeader>
         <TableBody>
           {items.map((item, i) => (
-            <TableRow key={`${title}-${itemKey(item)}-${i}`}>
+            <TableRow
+              key={`${title}-${itemKey(item)}-${i}`}
+              className={onItemClick ? "cursor-pointer" : ""}
+              onClick={onItemClick ? () => onItemClick(item) : undefined}
+            >
               <TableCell className="font-mono text-xs">{item.filename}</TableCell>
               <TableCell className="text-xs">{item.prompt}</TableCell>
             </TableRow>
@@ -1496,7 +1523,12 @@ export function App() {
                   return (
                     <TableRow
                       key={`fake-${key}-${index}`}
-                      className={!wouldRun ? "opacity-40" : ""}
+                      className={`cursor-pointer ${!wouldRun ? "opacity-40" : ""}`}
+                      onClick={() => {
+                        filterByItem(item, setAxisValueFilter)
+                        setIsSheetOpen(false)
+                        setIsAxisFilterOpen(true)
+                      }}
                     >
                       <TableCell className="font-mono text-xs">
                         {item.filename}
@@ -1667,12 +1699,14 @@ export function App() {
                 items={axisExcludedItems}
                 accent="text-destructive"
                 className="max-h-[40%]"
+                onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
               />
               <PreviewTable
                 title="포함된 항목"
                 items={axisFilteredItems}
                 accent="text-green-600"
                 summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
+                onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
               />
             </div>
           </div>
