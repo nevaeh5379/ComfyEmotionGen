@@ -404,7 +404,63 @@ const parseWorkflow = (json: string): ComfyWorkflow => {
 }
 
 /** RenderItem 식별자. filename이 중복일 수 있어 prompt까지 포함. */
-const itemKey = (item: RenderItem): string => `${item.filename} ${item.prompt}`
+const itemKey = (item: RenderItem): string => `${item.filename} ${item.prompt}`
+const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
+  const auto: NodeMapping[] = []
+
+  const clipNode =
+    Object.entries(workflow).find(([, n]) => {
+      if (n.class_type !== "CLIPTextEncode") return false
+      const title = (n._meta?.title || "").toLowerCase()
+      return title.includes("positive") || title.includes("prompt")
+    }) ??
+    Object.entries(workflow).find(([, n]) => n.class_type === "CLIPTextEncode")
+  if (clipNode)
+    auto.push({
+      id: crypto.randomUUID(),
+      nodeId: clipNode[0],
+      inputKey: "text",
+      sourceType: "prompt",
+    })
+
+  const saveNode = Object.entries(workflow).find(
+    ([, n]) => n.class_type === "SaveImage"
+  )
+  if (saveNode)
+    auto.push({
+      id: crypto.randomUUID(),
+      nodeId: saveNode[0],
+      inputKey: "filename_prefix",
+      sourceType: "filename",
+    })
+
+  Object.entries(workflow).forEach(([nodeId, node]) => {
+    if (node.class_type === "LoadImage")
+      auto.push({
+        id: crypto.randomUUID(),
+        nodeId,
+        inputKey: "image",
+        sourceType: "image",
+      })
+  })
+
+  Object.entries(workflow).forEach(([nodeId, node]) => {
+    Object.entries(node.inputs).forEach(([inputKey, value]) => {
+      if (typeof value === "number" && inputKey.toLowerCase().includes("seed"))
+        auto.push({
+          id: crypto.randomUUID(),
+          nodeId,
+          inputKey,
+          sourceType: "seed",
+          seedValue: Number(value),
+          seedRandom: true,
+        })
+    })
+  })
+
+  return auto
+}
+
 
 const buildWorkflowForItem = (
   workflowJson: string,
@@ -547,66 +603,14 @@ export function App() {
   // 워크플로우 로드 시 nodeMappings 자동 감지 (비어있을 때만)
   useEffect(() => {
     if (!parsedWorkflow?.success || nodeMappings.length > 0) return
-    const workflow = parsedWorkflow.data
-    const auto: NodeMapping[] = []
-
-    const clipNode =
-      Object.entries(workflow).find(([, n]) => {
-        if (n.class_type !== "CLIPTextEncode") return false
-        const title = (n._meta?.title || "").toLowerCase()
-        return title.includes("positive") || title.includes("prompt")
-      }) ??
-      Object.entries(workflow).find(
-        ([, n]) => n.class_type === "CLIPTextEncode"
-      )
-    if (clipNode)
-      auto.push({
-        id: crypto.randomUUID(),
-        nodeId: clipNode[0],
-        inputKey: "text",
-        sourceType: "prompt",
-      })
-
-    const saveNode = Object.entries(workflow).find(
-      ([, n]) => n.class_type === "SaveImage"
-    )
-    if (saveNode)
-      auto.push({
-        id: crypto.randomUUID(),
-        nodeId: saveNode[0],
-        inputKey: "filename_prefix",
-        sourceType: "filename",
-      })
-
-    Object.entries(workflow).forEach(([nodeId, node]) => {
-      if (node.class_type === "LoadImage")
-        auto.push({
-          id: crypto.randomUUID(),
-          nodeId,
-          inputKey: "image",
-          sourceType: "image",
-        })
-    })
-
-    Object.entries(workflow).forEach(([nodeId, node]) => {
-      Object.entries(node.inputs).forEach(([inputKey, value]) => {
-        if (
-          typeof value === "number" &&
-          inputKey.toLowerCase().includes("seed")
-        )
-          auto.push({
-            id: crypto.randomUUID(),
-            nodeId,
-            inputKey,
-            sourceType: "seed",
-            seedValue: Number(value),
-            seedRandom: true,
-          })
-      })
-    })
-
+    const auto = buildAutoMappings(parsedWorkflow.data)
     if (auto.length > 0) setNodeMappings(auto)
   }, [parsedWorkflow, nodeMappings, setNodeMappings])
+
+  const handleAutoMap = () => {
+    if (!parsedWorkflow?.success) return
+    setNodeMappings(buildAutoMappings(parsedWorkflow.data))
+  }
 
   const availableNodeOptions = useMemo(() => {
     if (!parsedWorkflow?.success) return []
@@ -1114,7 +1118,12 @@ export function App() {
 
               {parsedWorkflow?.success && (
                 <div className="rounded-lg border bg-card p-6 shadow-sm">
-                  <h2 className="mb-4 text-lg font-semibold">노드 매핑</h2>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">노드 매핑</h2>
+                    <Button variant="outline" size="sm" onClick={handleAutoMap}>
+                      자동 매핑
+                    </Button>
+                  </div>
                   {nodeMappings.length > 0 && (
                     <Table>
                       <TableHeader>
@@ -1309,6 +1318,16 @@ export function App() {
                         </option>
                       ))}
                     </select>
+                  )}
+                  {!nodeMappings.some((m) => m.sourceType === "prompt") && (
+                    <p className="mt-2 text-xs text-yellow-600">
+                      ⚠ 프롬프트 주입 매핑이 설정되지 않았습니다.
+                    </p>
+                  )}
+                  {!nodeMappings.some((m) => m.sourceType === "filename") && (
+                    <p className="mt-1 text-xs text-yellow-600">
+                      ⚠ 파일명 주입 매핑이 설정되지 않았습니다.
+                    </p>
                   )}
                   <p className="mt-2 text-xs text-muted-foreground">
                     워크플로우 JSON에 {"{{input}}"}, {"{{filename}}"},{" "}
