@@ -37,6 +37,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import type { JobStatus, JobView } from "./Message"
+import { useRenderLog } from "@/lib/renderLogger"
 
 // ── session storage ───────────────────────────────────────────────────────────
 
@@ -255,6 +256,7 @@ interface Props {
 }
 
 export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Props) {
+  useRenderLog("JobManagerPanel")
   // ── session state ───────────────────────────────────────────────────────────
   const [markers, setMarkersRaw] = useState<SessionMarker[]>(initMarkers)
 

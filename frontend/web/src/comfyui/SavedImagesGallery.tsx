@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -108,6 +109,7 @@ export function SavedImagesGallery({
   imagePageSize = DEFAULT_PAGE_SIZE,
   imageLazyLoad = true,
 }: Props) {
+  useRenderLog("SavedImagesGallery")
   const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">("pending")
   const [filenameFilter, setFilenameFilter] = useState("")
   const [tagFilter, setTagFilter] = useState("")

@@ -64,6 +64,7 @@ import {
   IS_PACKAGE_MODE,
   PACKAGE_BACKEND_URL,
 } from "./lib/runtime"
+import { useRenderLog } from "./lib/renderLogger"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 const MAX_RANDOM_SEED = 1_000_000_000
@@ -670,6 +671,7 @@ const PreviewTable = ({ title, items, accent, summary, className, onItemClick, s
 // App
 // ---------------------------------------------------------------------------
 export function App() {
+  useRenderLog("App")
   const [storedBackendUrl, setStoredBackendUrl] = useLocalStorage(
     STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL

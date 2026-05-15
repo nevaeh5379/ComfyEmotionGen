@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRenderLog } from "@/lib/renderLogger"
 import {
   CheckCircle2Icon,
   CheckIcon,
@@ -461,6 +462,7 @@ interface Props {
 }
 
 export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, enableHover = true, autoApplyReject = true }: Props) {
+  useRenderLog("CombinationPicker")
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("")
   const [renderItems, setRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])

@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffectLog } from "@/lib/renderLogger"
 import type { AssetGroup, BackendEvent, CurationStatus, SavedImage } from "./Message"
 
 const globalConfigUrl = (window as any).COMFY_EMOTION_GEN_BACKEND_URL
@@ -172,7 +173,7 @@ export const useSavedImages = (
   }, [groupMode, urlToUse])
 
   // ──── 메인 effect ────
-  useEffect(() => {
+  useEffectLog("이미지 fetch", () => {
     if (groupMode) {
       fetchGroups()
     } else {

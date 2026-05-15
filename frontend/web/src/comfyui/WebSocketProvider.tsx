@@ -23,6 +23,7 @@ import {
   IS_PACKAGE_MODE,
   PACKAGE_BACKEND_URL,
 } from "../lib/runtime"
+import { useEffectLog, useRenderLog } from "../lib/renderLogger"
 
 interface BackendContextValue {
   isConnected: boolean
@@ -54,6 +55,7 @@ const readStoredBackendUrl = (): string => {
 }
 
 export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
+  useRenderLog("WebSocketProvider")
   const [url, setUrl] = useState<string>(
     () => backendUrl ?? readStoredBackendUrl()
   )
@@ -119,7 +121,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
     }
   }, [])
 
-  useEffect(() => {
+  useEffectLog("WS 연결", () => {
     shouldReconnectRef.current = true
     let backoff = INITIAL_BACKOFF_MS
 
