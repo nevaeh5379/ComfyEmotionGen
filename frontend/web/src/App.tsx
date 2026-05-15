@@ -1179,6 +1179,7 @@ export function App() {
               savedTemplates={savedTemplates}
               enableHover={settings.enableHover}
               autoApplyReject={settings.autoApplyReject}
+              savedWorkflows={savedWorkflows}
             />
           </section>
         )}

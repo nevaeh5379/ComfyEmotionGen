@@ -60,6 +60,7 @@ export interface SavedImage {
   trashedAt: number | null
   tags: string[]
   cegTemplate?: string
+  workflow?: Record<string, unknown>
 }
 
 export interface AssetGroup {

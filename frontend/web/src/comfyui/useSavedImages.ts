@@ -351,14 +351,15 @@ export const curationApi = {
     filename: string,
     count: number,
     seedStrategy: "random" | "increment" = "random",
-    template?: string
+    template?: string,
+    workflow?: string
   ): Promise<string[]> {
     const res = await fetch(
       `${backendUrl}/asset-groups/${encodeURIComponent(filename)}/regenerate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count, seedStrategy, template }),
+        body: JSON.stringify({ count, seedStrategy, template, workflow }),
       }
     )
     if (!res.ok) throw new Error(`HTTP ${res.status}`)

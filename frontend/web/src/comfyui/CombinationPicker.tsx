@@ -41,6 +41,7 @@ import { curationApi } from "./useSavedImages"
 import { useAsyncAction } from "./hooks/useAsyncAction"
 import type { SavedImage } from "./Message"
 import type { SavedTemplate } from "./useSavedTemplates"
+import type { SavedWorkflow } from "./useSavedWorkflows"
 import type {
   RenderItem,
   CombinationViewProps,
@@ -538,6 +539,7 @@ interface Props {
   backendUrl: string
   cegTemplate: string
   savedTemplates: SavedTemplate[]
+  savedWorkflows: SavedWorkflow[]
   enableHover?: boolean
   autoApplyReject?: boolean
 }
@@ -546,6 +548,7 @@ export const CombinationPicker = memo(function CombinationPicker({
   backendUrl,
   cegTemplate,
   savedTemplates,
+  savedWorkflows,
   enableHover = true,
   autoApplyReject = true,
 }: Props) {
@@ -982,7 +985,7 @@ export const CombinationPicker = memo(function CombinationPicker({
   }, [])
 
   const performRegenerate = useCallback(
-    async (count: number, template: string) => {
+    async (count: number, template: string, workflow?: string) => {
       if (regenAction.isLoading || regenDialogState.filenames.length === 0)
         return
       const filenames = regenDialogState.filenames
@@ -997,7 +1000,8 @@ export const CombinationPicker = memo(function CombinationPicker({
               filename,
               count,
               "random",
-              template
+              template || undefined,
+              workflow
             )
             totalJobs += jobIds.length
           }
@@ -2106,6 +2110,7 @@ export const CombinationPicker = memo(function CombinationPicker({
         imagesByFilename={imagesByFilename}
         currentCegTemplate={activeTemplate}
         savedTemplates={savedTemplates}
+        savedWorkflows={savedWorkflows}
         onRegenerate={performRegenerate}
         isLoading={regenAction.isLoading}
       />

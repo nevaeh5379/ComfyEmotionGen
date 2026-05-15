@@ -26,6 +26,7 @@ import {
 import { useState, useMemo, useEffect, type ComponentProps } from "react"
 import type { SavedImage } from "./Message"
 import type { SavedTemplate } from "./useSavedTemplates"
+import type { SavedWorkflow } from "./useSavedWorkflows"
 
 export interface RenderItem {
   filename: string
@@ -178,7 +179,8 @@ export interface RegenerateDialogProps {
   imagesByFilename: Map<string, SavedImage[]>
   currentCegTemplate: string
   savedTemplates: SavedTemplate[]
-  onRegenerate: (count: number, template: string) => void
+  savedWorkflows: SavedWorkflow[]
+  onRegenerate: (count: number, template: string, workflow?: string) => void
   isLoading: boolean
 }
 
@@ -189,13 +191,14 @@ export function RegenerateDialog({
   imagesByFilename,
   currentCegTemplate,
   savedTemplates,
+  savedWorkflows,
   onRegenerate,
   isLoading,
 }: RegenerateDialogProps) {
   const [count, setCount] = useState(4)
   const [selectedTemplate, setSelectedTemplate] = useState("")
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState("")
 
-  // 선택된 파일그룹들에 속한 이미지들의 모든 cegTemplate 추출 (중복 제거)
   const historicalTemplates = useMemo(() => {
     const templates = new Set<string>()
     for (const filename of filenames) {
@@ -209,19 +212,48 @@ export function RegenerateDialog({
     return Array.from(templates)
   }, [filenames, imagesByFilename])
 
-  // 다이얼로그가 열릴 때 기본값 설정
+  const historicalWorkflows = useMemo(() => {
+    const items: { id: string; name: string; workflow: string }[] = []
+    const seen = new Set<string>()
+    let idx = 0
+    for (const filename of filenames) {
+      const images = imagesByFilename.get(filename) ?? []
+      for (const img of images) {
+        if (!img.workflow) continue
+        const wf = JSON.stringify(img.workflow)
+        if (seen.has(wf)) continue
+        seen.add(wf)
+        idx++
+        const preview = wf.substring(0, 80)
+        items.push({
+          id: `__history_wf__${idx}`,
+          name: `기록 ${idx} (${preview}${wf.length > 80 ? '...' : ''})`,
+          workflow: wf,
+        })
+      }
+    }
+    return items
+  }, [filenames, imagesByFilename])
+
+  const selectedWorkflow = useMemo(() => {
+    const sw = savedWorkflows.find((w) => w.id === selectedWorkflowId)
+    if (sw) return { id: sw.id, name: sw.name, workflow: sw.workflow }
+    return historicalWorkflows.find((w) => w.id === selectedWorkflowId)
+  }, [selectedWorkflowId, savedWorkflows, historicalWorkflows])
+
   useEffect(() => {
     if (open) {
-      // 기본적으로 현재 편집 중인 템플릿을 선택하거나, 
-      // 만약 과거 템플릿만 있다면 첫 번째 과거 템플릿을 선택
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedTemplate(currentCegTemplate || historicalTemplates[0] || "")
+      setSelectedWorkflowId("")
     }
   }, [open, currentCegTemplate, historicalTemplates])
 
   const handleConfirm = () => {
-    onRegenerate(count, selectedTemplate)
+    onRegenerate(count, selectedTemplate, selectedWorkflow?.workflow)
   }
+
+  const canConfirm = isLoading
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,6 +282,53 @@ export function RegenerateDialog({
           </div>
 
           <div className="flex flex-col gap-2">
+            <Label htmlFor="workflow-select" className="text-xs font-bold uppercase">
+              ComfyUI 워크플로우 선택
+            </Label>
+            <select
+              id="workflow-select"
+              value={selectedWorkflowId}
+              onChange={(e) => {
+                setSelectedWorkflowId(e.target.value)
+              }}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <option value="">
+                {selectedWorkflowId ? "워크플로우 해제" : "워크플로우 직접 선택"}
+              </option>
+              {savedWorkflows.length > 0 && (
+                <optgroup label="저장된 워크플로우">
+                  {savedWorkflows.map((sw) => (
+                    <option key={sw.id} value={sw.id}>
+                      {sw.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {historicalWorkflows.length > 0 && (
+                <optgroup label="과거 사용 내역 (History)">
+                  {historicalWorkflows.map((hw) => (
+                    <option key={hw.id} value={hw.id}>
+                      {hw.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          {selectedWorkflow && (
+            <div className="rounded-md bg-muted p-3">
+              <div className="mb-1 text-[10px] font-bold text-muted-foreground uppercase">
+                Workflow Preview
+              </div>
+              <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-tight">
+                {selectedWorkflow.workflow}
+              </pre>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
             <Label htmlFor="template-select" className="text-xs font-bold uppercase">
               사용할 템플릿 (CEG Template)
             </Label>
@@ -260,7 +339,9 @@ export function RegenerateDialog({
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <optgroup label="현재 환경">
-                <option value={currentCegTemplate}>현재 편집 중인 템플릿</option>
+                <option value={currentCegTemplate}>
+                  현재 편집 중인 템플릿
+                </option>
                 {savedTemplates.map((st) => (
                   <option key={st.id} value={st.template}>
                     프리셋: {st.name}
@@ -279,10 +360,10 @@ export function RegenerateDialog({
             </select>
           </div>
 
-          {selectedTemplate && (
-            <div className="mt-2 rounded-md bg-muted p-3">
+          {selectedTemplate && !selectedWorkflowId && (
+            <div className="rounded-md bg-muted p-3">
               <div className="mb-1 text-[10px] font-bold text-muted-foreground uppercase">
-                Preview
+                Template Preview
               </div>
               <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-tight">
                 {selectedTemplate}
@@ -295,7 +376,7 @@ export function RegenerateDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             취소
           </Button>
-          <Button onClick={handleConfirm} disabled={isLoading || !selectedTemplate}>
+          <Button onClick={handleConfirm} disabled={canConfirm}>
             {isLoading && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
             재생성 시작
           </Button>

@@ -170,6 +170,8 @@ class ExportRequest(BaseModel):
 class RegenerateRequest(BaseModel):
     count: int = Field(1, ge=1, le=64)
     seedStrategy: Literal["random", "increment"] = "random"
+    template: Optional[str] = None
+    workflow: Optional[str] = None
 
 
 class JobsDeleteRequest(BaseModel):
@@ -645,6 +647,7 @@ async def asset_group_regenerate(filename: str, body: RegenerateRequest):
             count=body.count,
             seed_strategy=body.seedStrategy,
             template=body.template,
+            workflow=body.workflow,
         )
         return {"jobIds": [j.id for j in jobs]}
     except ValueError as exc:
