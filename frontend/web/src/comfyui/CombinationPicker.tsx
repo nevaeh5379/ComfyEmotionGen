@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import {
   CheckCircle2Icon,
@@ -461,7 +461,7 @@ interface Props {
   autoApplyReject?: boolean
 }
 
-export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, enableHover = true, autoApplyReject = true }: Props) {
+export const CombinationPicker = memo(function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, enableHover = true, autoApplyReject = true }: Props) {
   useRenderLog("CombinationPicker")
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("")
   const [renderItems, setRenderItems] = useState<RenderItem[]>([])
@@ -1608,4 +1608,4 @@ export function CombinationPicker({ backendUrl, cegTemplate, savedTemplates, ena
       </div>
     </div>
   )
-}
+})

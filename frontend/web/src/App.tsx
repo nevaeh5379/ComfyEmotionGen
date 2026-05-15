@@ -64,7 +64,7 @@ import {
   IS_PACKAGE_MODE,
   PACKAGE_BACKEND_URL,
 } from "./lib/runtime"
-import { useRenderLog } from "./lib/renderLogger"
+import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 const MAX_RANDOM_SEED = 1_000_000_000
@@ -159,9 +159,8 @@ interface SaveableItem {
 
 interface SavedItemsManagerProps<T extends SaveableItem> {
   items: T[]
-  saveName: string
-  onSaveNameChange: (name: string) => void
-  onSave: (name: string) => void
+  /** true = 저장 성공 (입력 초기화), false = 충돌 다이얼로그 표시 (초기화 안 함) */
+  onSave: (name: string) => boolean
   onLoad: (item: T) => void
   onDelete: (id: string) => void
   placeholder: string
@@ -357,8 +356,6 @@ const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
 // ---------------------------------------------------------------------------
 function SavedItemsManager<T extends SaveableItem>({
   items,
-  saveName,
-  onSaveNameChange,
   onSave,
   onLoad,
   onDelete,
@@ -366,8 +363,12 @@ function SavedItemsManager<T extends SaveableItem>({
   saveDisabled,
   extraHeader,
 }: SavedItemsManagerProps<T>) {
+  const [name, setName] = useState("")
+
   const handleSave = () => {
-    onSave(saveName.trim())
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (onSave(trimmed)) setName("")
   }
 
   return (
@@ -376,10 +377,10 @@ function SavedItemsManager<T extends SaveableItem>({
       <div className="flex gap-2 pt-1">
         <Input
           placeholder={placeholder}
-          value={saveName}
-          onChange={(e) => onSaveNameChange(e.target.value)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && saveName.trim() && !saveDisabled) {
+            if (e.key === "Enter" && name.trim() && !saveDisabled) {
               handleSave()
             }
           }}
@@ -388,7 +389,7 @@ function SavedItemsManager<T extends SaveableItem>({
         <Button
           variant="outline"
           size="sm"
-          disabled={saveDisabled || !saveName.trim()}
+          disabled={saveDisabled || !name.trim()}
           onClick={handleSave}
         >
           저장
@@ -714,7 +715,7 @@ export function App() {
       { uploadedName: string | null; error: string | null; uploading: boolean }
     >
   >({})
-  const [templateSaveName, setTemplateSaveName] = useState("")
+  const [templateResetKey, setTemplateResetKey] = useState(0)
   const {
     templates: savedTemplates,
     saveTemplate,
@@ -725,7 +726,7 @@ export function App() {
     saveWorkflow,
     deleteWorkflow,
   } = useSavedWorkflows()
-  const [workflowSaveName, setWorkflowSaveName] = useState("")
+  const [workflowResetKey, setWorkflowResetKey] = useState(0)
   const [pendingSave, setPendingSave] = useState<{
     name: string
     type: "template" | "workflow"
@@ -749,6 +750,16 @@ export function App() {
   >({})
   const [collapsedAxes, setCollapsedAxes] = useState<Set<string>>(new Set())
   const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
+
+  useWatchValues("App", {
+    backendAlive, jobs, workers, paused,
+    activeTab, fakeJobQueue,
+    isSheetOpen, isGraphOpen, isAxisFilterOpen, isSelectionOpen,
+    isAliveBackend, objectInfo,
+    previewFilter, parserError, axisValueFilter,
+    templateResetKey, workflowResetKey, pendingSave,
+    cegTemplate, workflowJson, nodeMappings,
+  })
 
   const toggleItemCheck = (key: string) => {
     setUncheckedItems((prev) => {
@@ -1201,17 +1212,16 @@ export function App() {
                       minHeight="100px"
                     />
                     <SavedItemsManager
+                      key={templateResetKey}
                       items={savedTemplates}
-                      saveName={templateSaveName}
-                      onSaveNameChange={setTemplateSaveName}
                       onSave={(name) => {
                         const trimmed = name.trim()
                         if (savedTemplates.some((t) => t.name === trimmed)) {
                           setPendingSave({ name: trimmed, type: "template" })
-                          return
+                          return false
                         }
                         saveTemplate(trimmed, cegTemplate)
-                        setTemplateSaveName("")
+                        return true
                       }}
                       onLoad={(t) => setCegTemplate(t.template)}
                       onDelete={deleteTemplate}
@@ -1222,17 +1232,16 @@ export function App() {
                   <Field>
                     <FieldLabel>ComfyUI API 워크플로우</FieldLabel>
                     <SavedItemsManager
+                      key={workflowResetKey}
                       items={savedWorkflows}
-                      saveName={workflowSaveName}
-                      onSaveNameChange={setWorkflowSaveName}
                       onSave={(name) => {
                         const trimmed = name.trim()
                         if (savedWorkflows.some((w) => w.name === trimmed)) {
                           setPendingSave({ name: trimmed, type: "workflow" })
-                          return
+                          return false
                         }
                         saveWorkflow(trimmed, workflowJson)
-                        setWorkflowSaveName("")
+                        return true
                       }}
                       onLoad={(w) => setWorkflowJson(w.workflow)}
                       onDelete={deleteWorkflow}
@@ -1942,10 +1951,10 @@ export function App() {
                 const newName = nextFreeName(pendingSave.name, items)
                 if (pendingSave.type === "template") {
                   saveTemplate(newName, cegTemplate)
-                  setTemplateSaveName("")
+                  setTemplateResetKey((k) => k + 1)
                 } else {
                   saveWorkflow(newName, workflowJson)
-                  setWorkflowSaveName("")
+                  setWorkflowResetKey((k) => k + 1)
                 }
                 setPendingSave(null)
               }}
@@ -1958,10 +1967,10 @@ export function App() {
                 if (!pendingSave) return
                 if (pendingSave.type === "template") {
                   saveTemplate(pendingSave.name, cegTemplate)
-                  setTemplateSaveName("")
+                  setTemplateResetKey((k) => k + 1)
                 } else {
                   saveWorkflow(pendingSave.name, workflowJson)
-                  setWorkflowSaveName("")
+                  setWorkflowResetKey((k) => k + 1)
                 }
                 setPendingSave(null)
               }}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Copy, Pencil,  Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -255,7 +255,7 @@ interface Props {
   isAliveBackend: boolean
 }
 
-export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Props) {
+export const JobManagerPanel = memo(function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Props) {
   useRenderLog("JobManagerPanel")
   // ── session state ───────────────────────────────────────────────────────────
   const [markers, setMarkersRaw] = useState<SessionMarker[]>(initMarkers)
@@ -1147,4 +1147,4 @@ export function JobManagerPanel({ jobs, paused, backendUrl, isAliveBackend }: Pr
       )}
     </div>
   )
-}
+})

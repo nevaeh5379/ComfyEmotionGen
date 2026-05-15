@@ -15,7 +15,7 @@
  *  - 휴지통 비우기, filename 그룹 재생성
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -103,7 +103,7 @@ interface Props {
 const DEFAULT_PAGE_SIZE = 48
 const GROUP_PAGE_SIZE = 20
 
-export function SavedImagesGallery({
+export const SavedImagesGallery = memo(function SavedImagesGallery({
   backendUrl,
   enableHover = true,
   imagePageSize = DEFAULT_PAGE_SIZE,
@@ -725,7 +725,7 @@ export function SavedImagesGallery({
       )}
     </div>
   )
-}
+})
 
 interface GridProps {
   items: SavedImage[]
