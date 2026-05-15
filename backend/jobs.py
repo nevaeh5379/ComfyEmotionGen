@@ -74,6 +74,8 @@ class Job:
     saved_image_hashes: list[str] = field(default_factory=list)
     progress_percent: float = 0.0
     current_node_name: str = ""
+    total_node_count: int = 0
+    completed_node_count: int = 0
     created_at: float = field(default_factory=time.time)
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
@@ -95,6 +97,8 @@ class Job:
             "savedImageHashes": self.saved_image_hashes,
             "progressPercent": self.progress_percent,
             "currentNodeName": self.current_node_name,
+            "totalNodeCount": self.total_node_count,
+            "completedNodeCount": self.completed_node_count,
             "createdAt": self.created_at,
             "startedAt": self.started_at,
             "finishedAt": self.finished_at,
@@ -118,6 +122,8 @@ class Job:
             saved_image_hashes=d.get("savedImageHashes", []),
             progress_percent=d.get("progressPercent", 0.0),
             current_node_name=d.get("currentNodeName", ""),
+            total_node_count=d.get("totalNodeCount", 0),
+            completed_node_count=d.get("completedNodeCount", 0),
             created_at=d.get("createdAt", time.time()),
             started_at=d.get("startedAt"),
             finished_at=d.get("finishedAt"),
@@ -184,6 +190,8 @@ class JobManager:
                     job.worker_id = None
                     job.progress_percent = 0.0
                     job.current_node_name = ""
+                    job.total_node_count = 0
+                    job.completed_node_count = 0
                     job.started_at = None
                 self._jobs[job.id] = job
         if stored:
@@ -455,8 +463,18 @@ class JobManager:
             )
 
         if msg_type == "execution_start":
+            # Count total executable nodes from workflow
+            async with self._lock:
+                job = self._jobs.get(prompt_id)
+                total_nodes = 0
+                if job is not None and job.workflow:
+                    total_nodes = len(job.workflow)
+            logger.info(
+                "[NODE-TRACK] execution_start: %s total_nodes=%d", prompt_id, total_nodes,
+            )
             await self._update(
-                prompt_id, status="running", started_at=time.time()
+                prompt_id, status="running", started_at=time.time(),
+                total_node_count=total_nodes, completed_node_count=0,
             )
             await self._store.save_event(
                 prompt_id, "started",
@@ -476,6 +494,69 @@ class JobManager:
                 prompt_id,
                 error=f"execution error: {error_msg}",
             )
+        elif msg_type == "executing":
+            node_id = data.get("node")
+            if node_id is not None:
+                payload = None
+                # Node transition: increment completed count
+                async with self._lock:
+                    job = self._jobs.get(prompt_id)
+                    if job is not None:
+                        job.completed_node_count += 1
+                        logger.info(
+                            "[NODE-TRACK] executing: %s node=%s completed=%d/%d",
+                            prompt_id, node_id, job.completed_node_count,
+                            job.total_node_count,
+                        )
+                        payload = job.to_dict()
+                if payload is not None:
+                    await self._store.save(payload)
+                    await self._emit({"type": "job.updated", "job": payload})
+        elif msg_type == "execution_cached":
+            cached = data.get("nodes") or []
+            if cached:
+                payload = None
+                async with self._lock:
+                    job = self._jobs.get(prompt_id)
+                    if job is not None:
+                        job.completed_node_count += len(cached)
+                        logger.info(
+                            "[NODE-TRACK] execution_cached: %s cached=%s completed=%d/%d",
+                            prompt_id, cached, job.completed_node_count,
+                            job.total_node_count,
+                        )
+                        payload = job.to_dict()
+                if payload is not None:
+                    await self._store.save(payload)
+                    await self._emit({"type": "job.updated", "job": payload})
+        elif msg_type == "progress_state":
+            nodes = data.get("nodes") or {}
+            if nodes:
+                payload = None
+                async with self._lock:
+                    job = self._jobs.get(prompt_id)
+                    if job is not None:
+                        finished = sum(
+                            1 for n in nodes.values()
+                            if isinstance(n, dict) and n.get("state") == "finished"
+                        )
+                        # Only move forward — progress_state doesn't include cached nodes
+                        if finished > job.completed_node_count:
+                            logger.info(
+                                "[NODE-TRACK] progress_state: %s completed %d→%d (total=%d)",
+                                prompt_id, job.completed_node_count, finished,
+                                job.total_node_count,
+                            )
+                            job.completed_node_count = finished
+                            payload = job.to_dict()
+                        else:
+                            logger.info(
+                                "[NODE-TRACK] progress_state: %s finished=%d ignored (current=%d)",
+                                prompt_id, finished, job.completed_node_count,
+                            )
+                if payload is not None:
+                    await self._store.save(payload)
+                    await self._emit({"type": "job.updated", "job": payload})
         elif msg_type == "executed":
             output = data.get("output") or {}
             images = output.get("images") or []
@@ -597,6 +678,8 @@ class JobManager:
             job.error = f"[retry {job.retry_count}] {error}"
             job.progress_percent = 0.0
             job.current_node_name = ""
+            job.total_node_count = 0
+            job.completed_node_count = 0
             job.started_at = None
             payload = job.to_dict()
         if worker_id_to_clear:

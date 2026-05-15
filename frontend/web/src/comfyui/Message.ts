@@ -24,6 +24,8 @@ export interface JobView {
   savedImageHashes: string[]
   progressPercent: number
   currentNodeName: string
+  totalNodeCount: number
+  completedNodeCount: number
   createdAt: number
   startedAt: number | null
   finishedAt: number | null

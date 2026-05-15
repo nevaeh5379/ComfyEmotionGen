@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { Field, FieldLabel } from "@/components/ui/field"
 import {
   HoverCard,
   HoverCardContent,
@@ -228,6 +227,23 @@ function jobDuration(job: JobView): number | null {
   if (job.startedAt != null && job.finishedAt != null)
     return (job.finishedAt - job.startedAt) * 1000
   return null
+}
+
+function formatETA(totalSeconds: number): string {
+  if (totalSeconds <= 0) return "곧 완료"
+  if (totalSeconds < 60) return `${Math.round(totalSeconds)}초`
+  if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)}분`
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.round((totalSeconds % 3600) / 60)
+  return `${h}시간 ${m}분`
+}
+
+function estimateRemaining(startedAtSec: number, progressPercent: number): number | null {
+  if (progressPercent <= 0 || progressPercent >= 100) return null
+  const elapsedSec = Date.now() / 1000 - startedAtSec
+  if (elapsedSec <= 0) return null
+  const totalEstimatedSec = (elapsedSec / progressPercent) * 100
+  return totalEstimatedSec - elapsedSec
 }
 
 function dateToEpochStart(s: string): number {
@@ -540,17 +556,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   // ── misc computed ───────────────────────────────────────────────────────────
 
-  const activeJobs = useMemo(
-    () =>
-      sessionJobs.filter(
-        (j) =>
-          j.status === "running" ||
-          j.status === "queued" ||
-          j.status === "pending"
-      ),
-    [sessionJobs]
-  )
-
   const selectedJob = selectedJobId
     ? (jobs.find((j) => j.id === selectedJobId) ?? null)
     : null
@@ -564,11 +569,17 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   // ── effects ─────────────────────────────────────────────────────────────────
 
+  // Tick every second while any job in the session is running (for ETA updates)
+  const hasRunning = useMemo(
+    () => sessionJobs.some((j) => j.status === "running"),
+    [sessionJobs]
+  )
+
   useEffect(() => {
-    if (!selectedJob || selectedJob.status !== "running") return
+    if (!hasRunning) return
     const id = setInterval(() => setTick((t) => t + 1), 1000)
     return () => clearInterval(id)
-  }, [selectedJob])
+  }, [hasRunning])
 
   // ── session actions ─────────────────────────────────────────────────────────
 
@@ -1084,12 +1095,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         </div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs font-medium">
-            <span className="truncate text-muted-foreground">
-              {activeJobs.length > 0
-                ? `진행 중: ${activeJobs.length}개 (완료: ${counts.done} / 전체: ${sessionJobs.length})`
-                : paused
-                  ? "일시중지됨"
-                  : "대기 중"}
+            <span className="text-muted-foreground">
+              {paused
+                ? "일시중지됨"
+                : `완료: ${counts.done} / 전체: ${sessionJobs.length}`}
             </span>
             <span className="tabular-nums">
               {sessionJobs.length > 0
@@ -1107,6 +1116,70 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             className="h-2 w-full"
           />
         </div>
+
+        {/* Running job progress cards */}
+        {sessionJobs
+          .filter((j) => j.status === "running")
+          .map((j) => {
+            const remaining = j.startedAt
+              ? estimateRemaining(j.startedAt, j.progressPercent)
+              : null
+            const jobProgress =
+              j.totalNodeCount > 0
+                ? Math.round(
+                    (j.completedNodeCount / j.totalNodeCount) * 100
+                  )
+                : null
+            return (
+              <div
+                key={j.id}
+                className="space-y-1 rounded-md bg-muted/20 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-mono text-xs">
+                    {j.filename}
+                  </span>
+                  {remaining != null && (
+                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      예상 {formatETA(remaining)} 남음
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="truncate text-muted-foreground">
+                    {j.currentNodeName
+                      ? `노드: ${j.currentNodeName}`
+                      : "노드 처리 중…"}
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    {Math.round(j.progressPercent)}%
+                  </span>
+                </div>
+                <Progress
+                  value={j.progressPercent}
+                  className="h-1.5 w-full"
+                />
+                {jobProgress != null ? (
+                  <>
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-muted-foreground">
+                        전체 작업 ({j.completedNodeCount}/{j.totalNodeCount} 노드)
+                      </span>
+                      <span className="tabular-nums">{jobProgress}%</span>
+                    </div>
+                    <Progress
+                      value={jobProgress}
+                      className="h-1.5 w-full [&>div]:bg-blue-500"
+                    />
+                  </>
+                ) : (
+                  <div className="text-[10px] text-muted-foreground italic">
+                    노드 정보 수신 대기 중…
+                  </div>
+                )}
+              </div>
+            )
+          })}
       </div>
 
       {/* 3. Table Toolbar */}
@@ -1279,32 +1352,66 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     {j.filename}
                   </TableCell>
                   <TableCell>
-                    <span className="inline-flex items-center gap-1">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status].badge}`}
-                      >
-                        {statusLabel}
+                    <div className="flex flex-col gap-1">
+                      <span className="inline-flex items-center gap-1">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status].badge}`}
+                        >
+                          {statusLabel}
+                        </span>
+                        {j.status === "error" && j.error && (
+                          <HoverCard openDelay={200} closeDelay={100}>
+                            <HoverCardTrigger asChild>
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0 cursor-help text-destructive/70" />
+                            </HoverCardTrigger>
+                            <HoverCardContent
+                              side="top"
+                              align="start"
+                              className="max-w-[320px]"
+                            >
+                              <p className="text-xs font-semibold text-destructive">
+                                오류 내용
+                              </p>
+                              <p className="mt-1 max-h-30 overflow-y-auto text-xs break-all whitespace-pre-wrap">
+                                {j.error}
+                              </p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        )}
                       </span>
-                      {j.status === "error" && j.error && (
-                        <HoverCard openDelay={200} closeDelay={100}>
-                          <HoverCardTrigger asChild>
-                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 cursor-help text-destructive/70" />
-                          </HoverCardTrigger>
-                          <HoverCardContent
-                            side="top"
-                            align="start"
-                            className="max-w-[320px]"
-                          >
-                            <p className="text-xs font-semibold text-destructive">
-                              오류 내용
-                            </p>
-                            <p className="mt-1 max-h-30 overflow-y-auto text-xs break-all whitespace-pre-wrap">
-                              {j.error}
-                            </p>
-                          </HoverCardContent>
-                        </HoverCard>
+                      {j.status === "running" && j.progressPercent > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <Progress
+                            value={j.progressPercent}
+                            className="h-1 flex-1"
+                          />
+                          <span className="w-7 text-right text-[10px] tabular-nums text-muted-foreground">
+                            {Math.round(j.progressPercent)}%
+                          </span>
+                        </div>
                       )}
-                    </span>
+                      {j.status === "running" &&
+                        j.totalNodeCount > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <Progress
+                              value={
+                                (j.completedNodeCount /
+                                  j.totalNodeCount) *
+                                100
+                              }
+                              className="h-1 flex-1 [&>div]:bg-blue-500"
+                            />
+                            <span className="w-7 text-right text-[10px] tabular-nums text-blue-500">
+                              {Math.round(
+                                (j.completedNodeCount /
+                                  j.totalNodeCount) *
+                                  100
+                              )}
+                              %
+                            </span>
+                          </div>
+                        )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {j.workerId ?? "—"}
