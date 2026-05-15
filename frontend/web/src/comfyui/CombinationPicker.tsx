@@ -51,13 +51,15 @@ import {
   RegenCountControl,
   LoadingButton,
 } from "./CombinationPickerComponents"
+import { ImageViewer } from "./ImageViewer"
 import { hasApproved, findApproved } from "./Message"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
-export function Magnifier({ src }: { src: string }) {
+export function Magnifier({ src, className = "" }: { src: string; className?: string }) {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [show, setShow] = useState(false)
+  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null)
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
@@ -68,12 +70,21 @@ export function Magnifier({ src }: { src: string }) {
 
   return (
     <div
-      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black/5"
+      className={`relative flex items-center justify-center overflow-hidden bg-black/5 ${className}`}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
       onMouseMove={handleMouseMove}
+      style={imgNatural ? { aspectRatio: `${imgNatural.w}/${imgNatural.h}` } : undefined}
     >
-      <img src={src} className="max-h-full max-w-full object-contain" alt="" />
+      <img
+        src={src}
+        className="max-h-[78vh] max-w-[90vw] object-contain"
+        alt=""
+        onLoad={(e) => {
+          const img = e.currentTarget
+          setImgNatural({ w: img.naturalWidth, h: img.naturalHeight })
+        }}
+      />
       {show && (
         <div
           className="pointer-events-none absolute inset-0 z-10"
@@ -558,6 +569,7 @@ export const CombinationPicker = memo(function CombinationPicker({
 
   const [viewMode, setViewMode] = useState<ViewMode>("gallery")
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
+  const [previewHash, setPreviewHash] = useState<string | null>(null)
 
   // 선택 모드 관련 상태
   const [selectionMode, setSelectionMode] = useState(false)
@@ -1878,73 +1890,100 @@ export const CombinationPicker = memo(function CombinationPicker({
                       const isPinned = pinnedHashes.includes(img.hash)
                       return (
                         <ContextMenu key={img.hash}>
-                          <ContextMenuTrigger asChild>
-                            <HoverCard
-                              openDelay={enableHover ? 400 : 99999}
-                              closeDelay={100}
-                            >
-                              <HoverCardTrigger asChild>
-                                <button
-                                  onClick={() =>
-                                    selectImage(
-                                      selectedItem!.filename,
-                                      img.hash
-                                    )
-                                  }
-                                  className={`group relative overflow-hidden rounded-lg transition-colors ${
-                                    isSelected
-                                      ? "scale-[0.98] shadow-lg ring-4 ring-green-500"
-                                      : isRejected
-                                        ? "opacity-30 hover:opacity-100"
-                                        : "shadow-sm hover:-translate-y-1 hover:ring-2 hover:ring-primary/40"
-                                  }`}
-                                >
-                                  <img
-                                    src={`${backendUrl}/saved-images/${img.hash}`}
-                                    alt=""
-                                    className="w-full object-cover"
-                                  />
+                          <div className="flex flex-col gap-1.5">
+                            <ContextMenuTrigger asChild>
+                              <HoverCard
+                                openDelay={enableHover ? 400 : 99999}
+                                closeDelay={100}
+                              >
+                                <HoverCardTrigger asChild>
                                   <button
-                                    type="button"
-                                    onClick={(e) => togglePin(img.hash, e)}
-                                    className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
+                                    onClick={() =>
+                                      setPreviewHash(img.hash)
+                                    }
+                                    className={`group relative overflow-hidden rounded-lg transition-colors ${
+                                      isSelected
+                                        ? "scale-[0.98] shadow-lg ring-4 ring-green-500"
+                                        : isRejected
+                                          ? "opacity-30 hover:opacity-100"
+                                          : "shadow-sm hover:-translate-y-1 hover:ring-2 hover:ring-primary/40"
+                                    }`}
                                   >
-                                    {isPinned ? (
-                                      <PinIcon className="h-4 w-4" />
-                                    ) : (
-                                      <PinOffIcon className="h-4 w-4" />
+                                    <img
+                                      src={`${backendUrl}/saved-images/${img.hash}`}
+                                      alt=""
+                                      className="w-full object-cover"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => togglePin(img.hash, e)}
+                                      className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
+                                    >
+                                      {isPinned ? (
+                                        <PinIcon className="h-4 w-4" />
+                                      ) : (
+                                        <PinOffIcon className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                    {idx < 9 && (
+                                      <span className="absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm group-hover:opacity-100">
+                                        {idx + 1}
+                                      </span>
+                                    )}
+                                    {isSelected && (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-green-500/10">
+                                        <div className="rounded-full bg-green-500 p-2 text-white shadow-2xl">
+                                          <CheckIcon
+                                            className="h-8 w-8"
+                                            strokeWidth={4}
+                                          />
+                                        </div>
+                                      </div>
                                     )}
                                   </button>
-                                  {idx < 9 && (
-                                    <span className="absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm group-hover:opacity-100">
-                                      {idx + 1}
-                                    </span>
-                                  )}
-                                  {isSelected && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-green-500/10">
-                                      <div className="rounded-full bg-green-500 p-2 text-white shadow-2xl">
-                                        <CheckIcon
-                                          className="h-8 w-8"
-                                          strokeWidth={4}
-                                        />
-                                      </div>
+                                </HoverCardTrigger>
+                                {enableHover && (
+                                  <HoverCardContent
+                                    className="w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md"
+                                    side="right"
+                                  >
+                                    <div className="mb-2 border-b pb-2 font-black tracking-widest text-primary uppercase">
+                                      Metadata
                                     </div>
-                                  )}
-                                </button>
-                              </HoverCardTrigger>
-                              {enableHover && (
-                                <HoverCardContent
-                                  className="w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md"
-                                  side="right"
-                                >
-                                  <div className="mb-2 border-b pb-2 font-black tracking-widest text-primary uppercase">
-                                    Metadata
-                                  </div>
-                                  {img.prompt}
-                                </HoverCardContent>
-                              )}
-                            </HoverCard>
-                          </ContextMenuTrigger>
+                                    {img.prompt}
+                                  </HoverCardContent>
+                                )}
+                              </HoverCard>
+                            </ContextMenuTrigger>
+
+                            {/* 선택하기 버튼 */}
+                            {!isSelected && !isRejected && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 w-full gap-1 border-green-300 text-[10px] font-bold text-green-600 hover:bg-green-50 hover:text-green-700"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  selectImage(selectedItem!.filename, img.hash)
+                                }}
+                              >
+                                <CheckIcon className="h-3 w-3" />
+                                선택
+                              </Button>
+                            )}
+                            {isSelected && (
+                              <div className="flex h-7 items-center justify-center rounded bg-green-100 text-[10px] font-bold text-green-700">
+                                <CheckIcon className="mr-1 h-3 w-3" />
+                                선택됨
+                              </div>
+                            )}
+                            {isRejected && (
+                              <div className="flex h-7 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">
+                                <XIcon className="mr-1 h-3 w-3" />
+                                리젝됨
+                              </div>
+                            )}
+                          </div>
                           <ContextMenuContent className="w-40">
                             {isSelected ? (
                               <ContextMenuItem
@@ -1978,7 +2017,7 @@ export const CombinationPicker = memo(function CombinationPicker({
                     {pinnedHashes.map((hash) => (
                       <div
                         key={hash}
-                        className="relative overflow-hidden rounded-lg border bg-black/5 shadow-inner"
+                        className="relative flex h-full overflow-hidden rounded-lg border bg-black/5 shadow-inner"
                       >
                         <button
                           type="button"
@@ -2006,6 +2045,36 @@ export const CombinationPicker = memo(function CombinationPicker({
           )}
         </div>
       </div>
+
+      {/* 이미지 미리보기 팝업 */}
+      <ImageViewer
+        src={`${backendUrl}/saved-images/${previewHash}`}
+        isOpen={previewHash !== null}
+        onClose={() => setPreviewHash(null)}
+      >
+        {/* <Button
+          size="lg"
+          className="gap-2 px-10 py-5 text-base font-black shadow-lg shadow-green-500/20 transition-all hover:scale-105"
+          onClick={() => {
+            if (previewHash) {
+              selectImage(selectedItem!.filename, previewHash)
+              setPreviewHash(null)
+            }
+          }}
+        >
+          <CheckIcon className="h-5 w-5" />
+          이 이미지 선택
+        </Button>
+        <Button
+          variant="outline"
+          size="lg"
+          className="gap-2 px-6 py-5 text-base font-bold"
+          onClick={() => setPreviewHash(null)}
+        >
+          <XIcon className="h-4 w-4" />
+          닫기
+        </Button> */}
+      </ImageViewer>
     </div>
   )
 })
