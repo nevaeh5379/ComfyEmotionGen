@@ -11,6 +11,9 @@
       "include": "#tags"
     },
     {
+      "include": "#variables"
+    },
+    {
       "include": "#strings"
     },
     {
@@ -23,9 +26,6 @@
       "include": "#numbers"
     },
     {
-      "include": "#variables"
-    },
-    {
       "include": "#axis-keys"
     }
   ],
@@ -36,8 +36,20 @@
       "end": "#\\}\\}"
     },
     "tags": {
-      "name": "keyword.control.ceg",
-      "match": "\\{\\{/(?:axis|template|filename)\\}\\}|\\{\\{(?:axis|set|combine|exclude|template|filename)\\}\\}"
+      "patterns": [
+        {
+          "name": "keyword.control.ceg",
+          "match": "\\{\\{/(?:axis|template|filename)\\}\\}"
+        },
+        {
+          "name": "keyword.control.ceg",
+          "match": "\\{\\{(?:axis|set|combine|exclude|template|filename)\\b"
+        },
+        {
+          "name": "keyword.control.ceg",
+          "match": "\\}\\}"
+        }
+      ]
     },
     "strings": {
       "name": "string.quoted.double.ceg",
@@ -47,16 +59,19 @@
         {
           "name": "constant.character.escape.ceg",
           "match": "\\\\."
+        },
+        {
+          "include": "#variables"
         }
       ]
     },
     "keywords": {
       "name": "keyword.other.ceg",
-      "match": "\\b(?:include|AND)\\b"
+      "match": "\\b(?:include|AND|OR|in|not)\\b"
     },
     "operators": {
       "name": "keyword.operator.ceg",
-      "match": "[@~+*()=:]"
+      "match": "[~+*()=:\\[\\]{},]"
     },
     "numbers": {
       "name": "constant.numeric.ceg",
@@ -64,7 +79,7 @@
     },
     "variables": {
       "name": "variable.other.ceg",
-      "match": "\\{\\{[a-zA-Z_][a-zA-Z0-9_]*\\}\\}"
+      "match": "\\{\\{[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?\\}\\}"
     },
     "axis-keys": {
       "name": "entity.name.tag.ceg",

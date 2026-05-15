@@ -1,4 +1,11 @@
-import { CheckIcon, CheckSquareIcon, FolderIcon, Loader2Icon, RefreshCwIcon, SquareIcon } from "lucide-react"
+import {
+  CheckIcon,
+  CheckSquareIcon,
+  FolderIcon,
+  Loader2Icon,
+  RefreshCwIcon,
+  SquareIcon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { HoverCardContent } from "@/components/ui/hover-card"
@@ -31,14 +38,6 @@ export interface CombinationViewProps {
   enableHover?: boolean
 }
 
-export function hasApproved(images: SavedImage[]): boolean {
-  return images.some((img) => img.status === "approved")
-}
-
-export function findApproved(images: SavedImage[]): SavedImage | undefined {
-  return images.find((img) => img.status === "approved")
-}
-
 export function ImagePreviewHoverCard({
   filename,
   images,
@@ -50,15 +49,18 @@ export function ImagePreviewHoverCard({
 }) {
   return (
     <HoverCardContent className="w-72 p-3" side="right" align="start">
-      <div className="mb-2 text-[10px] font-black text-primary uppercase tracking-widest border-b pb-1.5">
+      <div className="mb-2 border-b pb-1.5 text-[10px] font-black tracking-widest text-primary uppercase">
         {filename} ({images.length}장)
       </div>
       {images.length === 0 ? (
         <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
       ) : (
-        <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto">
+        <div className="grid max-h-64 grid-cols-3 gap-1.5 overflow-y-auto">
           {images.slice(0, 12).map((img) => (
-            <div key={img.hash} className="relative aspect-square overflow-hidden rounded-md bg-muted">
+            <div
+              key={img.hash}
+              className="relative aspect-square overflow-hidden rounded-md bg-muted"
+            >
               <img
                 src={`${backendUrl}/saved-images/${img.hash}`}
                 className="h-full w-full object-cover"
@@ -66,19 +68,21 @@ export function ImagePreviewHoverCard({
                 loading="lazy"
               />
               {img.status === "approved" && (
-                <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
+                <div className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
                   <CheckIcon className="h-3 w-3" strokeWidth={3} />
                 </div>
               )}
               {img.status === "rejected" && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <span className="text-[8px] font-bold text-white/80">REJ</span>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <span className="text-[8px] font-bold text-white/80">
+                    REJ
+                  </span>
                 </div>
               )}
             </div>
           ))}
           {images.length > 12 && (
-            <div className="aspect-square flex items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+            <div className="flex aspect-square items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
               +{images.length - 12}
             </div>
           )}
@@ -107,13 +111,23 @@ export function CombinationContextMenu({
 }) {
   return (
     <ContextMenuContent className="w-52">
-      <ContextMenuLabel className="font-mono text-[10px] truncate">{filename}</ContextMenuLabel>
+      <ContextMenuLabel className="truncate font-mono text-[10px]">
+        {filename}
+      </ContextMenuLabel>
       <ContextMenuSeparator />
       <ContextMenuItem onClick={() => onOpen(filename)}>
         <FolderIcon className="h-4 w-4" /> 열기
       </ContextMenuItem>
-      <ContextMenuItem onClick={() => selectionMode ? onToggleSelect(filename) : onLongPress(filename)}>
-        {isSelected ? <CheckSquareIcon className="h-4 w-4" /> : <SquareIcon className="h-4 w-4" />}
+      <ContextMenuItem
+        onClick={() =>
+          selectionMode ? onToggleSelect(filename) : onLongPress(filename)
+        }
+      >
+        {isSelected ? (
+          <CheckSquareIcon className="h-4 w-4" />
+        ) : (
+          <SquareIcon className="h-4 w-4" />
+        )}
         {isSelected ? "선택 해제" : "선택하기"}
       </ContextMenuItem>
       {onRegenerate && (
@@ -144,9 +158,11 @@ export function RegenCountControl({
   onAction: () => void
 }) {
   return (
-    <div className="flex items-center gap-2 bg-background p-1 rounded border shadow-sm">
+    <div className="flex items-center gap-2 rounded border bg-background p-1 shadow-sm">
       <div className="flex flex-col items-center px-2">
-        <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none mb-0.5">Regen Count</span>
+        <span className="mb-0.5 text-[8px] leading-none font-bold text-muted-foreground uppercase">
+          Regen Count
+        </span>
         <Input
           type="number"
           min={1}
@@ -156,7 +172,7 @@ export function RegenCountControl({
             const n = parseInt(e.target.value)
             onChange(isNaN(n) ? 1 : Math.max(1, Math.min(20, n)))
           }}
-          className="h-6 w-10 text-center text-[11px] font-bold border-none focus-visible:ring-0 p-0"
+          className="h-6 w-10 border-none p-0 text-center text-[11px] font-bold focus-visible:ring-0"
         />
       </div>
       <Button

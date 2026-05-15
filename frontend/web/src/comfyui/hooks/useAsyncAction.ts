@@ -7,7 +7,7 @@ export interface AsyncActionHandle {
     fn: () => Promise<T>,
     getSuccessMessage: (result: T) => string,
     errorMessage?: string,
-    duration?: number,
+    duration?: number
   ) => Promise<T | null>
   showMessage: (msg: string, duration?: number) => void
   clearMessage: () => void
@@ -34,7 +34,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
         timerRef.current = null
       }, duration ?? defaultDuration)
     },
-    [defaultDuration, clearTimer],
+    [defaultDuration, clearTimer]
   )
 
   const clearMessage = useCallback(() => {
@@ -47,7 +47,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
       fn: () => Promise<T>,
       getSuccessMessage: (result: T) => string,
       errorMessage = "오류가 발생했습니다",
-      duration?: number,
+      duration?: number
     ): Promise<T | null> => {
       setIsLoading(true)
       setMessage(null)
@@ -62,7 +62,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
         setIsLoading(false)
       }
     },
-    [showMessage],
+    [showMessage]
   )
 
   useEffect(() => {

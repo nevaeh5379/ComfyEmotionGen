@@ -18,8 +18,7 @@ interface CodeEditorProps {
 }
 
 const cegKeywords = /^(?:include|AND)\b/i
-const cegTags =
-  /^\{\{\/?(?:axis|template|filename|set|combine|exclude)\}\}/
+const cegTags = /^\{\{\/?(?:axis|template|filename|set|combine|exclude)\}\}/
 
 const cegLanguage = StreamLanguage.define<{ inComment: boolean }>({
   startState: () => ({ inComment: false }),
@@ -92,11 +91,9 @@ const CodeEditor = ({
 
   return (
     <div
-      className={`rounded-md border bg-muted/50 overflow-hidden ${className}`}
+      className={`overflow-hidden rounded-md border bg-muted/50 ${className}`}
       style={{ minHeight, maxHeight }}
     >
-
-
       <CodeMirror
         value={value}
         onChange={onChange}

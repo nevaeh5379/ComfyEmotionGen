@@ -8,9 +8,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useEffectLog } from "@/lib/renderLogger"
-import type { AssetGroup, BackendEvent, CurationStatus, SavedImage } from "./Message"
+import type {
+  AssetGroup,
+  BackendEvent,
+  CurationStatus,
+  SavedImage,
+} from "./Message"
 
-const globalConfigUrl = (window as any).COMFY_EMOTION_GEN_BACKEND_URL
+const globalConfigUrl = (
+  window as Window & { COMFY_EMOTION_GEN_BACKEND_URL?: string }
+).COMFY_EMOTION_GEN_BACKEND_URL
 const DEFAULT_BACKEND_URL = globalConfigUrl || "http://localhost:8000"
 
 const httpToWs = (url: string): string =>
@@ -63,7 +70,9 @@ export const useSavedImages = (
   } = options
   const [images, setImages] = useState<SavedImage[]>([])
   const [groups, setGroups] = useState<AssetGroup[]>([])
-  const [groupImagesMap, setGroupImagesMap] = useState<Map<string, SavedImage[]>>(new Map())
+  const [groupImagesMap, setGroupImagesMap] = useState<
+    Map<string, SavedImage[]>
+  >(new Map())
   const [total, setTotal] = useState(0)
   const [groupTotal, setGroupTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -151,40 +160,58 @@ export const useSavedImages = (
   }, [groupMode, urlToUse, groupPage, groupPageSize, groupTotal])
 
   // ──── 그룹 모드: 각 그룹의 이미지 fetch ────
-  const fetchGroupImages = useCallback(async (filenames: string[], currentStatus: CurationStatus | "all" | undefined) => {
-    if (!groupMode || filenames.length === 0) return
-    const newMap = new Map<string, SavedImage[]>()
-    const statusParam = currentStatus && currentStatus !== "all" ? `?status=${currentStatus}` : ""
-    const fetches = filenames.map(async (fn) => {
-      try {
-        const res = await fetch(
-          `${urlToUse}/asset-groups/${encodeURIComponent(fn)}${statusParam}`
-        )
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = (await res.json()) as { filename: string; items: SavedImage[] }
-        newMap.set(fn, data.items)
-      } catch (err) {
-        console.error(`fetch group images failed for ${fn}`, err)
-        newMap.set(fn, [])
-      }
-    })
-    await Promise.all(fetches)
-    setGroupImagesMap(newMap)
-  }, [groupMode, urlToUse])
+  const fetchGroupImages = useCallback(
+    async (
+      filenames: string[],
+      currentStatus: CurationStatus | "all" | undefined
+    ) => {
+      if (!groupMode || filenames.length === 0) return
+      const newMap = new Map<string, SavedImage[]>()
+      const statusParam =
+        currentStatus && currentStatus !== "all"
+          ? `?status=${currentStatus}`
+          : ""
+      const fetches = filenames.map(async (fn) => {
+        try {
+          const res = await fetch(
+            `${urlToUse}/asset-groups/${encodeURIComponent(fn)}${statusParam}`
+          )
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = (await res.json()) as {
+            filename: string
+            items: SavedImage[]
+          }
+          newMap.set(fn, data.items)
+        } catch (err) {
+          console.error(`fetch group images failed for ${fn}`, err)
+          newMap.set(fn, [])
+        }
+      })
+      await Promise.all(fetches)
+      setGroupImagesMap(newMap)
+    },
+    [groupMode, urlToUse]
+  )
 
   // ──── 메인 effect ────
-  useEffectLog("이미지 fetch", () => {
-    if (groupMode) {
-      fetchGroups()
-    } else {
-      fetchImages()
-    }
-  }, [fetchImages, fetchGroups, groupMode])
+  useEffectLog(
+    "이미지 fetch",
+    () => {
+      if (groupMode) {
+        fetchGroups()
+      } else {
+        fetchImages()
+      }
+    },
+    [fetchImages, fetchGroups, groupMode]
+  )
 
   // 그룹 목록이 바뀌면 이미지 fetch
+  // (fetchGroupImages는 내부적으로 setState를 호출하는 비동기 함수)
   useEffect(() => {
     if (groupMode && groups.length > 0) {
       const filenames = groups.map((g) => g.filename)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchGroupImages(filenames, status)
     } else if (groups.length === 0) {
       setGroupImagesMap(new Map())
@@ -242,7 +269,18 @@ export const useSavedImages = (
       reload: groupMode ? fetchGroups : fetchImages,
       reloadGroups: fetchGroups,
     }),
-    [images, groups, groupImagesMap, total, groupTotal, loading, error, fetchImages, fetchGroups, groupMode]
+    [
+      images,
+      groups,
+      groupImagesMap,
+      total,
+      groupTotal,
+      loading,
+      error,
+      fetchImages,
+      fetchGroups,
+      groupMode,
+    ]
   )
 }
 
@@ -328,7 +366,12 @@ export const curationApi = {
   },
   async exportDataset(
     backendUrl: string,
-    body: { status?: CurationStatus; filenames?: string[]; tags?: string[]; duplicateStrategy?: "hash" | "number" }
+    body: {
+      status?: CurationStatus
+      filenames?: string[]
+      tags?: string[]
+      duplicateStrategy?: "hash" | "number"
+    }
   ): Promise<void> {
     const res = await fetch(`${backendUrl}/export`, {
       method: "POST",

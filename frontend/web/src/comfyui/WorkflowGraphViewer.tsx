@@ -47,7 +47,12 @@ interface WorkflowGraphViewerProps {
   backendUrl: string
 }
 
-function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: WorkflowGraphViewerProps) {
+function WorkflowGraphViewer({
+  workflow,
+  isOpen,
+  onClose,
+  backendUrl,
+}: WorkflowGraphViewerProps) {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [stats, setStats] = useState({ nodes: 0, edges: 0 })
@@ -65,7 +70,7 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
 
     async function init(w: number, h: number) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lib = await import("litegraph.js") as any
+      const lib = (await import("litegraph.js")) as any
       const { LGraph, LGraphCanvas, LGraphNode } = lib
 
       if (cancelled || !canvasRef.current) return
@@ -98,15 +103,22 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
             lgNode.addInput(name, Array.isArray(typeSpec) ? "COMBO" : typeSpec)
           }
           for (const [name, spec] of Object.entries(opt)) {
-            const [typeSpec] = (spec as InputSpec)
+            const [typeSpec] = spec as InputSpec
             lgNode.addInput(name, Array.isArray(typeSpec) ? "COMBO" : typeSpec)
           }
           for (let i = 0; i < info.output.length; i++) {
-            lgNode.addOutput(info.output_name[i] ?? info.output[i] ?? "", info.output[i] ?? "")
+            lgNode.addOutput(
+              info.output_name[i] ?? info.output[i] ?? "",
+              info.output[i] ?? ""
+            )
           }
         } else {
           for (const [k, v] of Object.entries(wfNode.inputs)) {
-            if (Array.isArray(v) && v.length === 2 && typeof v[0] === "string") {
+            if (
+              Array.isArray(v) &&
+              v.length === 2 &&
+              typeof v[0] === "string"
+            ) {
               lgNode.addInput(k, "*")
             }
           }
@@ -136,7 +148,10 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
       // 전체 노드가 보이도록 뷰 맞춤
       const nodes = [...nodeMap.values()]
       if (nodes.length > 0) {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity
         for (const n of nodes) {
           minX = Math.min(minX, n.pos[0])
           minY = Math.min(minY, n.pos[1])
@@ -173,7 +188,10 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
         if (cancelled || !containerEl) return
         const w = containerEl.clientWidth
         const h = containerEl.clientHeight
-        if (w === 0 || h === 0) { waitForSize(); return }
+        if (w === 0 || h === 0) {
+          waitForSize()
+          return
+        }
         init(w, h)
       })
     }
@@ -187,10 +205,15 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
   }, [isOpen, containerEl, workflow, backendUrl])
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
       <SheetContent
         side="right"
-        className="flex flex-col min-w-[70vw] sm:max-w-[90vw]"
+        className="flex min-w-[70vw] flex-col sm:max-w-[90vw]"
       >
         <SheetHeader>
           <SheetTitle>워크플로우 그래프</SheetTitle>
@@ -200,7 +223,7 @@ function WorkflowGraphViewer({ workflow, isOpen, onClose, backendUrl }: Workflow
         </SheetHeader>
         <div
           ref={containerRefCallback}
-          className="flex-1 min-h-0 rounded-md border overflow-hidden"
+          className="min-h-0 flex-1 overflow-hidden rounded-md border"
           style={{ background: "#1d1d1d" }}
         >
           <canvas ref={canvasRef} style={{ display: "block" }} />

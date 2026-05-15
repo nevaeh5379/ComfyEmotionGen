@@ -101,7 +101,11 @@ export function useSavedWorkflows() {
   )
 
   const saveMappingPreset = useCallback(
-    (workflowId: string, name: string, mappings: NodeMapping[]): SavedWorkflow | null => {
+    (
+      workflowId: string,
+      name: string,
+      mappings: NodeMapping[]
+    ): SavedWorkflow | null => {
       const trimmed = name.trim()
       const all = load()
       const wIdx = all.findIndex((w) => w.id === workflowId)
@@ -141,7 +145,9 @@ export function useSavedWorkflows() {
       if (wIdx === -1) return null
 
       const w = all[wIdx]!
-      const nextPresets = (w.mappingPresets || []).filter((p) => p.id !== presetId)
+      const nextPresets = (w.mappingPresets || []).filter(
+        (p) => p.id !== presetId
+      )
       const nextW = { ...w, mappingPresets: nextPresets }
       persist(all.map((item, i) => (i === wIdx ? nextW : item)))
       return nextW

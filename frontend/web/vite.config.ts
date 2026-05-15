@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 const pkg = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8"),
+  fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8")
 ) as { version: string }
 
 // https://vite.dev/config/

@@ -11,7 +11,10 @@ import type { AppSettings } from "./useSettings"
 
 interface Props {
   settings: AppSettings
-  updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void
+  updateSetting: <K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K]
+  ) => void
   backendUrl: string
   onBackendUrlChange: (url: string) => void
 }
@@ -72,12 +75,15 @@ export function SettingsPanel({
             <Checkbox
               id="lazy-load"
               checked={settings.imageLazyLoad}
-              onCheckedChange={(v) => updateSetting("imageLazyLoad", v === true)}
+              onCheckedChange={(v) =>
+                updateSetting("imageLazyLoad", v === true)
+              }
             />
             <div className="flex flex-col gap-1">
               <FieldLabel htmlFor="lazy-load">이미지 지연 로딩</FieldLabel>
               <FieldDescription>
-                화면 밖 이미지는 스크롤 시점에 로드합니다. 많은 이미지를 다룰 때 초기 로딩 속도가 빨라집니다.
+                화면 밖 이미지는 스크롤 시점에 로드합니다. 많은 이미지를 다룰 때
+                초기 로딩 속도가 빨라집니다.
               </FieldDescription>
             </div>
           </Field>
@@ -91,12 +97,15 @@ export function SettingsPanel({
             <Checkbox
               id="auto-reject"
               checked={settings.autoApplyReject}
-              onCheckedChange={(v) => updateSetting("autoApplyReject", v === true)}
+              onCheckedChange={(v) =>
+                updateSetting("autoApplyReject", v === true)
+              }
             />
             <div className="flex flex-col gap-1">
               <FieldLabel htmlFor="auto-reject">리젝 자동 적용</FieldLabel>
               <FieldDescription>
-                큐레이션에서 이미지를 선택하면 나머지를 자동으로 탈락 처리하고 다음 조합으로 이동합니다.
+                큐레이션에서 이미지를 선택하면 나머지를 자동으로 탈락 처리하고
+                다음 조합으로 이동합니다.
               </FieldDescription>
             </div>
           </Field>
@@ -115,7 +124,8 @@ export function SettingsPanel({
             <div className="flex flex-col gap-1">
               <FieldLabel htmlFor="enable-hover">호버 기능 사용</FieldLabel>
               <FieldDescription>
-                이미지 위에 마우스를 올릴 때 확대 보기(Magnifier)와 미리보기 카드를 표시합니다. 성능이 낮은 환경에서 끄면 유용합니다.
+                이미지 위에 마우스를 올릴 때 확대 보기(Magnifier)와 미리보기
+                카드를 표시합니다. 성능이 낮은 환경에서 끄면 유용합니다.
               </FieldDescription>
             </div>
           </Field>

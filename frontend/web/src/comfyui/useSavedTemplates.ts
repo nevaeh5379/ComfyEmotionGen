@@ -11,7 +11,9 @@ const STORAGE_KEY = "ceg_saved_templates"
 
 function load(): SavedTemplate[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedTemplate[]
+    return JSON.parse(
+      localStorage.getItem(STORAGE_KEY) ?? "[]"
+    ) as SavedTemplate[]
   } catch {
     return []
   }

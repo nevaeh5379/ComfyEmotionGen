@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/dialog"
 import CodeEditor from "@/components/CodeEditor"
 
-import { useBackend } from "./comfyui/WebSocketProvider"
+import { useBackend } from "./comfyui/useBackend"
 import type { WorkerView } from "./comfyui/Message"
 import { SavedImagesGallery } from "./comfyui/SavedImagesGallery"
 import { CombinationPicker } from "./comfyui/CombinationPicker"
@@ -58,7 +58,12 @@ import { JobManagerPanel } from "./comfyui/JobManagerPanel"
 import { WorkerManager } from "./comfyui/WorkerManager"
 import { SettingsPanel } from "./comfyui/SettingsPanel"
 import { useSettings } from "./comfyui/useSettings"
-import { ComfyWorkflowSchema, type ComfyWorkflow, type NodeMapping, type MappingSourceType } from "./lib/workflow"
+import {
+  ComfyWorkflowSchema,
+  type ComfyWorkflow,
+  type NodeMapping,
+  type MappingSourceType,
+} from "./lib/workflow"
 import {
   DEFAULT_BACKEND_URL,
   IS_PACKAGE_MODE,
@@ -603,9 +608,19 @@ interface PreviewTableProps {
   onToggleItem?: (item: RenderItem) => void
 }
 
-const PreviewTable = ({ title, items, accent, summary, className, onItemClick, showCheckboxes, getItemChecked, onToggleItem }: PreviewTableProps) => (
+const PreviewTable = ({
+  title,
+  items,
+  accent,
+  summary,
+  className,
+  onItemClick,
+  showCheckboxes,
+  getItemChecked,
+  onToggleItem,
+}: PreviewTableProps) => (
   <div className={`flex min-h-0 flex-col ${className ?? "flex-1"}`}>
-    <div className="mb-1 flex items-baseline gap-2 shrink-0">
+    <div className="mb-1 flex shrink-0 items-baseline gap-2">
       <span className="text-sm font-semibold">{title}</span>
       <span className={accent}>{items.length}</span>
       {summary && (
@@ -636,7 +651,9 @@ const PreviewTable = ({ title, items, accent, summary, className, onItemClick, s
                   />
                 </TableCell>
               )}
-              <TableCell className="font-mono text-xs">{item.filename}</TableCell>
+              <TableCell className="font-mono text-xs">
+                {item.filename}
+              </TableCell>
               <TableCell className="text-xs">{item.prompt}</TableCell>
             </TableRow>
           ))}
@@ -719,7 +736,10 @@ export function App() {
   const [workflowResetKey, setWorkflowResetKey] = useState(0)
 
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null)
-  const activeWorkflow = useMemo(() => savedWorkflows.find(w => w.id === activeWorkflowId) ?? null, [savedWorkflows, activeWorkflowId])
+  const activeWorkflow = useMemo(
+    () => savedWorkflows.find((w) => w.id === activeWorkflowId) ?? null,
+    [savedWorkflows, activeWorkflowId]
+  )
   const savedNodeMappings = activeWorkflow?.mappingPresets ?? []
   const [nodeMappingResetKey, setNodeMappingResetKey] = useState(0)
 
@@ -728,10 +748,7 @@ export function App() {
     type: "template" | "workflow" | "nodeMapping"
   } | null>(null)
 
-  const nextFreeName = (
-    name: string,
-    items: { name: string }[]
-  ): string => {
+  const nextFreeName = (name: string, items: { name: string }[]): string => {
     if (!items.some((x) => x.name === name)) return name
     let n = 2
     while (items.some((x) => x.name === `${name} (${n})`)) n++
@@ -748,13 +765,27 @@ export function App() {
   const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
 
   useWatchValues("App", {
-    backendAlive, jobs, workers, paused,
-    activeTab, fakeJobQueue,
-    isSheetOpen, isGraphOpen, isAxisFilterOpen, isSelectionOpen,
-    isAliveBackend, objectInfo,
-    previewFilter, parserError, axisValueFilter,
-    templateResetKey, workflowResetKey, pendingSave,
-    cegTemplate, workflowJson, nodeMappings,
+    backendAlive,
+    jobs,
+    workers,
+    paused,
+    activeTab,
+    fakeJobQueue,
+    isSheetOpen,
+    isGraphOpen,
+    isAxisFilterOpen,
+    isSelectionOpen,
+    isAliveBackend,
+    objectInfo,
+    previewFilter,
+    parserError,
+    axisValueFilter,
+    templateResetKey,
+    workflowResetKey,
+    pendingSave,
+    cegTemplate,
+    workflowJson,
+    nodeMappings,
   })
 
   const toggleItemCheck = (key: string) => {
@@ -949,7 +980,6 @@ export function App() {
     )
     return await submitJobs(selected)
   }
-
 
   // 파서 테스트 시트 검색 필터
   const filteredPreview = useMemo(() => {
@@ -1246,9 +1276,9 @@ export function App() {
                         setWorkflowJson(w.workflow)
                         setActiveWorkflowId(w.id)
                         if (w.mappingPresets && w.mappingPresets.length > 0) {
-                           setNodeMappings(w.mappingPresets[0]!.mappings)
+                          setNodeMappings(w.mappingPresets[0]!.mappings)
                         } else {
-                           setNodeMappings([])
+                          setNodeMappings([])
                         }
                       }}
                       onDelete={(id) => {
@@ -1271,10 +1301,15 @@ export function App() {
                               if (found) {
                                 setWorkflowJson(found.workflow)
                                 setActiveWorkflowId(found.id)
-                                if (found.mappingPresets && found.mappingPresets.length > 0) {
-                                   setNodeMappings(found.mappingPresets[0]!.mappings)
+                                if (
+                                  found.mappingPresets &&
+                                  found.mappingPresets.length > 0
+                                ) {
+                                  setNodeMappings(
+                                    found.mappingPresets[0]!.mappings
+                                  )
                                 } else {
-                                   setNodeMappings([])
+                                  setNodeMappings([])
                                 }
                               }
                             }}
@@ -1330,7 +1365,10 @@ export function App() {
                         onClick={handleRun}
                         disabled={!canRun}
                       >
-                        실행{estimatedRunCount !== null ? ` (${estimatedRunCount})` : ""}
+                        실행
+                        {estimatedRunCount !== null
+                          ? ` (${estimatedRunCount})`
+                          : ""}
                       </Button>
                       <Button
                         variant="secondary"
@@ -1360,7 +1398,8 @@ export function App() {
                           className="h-10"
                           onClick={() => setIsAxisFilterOpen(true)}
                         >
-                          축 필터{hasActiveFilter ? ` (${estimatedRunCount})` : ""}
+                          축 필터
+                          {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
                         </Button>
                       )}
                       {parsedWorkflow?.success && (
@@ -1398,15 +1437,26 @@ export function App() {
                         items={savedNodeMappings}
                         onSave={(name) => {
                           const trimmed = name.trim()
-                          if (savedNodeMappings.some((m) => m.name === trimmed)) {
-                            setPendingSave({ name: trimmed, type: "nodeMapping" })
+                          if (
+                            savedNodeMappings.some((m) => m.name === trimmed)
+                          ) {
+                            setPendingSave({
+                              name: trimmed,
+                              type: "nodeMapping",
+                            })
                             return false
                           }
-                          saveMappingPreset(activeWorkflowId, trimmed, nodeMappings)
+                          saveMappingPreset(
+                            activeWorkflowId,
+                            trimmed,
+                            nodeMappings
+                          )
                           return true
                         }}
                         onLoad={(m) => setNodeMappings(m.mappings)}
-                        onDelete={(presetId) => deleteMappingPreset(activeWorkflowId, presetId)}
+                        onDelete={(presetId) =>
+                          deleteMappingPreset(activeWorkflowId, presetId)
+                        }
                         placeholder="노드 매핑 이름"
                         saveDisabled={nodeMappings.length === 0}
                         extraHeader={
@@ -1436,8 +1486,9 @@ export function App() {
                         }
                       />
                     ) : (
-                      <p className="text-sm text-muted-foreground mb-4">
-                        노드 매핑을 저장하려면 먼저 워크플로우를 저장하거나 불러오세요.
+                      <p className="mb-4 text-sm text-muted-foreground">
+                        노드 매핑을 저장하려면 먼저 워크플로우를 저장하거나
+                        불러오세요.
                       </p>
                     )}
                   </div>
@@ -1653,7 +1704,6 @@ export function App() {
                   </p>
                 </div>
               )}
-
             </section>
             <div className="relative">
               <section className="absolute inset-0 flex flex-col rounded-lg border bg-card p-6 shadow-sm">
@@ -1743,8 +1793,8 @@ export function App() {
                 : ""}
             </SheetDescription>
           </SheetHeader>
-          <div className="flex gap-4 h-[65vh]">
-            <div className="w-[35%] flex flex-col gap-2">
+          <div className="flex h-[65vh] gap-4">
+            <div className="flex w-[35%] flex-col gap-2">
               <div className="flex items-center justify-end gap-1">
                 <Button
                   variant="ghost"
@@ -1765,20 +1815,28 @@ export function App() {
                     })
                   }
                 >
-                  전체 {Object.values(axisValueFilter).every((vals) => Object.values(vals).every(Boolean)) ? "비활성화" : "활성화"}
+                  전체{" "}
+                  {Object.values(axisValueFilter).every((vals) =>
+                    Object.values(vals).every(Boolean)
+                  )
+                    ? "비활성화"
+                    : "활성화"}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() =>
                     setCollapsedAxes((prev) => {
-                      const allCollapsed = prev.size === Object.keys(axisValueFilter).length
+                      const allCollapsed =
+                        prev.size === Object.keys(axisValueFilter).length
                       if (allCollapsed) return new Set()
                       return new Set(Object.keys(axisValueFilter))
                     })
                   }
                 >
-                  {collapsedAxes.size === Object.keys(axisValueFilter).length ? "모두 펴기" : "모두 접기"}
+                  {collapsedAxes.size === Object.keys(axisValueFilter).length
+                    ? "모두 펴기"
+                    : "모두 접기"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -1788,7 +1846,9 @@ export function App() {
                       Object.fromEntries(
                         Object.entries(prev).map(([k, vals]) => [
                           k,
-                          Object.fromEntries(Object.keys(vals).map((v) => [v, true])),
+                          Object.fromEntries(
+                            Object.keys(vals).map((v) => [v, true])
+                          ),
                         ])
                       )
                     )
@@ -1797,7 +1857,7 @@ export function App() {
                   초기화
                 </Button>
               </div>
-              <ScrollArea className="flex-1 min-h-0 rounded-md border">
+              <ScrollArea className="min-h-0 flex-1 rounded-md border">
                 {Object.entries(axisValueFilter).map(([axis, values]) => {
                   const enabledCount =
                     Object.values(values).filter(Boolean).length
@@ -1815,7 +1875,7 @@ export function App() {
                         className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3 py-1.5 select-none"
                         onClick={() => toggleAxisCollapse(axis)}
                       >
-                        <span className="text-xs text-muted-foreground transition-transform w-3">
+                        <span className="w-3 text-xs text-muted-foreground transition-transform">
                           {isCollapsed ? "▸" : "▾"}
                         </span>
                         <Checkbox
@@ -1843,29 +1903,29 @@ export function App() {
                       </div>
                       {!isCollapsed &&
                         Object.entries(values).map(([value, enabled]) => (
-                        <div
-                          key={value}
-                          className="flex items-center gap-2 px-3 py-1 pl-9"
-                        >
-                          <Checkbox
-                            checked={enabled}
-                            onCheckedChange={(checked) =>
-                              setAxisValueFilter((prev) => ({
-                                ...prev,
-                                [axis]: {
-                                  ...prev[axis],
-                                  [value]: checked === true,
-                                },
-                              }))
-                            }
-                          />
-                          <span
-                            className={`font-mono text-xs ${!enabled ? "text-muted-foreground line-through" : ""}`}
+                          <div
+                            key={value}
+                            className="flex items-center gap-2 px-3 py-1 pl-9"
                           >
-                            {value}
-                          </span>
-                        </div>
-                      ))}
+                            <Checkbox
+                              checked={enabled}
+                              onCheckedChange={(checked) =>
+                                setAxisValueFilter((prev) => ({
+                                  ...prev,
+                                  [axis]: {
+                                    ...prev[axis],
+                                    [value]: checked === true,
+                                  },
+                                }))
+                              }
+                            />
+                            <span
+                              className={`font-mono text-xs ${!enabled ? "text-muted-foreground line-through" : ""}`}
+                            >
+                              {value}
+                            </span>
+                          </div>
+                        ))}
                     </div>
                   )
                 })}
@@ -2002,10 +2062,7 @@ export function App() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setPendingSave(null)}
-            >
+            <Button variant="outline" onClick={() => setPendingSave(null)}>
               취소
             </Button>
             <Button
@@ -2035,7 +2092,16 @@ export function App() {
                 setPendingSave(null)
               }}
             >
-              새로 저장 ({nextFreeName(pendingSave?.name ?? "", pendingSave?.type === "template" ? savedTemplates : pendingSave?.type === "workflow" ? savedWorkflows : savedNodeMappings)})
+              새로 저장 (
+              {nextFreeName(
+                pendingSave?.name ?? "",
+                pendingSave?.type === "template"
+                  ? savedTemplates
+                  : pendingSave?.type === "workflow"
+                    ? savedWorkflows
+                    : savedNodeMappings
+              )}
+              )
             </Button>
             <Button
               variant="default"
@@ -2050,7 +2116,11 @@ export function App() {
                   setWorkflowResetKey((k) => k + 1)
                 } else {
                   if (activeWorkflowId) {
-                    saveMappingPreset(activeWorkflowId, pendingSave.name, nodeMappings)
+                    saveMappingPreset(
+                      activeWorkflowId,
+                      pendingSave.name,
+                      nodeMappings
+                    )
                     setNodeMappingResetKey((k) => k + 1)
                   }
                 }

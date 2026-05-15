@@ -35,7 +35,12 @@ export function computeLayout(workflow: ComfyWorkflow): LayoutResult {
       if (isNodeLink(inputValue)) {
         const [sourceId, sourceSlot] = inputValue
         if (workflow[sourceId]) {
-          edges.push({ source: sourceId, sourceSlot, target: nodeId, targetInput: inputKey })
+          edges.push({
+            source: sourceId,
+            sourceSlot,
+            target: nodeId,
+            targetInput: inputKey,
+          })
         }
       }
     }
@@ -113,13 +118,18 @@ export function computeLayout(workflow: ComfyWorkflow): LayoutResult {
     const nodesInLayer = layerGroups.get(li) ?? []
     // Sort by connection count descending
     const sorted = [...nodesInLayer].sort((a, b) => {
-      const connA = (adj.get(a)?.length ?? 0) + edges.filter((e) => e.target === a).length
-      const connB = (adj.get(b)?.length ?? 0) + edges.filter((e) => e.target === b).length
+      const connA =
+        (adj.get(a)?.length ?? 0) + edges.filter((e) => e.target === a).length
+      const connB =
+        (adj.get(b)?.length ?? 0) + edges.filter((e) => e.target === b).length
       return connB - connA
     })
     const yOffset = -((sorted.length - 1) * NODE_GAP_Y) / 2
     sorted.forEach((nodeId, i) => {
-      positions.set(nodeId, { x: li * LAYER_GAP_X, y: yOffset + i * NODE_GAP_Y })
+      positions.set(nodeId, {
+        x: li * LAYER_GAP_X,
+        y: yOffset + i * NODE_GAP_Y,
+      })
     })
   }
 

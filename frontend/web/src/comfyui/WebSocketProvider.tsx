@@ -9,9 +9,7 @@
  */
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -24,17 +22,7 @@ import {
   PACKAGE_BACKEND_URL,
 } from "../lib/runtime"
 import { useEffectLog, useRenderLog } from "../lib/renderLogger"
-
-interface BackendContextValue {
-  isConnected: boolean
-  jobs: JobView[]
-  workers: WorkerView[]
-  paused: boolean
-  /** 이 탭이 로드된 시점 (ms epoch). 잡을 세션 단위로 필터링하는 데 사용. */
-  sessionStartedAt: number
-}
-
-const BackendContext = createContext<BackendContextValue | null>(null)
+import { BackendContext, type BackendContextValue } from "./BackendContext"
 
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30_000
@@ -56,23 +44,17 @@ const readStoredBackendUrl = (): string => {
 
 export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   useRenderLog("WebSocketProvider")
-  const [url, setUrl] = useState<string>(
-    () => backendUrl ?? readStoredBackendUrl()
-  )
+  const [storedUrl, setStoredUrl] = useState<string>(readStoredBackendUrl)
+  const url = backendUrl !== undefined ? backendUrl : storedUrl
   const [isConnected, setIsConnected] = useState(false)
   const [jobs, setJobs] = useState<JobView[]>([])
   const [workers, setWorkers] = useState<WorkerView[]>([])
   const [paused, setPaused] = useState(false)
   const [sessionStartedAt] = useState<number>(() => Date.now())
 
-  // backendUrl prop이 변경되거나 storage 이벤트 발생 시 url 갱신
-  useEffect(() => {
-    if (backendUrl !== undefined) setUrl(backendUrl)
-  }, [backendUrl])
-
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "backendUrl" && e.newValue) setUrl(e.newValue)
+      if (e.key === "backendUrl" && e.newValue) setStoredUrl(e.newValue)
     }
     window.addEventListener("storage", onStorage)
     return () => window.removeEventListener("storage", onStorage)
@@ -121,77 +103,81 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
     }
   }, [])
 
-  useEffectLog("WS 연결", () => {
-    shouldReconnectRef.current = true
-    let backoff = INITIAL_BACKOFF_MS
+  useEffectLog(
+    "WS 연결",
+    () => {
+      shouldReconnectRef.current = true
+      let backoff = INITIAL_BACKOFF_MS
 
-    const wsUrl = `${httpToWs(url)}/ws/events`
+      const wsUrl = `${httpToWs(url)}/ws/events`
 
-    const connect = () => {
-      console.info("[backend] connecting", wsUrl)
-      const socket = new WebSocket(wsUrl)
-      socketRef.current = socket
+      const connect = () => {
+        console.info("[backend] connecting", wsUrl)
+        const socket = new WebSocket(wsUrl)
+        socketRef.current = socket
 
-      socket.onopen = () => {
-        setIsConnected(true)
-        backoff = INITIAL_BACKOFF_MS
-        console.info("[backend] connected")
-      }
+        socket.onopen = () => {
+          setIsConnected(true)
+          backoff = INITIAL_BACKOFF_MS
+          console.info("[backend] connected")
+        }
 
-      socket.onmessage = (e) => {
-        if (typeof e.data !== "string") return
-        try {
-          const event = JSON.parse(e.data) as BackendEvent
-          applyEvent(event)
-        } catch (err) {
-          console.warn("[backend] bad event", err)
+        socket.onmessage = (e) => {
+          if (typeof e.data !== "string") return
+          try {
+            const event = JSON.parse(e.data) as BackendEvent
+            applyEvent(event)
+          } catch (err) {
+            console.warn("[backend] bad event", err)
+          }
+        }
+
+        socket.onerror = () => {
+          // close가 따로 호출되니 여기서는 로깅만
+        }
+
+        socket.onclose = () => {
+          setIsConnected(false)
+          socketRef.current = null
+          if (!shouldReconnectRef.current) return
+          if (reconnectTimerRef.current !== null) {
+            clearTimeout(reconnectTimerRef.current)
+          }
+          reconnectTimerRef.current = window.setTimeout(() => {
+            reconnectTimerRef.current = null
+            connect()
+          }, backoff)
+          backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
         }
       }
 
-      socket.onerror = () => {
-        // close가 따로 호출되니 여기서는 로깅만
-      }
+      connect()
 
-      socket.onclose = () => {
-        setIsConnected(false)
-        socketRef.current = null
-        if (!shouldReconnectRef.current) return
+      return () => {
+        shouldReconnectRef.current = false
         if (reconnectTimerRef.current !== null) {
           clearTimeout(reconnectTimerRef.current)
-        }
-        reconnectTimerRef.current = window.setTimeout(() => {
           reconnectTimerRef.current = null
-          connect()
-        }, backoff)
-        backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
-      }
-    }
-
-    connect()
-
-    return () => {
-      shouldReconnectRef.current = false
-      if (reconnectTimerRef.current !== null) {
-        clearTimeout(reconnectTimerRef.current)
-        reconnectTimerRef.current = null
-      }
-      const socket = socketRef.current
-      if (socket) {
-        socket.onopen = null
-        socket.onmessage = null
-        socket.onerror = null
-        socket.onclose = null
-        if (
-          socket.readyState === WebSocket.OPEN ||
-          socket.readyState === WebSocket.CONNECTING
-        ) {
-          socket.close()
         }
-        socketRef.current = null
+        const socket = socketRef.current
+        if (socket) {
+          socket.onopen = null
+          socket.onmessage = null
+          socket.onerror = null
+          socket.onclose = null
+          if (
+            socket.readyState === WebSocket.OPEN ||
+            socket.readyState === WebSocket.CONNECTING
+          ) {
+            socket.close()
+          }
+          socketRef.current = null
+        }
+        setIsConnected(false)
       }
-      setIsConnected(false)
-    }
-  }, [url, applyEvent])
+    },
+    [url, applyEvent]
+  )
 
   const value = useMemo<BackendContextValue>(
     () => ({
@@ -209,13 +195,3 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   )
 }
 
-export const useBackend = (): BackendContextValue => {
-  const ctx = useContext(BackendContext)
-  if (!ctx) {
-    throw new Error("useBackend must be used within a WebSocketProvider")
-  }
-  return ctx
-}
-
-// 하위 호환 — 기존 import 깨지지 않게
-export const useWebSocket = useBackend

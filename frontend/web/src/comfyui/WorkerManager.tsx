@@ -102,10 +102,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
               ? { label: "busy", color: "text-yellow-600" }
               : { label: "idle", color: "text-green-600" }
           return (
-            <div
-              key={w.id}
-              className="flex items-center gap-2 text-sm"
-            >
+            <div key={w.id} className="flex items-center gap-2 text-sm">
               <span className="w-20 flex-none font-mono text-xs">{w.id}</span>
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
                 {w.url}
@@ -149,9 +146,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
         </Button>
       </div>
 
-      {error && (
-        <p className="text-xs text-destructive">⚠ {error}</p>
-      )}
+      {error && <p className="text-xs text-destructive">⚠ {error}</p>}
 
       {conflict && (
         <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm">

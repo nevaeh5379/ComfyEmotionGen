@@ -70,8 +70,21 @@ export interface AssetGroup {
   sampleHash: string | null
 }
 
+export function hasApproved(images: SavedImage[]): boolean {
+  return images.some((img) => img.status === "approved")
+}
+
+export function findApproved(images: SavedImage[]): SavedImage | undefined {
+  return images.find((img) => img.status === "approved")
+}
+
 export type BackendEvent =
-  | { type: "snapshot"; jobs: JobView[]; workers: WorkerView[]; paused: boolean }
+  | {
+      type: "snapshot"
+      jobs: JobView[]
+      workers: WorkerView[]
+      paused: boolean
+    }
   | { type: "job.created"; job: JobView }
   | { type: "job.updated"; job: JobView }
   | { type: "worker.updated"; worker: WorkerView }
@@ -87,6 +100,11 @@ export type BackendEvent =
       originalFilename: string
       status: CurationStatus
     }
-  | { type: "image.curation"; image?: SavedImage; hash?: string; tags?: string[] }
+  | {
+      type: "image.curation"
+      image?: SavedImage
+      hash?: string
+      tags?: string[]
+    }
   | { type: "image.deleted"; hash: string }
   | { type: "job.deleted"; jobId: string }

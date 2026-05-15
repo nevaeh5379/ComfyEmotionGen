@@ -19,7 +19,9 @@ const DEFAULT_SETTINGS: AppSettings = {
 const load = (): AppSettings => {
   try {
     const stored = localStorage.getItem(SETTINGS_KEY)
-    return stored ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) } : DEFAULT_SETTINGS
+    return stored
+      ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+      : DEFAULT_SETTINGS
   } catch {
     return DEFAULT_SETTINGS
   }

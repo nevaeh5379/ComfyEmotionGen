@@ -33,12 +33,12 @@ import {
   CopyIcon,
   EyeIcon,
 } from "lucide-react"
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Pagination,
   PaginationContent,
@@ -48,7 +48,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -110,38 +115,51 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   imageLazyLoad = true,
 }: Props) {
   useRenderLog("SavedImagesGallery")
-  const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">("pending")
-  const [filenameFilter, setFilenameFilter] = useState("")
-  const [tagFilter, setTagFilter] = useState("")
-  const [metadataFilter, setMetadataFilter] = useState("")
-  const [groupMode, setGroupMode] = useState(false)
+  const [statusFilter, setStatusFilterState] = useState<CurationStatus | "all">(
+    "pending"
+  )
+  const [filenameFilter, setFilenameFilterState] = useState("")
+  const [tagFilter, setTagFilterState] = useState("")
+  const [metadataFilter, setMetadataFilterState] = useState("")
+  const [groupMode, setGroupModeState] = useState(false)
   const [selected, setSelected] = useState<SavedImage | null>(null)
   const [page, setPage] = useState(1)
   const [hideRejected, setHideRejected] = useState(false)
-  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
+  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">(
+    "hash"
+  )
   const [groupPage, setGroupPage] = useState(1)
+
+  // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
+  const setStatusFilter = (v: CurationStatus | "all") => { setStatusFilterState(v); setPage(1); setGroupPage(1) }
+  const setFilenameFilter = (v: string) => { setFilenameFilterState(v); setPage(1); setGroupPage(1) }
+  const setTagFilter = (v: string) => { setTagFilterState(v); setPage(1); setGroupPage(1) }
+  const setMetadataFilter = (v: string) => { setMetadataFilterState(v); setPage(1); setGroupPage(1) }
+  const setGroupMode = (v: boolean) => { setGroupModeState(v); setGroupPage(1) }
 
   // 선택 모드
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
-  const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(null)
+  const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(
+    null
+  )
 
   // 핀 고정 + 뷰 모드
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
-  const [galleryViewMode, setGalleryViewMode] = useState<GalleryViewMode>("grid")
+  const [galleryViewMode, setGalleryViewMode] =
+    useState<GalleryViewMode>("grid")
 
-  // 필터 변경 시 첫 페이지로
-  useEffect(() => {
-    setPage(1)
-  }, [statusFilter, filenameFilter, tagFilter, metadataFilter])
-
-  // 그룹 모드 전환 / 필터 변경 시 groupPage 초기화
-  useEffect(() => {
-    setGroupPage(1)
-  }, [groupMode, statusFilter, filenameFilter, tagFilter, metadataFilter])
-
-  const { images, groups, groupImagesMap, total, groupTotal, loading, error, reload } = useSavedImages({
+  const {
+    images,
+    groups,
+    groupImagesMap,
+    total,
+    groupTotal,
+    loading,
+    error,
+    reload,
+  } = useSavedImages({
     backendUrl,
     status: groupMode ? "all" : statusFilter,
     filename: filenameFilter || undefined,
@@ -154,18 +172,27 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   })
 
   const totalPages = Math.max(1, Math.ceil(total / imagePageSize))
-  const pageList = useMemo(() => buildPageList(page, totalPages), [page, totalPages])
+  const pageList = useMemo(
+    () => buildPageList(page, totalPages),
+    [page, totalPages]
+  )
 
   const groupTotalPages = Math.max(1, Math.ceil(groupTotal / GROUP_PAGE_SIZE))
-  const groupPageList = useMemo(() => buildPageList(groupPage, groupTotalPages), [groupPage, groupTotalPages])
+  const groupPageList = useMemo(
+    () => buildPageList(groupPage, groupTotalPages),
+    [groupPage, groupTotalPages]
+  )
 
   // total 변동으로 현재 page가 범위 밖이면 클램프
+  // (totalPages는 비동기 API 결과에서 파생되므로 렌더 중 파생값으로 처리할 수 없음)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
   // groupTotal 변동으로 groupPage 범위 밖이면 클램프
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (groupPage > groupTotalPages) setGroupPage(groupTotalPages)
   }, [groupPage, groupTotalPages])
 
@@ -181,7 +208,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // 리젝 숨기기 적용
   const visibleImages = useMemo(
-    () => metadataFilteredImages.filter((img) => !hideRejected || img.status !== "rejected"),
+    () =>
+      metadataFilteredImages.filter(
+        (img) => !hideRejected || img.status !== "rejected"
+      ),
     [metadataFilteredImages, hideRejected]
   )
 
@@ -193,7 +223,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     for (const g of groups) {
       let items = groupImagesMap.get(g.filename) ?? []
       if (metadataFilter.trim() && lowerMeta) {
-        items = items.filter((img) => img.prompt.toLowerCase().includes(lowerMeta))
+        items = items.filter((img) =>
+          img.prompt.toLowerCase().includes(lowerMeta)
+        )
       }
       if (hideRejected) {
         items = items.filter((img) => img.status !== "rejected")
@@ -266,9 +298,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           await curationApi.patchStatus(backendUrl, hash, targetStatus)
           count++
         }
-        setBulkActionMessage(
-          `${count}개 → ${STATUS_LABEL[targetStatus]} 완료`
-        )
+        setBulkActionMessage(`${count}개 → ${STATUS_LABEL[targetStatus]} 완료`)
         exitSelectionMode()
         setTimeout(() => setBulkActionMessage(null), 3000)
         reload()
@@ -330,13 +360,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           onValueChange={(v) => setStatusFilter(v as CurationStatus | "all")}
         >
           <TabsList>
-            {(["all", "pending", "approved", "rejected", "trashed"] as const).map(
-              (s) => (
-                <TabsTrigger key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </TabsTrigger>
-              )
-            )}
+            {(
+              ["all", "pending", "approved", "rejected", "trashed"] as const
+            ).map((s) => (
+              <TabsTrigger key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
         <Input
@@ -360,7 +390,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           value={metadataFilter}
           onChange={(e) => setMetadataFilter(e.target.value)}
         />
-        <label className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground cursor-pointer">
+        <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
           <input
             type="checkbox"
             checked={hideRejected}
@@ -372,7 +402,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         <Button
           size="sm"
           variant={groupMode ? "default" : "outline"}
-          onClick={() => setGroupMode((v) => !v)}
+          onClick={() => setGroupMode(!groupMode)}
         >
           {groupMode ? "그리드 모드" : "그룹 모드"}
         </Button>
@@ -384,7 +414,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             className="h-7 px-2 text-[10px] font-bold"
             onClick={() => setGalleryViewMode("grid")}
           >
-            <Maximize2Icon className="h-3 w-3 mr-1" />그리드
+            <Maximize2Icon className="mr-1 h-3 w-3" />
+            그리드
           </Button>
           <HoverCard openDelay={200}>
             <HoverCardTrigger asChild>
@@ -394,11 +425,15 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 className="h-7 px-2 text-[10px] font-bold"
                 onClick={() => setGalleryViewMode("compare")}
               >
-                <ColumnsIcon className="h-3 w-3 mr-1" />비교
+                <ColumnsIcon className="mr-1 h-3 w-3" />
+                비교
               </Button>
             </HoverCardTrigger>
             {pinnedHashes.length === 0 && (
-              <HoverCardContent side="bottom" className="w-auto px-3 py-2 text-[11px] font-bold">
+              <HoverCardContent
+                side="bottom"
+                className="w-auto px-3 py-2 text-[11px] font-bold"
+              >
                 이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
               </HoverCardContent>
             )}
@@ -418,7 +453,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             </select>
             <Button
               size="sm"
-              className="h-7 text-[10px] font-black px-3"
+              className="h-7 px-3 text-[10px] font-black"
               onClick={handleExport}
             >
               데이터셋 익스포트
@@ -442,7 +477,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           <div className="flex items-center gap-1">
             <Button
               size="sm"
-              className="h-8 gap-1.5 text-[10px] font-bold bg-green-600 hover:bg-green-700"
+              className="h-8 gap-1.5 bg-green-600 text-[10px] font-bold hover:bg-green-700"
               onClick={() => handleBulkAction("approved")}
               disabled={bulkActionLoading}
             >
@@ -452,7 +487,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 text-[10px] font-bold border-red-300 text-red-700 hover:bg-red-50"
+              className="h-8 gap-1.5 border-red-300 text-[10px] font-bold text-red-700 hover:bg-red-50"
               onClick={() => handleBulkAction("rejected")}
               disabled={bulkActionLoading}
             >
@@ -507,41 +542,48 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         )}
 
       {/* 비교 뷰 (그룹 모드 off + 비교 선택 시) */}
-      {!groupMode && galleryViewMode === "compare" && pinnedHashes.length > 0 && (
-        <div
-          className={`grid gap-3 ${
-            pinnedHashes.length === 1
-              ? "grid-cols-1"
-              : pinnedHashes.length === 2
-                ? "grid-cols-2"
-                : "grid-cols-3"
-          }`}
-          style={{ minHeight: 400 }}
-        >
-          {pinnedHashes.map((hash) => {
-            const img = visibleImages.find((i) => i.hash === hash)
-            return (
-              <div
-                key={hash}
-                className="relative rounded-lg border overflow-hidden bg-black/5 shadow-inner"
-              >
-                <button
-                  type="button"
-                  onClick={() => togglePin(hash)}
-                  className="absolute right-4 top-4 z-20 h-9 w-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+      {!groupMode &&
+        galleryViewMode === "compare" &&
+        pinnedHashes.length > 0 && (
+          <div
+            className={`grid gap-3 ${
+              pinnedHashes.length === 1
+                ? "grid-cols-1"
+                : pinnedHashes.length === 2
+                  ? "grid-cols-2"
+                  : "grid-cols-3"
+            }`}
+            style={{ minHeight: 400 }}
+          >
+            {pinnedHashes.map((hash) => {
+              const img = visibleImages.find((i) => i.hash === hash)
+              return (
+                <div
+                  key={hash}
+                  className="relative overflow-hidden rounded-lg border bg-black/5 shadow-inner"
                 >
-                  <PinIcon className="h-5 w-5" />
-                </button>
-                {img && (
-                  enableHover
-                    ? <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
-                    : <img src={`${backendUrl}/saved-images/${hash}`} className="max-h-full max-w-full object-contain" alt="" />
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+                  <button
+                    type="button"
+                    onClick={() => togglePin(hash)}
+                    className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+                  >
+                    <PinIcon className="h-5 w-5" />
+                  </button>
+                  {img &&
+                    (enableHover ? (
+                      <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                    ) : (
+                      <img
+                        src={`${backendUrl}/saved-images/${hash}`}
+                        className="max-h-full max-w-full object-contain"
+                        alt=""
+                      />
+                    ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
       {/* 그룹 모드 */}
       {groupMode ? (
@@ -594,10 +636,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious
-                      onClick={() => groupPage > 1 && setGroupPage(groupPage - 1)}
+                      onClick={() =>
+                        groupPage > 1 && setGroupPage(groupPage - 1)
+                      }
                       aria-disabled={groupPage <= 1}
                       className={
-                        groupPage <= 1 ? "pointer-events-none opacity-50" : undefined
+                        groupPage <= 1
+                          ? "pointer-events-none opacity-50"
+                          : undefined
                       }
                     />
                   </PaginationItem>
@@ -619,7 +665,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   )}
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => groupPage < groupTotalPages && setGroupPage(groupPage + 1)}
+                      onClick={() =>
+                        groupPage < groupTotalPages &&
+                        setGroupPage(groupPage + 1)
+                      }
                       aria-disabled={groupPage >= groupTotalPages}
                       className={
                         groupPage >= groupTotalPages
@@ -636,7 +685,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             </div>
           )}
         </div>
-      ) : galleryViewMode === "grid" || (galleryViewMode === "compare" && pinnedHashes.length === 0) ? (
+      ) : galleryViewMode === "grid" ||
+        (galleryViewMode === "compare" && pinnedHashes.length === 0) ? (
         <ImageGrid
           items={visibleImages}
           backendUrl={backendUrl}
@@ -717,6 +767,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
       {selected && (
         <ImageDetail
+          key={selected.hash}
           backendUrl={backendUrl}
           image={selected}
           onClose={() => setSelected(null)}
@@ -765,8 +816,8 @@ function ImageGrid({
           <ContextMenu key={img.hash}>
             <ContextMenuTrigger>
               <div
-                className={`flex flex-col h-full gap-1 rounded-md border bg-card p-2 ${
-                  isSelected ? "ring-2 ring-blue-500 bg-blue-50/30" : ""
+                className={`flex h-full flex-col gap-1 rounded-md border bg-card p-2 ${
+                  isSelected ? "bg-blue-50/30 ring-2 ring-blue-500" : ""
                 }`}
               >
                 <div className="relative">
@@ -785,13 +836,13 @@ function ImageGrid({
                       src={`${backendUrl}/saved-images/${img.hash}`}
                       alt={img.originalFilename}
                       loading={imageLazyLoad ? "lazy" : "eager"}
-                      className="w-full object-cover aspect-square"
+                      className="aspect-square w-full object-cover"
                     />
                   </button>
 
                   {/* 선택 체크박스 - 항상 표시 */}
                   <div
-                    className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded cursor-pointer"
+                    className="absolute top-1.5 left-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded"
                     onClick={(e) => {
                       e.stopPropagation()
                       onToggleSelect?.(img.hash)
@@ -813,7 +864,9 @@ function ImageGrid({
                   >
                     {STATUS_LABEL[img.status]}
                   </span>
-                  <span className="truncate font-mono">{img.originalFilename}</span>
+                  <span className="truncate font-mono">
+                    {img.originalFilename}
+                  </span>
                 </div>
                 {img.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 text-[10px]">
@@ -827,7 +880,7 @@ function ImageGrid({
                     ))}
                   </div>
                 )}
-                <div className="mt-auto pt-1 flex items-center justify-between gap-1">
+                <div className="mt-auto flex items-center justify-between gap-1 pt-1">
                   <Button
                     size="sm"
                     variant={img.status === "approved" ? "default" : "outline"}
@@ -862,7 +915,7 @@ function ImageGrid({
             </ContextMenuTrigger>
             <ContextMenuContent className="w-48">
               <ContextMenuItem
-                onClick={() => togglePin?.(img.hash) }
+                onClick={() => togglePin?.(img.hash)}
                 className="gap-2 font-bold"
               >
                 {isPinned ? (
@@ -894,7 +947,10 @@ function ImageGrid({
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() =>
-                  setStatus(img.hash, img.status === "trashed" ? "pending" : "trashed")
+                  setStatus(
+                    img.hash,
+                    img.status === "trashed" ? "pending" : "trashed"
+                  )
                 }
                 className="gap-2 font-bold"
               >
@@ -938,11 +994,6 @@ function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailProps) {
   const [note, setNote] = useState(image.note)
   const [newTag, setNewTag] = useState("")
   const [tags, setTags] = useState<string[]>(image.tags)
-
-  useEffect(() => {
-    setNote(image.note)
-    setTags(image.tags)
-  }, [image.hash, image.note, image.tags])
 
   const saveNote = async () => {
     await curationApi.patchNote(backendUrl, image.hash, note)
