@@ -1,5 +1,7 @@
 
 
+from typing import Any, cast
+
 import pytest
 from prompt_dsl import inject_into_workflow
 
@@ -27,12 +29,12 @@ def mock_workflow():
 class TestWorkflowInjection:
     def test_single_placeholder_injection(self, mock_workflow):
         prompt = "1girl, silver hair, school uniform, smiling"
-        injected = inject_into_workflow(mock_workflow, prompt)
+        injected = cast(dict[str, Any], inject_into_workflow(mock_workflow, prompt))
 
         assert injected["6"]["inputs"]["text"] == f"{prompt}, masterpiece"
 
     def test_injection_does_not_touch_unrelated_nodes(self, mock_workflow):
-        injected = inject_into_workflow(mock_workflow, "anything")
+        injected = cast(dict[str, Any], inject_into_workflow(mock_workflow, "anything"))
         assert injected["7"]["inputs"]["text"] == "bad anatomy, blurry"
         assert injected["3"]["inputs"]["seed"] == 12345
 
@@ -43,14 +45,14 @@ class TestWorkflowInjection:
 
 class TestMultiPlaceholder:
     def test_positive_negative_split(self):
-        wf = {
+        wf: dict[str, Any] = {
             "positive_node": {"inputs": {"text": "{{positive}}, masterpiece"}},
             "negative_node": {"inputs": {"text": "{{negative}}"}},
         }
-        injected = inject_into_workflow(wf, {
+        injected = cast(dict[str, Any], inject_into_workflow(wf, {
             "{{positive}}": "1girl, elegant dress, smiling",
             "{{negative}}": "low quality, watermark",
-        })
+        }))
 
         assert "1girl, elegant dress, smiling" in injected["positive_node"]["inputs"]["text"]
         assert injected["negative_node"]["inputs"]["text"] == "low quality, watermark"

@@ -513,7 +513,7 @@ class JobManager:
         elif msg_type == "executing":
             node_id = data.get("node")
             if node_id is not None:
-                payload = None
+                job_dict: dict[str, Any] | None = None
                 # Node transition: increment completed count
                 async with self._lock:
                     job = self._jobs.get(prompt_id)
@@ -524,14 +524,14 @@ class JobManager:
                             prompt_id, node_id, job.completed_node_count,
                             job.total_node_count,
                         )
-                        payload = job.to_dict()
-                if payload is not None:
-                    await self._store.save(payload)
-                    await self._emit({"type": "job.updated", "job": payload})
+                        job_dict = job.to_dict()
+                if job_dict is not None:
+                    await self._store.save(job_dict)
+                    await self._emit({"type": "job.updated", "job": job_dict})
         elif msg_type == "execution_cached":
             cached = data.get("nodes") or []
             if cached:
-                payload = None
+                job_dict: dict[str, Any] | None = None
                 async with self._lock:
                     job = self._jobs.get(prompt_id)
                     if job is not None:
@@ -541,14 +541,14 @@ class JobManager:
                             prompt_id, cached, job.completed_node_count,
                             job.total_node_count,
                         )
-                        payload = job.to_dict()
-                if payload is not None:
-                    await self._store.save(payload)
-                    await self._emit({"type": "job.updated", "job": payload})
+                        job_dict = job.to_dict()
+                if job_dict is not None:
+                    await self._store.save(job_dict)
+                    await self._emit({"type": "job.updated", "job": job_dict})
         elif msg_type == "progress_state":
             nodes = data.get("nodes") or {}
             if nodes:
-                payload = None
+                job_dict: dict[str, Any] | None = None
                 async with self._lock:
                     job = self._jobs.get(prompt_id)
                     if job is not None:
@@ -564,15 +564,15 @@ class JobManager:
                                 job.total_node_count,
                             )
                             job.completed_node_count = finished
-                            payload = job.to_dict()
+                            job_dict = job.to_dict()
                         else:
                             logger.info(
                                 "[NODE-TRACK] progress_state: %s finished=%d ignored (current=%d)",
                                 prompt_id, finished, job.completed_node_count,
                             )
-                if payload is not None:
-                    await self._store.save(payload)
-                    await self._emit({"type": "job.updated", "job": payload})
+                if job_dict is not None:
+                    await self._store.save(job_dict)
+                    await self._emit({"type": "job.updated", "job": job_dict})
         elif msg_type == "executed":
             output = data.get("output") or {}
             images = output.get("images") or []

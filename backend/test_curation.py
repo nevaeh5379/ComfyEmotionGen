@@ -69,6 +69,7 @@ async def test_update_curation_status_sets_trashed_at(store: JobStore):
     assert updated["trashedAt"] is not None
 
     restored = await store.update_curation("bbb", status="pending")
+    assert restored is not None
     assert restored["status"] == "pending"
     assert restored["trashedAt"] is None
 
@@ -77,6 +78,7 @@ async def test_update_curation_status_sets_trashed_at(store: JobStore):
 async def test_update_curation_note(store: JobStore):
     await _seed_image(store, hash="ccc")
     updated = await store.update_curation("ccc", note="손가락 이상함")
+    assert updated is not None
     assert updated["note"] == "손가락 이상함"
     # status는 건드리지 않음
     assert updated["status"] == "pending"
