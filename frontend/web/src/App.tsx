@@ -77,6 +77,9 @@ const STORAGE_KEYS = {
   cegTemplate: "cegTemplate",
   backendUrl: "backendUrl",
   nodeMappings: "nodeMappings",
+  activeTemplateId: "activeTemplateId",
+  activeWorkflowId: "activeWorkflowId",
+  activeNodeMappingPresetId: "activeNodeMappingPresetId",
 } as const
 
 // ---------------------------------------------------------------------------
@@ -156,7 +159,6 @@ interface SavedItemsManagerProps<T extends SaveableItem> {
   onDelete: (id: string) => void
   placeholder: string
   saveDisabled: boolean
-  extraHeader?: React.ReactNode
   activeItemId?: string | undefined
   onUpdate?: (() => void) | undefined
 }
@@ -354,7 +356,6 @@ function SavedItemsManager<T extends SaveableItem>({
   onDelete,
   placeholder,
   saveDisabled,
-  extraHeader,
   activeItemId,
   onUpdate,
 }: SavedItemsManagerProps<T>) {
@@ -370,7 +371,6 @@ function SavedItemsManager<T extends SaveableItem>({
 
   return (
     <>
-      {extraHeader}
       {activeItem && onUpdate && (
         <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs">
           <span className="truncate text-muted-foreground">
@@ -402,6 +402,11 @@ function SavedItemsManager<T extends SaveableItem>({
           저장
         </Button>
       </div>
+      {items.length === 0 && (
+        <p className="py-2 text-center text-xs text-muted-foreground">
+          저장된 항목이 없습니다
+        </p>
+      )}
       {items.length > 0 && (
         <div className="mt-1 space-y-1 rounded-md border bg-muted/30 p-2">
           {items.map((item) => (
@@ -749,20 +754,23 @@ export function App() {
   } = useSavedWorkflows()
   const [workflowResetKey, setWorkflowResetKey] = useState(0)
 
-  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null)
+  const [activeWorkflowId, setActiveWorkflowId] = useLocalStorage<string | null>(STORAGE_KEYS.activeWorkflowId, null)
   const activeWorkflow = useMemo(
     () => savedWorkflows.find((w) => w.id === activeWorkflowId) ?? null,
     [savedWorkflows, activeWorkflowId]
   )
-  const savedNodeMappings = activeWorkflow?.mappingPresets ?? []
+  const savedNodeMappings = useMemo(
+    () => activeWorkflow?.mappingPresets ?? [],
+    [activeWorkflow]
+  )
   const [nodeMappingResetKey, setNodeMappingResetKey] = useState(0)
 
   const [pendingSave, setPendingSave] = useState<{
     name: string
     type: "template" | "workflow" | "nodeMapping"
   } | null>(null)
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null)
-  const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] = useState<string | null>(null)
+  const [activeTemplateId, setActiveTemplateId] = useLocalStorage<string | null>(STORAGE_KEYS.activeTemplateId, null)
+  const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] = useLocalStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
   const [repeatCount, setRepeatCount] = useState(1)
   const [pendingPresetSelection, setPendingPresetSelection] =
     useState<SavedWorkflow | null>(null)
@@ -1002,7 +1010,6 @@ export function App() {
       setNodeMappings(w.mappingPresets[0]!.mappings)
       setActiveNodeMappingPresetId(w.mappingPresets[0]!.id)
     } else {
-      setNodeMappings([])
       setPendingPresetSelection(w)
     }
   }
@@ -1440,31 +1447,6 @@ export function App() {
                             if (activeWorkflow)
                               saveWorkflow(activeWorkflow.name, workflowJson)
                           }}
-                          extraHeader={
-                            savedWorkflows.length > 0 ? (
-                              <select
-                                className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
-                                value=""
-                                onChange={(e) => {
-                                  const id = e.target.value
-                                  if (!id) return
-                                  const found = savedWorkflows.find(
-                                    (w) => w.id === id
-                                  )
-                                  if (found) loadWorkflowItem(found)
-                                }}
-                              >
-                                <option value="" disabled>
-                                  저장된 워크플로우 불러오기...
-                                </option>
-                                {savedWorkflows.map((w) => (
-                                  <option key={w.id} value={w.id}>
-                                    {w.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : undefined
-                          }
                         />
                         <CodeEditor
                           language="json"
@@ -1539,34 +1521,6 @@ export function App() {
                                     nodeMappings
                                   )
                               }}
-                              extraHeader={
-                                savedNodeMappings.length > 0 ? (
-                                  <select
-                                    className="mb-2 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
-                                    value=""
-                                    onChange={(e) => {
-                                      const id = e.target.value
-                                      if (!id) return
-                                      const found = savedNodeMappings.find(
-                                        (m) => m.id === id
-                                      )
-                                      if (found) {
-                                        setNodeMappings(found.mappings)
-                                        setActiveNodeMappingPresetId(found.id)
-                                      }
-                                    }}
-                                  >
-                                    <option value="" disabled>
-                                      저장된 노드 매핑 불러오기...
-                                    </option>
-                                    {savedNodeMappings.map((m) => (
-                                      <option key={m.id} value={m.id}>
-                                        {m.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : undefined
-                              }
                             />
                           ) : (
                             <p className="mb-4 text-sm text-muted-foreground">
