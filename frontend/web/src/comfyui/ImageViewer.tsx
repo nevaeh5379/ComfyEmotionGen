@@ -59,6 +59,7 @@ export function ImageViewer({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
 
   const [showLens, setShowLens] = useState(false)
+  const [lensEnabled, setLensEnabled] = useState(true)
   const [lensBgPos, setLensBgPos] = useState({ x: 0, y: 0 })
   const [lensScreenPos, setLensScreenPos] = useState({ x: 0, y: 0 })
   const [lensSize, setLensSize] = useState(LENS_SIZE)
@@ -399,6 +400,17 @@ export function ImageViewer({
     return () => window.removeEventListener("resize", onResize)
   }, [])
 
+  /* lock body scroll when open */
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow
+      document.body.style.overflow = "hidden"
+      return () => {
+        document.body.style.overflow = originalStyle
+      }
+    }
+  }, [isOpen])
+
   /* reset on close */
   useEffect(() => {
     if (!isOpen) {
@@ -484,6 +496,7 @@ export function ImageViewer({
         }
         onClose()
       }}
+      onWheel={(e) => e.preventDefault()}
     >
       <div
         className="relative flex max-h-[92vh] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-white/10 bg-black shadow-2xl"
@@ -550,7 +563,7 @@ export function ImageViewer({
             />
           )}
 
-          {showLens && !dragging && (
+          {lensEnabled && showLens && !dragging && (
             <div
               className="pointer-events-none fixed z-30 border-2 border-white/60 shadow-lg"
               style={{
@@ -578,16 +591,32 @@ export function ImageViewer({
             {/* Lens settings toggle & panel */}
             <div className="pointer-events-auto">
               {!showLensSettings && (
-                <button
-                  className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-bold text-white/60 backdrop-blur-sm hover:text-white/90"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowLensSettings(true)
-                  }}
-                >
-                  🔍 렌즈 설정
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className={`flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-bold backdrop-blur-sm transition-colors ${
+                      lensEnabled
+                        ? "text-blue-400 hover:text-blue-300"
+                        : "text-white/40 hover:text-white/60"
+                    }`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setLensEnabled(!lensEnabled)
+                    }}
+                  >
+                    {lensEnabled ? "🔍 렌즈 ON" : "🔍 렌즈 OFF"}
+                  </button>
+                  <button
+                    className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-bold text-white/60 backdrop-blur-sm hover:text-white/90"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowLensSettings(true)
+                    }}
+                  >
+                    ⚙️ 설정
+                  </button>
+                </div>
               )}
               {showLensSettings && (
                 <div
