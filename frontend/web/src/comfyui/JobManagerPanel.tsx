@@ -382,9 +382,21 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [desiredPage, setPage] = useState(1)
 
   // 필터 변경 시 page를 1로 함께 초기화하는 래퍼
-  const setFilterTab = (v: FilterTab) => { setFilterTabState(v); setPage(1); setSelectedForDelete(new Set()) }
-  const setDateFrom = (v: string) => { setDateFromState(v); setPage(1); setSelectedForDelete(new Set()) }
-  const setDateTo = (v: string) => { setDateToState(v); setPage(1); setSelectedForDelete(new Set()) }
+  const setFilterTab = (v: FilterTab) => {
+    setFilterTabState(v)
+    setPage(1)
+    setSelectedForDelete(new Set())
+  }
+  const setDateFrom = (v: string) => {
+    setDateFromState(v)
+    setPage(1)
+    setSelectedForDelete(new Set())
+  }
+  const setDateTo = (v: string) => {
+    setDateToState(v)
+    setPage(1)
+    setSelectedForDelete(new Set())
+  }
 
   // ── delete selection state ───────────────────────────────────────────────────
   const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(

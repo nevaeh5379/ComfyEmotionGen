@@ -131,11 +131,30 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [groupPage, setGroupPage] = useState(1)
 
   // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
-  const setStatusFilter = (v: CurationStatus | "all") => { setStatusFilterState(v); setPage(1); setGroupPage(1) }
-  const setFilenameFilter = (v: string) => { setFilenameFilterState(v); setPage(1); setGroupPage(1) }
-  const setTagFilter = (v: string) => { setTagFilterState(v); setPage(1); setGroupPage(1) }
-  const setMetadataFilter = (v: string) => { setMetadataFilterState(v); setPage(1); setGroupPage(1) }
-  const setGroupMode = (v: boolean) => { setGroupModeState(v); setGroupPage(1) }
+  const setStatusFilter = (v: CurationStatus | "all") => {
+    setStatusFilterState(v)
+    setPage(1)
+    setGroupPage(1)
+  }
+  const setFilenameFilter = (v: string) => {
+    setFilenameFilterState(v)
+    setPage(1)
+    setGroupPage(1)
+  }
+  const setTagFilter = (v: string) => {
+    setTagFilterState(v)
+    setPage(1)
+    setGroupPage(1)
+  }
+  const setMetadataFilter = (v: string) => {
+    setMetadataFilterState(v)
+    setPage(1)
+    setGroupPage(1)
+  }
+  const setGroupMode = (v: boolean) => {
+    setGroupModeState(v)
+    setGroupPage(1)
+  }
 
   // 선택 모드
   const [selectionMode, setSelectionMode] = useState(false)

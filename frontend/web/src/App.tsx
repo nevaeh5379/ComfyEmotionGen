@@ -4,12 +4,7 @@ import { MinusIcon, PlusIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   HoverCard,
   HoverCardContent,
@@ -55,7 +50,6 @@ import { useSavedTemplates } from "./comfyui/useSavedTemplates"
 import { useSavedWorkflows } from "./comfyui/useSavedWorkflows"
 import { WorkflowGraphViewer } from "./comfyui/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/JobManagerPanel"
-import { WorkerManager } from "./comfyui/WorkerManager"
 import { SettingsPanel } from "./comfyui/SettingsPanel"
 import { useSettings } from "./comfyui/useSettings"
 import {
@@ -1193,40 +1187,12 @@ export function App() {
             updateSetting={updateSetting}
             backendUrl={backendUrl}
             onBackendUrlChange={setBackendUrl}
+            workers={workers}
           />
         )}
         {activeTab === "jobs" && (
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="space-y-6">
-              <div className="rounded-lg border bg-card p-6 shadow-sm">
-                <h2 className="mb-4 text-lg font-semibold">서버 설정</h2>
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>백엔드 서버 URL</FieldLabel>
-                    <Input
-                      type="url"
-                      placeholder={DEFAULT_BACKEND_URL}
-                      value={backendUrl}
-                      onChange={(e) => setBackendUrl(e.target.value)}
-                      disabled={IS_PACKAGE_MODE}
-                    />
-                    <FieldDescription>
-                      {IS_PACKAGE_MODE
-                        ? "포터블 모드: 런처가 할당한 백엔드 포트에 자동 연결됩니다."
-                        : "ComfyUI 워커 URL은 아래 'ComfyUI 워커' 섹션에서 관리합니다."}
-                    </FieldDescription>
-                  </Field>
-                  <Field>
-                    <FieldLabel>ComfyUI 워커</FieldLabel>
-                    <WorkerManager backendUrl={backendUrl} workers={workers} />
-                    <FieldDescription>
-                      여러 ComfyUI 인스턴스를 추가하면 잡이 idle 워커에 자동
-                      분배됩니다.
-                    </FieldDescription>
-                  </Field>
-                </FieldGroup>
-              </div>
-
               <div className="rounded-lg border bg-card p-6 shadow-sm">
                 <h2 className="mb-4 text-lg font-semibold">CEG & 워크플로우</h2>
                 <FieldGroup>

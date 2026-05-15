@@ -8,6 +8,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import type { AppSettings } from "./useSettings"
+import { WorkerManager } from "./WorkerManager"
+import type { WorkerView } from "./Message"
 
 interface Props {
   settings: AppSettings
@@ -17,6 +19,7 @@ interface Props {
   ) => void
   backendUrl: string
   onBackendUrlChange: (url: string) => void
+  workers: WorkerView[]
 }
 
 export function SettingsPanel({
@@ -24,11 +27,12 @@ export function SettingsPanel({
   updateSetting,
   backendUrl,
   onBackendUrlChange,
+  workers,
 }: Props) {
   return (
     <div className="space-y-6">
       <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">백엔드 연결</h2>
+        <h2 className="mb-4 text-lg font-semibold">서버 설정</h2>
         <FieldGroup>
           <Field>
             <FieldLabel>백엔드 서버 URL</FieldLabel>
@@ -42,7 +46,14 @@ export function SettingsPanel({
             <FieldDescription>
               {IS_PACKAGE_MODE
                 ? "포터블 모드: 런처가 할당한 백엔드 포트에 자동 연결됩니다."
-                : "CEG 백엔드 서버 주소입니다. ComfyUI 워커 URL은 '잡' 탭에서 관리합니다."}
+                : "CEG 백엔드 서버 주소입니다."}
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel>ComfyUI 워커</FieldLabel>
+            <WorkerManager backendUrl={backendUrl} workers={workers} />
+            <FieldDescription>
+              여러 ComfyUI 인스턴스를 추가하면 잡이 idle 워커에 자동 분배됩니다.
             </FieldDescription>
           </Field>
         </FieldGroup>

@@ -8,13 +8,7 @@
  * 자동 재연결(지수 백오프). 백엔드 URL이 바뀌면 끊고 재연결.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { BackendEvent, JobView, WorkerView } from "./Message"
 import {
   DEFAULT_BACKEND_URL,
@@ -194,4 +188,3 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
     <BackendContext.Provider value={value}>{children}</BackendContext.Provider>
   )
 }
-

@@ -457,7 +457,10 @@ function LongPressWrapper({
   onClick: () => void
   className?: string
   as?: React.ElementType
-} & Omit<React.HTMLAttributes<HTMLElement>, "children" | "onClick" | "className">) {
+} & Omit<
+  React.HTMLAttributes<HTMLElement>,
+  "children" | "onClick" | "className"
+>) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTriggeredRef = useRef(false)
   const [pressing, setPressing] = useState(false)

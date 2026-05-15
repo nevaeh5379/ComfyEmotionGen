@@ -12,9 +12,7 @@ export function useRenderLog(name: string) {
     const gap = lastEnd.current !== null ? now - lastEnd.current : 0
     if (IS_DEV) {
       const gapStr =
-        gap < 1000
-          ? `+${gap.toFixed(1)}ms`
-          : `+${(gap / 1000).toFixed(1)}s`
+        gap < 1000 ? `+${gap.toFixed(1)}ms` : `+${(gap / 1000).toFixed(1)}s`
       console.log(`[Render] ${name} #${count.current}  gap:${gapStr}`)
     }
     lastEnd.current = performance.now()
