@@ -11,10 +11,18 @@ import {
   Pencil,
   Trash2,
   X,
+  MoreVertical,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import { Field, FieldLabel } from "@/components/ui/field"
 import {
   HoverCard,
@@ -871,33 +879,42 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         >
           {paused ? "재개" : "일시중지"}
         </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={handleCancelAll}
-          disabled={!isAliveBackend || counts.active === 0}
-        >
-          전부 취소
-        </Button>
-        {counts.error + counts.cancelled > 0 && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleRetryAllFailed}
-              disabled={!isAliveBackend}
-            >
-              실패/취소 모두 재시도 ({counts.error + counts.cancelled})
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="px-2">
+              <MoreVertical className="h-4 w-4" />
             </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleDeleteAllFailed}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem
+              onClick={handleCancelAll}
+              disabled={!isAliveBackend || counts.active === 0}
+              className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
             >
-              실패/취소 모두 삭제 ({counts.error + counts.cancelled})
-            </Button>
-          </>
-        )}
+              전부 취소
+            </DropdownMenuItem>
+            {counts.error + counts.cancelled > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleRetryAllFailed}
+                  disabled={!isAliveBackend}
+                  className="cursor-pointer"
+                >
+                  실패/취소 모두 재시도 ({counts.error + counts.cancelled})
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleDeleteAllFailed}
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                >
+                  실패/취소 모두 삭제 ({counts.error + counts.cancelled})
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {paused && (
           <span className="text-xs text-muted-foreground">
             새 잡이 워커로 전송되지 않습니다.
