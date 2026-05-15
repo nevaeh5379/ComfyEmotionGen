@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Sheet,
   SheetContent,
@@ -1192,484 +1193,535 @@ export function App() {
         )}
         {activeTab === "jobs" && (
           <div className="grid gap-6 lg:grid-cols-2">
-            <section className="space-y-6">
-              <div className="rounded-lg border bg-card p-6 shadow-sm">
-                <h2 className="mb-4 text-lg font-semibold">CEG & 워크플로우</h2>
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>CEG 탬플릿</FieldLabel>
-                    <CodeEditor
-                      language="ceg"
-                      placeholder="CEG 탬플릿 입력 칸"
-                      value={cegTemplate}
-                      onChange={setCegTemplate}
-                      minHeight="100px"
-                    />
-                    <SavedItemsManager
-                      key={templateResetKey}
-                      items={savedTemplates}
-                      onSave={(name) => {
-                        const trimmed = name.trim()
-                        if (savedTemplates.some((t) => t.name === trimmed)) {
-                          setPendingSave({ name: trimmed, type: "template" })
-                          return false
-                        }
-                        saveTemplate(trimmed, cegTemplate)
-                        return true
-                      }}
-                      onLoad={(t) => setCegTemplate(t.template)}
-                      onDelete={deleteTemplate}
-                      placeholder="탬플릿 이름"
-                      saveDisabled={!cegTemplate.trim()}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>ComfyUI API 워크플로우</FieldLabel>
-                    <SavedItemsManager
-                      key={workflowResetKey}
-                      items={savedWorkflows}
-                      onSave={(name) => {
-                        const trimmed = name.trim()
-                        if (savedWorkflows.some((w) => w.name === trimmed)) {
-                          setPendingSave({ name: trimmed, type: "workflow" })
-                          return false
-                        }
-                        const w = saveWorkflow(trimmed, workflowJson)
-                        setActiveWorkflowId(w.id)
-                        return true
-                      }}
-                      onLoad={(w) => {
-                        setWorkflowJson(w.workflow)
-                        setActiveWorkflowId(w.id)
-                        if (w.mappingPresets && w.mappingPresets.length > 0) {
-                          setNodeMappings(w.mappingPresets[0]!.mappings)
-                        } else {
-                          setNodeMappings([])
-                        }
-                      }}
-                      onDelete={(id) => {
-                        if (activeWorkflowId === id) setActiveWorkflowId(null)
-                        deleteWorkflow(id)
-                      }}
-                      placeholder="워크플로우 이름"
-                      saveDisabled={!workflowJson.trim()}
-                      extraHeader={
-                        savedWorkflows.length > 0 ? (
+            <section className="flex min-h-0 flex-col space-y-6">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-4 shadow-sm">
+                <div className="flex h-10 items-stretch overflow-hidden rounded-md border bg-background">
+                  <input
+                    type="number"
+                    className="h-full w-24 bg-transparent px-3 outline-none"
+                    placeholder="0"
+                  />
+                  <div className="flex w-8 flex-col border-l">
+                    <Button
+                      variant="ghost"
+                      className="flex-1"
+                      aria-label="Increase"
+                    >
+                      <PlusIcon className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="flex-1"
+                      aria-label="Decrease"
+                    >
+                      <MinusIcon className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  variant="default"
+                  className="h-10"
+                  onClick={handleRun}
+                  disabled={!canRun}
+                >
+                  실행
+                  {estimatedRunCount !== null ? ` (${estimatedRunCount})` : ""}
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="h-10"
+                  onClick={() => setIsSelectionOpen(true)}
+                  disabled={!canRun}
+                >
+                  선택 실행
+                </Button>
+                {parserError && (
+                  <span className="text-sm text-destructive">
+                    {parserError}
+                  </span>
+                )}
+                {fakeJobQueue.length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="h-10"
+                    onClick={() => setIsSheetOpen(true)}
+                  >
+                    미리보기
+                  </Button>
+                )}
+                {Object.keys(axisValueFilter).length > 0 && (
+                  <Button
+                    variant={hasActiveFilter ? "secondary" : "outline"}
+                    className="h-10"
+                    onClick={() => setIsAxisFilterOpen(true)}
+                  >
+                    축 필터
+                    {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
+                  </Button>
+                )}
+                {parsedWorkflow?.success && (
+                  <Button
+                    variant="outline"
+                    className="h-10"
+                    onClick={() => setIsGraphOpen(true)}
+                  >
+                    그래프 보기
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col rounded-lg border bg-card p-6 shadow-sm">
+                <Tabs
+                  defaultValue="ceg"
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <TabsList>
+                      <TabsTrigger value="ceg">CEG 탬플릿</TabsTrigger>
+                      <TabsTrigger value="workflow">
+                        ComfyUI 워크플로우
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  <TabsContent
+                    value="ceg"
+                    className="mt-0 flex-1 overflow-y-auto data-[state=active]:block data-[state=inactive]:hidden"
+                  >
+                    <FieldGroup>
+                      <Field>
+                        <FieldLabel>CEG 탬플릿</FieldLabel>
+                        <CodeEditor
+                          language="ceg"
+                          placeholder="CEG 탬플릿 입력 칸"
+                          value={cegTemplate}
+                          onChange={setCegTemplate}
+                          minHeight="100px"
+                        />
+                        <SavedItemsManager
+                          key={templateResetKey}
+                          items={savedTemplates}
+                          onSave={(name) => {
+                            const trimmed = name.trim()
+                            if (
+                              savedTemplates.some((t) => t.name === trimmed)
+                            ) {
+                              setPendingSave({
+                                name: trimmed,
+                                type: "template",
+                              })
+                              return false
+                            }
+                            saveTemplate(trimmed, cegTemplate)
+                            return true
+                          }}
+                          onLoad={(t) => setCegTemplate(t.template)}
+                          onDelete={deleteTemplate}
+                          placeholder="탬플릿 이름"
+                          saveDisabled={!cegTemplate.trim()}
+                        />
+                      </Field>
+                    </FieldGroup>
+                  </TabsContent>
+
+                  <TabsContent
+                    value="workflow"
+                    className="mt-0 flex-1 space-y-6 overflow-y-auto data-[state=active]:block data-[state=inactive]:hidden"
+                  >
+                    <FieldGroup>
+                      <Field>
+                        <FieldLabel>ComfyUI API 워크플로우</FieldLabel>
+                        <SavedItemsManager
+                          key={workflowResetKey}
+                          items={savedWorkflows}
+                          onSave={(name) => {
+                            const trimmed = name.trim()
+                            if (
+                              savedWorkflows.some((w) => w.name === trimmed)
+                            ) {
+                              setPendingSave({
+                                name: trimmed,
+                                type: "workflow",
+                              })
+                              return false
+                            }
+                            const w = saveWorkflow(trimmed, workflowJson)
+                            setActiveWorkflowId(w.id)
+                            return true
+                          }}
+                          onLoad={(w) => {
+                            setWorkflowJson(w.workflow)
+                            setActiveWorkflowId(w.id)
+                            if (
+                              w.mappingPresets &&
+                              w.mappingPresets.length > 0
+                            ) {
+                              setNodeMappings(w.mappingPresets[0]!.mappings)
+                            } else {
+                              setNodeMappings([])
+                            }
+                          }}
+                          onDelete={(id) => {
+                            if (activeWorkflowId === id)
+                              setActiveWorkflowId(null)
+                            deleteWorkflow(id)
+                          }}
+                          placeholder="워크플로우 이름"
+                          saveDisabled={!workflowJson.trim()}
+                          extraHeader={
+                            savedWorkflows.length > 0 ? (
+                              <select
+                                className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+                                value=""
+                                onChange={(e) => {
+                                  const id = e.target.value
+                                  if (!id) return
+                                  const found = savedWorkflows.find(
+                                    (w) => w.id === id
+                                  )
+                                  if (found) {
+                                    setWorkflowJson(found.workflow)
+                                    setActiveWorkflowId(found.id)
+                                    if (
+                                      found.mappingPresets &&
+                                      found.mappingPresets.length > 0
+                                    ) {
+                                      setNodeMappings(
+                                        found.mappingPresets[0]!.mappings
+                                      )
+                                    } else {
+                                      setNodeMappings([])
+                                    }
+                                  }
+                                }}
+                              >
+                                <option value="" disabled>
+                                  저장된 워크플로우 불러오기...
+                                </option>
+                                {savedWorkflows.map((w) => (
+                                  <option key={w.id} value={w.id}>
+                                    {w.name}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : undefined
+                          }
+                        />
+                        <CodeEditor
+                          language="json"
+                          placeholder="ComfyUI API 워크플로우 입력 칸"
+                          value={workflowJson}
+                          onChange={setWorkflowJson}
+                          minHeight="100px"
+                        />
+                      </Field>
+                    </FieldGroup>
+
+                    {parsedWorkflow && !parsedWorkflow.success && (
+                      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+                        workflow 파싱 오류: {parsedWorkflow.error.message}
+                      </div>
+                    )}
+
+                    {parsedWorkflow?.success && (
+                      <div className="border-t pt-4">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h2 className="text-lg font-semibold">노드 매핑</h2>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAutoMap}
+                          >
+                            자동 매핑
+                          </Button>
+                        </div>
+                        <div className="mb-4">
+                          {activeWorkflowId ? (
+                            <SavedItemsManager
+                              key={nodeMappingResetKey}
+                              items={savedNodeMappings}
+                              onSave={(name) => {
+                                const trimmed = name.trim()
+                                if (
+                                  savedNodeMappings.some(
+                                    (m) => m.name === trimmed
+                                  )
+                                ) {
+                                  setPendingSave({
+                                    name: trimmed,
+                                    type: "nodeMapping",
+                                  })
+                                  return false
+                                }
+                                saveMappingPreset(
+                                  activeWorkflowId,
+                                  trimmed,
+                                  nodeMappings
+                                )
+                                return true
+                              }}
+                              onLoad={(m) => setNodeMappings(m.mappings)}
+                              onDelete={(presetId) =>
+                                deleteMappingPreset(activeWorkflowId, presetId)
+                              }
+                              placeholder="노드 매핑 이름"
+                              saveDisabled={nodeMappings.length === 0}
+                              extraHeader={
+                                savedNodeMappings.length > 0 ? (
+                                  <select
+                                    className="mb-2 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+                                    value=""
+                                    onChange={(e) => {
+                                      const id = e.target.value
+                                      if (!id) return
+                                      const found = savedNodeMappings.find(
+                                        (m) => m.id === id
+                                      )
+                                      if (found) setNodeMappings(found.mappings)
+                                    }}
+                                  >
+                                    <option value="" disabled>
+                                      저장된 노드 매핑 불러오기...
+                                    </option>
+                                    {savedNodeMappings.map((m) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : undefined
+                              }
+                            />
+                          ) : (
+                            <p className="mb-4 text-sm text-muted-foreground">
+                              노드 매핑을 저장하려면 먼저 워크플로우를
+                              저장하거나 불러오세요.
+                            </p>
+                          )}
+                        </div>
+                        {nodeMappings.length > 0 && (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Node#</TableHead>
+                                <TableHead>Input</TableHead>
+                                <TableHead>소스</TableHead>
+                                <TableHead>값 / 파일</TableHead>
+                                <TableHead>랜덤</TableHead>
+                                <TableHead />
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {nodeMappings.map((m) => {
+                                const node = parsedWorkflow.data[m.nodeId]
+                                const spec = getNodeInputSpec(
+                                  m.nodeId,
+                                  m.inputKey
+                                )
+                                const enumOptions = Array.isArray(spec?.[0])
+                                  ? (spec![0] as string[])
+                                  : null
+                                const upload =
+                                  imageUploads[`${m.nodeId}.${m.inputKey}`]
+                                return (
+                                  <TableRow key={m.id}>
+                                    <TableCell className="text-sm">
+                                      {node?._meta?.title || "Untitled"}
+                                    </TableCell>
+                                    <TableCell className="font-mono text-sm">
+                                      {m.nodeId}
+                                    </TableCell>
+                                    <TableCell className="font-mono text-xs">
+                                      {m.inputKey}
+                                    </TableCell>
+                                    <TableCell>
+                                      <select
+                                        className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                                        value={m.sourceType}
+                                        onChange={(e) =>
+                                          updateMapping(m.id, {
+                                            sourceType: e.target
+                                              .value as MappingSourceType,
+                                          })
+                                        }
+                                      >
+                                        <option value="prompt">프롬프트</option>
+                                        <option value="filename">파일명</option>
+                                        <option value="seed">시드</option>
+                                        <option value="image">이미지</option>
+                                        <option value="fixed">고정값</option>
+                                      </select>
+                                    </TableCell>
+                                    <TableCell>
+                                      {m.sourceType === "seed" && (
+                                        <Input
+                                          type="number"
+                                          value={m.seedValue ?? 0}
+                                          onChange={(e) =>
+                                            updateMapping(m.id, {
+                                              seedValue: Number(e.target.value),
+                                            })
+                                          }
+                                          className="h-8 w-28"
+                                        />
+                                      )}
+                                      {m.sourceType === "image" && (
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="text-sm"
+                                            onChange={(e) => {
+                                              const f = e.target.files?.[0]
+                                              if (f)
+                                                handleImageUpload(
+                                                  f,
+                                                  m.nodeId,
+                                                  m.inputKey
+                                                )
+                                            }}
+                                          />
+                                          {upload?.uploading && (
+                                            <span className="text-xs text-muted-foreground">
+                                              업로드 중...
+                                            </span>
+                                          )}
+                                          {upload?.uploadedName && (
+                                            <span className="text-xs text-green-600">
+                                              ✓ {upload.uploadedName}
+                                            </span>
+                                          )}
+                                          {upload?.error && (
+                                            <span className="text-xs text-destructive">
+                                              {upload.error}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                      {m.sourceType === "fixed" &&
+                                        (enumOptions ? (
+                                          <select
+                                            value={m.fixedValue ?? ""}
+                                            onChange={(e) =>
+                                              updateMapping(m.id, {
+                                                fixedValue: e.target.value,
+                                              })
+                                            }
+                                            className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                                          >
+                                            <option value="">선택...</option>
+                                            {enumOptions.map((opt) => (
+                                              <option key={opt} value={opt}>
+                                                {opt}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <Input
+                                            value={m.fixedValue ?? ""}
+                                            onChange={(e) =>
+                                              updateMapping(m.id, {
+                                                fixedValue: e.target.value,
+                                              })
+                                            }
+                                            className="h-8 w-36"
+                                            placeholder="값 입력"
+                                          />
+                                        ))}
+                                    </TableCell>
+                                    <TableCell>
+                                      {m.sourceType === "seed" && (
+                                        <Checkbox
+                                          checked={m.seedRandom ?? false}
+                                          onCheckedChange={(checked) =>
+                                            updateMapping(m.id, {
+                                              seedRandom: checked === true,
+                                            })
+                                          }
+                                        />
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                        onClick={() =>
+                                          setNodeMappings((prev) =>
+                                            prev.filter((x) => x.id !== m.id)
+                                          )
+                                        }
+                                      >
+                                        ×
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              })}
+                            </TableBody>
+                          </Table>
+                        )}
+                        {availableNodeOptions.length > 0 && (
                           <select
-                            className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+                            className="mt-3 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
                             value=""
                             onChange={(e) => {
-                              const id = e.target.value
-                              if (!id) return
-                              const found = savedWorkflows.find(
-                                (w) => w.id === id
-                              )
-                              if (found) {
-                                setWorkflowJson(found.workflow)
-                                setActiveWorkflowId(found.id)
-                                if (
-                                  found.mappingPresets &&
-                                  found.mappingPresets.length > 0
-                                ) {
-                                  setNodeMappings(
-                                    found.mappingPresets[0]!.mappings
-                                  )
-                                } else {
-                                  setNodeMappings([])
-                                }
-                              }
+                              const index = Number(e.target.value)
+                              const opt = availableNodeOptions[index]
+                              if (!opt) return
+                              const sourceType: MappingSourceType =
+                                opt.isLoadImage
+                                  ? "image"
+                                  : opt.isNumeric
+                                    ? "seed"
+                                    : "fixed"
+                              setNodeMappings((prev) => [
+                                ...prev,
+                                {
+                                  id: crypto.randomUUID(),
+                                  nodeId: opt.nodeId,
+                                  inputKey: opt.inputKey,
+                                  sourceType,
+                                  ...(sourceType === "seed"
+                                    ? { seedValue: 0, seedRandom: true }
+                                    : {}),
+                                },
+                              ])
                             }}
                           >
-                            <option value="" disabled>
-                              저장된 워크플로우 불러오기...
-                            </option>
-                            {savedWorkflows.map((w) => (
-                              <option key={w.id} value={w.id}>
-                                {w.name}
+                            <option value="">매핑 추가...</option>
+                            {availableNodeOptions.map((opt, i) => (
+                              <option key={i} value={i}>
+                                [{opt.nodeId}] {opt.title} - {opt.inputKey}
                               </option>
                             ))}
                           </select>
-                        ) : undefined
-                      }
-                    />
-                    <CodeEditor
-                      language="json"
-                      placeholder="ComfyUI API 워크플로우 입력 칸"
-                      value={workflowJson}
-                      onChange={setWorkflowJson}
-                      minHeight="100px"
-                    />
-                  </Field>
-                  <Field orientation="horizontal">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex h-10 items-stretch overflow-hidden rounded-md border bg-background">
-                        <input
-                          type="number"
-                          className="h-full w-24 bg-transparent px-3 outline-none"
-                          placeholder="0"
-                        />
-                        <div className="flex w-8 flex-col border-l">
-                          <Button
-                            variant="ghost"
-                            className="flex-1"
-                            aria-label="Increase"
-                          >
-                            <PlusIcon className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="flex-1"
-                            aria-label="Decrease"
-                          >
-                            <MinusIcon className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        )}
+                        {!nodeMappings.some(
+                          (m) => m.sourceType === "prompt"
+                        ) && (
+                          <p className="mt-2 text-xs text-yellow-600">
+                            ⚠ 프롬프트 주입 매핑이 설정되지 않았습니다.
+                          </p>
+                        )}
+                        {!nodeMappings.some(
+                          (m) => m.sourceType === "filename"
+                        ) && (
+                          <p className="mt-1 text-xs text-yellow-600">
+                            ⚠ 파일명 주입 매핑이 설정되지 않았습니다.
+                          </p>
+                        )}
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          워크플로우 JSON에 {"{{input}}"}, {"{{filename}}"},{" "}
+                          {"{{image}}"}, DSL 변수명({"{{outfit}}"} 등)을 직접
+                          써도 됩니다.
+                        </p>
                       </div>
-                      <Button
-                        variant="default"
-                        className="h-10"
-                        onClick={handleRun}
-                        disabled={!canRun}
-                      >
-                        실행
-                        {estimatedRunCount !== null
-                          ? ` (${estimatedRunCount})`
-                          : ""}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="h-10"
-                        onClick={() => setIsSelectionOpen(true)}
-                        disabled={!canRun}
-                      >
-                        선택 실행
-                      </Button>
-                      {parserError && (
-                        <span className="text-sm text-destructive">
-                          {parserError}
-                        </span>
-                      )}
-                      {fakeJobQueue.length > 0 && (
-                        <Button
-                          variant="outline"
-                          className="h-10"
-                          onClick={() => setIsSheetOpen(true)}
-                        >
-                          미리보기
-                        </Button>
-                      )}
-                      {Object.keys(axisValueFilter).length > 0 && (
-                        <Button
-                          variant={hasActiveFilter ? "secondary" : "outline"}
-                          className="h-10"
-                          onClick={() => setIsAxisFilterOpen(true)}
-                        >
-                          축 필터
-                          {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
-                        </Button>
-                      )}
-                      {parsedWorkflow?.success && (
-                        <Button
-                          variant="outline"
-                          className="h-10"
-                          onClick={() => setIsGraphOpen(true)}
-                        >
-                          그래프 보기
-                        </Button>
-                      )}
-                    </div>
-                  </Field>
-                </FieldGroup>
-              </div>
-
-              {parsedWorkflow && !parsedWorkflow.success && (
-                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-                  workflow 파싱 오류: {parsedWorkflow.error.message}
-                </div>
-              )}
-
-              {parsedWorkflow?.success && (
-                <div className="rounded-lg border bg-card p-6 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">노드 매핑</h2>
-                    <Button variant="outline" size="sm" onClick={handleAutoMap}>
-                      자동 매핑
-                    </Button>
-                  </div>
-                  <div className="mb-4">
-                    {activeWorkflowId ? (
-                      <SavedItemsManager
-                        key={nodeMappingResetKey}
-                        items={savedNodeMappings}
-                        onSave={(name) => {
-                          const trimmed = name.trim()
-                          if (
-                            savedNodeMappings.some((m) => m.name === trimmed)
-                          ) {
-                            setPendingSave({
-                              name: trimmed,
-                              type: "nodeMapping",
-                            })
-                            return false
-                          }
-                          saveMappingPreset(
-                            activeWorkflowId,
-                            trimmed,
-                            nodeMappings
-                          )
-                          return true
-                        }}
-                        onLoad={(m) => setNodeMappings(m.mappings)}
-                        onDelete={(presetId) =>
-                          deleteMappingPreset(activeWorkflowId, presetId)
-                        }
-                        placeholder="노드 매핑 이름"
-                        saveDisabled={nodeMappings.length === 0}
-                        extraHeader={
-                          savedNodeMappings.length > 0 ? (
-                            <select
-                              className="mb-2 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
-                              value=""
-                              onChange={(e) => {
-                                const id = e.target.value
-                                if (!id) return
-                                const found = savedNodeMappings.find(
-                                  (m) => m.id === id
-                                )
-                                if (found) setNodeMappings(found.mappings)
-                              }}
-                            >
-                              <option value="" disabled>
-                                저장된 노드 매핑 불러오기...
-                              </option>
-                              {savedNodeMappings.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                  {m.name}
-                                </option>
-                              ))}
-                            </select>
-                          ) : undefined
-                        }
-                      />
-                    ) : (
-                      <p className="mb-4 text-sm text-muted-foreground">
-                        노드 매핑을 저장하려면 먼저 워크플로우를 저장하거나
-                        불러오세요.
-                      </p>
                     )}
-                  </div>
-                  {nodeMappings.length > 0 && (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Node#</TableHead>
-                          <TableHead>Input</TableHead>
-                          <TableHead>소스</TableHead>
-                          <TableHead>값 / 파일</TableHead>
-                          <TableHead>랜덤</TableHead>
-                          <TableHead />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {nodeMappings.map((m) => {
-                          const node = parsedWorkflow.data[m.nodeId]
-                          const spec = getNodeInputSpec(m.nodeId, m.inputKey)
-                          const enumOptions = Array.isArray(spec?.[0])
-                            ? (spec![0] as string[])
-                            : null
-                          const upload =
-                            imageUploads[`${m.nodeId}.${m.inputKey}`]
-                          return (
-                            <TableRow key={m.id}>
-                              <TableCell className="text-sm">
-                                {node?._meta?.title || "Untitled"}
-                              </TableCell>
-                              <TableCell className="font-mono text-sm">
-                                {m.nodeId}
-                              </TableCell>
-                              <TableCell className="font-mono text-xs">
-                                {m.inputKey}
-                              </TableCell>
-                              <TableCell>
-                                <select
-                                  className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                  value={m.sourceType}
-                                  onChange={(e) =>
-                                    updateMapping(m.id, {
-                                      sourceType: e.target
-                                        .value as MappingSourceType,
-                                    })
-                                  }
-                                >
-                                  <option value="prompt">프롬프트</option>
-                                  <option value="filename">파일명</option>
-                                  <option value="seed">시드</option>
-                                  <option value="image">이미지</option>
-                                  <option value="fixed">고정값</option>
-                                </select>
-                              </TableCell>
-                              <TableCell>
-                                {m.sourceType === "seed" && (
-                                  <Input
-                                    type="number"
-                                    value={m.seedValue ?? 0}
-                                    onChange={(e) =>
-                                      updateMapping(m.id, {
-                                        seedValue: Number(e.target.value),
-                                      })
-                                    }
-                                    className="h-8 w-28"
-                                  />
-                                )}
-                                {m.sourceType === "image" && (
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="text-sm"
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0]
-                                        if (f)
-                                          handleImageUpload(
-                                            f,
-                                            m.nodeId,
-                                            m.inputKey
-                                          )
-                                      }}
-                                    />
-                                    {upload?.uploading && (
-                                      <span className="text-xs text-muted-foreground">
-                                        업로드 중...
-                                      </span>
-                                    )}
-                                    {upload?.uploadedName && (
-                                      <span className="text-xs text-green-600">
-                                        ✓ {upload.uploadedName}
-                                      </span>
-                                    )}
-                                    {upload?.error && (
-                                      <span className="text-xs text-destructive">
-                                        {upload.error}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                                {m.sourceType === "fixed" &&
-                                  (enumOptions ? (
-                                    <select
-                                      value={m.fixedValue ?? ""}
-                                      onChange={(e) =>
-                                        updateMapping(m.id, {
-                                          fixedValue: e.target.value,
-                                        })
-                                      }
-                                      className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                    >
-                                      <option value="">선택...</option>
-                                      {enumOptions.map((opt) => (
-                                        <option key={opt} value={opt}>
-                                          {opt}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <Input
-                                      value={m.fixedValue ?? ""}
-                                      onChange={(e) =>
-                                        updateMapping(m.id, {
-                                          fixedValue: e.target.value,
-                                        })
-                                      }
-                                      className="h-8 w-36"
-                                      placeholder="값 입력"
-                                    />
-                                  ))}
-                              </TableCell>
-                              <TableCell>
-                                {m.sourceType === "seed" && (
-                                  <Checkbox
-                                    checked={m.seedRandom ?? false}
-                                    onCheckedChange={(checked) =>
-                                      updateMapping(m.id, {
-                                        seedRandom: checked === true,
-                                      })
-                                    }
-                                  />
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                  onClick={() =>
-                                    setNodeMappings((prev) =>
-                                      prev.filter((x) => x.id !== m.id)
-                                    )
-                                  }
-                                >
-                                  ×
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-                  {availableNodeOptions.length > 0 && (
-                    <select
-                      className="mt-3 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                      value=""
-                      onChange={(e) => {
-                        const index = Number(e.target.value)
-                        const opt = availableNodeOptions[index]
-                        if (!opt) return
-                        const sourceType: MappingSourceType = opt.isLoadImage
-                          ? "image"
-                          : opt.isNumeric
-                            ? "seed"
-                            : "fixed"
-                        setNodeMappings((prev) => [
-                          ...prev,
-                          {
-                            id: crypto.randomUUID(),
-                            nodeId: opt.nodeId,
-                            inputKey: opt.inputKey,
-                            sourceType,
-                            ...(sourceType === "seed"
-                              ? { seedValue: 0, seedRandom: true }
-                              : {}),
-                          },
-                        ])
-                      }}
-                    >
-                      <option value="">매핑 추가...</option>
-                      {availableNodeOptions.map((opt, i) => (
-                        <option key={i} value={i}>
-                          [{opt.nodeId}] {opt.title} - {opt.inputKey}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {!nodeMappings.some((m) => m.sourceType === "prompt") && (
-                    <p className="mt-2 text-xs text-yellow-600">
-                      ⚠ 프롬프트 주입 매핑이 설정되지 않았습니다.
-                    </p>
-                  )}
-                  {!nodeMappings.some((m) => m.sourceType === "filename") && (
-                    <p className="mt-1 text-xs text-yellow-600">
-                      ⚠ 파일명 주입 매핑이 설정되지 않았습니다.
-                    </p>
-                  )}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    워크플로우 JSON에 {"{{input}}"}, {"{{filename}}"},{" "}
-                    {"{{image}}"}, DSL 변수명({"{{outfit}}"} 등)을 직접 써도
-                    됩니다.
-                  </p>
-                </div>
-              )}
+                  </TabsContent>
+                </Tabs>
+              </div>
             </section>
             <div className="relative">
               <section className="absolute inset-0 flex flex-col rounded-lg border bg-card p-6 shadow-sm">
