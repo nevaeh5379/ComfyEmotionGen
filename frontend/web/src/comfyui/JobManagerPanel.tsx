@@ -844,85 +844,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      {/* Stats bar */}
-      <div className="grid grid-cols-6 gap-1.5">
-        {(
-          [
-            "pending",
-            "queued",
-            "running",
-            "done",
-            "error",
-            "cancelled",
-          ] as JobStatus[]
-        ).map((s) => (
-          <div key={s} className="rounded-md border px-2 py-1.5 text-center">
-            <div
-              className={`text-lg leading-none font-bold tabular-nums ${STATUS_STYLE[s].badge.split(" ").find((c) => c.startsWith("text-")) ?? "text-foreground"}`}
-            >
-              {counts[s]}
-            </div>
-            <div className="mt-0.5 text-xs text-muted-foreground">
-              {STAT_LABELS[s]}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant={paused ? "default" : "outline"}
-          onClick={handleTogglePause}
-          disabled={!isAliveBackend}
-        >
-          {paused ? "재개" : "일시중지"}
-        </Button>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline" className="px-2">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem
-              onClick={handleCancelAll}
-              disabled={!isAliveBackend || counts.active === 0}
-              className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
-            >
-              전부 취소
-            </DropdownMenuItem>
-            {counts.error + counts.cancelled > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleRetryAllFailed}
-                  disabled={!isAliveBackend}
-                  className="cursor-pointer"
-                >
-                  실패/취소 모두 재시도 ({counts.error + counts.cancelled})
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleDeleteAllFailed}
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
-                >
-                  실패/취소 모두 삭제 ({counts.error + counts.cancelled})
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {paused && (
-          <span className="text-xs text-muted-foreground">
-            새 잡이 워커로 전송되지 않습니다.
-          </span>
-        )}
-
+      {/* 1. Global Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         {/* Session selector dropdown */}
-        <div className="relative ml-auto">
+        <div className="relative">
           <Button
             size="sm"
             variant="outline"
@@ -950,7 +875,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 className="fixed inset-0 z-10"
                 onClick={() => setSessionPickerOpen(false)}
               />
-              <div className="absolute top-full right-0 z-20 mt-1 w-72 rounded-md border bg-popover shadow-lg">
+              <div className="absolute top-full left-0 z-20 mt-1 w-72 rounded-md border bg-popover shadow-lg">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b px-3 py-2">
                   <span className="text-xs font-medium text-muted-foreground">
@@ -1078,126 +1003,212 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             </>
           )}
         </div>
-      </div>
 
-      {/* Overall progress bar */}
-      <Field>
-        <FieldLabel>
-          <span className="truncate">
-            {activeJobs.length > 0
-              ? `진행 중: ${activeJobs.length}개 (완료: ${counts.done} / 전체: ${sessionJobs.length})`
-              : paused
-                ? "일시중지됨"
-                : "대기 중"}
-          </span>
-          <span className="ml-auto tabular-nums">
-            {sessionJobs.length > 0
-              ? Math.round((counts.done / sessionJobs.length) * 100)
-              : 0}
-            %
-          </span>
-        </FieldLabel>
-        <Progress
-          value={
-            sessionJobs.length > 0
-              ? (counts.done / sessionJobs.length) * 100
-              : 0
-          }
-          className="w-full"
-        />
-      </Field>
-
-      {/* Filter tabs */}
-      <Tabs
-        value={filterTab}
-        onValueChange={(v) => setFilterTab(v as FilterTab)}
-      >
-        <TabsList>
-          <TabsTrigger value="all">전체 ({sessionJobs.length})</TabsTrigger>
-          <TabsTrigger value="active">활성 ({counts.active})</TabsTrigger>
-          <TabsTrigger value="done">완료 ({counts.done})</TabsTrigger>
-          <TabsTrigger value="failed">
-            실패/취소 ({counts.error + counts.cancelled})
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* Date range filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-xs text-muted-foreground">생성일</span>
-        <Input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className="h-7 w-36 text-xs"
-        />
-        <span className="text-xs text-muted-foreground">—</span>
-        <Input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className="h-7 w-36 text-xs"
-        />
-        <span className="text-muted-foreground/40">|</span>
-        <button
-          className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => setQuickDate("1h")}
-        >
-          최근 1시간
-        </button>
-        <button
-          className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => setQuickDate("today")}
-        >
-          오늘
-        </button>
-        <button
-          className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => setQuickDate("24h")}
-        >
-          최근 24시간
-        </button>
-        {hasDateFilter && (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground"
-              onClick={() => {
-                setDateFrom("")
-                setDateTo("")
-              }}
-            >
-              <X className="mr-1 h-3 w-3" />
-              초기화
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              ({sortedJobs.length} / {tabFiltered.length})
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* Delete selection controls — visible only on failed tab */}
-      {filterTab === "failed" && (
+        {/* Global Actions */}
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={selectAllFailed}>
-            전체 선택
-          </Button>
-          <Button size="sm" variant="ghost" onClick={deselectAll}>
-            선택 해제
-          </Button>
-          {selectedForDelete.size > 0 && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleDeleteSelected}
-            >
-              선택 삭제 ({selectedForDelete.size})
-            </Button>
+          {paused && (
+            <span className="mr-2 text-xs font-medium text-muted-foreground">
+              새 잡이 워커로 전송되지 않습니다.
+            </span>
           )}
+          <Button
+            size="sm"
+            variant={paused ? "default" : "outline"}
+            onClick={handleTogglePause}
+            disabled={!isAliveBackend}
+          >
+            {paused ? "재개" : "일시중지"}
+          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="px-2">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleCancelAll}
+                disabled={!isAliveBackend || counts.active === 0}
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+              >
+                전부 취소
+              </DropdownMenuItem>
+              {counts.error + counts.cancelled > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleRetryAllFailed}
+                    disabled={!isAliveBackend}
+                    className="cursor-pointer"
+                  >
+                    실패/취소 모두 재시도 ({counts.error + counts.cancelled})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDeleteAllFailed}
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                  >
+                    실패/취소 모두 삭제 ({counts.error + counts.cancelled})
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      )}
+      </div>
+
+      {/* 2. Overview (Stats & Progress) */}
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 text-card-foreground shadow-sm">
+        <div className="grid grid-cols-6 gap-2">
+          {(
+            [
+              "pending",
+              "queued",
+              "running",
+              "done",
+              "error",
+              "cancelled",
+            ] as JobStatus[]
+          ).map((s) => (
+            <div key={s} className="rounded-md bg-muted/30 px-2 py-1.5 text-center">
+              <div
+                className={`text-lg leading-none font-bold tabular-nums ${STATUS_STYLE[s].badge.split(" ").find((c) => c.startsWith("text-")) ?? "text-foreground"}`}
+              >
+                {counts[s]}
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {STAT_LABELS[s]}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs font-medium">
+            <span className="truncate text-muted-foreground">
+              {activeJobs.length > 0
+                ? `진행 중: ${activeJobs.length}개 (완료: ${counts.done} / 전체: ${sessionJobs.length})`
+                : paused
+                  ? "일시중지됨"
+                  : "대기 중"}
+            </span>
+            <span className="tabular-nums">
+              {sessionJobs.length > 0
+                ? Math.round((counts.done / sessionJobs.length) * 100)
+                : 0}
+              %
+            </span>
+          </div>
+          <Progress
+            value={
+              sessionJobs.length > 0
+                ? (counts.done / sessionJobs.length) * 100
+                : 0
+            }
+            className="h-2 w-full"
+          />
+        </div>
+      </div>
+
+      {/* 3. Table Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Filter tabs */}
+        <Tabs
+          value={filterTab}
+          onValueChange={(v) => setFilterTab(v as FilterTab)}
+          className="w-auto"
+        >
+          <TabsList className="h-9">
+            <TabsTrigger value="all" className="text-xs">전체 ({sessionJobs.length})</TabsTrigger>
+            <TabsTrigger value="active" className="text-xs">활성 ({counts.active})</TabsTrigger>
+            <TabsTrigger value="done" className="text-xs">완료 ({counts.done})</TabsTrigger>
+            <TabsTrigger value="failed" className="text-xs">
+              실패/취소 ({counts.error + counts.cancelled})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Right side controls (Selection & Date) */}
+        <div className="flex flex-wrap items-center gap-3">
+          {filterTab === "failed" && (
+            <div className="flex items-center gap-1.5 border-r pr-3">
+              <Button size="sm" variant="ghost" onClick={selectAllFailed} className="h-8 text-xs">
+                전체 선택
+              </Button>
+              <Button size="sm" variant="ghost" onClick={deselectAll} className="h-8 text-xs">
+                선택 해제
+              </Button>
+              {selectedForDelete.size > 0 && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDeleteSelected}
+                  className="h-8 text-xs"
+                >
+                  선택 삭제 ({selectedForDelete.size})
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-8 w-32 text-xs"
+              />
+              <span className="text-xs text-muted-foreground">~</span>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-8 w-32 text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                className="rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setQuickDate("1h")}
+              >
+                1h
+              </button>
+              <button
+                className="rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setQuickDate("today")}
+              >
+                오늘
+              </button>
+              <button
+                className="rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setQuickDate("24h")}
+              >
+                24h
+              </button>
+            </div>
+            {hasDateFilter && (
+              <>
+                <div className="h-4 w-px bg-border" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs text-muted-foreground"
+                  onClick={() => {
+                    setDateFrom("")
+                    setDateTo("")
+                  }}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  초기화
+                </Button>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  ({sortedJobs.length}/{tabFiltered.length})
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Job table */}
       <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
