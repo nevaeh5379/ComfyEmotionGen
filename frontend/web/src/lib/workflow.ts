@@ -63,3 +63,15 @@ export type ComfyNode = z.infer<typeof ComfyNodeSchema>;
  */
 export const ComfyWorkflowSchema = z.record(z.string(), ComfyNodeSchema);
 export type ComfyWorkflow = z.infer<typeof ComfyWorkflowSchema>;
+
+export type MappingSourceType = "prompt" | "filename" | "seed" | "image" | "fixed";
+
+export interface NodeMapping {
+  id: string;
+  nodeId: string;
+  inputKey: string;
+  sourceType: MappingSourceType;
+  seedValue?: number;
+  seedRandom?: boolean;
+  fixedValue?: string;
+}

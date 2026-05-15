@@ -58,7 +58,7 @@ import { JobManagerPanel } from "./comfyui/JobManagerPanel"
 import { WorkerManager } from "./comfyui/WorkerManager"
 import { SettingsPanel } from "./comfyui/SettingsPanel"
 import { useSettings } from "./comfyui/useSettings"
-import { ComfyWorkflowSchema, type ComfyWorkflow } from "./lib/workflow"
+import { ComfyWorkflowSchema, type ComfyWorkflow, type NodeMapping, type MappingSourceType } from "./lib/workflow"
 import {
   DEFAULT_BACKEND_URL,
   IS_PACKAGE_MODE,
@@ -91,18 +91,6 @@ type TabId = (typeof NAV_TABS)[number]["id"]
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type MappingSourceType = "prompt" | "filename" | "seed" | "image" | "fixed"
-
-interface NodeMapping {
-  id: string
-  nodeId: string
-  inputKey: string
-  sourceType: MappingSourceType
-  seedValue?: number
-  seedRandom?: boolean
-  fixedValue?: string
-}
-
 type ObjectInfoInputSpec = [string[] | string, Record<string, unknown>?]
 type ObjectInfo = Record<
   string,
@@ -725,11 +713,19 @@ export function App() {
     workflows: savedWorkflows,
     saveWorkflow,
     deleteWorkflow,
+    saveMappingPreset,
+    deleteMappingPreset,
   } = useSavedWorkflows()
   const [workflowResetKey, setWorkflowResetKey] = useState(0)
+
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null)
+  const activeWorkflow = useMemo(() => savedWorkflows.find(w => w.id === activeWorkflowId) ?? null, [savedWorkflows, activeWorkflowId])
+  const savedNodeMappings = activeWorkflow?.mappingPresets ?? []
+  const [nodeMappingResetKey, setNodeMappingResetKey] = useState(0)
+
   const [pendingSave, setPendingSave] = useState<{
     name: string
-    type: "template" | "workflow"
+    type: "template" | "workflow" | "nodeMapping"
   } | null>(null)
 
   const nextFreeName = (
@@ -1242,11 +1238,23 @@ export function App() {
                           setPendingSave({ name: trimmed, type: "workflow" })
                           return false
                         }
-                        saveWorkflow(trimmed, workflowJson)
+                        const w = saveWorkflow(trimmed, workflowJson)
+                        setActiveWorkflowId(w.id)
                         return true
                       }}
-                      onLoad={(w) => setWorkflowJson(w.workflow)}
-                      onDelete={deleteWorkflow}
+                      onLoad={(w) => {
+                        setWorkflowJson(w.workflow)
+                        setActiveWorkflowId(w.id)
+                        if (w.mappingPresets && w.mappingPresets.length > 0) {
+                           setNodeMappings(w.mappingPresets[0]!.mappings)
+                        } else {
+                           setNodeMappings([])
+                        }
+                      }}
+                      onDelete={(id) => {
+                        if (activeWorkflowId === id) setActiveWorkflowId(null)
+                        deleteWorkflow(id)
+                      }}
                       placeholder="워크플로우 이름"
                       saveDisabled={!workflowJson.trim()}
                       extraHeader={
@@ -1260,7 +1268,15 @@ export function App() {
                               const found = savedWorkflows.find(
                                 (w) => w.id === id
                               )
-                              if (found) setWorkflowJson(found.workflow)
+                              if (found) {
+                                setWorkflowJson(found.workflow)
+                                setActiveWorkflowId(found.id)
+                                if (found.mappingPresets && found.mappingPresets.length > 0) {
+                                   setNodeMappings(found.mappingPresets[0]!.mappings)
+                                } else {
+                                   setNodeMappings([])
+                                }
+                              }
                             }}
                           >
                             <option value="" disabled>
@@ -1374,6 +1390,56 @@ export function App() {
                     <Button variant="outline" size="sm" onClick={handleAutoMap}>
                       자동 매핑
                     </Button>
+                  </div>
+                  <div className="mb-4">
+                    {activeWorkflowId ? (
+                      <SavedItemsManager
+                        key={nodeMappingResetKey}
+                        items={savedNodeMappings}
+                        onSave={(name) => {
+                          const trimmed = name.trim()
+                          if (savedNodeMappings.some((m) => m.name === trimmed)) {
+                            setPendingSave({ name: trimmed, type: "nodeMapping" })
+                            return false
+                          }
+                          saveMappingPreset(activeWorkflowId, trimmed, nodeMappings)
+                          return true
+                        }}
+                        onLoad={(m) => setNodeMappings(m.mappings)}
+                        onDelete={(presetId) => deleteMappingPreset(activeWorkflowId, presetId)}
+                        placeholder="노드 매핑 이름"
+                        saveDisabled={nodeMappings.length === 0}
+                        extraHeader={
+                          savedNodeMappings.length > 0 ? (
+                            <select
+                              className="mb-2 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+                              value=""
+                              onChange={(e) => {
+                                const id = e.target.value
+                                if (!id) return
+                                const found = savedNodeMappings.find(
+                                  (m) => m.id === id
+                                )
+                                if (found) setNodeMappings(found.mappings)
+                              }}
+                            >
+                              <option value="" disabled>
+                                저장된 노드 매핑 불러오기...
+                              </option>
+                              {savedNodeMappings.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {m.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : undefined
+                        }
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground mb-4">
+                        노드 매핑을 저장하려면 먼저 워크플로우를 저장하거나 불러오세요.
+                      </p>
+                    )}
                   </div>
                   {nodeMappings.length > 0 && (
                     <Table>
@@ -1949,19 +2015,27 @@ export function App() {
                 const items =
                   pendingSave.type === "template"
                     ? savedTemplates
-                    : savedWorkflows
+                    : pendingSave.type === "workflow"
+                      ? savedWorkflows
+                      : savedNodeMappings
                 const newName = nextFreeName(pendingSave.name, items)
                 if (pendingSave.type === "template") {
                   saveTemplate(newName, cegTemplate)
                   setTemplateResetKey((k) => k + 1)
-                } else {
-                  saveWorkflow(newName, workflowJson)
+                } else if (pendingSave.type === "workflow") {
+                  const w = saveWorkflow(newName, workflowJson)
+                  setActiveWorkflowId(w.id)
                   setWorkflowResetKey((k) => k + 1)
+                } else {
+                  if (activeWorkflowId) {
+                    saveMappingPreset(activeWorkflowId, newName, nodeMappings)
+                    setNodeMappingResetKey((k) => k + 1)
+                  }
                 }
                 setPendingSave(null)
               }}
             >
-              새로 저장 ({nextFreeName(pendingSave?.name ?? "", pendingSave?.type === "template" ? savedTemplates : savedWorkflows)})
+              새로 저장 ({nextFreeName(pendingSave?.name ?? "", pendingSave?.type === "template" ? savedTemplates : pendingSave?.type === "workflow" ? savedWorkflows : savedNodeMappings)})
             </Button>
             <Button
               variant="default"
@@ -1970,9 +2044,15 @@ export function App() {
                 if (pendingSave.type === "template") {
                   saveTemplate(pendingSave.name, cegTemplate)
                   setTemplateResetKey((k) => k + 1)
-                } else {
-                  saveWorkflow(pendingSave.name, workflowJson)
+                } else if (pendingSave.type === "workflow") {
+                  const w = saveWorkflow(pendingSave.name, workflowJson)
+                  setActiveWorkflowId(w.id)
                   setWorkflowResetKey((k) => k + 1)
+                } else {
+                  if (activeWorkflowId) {
+                    saveMappingPreset(activeWorkflowId, pendingSave.name, nodeMappings)
+                    setNodeMappingResetKey((k) => k + 1)
+                  }
                 }
                 setPendingSave(null)
               }}
