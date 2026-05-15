@@ -6,4 +6,12 @@ if sys.platform == "win32":
 
 import uvicorn
 
-uvicorn.run("server:app", port=8000, log_level="info")
+
+async def main():
+    config = uvicorn.Config("server:app", host="127.0.0.1", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
