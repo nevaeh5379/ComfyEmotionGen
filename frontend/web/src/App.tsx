@@ -367,16 +367,26 @@ function SavedItemsManager<T extends SaveableItem>({
     if (onSave(trimmed)) setName("")
   }
 
-  const activeItem = activeItemId ? items.find((i) => i.id === activeItemId) : null
+  const activeItem = activeItemId
+    ? items.find((i) => i.id === activeItemId)
+    : null
 
   return (
     <>
       {activeItem && onUpdate && (
         <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs">
           <span className="truncate text-muted-foreground">
-            현재: <span className="font-semibold text-foreground">{activeItem.name}</span>
+            현재:{" "}
+            <span className="font-semibold text-foreground">
+              {activeItem.name}
+            </span>
           </span>
-          <Button variant="ghost" size="sm" className="h-6 shrink-0 px-2 text-xs" onClick={onUpdate}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 shrink-0 px-2 text-xs"
+            onClick={onUpdate}
+          >
             업데이트
           </Button>
         </div>
@@ -754,7 +764,9 @@ export function App() {
   } = useSavedWorkflows()
   const [workflowResetKey, setWorkflowResetKey] = useState(0)
 
-  const [activeWorkflowId, setActiveWorkflowId] = useLocalStorage<string | null>(STORAGE_KEYS.activeWorkflowId, null)
+  const [activeWorkflowId, setActiveWorkflowId] = useLocalStorage<
+    string | null
+  >(STORAGE_KEYS.activeWorkflowId, null)
   const activeWorkflow = useMemo(
     () => savedWorkflows.find((w) => w.id === activeWorkflowId) ?? null,
     [savedWorkflows, activeWorkflowId]
@@ -769,8 +781,11 @@ export function App() {
     name: string
     type: "template" | "workflow" | "nodeMapping"
   } | null>(null)
-  const [activeTemplateId, setActiveTemplateId] = useLocalStorage<string | null>(STORAGE_KEYS.activeTemplateId, null)
-  const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] = useLocalStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
+  const [activeTemplateId, setActiveTemplateId] = useLocalStorage<
+    string | null
+  >(STORAGE_KEYS.activeTemplateId, null)
+  const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] =
+    useLocalStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
   const [repeatCount, setRepeatCount] = useState(1)
   const [pendingPresetSelection, setPendingPresetSelection] =
     useState<SavedWorkflow | null>(null)
@@ -780,7 +795,8 @@ export function App() {
     [savedTemplates, activeTemplateId]
   )
   const activeNodeMappingPreset = useMemo(
-    () => savedNodeMappings.find((m) => m.id === activeNodeMappingPresetId) ?? null,
+    () =>
+      savedNodeMappings.find((m) => m.id === activeNodeMappingPresetId) ?? null,
     [savedNodeMappings, activeNodeMappingPresetId]
   )
 
@@ -1394,7 +1410,8 @@ export function App() {
                             setActiveTemplateId(t.id)
                           }}
                           onDelete={(id) => {
-                            if (activeTemplateId === id) setActiveTemplateId(null)
+                            if (activeTemplateId === id)
+                              setActiveTemplateId(null)
                             deleteTemplate(id)
                           }}
                           placeholder="탬플릿 이름"
@@ -1512,7 +1529,9 @@ export function App() {
                               }}
                               placeholder="노드 매핑 이름"
                               saveDisabled={nodeMappings.length === 0}
-                              activeItemId={activeNodeMappingPresetId ?? undefined}
+                              activeItemId={
+                                activeNodeMappingPresetId ?? undefined
+                              }
                               onUpdate={() => {
                                 if (activeNodeMappingPreset && activeWorkflowId)
                                   saveMappingPreset(

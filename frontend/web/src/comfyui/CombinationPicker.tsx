@@ -57,10 +57,18 @@ import { hasApproved, findApproved } from "./Message"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
-export function Magnifier({ src, className = "" }: { src: string; className?: string }) {
+export function Magnifier({
+  src,
+  className = "",
+}: {
+  src: string
+  className?: string
+}) {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [show, setShow] = useState(false)
-  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null)
+  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(
+    null
+  )
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
@@ -75,7 +83,11 @@ export function Magnifier({ src, className = "" }: { src: string; className?: st
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
       onMouseMove={handleMouseMove}
-      style={imgNatural ? { aspectRatio: `${imgNatural.w}/${imgNatural.h}` } : undefined}
+      style={
+        imgNatural
+          ? { aspectRatio: `${imgNatural.w}/${imgNatural.h}` }
+          : undefined
+      }
     >
       <img
         src={src}
@@ -966,12 +978,9 @@ export const CombinationPicker = memo(function CombinationPicker({
     duplicateStrategy,
   ])
 
-  const handleContextMenuRegenerate = useCallback(
-    (filename: string) => {
-      setRegenDialogState({ open: true, filenames: [filename] })
-    },
-    []
-  )
+  const handleContextMenuRegenerate = useCallback((filename: string) => {
+    setRegenDialogState({ open: true, filenames: [filename] })
+  }, [])
 
   const handleRegenerate = useCallback(() => {
     if (!selectedFilename) return
@@ -1021,12 +1030,7 @@ export const CombinationPicker = memo(function CombinationPicker({
         }
       }
     },
-    [
-      backendUrl,
-      regenAction,
-      regenDialogState.filenames,
-      exitSelectionMode,
-    ]
+    [backendUrl, regenAction, regenDialogState.filenames, exitSelectionMode]
   )
 
   const handleOpen = useCallback((filename: string) => {
@@ -1923,9 +1927,7 @@ export const CombinationPicker = memo(function CombinationPicker({
                               >
                                 <HoverCardTrigger asChild>
                                   <button
-                                    onClick={() =>
-                                      setPreviewHash(img.hash)
-                                    }
+                                    onClick={() => setPreviewHash(img.hash)}
                                     className={`group relative overflow-hidden rounded-lg transition-colors ${
                                       isSelected
                                         ? "scale-[0.98] shadow-lg ring-4 ring-green-500"

@@ -227,7 +227,7 @@ export function RegenerateDialog({
         const preview = wf.substring(0, 80)
         items.push({
           id: `__history_wf__${idx}`,
-          name: `기록 ${idx} (${preview}${wf.length > 80 ? '...' : ''})`,
+          name: `기록 ${idx} (${preview}${wf.length > 80 ? "..." : ""})`,
           workflow: wf,
         })
       }
@@ -267,7 +267,10 @@ export function RegenerateDialog({
 
         <div className="grid gap-4 py-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="regen-count" className="text-xs font-bold uppercase">
+            <Label
+              htmlFor="regen-count"
+              className="text-xs font-bold uppercase"
+            >
               생성 갯수 (Count)
             </Label>
             <Input
@@ -282,7 +285,10 @@ export function RegenerateDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="workflow-select" className="text-xs font-bold uppercase">
+            <Label
+              htmlFor="workflow-select"
+              className="text-xs font-bold uppercase"
+            >
               ComfyUI 워크플로우 선택
             </Label>
             <select
@@ -291,10 +297,12 @@ export function RegenerateDialog({
               onChange={(e) => {
                 setSelectedWorkflowId(e.target.value)
               }}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
             >
               <option value="">
-                {selectedWorkflowId ? "워크플로우 해제" : "워크플로우 직접 선택"}
+                {selectedWorkflowId
+                  ? "워크플로우 해제"
+                  : "워크플로우 직접 선택"}
               </option>
               {savedWorkflows.length > 0 && (
                 <optgroup label="저장된 워크플로우">
@@ -322,21 +330,24 @@ export function RegenerateDialog({
               <div className="mb-1 text-[10px] font-bold text-muted-foreground uppercase">
                 Workflow Preview
               </div>
-              <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-tight">
+              <pre className="max-h-32 overflow-y-auto font-mono text-[11px] leading-tight whitespace-pre-wrap">
                 {selectedWorkflow.workflow}
               </pre>
             </div>
           )}
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="template-select" className="text-xs font-bold uppercase">
+            <Label
+              htmlFor="template-select"
+              className="text-xs font-bold uppercase"
+            >
               사용할 템플릿 (CEG Template)
             </Label>
             <select
               id="template-select"
               value={selectedTemplate}
               onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
             >
               <optgroup label="현재 환경">
                 <option value={currentCegTemplate}>
@@ -365,7 +376,7 @@ export function RegenerateDialog({
               <div className="mb-1 text-[10px] font-bold text-muted-foreground uppercase">
                 Template Preview
               </div>
-              <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-tight">
+              <pre className="max-h-32 overflow-y-auto font-mono text-[11px] leading-tight whitespace-pre-wrap">
                 {selectedTemplate}
               </pre>
             </div>

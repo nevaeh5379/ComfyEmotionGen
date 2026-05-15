@@ -12,7 +12,6 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, cast, Dict, List, Optional, Union
 import re
-import json
 
 from lark import Lark, Transformer, UnexpectedInput
 
@@ -263,9 +262,9 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
         for child in payload[1:]:
             right = eval_expr(child, axes, vars)
             new_res = []
-            for l in res:
+            for left in res:
                 for r in right:
-                    merged = dict(l)
+                    merged = dict(left)
                     merged.update(r)
                     new_res.append(merged)
             res = new_res

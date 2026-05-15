@@ -1,7 +1,7 @@
 
 
 import pytest
-from prompt_dsl import parse, render, inject_into_workflow
+from prompt_dsl import inject_into_workflow
 
 
 @pytest.fixture

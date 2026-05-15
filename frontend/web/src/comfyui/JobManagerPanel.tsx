@@ -238,7 +238,10 @@ function formatETA(totalSeconds: number): string {
   return `${h}시간 ${m}분`
 }
 
-function estimateRemaining(startedAtSec: number, progressPercent: number): number | null {
+function estimateRemaining(
+  startedAtSec: number,
+  progressPercent: number
+): number | null {
   if (progressPercent <= 0 || progressPercent >= 100) return null
   const elapsedSec = Date.now() / 1000 - startedAtSec
   if (elapsedSec <= 0) return null
@@ -1030,7 +1033,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           >
             {paused ? "재개" : "일시중지"}
           </Button>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="px-2">
@@ -1041,7 +1044,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <DropdownMenuItem
                 onClick={handleCancelAll}
                 disabled={!isAliveBackend || counts.active === 0}
-                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
               >
                 전부 취소
               </DropdownMenuItem>
@@ -1057,7 +1060,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleDeleteAllFailed}
-                    className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                    className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >
                     실패/취소 모두 삭제 ({counts.error + counts.cancelled})
                   </DropdownMenuItem>
@@ -1081,7 +1084,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               "cancelled",
             ] as JobStatus[]
           ).map((s) => (
-            <div key={s} className="rounded-md bg-muted/30 px-2 py-1.5 text-center">
+            <div
+              key={s}
+              className="rounded-md bg-muted/30 px-2 py-1.5 text-center"
+            >
               <div
                 className={`text-lg leading-none font-bold tabular-nums ${STATUS_STYLE[s].badge.split(" ").find((c) => c.startsWith("text-")) ?? "text-foreground"}`}
               >
@@ -1119,9 +1125,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
         {/* Per-job progress card — always visible, content changes */}
         {(() => {
-          const runningJobs = sessionJobs.filter(
-            (j) => j.status === "running"
-          )
+          const runningJobs = sessionJobs.filter((j) => j.status === "running")
           const j: JobView = runningJobs[0] ?? {
             id: "",
             filename: "-",
@@ -1155,15 +1159,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     )}
                   </span>
                   {(() => {
-                    const remaining =
-                      j.startedAt
-                        ? estimateRemaining(
-                            j.startedAt,
-                            j.progressPercent
-                          )
-                        : null
+                    const remaining = j.startedAt
+                      ? estimateRemaining(j.startedAt, j.progressPercent)
+                      : null
                     return remaining != null ? (
-                      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                         예상 {formatETA(remaining)} 남음
                       </span>
                     ) : null
@@ -1181,36 +1181,27 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     {Math.round(j.progressPercent)}%
                   </span>
                 </div>
-                <Progress
-                  value={j.progressPercent}
-                  className="h-1.5 w-full"
-                />
-                {(
+                <Progress value={j.progressPercent} className="h-1.5 w-full" />
+                {
                   <>
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="text-muted-foreground">
-                        전체 작업 ({j.completedNodeCount}/
-                        {j.totalNodeCount} 노드)
+                        전체 작업 ({j.completedNodeCount}/{j.totalNodeCount}{" "}
+                        노드)
                       </span>
                       <span className="tabular-nums">
                         {Math.round(
-                          (j.completedNodeCount /
-                            j.totalNodeCount) *
-                            100
+                          (j.completedNodeCount / j.totalNodeCount) * 100
                         )}
                         %
                       </span>
                     </div>
                     <Progress
-                      value={
-                        (j.completedNodeCount /
-                          j.totalNodeCount) *
-                        100
-                      }
+                      value={(j.completedNodeCount / j.totalNodeCount) * 100}
                       className="h-1.5 w-full [&>div]:bg-blue-500"
                     />
                   </>
-                )}
+                }
               </>
             </div>
           )
@@ -1226,9 +1217,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           className="w-auto"
         >
           <TabsList className="h-9">
-            <TabsTrigger value="all" className="text-xs">전체 ({sessionJobs.length})</TabsTrigger>
-            <TabsTrigger value="active" className="text-xs">활성 ({counts.active})</TabsTrigger>
-            <TabsTrigger value="done" className="text-xs">완료 ({counts.done})</TabsTrigger>
+            <TabsTrigger value="all" className="text-xs">
+              전체 ({sessionJobs.length})
+            </TabsTrigger>
+            <TabsTrigger value="active" className="text-xs">
+              활성 ({counts.active})
+            </TabsTrigger>
+            <TabsTrigger value="done" className="text-xs">
+              완료 ({counts.done})
+            </TabsTrigger>
             <TabsTrigger value="failed" className="text-xs">
               실패/취소 ({counts.error + counts.cancelled})
             </TabsTrigger>
@@ -1239,10 +1236,20 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         <div className="flex flex-wrap items-center gap-3">
           {filterTab === "failed" && (
             <div className="flex items-center gap-1.5 border-r pr-3">
-              <Button size="sm" variant="ghost" onClick={selectAllFailed} className="h-8 text-xs">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={selectAllFailed}
+                className="h-8 text-xs"
+              >
                 전체 선택
               </Button>
-              <Button size="sm" variant="ghost" onClick={deselectAll} className="h-8 text-xs">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={deselectAll}
+                className="h-8 text-xs"
+              >
                 선택 해제
               </Button>
               {selectedForDelete.size > 0 && (
@@ -1309,7 +1316,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   <X className="mr-1 h-3 w-3" />
                   초기화
                 </Button>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                <span className="text-xs whitespace-nowrap text-muted-foreground">
                   ({sortedJobs.length}/{tabFiltered.length})
                 </span>
               </>
@@ -1420,32 +1427,27 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                             value={j.progressPercent}
                             className="h-1 flex-1"
                           />
-                          <span className="w-7 text-right text-[10px] tabular-nums text-muted-foreground">
+                          <span className="w-7 text-right text-[10px] text-muted-foreground tabular-nums">
                             {Math.round(j.progressPercent)}%
                           </span>
                         </div>
                       )}
-                      {j.status === "running" &&
-                        j.totalNodeCount > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <Progress
-                              value={
-                                (j.completedNodeCount /
-                                  j.totalNodeCount) *
-                                100
-                              }
-                              className="h-1 flex-1 [&>div]:bg-blue-500"
-                            />
-                            <span className="w-7 text-right text-[10px] tabular-nums text-blue-500">
-                              {Math.round(
-                                (j.completedNodeCount /
-                                  j.totalNodeCount) *
-                                  100
-                              )}
-                              %
-                            </span>
-                          </div>
-                        )}
+                      {j.status === "running" && j.totalNodeCount > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <Progress
+                            value={
+                              (j.completedNodeCount / j.totalNodeCount) * 100
+                            }
+                            className="h-1 flex-1 [&>div]:bg-blue-500"
+                          />
+                          <span className="w-7 text-right text-[10px] text-blue-500 tabular-nums">
+                            {Math.round(
+                              (j.completedNodeCount / j.totalNodeCount) * 100
+                            )}
+                            %
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">
