@@ -1992,9 +1992,10 @@ export const CombinationPicker = memo(function CombinationPicker({
                   <TournamentView
                     images={visibleImages}
                     backendUrl={backendUrl}
-                    onComplete={(hash) =>
+                    onComplete={(hash) => {
                       selectImage(selectedItem!.filename, hash)
-                    }
+                      setViewMode("grid")
+                    }}
                   />
                 )}
               </div>
