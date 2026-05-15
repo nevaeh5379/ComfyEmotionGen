@@ -24,6 +24,10 @@ def _saved_image_row_to_dict(
     row: Any, *, tags: Optional[list[str]] = None
 ) -> dict[str, Any]:
     keys = row.keys() if hasattr(row, "keys") else set()
+    try:
+        meta = json.loads(row["meta_json"]) if "meta_json" in keys and row["meta_json"] else {}
+    except (json.JSONDecodeError, TypeError):
+        meta = {}
     return {
         "hash": row["hash"],
         "jobId": row["job_id"],
@@ -40,6 +44,8 @@ def _saved_image_row_to_dict(
         "note": row["note"] if "note" in keys else "",
         "trashedAt": row["trashed_at"] if "trashed_at" in keys else None,
         "tags": tags or [],
+        "meta": meta,
+        "cegTemplate": row["ceg_template"] if "ceg_template" in keys else "",
     }
 
 
@@ -77,8 +83,10 @@ class JobStore:
             )
             """
         )
-        # execution_duration_ms 컬럼이 없는 기존 DB를 위한 마이그레이션
+        # 기존 DB 마이그레이션
         await self._migrate_add_column("jobs", "execution_duration_ms", "REAL")
+        await self._migrate_add_column("jobs", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
+        await self._migrate_add_column("jobs", "ceg_template", "TEXT NOT NULL DEFAULT ''")
 
         await self._conn.execute(
             """
@@ -149,6 +157,8 @@ class JobStore:
             "saved_images", "note", "TEXT NOT NULL DEFAULT ''"
         )
         await self._migrate_add_column("saved_images", "trashed_at", "REAL")
+        await self._migrate_add_column("saved_images", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
+        await self._migrate_add_column("saved_images", "ceg_template", "TEXT NOT NULL DEFAULT ''")
         await self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_saved_images_status ON saved_images(status)"
         )
@@ -209,8 +219,8 @@ class JobStore:
                 id, filename, prompt, workflow_json, status, worker_id,
                 error, image_urls_json, progress_percent, current_node_name,
                 created_at, started_at, finished_at, retry_count,
-                execution_duration_ms
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                execution_duration_ms, meta_json, ceg_template
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_dict["id"],
@@ -228,6 +238,8 @@ class JobStore:
                 job_dict.get("finishedAt"),
                 job_dict.get("retryCount", 0),
                 job_dict.get("executionDurationMs"),
+                json.dumps(job_dict.get("meta", {})),
+                job_dict.get("cegTemplate", ""),
             ),
         )
         await self._conn.commit()
@@ -243,6 +255,10 @@ class JobStore:
         rows = await cursor.fetchall()
         results: list[dict[str, Any]] = []
         for row in rows:
+            try:
+                meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
+            except (json.JSONDecodeError, TypeError):
+                meta = {}
             results.append(
                 {
                     "id": row["id"],
@@ -260,6 +276,8 @@ class JobStore:
                     "finishedAt": row["finished_at"],
                     "retryCount": row["retry_count"],
                     "executionDurationMs": row["execution_duration_ms"],
+                    "meta": meta,
+                    "cegTemplate": row["ceg_template"] or "",
                 }
             )
         return results
@@ -400,6 +418,8 @@ class JobStore:
         extension: str,
         size_bytes: int,
         prompt: str,
+        meta: Optional[dict[str, str]] = None,
+        ceg_template: str = "",
     ) -> None:
         assert self._conn is not None
         await self._conn.execute(
@@ -407,8 +427,8 @@ class JobStore:
             INSERT OR IGNORE INTO saved_images (
                 hash, job_id, original_filename, comfy_filename,
                 subfolder, type, worker_id, extension, size_bytes,
-                prompt, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                prompt, created_at, meta_json, ceg_template
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 hash,
@@ -422,6 +442,8 @@ class JobStore:
                 size_bytes,
                 prompt,
                 time.time(),
+                json.dumps(meta or {}),
+                ceg_template,
             ),
         )
         await self._conn.commit()
@@ -681,11 +703,17 @@ class JobStore:
         row = await cursor.fetchone()
         if row is None:
             return None
+        try:
+            meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
         return {
             "id": row["id"],
             "filename": row["filename"],
             "prompt": row["prompt"],
             "_workflow": json.loads(row["workflow_json"]),
+            "meta": meta,
+            "cegTemplate": row["ceg_template"] or "",
         }
 
     # ---------- 통합 로그 조회 ----------

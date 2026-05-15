@@ -143,6 +143,8 @@ class JobItem(BaseModel):
     filename: str
     prompt: str
     workflow: Dict[str, Any]
+    meta: Dict[str, str] = Field(default_factory=dict)
+    cegTemplate: str = ""
 
 
 class JobsCreateRequest(BaseModel):

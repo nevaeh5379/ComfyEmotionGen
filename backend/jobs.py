@@ -79,6 +79,8 @@ class Job:
     finished_at: Optional[float] = None
     retry_count: int = 0
     execution_duration_ms: Optional[float] = None
+    meta: dict[str, str] = field(default_factory=dict)
+    ceg_template: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -98,6 +100,8 @@ class Job:
             "finishedAt": self.finished_at,
             "retryCount": self.retry_count,
             "executionDurationMs": self.execution_duration_ms,
+            "meta": self.meta,
+            "cegTemplate": self.ceg_template,
         }
 
     @classmethod
@@ -119,6 +123,8 @@ class Job:
             finished_at=d.get("finishedAt"),
             retry_count=d.get("retryCount", 0),
             execution_duration_ms=d.get("executionDurationMs"),
+            meta=d.get("meta", {}),
+            ceg_template=d.get("cegTemplate", ""),
         )
 
 
@@ -220,6 +226,8 @@ class JobManager:
                     filename=item["filename"],
                     prompt=item["prompt"],
                     workflow=item["workflow"],
+                    meta=item.get("meta", {}),
+                    ceg_template=item.get("cegTemplate", ""),
                 )
                 self._jobs[job.id] = job
                 created.append(job)
@@ -661,6 +669,8 @@ class JobManager:
                 job = self._jobs.get(job_id)
                 original_filename = job.filename if job else ""
                 prompt = job.prompt if job else ""
+                meta = job.meta if job else {}
+                ceg_template = job.ceg_template if job else ""
 
             await self._store.save_image_record(
                 hash=sha,
@@ -673,6 +683,8 @@ class JobManager:
                 extension=ext,
                 size_bytes=size,
                 prompt=prompt,
+                meta=meta,
+                ceg_template=ceg_template,
             )
             await self._emit(
                 {
@@ -771,12 +783,20 @@ class JobManager:
             raise ValueError(f"no prior job for filename: {filename}")
         base_workflow = latest["_workflow"]
         prompt = latest["prompt"]
+        meta = latest.get("meta", {})
+        ceg_template = latest.get("cegTemplate", "")
         items: list[dict[str, Any]] = []
         for i in range(count):
             wf = _clone_workflow_with_new_seed(
                 base_workflow, strategy=seed_strategy, increment_offset=i + 1
             )
-            items.append({"filename": filename, "prompt": prompt, "workflow": wf})
+            items.append({
+                "filename": filename,
+                "prompt": prompt,
+                "workflow": wf,
+                "meta": meta,
+                "cegTemplate": ceg_template,
+            })
         return await self.submit(items)
 
 

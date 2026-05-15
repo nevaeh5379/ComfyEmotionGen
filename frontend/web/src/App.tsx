@@ -920,6 +920,8 @@ export function App() {
         nodeMappings,
         imageNameMap
       ),
+      meta: item.meta,
+      cegTemplate: cegTemplate,
     }))
     try {
       const res = await fetch(`${backendUrl}/jobs`, {
