@@ -755,6 +755,7 @@ class JobManager:
                 prompt = job.prompt if job else ""
                 meta = job.meta if job else {}
                 ceg_template = job.ceg_template if job else ""
+                workflow = job.workflow if job else {}
 
             await self._store.save_image_record(
                 hash=sha,
@@ -769,6 +770,7 @@ class JobManager:
                 prompt=prompt,
                 meta=meta,
                 ceg_template=ceg_template,
+                workflow=workflow,
             )
             await self._emit(
                 {

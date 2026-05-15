@@ -28,6 +28,10 @@ def _saved_image_row_to_dict(
         meta = json.loads(row["meta_json"]) if "meta_json" in keys and row["meta_json"] else {}
     except (json.JSONDecodeError, TypeError):
         meta = {}
+    try:
+        workflow = json.loads(row["workflow_json"]) if "workflow_json" in keys and row["workflow_json"] else {}
+    except (json.JSONDecodeError, TypeError):
+        workflow = {}
     return {
         "hash": row["hash"],
         "jobId": row["job_id"],
@@ -46,6 +50,7 @@ def _saved_image_row_to_dict(
         "tags": tags or [],
         "meta": meta,
         "cegTemplate": row["ceg_template"] if "ceg_template" in keys else "",
+        "workflow": workflow,
     }
 
 
@@ -159,6 +164,7 @@ class JobStore:
         await self._migrate_add_column("saved_images", "trashed_at", "REAL")
         await self._migrate_add_column("saved_images", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
         await self._migrate_add_column("saved_images", "ceg_template", "TEXT NOT NULL DEFAULT ''")
+        await self._migrate_add_column("saved_images", "workflow_json", "TEXT NOT NULL DEFAULT '{}'")
         await self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_saved_images_status ON saved_images(status)"
         )
@@ -420,6 +426,7 @@ class JobStore:
         prompt: str,
         meta: Optional[dict[str, str]] = None,
         ceg_template: str = "",
+        workflow: Optional[dict[str, Any]] = None,
     ) -> None:
         assert self._conn is not None
         await self._conn.execute(
@@ -427,8 +434,8 @@ class JobStore:
             INSERT OR IGNORE INTO saved_images (
                 hash, job_id, original_filename, comfy_filename,
                 subfolder, type, worker_id, extension, size_bytes,
-                prompt, created_at, meta_json, ceg_template
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                prompt, created_at, meta_json, ceg_template, workflow_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 hash,
@@ -444,6 +451,7 @@ class JobStore:
                 time.time(),
                 json.dumps(meta or {}),
                 ceg_template,
+                json.dumps(workflow or {}),
             ),
         )
         await self._conn.commit()
