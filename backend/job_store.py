@@ -255,38 +255,84 @@ class JobStore:
         await self._conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         await self._conn.commit()
 
+    def _job_row_to_dict(self, row: Any) -> dict[str, Any]:
+        try:
+            meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
+        return {
+            "id": row["id"],
+            "filename": row["filename"],
+            "prompt": row["prompt"],
+            "_workflow": json.loads(row["workflow_json"]),
+            "status": row["status"],
+            "workerId": row["worker_id"],
+            "error": row["error"],
+            "imageUrls": json.loads(row["image_urls_json"]),
+            "progressPercent": row["progress_percent"],
+            "currentNodeName": row["current_node_name"],
+            "createdAt": row["created_at"],
+            "startedAt": row["started_at"],
+            "finishedAt": row["finished_at"],
+            "retryCount": row["retry_count"],
+            "executionDurationMs": row["execution_duration_ms"],
+            "meta": meta,
+            "cegTemplate": row["ceg_template"] or "",
+        }
+
     async def load_all(self) -> list[dict[str, Any]]:
         assert self._conn is not None
         cursor = await self._conn.execute("SELECT * FROM jobs ORDER BY created_at ASC")
         rows = await cursor.fetchall()
-        results: list[dict[str, Any]] = []
-        for row in rows:
-            try:
-                meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
-            except (json.JSONDecodeError, TypeError):
-                meta = {}
-            results.append(
-                {
-                    "id": row["id"],
-                    "filename": row["filename"],
-                    "prompt": row["prompt"],
-                    "_workflow": json.loads(row["workflow_json"]),
-                    "status": row["status"],
-                    "workerId": row["worker_id"],
-                    "error": row["error"],
-                    "imageUrls": json.loads(row["image_urls_json"]),
-                    "progressPercent": row["progress_percent"],
-                    "currentNodeName": row["current_node_name"],
-                    "createdAt": row["created_at"],
-                    "startedAt": row["started_at"],
-                    "finishedAt": row["finished_at"],
-                    "retryCount": row["retry_count"],
-                    "executionDurationMs": row["execution_duration_ms"],
-                    "meta": meta,
-                    "cegTemplate": row["ceg_template"] or "",
-                }
-            )
-        return results
+        return [self._job_row_to_dict(row) for row in rows]
+
+    async def count_jobs(
+        self,
+        *,
+        status: Optional[str] = None,
+        filename: Optional[str] = None,
+    ) -> int:
+        assert self._conn is not None
+        conditions: list[str] = []
+        params: list[Any] = []
+        if status is not None:
+            conditions.append("status = ?")
+            params.append(status)
+        if filename is not None:
+            conditions.append("filename LIKE ?")
+            params.append(f"%{filename}%")
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+        cursor = await self._conn.execute(
+            f"SELECT COUNT(*) AS c FROM jobs{where}", params
+        )
+        row = await cursor.fetchone()
+        return int(row["c"]) if row is not None else 0
+
+    async def query_jobs(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        status: Optional[str] = None,
+        filename: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
+        assert self._conn is not None
+        conditions: list[str] = []
+        params: list[Any] = []
+        if status is not None:
+            conditions.append("status = ?")
+            params.append(status)
+        if filename is not None:
+            conditions.append("filename LIKE ?")
+            params.append(f"%{filename}%")
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+        params.extend([limit, offset])
+        cursor = await self._conn.execute(
+            f"SELECT * FROM jobs{where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            params,
+        )
+        rows = await cursor.fetchall()
+        return [self._job_row_to_dict(row) for row in rows]
 
     # ---------- job_events (audit log) ----------
 

@@ -11,7 +11,7 @@
     POST /render                       - DSL 템플릿 → 프롬프트 리스트
     POST /workflow/inject              - 워크플로우에 프롬프트 주입
     POST /jobs                         - 잡 N개 등록 (프론트가 시드/치환 박은 워크플로우 제출)
-    GET  /jobs                         - 잡 스냅샷
+    GET  /jobs                         - 잡 목록 (선택적 필터: status,filename,limit,offset)
     DELETE /jobs/{id}                  - 잡 취소
     GET  /images/{worker_id}/view      - ComfyUI view 프록시 (실시간)
     GET  /saved-images                 - 디스크 영속화된 이미지 목록 (필터: status,tag,filename,job_id)
@@ -379,8 +379,15 @@ async def jobs_create(req: JobsCreateRequest):
 
 
 @app.get("/jobs")
-async def jobs_list():
-    return {"jobs": await job_manager.snapshot()}
+async def jobs_list(
+    limit: int = 100,
+    offset: int = 0,
+    status: str | None = None,
+    filename: str | None = None,
+):
+    return await job_manager.query_jobs(
+        limit=limit, offset=offset, status=status, filename=filename
+    )
 
 
 @app.delete("/jobs/{job_id}")

@@ -373,6 +373,20 @@ class JobManager:
         async with self._lock:
             return [j.to_dict() for j in self._jobs.values()]
 
+    async def query_jobs(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
+        filename: str | None = None,
+    ) -> dict[str, Any]:
+        total = await self._store.count_jobs(status=status, filename=filename)
+        items = await self._store.query_jobs(
+            limit=limit, offset=offset, status=status, filename=filename
+        )
+        return {"total": total, "items": items, "limit": limit, "offset": offset}
+
     async def get_job(self, job_id: str) -> Optional[Job]:
         async with self._lock:
             return self._jobs.get(job_id)
