@@ -1117,39 +1117,65 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           />
         </div>
 
-        {/* Running job progress cards */}
-        {sessionJobs
-          .filter((j) => j.status === "running")
-          .map((j) => {
-            const remaining = j.startedAt
-              ? estimateRemaining(j.startedAt, j.progressPercent)
-              : null
-            const jobProgress =
-              j.totalNodeCount > 0
-                ? Math.round(
-                    (j.completedNodeCount / j.totalNodeCount) * 100
-                  )
-                : null
-            return (
-              <div
-                key={j.id}
-                className="space-y-1 rounded-md bg-muted/20 px-2.5 py-2"
-              >
+        {/* Per-job progress card — always visible, content changes */}
+        {(() => {
+          const runningJobs = sessionJobs.filter(
+            (j) => j.status === "running"
+          )
+          const j: JobView = runningJobs[0] ?? {
+            id: "",
+            filename: "-",
+            status: "pending",
+            createdAt: 0,
+            progressPercent: 0,
+            currentNodeName: "",
+            completedNodeCount: 0,
+            totalNodeCount: 0,
+            retryCount: 0,
+            imageUrls: [],
+            prompt: "",
+            error: null,
+            executionDurationMs: null,
+            finishedAt: null,
+            startedAt: null,
+            savedImageHashes: [],
+            workerId: null,
+          }
+
+          return (
+            <div className="space-y-1 rounded-md bg-muted/20 px-2.5 py-2">
+              <>
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-mono text-xs">
                     {j.filename}
+                    {runningJobs.length > 1 && (
+                      <span className="ml-1 text-muted-foreground">
+                        외 {runningJobs.length - 1}개
+                      </span>
+                    )}
                   </span>
-                  {remaining != null && (
-                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                      예상 {formatETA(remaining)} 남음
-                    </span>
-                  )}
+                  {(() => {
+                    const remaining =
+                      j.startedAt
+                        ? estimateRemaining(
+                            j.startedAt,
+                            j.progressPercent
+                          )
+                        : null
+                    return remaining != null ? (
+                      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                        예상 {formatETA(remaining)} 남음
+                      </span>
+                    ) : null
+                  })()}
                 </div>
                 <div className="flex items-center justify-between text-[10px]">
                   <span className="truncate text-muted-foreground">
                     {j.currentNodeName
                       ? `노드: ${j.currentNodeName}`
-                      : "노드 처리 중…"}
+                      : j.id
+                        ? "노드 처리 중…"
+                        : "—"}
                   </span>
                   <span className="shrink-0 tabular-nums">
                     {Math.round(j.progressPercent)}%
@@ -1159,27 +1185,36 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   value={j.progressPercent}
                   className="h-1.5 w-full"
                 />
-                {jobProgress != null ? (
+                {(
                   <>
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="text-muted-foreground">
-                        전체 작업 ({j.completedNodeCount}/{j.totalNodeCount} 노드)
+                        전체 작업 ({j.completedNodeCount}/
+                        {j.totalNodeCount} 노드)
                       </span>
-                      <span className="tabular-nums">{jobProgress}%</span>
+                      <span className="tabular-nums">
+                        {Math.round(
+                          (j.completedNodeCount /
+                            j.totalNodeCount) *
+                            100
+                        )}
+                        %
+                      </span>
                     </div>
                     <Progress
-                      value={jobProgress}
+                      value={
+                        (j.completedNodeCount /
+                          j.totalNodeCount) *
+                        100
+                      }
                       className="h-1.5 w-full [&>div]:bg-blue-500"
                     />
                   </>
-                ) : (
-                  <div className="text-[10px] text-muted-foreground italic">
-                    노드 정보 수신 대기 중…
-                  </div>
                 )}
-              </div>
-            )
-          })}
+              </>
+            </div>
+          )
+        })()}
       </div>
 
       {/* 3. Table Toolbar */}
