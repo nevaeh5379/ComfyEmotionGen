@@ -299,9 +299,12 @@ class JobManager:
                     None,
                 )
             if target is None:
-                return count
+                break
             if await self.cancel(target):
                 count += 1
+        for worker in self._pool.all():
+            await worker.clear_queue()
+        return count
 
     async def remove(self, job_id: str) -> bool:
         """Permanently delete a job from memory and store."""
@@ -338,6 +341,7 @@ class JobManager:
             if worker is not None and worker.current_job_id == job_id:
                 await worker.interrupt()
                 worker.current_job_id = None
+                await worker.delete_from_queue(job_id)
         await self._store.save(job_dict)
         await self._store.save_event(
             job_id, "cancelled",
@@ -412,6 +416,13 @@ class JobManager:
                     job_id,
                     error=f"submit failed: {exc}",
                 )
+            else:
+                # submit 중 취소됐다면 바로 큐에서 제거
+                async with self._lock:
+                    job = self._jobs.get(job_id)
+                    was_cancelled = job is not None and job.status == "cancelled"
+                if was_cancelled:
+                    await worker.delete_from_queue(job_id)
 
     # ---------- ComfyUI raw → 정규화 ----------
 

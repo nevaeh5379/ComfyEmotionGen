@@ -143,6 +143,22 @@ class ComfyWorker:
         except Exception as exc:  # pragma: no cover - best effort
             logger.warning("worker %s interrupt failed: %s", self.id, exc)
 
+    async def delete_from_queue(self, prompt_id: str) -> None:
+        """ComfyUI pending 큐에서 특정 prompt 제거 (실행 중이면 no-op)."""
+        try:
+            resp = await self._http.post("/queue", json={"delete": [prompt_id]})
+            resp.raise_for_status()
+        except Exception as exc:  # pragma: no cover - best effort
+            logger.warning("worker %s delete_from_queue(%s) failed: %s", self.id, prompt_id, exc)
+
+    async def clear_queue(self) -> None:
+        """ComfyUI pending 큐 전체 비우기."""
+        try:
+            resp = await self._http.post("/queue", json={"clear": True})
+            resp.raise_for_status()
+        except Exception as exc:  # pragma: no cover - best effort
+            logger.warning("worker %s clear_queue failed: %s", self.id, exc)
+
     async def stream_view(self, params: dict[str, str]) -> AsyncIterator[bytes]:
         """ComfyUI /view 스트리밍 (이미지 프록시용)."""
         async with self._http.stream("GET", "/view", params=params) as resp:
