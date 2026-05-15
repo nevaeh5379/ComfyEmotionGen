@@ -724,6 +724,20 @@ export function App() {
     deleteWorkflow,
   } = useSavedWorkflows()
   const [workflowSaveName, setWorkflowSaveName] = useState("")
+  const [pendingSave, setPendingSave] = useState<{
+    name: string
+    type: "template" | "workflow"
+  } | null>(null)
+
+  const nextFreeName = (
+    name: string,
+    items: { name: string }[]
+  ): string => {
+    if (!items.some((x) => x.name === name)) return name
+    let n = 2
+    while (items.some((x) => x.name === `${name} (${n})`)) n++
+    return `${name} (${n})`
+  }
 
   // 파서 미리보기 필터
   const [previewFilter, setPreviewFilter] = useState("")
@@ -1189,7 +1203,12 @@ export function App() {
                       saveName={templateSaveName}
                       onSaveNameChange={setTemplateSaveName}
                       onSave={(name) => {
-                        saveTemplate(name, cegTemplate)
+                        const trimmed = name.trim()
+                        if (savedTemplates.some((t) => t.name === trimmed)) {
+                          setPendingSave({ name: trimmed, type: "template" })
+                          return
+                        }
+                        saveTemplate(trimmed, cegTemplate)
                         setTemplateSaveName("")
                       }}
                       onLoad={(t) => setCegTemplate(t.template)}
@@ -1205,7 +1224,12 @@ export function App() {
                       saveName={workflowSaveName}
                       onSaveNameChange={setWorkflowSaveName}
                       onSave={(name) => {
-                        saveWorkflow(name, workflowJson)
+                        const trimmed = name.trim()
+                        if (savedWorkflows.some((w) => w.name === trimmed)) {
+                          setPendingSave({ name: trimmed, type: "workflow" })
+                          return
+                        }
+                        saveWorkflow(trimmed, workflowJson)
                         setWorkflowSaveName("")
                       }}
                       onLoad={(w) => setWorkflowJson(w.workflow)}
@@ -1884,6 +1908,67 @@ export function App() {
           backendUrl={backendUrl}
         />
       )}
+
+      <Dialog
+        open={pendingSave !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSave(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>이름 충돌</DialogTitle>
+            <DialogDescription>
+              "{pendingSave?.name}" 이름이 이미 존재합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPendingSave(null)}
+            >
+              취소
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (!pendingSave) return
+                const items =
+                  pendingSave.type === "template"
+                    ? savedTemplates
+                    : savedWorkflows
+                const newName = nextFreeName(pendingSave.name, items)
+                if (pendingSave.type === "template") {
+                  saveTemplate(newName, cegTemplate)
+                  setTemplateSaveName("")
+                } else {
+                  saveWorkflow(newName, workflowJson)
+                  setWorkflowSaveName("")
+                }
+                setPendingSave(null)
+              }}
+            >
+              새로 저장 ({nextFreeName(pendingSave?.name ?? "", pendingSave?.type === "template" ? savedTemplates : savedWorkflows)})
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                if (!pendingSave) return
+                if (pendingSave.type === "template") {
+                  saveTemplate(pendingSave.name, cegTemplate)
+                  setTemplateSaveName("")
+                } else {
+                  saveWorkflow(pendingSave.name, workflowJson)
+                  setWorkflowSaveName("")
+                }
+                setPendingSave(null)
+              }}
+            >
+              덮어쓰기
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

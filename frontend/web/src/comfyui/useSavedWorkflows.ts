@@ -35,13 +35,24 @@ export function useSavedWorkflows() {
 
   const saveWorkflow = useCallback(
     (name: string, workflow: string) => {
-      const next: SavedWorkflow = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        name: name.trim(),
-        workflow,
-        savedAt: Date.now(),
+      const trimmed = name.trim()
+      const all = load()
+      const existing = all.find((w) => w.name === trimmed)
+      if (existing) {
+        persist(
+          all.map((w) =>
+            w.id === existing.id ? { ...w, workflow, savedAt: Date.now() } : w
+          )
+        )
+      } else {
+        const next: SavedWorkflow = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: trimmed,
+          workflow,
+          savedAt: Date.now(),
+        }
+        persist([...all, next])
       }
-      persist([...load(), next])
     },
     [persist]
   )
