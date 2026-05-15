@@ -37,16 +37,14 @@ export function useSavedTemplates() {
   }, [])
 
   const saveTemplate = useCallback(
-    (name: string, template: string) => {
+    (name: string, template: string): SavedTemplate => {
       const trimmed = name.trim()
       const all = load()
       const existing = all.find((t) => t.name === trimmed)
       if (existing) {
-        persist(
-          all.map((t) =>
-            t.id === existing.id ? { ...t, template, savedAt: Date.now() } : t
-          )
-        )
+        const updated = { ...existing, template, savedAt: Date.now() }
+        persist(all.map((t) => (t.id === existing.id ? updated : t)))
+        return updated
       } else {
         const next: SavedTemplate = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -55,6 +53,7 @@ export function useSavedTemplates() {
           savedAt: Date.now(),
         }
         persist([...all, next])
+        return next
       }
     },
     [persist]

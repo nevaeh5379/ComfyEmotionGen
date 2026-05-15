@@ -48,7 +48,10 @@ import type { WorkerView } from "./comfyui/Message"
 import { SavedImagesGallery } from "./comfyui/SavedImagesGallery"
 import { CombinationPicker } from "./comfyui/CombinationPicker"
 import { useSavedTemplates } from "./comfyui/useSavedTemplates"
-import { useSavedWorkflows } from "./comfyui/useSavedWorkflows"
+import {
+  useSavedWorkflows,
+  type SavedWorkflow,
+} from "./comfyui/useSavedWorkflows"
 import { WorkflowGraphViewer } from "./comfyui/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/JobManagerPanel"
 import { SettingsPanel } from "./comfyui/SettingsPanel"
@@ -154,6 +157,8 @@ interface SavedItemsManagerProps<T extends SaveableItem> {
   placeholder: string
   saveDisabled: boolean
   extraHeader?: React.ReactNode
+  activeItemId?: string | undefined
+  onUpdate?: (() => void) | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -350,6 +355,8 @@ function SavedItemsManager<T extends SaveableItem>({
   placeholder,
   saveDisabled,
   extraHeader,
+  activeItemId,
+  onUpdate,
 }: SavedItemsManagerProps<T>) {
   const [name, setName] = useState("")
 
@@ -359,9 +366,21 @@ function SavedItemsManager<T extends SaveableItem>({
     if (onSave(trimmed)) setName("")
   }
 
+  const activeItem = activeItemId ? items.find((i) => i.id === activeItemId) : null
+
   return (
     <>
       {extraHeader}
+      {activeItem && onUpdate && (
+        <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs">
+          <span className="truncate text-muted-foreground">
+            현재: <span className="font-semibold text-foreground">{activeItem.name}</span>
+          </span>
+          <Button variant="ghost" size="sm" className="h-6 shrink-0 px-2 text-xs" onClick={onUpdate}>
+            업데이트
+          </Button>
+        </div>
+      )}
       <div className="flex gap-2 pt-1">
         <Input
           placeholder={placeholder}
@@ -742,6 +761,20 @@ export function App() {
     name: string
     type: "template" | "workflow" | "nodeMapping"
   } | null>(null)
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null)
+  const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] = useState<string | null>(null)
+  const [repeatCount, setRepeatCount] = useState(1)
+  const [pendingPresetSelection, setPendingPresetSelection] =
+    useState<SavedWorkflow | null>(null)
+
+  const activeTemplate = useMemo(
+    () => savedTemplates.find((t) => t.id === activeTemplateId) ?? null,
+    [savedTemplates, activeTemplateId]
+  )
+  const activeNodeMappingPreset = useMemo(
+    () => savedNodeMappings.find((m) => m.id === activeNodeMappingPresetId) ?? null,
+    [savedNodeMappings, activeNodeMappingPresetId]
+  )
 
   const nextFreeName = (name: string, items: { name: string }[]): string => {
     if (!items.some((x) => x.name === name)) return name
@@ -959,11 +992,31 @@ export function App() {
     }
   }
 
+  const loadWorkflowItem = (w: SavedWorkflow) => {
+    setWorkflowJson(w.workflow)
+    setActiveWorkflowId(w.id)
+    setActiveNodeMappingPresetId(null)
+    if (!w.mappingPresets || w.mappingPresets.length === 0) {
+      setNodeMappings([])
+    } else if (w.mappingPresets.length === 1) {
+      setNodeMappings(w.mappingPresets[0]!.mappings)
+      setActiveNodeMappingPresetId(w.mappingPresets[0]!.id)
+    } else {
+      setNodeMappings([])
+      setPendingPresetSelection(w)
+    }
+  }
+
   const handleRun = async () => {
     if (!workflowJson || !isAliveBackend) return
     const parserResult = await callParser()
     if (!parserResult) return
-    await submitJobs(applyAxisFilters(parserResult.items, axisValueFilter))
+    const items = applyAxisFilters(parserResult.items, axisValueFilter)
+    const repeated =
+      repeatCount > 1
+        ? Array.from({ length: repeatCount }, () => items).flat()
+        : items
+    await submitJobs(repeated)
   }
 
   const handleRunSelected = async () => {
@@ -973,7 +1026,11 @@ export function App() {
     const selected = parserResult.items.filter(
       (item) => !uncheckedItems.has(itemKey(item))
     )
-    return await submitJobs(selected)
+    const repeated =
+      repeatCount > 1
+        ? Array.from({ length: repeatCount }, () => selected).flat()
+        : selected
+    return await submitJobs(repeated)
   }
 
   // 파서 테스트 시트 검색 필터
@@ -1199,14 +1256,19 @@ export function App() {
                 <div className="flex h-10 items-stretch overflow-hidden rounded-md border bg-background">
                   <input
                     type="number"
-                    className="h-full w-24 bg-transparent px-3 outline-none"
-                    placeholder="0"
+                    className="h-full w-16 bg-transparent px-3 outline-none"
+                    min={1}
+                    value={repeatCount}
+                    onChange={(e) =>
+                      setRepeatCount(Math.max(1, Number(e.target.value) || 1))
+                    }
                   />
                   <div className="flex w-8 flex-col border-l">
                     <Button
                       variant="ghost"
                       className="flex-1"
                       aria-label="Increase"
+                      onClick={() => setRepeatCount((c) => c + 1)}
                     >
                       <PlusIcon className="h-3 w-3" />
                     </Button>
@@ -1214,6 +1276,7 @@ export function App() {
                       variant="ghost"
                       className="flex-1"
                       aria-label="Decrease"
+                      onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
                     >
                       <MinusIcon className="h-3 w-3" />
                     </Button>
@@ -1226,7 +1289,9 @@ export function App() {
                   disabled={!canRun}
                 >
                   실행
-                  {estimatedRunCount !== null ? ` (${estimatedRunCount})` : ""}
+                  {estimatedRunCount !== null
+                    ? ` (${estimatedRunCount}${repeatCount > 1 ? ` × ${repeatCount}` : ""})`
+                    : ""}
                 </Button>
                 <Button
                   variant="secondary"
@@ -1313,13 +1378,25 @@ export function App() {
                               })
                               return false
                             }
-                            saveTemplate(trimmed, cegTemplate)
+                            const saved = saveTemplate(trimmed, cegTemplate)
+                            setActiveTemplateId(saved.id)
                             return true
                           }}
-                          onLoad={(t) => setCegTemplate(t.template)}
-                          onDelete={deleteTemplate}
+                          onLoad={(t) => {
+                            setCegTemplate(t.template)
+                            setActiveTemplateId(t.id)
+                          }}
+                          onDelete={(id) => {
+                            if (activeTemplateId === id) setActiveTemplateId(null)
+                            deleteTemplate(id)
+                          }}
                           placeholder="탬플릿 이름"
                           saveDisabled={!cegTemplate.trim()}
+                          activeItemId={activeTemplateId ?? undefined}
+                          onUpdate={() => {
+                            if (activeTemplate)
+                              saveTemplate(activeTemplate.name, cegTemplate)
+                          }}
                         />
                       </Field>
                     </FieldGroup>
@@ -1350,18 +1427,7 @@ export function App() {
                             setActiveWorkflowId(w.id)
                             return true
                           }}
-                          onLoad={(w) => {
-                            setWorkflowJson(w.workflow)
-                            setActiveWorkflowId(w.id)
-                            if (
-                              w.mappingPresets &&
-                              w.mappingPresets.length > 0
-                            ) {
-                              setNodeMappings(w.mappingPresets[0]!.mappings)
-                            } else {
-                              setNodeMappings([])
-                            }
-                          }}
+                          onLoad={loadWorkflowItem}
                           onDelete={(id) => {
                             if (activeWorkflowId === id)
                               setActiveWorkflowId(null)
@@ -1369,6 +1435,11 @@ export function App() {
                           }}
                           placeholder="워크플로우 이름"
                           saveDisabled={!workflowJson.trim()}
+                          activeItemId={activeWorkflowId ?? undefined}
+                          onUpdate={() => {
+                            if (activeWorkflow)
+                              saveWorkflow(activeWorkflow.name, workflowJson)
+                          }}
                           extraHeader={
                             savedWorkflows.length > 0 ? (
                               <select
@@ -1380,20 +1451,7 @@ export function App() {
                                   const found = savedWorkflows.find(
                                     (w) => w.id === id
                                   )
-                                  if (found) {
-                                    setWorkflowJson(found.workflow)
-                                    setActiveWorkflowId(found.id)
-                                    if (
-                                      found.mappingPresets &&
-                                      found.mappingPresets.length > 0
-                                    ) {
-                                      setNodeMappings(
-                                        found.mappingPresets[0]!.mappings
-                                      )
-                                    } else {
-                                      setNodeMappings([])
-                                    }
-                                  }
+                                  if (found) loadWorkflowItem(found)
                                 }}
                               >
                                 <option value="" disabled>
@@ -1461,12 +1519,26 @@ export function App() {
                                 )
                                 return true
                               }}
-                              onLoad={(m) => setNodeMappings(m.mappings)}
-                              onDelete={(presetId) =>
+                              onLoad={(m) => {
+                                setNodeMappings(m.mappings)
+                                setActiveNodeMappingPresetId(m.id)
+                              }}
+                              onDelete={(presetId) => {
+                                if (activeNodeMappingPresetId === presetId)
+                                  setActiveNodeMappingPresetId(null)
                                 deleteMappingPreset(activeWorkflowId, presetId)
-                              }
+                              }}
                               placeholder="노드 매핑 이름"
                               saveDisabled={nodeMappings.length === 0}
+                              activeItemId={activeNodeMappingPresetId ?? undefined}
+                              onUpdate={() => {
+                                if (activeNodeMappingPreset && activeWorkflowId)
+                                  saveMappingPreset(
+                                    activeWorkflowId,
+                                    activeNodeMappingPreset.name,
+                                    nodeMappings
+                                  )
+                              }}
                               extraHeader={
                                 savedNodeMappings.length > 0 ? (
                                   <select
@@ -1478,7 +1550,10 @@ export function App() {
                                       const found = savedNodeMappings.find(
                                         (m) => m.id === id
                                       )
-                                      if (found) setNodeMappings(found.mappings)
+                                      if (found) {
+                                        setNodeMappings(found.mappings)
+                                        setActiveNodeMappingPresetId(found.id)
+                                      }
                                     }}
                                   >
                                     <option value="" disabled>
@@ -2147,6 +2222,51 @@ export function App() {
               }}
             >
               덮어쓰기
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pendingPresetSelection !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingPresetSelection(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>노드 매핑 프리셋 선택</DialogTitle>
+            <DialogDescription>
+              사용할 노드 매핑 프리셋을 선택하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {pendingPresetSelection?.mappingPresets.map((preset) => (
+              <Button
+                key={preset.id}
+                variant="outline"
+                className="justify-start"
+                onClick={() => {
+                  setNodeMappings(preset.mappings)
+                  setActiveNodeMappingPresetId(preset.id)
+                  setPendingPresetSelection(null)
+                }}
+              >
+                {preset.name}
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {new Date(preset.savedAt).toLocaleDateString()}
+                </span>
+              </Button>
+            ))}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setNodeMappings([])
+                setActiveNodeMappingPresetId(null)
+                setPendingPresetSelection(null)
+              }}
+            >
+              매핑 없이 시작
             </Button>
           </div>
         </DialogContent>
