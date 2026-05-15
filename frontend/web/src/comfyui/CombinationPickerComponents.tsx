@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { HoverCardContent } from "@/components/ui/hover-card"
 import {
   ContextMenuContent,
@@ -15,8 +16,16 @@ import {
   ContextMenuLabel,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
-import type { ComponentProps } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { useState, useMemo, useEffect, type ComponentProps } from "react"
 import type { SavedImage } from "./Message"
+import type { SavedTemplate } from "./useSavedTemplates"
 
 export interface RenderItem {
   filename: string
@@ -142,56 +151,6 @@ export function CombinationContextMenu({
   )
 }
 
-export function RegenCountControl({
-  value,
-  onChange,
-  buttonText,
-  isLoading,
-  isDisabled,
-  onAction,
-}: {
-  value: number
-  onChange: (value: number) => void
-  buttonText: string
-  isLoading: boolean
-  isDisabled: boolean
-  onAction: () => void
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded border bg-background p-1 shadow-sm">
-      <div className="flex flex-col items-center px-2">
-        <span className="mb-0.5 text-[8px] leading-none font-bold text-muted-foreground uppercase">
-          Regen Count
-        </span>
-        <Input
-          type="number"
-          min={1}
-          max={20}
-          value={value}
-          onChange={(e) => {
-            const n = parseInt(e.target.value)
-            onChange(isNaN(n) ? 1 : Math.max(1, Math.min(20, n)))
-          }}
-          className="h-6 w-10 border-none p-0 text-center text-[11px] font-bold focus-visible:ring-0"
-        />
-      </div>
-      <Button
-        size="sm"
-        className="h-8 gap-1.5 text-[10px] font-bold"
-        onClick={onAction}
-        disabled={isDisabled}
-      >
-        {isLoading ? (
-          <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <RefreshCwIcon className="h-3.5 w-3.5" />
-        )}
-        {buttonText}
-      </Button>
-    </div>
-  )
-}
-
 interface LoadingButtonProps extends ComponentProps<typeof Button> {
   isLoading: boolean
   icon: React.ComponentType<{ className?: string }>
@@ -209,5 +168,139 @@ export function LoadingButton({
       {isLoading ? <Loader2Icon className="animate-spin" /> : <Icon />}
       {children}
     </Button>
+  )
+}
+
+export interface RegenerateDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  filenames: string[]
+  imagesByFilename: Map<string, SavedImage[]>
+  currentCegTemplate: string
+  savedTemplates: SavedTemplate[]
+  onRegenerate: (count: number, template: string) => void
+  isLoading: boolean
+}
+
+export function RegenerateDialog({
+  open,
+  onOpenChange,
+  filenames,
+  imagesByFilename,
+  currentCegTemplate,
+  savedTemplates,
+  onRegenerate,
+  isLoading,
+}: RegenerateDialogProps) {
+  const [count, setCount] = useState(4)
+  const [selectedTemplate, setSelectedTemplate] = useState("")
+
+  // 선택된 파일그룹들에 속한 이미지들의 모든 cegTemplate 추출 (중복 제거)
+  const historicalTemplates = useMemo(() => {
+    const templates = new Set<string>()
+    for (const filename of filenames) {
+      const images = imagesByFilename.get(filename) ?? []
+      for (const img of images) {
+        if (img.cegTemplate) {
+          templates.add(img.cegTemplate)
+        }
+      }
+    }
+    return Array.from(templates)
+  }, [filenames, imagesByFilename])
+
+  // 다이얼로그가 열릴 때 기본값 설정
+  useEffect(() => {
+    if (open) {
+      // 기본적으로 현재 편집 중인 템플릿을 선택하거나, 
+      // 만약 과거 템플릿만 있다면 첫 번째 과거 템플릿을 선택
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedTemplate(currentCegTemplate || historicalTemplates[0] || "")
+    }
+  }, [open, currentCegTemplate, historicalTemplates])
+
+  const handleConfirm = () => {
+    onRegenerate(count, selectedTemplate)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <RefreshCwIcon className="h-5 w-5" />
+            재생성 설정
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="regen-count" className="text-xs font-bold uppercase">
+              생성 갯수 (Count)
+            </Label>
+            <Input
+              id="regen-count"
+              type="number"
+              min={1}
+              max={64}
+              value={count}
+              onChange={(e) => setCount(parseInt(e.target.value) || 1)}
+              className="font-mono font-bold"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="template-select" className="text-xs font-bold uppercase">
+              사용할 템플릿 (CEG Template)
+            </Label>
+            <select
+              id="template-select"
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <optgroup label="현재 환경">
+                <option value={currentCegTemplate}>현재 편집 중인 템플릿</option>
+                {savedTemplates.map((st) => (
+                  <option key={st.id} value={st.template}>
+                    프리셋: {st.name}
+                  </option>
+                ))}
+              </optgroup>
+              {historicalTemplates.length > 0 && (
+                <optgroup label="과거 사용 내역 (History)">
+                  {historicalTemplates.map((t, i) => (
+                    <option key={i} value={t}>
+                      과거 기록 {i + 1} (길이: {t.length})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          {selectedTemplate && (
+            <div className="mt-2 rounded-md bg-muted p-3">
+              <div className="mb-1 text-[10px] font-bold text-muted-foreground uppercase">
+                Preview
+              </div>
+              <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-tight">
+                {selectedTemplate}
+              </pre>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:justify-end">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            취소
+          </Button>
+          <Button onClick={handleConfirm} disabled={isLoading || !selectedTemplate}>
+            {isLoading && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+            재생성 시작
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

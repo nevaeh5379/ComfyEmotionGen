@@ -59,6 +59,7 @@ export interface SavedImage {
   note: string
   trashedAt: number | null
   tags: string[]
+  cegTemplate?: string
 }
 
 export interface AssetGroup {

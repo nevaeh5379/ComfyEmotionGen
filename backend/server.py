@@ -641,11 +641,14 @@ async def asset_group_detail(filename: str, status: str | None = None):
 async def asset_group_regenerate(filename: str, body: RegenerateRequest):
     try:
         jobs = await job_manager.regenerate_group(
-            filename, count=body.count, seed_strategy=body.seedStrategy
+            filename,
+            count=body.count,
+            seed_strategy=body.seedStrategy,
+            template=body.template,
         )
+        return {"jobIds": [j.id for j in jobs]}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return {"jobIds": [j.id for j in jobs]}
 
 
 # ====== 데이터셋 익스포트 ======

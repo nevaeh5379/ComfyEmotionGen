@@ -29,6 +29,7 @@ from typing import Any, Awaitable, Callable, Literal, Optional
 from comfy_client import ComfyWorker, WorkerInfo
 from job_store import JobStore
 from worker_pool import WorkerPool
+from prompt_dsl import parse, render
 
 
 def _worker_view(info: WorkerInfo) -> dict[str, Any]:
@@ -856,18 +857,56 @@ class JobManager:
     # ---------- 재생성 ----------
 
     async def regenerate_group(
-        self, filename: str, *, count: int, seed_strategy: str = "random"
+        self,
+        filename: str,
+        *,
+        count: int,
+        seed_strategy: str = "random",
+        template: str | None = None,
     ) -> list[Job]:
-        """같은 filename의 가장 최근 Job 워크플로우를 재사용해 시드만 바꿔 N건 재제출."""
+        """같은 filename의 워크플로우를 재사용해 시드만 바꿔 N건 재제출.
+        template이 주어지면 직접 렌더링해서 사용하고, 없으면 가장 최근 잡의 워크플로우를 사용한다.
+        """
         if count < 1:
             return []
-        latest = await self._store.get_latest_job_by_filename(filename)
-        if latest is None:
-            raise ValueError(f"no prior job for filename: {filename}")
-        base_workflow = latest["_workflow"]
-        prompt = latest["prompt"]
-        meta = latest.get("meta", {})
-        ceg_template = latest.get("cegTemplate", "")
+
+        base_workflow: dict[str, Any]
+        prompt: str
+        meta: dict[str, Any]
+        ceg_template: str
+
+        if template:
+            # 1. 템플릿 직접 렌더링
+            prog = parse(template)
+            rendered = render(prog)
+            target_item = next(
+                (it for it in rendered["items"] if it["filename"] == filename),
+                None
+            )
+            if target_item is None:
+                raise ValueError(f"filename '{filename}' not found in provided template")
+
+            # render() 결과는 ComfyUI 워크플로우가 문자열(JSON)일 수 있으므로 파싱 확인
+            wf = target_item["workflow"]
+            if isinstance(wf, str):
+                base_workflow = json.loads(wf)
+            else:
+                base_workflow = wf
+            prompt = target_item["prompt"]
+            meta = target_item.get("meta", {})
+            ceg_template = template
+        else:
+            # 2. 기존 가장 최근 잡에서 정보 추출
+            latest = await self._store.get_latest_job_by_filename(filename)
+            if latest is None:
+                raise ValueError(f"no prior job for filename: {filename}")
+            base_workflow = latest["_workflow"]
+            prompt = latest["prompt"]
+            meta = latest.get("meta", {})
+            ceg_template = latest.get("cegTemplate", "")
+
+        import json # JSON 파싱용 (만약 필요하다면)
+
         items: list[dict[str, Any]] = []
         for i in range(count):
             wf = _clone_workflow_with_new_seed(

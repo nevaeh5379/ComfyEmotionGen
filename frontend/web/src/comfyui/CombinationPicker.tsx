@@ -48,8 +48,8 @@ import type {
 import {
   ImagePreviewHoverCard,
   CombinationContextMenu,
-  RegenCountControl,
   LoadingButton,
+  RegenerateDialog,
 } from "./CombinationPickerComponents"
 import { ImageViewer } from "./ImageViewer"
 import { hasApproved, findApproved } from "./Message"
@@ -556,7 +556,6 @@ export const CombinationPicker = memo(function CombinationPicker({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null)
-  const [regenCount, setRegenCount] = useState(4)
   const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">(
     "hash"
   )
@@ -577,6 +576,12 @@ export const CombinationPicker = memo(function CombinationPicker({
     new Set()
   )
   const bulkRegenAction = useAsyncAction(4000)
+
+  // 재생성 다이얼로그 관련 상태
+  const [regenDialogState, setRegenDialogState] = useState<{
+    open: boolean
+    filenames: string[]
+  }>({ open: false, filenames: [] })
 
   // 필터 관련 상태
   const [statusFilter, setStatusFilter] = useState<"all" | "done" | "pending">(
@@ -959,21 +964,66 @@ export const CombinationPicker = memo(function CombinationPicker({
   ])
 
   const handleContextMenuRegenerate = useCallback(
-    async (filename: string) => {
-      if (regenAction.isLoading) return
-      await regenAction.execute(
-        () => curationApi.regenerate(backendUrl, filename, regenCount),
-        (jobIds) => `잡 ${jobIds.length}개 추가됨`,
-        "재생성 실패"
-      )
+    (filename: string) => {
+      setRegenDialogState({ open: true, filenames: [filename] })
     },
-    [backendUrl, regenAction, regenCount]
+    []
   )
 
-  const handleRegenerate = useCallback(async () => {
+  const handleRegenerate = useCallback(() => {
     if (!selectedFilename) return
-    await handleContextMenuRegenerate(selectedFilename)
+    handleContextMenuRegenerate(selectedFilename)
   }, [selectedFilename, handleContextMenuRegenerate])
+
+  // 선택 모드 종료
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedFilenames(new Set())
+  }, [])
+
+  const performRegenerate = useCallback(
+    async (count: number, template: string) => {
+      if (regenAction.isLoading || regenDialogState.filenames.length === 0)
+        return
+      const filenames = regenDialogState.filenames
+      const isBulk = filenames.length > 1
+
+      const result = await regenAction.execute(
+        async () => {
+          let totalJobs = 0
+          for (const filename of filenames) {
+            const jobIds = await curationApi.regenerate(
+              backendUrl,
+              filename,
+              count,
+              "random",
+              template
+            )
+            totalJobs += jobIds.length
+          }
+          return { count: filenames.length, totalJobs }
+        },
+        ({ count, totalJobs }) =>
+          isBulk
+            ? `${count}개 항목, 총 ${totalJobs}개 작업 생성 완료`
+            : `잡 ${totalJobs}개 추가됨`,
+        "재생성 실패"
+      )
+
+      if (result !== null) {
+        setRegenDialogState({ open: false, filenames: [] })
+        if (isBulk) {
+          exitSelectionMode()
+        }
+      }
+    },
+    [
+      backendUrl,
+      regenAction,
+      regenDialogState.filenames,
+      exitSelectionMode,
+    ]
+  )
 
   const handleOpen = useCallback((filename: string) => {
     setSelectionMode(false)
@@ -1095,43 +1145,14 @@ export const CombinationPicker = memo(function CombinationPicker({
     })
   }, [])
 
-  // 선택 모드 종료
-  const exitSelectionMode = useCallback(() => {
-    setSelectionMode(false)
-    setSelectedFilenames(new Set())
-  }, [])
-
   // 선택된 항목들 일괄 재생성
-  const handleBulkRegenerate = useCallback(async () => {
-    if (bulkRegenAction.isLoading || selectedFilenames.size === 0) return
-    const result = await bulkRegenAction.execute(
-      async () => {
-        const filenames = Array.from(selectedFilenames)
-        let totalJobs = 0
-        for (const filename of filenames) {
-          const jobIds = await curationApi.regenerate(
-            backendUrl,
-            filename,
-            regenCount
-          )
-          totalJobs += jobIds.length
-        }
-        return { count: filenames.length, totalJobs }
-      },
-      ({ count, totalJobs }) =>
-        `${count}개 항목, 총 ${totalJobs}개 작업 생성 완료`,
-      "일괄 재생성 실패"
-    )
-    if (result !== null) {
-      exitSelectionMode()
-    }
-  }, [
-    backendUrl,
-    selectedFilenames,
-    regenCount,
-    bulkRegenAction,
-    exitSelectionMode,
-  ])
+  const handleBulkRegenerate = useCallback(() => {
+    if (selectedFilenames.size === 0) return
+    setRegenDialogState({
+      open: true,
+      filenames: Array.from(selectedFilenames),
+    })
+  }, [selectedFilenames])
 
   const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -1391,16 +1412,15 @@ export const CombinationPicker = memo(function CombinationPicker({
           <span className="text-sm font-bold text-blue-700">
             {selectedFilenames.size}개 항목 선택됨
           </span>
-          <RegenCountControl
-            value={regenCount}
-            onChange={setRegenCount}
-            buttonText="선택 항목 재생성"
-            isLoading={bulkRegenAction.isLoading}
-            isDisabled={
-              bulkRegenAction.isLoading || selectedFilenames.size === 0
-            }
-            onAction={handleBulkRegenerate}
-          />
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 text-[10px] font-bold"
+            onClick={handleBulkRegenerate}
+            disabled={selectedFilenames.size === 0}
+          >
+            <RefreshCwIcon className="h-3.5 w-3.5" />
+            선택 항목 재생성
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -1809,14 +1829,15 @@ export const CombinationPicker = memo(function CombinationPicker({
                   </div>
                   {/* Row 2: 액션 버튼 그룹 */}
                   <div className="flex flex-wrap items-center justify-end gap-2">
-                    <RegenCountControl
-                      value={regenCount}
-                      onChange={setRegenCount}
-                      buttonText="재생성"
-                      isLoading={regenAction.isLoading}
-                      isDisabled={regenAction.isLoading}
-                      onAction={handleRegenerate}
-                    />
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1.5 text-[10px] font-bold"
+                      onClick={handleRegenerate}
+                      disabled={regenAction.isLoading}
+                    >
+                      <RefreshCwIcon className="h-3.5 w-3.5" />
+                      재생성
+                    </Button>
                     <div className="h-4 w-px bg-border" />
                     <div className="flex items-center gap-1">
                       <Button
@@ -2075,6 +2096,19 @@ export const CombinationPicker = memo(function CombinationPicker({
           닫기
         </Button> */}
       </ImageViewer>
+
+      <RegenerateDialog
+        open={regenDialogState.open}
+        onOpenChange={(open) =>
+          setRegenDialogState((prev) => ({ ...prev, open }))
+        }
+        filenames={regenDialogState.filenames}
+        imagesByFilename={imagesByFilename}
+        currentCegTemplate={activeTemplate}
+        savedTemplates={savedTemplates}
+        onRegenerate={performRegenerate}
+        isLoading={regenAction.isLoading}
+      />
     </div>
   )
 })
