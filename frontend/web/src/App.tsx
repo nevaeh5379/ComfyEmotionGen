@@ -19,7 +19,7 @@ import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/useBackend"
 import { CegTemplatePanel } from "./comfyui/CegTemplatePanel"
-import { SavedItemsManager } from "./comfyui/SavedItemsManager"
+import { SaveInputBar, SavedItemsList } from "./comfyui/SavedItemsManager"
 import { SavedImagesGallery } from "./comfyui/SavedImagesGallery"
 import { CombinationPicker } from "./comfyui/CombinationPicker"
 import { useSavedTemplates } from "./comfyui/useSavedTemplates"
@@ -644,38 +644,6 @@ export function App() {
                     <FieldGroup>
                       <Field>
                         <FieldLabel>ComfyUI API 워크플로우</FieldLabel>
-                        <SavedItemsManager
-                          key={workflowResetKey}
-                          items={savedWorkflows}
-                          onSave={(name) => {
-                            const trimmed = name.trim()
-                            if (
-                              savedWorkflows.some((w) => w.name === trimmed)
-                            ) {
-                              setPendingSave({
-                                name: trimmed,
-                                type: "workflow",
-                              })
-                              return false
-                            }
-                            const w = saveWorkflow(trimmed, workflowJson)
-                            setActiveWorkflowId(w.id)
-                            return true
-                          }}
-                          onLoad={loadWorkflowItem}
-                          onDelete={(id) => {
-                            if (activeWorkflowId === id)
-                              setActiveWorkflowId(null)
-                            deleteWorkflow(id)
-                          }}
-                          placeholder="워크플로우 이름"
-                          saveDisabled={!workflowJson.trim()}
-                          activeItemId={activeWorkflowId ?? undefined}
-                          onUpdate={() => {
-                            if (activeWorkflow)
-                              saveWorkflow(activeWorkflow.name, workflowJson)
-                          }}
-                        />
                         <InputGroup>
                           {/* ── top addon bar ─────────────── */}
                           <InputGroupAddon align="block-start">
@@ -702,7 +670,45 @@ export function App() {
                             minHeight="100px"
                             bareWrapper
                           />
+
+                          {/* ── bottom addon bar (save input) ─── */}
+                          <InputGroupAddon align="block-end">
+                            <SaveInputBar
+                              key={workflowResetKey}
+                              onSave={(name) => {
+                                const trimmed = name.trim()
+                                if (
+                                  savedWorkflows.some((w) => w.name === trimmed)
+                                ) {
+                                  setPendingSave({
+                                    name: trimmed,
+                                    type: "workflow",
+                                  })
+                                  return false
+                                }
+                                const w = saveWorkflow(trimmed, workflowJson)
+                                setActiveWorkflowId(w.id)
+                                return true
+                              }}
+                              placeholder="워크플로우 이름"
+                              saveDisabled={!workflowJson.trim()}
+                            />
+                          </InputGroupAddon>
                         </InputGroup>
+                        <SavedItemsList
+                          items={savedWorkflows}
+                          onLoad={loadWorkflowItem}
+                          onDelete={(id) => {
+                            if (activeWorkflowId === id)
+                              setActiveWorkflowId(null)
+                            deleteWorkflow(id)
+                          }}
+                          activeItemId={activeWorkflowId ?? undefined}
+                          onUpdate={() => {
+                            if (activeWorkflow)
+                              saveWorkflow(activeWorkflow.name, workflowJson)
+                          }}
+                        />
                       </Field>
                     </FieldGroup>
 

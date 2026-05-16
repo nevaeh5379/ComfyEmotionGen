@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/input-group"
 import CodeEditor from "@/components/CodeEditor"
 
-import { SavedItemsManager } from "./SavedItemsManager"
+import { SaveInputBar, SavedItemsList } from "./SavedItemsManager"
 import type { SavedTemplate } from "./useSavedTemplates"
 
 interface CegTemplatePanelProps {
@@ -73,15 +73,21 @@ export function CegTemplatePanel({
             minHeight="100px"
             bareWrapper
           />
+
+          {/* ── bottom addon bar (save input) ─────── */}
+          <InputGroupAddon align="block-end">
+            <SaveInputBar
+              key={templateResetKey}
+              onSave={onSaveTemplate}
+              placeholder="탬플릿 이름"
+              saveDisabled={!cegTemplate.trim()}
+            />
+          </InputGroupAddon>
         </InputGroup>
-        <SavedItemsManager
-          key={templateResetKey}
+        <SavedItemsList
           items={savedTemplates}
-          onSave={onSaveTemplate}
           onLoad={onLoadTemplate}
           onDelete={onDeleteTemplate}
-          placeholder="탬플릿 이름"
-          saveDisabled={!cegTemplate.trim()}
           activeItemId={activeTemplateId ?? undefined}
           onUpdate={onUpdateTemplate}
         />
