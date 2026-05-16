@@ -3,6 +3,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { Save, Trash2Icon } from "lucide-react"
 
 export interface SaveableItem {
   id: string
@@ -115,27 +116,31 @@ export function SavedItemsList<T extends SaveableItem>({
             >
               {item.name}
             </button>
-            {isActive && onUpdate && (
+             <span className=" text-xs text-left text-muted-foreground">
+              {new Date(item.savedAt).toLocaleDateString()}
+            </span>
+            
+          
+            <div className="flex items-center">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 shrink-0 px-2 text-xs"
+                className={cn("h-6 w-6 shrink-0 p-0 text-xs", (!isActive || !onUpdate) && "invisible")}
                 onClick={onUpdate}
+                tabIndex={(!isActive || !onUpdate) ? -1 : undefined}
               >
-                업데이트
+                <Save />
               </Button>
-            )}
-            <span className="flex-none text-xs text-muted-foreground">
-              {new Date(item.savedAt).toLocaleDateString()}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-              onClick={() => onDelete(item.id)}
-            >
-              ×
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
+                onClick={() => onDelete(item.id)}
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
+               
           </div>
         )
       })}

@@ -645,7 +645,7 @@ export function App() {
                       <Field>
                         <InputGroup>
                           {/* ── top addon bar ─────────────── */}
-                          <InputGroupAddon align="block-start">
+                          <InputGroupAddon align="block-start" className="border-b">
                             <InputGroupText>
                               <Code2 className="h-3.5 w-3.5" />
                               ComfyUI API 워크플로우
@@ -668,10 +668,11 @@ export function App() {
                             onChange={setWorkflowJson}
                             minHeight="100px"
                             bareWrapper
+                            className="w-full"
                           />
 
                           {/* ── bottom addon bar (save input) ─── */}
-                          <InputGroupAddon align="block-end">
+                          <InputGroupAddon align="block-end" className="border-t">
                             <SaveInputBar
                               key={workflowResetKey}
                               onSave={(name) => {
