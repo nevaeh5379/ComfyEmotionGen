@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { SaveInputBar, SavedItemsList } from "./SavedItemsManager"
+import { SaveInputBar } from "./SavedItemsManager"
 import type {
   ComfyWorkflow,
   NodeMapping,
@@ -366,22 +366,6 @@ export const NodeMappingSection = ({
         </InputGroupAddon>
 
         {activeWorkflowId ? (
-          <SavedItemsList
-            key={nodeMappingResetKey}
-            items={savedNodeMappings}
-            onLoad={onLoadNodeMapping}
-            onDelete={onDeleteNodeMapping}
-            activeItemId={activeNodeMappingPresetId ?? undefined}
-            onUpdate={onUpdateNodeMapping}
-            className="rounded-none border-0 bg-transparent w-full"
-          />
-        ) : (
-          <p className="px-3 py-2 text-sm text-muted-foreground">
-            워크플로우를 저장하거나 불러온 뒤 매핑을 저장할 수 있습니다.
-          </p>
-        )}
-
-        {activeWorkflowId && (
           <InputGroupAddon align="block-end" className="border-t">
             <SaveInputBar
               key={nodeMappingResetKey}
@@ -389,8 +373,17 @@ export const NodeMappingSection = ({
               placeholder="노드 매핑 이름"
               saveDisabled={nodeMappings.length === 0}
               activeName={activeMappingName}
+              items={savedNodeMappings}
+              onLoad={onLoadNodeMapping}
+              onDelete={onDeleteNodeMapping}
+              activeItemId={activeNodeMappingPresetId ?? undefined}
+              onUpdate={onUpdateNodeMapping}
             />
           </InputGroupAddon>
+        ) : (
+          <p className="px-3 py-2 text-sm text-muted-foreground">
+            워크플로우를 저장하거나 불러온 뒤 매핑을 저장할 수 있습니다.
+          </p>
         )}
       </InputGroup>
       <p className="text-xs text-muted-foreground">

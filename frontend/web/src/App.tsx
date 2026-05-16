@@ -19,7 +19,7 @@ import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/useBackend"
 import { CegTemplatePanel } from "./comfyui/CegTemplatePanel"
-import { SaveInputBar, SavedItemsList } from "./comfyui/SavedItemsManager"
+import { SaveInputBar } from "./comfyui/SavedItemsManager"
 import { SavedImagesGallery } from "./comfyui/SavedImagesGallery"
 import { CombinationPicker } from "./comfyui/CombinationPicker"
 import { useSavedTemplates } from "./comfyui/useSavedTemplates"
@@ -695,23 +695,21 @@ export function App() {
                               }
                               saveDisabled={!workflowJson.trim()}
                               activeName={activeWorkflow?.name}
+                              items={savedWorkflows}
+                              onLoad={loadWorkflowItem}
+                              onDelete={(id) => {
+                                if (activeWorkflowId === id)
+                                  setActiveWorkflowId(null)
+                                deleteWorkflow(id)
+                              }}
+                              activeItemId={activeWorkflowId ?? undefined}
+                              onUpdate={() => {
+                                if (activeWorkflow)
+                                  saveWorkflow(activeWorkflow.name, workflowJson)
+                              }}
                             />
                           </InputGroupAddon>
                         </InputGroup>
-                        <SavedItemsList
-                          items={savedWorkflows}
-                          onLoad={loadWorkflowItem}
-                          onDelete={(id) => {
-                            if (activeWorkflowId === id)
-                              setActiveWorkflowId(null)
-                            deleteWorkflow(id)
-                          }}
-                          activeItemId={activeWorkflowId ?? undefined}
-                          onUpdate={() => {
-                            if (activeWorkflow)
-                              saveWorkflow(activeWorkflow.name, workflowJson)
-                          }}
-                        />
                       </Field>
                     </FieldGroup>
 
