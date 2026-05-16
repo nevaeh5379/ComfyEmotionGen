@@ -78,7 +78,7 @@ export function CegTemplatePanel({
           />
 
           {/* ── bottom addon bar (save input) ─────── */}
-          <InputGroupAddon align="block-end">
+          <InputGroupAddon align="block-end" className="border-t">
             <SaveInputBar
               key={templateResetKey}
               onSave={onSaveTemplate}
