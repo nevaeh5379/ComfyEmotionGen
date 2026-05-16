@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { MinusIcon, PlusIcon, Code2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup } from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
@@ -643,7 +643,6 @@ export function App() {
                   >
                     <FieldGroup>
                       <Field>
-                        <FieldLabel>ComfyUI API 워크플로우</FieldLabel>
                         <InputGroup>
                           {/* ── top addon bar ─────────────── */}
                           <InputGroupAddon align="block-start">
@@ -690,7 +689,11 @@ export function App() {
                                 setActiveWorkflowId(w.id)
                                 return true
                               }}
-                              placeholder="워크플로우 이름"
+                              placeholder={
+                                activeWorkflowId
+                                  ? savedWorkflows.find((w) => w.id === activeWorkflowId)?.name ?? "워크플로우 이름"
+                                  : "워크플로우 이름"
+                              }
                               saveDisabled={!workflowJson.trim()}
                             />
                           </InputGroupAddon>

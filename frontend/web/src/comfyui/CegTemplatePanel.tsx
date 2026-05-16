@@ -1,6 +1,6 @@
 import { FileCode2, Eye } from "lucide-react"
 
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup } from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
@@ -42,7 +42,6 @@ export function CegTemplatePanel({
   return (
     <FieldGroup>
       <Field>
-        <FieldLabel>CEG 탬플릿</FieldLabel>
         <InputGroup>
           {/* ── top addon bar ─────────────────────── */}
           <InputGroupAddon align="block-start">
@@ -79,7 +78,11 @@ export function CegTemplatePanel({
             <SaveInputBar
               key={templateResetKey}
               onSave={onSaveTemplate}
-              placeholder="탬플릿 이름"
+              placeholder={
+                activeTemplateId
+                  ? savedTemplates.find((t) => t.id === activeTemplateId)?.name ?? "탬플릿 이름"
+                  : "탬플릿 이름"
+              }
               saveDisabled={!cegTemplate.trim()}
             />
           </InputGroupAddon>
