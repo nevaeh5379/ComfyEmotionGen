@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react"
-import { MinusIcon, PlusIcon } from "lucide-react"
+import { MinusIcon, PlusIcon, Code2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupText,
+} from "@/components/ui/input-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   NavigationMenu,
@@ -671,13 +676,33 @@ export function App() {
                               saveWorkflow(activeWorkflow.name, workflowJson)
                           }}
                         />
-                        <CodeEditor
-                          language="json"
-                          placeholder="ComfyUI API 워크플로우 입력 칸"
-                          value={workflowJson}
-                          onChange={setWorkflowJson}
-                          minHeight="100px"
-                        />
+                        <InputGroup>
+                          {/* ── top addon bar ─────────────── */}
+                          <InputGroupAddon align="block-start">
+                            <InputGroupText>
+                              <Code2 className="h-3.5 w-3.5" />
+                              ComfyUI API 워크플로우
+                            </InputGroupText>
+                            <div className="ml-auto flex items-center gap-1">
+                              {parsedWorkflow?.success && (
+                                <InputGroupText className="font-normal text-muted-foreground/70">
+                                  노드 {Object.keys(parsedWorkflow.data).length}
+                                  개
+                                </InputGroupText>
+                              )}
+                            </div>
+                          </InputGroupAddon>
+
+                          {/* ── editor ─────────────── */}
+                          <CodeEditor
+                            language="json"
+                            placeholder="ComfyUI API 워크플로우 입력 칸"
+                            value={workflowJson}
+                            onChange={setWorkflowJson}
+                            minHeight="100px"
+                            bareWrapper
+                          />
+                        </InputGroup>
                       </Field>
                     </FieldGroup>
 

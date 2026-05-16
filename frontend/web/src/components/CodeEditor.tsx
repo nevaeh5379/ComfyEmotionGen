@@ -15,6 +15,8 @@ interface CodeEditorProps {
   className?: string
   minHeight?: string
   maxHeight?: string
+  /** When true, skips the outer wrapper border/background so it can be placed inside an InputGroup */
+  bareWrapper?: boolean
 }
 
 const cegKeywords = /^(?:include|AND)\b/i
@@ -75,6 +77,7 @@ const CodeEditor = ({
   className = "",
   minHeight = "8rem",
   maxHeight = "24rem",
+  bareWrapper = false,
 }: CodeEditorProps) => {
   const { theme } = useTheme()
   const resolvedTheme =
@@ -91,7 +94,7 @@ const CodeEditor = ({
 
   return (
     <div
-      className={`overflow-hidden rounded-md border bg-muted/50 ${className}`}
+      className={`overflow-hidden ${bareWrapper ? "" : "rounded-md border bg-muted/50"} ${className}`}
       style={{ minHeight, maxHeight }}
     >
       <CodeMirror

@@ -1,5 +1,12 @@
-import { Button } from "@/components/ui/button"
+import { FileCode2, Eye } from "lucide-react"
+
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupText,
+} from "@/components/ui/input-group"
 import CodeEditor from "@/components/CodeEditor"
 
 import { SavedItemsManager } from "./SavedItemsManager"
@@ -32,30 +39,41 @@ export function CegTemplatePanel({
   onDeleteTemplate,
   onUpdateTemplate,
 }: CegTemplatePanelProps) {
-
   return (
     <FieldGroup>
       <Field>
         <FieldLabel>CEG 탬플릿</FieldLabel>
-        <div className="relative">
+        <InputGroup>
+          {/* ── top addon bar ─────────────────────── */}
+          <InputGroupAddon align="block-start">
+            <InputGroupText>
+              <FileCode2 className="h-3.5 w-3.5" />
+              CEG 탬플릿
+            </InputGroupText>
+            <div className="ml-auto flex items-center gap-1">
+              {previewCount > 0 && (
+                <InputGroupButton
+                  onClick={onPreviewOpen}
+                  size="sm"
+                  title="미리보기"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  미리보기 ({previewCount})
+                </InputGroupButton>
+              )}
+            </div>
+          </InputGroupAddon>
+
+          {/* ── editor ───────────────────────────── */}
           <CodeEditor
             language="ceg"
             placeholder="CEG 탬플릿 입력 칸"
             value={cegTemplate}
             onChange={setCegTemplate}
             minHeight="100px"
+            bareWrapper
           />
-          {previewCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1 z-10 h-6 px-2 text-xs opacity-50 hover:opacity-100"
-              onClick={onPreviewOpen}
-            >
-              미리보기 ({previewCount})
-            </Button>
-          )}
-        </div>
+        </InputGroup>
         <SavedItemsManager
           key={templateResetKey}
           items={savedTemplates}

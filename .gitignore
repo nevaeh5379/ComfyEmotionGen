@@ -19,3 +19,4 @@ portable/ComfyEmotionGen.spec
 backend/images
 object_info.json
 node_modules/
+.pi-lens/
