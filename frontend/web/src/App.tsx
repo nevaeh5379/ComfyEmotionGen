@@ -1365,23 +1365,25 @@ export function App() {
                     <FieldGroup>
                       <Field>
                         <FieldLabel>CEG 탬플릿</FieldLabel>
-                        <CodeEditor
-                          language="ceg"
-                          placeholder="CEG 탬플릿 입력 칸"
-                          value={cegTemplate}
-                          onChange={setCegTemplate}
-                          minHeight="100px"
-                        />
-                        {fakeJobQueue.length > 0 && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-full"
-                            onClick={() => setIsSheetOpen(true)}
-                          >
-                            미리보기 ({fakeJobQueue.length})
-                          </Button>
-                        )}
+                        <div className="relative">
+                          <CodeEditor
+                            language="ceg"
+                            placeholder="CEG 탬플릿 입력 칸"
+                            value={cegTemplate}
+                            onChange={setCegTemplate}
+                            minHeight="100px"
+                          />
+                          {fakeJobQueue.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-1 top-1 z-10 h-6 px-2 text-xs opacity-50 hover:opacity-100"
+                              onClick={() => setIsSheetOpen(true)}
+                            >
+                              미리보기 ({fakeJobQueue.length})
+                            </Button>
+                          )}
+                        </div>
                         <SavedItemsManager
                           key={templateResetKey}
                           items={savedTemplates}
