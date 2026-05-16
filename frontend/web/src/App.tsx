@@ -367,30 +367,8 @@ function SavedItemsManager<T extends SaveableItem>({
     if (onSave(trimmed)) setName("")
   }
 
-  const activeItem = activeItemId
-    ? items.find((i) => i.id === activeItemId)
-    : null
-
   return (
     <>
-      {activeItem && onUpdate && (
-        <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs">
-          <span className="truncate text-muted-foreground">
-            현재:{" "}
-            <span className="font-semibold text-foreground">
-              {activeItem.name}
-            </span>
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 shrink-0 px-2 text-xs"
-            onClick={onUpdate}
-          >
-            업데이트
-          </Button>
-        </div>
-      )}
       <div className="flex gap-2 pt-1">
         <Input
           placeholder={placeholder}
@@ -419,28 +397,44 @@ function SavedItemsManager<T extends SaveableItem>({
       )}
       {items.length > 0 && (
         <div className="mt-1 space-y-1 rounded-md border bg-muted/30 p-2">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-2">
-              <button
-                className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-                onClick={() => onLoad(item)}
-                title="불러오기"
+          {items.map((item) => {
+            const isActive = item.id === activeItemId
+            return (
+              <div
+                key={item.id}
+                className={`flex items-center gap-2 rounded px-1 ${isActive ? "bg-primary/10" : ""}`}
               >
-                {item.name}
-              </button>
-              <span className="flex-none text-xs text-muted-foreground">
-                {new Date(item.savedAt).toLocaleDateString()}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(item.id)}
-              >
-                ×
-              </Button>
-            </div>
-          ))}
+                <button
+                  className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${isActive ? "font-semibold" : ""}`}
+                  onClick={() => onLoad(item)}
+                  title="불러오기"
+                >
+                  {item.name}
+                </button>
+                {isActive && onUpdate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 shrink-0 px-2 text-xs"
+                    onClick={onUpdate}
+                  >
+                    업데이트
+                  </Button>
+                )}
+                <span className="flex-none text-xs text-muted-foreground">
+                  {new Date(item.savedAt).toLocaleDateString()}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => onDelete(item.id)}
+                >
+                  ×
+                </Button>
+              </div>
+            )
+          })}
         </div>
       )}
     </>
@@ -1329,15 +1323,6 @@ export function App() {
                     {parserError}
                   </span>
                 )}
-                {fakeJobQueue.length > 0 && (
-                  <Button
-                    variant="outline"
-                    className="h-10"
-                    onClick={() => setIsSheetOpen(true)}
-                  >
-                    미리보기
-                  </Button>
-                )}
                 {Object.keys(axisValueFilter).length > 0 && (
                   <Button
                     variant={hasActiveFilter ? "secondary" : "outline"}
@@ -1387,6 +1372,16 @@ export function App() {
                           onChange={setCegTemplate}
                           minHeight="100px"
                         />
+                        {fakeJobQueue.length > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-full"
+                            onClick={() => setIsSheetOpen(true)}
+                          >
+                            미리보기 ({fakeJobQueue.length})
+                          </Button>
+                        )}
                         <SavedItemsManager
                           key={templateResetKey}
                           items={savedTemplates}
