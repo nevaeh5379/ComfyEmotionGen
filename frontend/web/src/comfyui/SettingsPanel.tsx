@@ -30,7 +30,7 @@ export function SettingsPanel({
   workers,
 }: Props) {
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">서버 설정</h2>
         <FieldGroup>

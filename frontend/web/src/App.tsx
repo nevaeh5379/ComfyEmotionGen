@@ -452,8 +452,8 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <div className="flex h-screen flex-col bg-background">
+      <nav className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
           <NavigationMenu>
             <NavigationMenuList>
@@ -481,9 +481,9 @@ export function App() {
         </div>
       </nav>
 
-      <main className="mx-auto max-w-7xl p-6">
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col overflow-hidden p-6">
         {activeTab === "gallery" && (
-          <section className="rounded-lg border bg-card p-6 shadow-sm">
+          <section className="flex-1 overflow-y-auto rounded-lg border bg-card p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold">에셋 갤러리</h2>
             <SavedImagesGallery
               backendUrl={backendUrl}
@@ -494,7 +494,7 @@ export function App() {
           </section>
         )}
         {activeTab === "curation" && (
-          <section className="rounded-lg border bg-card p-6 shadow-sm">
+          <section className="flex-1 overflow-y-auto rounded-lg border bg-card p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold">조합별 에셋 선택</h2>
             <CombinationPicker
               backendUrl={backendUrl}
@@ -507,97 +507,103 @@ export function App() {
           </section>
         )}
         {activeTab === "settings" && (
-          <SettingsPanel
-            settings={settings}
-            updateSetting={updateSetting}
-            backendUrl={backendUrl}
-            onBackendUrlChange={setBackendUrl}
-            workers={workers}
-          />
+          <div className="flex-1 overflow-y-auto">
+            <SettingsPanel
+              settings={settings}
+              updateSetting={updateSetting}
+              backendUrl={backendUrl}
+              onBackendUrlChange={setBackendUrl}
+              workers={workers}
+            />
+          </div>
         )}
         {activeTab === "jobs" && (
-          <div className="grid gap-6 lg:grid-cols-2">
-            <section className="flex min-h-0 flex-col space-y-6">
-              
-
+          <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-2">
+            <section className="flex min-h-0 flex-col overflow-hidden">
               <div className="flex min-h-0 flex-1 flex-col">
                 <Tabs
                   defaultValue="ceg"
                   className="flex min-h-0 flex-1 flex-col"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex shrink-0 items-center justify-between">
                     <TabsList>
                       <TabsTrigger value="ceg">CEG 탬플릿</TabsTrigger>
                       <TabsTrigger value="workflow">
                         ComfyUI 워크플로우
                       </TabsTrigger>
                     </TabsList>
-                    <div className="flex flex-wrap items-center gap-2 ">
-                <div className="flex items-stretch overflow-hidden rounded-md border bg-background">
-                  <input
-                    type="number"
-                    className="w-16 bg-transparent px-3 outline-none"
-                    min={1}
-                    value={repeatCount}
-                    onChange={(e) =>
-                      setRepeatCount(Math.max(1, Number(e.target.value) || 1))
-                    }
-                  />
-                  <div className="flex w-8 flex-col border-l">
-                    <Button
-                      variant="ghost"
-                      className="flex-1"
-                      aria-label="Increase"
-                      onClick={() => setRepeatCount((c) => c + 1)}
-                    >
-                      <PlusIcon className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="flex-1"
-                      aria-label="Decrease"
-                      onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
-                    >
-                      <MinusIcon className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                <Button
-                  variant="default"
-                  onClick={handleRun}
-                  disabled={!canRun}
-                >
-                  실행
-                  {estimatedRunCount !== null
-                    ? ` (${estimatedRunCount}${repeatCount > 1 ? ` × ${repeatCount}` : ""})`
-                    : ""}
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline">
-                      <EllipsisVertical />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem
-                      onClick={() => setIsSelectionOpen(true)}
-                      disabled={!canRun}
-                    >
-                      선택 실행
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setIsAxisFilterOpen(true)}>
-                      축 필터
-                      {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-stretch overflow-hidden rounded-md border bg-background">
+                        <input
+                          type="number"
+                          className="w-16 bg-transparent px-3 outline-none"
+                          min={1}
+                          value={repeatCount}
+                          onChange={(e) =>
+                            setRepeatCount(
+                              Math.max(1, Number(e.target.value) || 1)
+                            )
+                          }
+                        />
+                        <div className="flex w-8 flex-col border-l">
+                          <Button
+                            variant="ghost"
+                            className="flex-1"
+                            aria-label="Increase"
+                            onClick={() => setRepeatCount((c) => c + 1)}
+                          >
+                            <PlusIcon className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="flex-1"
+                            aria-label="Decrease"
+                            onClick={() =>
+                              setRepeatCount((c) => Math.max(1, c - 1))
+                            }
+                          >
+                            <MinusIcon className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <Button
+                        variant="default"
+                        onClick={handleRun}
+                        disabled={!canRun}
+                      >
+                        실행
+                        {estimatedRunCount !== null
+                          ? ` (${estimatedRunCount}${repeatCount > 1 ? ` × ${repeatCount}` : ""})`
+                          : ""}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline">
+                            <EllipsisVertical />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onClick={() => setIsSelectionOpen(true)}
+                            disabled={!canRun}
+                          >
+                            선택 실행
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setIsAxisFilterOpen(true)}
+                          >
+                            축 필터
+                            {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   <TabsContent
                     value="ceg"
-                    className="mt-0 flex-1 overflow-y-auto data-[state=active]:block data-[state=inactive]:hidden"
+                    className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
                   >
                     <CegTemplatePanel
                       cegTemplate={cegTemplate}
@@ -635,11 +641,11 @@ export function App() {
 
                   <TabsContent
                     value="workflow"
-                    className="mt-0 flex-1 space-y-6 overflow-y-auto data-[state=active]:block data-[state=inactive]:hidden rounded-lg border bg-card p-6 shadow-sm"
+                    className="mt-0 flex min-h-0 flex-1 flex-col space-y-6 overflow-y-auto rounded-lg border bg-card p-6 shadow-sm data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
                   >
-                    <FieldGroup>
-                      <Field>
-                        <InputGroup>
+                    <FieldGroup className="min-h-0 flex-1">
+                      <Field className="min-h-0 flex-1">
+                        <InputGroup className="!h-full min-h-0 flex-1 overflow-hidden">
                           {/* ── top addon bar ─────────────── */}
                           <InputGroupAddon
                             align="block-start"
@@ -674,7 +680,7 @@ export function App() {
                             onChange={setWorkflowJson}
                             minHeight="100px"
                             bareWrapper
-                            className="w-full"
+                            className="h-full min-h-0 w-full flex-1"
                           />
 
                           {/* ── bottom addon bar (save input) ─── */}
@@ -796,14 +802,12 @@ export function App() {
                     )}
                   </TabsContent>
                 </Tabs>
-
-                
               </div>
             </section>
-            <div className="relative">
-              <section className="absolute inset-0 flex flex-col rounded-lg border bg-card p-6 shadow-sm">
+            <div className="flex min-h-0 flex-col overflow-hidden">
+              <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card p-6 shadow-sm">
                 <h2 className="mb-4 shrink-0 text-lg font-semibold">결과</h2>
-                <div className="min-h-0 flex-1 pr-2">
+                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
                   <JobManagerPanel
                     jobs={jobs}
                     paused={paused}

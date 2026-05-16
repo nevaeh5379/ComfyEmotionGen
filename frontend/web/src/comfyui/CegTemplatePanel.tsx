@@ -44,9 +44,9 @@ export function CegTemplatePanel({
     : undefined
 
   return (
-    <FieldGroup>
-      <Field>
-        <InputGroup>
+    <FieldGroup className="min-h-0 flex-1">
+      <Field className="min-h-0 flex-1">
+        <InputGroup className="!h-full min-h-0 flex-1 overflow-hidden">
           {/* ── top addon bar ─────────────────────── */}
           <InputGroupAddon align="block-start">
             <InputGroupText>
@@ -75,6 +75,7 @@ export function CegTemplatePanel({
             onChange={setCegTemplate}
             minHeight="100px"
             bareWrapper
+            className="h-full min-h-0 w-full flex-1"
           />
 
           {/* ── bottom addon bar (save input + dropdown) ─────── */}

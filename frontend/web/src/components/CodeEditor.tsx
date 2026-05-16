@@ -63,7 +63,7 @@ const baseTheme = EditorView.theme({
   ".cm-gutters": { display: "none" },
   ".cm-focused": { outline: "none" },
   "&.cm-focused": { outline: "none" },
-  ".cm-scroller": { overflow: "auto" },
+  ".cm-scroller": { overflow: "auto", flex: "1 1 auto" },
   ".cm-activeLine, .cm-activeLineGutter": {
     backgroundColor: "transparent",
   },
@@ -76,7 +76,7 @@ const CodeEditor = ({
   placeholder,
   className = "",
   minHeight = "8rem",
-  maxHeight = "24rem",
+  maxHeight,
   bareWrapper = false,
 }: CodeEditorProps) => {
   const { theme } = useTheme()
@@ -94,8 +94,8 @@ const CodeEditor = ({
 
   return (
     <div
-      className={`overflow-hidden ${bareWrapper ? "" : "rounded-md border bg-muted/50"} ${className}`}
-      style={{ minHeight, maxHeight }}
+      className={`flex h-full min-h-0 flex-col overflow-hidden ${bareWrapper ? "" : "rounded-md border bg-muted/50"} ${className}`}
+      style={maxHeight ? { minHeight, maxHeight } : { minHeight }}
     >
       <CodeMirror
         value={value}
@@ -112,8 +112,8 @@ const CodeEditor = ({
           autocompletion: false,
         }}
         height="100%"
-        style={{ minHeight, maxHeight }}
-        className="overflow-y-auto"
+        style={{ height: "100%", minHeight, maxHeight }}
+        className="h-full min-h-0"
       />
     </div>
   )
