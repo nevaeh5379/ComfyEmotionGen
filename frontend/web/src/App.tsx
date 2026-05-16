@@ -24,6 +24,7 @@ import {
 } from "./comfyui/useSavedWorkflows"
 import { WorkflowGraphViewer } from "./comfyui/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/JobManagerPanel"
+import { JobStatusPopup } from "./comfyui/JobStatusPopup"
 import { SettingsPanel } from "./comfyui/SettingsPanel"
 import { useSettings } from "./comfyui/useSettings"
 import { useLocalStorage } from "./comfyui/useLocalStorage"
@@ -36,10 +37,7 @@ import { NameConflictDialog } from "./comfyui/NameConflictDialog"
 import { PresetSelectionDialog } from "./comfyui/PresetSelectionDialog"
 import { NodeMappingSection } from "./comfyui/NodeMappingSection"
 import type { ObjectInfo } from "./comfyui/renderTypes"
-import {
-  ComfyWorkflowSchema,
-  type NodeMapping,
-} from "./lib/workflow"
+import { ComfyWorkflowSchema, type NodeMapping } from "./lib/workflow"
 import { buildAutoMappings } from "./lib/workflowUtils"
 import {
   DEFAULT_BACKEND_URL,
@@ -81,7 +79,9 @@ export function App() {
   const backendUrl = IS_PACKAGE_MODE
     ? (PACKAGE_BACKEND_URL as string)
     : storedBackendUrl
-  const setBackendUrl = IS_PACKAGE_MODE ? (_: string) => {} : setStoredBackendUrl
+  const setBackendUrl = IS_PACKAGE_MODE
+    ? (_: string) => {}
+    : setStoredBackendUrl
 
   const [workflowJson, setWorkflowJson] = useLocalStorage(
     STORAGE_KEYS.workflow,
@@ -555,7 +555,9 @@ export function App() {
                   선택 실행
                 </Button>
                 {parserError && (
-                  <span className="text-sm text-destructive">{parserError}</span>
+                  <span className="text-sm text-destructive">
+                    {parserError}
+                  </span>
                 )}
                 {Object.keys(axisValueFilter).length > 0 && (
                   <Button
@@ -825,13 +827,21 @@ export function App() {
       <NameConflictDialog
         pendingSave={pendingSave}
         onClose={() => setPendingSave(null)}
-        newName={nextFreeName(
-          pendingSave?.name ?? "",
-          pendingSaveItems
-        )}
+        newName={nextFreeName(pendingSave?.name ?? "", pendingSaveItems)}
         onSaveNew={handleNameConflictSaveNew}
         onOverwrite={handleNameConflictOverwrite}
       />
+
+      {/* Job 진행상황 팝업 — 잡 탭 제외 */}
+      {activeTab !== "jobs" && (
+        <JobStatusPopup
+          jobs={jobs}
+          paused={paused}
+          backendUrl={backendUrl}
+          isAliveBackend={isAliveBackend}
+          onNavigateToJobs={() => setActiveTab("jobs")}
+        />
+      )}
 
       <PresetSelectionDialog
         pendingWorkflow={pendingPresetSelection}
