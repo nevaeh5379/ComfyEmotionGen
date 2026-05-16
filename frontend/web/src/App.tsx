@@ -44,6 +44,8 @@ import {
 import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/useBackend"
+import { CegTemplatePanel } from "./comfyui/CegTemplatePanel"
+import { SavedItemsManager } from "./comfyui/SavedItemsManager"
 import type { WorkerView } from "./comfyui/Message"
 import { SavedImagesGallery } from "./comfyui/SavedImagesGallery"
 import { CombinationPicker } from "./comfyui/CombinationPicker"
@@ -142,25 +144,6 @@ interface RenderItemsResponse {
   axes: Record<string, AxisOut>
   sets: Record<string, string>
   excludes: ExcludeRuleOut[]
-}
-
-// ---- saved-items-manager contracts ----
-interface SaveableItem {
-  id: string
-  name: string
-  savedAt: number
-}
-
-interface SavedItemsManagerProps<T extends SaveableItem> {
-  items: T[]
-  /** true = 저장 성공 (입력 초기화), false = 충돌 다이얼로그 표시 (초기화 안 함) */
-  onSave: (name: string) => boolean
-  onLoad: (item: T) => void
-  onDelete: (id: string) => void
-  placeholder: string
-  saveDisabled: boolean
-  activeItemId?: string | undefined
-  onUpdate?: (() => void) | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -343,101 +326,6 @@ const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
         ))}
       </div>
     </StatusHoverCard>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// SavedItemsManager – reusable save/load/list UI for CEG templates & workflows
-// ---------------------------------------------------------------------------
-function SavedItemsManager<T extends SaveableItem>({
-  items,
-  onSave,
-  onLoad,
-  onDelete,
-  placeholder,
-  saveDisabled,
-  activeItemId,
-  onUpdate,
-}: SavedItemsManagerProps<T>) {
-  const [name, setName] = useState("")
-
-  const handleSave = () => {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    if (onSave(trimmed)) setName("")
-  }
-
-  return (
-    <>
-      <div className="flex gap-2 pt-1">
-        <Input
-          placeholder={placeholder}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && name.trim() && !saveDisabled) {
-              handleSave()
-            }
-          }}
-          className="h-8 text-sm"
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={saveDisabled || !name.trim()}
-          onClick={handleSave}
-        >
-          저장
-        </Button>
-      </div>
-      {items.length === 0 && (
-        <p className="py-2 text-center text-xs text-muted-foreground">
-          저장된 항목이 없습니다
-        </p>
-      )}
-      {items.length > 0 && (
-        <div className="mt-1 space-y-1 rounded-md border bg-muted/30 p-2">
-          {items.map((item) => {
-            const isActive = item.id === activeItemId
-            return (
-              <div
-                key={item.id}
-                className={`flex items-center gap-2 rounded px-1 ${isActive ? "bg-primary/10" : ""}`}
-              >
-                <button
-                  className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${isActive ? "font-semibold" : ""}`}
-                  onClick={() => onLoad(item)}
-                  title="불러오기"
-                >
-                  {item.name}
-                </button>
-                {isActive && onUpdate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 shrink-0 px-2 text-xs"
-                    onClick={onUpdate}
-                  >
-                    업데이트
-                  </Button>
-                )}
-                <span className="flex-none text-xs text-muted-foreground">
-                  {new Date(item.savedAt).toLocaleDateString()}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => onDelete(item.id)}
-                >
-                  ×
-                </Button>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </>
   )
 }
 
@@ -1362,65 +1250,38 @@ export function App() {
                     value="ceg"
                     className="mt-0 flex-1 overflow-y-auto data-[state=active]:block data-[state=inactive]:hidden"
                   >
-                    <FieldGroup>
-                      <Field>
-                        <FieldLabel>CEG 탬플릿</FieldLabel>
-                        <div className="relative">
-                          <CodeEditor
-                            language="ceg"
-                            placeholder="CEG 탬플릿 입력 칸"
-                            value={cegTemplate}
-                            onChange={setCegTemplate}
-                            minHeight="100px"
-                          />
-                          {fakeJobQueue.length > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="absolute right-1 top-1 z-10 h-6 px-2 text-xs opacity-50 hover:opacity-100"
-                              onClick={() => setIsSheetOpen(true)}
-                            >
-                              미리보기 ({fakeJobQueue.length})
-                            </Button>
-                          )}
-                        </div>
-                        <SavedItemsManager
-                          key={templateResetKey}
-                          items={savedTemplates}
-                          onSave={(name) => {
-                            const trimmed = name.trim()
-                            if (
-                              savedTemplates.some((t) => t.name === trimmed)
-                            ) {
-                              setPendingSave({
-                                name: trimmed,
-                                type: "template",
-                              })
-                              return false
-                            }
-                            const saved = saveTemplate(trimmed, cegTemplate)
-                            setActiveTemplateId(saved.id)
-                            return true
-                          }}
-                          onLoad={(t) => {
-                            setCegTemplate(t.template)
-                            setActiveTemplateId(t.id)
-                          }}
-                          onDelete={(id) => {
-                            if (activeTemplateId === id)
-                              setActiveTemplateId(null)
-                            deleteTemplate(id)
-                          }}
-                          placeholder="탬플릿 이름"
-                          saveDisabled={!cegTemplate.trim()}
-                          activeItemId={activeTemplateId ?? undefined}
-                          onUpdate={() => {
-                            if (activeTemplate)
-                              saveTemplate(activeTemplate.name, cegTemplate)
-                          }}
-                        />
-                      </Field>
-                    </FieldGroup>
+                    <CegTemplatePanel
+                      cegTemplate={cegTemplate}
+                      setCegTemplate={setCegTemplate}
+                      previewCount={fakeJobQueue.length}
+                      onPreviewOpen={() => setIsSheetOpen(true)}
+                      templateResetKey={templateResetKey}
+                      savedTemplates={savedTemplates}
+                      activeTemplateId={activeTemplateId}
+                      onSaveTemplate={(name) => {
+                        const trimmed = name.trim()
+                        if (savedTemplates.some((t) => t.name === trimmed)) {
+                          setPendingSave({ name: trimmed, type: "template" })
+                          return false
+                        }
+                        const saved = saveTemplate(trimmed, cegTemplate)
+                        setActiveTemplateId(saved.id)
+                        return true
+                      }}
+                      onLoadTemplate={(t) => {
+                        setCegTemplate(t.template)
+                        setActiveTemplateId(t.id)
+                      }}
+                      onDeleteTemplate={(id) => {
+                        if (activeTemplateId === id) setActiveTemplateId(null)
+                        deleteTemplate(id)
+                      }}
+                      onUpdateTemplate={
+                        activeTemplate
+                          ? () => saveTemplate(activeTemplate.name, cegTemplate)
+                          : undefined
+                      }
+                    />
                   </TabsContent>
 
                   <TabsContent
