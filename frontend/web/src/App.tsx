@@ -2,51 +2,19 @@ import { useEffect, useMemo, useState } from "react"
 import { MinusIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card"
-import { Input } from "@/components/ui/input"
-import { Item, ItemContent, ItemTitle } from "@/components/ui/item"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
 } from "@/components/ui/navigation-menu"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/useBackend"
 import { CegTemplatePanel } from "./comfyui/CegTemplatePanel"
 import { SavedItemsManager } from "./comfyui/SavedItemsManager"
-import type { WorkerView } from "./comfyui/Message"
 import { SavedImagesGallery } from "./comfyui/SavedImagesGallery"
 import { CombinationPicker } from "./comfyui/CombinationPicker"
 import { useSavedTemplates } from "./comfyui/useSavedTemplates"
@@ -58,12 +26,21 @@ import { WorkflowGraphViewer } from "./comfyui/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/JobManagerPanel"
 import { SettingsPanel } from "./comfyui/SettingsPanel"
 import { useSettings } from "./comfyui/useSettings"
+import { useLocalStorage } from "./comfyui/useLocalStorage"
+import { useJobRunner } from "./comfyui/useJobRunner"
+import { ServerStatus, WorkerStatus } from "./comfyui/StatusIndicators"
+import { ParserPreviewDialog } from "./comfyui/ParserPreviewDialog"
+import { AxisFilterSheet } from "./comfyui/AxisFilterSheet"
+import { SelectionSheet } from "./comfyui/SelectionSheet"
+import { NameConflictDialog } from "./comfyui/NameConflictDialog"
+import { PresetSelectionDialog } from "./comfyui/PresetSelectionDialog"
+import { NodeMappingSection } from "./comfyui/NodeMappingSection"
+import type { ObjectInfo } from "./comfyui/renderTypes"
 import {
   ComfyWorkflowSchema,
-  type ComfyWorkflow,
   type NodeMapping,
-  type MappingSourceType,
 } from "./lib/workflow"
+import { buildAutoMappings } from "./lib/workflowUtils"
 import {
   DEFAULT_BACKEND_URL,
   IS_PACKAGE_MODE,
@@ -72,7 +49,6 @@ import {
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
-const MAX_RANDOM_SEED = 1_000_000_000
 
 const STORAGE_KEYS = {
   workflow: "workflow",
@@ -84,9 +60,6 @@ const STORAGE_KEYS = {
   activeNodeMappingPresetId: "activeNodeMappingPresetId",
 } as const
 
-// ---------------------------------------------------------------------------
-// Navigation tab definitions
-// ---------------------------------------------------------------------------
 const NAV_TABS = [
   { id: "jobs", label: "잡" },
   { id: "gallery", label: "갤러리" },
@@ -97,494 +70,6 @@ const NAV_TABS = [
 type TabId = (typeof NAV_TABS)[number]["id"]
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-type ObjectInfoInputSpec = [string[] | string, Record<string, unknown>?]
-type ObjectInfo = Record<
-  string,
-  {
-    input: {
-      required?: Record<string, ObjectInfoInputSpec>
-      optional?: Record<string, ObjectInfoInputSpec>
-    }
-  }
->
-
-interface RenderItem {
-  filename: string
-  prompt: string
-  meta: Record<string, string>
-}
-
-interface AxisValueOut {
-  key: string
-  value: string
-  props: Record<string, string>
-}
-
-interface AxisOut {
-  include?: string
-  values: AxisValueOut[]
-}
-
-interface ExcludeConditionOut {
-  axis: string
-  op: string
-  values: string[]
-}
-
-interface ExcludeRuleOut {
-  conditions: ExcludeConditionOut[]
-  connective: string
-}
-
-interface RenderItemsResponse {
-  count: number
-  items: RenderItem[]
-  axes: Record<string, AxisOut>
-  sets: Record<string, string>
-  excludes: ExcludeRuleOut[]
-}
-
-// ---------------------------------------------------------------------------
-// Generic localStorage hook (unifies string + object codepaths)
-// ---------------------------------------------------------------------------
-function useLocalStorage<T>(key: string, defaultValue: T) {
-  const isStringDefault = typeof defaultValue === "string"
-
-  const [value, setValue] = useState<T>(() => {
-    const stored = localStorage.getItem(key)
-    if (stored === null) return defaultValue
-    if (isStringDefault) return stored as T
-    try {
-      return JSON.parse(stored) as T
-    } catch {
-      return defaultValue
-    }
-  })
-
-  useEffect(() => {
-    if (isStringDefault) {
-      localStorage.setItem(key, value as string)
-    } else {
-      localStorage.setItem(key, JSON.stringify(value))
-    }
-  }, [key, value, isStringDefault])
-
-  return [value, setValue] as const
-}
-
-// ---------------------------------------------------------------------------
-// Reusable base status indicator (HoverCard + pulsing-dot + Item layout)
-// ---------------------------------------------------------------------------
-interface StatusHoverCardProps {
-  dotColor: string
-  pingColor: string
-  title: string
-  hoverAlign?: "start" | "center" | "end"
-  hoverWidth?: string
-  children: React.ReactNode
-}
-
-const StatusHoverCard = ({
-  dotColor,
-  pingColor,
-  title,
-  hoverAlign = "start",
-  hoverWidth = "w-56",
-  children,
-}: StatusHoverCardProps) => (
-  <HoverCard openDelay={200} closeDelay={100}>
-    <HoverCardTrigger asChild>
-      <div className="w-fit cursor-help">
-        <Item className="flex items-center gap-2 border-none bg-transparent p-2">
-          <span className="relative flex h-3 w-3">
-            <span
-              className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${dotColor}`}
-            />
-            <span
-              className={`relative inline-flex h-3 w-3 rounded-full ${pingColor}`}
-            />
-          </span>
-          <ItemContent>
-            <ItemTitle className="text-sm font-semibold">{title}</ItemTitle>
-          </ItemContent>
-        </Item>
-      </div>
-    </HoverCardTrigger>
-    <HoverCardContent
-      side="bottom"
-      align={hoverAlign}
-      sideOffset={10}
-      className={hoverWidth}
-    >
-      {children}
-    </HoverCardContent>
-  </HoverCard>
-)
-
-// ---------------------------------------------------------------------------
-// ServerStatus – thin wrapper over StatusHoverCard
-// ---------------------------------------------------------------------------
-interface ServerStatusProps {
-  name: string
-  isConnected: boolean
-  okHint: string
-  failHint: string
-}
-
-const ServerStatus = ({
-  name,
-  isConnected,
-  okHint,
-  failHint,
-}: ServerStatusProps) => {
-  const color = isConnected ? "bg-green-500" : "bg-red-500"
-  const ping = isConnected ? "bg-green-400" : "bg-red-400"
-
-  return (
-    <StatusHoverCard dotColor={color} pingColor={ping} title={name}>
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-bold">
-          {isConnected ? "✅ 연결 성공" : "❌ 연결 안됨"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {isConnected ? okHint : failHint}
-        </p>
-      </div>
-    </StatusHoverCard>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// WorkerStatus – thin wrapper over StatusHoverCard
-// ---------------------------------------------------------------------------
-interface WorkerStatusProps {
-  workers: WorkerView[]
-  backendAlive: boolean
-}
-
-const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
-  const aliveCount = workers.filter((w) => w.alive).length
-  const total = workers.length
-  const allAlive = backendAlive && total > 0 && aliveCount === total
-  const someAlive = backendAlive && aliveCount > 0
-  const dot = allAlive
-    ? "bg-green-500"
-    : someAlive
-      ? "bg-yellow-500"
-      : "bg-red-500"
-  const ping = allAlive
-    ? "bg-green-400"
-    : someAlive
-      ? "bg-yellow-400"
-      : "bg-red-400"
-
-  return (
-    <StatusHoverCard
-      dotColor={dot}
-      pingColor={ping}
-      title={`ComfyUI 워커 ${backendAlive ? `${aliveCount}/${total}` : "—"}`}
-      hoverAlign="end"
-      hoverWidth="w-72"
-    >
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-bold">
-          {allAlive
-            ? "모든 워커 연결됨"
-            : someAlive
-              ? "일부 워커만 연결됨"
-              : backendAlive
-                ? "워커 연결 안 됨"
-                : "백엔드 연결 안 됨"}
-        </p>
-        {workers.length === 0 && backendAlive && (
-          <p className="text-xs text-muted-foreground">
-            등록된 워커가 없습니다. '서버 설정' &gt; 'ComfyUI 워커'에서
-            추가하세요.
-          </p>
-        )}
-        {workers.map((w) => (
-          <div
-            key={w.id}
-            className="flex items-center justify-between gap-2 text-xs"
-          >
-            <span className="font-mono">{w.id}</span>
-            <span className="truncate text-muted-foreground">{w.url}</span>
-            <span
-              className={
-                w.alive
-                  ? w.busy
-                    ? "text-yellow-600"
-                    : "text-green-600"
-                  : "text-red-600"
-              }
-            >
-              {w.alive ? (w.busy ? "busy" : "idle") : "down"}
-            </span>
-          </div>
-        ))}
-      </div>
-    </StatusHoverCard>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
-const parseWorkflow = (json: string): ComfyWorkflow => {
-  const parsed = ComfyWorkflowSchema.safeParse(JSON.parse(json))
-  if (!parsed.success) {
-    console.error("Workflow validation error:", parsed.error)
-    throw new Error("Invalid workflow format")
-  }
-  return parsed.data
-}
-
-/** RenderItem 식별자. filename이 중복일 수 있어 prompt까지 포함. */
-const itemKey = (item: RenderItem): string => `${item.filename} ${item.prompt}`
-const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
-  const auto: NodeMapping[] = []
-
-  const clipNode =
-    Object.entries(workflow).find(([, n]) => {
-      if (n.class_type !== "CLIPTextEncode") return false
-      const title = (n._meta?.title || "").toLowerCase()
-      return title.includes("positive") || title.includes("prompt")
-    }) ??
-    Object.entries(workflow).find(([, n]) => n.class_type === "CLIPTextEncode")
-  if (clipNode)
-    auto.push({
-      id: crypto.randomUUID(),
-      nodeId: clipNode[0],
-      inputKey: "text",
-      sourceType: "prompt",
-    })
-
-  const saveNode = Object.entries(workflow).find(
-    ([, n]) => n.class_type === "SaveImage"
-  )
-  if (saveNode)
-    auto.push({
-      id: crypto.randomUUID(),
-      nodeId: saveNode[0],
-      inputKey: "filename_prefix",
-      sourceType: "filename",
-    })
-
-  Object.entries(workflow).forEach(([nodeId, node]) => {
-    if (node.class_type === "LoadImage")
-      auto.push({
-        id: crypto.randomUUID(),
-        nodeId,
-        inputKey: "image",
-        sourceType: "image",
-      })
-  })
-
-  Object.entries(workflow).forEach(([nodeId, node]) => {
-    Object.entries(node.inputs).forEach(([inputKey, value]) => {
-      if (typeof value === "number" && inputKey.toLowerCase().includes("seed"))
-        auto.push({
-          id: crypto.randomUUID(),
-          nodeId,
-          inputKey,
-          sourceType: "seed",
-          seedValue: Number(value),
-          seedRandom: true,
-        })
-    })
-  })
-
-  return auto
-}
-
-const applyAxisFilters = (
-  items: RenderItem[],
-  filter: Record<string, Record<string, boolean>>
-): RenderItem[] => {
-  const hasAnyDisabled = Object.values(filter).some((vals) =>
-    Object.values(vals).some((v) => !v)
-  )
-  if (!hasAnyDisabled) return items
-  return items.filter((item) =>
-    Object.entries(item.meta).every(([key, value]) => {
-      const axisVals = filter[key]
-      if (!axisVals) return true
-      return axisVals[value] !== false
-    })
-  )
-}
-
-const filterByItem = (
-  item: RenderItem,
-  setFilter: React.Dispatch<
-    React.SetStateAction<Record<string, Record<string, boolean>>>
-  >
-) => {
-  setFilter((prev) => {
-    const next: Record<string, Record<string, boolean>> = {}
-    for (const axis of Object.keys(prev)) {
-      const itemValue = item.meta[axis]
-      if (itemValue === undefined) {
-        next[axis] = { ...prev[axis] }
-      } else {
-        next[axis] = Object.fromEntries(
-          Object.keys(prev[axis]!).map((v) => [v, v === itemValue])
-        )
-      }
-    }
-    return next
-  })
-}
-
-const buildWorkflowForItem = (
-  workflowJson: string,
-  item: RenderItem,
-  nodeMappings: NodeMapping[],
-  imageNameMap: Record<string, string>
-): ComfyWorkflow => {
-  const workflow = parseWorkflow(workflowJson)
-
-  let firstImageName = ""
-  nodeMappings.forEach(
-    ({ nodeId, inputKey, sourceType, seedValue, seedRandom, fixedValue }) => {
-      if (!workflow[nodeId]) return
-      switch (sourceType) {
-        case "prompt":
-          workflow[nodeId]!.inputs[inputKey] = item.prompt
-          break
-        case "filename":
-          workflow[nodeId]!.inputs[inputKey] = item.filename
-          break
-        case "seed": {
-          const v = seedRandom
-            ? Math.floor(Math.random() * MAX_RANDOM_SEED)
-            : (seedValue ?? 0)
-          workflow[nodeId]!.inputs[inputKey] = v
-          break
-        }
-        case "image": {
-          const name = imageNameMap[`${nodeId}.${inputKey}`]
-          if (name) {
-            workflow[nodeId]!.inputs[inputKey] = name
-            if (!firstImageName) firstImageName = name
-          }
-          break
-        }
-        case "fixed":
-          workflow[nodeId]!.inputs[inputKey] = fixedValue ?? ""
-          break
-      }
-    }
-  )
-
-  // 플레이스홀더 치환: meta 변수 + 내장 변수 + 하위호환 단일중괄호
-  const subs: Record<string, string> = {
-    ...Object.fromEntries(
-      Object.entries(item.meta).map(([k, v]) => [`{{${k}}}`, v])
-    ),
-    "{{input}}": item.prompt,
-    "{{filename}}": item.filename,
-    "{{image}}": firstImageName,
-    "{input}": item.prompt,
-    "{filename}": item.filename,
-  }
-  Object.entries(workflow).forEach(([nodeId, node]) => {
-    Object.entries(node.inputs).forEach(([inputKey, inputValue]) => {
-      if (typeof inputValue === "string") {
-        let v = inputValue
-        for (const [key, val] of Object.entries(subs)) {
-          v = v.split(key).join(val)
-        }
-        workflow[nodeId]!.inputs[inputKey] = v
-      }
-    })
-  })
-  return workflow
-}
-
-// ---------------------------------------------------------------------------
-// PreviewTable – reusable table section for axis filter preview
-// ---------------------------------------------------------------------------
-interface PreviewTableProps {
-  title: string
-  items: RenderItem[]
-  accent?: string
-  summary?: string
-  className?: string
-  onItemClick?: (item: RenderItem) => void
-  showCheckboxes?: boolean
-  getItemChecked?: (item: RenderItem) => boolean
-  onToggleItem?: (item: RenderItem) => void
-}
-
-const PreviewTable = ({
-  title,
-  items,
-  accent,
-  summary,
-  className,
-  onItemClick,
-  showCheckboxes,
-  getItemChecked,
-  onToggleItem,
-}: PreviewTableProps) => (
-  <div className={`flex min-h-0 flex-col ${className ?? "flex-1"}`}>
-    <div className="mb-1 flex shrink-0 items-baseline gap-2">
-      <span className="text-sm font-semibold">{title}</span>
-      <span className={accent}>{items.length}</span>
-      {summary && (
-        <span className="text-xs text-muted-foreground">{summary}</span>
-      )}
-    </div>
-    <ScrollArea className="min-h-0 flex-1 rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {showCheckboxes && <TableHead className="w-8" />}
-            <TableHead className="w-[40%]">FileName</TableHead>
-            <TableHead>Prompt</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item, i) => (
-            <TableRow
-              key={`${title}-${itemKey(item)}-${i}`}
-              className={onItemClick ? "cursor-pointer" : ""}
-              onClick={onItemClick ? () => onItemClick(item) : undefined}
-            >
-              {showCheckboxes && (
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Checkbox
-                    checked={getItemChecked?.(item) ?? true}
-                    onCheckedChange={() => onToggleItem?.(item)}
-                  />
-                </TableCell>
-              )}
-              <TableCell className="font-mono text-xs">
-                {item.filename}
-              </TableCell>
-              <TableCell className="text-xs">{item.prompt}</TableCell>
-            </TableRow>
-          ))}
-          {items.length === 0 && (
-            <TableRow>
-              <TableCell
-                colSpan={showCheckboxes ? 3 : 2}
-                className="text-center text-xs text-muted-foreground"
-              >
-                없음
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </ScrollArea>
-  </div>
-)
-
-// ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
 export function App() {
@@ -593,13 +78,11 @@ export function App() {
     STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL
   )
-  // 패키지(포터블) 모드에서는 launcher가 주입한 URL을 강제 사용. localStorage 무시.
   const backendUrl = IS_PACKAGE_MODE
     ? (PACKAGE_BACKEND_URL as string)
     : storedBackendUrl
-  const setBackendUrl = IS_PACKAGE_MODE
-    ? (_: string) => {}
-    : setStoredBackendUrl
+  const setBackendUrl = IS_PACKAGE_MODE ? (_: string) => {} : setStoredBackendUrl
+
   const [workflowJson, setWorkflowJson] = useLocalStorage(
     STORAGE_KEYS.workflow,
     ""
@@ -614,11 +97,9 @@ export function App() {
   )
 
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
-
   const { settings, updateSetting } = useSettings()
 
   const [activeTab, setActiveTab] = useState<TabId>("jobs")
-  const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
@@ -631,6 +112,7 @@ export function App() {
       { uploadedName: string | null; error: string | null; uploading: boolean }
     >
   >({})
+  const [previewFilter, setPreviewFilter] = useState("")
   const [templateResetKey, setTemplateResetKey] = useState(0)
   const {
     templates: savedTemplates,
@@ -668,7 +150,6 @@ export function App() {
   >(STORAGE_KEYS.activeTemplateId, null)
   const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] =
     useLocalStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
-  const [repeatCount, setRepeatCount] = useState(1)
   const [pendingPresetSelection, setPendingPresetSelection] =
     useState<SavedWorkflow | null>(null)
 
@@ -688,59 +169,6 @@ export function App() {
     while (items.some((x) => x.name === `${name} (${n})`)) n++
     return `${name} (${n})`
   }
-
-  // 파서 미리보기 필터
-  const [previewFilter, setPreviewFilter] = useState("")
-  const [parserError, setParserError] = useState<string | null>(null)
-  const [axisValueFilter, setAxisValueFilter] = useState<
-    Record<string, Record<string, boolean>>
-  >({})
-  const [collapsedAxes, setCollapsedAxes] = useState<Set<string>>(new Set())
-  const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
-
-  useWatchValues("App", {
-    backendAlive,
-    jobs,
-    workers,
-    paused,
-    activeTab,
-    fakeJobQueue,
-    isSheetOpen,
-    isGraphOpen,
-    isAxisFilterOpen,
-    isSelectionOpen,
-    isAliveBackend,
-    objectInfo,
-    previewFilter,
-    parserError,
-    axisValueFilter,
-    templateResetKey,
-    workflowResetKey,
-    pendingSave,
-    cegTemplate,
-    workflowJson,
-    nodeMappings,
-  })
-
-  const toggleItemCheck = (key: string) => {
-    setUncheckedItems((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
-  const checkAllItems = () => setUncheckedItems(new Set())
-  const uncheckAllItems = () =>
-    setUncheckedItems(new Set(fakeJobQueue.map(itemKey)))
-
-  const toggleAxisCollapse = (axis: string) =>
-    setCollapsedAxes((prev) => {
-      const next = new Set(prev)
-      if (next.has(axis)) next.delete(axis)
-      else next.add(axis)
-      return next
-    })
 
   const parsedWorkflow = useMemo(() => {
     if (!workflowJson) return undefined
@@ -841,62 +269,10 @@ export function App() {
     }
   }
 
-  const callParser = async (): Promise<RenderItemsResponse | undefined> => {
-    try {
-      const response = await fetch(`${backendUrl}/render`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template: cegTemplate || "" }),
-      })
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "")
-        throw new Error(
-          `HTTP ${response.status}: ${errorText || response.statusText}`
-        )
-      }
-      return (await response.json()) as RenderItemsResponse
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.error("Error occurred while fetching parser API:", error)
-      setParserError(message)
-      return undefined
-    }
-  }
-
-  const submitJobs = async (renderItems: RenderItem[]): Promise<boolean> => {
-    if (!workflowJson || renderItems.length === 0) return false
-    const imageNameMap: Record<string, string> = {}
-    for (const m of nodeMappings) {
-      if (m.sourceType === "image") {
-        const name = imageUploads[`${m.nodeId}.${m.inputKey}`]?.uploadedName
-        if (name) imageNameMap[`${m.nodeId}.${m.inputKey}`] = name
-      }
-    }
-    const items = renderItems.map((item) => ({
-      filename: item.filename,
-      prompt: item.prompt,
-      workflow: buildWorkflowForItem(
-        workflowJson,
-        item,
-        nodeMappings,
-        imageNameMap
-      ),
-      meta: item.meta,
-      cegTemplate: cegTemplate,
-    }))
-    try {
-      const res = await fetch(`${backendUrl}/jobs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return true
-    } catch (error) {
-      console.error("Failed to submit jobs:", error)
-      return false
-    }
-  }
+  const updateMapping = (id: string, patch: Partial<NodeMapping>) =>
+    setNodeMappings((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    )
 
   const loadWorkflowItem = (w: SavedWorkflow) => {
     setWorkflowJson(w.workflow)
@@ -912,33 +288,36 @@ export function App() {
     }
   }
 
-  const handleRun = async () => {
-    if (!workflowJson || !isAliveBackend) return
-    const parserResult = await callParser()
-    if (!parserResult) return
-    const items = applyAxisFilters(parserResult.items, axisValueFilter)
-    const repeated =
-      repeatCount > 1
-        ? Array.from({ length: repeatCount }, () => items).flat()
-        : items
-    await submitJobs(repeated)
-  }
+  const {
+    fakeJobQueue,
+    parserError,
+    axisValueFilter,
+    setAxisValueFilter,
+    collapsedAxes,
+    uncheckedItems,
+    repeatCount,
+    setRepeatCount,
+    handleRun,
+    handleRunSelected,
+    toggleItemCheck,
+    checkAllItems,
+    uncheckAllItems,
+    toggleAxisCollapse,
+    estimatedRunCount,
+    axisFilteredItems,
+    axisExcludedItems,
+    filteredByAxisSet,
+    hasActiveFilter,
+    selectedCount,
+  } = useJobRunner({
+    cegTemplate,
+    workflowJson,
+    nodeMappings,
+    imageUploads,
+    backendUrl,
+    isAliveBackend,
+  })
 
-  const handleRunSelected = async () => {
-    if (!workflowJson || !isAliveBackend) return false
-    const parserResult = await callParser()
-    if (!parserResult) return false
-    const selected = parserResult.items.filter(
-      (item) => !uncheckedItems.has(itemKey(item))
-    )
-    const repeated =
-      repeatCount > 1
-        ? Array.from({ length: repeatCount }, () => selected).flat()
-        : selected
-    return await submitJobs(repeated)
-  }
-
-  // 파서 테스트 시트 검색 필터
   const filteredPreview = useMemo(() => {
     const needle = previewFilter.trim().toLowerCase()
     if (!needle) return fakeJobQueue
@@ -949,89 +328,29 @@ export function App() {
     )
   }, [fakeJobQueue, previewFilter])
 
-  const estimatedRunCount = useMemo(
-    () =>
-      fakeJobQueue.length > 0
-        ? applyAxisFilters(fakeJobQueue, axisValueFilter).length
-        : null,
-    [fakeJobQueue, axisValueFilter]
-  )
-
-  const filteredByAxisSet = useMemo(() => {
-    if (Object.keys(axisValueFilter).length === 0) return null
-    return new Set(applyAxisFilters(fakeJobQueue, axisValueFilter).map(itemKey))
-  }, [fakeJobQueue, axisValueFilter])
-
-  const hasActiveFilter = Object.values(axisValueFilter).some((vals) =>
-    Object.values(vals).some((v) => !v)
-  )
-
-  const axisFilteredItems = useMemo(
-    () => applyAxisFilters(fakeJobQueue, axisValueFilter),
-    [fakeJobQueue, axisValueFilter]
-  )
-
-  const axisExcludedItems = useMemo(() => {
-    const includedSet = new Set(axisFilteredItems.map(itemKey))
-    return fakeJobQueue.filter((item) => !includedSet.has(itemKey(item)))
-  }, [fakeJobQueue, axisFilteredItems])
-
-  const selectedCount = useMemo(
-    () =>
-      fakeJobQueue.length > 0
-        ? fakeJobQueue.filter((item) => !uncheckedItems.has(itemKey(item)))
-            .length
-        : null,
-    [fakeJobQueue, uncheckedItems]
-  )
-
-  // CEG 템플릿 변경 시 자동 파싱 (600ms debounce)
-  useEffect(() => {
-    if (!isAliveBackend || !cegTemplate.trim()) return
-    const controller = new AbortController()
-    const timer = setTimeout(async () => {
-      setParserError(null)
-      try {
-        const res = await fetch(`${backendUrl}/render`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ template: cegTemplate }),
-          signal: controller.signal,
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = (await res.json()) as RenderItemsResponse
-        setFakeJobQueue(data.items)
-        setUncheckedItems(new Set())
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return
-        setParserError(err instanceof Error ? err.message : String(err))
-      }
-    }, 600)
-    return () => {
-      clearTimeout(timer)
-      controller.abort()
-    }
-  }, [cegTemplate, isAliveBackend, backendUrl])
-
-  // 파서 결과에서 축 값 자동 감지 (새 값만 추가, 기존 설정 유지)
-  useEffect(() => {
-    if (fakeJobQueue.length === 0) return
-    setAxisValueFilter((prev) => {
-      const next = { ...prev }
-      fakeJobQueue.forEach((item) => {
-        Object.entries(item.meta).forEach(([key, value]) => {
-          if (!next[key]) next[key] = {}
-          if (next[key]![value] === undefined) next[key]![value] = true
-        })
-      })
-      return next
-    })
-  }, [fakeJobQueue])
-
-  const updateMapping = (id: string, patch: Partial<NodeMapping>) =>
-    setNodeMappings((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
-    )
+  useWatchValues("App", {
+    backendAlive,
+    jobs,
+    workers,
+    paused,
+    activeTab,
+    fakeJobQueue,
+    isSheetOpen,
+    isGraphOpen,
+    isAxisFilterOpen,
+    isSelectionOpen,
+    isAliveBackend,
+    objectInfo,
+    previewFilter,
+    parserError,
+    axisValueFilter,
+    templateResetKey,
+    workflowResetKey,
+    pendingSave,
+    cegTemplate,
+    workflowJson,
+    nodeMappings,
+  })
 
   // 백엔드 헬스 체크
   useEffect(() => {
@@ -1072,23 +391,52 @@ export function App() {
       .catch(() => {})
   }, [backendUrl, isAliveBackend])
 
-  const getNodeInputSpec = (
-    nodeId: string,
-    inputKey: string
-  ): ObjectInfoInputSpec | null => {
-    if (!parsedWorkflow?.success || !objectInfo) return null
-    const node = parsedWorkflow.data[nodeId]
-    if (!node) return null
-    const nodeInfo = objectInfo[node.class_type]
-    if (!nodeInfo) return null
-    return (
-      nodeInfo.input.required?.[inputKey] ??
-      nodeInfo.input.optional?.[inputKey] ??
-      null
-    )
+  const canRun = Boolean(workflowJson) && isAliveBackend && backendAlive
+
+  // 이름 충돌 다이얼로그 핸들러
+  const pendingSaveItems =
+    pendingSave?.type === "template"
+      ? savedTemplates
+      : pendingSave?.type === "workflow"
+        ? savedWorkflows
+        : savedNodeMappings
+
+  const handleNameConflictSaveNew = () => {
+    if (!pendingSave) return
+    const newName = nextFreeName(pendingSave.name, pendingSaveItems)
+    if (pendingSave.type === "template") {
+      saveTemplate(newName, cegTemplate)
+      setTemplateResetKey((k) => k + 1)
+    } else if (pendingSave.type === "workflow") {
+      const w = saveWorkflow(newName, workflowJson)
+      setActiveWorkflowId(w.id)
+      setWorkflowResetKey((k) => k + 1)
+    } else {
+      if (activeWorkflowId) {
+        saveMappingPreset(activeWorkflowId, newName, nodeMappings)
+        setNodeMappingResetKey((k) => k + 1)
+      }
+    }
+    setPendingSave(null)
   }
 
-  const canRun = Boolean(workflowJson) && isAliveBackend && backendAlive
+  const handleNameConflictOverwrite = () => {
+    if (!pendingSave) return
+    if (pendingSave.type === "template") {
+      saveTemplate(pendingSave.name, cegTemplate)
+      setTemplateResetKey((k) => k + 1)
+    } else if (pendingSave.type === "workflow") {
+      const w = saveWorkflow(pendingSave.name, workflowJson)
+      setActiveWorkflowId(w.id)
+      setWorkflowResetKey((k) => k + 1)
+    } else {
+      if (activeWorkflowId) {
+        saveMappingPreset(activeWorkflowId, pendingSave.name, nodeMappings)
+        setNodeMappingResetKey((k) => k + 1)
+      }
+    }
+    setPendingSave(null)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1207,9 +555,7 @@ export function App() {
                   선택 실행
                 </Button>
                 {parserError && (
-                  <span className="text-sm text-destructive">
-                    {parserError}
-                  </span>
+                  <span className="text-sm text-destructive">{parserError}</span>
                 )}
                 {Object.keys(axisValueFilter).length > 0 && (
                   <Button
@@ -1340,291 +686,67 @@ export function App() {
                     )}
 
                     {parsedWorkflow?.success && (
-                      <div className="border-t pt-4">
-                        <div className="mb-4 flex items-center justify-between">
-                          <h2 className="text-lg font-semibold">노드 매핑</h2>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleAutoMap}
-                          >
-                            자동 매핑
-                          </Button>
-                        </div>
-                        <div className="mb-4">
-                          {activeWorkflowId ? (
-                            <SavedItemsManager
-                              key={nodeMappingResetKey}
-                              items={savedNodeMappings}
-                              onSave={(name) => {
-                                const trimmed = name.trim()
-                                if (
-                                  savedNodeMappings.some(
-                                    (m) => m.name === trimmed
-                                  )
-                                ) {
-                                  setPendingSave({
-                                    name: trimmed,
-                                    type: "nodeMapping",
-                                  })
-                                  return false
-                                }
-                                saveMappingPreset(
-                                  activeWorkflowId,
-                                  trimmed,
-                                  nodeMappings
-                                )
-                                return true
-                              }}
-                              onLoad={(m) => {
-                                setNodeMappings(m.mappings)
-                                setActiveNodeMappingPresetId(m.id)
-                              }}
-                              onDelete={(presetId) => {
-                                if (activeNodeMappingPresetId === presetId)
-                                  setActiveNodeMappingPresetId(null)
-                                deleteMappingPreset(activeWorkflowId, presetId)
-                              }}
-                              placeholder="노드 매핑 이름"
-                              saveDisabled={nodeMappings.length === 0}
-                              activeItemId={
-                                activeNodeMappingPresetId ?? undefined
-                              }
-                              onUpdate={() => {
-                                if (activeNodeMappingPreset && activeWorkflowId)
-                                  saveMappingPreset(
-                                    activeWorkflowId,
-                                    activeNodeMappingPreset.name,
-                                    nodeMappings
-                                  )
-                              }}
-                            />
-                          ) : (
-                            <p className="mb-4 text-sm text-muted-foreground">
-                              노드 매핑을 저장하려면 먼저 워크플로우를
-                              저장하거나 불러오세요.
-                            </p>
-                          )}
-                        </div>
-                        {nodeMappings.length > 0 && (
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Node#</TableHead>
-                                <TableHead>Input</TableHead>
-                                <TableHead>소스</TableHead>
-                                <TableHead>값 / 파일</TableHead>
-                                <TableHead>랜덤</TableHead>
-                                <TableHead />
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {nodeMappings.map((m) => {
-                                const node = parsedWorkflow.data[m.nodeId]
-                                const spec = getNodeInputSpec(
-                                  m.nodeId,
-                                  m.inputKey
-                                )
-                                const enumOptions = Array.isArray(spec?.[0])
-                                  ? (spec![0] as string[])
-                                  : null
-                                const upload =
-                                  imageUploads[`${m.nodeId}.${m.inputKey}`]
-                                return (
-                                  <TableRow key={m.id}>
-                                    <TableCell className="text-sm">
-                                      {node?._meta?.title || "Untitled"}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-sm">
-                                      {m.nodeId}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-xs">
-                                      {m.inputKey}
-                                    </TableCell>
-                                    <TableCell>
-                                      <select
-                                        className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                        value={m.sourceType}
-                                        onChange={(e) =>
-                                          updateMapping(m.id, {
-                                            sourceType: e.target
-                                              .value as MappingSourceType,
-                                          })
-                                        }
-                                      >
-                                        <option value="prompt">프롬프트</option>
-                                        <option value="filename">파일명</option>
-                                        <option value="seed">시드</option>
-                                        <option value="image">이미지</option>
-                                        <option value="fixed">고정값</option>
-                                      </select>
-                                    </TableCell>
-                                    <TableCell>
-                                      {m.sourceType === "seed" && (
-                                        <Input
-                                          type="number"
-                                          value={m.seedValue ?? 0}
-                                          onChange={(e) =>
-                                            updateMapping(m.id, {
-                                              seedValue: Number(e.target.value),
-                                            })
-                                          }
-                                          className="h-8 w-28"
-                                        />
-                                      )}
-                                      {m.sourceType === "image" && (
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="text-sm"
-                                            onChange={(e) => {
-                                              const f = e.target.files?.[0]
-                                              if (f)
-                                                handleImageUpload(
-                                                  f,
-                                                  m.nodeId,
-                                                  m.inputKey
-                                                )
-                                            }}
-                                          />
-                                          {upload?.uploading && (
-                                            <span className="text-xs text-muted-foreground">
-                                              업로드 중...
-                                            </span>
-                                          )}
-                                          {upload?.uploadedName && (
-                                            <span className="text-xs text-green-600">
-                                              ✓ {upload.uploadedName}
-                                            </span>
-                                          )}
-                                          {upload?.error && (
-                                            <span className="text-xs text-destructive">
-                                              {upload.error}
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
-                                      {m.sourceType === "fixed" &&
-                                        (enumOptions ? (
-                                          <select
-                                            value={m.fixedValue ?? ""}
-                                            onChange={(e) =>
-                                              updateMapping(m.id, {
-                                                fixedValue: e.target.value,
-                                              })
-                                            }
-                                            className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                          >
-                                            <option value="">선택...</option>
-                                            {enumOptions.map((opt) => (
-                                              <option key={opt} value={opt}>
-                                                {opt}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        ) : (
-                                          <Input
-                                            value={m.fixedValue ?? ""}
-                                            onChange={(e) =>
-                                              updateMapping(m.id, {
-                                                fixedValue: e.target.value,
-                                              })
-                                            }
-                                            className="h-8 w-36"
-                                            placeholder="값 입력"
-                                          />
-                                        ))}
-                                    </TableCell>
-                                    <TableCell>
-                                      {m.sourceType === "seed" && (
-                                        <Checkbox
-                                          checked={m.seedRandom ?? false}
-                                          onCheckedChange={(checked) =>
-                                            updateMapping(m.id, {
-                                              seedRandom: checked === true,
-                                            })
-                                          }
-                                        />
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                        onClick={() =>
-                                          setNodeMappings((prev) =>
-                                            prev.filter((x) => x.id !== m.id)
-                                          )
-                                        }
-                                      >
-                                        ×
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                )
-                              })}
-                            </TableBody>
-                          </Table>
-                        )}
-                        {availableNodeOptions.length > 0 && (
-                          <select
-                            className="mt-3 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-                            value=""
-                            onChange={(e) => {
-                              const index = Number(e.target.value)
-                              const opt = availableNodeOptions[index]
-                              if (!opt) return
-                              const sourceType: MappingSourceType =
-                                opt.isLoadImage
-                                  ? "image"
-                                  : opt.isNumeric
-                                    ? "seed"
-                                    : "fixed"
-                              setNodeMappings((prev) => [
-                                ...prev,
-                                {
-                                  id: crypto.randomUUID(),
-                                  nodeId: opt.nodeId,
-                                  inputKey: opt.inputKey,
-                                  sourceType,
-                                  ...(sourceType === "seed"
-                                    ? { seedValue: 0, seedRandom: true }
-                                    : {}),
-                                },
-                              ])
-                            }}
-                          >
-                            <option value="">매핑 추가...</option>
-                            {availableNodeOptions.map((opt, i) => (
-                              <option key={i} value={i}>
-                                [{opt.nodeId}] {opt.title} - {opt.inputKey}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        {!nodeMappings.some(
-                          (m) => m.sourceType === "prompt"
-                        ) && (
-                          <p className="mt-2 text-xs text-yellow-600">
-                            ⚠ 프롬프트 주입 매핑이 설정되지 않았습니다.
-                          </p>
-                        )}
-                        {!nodeMappings.some(
-                          (m) => m.sourceType === "filename"
-                        ) && (
-                          <p className="mt-1 text-xs text-yellow-600">
-                            ⚠ 파일명 주입 매핑이 설정되지 않았습니다.
-                          </p>
-                        )}
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          워크플로우 JSON에 {"{{input}}"}, {"{{filename}}"},{" "}
-                          {"{{image}}"}, DSL 변수명({"{{outfit}}"} 등)을 직접
-                          써도 됩니다.
-                        </p>
-                      </div>
+                      <NodeMappingSection
+                        nodeMappings={nodeMappings}
+                        setNodeMappings={setNodeMappings}
+                        updateMapping={updateMapping}
+                        handleAutoMap={handleAutoMap}
+                        handleImageUpload={handleImageUpload}
+                        imageUploads={imageUploads}
+                        availableNodeOptions={availableNodeOptions}
+                        parsedWorkflowData={parsedWorkflow.data}
+                        objectInfo={objectInfo}
+                        activeWorkflowId={activeWorkflowId}
+                        savedNodeMappings={savedNodeMappings}
+                        activeNodeMappingPresetId={activeNodeMappingPresetId}
+                        nodeMappingResetKey={nodeMappingResetKey}
+                        savedWorkflows={savedWorkflows}
+                        pendingSaveType={
+                          pendingSave?.type === "nodeMapping"
+                            ? "nodeMapping"
+                            : null
+                        }
+                        onSaveNodeMapping={(name) => {
+                          const trimmed = name.trim()
+                          if (
+                            savedNodeMappings.some((m) => m.name === trimmed)
+                          ) {
+                            setPendingSave({
+                              name: trimmed,
+                              type: "nodeMapping",
+                            })
+                            return false
+                          }
+                          if (activeWorkflowId)
+                            saveMappingPreset(
+                              activeWorkflowId,
+                              trimmed,
+                              nodeMappings
+                            )
+                          return true
+                        }}
+                        onLoadNodeMapping={(m) => {
+                          setNodeMappings(m.mappings)
+                          setActiveNodeMappingPresetId(m.id)
+                        }}
+                        onDeleteNodeMapping={(presetId) => {
+                          if (activeNodeMappingPresetId === presetId)
+                            setActiveNodeMappingPresetId(null)
+                          if (activeWorkflowId)
+                            deleteMappingPreset(activeWorkflowId, presetId)
+                        }}
+                        onUpdateNodeMapping={() => {
+                          if (activeNodeMappingPreset && activeWorkflowId)
+                            saveMappingPreset(
+                              activeWorkflowId,
+                              activeNodeMappingPreset.name,
+                              nodeMappings
+                            )
+                        }}
+                        onPendingNameConflict={(name) =>
+                          setPendingSave({ name, type: "nodeMapping" })
+                        }
+                      />
                     )}
                   </TabsContent>
                 </Tabs>
@@ -1633,7 +755,6 @@ export function App() {
             <div className="relative">
               <section className="absolute inset-0 flex flex-col rounded-lg border bg-card p-6 shadow-sm">
                 <h2 className="mb-4 shrink-0 text-lg font-semibold">결과</h2>
-
                 <div className="min-h-0 flex-1 pr-2">
                   <JobManagerPanel
                     jobs={jobs}
@@ -1648,321 +769,49 @@ export function App() {
         )}
       </main>
 
-      <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>파서 결과</DialogTitle>
-            <DialogDescription>
-              전체 {fakeJobQueue.length}개
-              {previewFilter ? ` · 검색 ${filteredPreview.length}개` : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="px-1">
-            <Input
-              type="search"
-              placeholder="filename/prompt 검색..."
-              value={previewFilter}
-              onChange={(e) => setPreviewFilter(e.target.value)}
-              className="h-8"
-            />
-          </div>
-          <ScrollArea className="max-h-[50vh] overflow-y-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>FileName</TableHead>
-                  <TableHead>Prompt</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody id="rendered-items-table-body">
-                {filteredPreview.map((item, index) => {
-                  const key = itemKey(item)
-                  const wouldRun =
-                    !filteredByAxisSet || filteredByAxisSet.has(key)
-                  return (
-                    <TableRow
-                      key={`fake-${key}-${index}`}
-                      className={!wouldRun ? "opacity-40" : ""}
-                    >
-                      <TableCell className="font-mono text-xs">
-                        {item.filename}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-                {filteredPreview.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={2}
-                      className="text-center text-xs text-muted-foreground"
-                    >
-                      검색 결과가 없습니다.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+      <ParserPreviewDialog
+        open={isSheetOpen}
+        onOpenChange={setIsSheetOpen}
+        fakeJobQueue={fakeJobQueue}
+        previewFilter={previewFilter}
+        onPreviewFilterChange={setPreviewFilter}
+        filteredPreview={filteredPreview}
+        filteredByAxisSet={filteredByAxisSet}
+      />
 
-      <Sheet open={isAxisFilterOpen} onOpenChange={setIsAxisFilterOpen}>
-        <SheetContent className="min-w-[65vw]">
-          <SheetHeader>
-            <SheetTitle>축 필터</SheetTitle>
-            <SheetDescription>
-              체크 해제된 값은 실행에서 제외됩니다.
-              {estimatedRunCount !== null
-                ? ` 현재 설정 기준 ${estimatedRunCount}개 실행 예정.`
-                : ""}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex h-[65vh] gap-4">
-            <div className="flex w-[35%] flex-col gap-2">
-              <div className="flex items-center justify-end gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setAxisValueFilter((prev) => {
-                      const allEnabled = Object.values(prev).every((vals) =>
-                        Object.values(vals).every(Boolean)
-                      )
-                      return Object.fromEntries(
-                        Object.entries(prev).map(([k, vals]) => [
-                          k,
-                          Object.fromEntries(
-                            Object.keys(vals).map((v) => [v, !allEnabled])
-                          ),
-                        ])
-                      )
-                    })
-                  }
-                >
-                  전체{" "}
-                  {Object.values(axisValueFilter).every((vals) =>
-                    Object.values(vals).every(Boolean)
-                  )
-                    ? "비활성화"
-                    : "활성화"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setCollapsedAxes((prev) => {
-                      const allCollapsed =
-                        prev.size === Object.keys(axisValueFilter).length
-                      if (allCollapsed) return new Set()
-                      return new Set(Object.keys(axisValueFilter))
-                    })
-                  }
-                >
-                  {collapsedAxes.size === Object.keys(axisValueFilter).length
-                    ? "모두 펴기"
-                    : "모두 접기"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setAxisValueFilter((prev) =>
-                      Object.fromEntries(
-                        Object.entries(prev).map(([k, vals]) => [
-                          k,
-                          Object.fromEntries(
-                            Object.keys(vals).map((v) => [v, true])
-                          ),
-                        ])
-                      )
-                    )
-                  }
-                >
-                  초기화
-                </Button>
-              </div>
-              <ScrollArea className="min-h-0 flex-1 rounded-md border">
-                {Object.entries(axisValueFilter).map(([axis, values]) => {
-                  const enabledCount =
-                    Object.values(values).filter(Boolean).length
-                  const totalCount = Object.keys(values).length
-                  const axisChecked: boolean | "indeterminate" =
-                    enabledCount === 0
-                      ? false
-                      : enabledCount === totalCount
-                        ? true
-                        : "indeterminate"
-                  const isCollapsed = collapsedAxes.has(axis)
-                  return (
-                    <div key={axis}>
-                      <div
-                        className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3 py-1.5 select-none"
-                        onClick={() => toggleAxisCollapse(axis)}
-                      >
-                        <span className="w-3 text-xs text-muted-foreground transition-transform">
-                          {isCollapsed ? "▸" : "▾"}
-                        </span>
-                        <Checkbox
-                          checked={axisChecked}
-                          onCheckedChange={() => {
-                            const shouldEnable = enabledCount < totalCount
-                            setAxisValueFilter((prev) => ({
-                              ...prev,
-                              [axis]: Object.fromEntries(
-                                Object.keys(prev[axis] ?? {}).map((v) => [
-                                  v,
-                                  shouldEnable,
-                                ])
-                              ),
-                            }))
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <span className="font-mono text-sm font-semibold">
-                          {axis}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {enabledCount}/{totalCount}
-                        </span>
-                      </div>
-                      {!isCollapsed &&
-                        Object.entries(values).map(([value, enabled]) => (
-                          <div
-                            key={value}
-                            className="flex items-center gap-2 px-3 py-1 pl-9"
-                          >
-                            <Checkbox
-                              checked={enabled}
-                              onCheckedChange={(checked) =>
-                                setAxisValueFilter((prev) => ({
-                                  ...prev,
-                                  [axis]: {
-                                    ...prev[axis],
-                                    [value]: checked === true,
-                                  },
-                                }))
-                              }
-                            />
-                            <span
-                              className={`font-mono text-xs ${!enabled ? "text-muted-foreground line-through" : ""}`}
-                            >
-                              {value}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )
-                })}
-              </ScrollArea>
-            </div>
-            <div className="flex w-[65%] flex-col gap-2">
-              <PreviewTable
-                title="제외된 항목"
-                items={axisExcludedItems}
-                accent="text-destructive"
-                className="max-h-[40%]"
-                onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
-                showCheckboxes
-                getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
-                onToggleItem={(item) => toggleItemCheck(itemKey(item))}
-              />
-              <PreviewTable
-                title="포함된 항목"
-                items={axisFilteredItems}
-                accent="text-green-600"
-                summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
-                onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
-                showCheckboxes
-                getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
-                onToggleItem={(item) => toggleItemCheck(itemKey(item))}
-              />
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <AxisFilterSheet
+        open={isAxisFilterOpen}
+        onOpenChange={setIsAxisFilterOpen}
+        axisValueFilter={axisValueFilter}
+        setAxisValueFilter={setAxisValueFilter}
+        collapsedAxes={collapsedAxes}
+        toggleAxisCollapse={toggleAxisCollapse}
+        estimatedRunCount={estimatedRunCount}
+        fakeJobQueue={fakeJobQueue}
+        axisFilteredItems={axisFilteredItems}
+        axisExcludedItems={axisExcludedItems}
+        uncheckedItems={uncheckedItems}
+        toggleItemCheck={toggleItemCheck}
+      />
 
-      <Sheet open={isSelectionOpen} onOpenChange={setIsSelectionOpen}>
-        <SheetContent className="flex min-w-[30vw] flex-col">
-          <SheetHeader>
-            <SheetTitle>선택 실행</SheetTitle>
-            <SheetDescription>
-              전체 {fakeJobQueue.length}개 중 {selectedCount}개 선택됨
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex items-center gap-2 px-4">
-            <Input
-              type="search"
-              placeholder="filename/prompt 검색..."
-              value={previewFilter}
-              onChange={(e) => setPreviewFilter(e.target.value)}
-              className="h-8 flex-1"
-            />
-            <Button variant="ghost" size="sm" onClick={checkAllItems}>
-              전체 선택
-            </Button>
-            <Button variant="ghost" size="sm" onClick={uncheckAllItems}>
-              전체 해제
-            </Button>
-          </div>
-          <ScrollArea className="flex-1 overflow-y-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead>FileName</TableHead>
-                  <TableHead>Prompt</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPreview.map((item, index) => {
-                  const key = itemKey(item)
-                  return (
-                    <TableRow
-                      key={`sel-${key}-${index}`}
-                      className={!uncheckedItems.has(key) ? "" : "opacity-40"}
-                    >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={!uncheckedItems.has(key)}
-                          onCheckedChange={() => toggleItemCheck(key)}
-                        />
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {item.filename}
-                      </TableCell>
-                      <TableCell>{item.prompt}</TableCell>
-                    </TableRow>
-                  )
-                })}
-                {filteredPreview.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={3}
-                      className="text-center text-xs text-muted-foreground"
-                    >
-                      검색 결과가 없습니다.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-          <div className="flex justify-end px-4">
-            <Button
-              variant="default"
-              onClick={async () => {
-                const ok = await handleRunSelected()
-                if (ok) setIsSelectionOpen(false)
-              }}
-              disabled={!canRun || selectedCount === 0}
-            >
-              실행 ({selectedCount})
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <SelectionSheet
+        open={isSelectionOpen}
+        onOpenChange={setIsSelectionOpen}
+        fakeJobQueue={fakeJobQueue}
+        filteredPreview={filteredPreview}
+        previewFilter={previewFilter}
+        onPreviewFilterChange={setPreviewFilter}
+        uncheckedItems={uncheckedItems}
+        selectedCount={selectedCount}
+        canRun={canRun}
+        checkAllItems={checkAllItems}
+        uncheckAllItems={uncheckAllItems}
+        toggleItemCheck={toggleItemCheck}
+        onRunSelected={async () => {
+          const ok = await handleRunSelected()
+          if (ok) setIsSelectionOpen(false)
+        }}
+      />
 
       {parsedWorkflow?.success && (
         <WorkflowGraphViewer
@@ -1973,135 +822,31 @@ export function App() {
         />
       )}
 
-      <Dialog
-        open={pendingSave !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingSave(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>이름 충돌</DialogTitle>
-            <DialogDescription>
-              "{pendingSave?.name}" 이름이 이미 존재합니다.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setPendingSave(null)}>
-              취소
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                if (!pendingSave) return
-                const items =
-                  pendingSave.type === "template"
-                    ? savedTemplates
-                    : pendingSave.type === "workflow"
-                      ? savedWorkflows
-                      : savedNodeMappings
-                const newName = nextFreeName(pendingSave.name, items)
-                if (pendingSave.type === "template") {
-                  saveTemplate(newName, cegTemplate)
-                  setTemplateResetKey((k) => k + 1)
-                } else if (pendingSave.type === "workflow") {
-                  const w = saveWorkflow(newName, workflowJson)
-                  setActiveWorkflowId(w.id)
-                  setWorkflowResetKey((k) => k + 1)
-                } else {
-                  if (activeWorkflowId) {
-                    saveMappingPreset(activeWorkflowId, newName, nodeMappings)
-                    setNodeMappingResetKey((k) => k + 1)
-                  }
-                }
-                setPendingSave(null)
-              }}
-            >
-              새로 저장 (
-              {nextFreeName(
-                pendingSave?.name ?? "",
-                pendingSave?.type === "template"
-                  ? savedTemplates
-                  : pendingSave?.type === "workflow"
-                    ? savedWorkflows
-                    : savedNodeMappings
-              )}
-              )
-            </Button>
-            <Button
-              variant="default"
-              onClick={() => {
-                if (!pendingSave) return
-                if (pendingSave.type === "template") {
-                  saveTemplate(pendingSave.name, cegTemplate)
-                  setTemplateResetKey((k) => k + 1)
-                } else if (pendingSave.type === "workflow") {
-                  const w = saveWorkflow(pendingSave.name, workflowJson)
-                  setActiveWorkflowId(w.id)
-                  setWorkflowResetKey((k) => k + 1)
-                } else {
-                  if (activeWorkflowId) {
-                    saveMappingPreset(
-                      activeWorkflowId,
-                      pendingSave.name,
-                      nodeMappings
-                    )
-                    setNodeMappingResetKey((k) => k + 1)
-                  }
-                }
-                setPendingSave(null)
-              }}
-            >
-              덮어쓰기
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <NameConflictDialog
+        pendingSave={pendingSave}
+        onClose={() => setPendingSave(null)}
+        newName={nextFreeName(
+          pendingSave?.name ?? "",
+          pendingSaveItems
+        )}
+        onSaveNew={handleNameConflictSaveNew}
+        onOverwrite={handleNameConflictOverwrite}
+      />
 
-      <Dialog
-        open={pendingPresetSelection !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingPresetSelection(null)
+      <PresetSelectionDialog
+        pendingWorkflow={pendingPresetSelection}
+        onClose={() => setPendingPresetSelection(null)}
+        onSelectPreset={(mappings, presetId) => {
+          setNodeMappings(mappings)
+          setActiveNodeMappingPresetId(presetId)
+          setPendingPresetSelection(null)
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>노드 매핑 프리셋 선택</DialogTitle>
-            <DialogDescription>
-              사용할 노드 매핑 프리셋을 선택하세요.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            {pendingPresetSelection?.mappingPresets.map((preset) => (
-              <Button
-                key={preset.id}
-                variant="outline"
-                className="justify-start"
-                onClick={() => {
-                  setNodeMappings(preset.mappings)
-                  setActiveNodeMappingPresetId(preset.id)
-                  setPendingPresetSelection(null)
-                }}
-              >
-                {preset.name}
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {new Date(preset.savedAt).toLocaleDateString()}
-                </span>
-              </Button>
-            ))}
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setNodeMappings([])
-                setActiveNodeMappingPresetId(null)
-                setPendingPresetSelection(null)
-              }}
-            >
-              매핑 없이 시작
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        onStartWithoutMapping={() => {
+          setNodeMappings([])
+          setActiveNodeMappingPresetId(null)
+          setPendingPresetSelection(null)
+        }}
+      />
     </div>
   )
 }
