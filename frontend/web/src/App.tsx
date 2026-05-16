@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
-import { MinusIcon, PlusIcon, Code2 } from "lucide-react"
+import { MinusIcon, PlusIcon, Code2, EllipsisVertical } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup } from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
+  InputGroupButton,
   InputGroupText,
 } from "@/components/ui/input-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -50,6 +51,13 @@ import {
   PACKAGE_BACKEND_URL,
 } from "./lib/runtime"
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./components/ui/dropdown-menu"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
@@ -510,11 +518,25 @@ export function App() {
         {activeTab === "jobs" && (
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="flex min-h-0 flex-col space-y-6">
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-4 shadow-sm">
-                <div className="flex h-10 items-stretch overflow-hidden rounded-md border bg-background">
+              
+
+              <div className="flex min-h-0 flex-1 flex-col">
+                <Tabs
+                  defaultValue="ceg"
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <div className="flex items-center justify-between">
+                    <TabsList>
+                      <TabsTrigger value="ceg">CEG 탬플릿</TabsTrigger>
+                      <TabsTrigger value="workflow">
+                        ComfyUI 워크플로우
+                      </TabsTrigger>
+                    </TabsList>
+                    <div className="flex flex-wrap items-center gap-2 ">
+                <div className="flex items-stretch overflow-hidden rounded-md border bg-background">
                   <input
                     type="number"
-                    className="h-full w-16 bg-transparent px-3 outline-none"
+                    className="w-16 bg-transparent px-3 outline-none"
                     min={1}
                     value={repeatCount}
                     onChange={(e) =>
@@ -542,7 +564,6 @@ export function App() {
                 </div>
                 <Button
                   variant="default"
-                  className="h-10"
                   onClick={handleRun}
                   disabled={!canRun}
                 >
@@ -551,52 +572,27 @@ export function App() {
                     ? ` (${estimatedRunCount}${repeatCount > 1 ? ` × ${repeatCount}` : ""})`
                     : ""}
                 </Button>
-                <Button
-                  variant="secondary"
-                  className="h-10"
-                  onClick={() => setIsSelectionOpen(true)}
-                  disabled={!canRun}
-                >
-                  선택 실행
-                </Button>
-                {parserError && (
-                  <span className="text-sm text-destructive">
-                    {parserError}
-                  </span>
-                )}
-                {Object.keys(axisValueFilter).length > 0 && (
-                  <Button
-                    variant={hasActiveFilter ? "secondary" : "outline"}
-                    className="h-10"
-                    onClick={() => setIsAxisFilterOpen(true)}
-                  >
-                    축 필터
-                    {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
-                  </Button>
-                )}
-                {parsedWorkflow?.success && (
-                  <Button
-                    variant="outline"
-                    className="h-10"
-                    onClick={() => setIsGraphOpen(true)}
-                  >
-                    그래프 보기
-                  </Button>
-                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <EllipsisVertical />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      onClick={() => setIsSelectionOpen(true)}
+                      disabled={!canRun}
+                    >
+                      선택 실행
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setIsAxisFilterOpen(true)}>
+                      축 필터
+                      {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-
-              <div className="flex min-h-0 flex-1 flex-col rounded-lg border bg-card p-6 shadow-sm">
-                <Tabs
-                  defaultValue="ceg"
-                  className="flex min-h-0 flex-1 flex-col"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <TabsList>
-                      <TabsTrigger value="ceg">CEG 탬플릿</TabsTrigger>
-                      <TabsTrigger value="workflow">
-                        ComfyUI 워크플로우
-                      </TabsTrigger>
-                    </TabsList>
                   </div>
 
                   <TabsContent
@@ -639,23 +635,33 @@ export function App() {
 
                   <TabsContent
                     value="workflow"
-                    className="mt-0 flex-1 space-y-6 overflow-y-auto data-[state=active]:block data-[state=inactive]:hidden"
+                    className="mt-0 flex-1 space-y-6 overflow-y-auto data-[state=active]:block data-[state=inactive]:hidden rounded-lg border bg-card p-6 shadow-sm"
                   >
                     <FieldGroup>
                       <Field>
                         <InputGroup>
                           {/* ── top addon bar ─────────────── */}
-                          <InputGroupAddon align="block-start" className="border-b">
+                          <InputGroupAddon
+                            align="block-start"
+                            className="border-b"
+                          >
                             <InputGroupText>
                               <Code2 className="h-3.5 w-3.5" />
                               ComfyUI API 워크플로우
                             </InputGroupText>
                             <div className="ml-auto flex items-center gap-1">
                               {parsedWorkflow?.success && (
-                                <InputGroupText className="font-normal text-muted-foreground/70">
+                                // <InputGroupText className="font-normal text-muted-foreground/70">
+                                //   노드 {Object.keys(parsedWorkflow.data).length}
+                                //   개
+                                // </InputGroupText>
+                                <InputGroupButton
+                                  className="font-normal text-muted-foreground/70"
+                                  onClick={() => setIsGraphOpen(true)}
+                                >
                                   노드 {Object.keys(parsedWorkflow.data).length}
                                   개
-                                </InputGroupText>
+                                </InputGroupButton>
                               )}
                             </div>
                           </InputGroupAddon>
@@ -672,7 +678,10 @@ export function App() {
                           />
 
                           {/* ── bottom addon bar (save input) ─── */}
-                          <InputGroupAddon align="block-end" className="border-t">
+                          <InputGroupAddon
+                            align="block-end"
+                            className="border-t"
+                          >
                             <SaveInputBar
                               key={workflowResetKey}
                               onSave={(name) => {
@@ -705,7 +714,10 @@ export function App() {
                               activeItemId={activeWorkflowId ?? undefined}
                               onUpdate={() => {
                                 if (activeWorkflow)
-                                  saveWorkflow(activeWorkflow.name, workflowJson)
+                                  saveWorkflow(
+                                    activeWorkflow.name,
+                                    workflowJson
+                                  )
                               }}
                             />
                           </InputGroupAddon>
@@ -784,6 +796,8 @@ export function App() {
                     )}
                   </TabsContent>
                 </Tabs>
+
+                
               </div>
             </section>
             <div className="relative">
