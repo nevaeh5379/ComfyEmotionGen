@@ -2,6 +2,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 
 export interface SaveableItem {
   id: string
@@ -26,6 +27,7 @@ interface SavedListProps<T extends SaveableItem> {
   onDelete: (id: string) => void
   activeItemId?: string | undefined
   onUpdate?: (() => void) | undefined
+  className?: string
 }
 
 /* ── SaveInputBar ───────────────────────────────────────────
@@ -87,6 +89,7 @@ export function SavedItemsList<T extends SaveableItem>({
   onDelete,
   activeItemId,
   onUpdate,
+  className,
 }: SavedListProps<T>) {
   if (items.length === 0) {
     return (
@@ -97,7 +100,7 @@ export function SavedItemsList<T extends SaveableItem>({
   }
 
   return (
-    <div className="space-y-1 rounded-md border bg-muted/30 p-2">
+    <div className={cn("space-y-1 rounded-md border bg-muted/30 p-2", className)}>
       {items.map((item) => {
         const isActive = item.id === activeItemId
         return (
