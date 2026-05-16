@@ -39,6 +39,10 @@ export function CegTemplatePanel({
   onDeleteTemplate,
   onUpdateTemplate,
 }: CegTemplatePanelProps) {
+  const activeName = activeTemplateId
+    ? savedTemplates.find((t) => t.id === activeTemplateId)?.name
+    : undefined
+
   return (
     <FieldGroup>
       <Field>
@@ -78,12 +82,9 @@ export function CegTemplatePanel({
             <SaveInputBar
               key={templateResetKey}
               onSave={onSaveTemplate}
-              placeholder={
-                activeTemplateId
-                  ? savedTemplates.find((t) => t.id === activeTemplateId)?.name ?? "탬플릿 이름"
-                  : "탬플릿 이름"
-              }
+              placeholder={activeName ?? "탬플릿 이름"}
               saveDisabled={!cegTemplate.trim()}
+              activeName={activeName}
             />
           </InputGroupAddon>
         </InputGroup>

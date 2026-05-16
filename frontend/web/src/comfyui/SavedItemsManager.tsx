@@ -15,6 +15,8 @@ interface SaveInputProps {
   onSave: (name: string) => boolean
   placeholder: string
   saveDisabled: boolean
+  /** 현재 활성화된 프리셋 이름 — 입력이 비어있을 때 이 값으로 저장(업데이트) */
+  activeName?: string | undefined
 }
 
 /* ── shared props (with onLoad / onDelete) ─────────────── */
@@ -32,13 +34,20 @@ export function SaveInputBar({
   onSave,
   placeholder,
   saveDisabled,
+  activeName,
 }: SaveInputProps) {
   const [name, setName] = useState("")
 
+  const hasActivePreset = !!activeName
+  const canSave = !saveDisabled && (name.trim() || hasActivePreset)
+
   const handleSave = () => {
     const trimmed = name.trim()
-    if (!trimmed) return
-    if (onSave(trimmed)) setName("")
+    const targetName = trimmed || activeName!
+    if (onSave(targetName)) {
+      // 새 이름으로 저장했을 때만 초기화
+      if (trimmed) setName("")
+    }
   }
 
   return (
@@ -48,7 +57,7 @@ export function SaveInputBar({
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && name.trim() && !saveDisabled) {
+          if (e.key === "Enter" && canSave) {
             handleSave()
           }
         }}
@@ -57,9 +66,12 @@ export function SaveInputBar({
       <Button
         variant="default"
         size="sm"
-        disabled={saveDisabled || !name.trim()}
+        disabled={!canSave}
         onClick={handleSave}
         className="h-7 shrink-0 px-3 text-xs"
+        title={
+          hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
+        }
       >
         저장
       </Button>

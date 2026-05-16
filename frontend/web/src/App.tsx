@@ -690,11 +690,10 @@ export function App() {
                                 return true
                               }}
                               placeholder={
-                                activeWorkflowId
-                                  ? savedWorkflows.find((w) => w.id === activeWorkflowId)?.name ?? "워크플로우 이름"
-                                  : "워크플로우 이름"
+                                activeWorkflow?.name ?? "워크플로우 이름"
                               }
                               saveDisabled={!workflowJson.trim()}
+                              activeName={activeWorkflow?.name}
                             />
                           </InputGroupAddon>
                         </InputGroup>
