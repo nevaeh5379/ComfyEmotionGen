@@ -59,7 +59,7 @@ export function SaveInputBar({
         size="sm"
         disabled={saveDisabled || !name.trim()}
         onClick={handleSave}
-        className="h-7 px-3 text-xs shrink-0"
+        className="h-7 shrink-0 px-3 text-xs"
       >
         저장
       </Button>
