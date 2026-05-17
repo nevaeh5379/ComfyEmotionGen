@@ -54,7 +54,6 @@ export function CegTemplatePanel({
               title="미리보기"
             >
               <Eye className="h-3.5 w-3.5" />
-              미리보기 <span className="mono">({previewCount})</span>
             </Button>
           )}
         </div>

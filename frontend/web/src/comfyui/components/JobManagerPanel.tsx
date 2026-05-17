@@ -12,6 +12,8 @@ import {
   Trash2,
   X,
   MoreVertical,
+  RecycleIcon,
+  RefreshCcw,
 } from "lucide-react"
 
 import { format } from "date-fns"
@@ -1448,10 +1450,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 px-1.5 text-[11px]"
+                          className="h-6 px-0.5 text-[11px] text-muted-foreground"
                           onClick={(e) => handleRetry(e, j.id)}
                         >
-                          재시도
+                    
+                          <RefreshCcw className="h-3 w-3" />
                         </Button>
                       )}
                       {isFailed && (
