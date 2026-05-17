@@ -21,3 +21,5 @@ object_info.json
 node_modules/
 .pi-lens/
 .pi/
+.gemini/
+.serena/

@@ -21,6 +21,7 @@ import {
   FilterIcon,
   AlertTriangleIcon,
   Trash2Icon,
+  Settings2Icon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -46,6 +47,15 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import { curationApi } from "../hooks/useSavedImages"
 import { useAsyncAction } from "../hooks/useAsyncAction"
 import type { SavedImage } from "../types/Message"
@@ -616,6 +626,7 @@ export const CombinationPicker = memo(function CombinationPicker({
 
   // 미할당 이미지(고아) 관리 관련 상태
   const [showUnassignedPanel, setShowUnassignedPanel] = useState(false)
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [unassignedSelectedFilenames, setUnassignedSelectedFilenames] =
     useState<Set<string>>(new Set())
   const [showTrueOrphansOnly, setShowTrueOrphansOnly] = useState(false)
@@ -1269,194 +1280,205 @@ export const CombinationPicker = memo(function CombinationPicker({
 
   return (
     <div className="flex flex-col">
-      {/* ── Sticky Toolbar Header ── */}
+      {/* ── Sticky Toolbar Header (1단 통합) ── */}
       <div className="sticky top-[45px] z-40 shrink-0 border-b border-line bg-panel">
-        <div className="flex flex-col gap-3 px-4 pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold">템플릿:</span>
-              <Select
-                value={selectedTemplateId || "__current__"}
-                onValueChange={(v) =>
-                  setSelectedTemplateId(v === "__current__" ? "" : v)
-                }
+        {/* 메인 툴바: 1줄 */}
+        <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+          {/* 템플릿 선택 */}
+          <Select
+            value={selectedTemplateId || "__current__"}
+            onValueChange={(v) =>
+              setSelectedTemplateId(v === "__current__" ? "" : v)
+            }
+          >
+            <SelectTrigger className="h-7 w-44 border-0 bg-transparent font-bold shadow-none focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__current__">현재 편집 중인 탬플릿</SelectItem>
+              {savedTemplates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* 뷰 모드 탭 */}
+          <Tabs value={viewMode} onValueChange={handleTabChange}>
+            <TabsList className="h-7">
+              <TabsTrigger
+                value="gallery"
+                className="gap-1 px-2.5 text-[10px] font-bold"
               >
-                <SelectTrigger className="h-9 w-64 font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__current__">
-                    현재 편집 중인 탬플릿
-                  </SelectItem>
-                  {savedTemplates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-3">
-              <Tabs value={viewMode} onValueChange={handleTabChange}>
-                <TabsList className="h-9">
-                  <TabsTrigger
-                    value="gallery"
-                    className="gap-1.5 px-3 text-xs font-bold"
-                  >
-                    <FolderIcon className="h-3.5 w-3.5" />
-                    갤러리
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="table"
-                    className="gap-1.5 px-3 text-xs font-bold"
-                  >
-                    <LayoutListIcon className="h-3.5 w-3.5" />
-                    리스트
-                  </TabsTrigger>
-                  <div className="mx-1 h-4 w-px bg-muted-foreground/30" />
-                  <TabsTrigger
-                    value="grid"
-                    className="gap-1.5 px-3 text-xs font-bold"
-                    disabled={isBrowsing}
-                  >
-                    <Maximize2Icon className="h-3.5 w-3.5" />
-                    그리드
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="compare"
-                    className="gap-1.5 px-3 text-xs font-bold"
-                    disabled={isBrowsing || pinnedHashes.length === 0}
-                  >
-                    <ColumnsIcon className="h-3.5 w-3.5" />
-                    비교
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="tournament"
-                    className="gap-1.5 px-3 text-xs font-bold"
-                    disabled={isBrowsing || visibleImages.length < 2}
-                  >
-                    <SwordsIcon className="h-3.5 w-3.5" />
-                    월드컵
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
+                <FolderIcon className="h-3 w-3" />
+                갤러리
+              </TabsTrigger>
+              <TabsTrigger
+                value="table"
+                className="gap-1 px-2.5 text-[10px] font-bold"
+              >
+                <LayoutListIcon className="h-3 w-3" />
+                리스트
+              </TabsTrigger>
+              <div className="mx-0.5 h-3 w-px bg-muted-foreground/30" />
+              <TabsTrigger
+                value="grid"
+                className="gap-1 px-2.5 text-[10px] font-bold"
+                disabled={isBrowsing}
+              >
+                <Maximize2Icon className="h-3 w-3" />
+                그리드
+              </TabsTrigger>
+              <TabsTrigger
+                value="compare"
+                className="gap-1 px-2.5 text-[10px] font-bold"
+                disabled={isBrowsing || pinnedHashes.length === 0}
+              >
+                <ColumnsIcon className="h-3 w-3" />
+                비교
+              </TabsTrigger>
+              <TabsTrigger
+                value="tournament"
+                className="gap-1 px-2.5 text-[10px] font-bold"
+                disabled={isBrowsing || visibleImages.length < 2}
+              >
+                <SwordsIcon className="h-3 w-3" />
+                월드컵
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* 진행률 */}
+          <div className="flex min-w-[120px] items-center gap-2">
+            <Progress
+              value={(doneCount / renderItems.length) * 100}
+              className="h-1.5 flex-1"
+            />
+            <span className="shrink-0 text-[10px] font-bold text-muted-foreground">
+              {doneCount}/{renderItems.length}
+            </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex-1 space-y-1">
-              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
-                <span>진행률</span>
-                <span>
-                  {doneCount} / {renderItems.length}
-                </span>
-              </div>
-              <Progress
-                value={(doneCount / renderItems.length) * 100}
-                className="h-1.5"
-              />
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="h-4 w-px bg-border" />
+
+          {/* 필터 토글 */}
+          <Button
+            variant={
+              filtersExpanded ||
+              statusFilter !== "all" ||
+              filenameFilter ||
+              metadataFilter
+                ? "secondary"
+                : "outline"
+            }
+            size="sm"
+            className={`h-7 gap-1 px-2 text-[10px] font-bold ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-1 ring-blue-400" : ""}`}
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+            title="필터"
+          >
+            <FilterIcon className="h-3 w-3" />
+            필터
+            {(statusFilter !== "all" || filenameFilter || metadataFilter) &&
+              !filtersExpanded && (
+                <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+              )}
+          </Button>
+
+          {/* 설정 드롭다운 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchData}
-                title="새로고침"
+                className="h-7 gap-1 px-2 text-[10px] font-bold"
+                title="설정"
               >
-                <RefreshCwIcon className="h-4 w-4" />
+                <Settings2Icon className="h-3 w-3" />
               </Button>
-              <div className="flex items-center gap-1 rounded-md border bg-background p-1">
-                <Select
-                  value={duplicateStrategy}
-                  onValueChange={(v) =>
-                    setDuplicateStrategy(v as "hash" | "number")
-                  }
-                >
-                  <SelectTrigger className="h-7 w-20 border-0 bg-transparent px-2 text-[10px] font-bold shadow-none focus:ring-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hash">HASH</SelectItem>
-                    <SelectItem value="number">NUM</SelectItem>
-                  </SelectContent>
-                </Select>
-                <LoadingButton
-                  size="sm"
-                  className="h-7 px-3 text-[10px] font-black"
-                  onClick={handleExport}
-                  isLoading={exportAction.isLoading}
-                  disabled={doneCount === 0}
-                  icon={DownloadIcon}
-                >
-                  DATASET EXPORT
-                </LoadingButton>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 border-l pl-4">
-              <div className="flex cursor-pointer items-center gap-1.5">
-                <Checkbox
-                  id="cp-hide-rejected"
-                  checked={hideRejected}
-                  onCheckedChange={(v) => setHideRejected(v === true)}
-                />
-                <Label
-                  htmlFor="cp-hide-rejected"
-                  className="cursor-pointer text-[11px] font-bold text-muted-foreground"
-                >
-                  리젝 숨기기
-                </Label>
-              </div>
-              <div className="flex cursor-pointer items-center gap-1.5">
-                <Checkbox
-                  id="cp-auto-advance"
-                  checked={autoAdvance}
-                  onCheckedChange={(v) => setAutoAdvance(v === true)}
-                />
-                <Label
-                  htmlFor="cp-auto-advance"
-                  className="cursor-pointer text-[11px] font-bold text-muted-foreground"
-                >
-                  자동 다음 이동
-                </Label>
-              </div>
-            </div>
-            {exportAction.message && (
-              <span className="text-xs font-bold text-green-600">
-                {exportAction.message}
-              </span>
-            )}
-            {regenAction.message && (
-              <span className="text-xs font-bold text-blue-600">
-                {regenAction.message}
-              </span>
-            )}
-            {unassignedGroups.size > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
-                className={`h-7 gap-1.5 border-amber-400/60 bg-amber-50/50 text-[10px] font-bold hover:bg-amber-100/60 ${showUnassignedPanel ? "ring-2 ring-amber-400" : ""}`}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>설정</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={fetchData}>
+                <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
+                새로고침
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={hideRejected}
+                onCheckedChange={(v) => setHideRejected(v)}
               >
-                <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600" />
-                미할당: {unassignedGroups.size}파일 ({unassignedTotalCount}장)
-              </Button>
-            )}
-          </div>
+                리젝 숨기기
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={autoAdvance}
+                onCheckedChange={(v) => setAutoAdvance(v)}
+              >
+                자동 다음 이동
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              {/* 중복 전략 */}
+              <DropdownMenuLabel>중복 전략</DropdownMenuLabel>
+              <DropdownMenuItem
+                className={duplicateStrategy === "hash" ? "bg-accent" : ""}
+                onClick={() => setDuplicateStrategy("hash")}
+              >
+                HASH
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={duplicateStrategy === "number" ? "bg-accent" : ""}
+                onClick={() => setDuplicateStrategy("number")}
+              >
+                NUM
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {unassignedGroups.size > 0 && (
+                <DropdownMenuItem
+                  onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
+                >
+                  <AlertTriangleIcon className="mr-2 h-3.5 w-3.5 text-amber-600" />
+                  미할당: {unassignedGroups.size}파일 ({unassignedTotalCount}장)
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          {/* 필터 바 */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-dashed pt-3">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <FilterIcon className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                필터
-              </span>
-            </div>
+          {/* EXPORT 버튼 */}
+          <LoadingButton
+            size="sm"
+            className="h-7 px-2.5 text-[10px] font-black"
+            onClick={handleExport}
+            isLoading={exportAction.isLoading}
+            disabled={doneCount === 0}
+            icon={DownloadIcon}
+          >
+            EXPORT
+          </LoadingButton>
+
+          {/* 메시지 */}
+          {exportAction.message && (
+            <span className="text-[10px] font-bold text-green-600">
+              {exportAction.message}
+            </span>
+          )}
+          {regenAction.message && (
+            <span className="text-[10px] font-bold text-blue-600">
+              {regenAction.message}
+            </span>
+          )}
+        </div>
+
+        {/* 필터 바 (접이식) */}
+        {filtersExpanded && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-dashed px-3 py-2">
             {/* 상태 필터 */}
             <Select
               value={statusFilter}
-              onValueChange={(v) =>
+              onValueChange={(v) => {
                 setStatusFilter(v as "all" | "done" | "pending")
-              }
+                setFiltersExpanded(true)
+              }}
             >
               <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
                 <SelectValue />
@@ -1474,7 +1496,10 @@ export const CombinationPicker = memo(function CombinationPicker({
                 type="text"
                 placeholder="파일명 검색..."
                 value={filenameFilter}
-                onChange={(e) => setFilenameFilter(e.target.value)}
+                onChange={(e) => {
+                  setFilenameFilter(e.target.value)
+                  setFiltersExpanded(true)
+                }}
                 className="h-7 w-40 pl-7 text-[10px] font-bold"
               />
             </div>
@@ -1485,11 +1510,14 @@ export const CombinationPicker = memo(function CombinationPicker({
                 type="text"
                 placeholder="메타데이터 검색..."
                 value={metadataFilter}
-                onChange={(e) => setMetadataFilter(e.target.value)}
+                onChange={(e) => {
+                  setMetadataFilter(e.target.value)
+                  setFiltersExpanded(true)
+                }}
                 className="h-7 w-44 pl-7 text-[10px] font-bold"
               />
             </div>
-            {/* 필터 초기화 버튼 (필터가 활성화되었을 때만 표시) */}
+            {/* 필터 초기화 버튼 */}
             {(statusFilter !== "all" || filenameFilter || metadataFilter) && (
               <Button
                 variant="ghost"
@@ -1508,34 +1536,34 @@ export const CombinationPicker = memo(function CombinationPicker({
               {filteredRenderItems.length} / {renderItems.length}개
             </div>
           </div>
-        </div>
+        )}
 
         {/* 선택 모드 액션 바 */}
         {selectionMode && (
-          <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
-            <span className="text-sm font-bold text-blue-700">
-              {selectedFilenames.size}개 항목 선택됨
+          <div className="flex items-center gap-3 rounded-lg border border-t-0 bg-blue-50/30 px-3 py-1.5">
+            <span className="text-xs font-bold text-blue-700">
+              {selectedFilenames.size}개 선택됨
             </span>
             <Button
               size="sm"
-              className="h-8 gap-1.5 text-[10px] font-bold"
+              className="h-7 gap-1 text-[10px] font-bold"
               onClick={handleBulkRegenerate}
               disabled={selectedFilenames.size === 0}
             >
-              <RefreshCwIcon className="h-3.5 w-3.5" />
-              선택 항목 재생성
+              <RefreshCwIcon className="h-3 w-3" />
+              재생성
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
+              className="h-7 gap-1 text-[10px] font-bold text-muted-foreground"
               onClick={exitSelectionMode}
             >
-              <XIcon className="h-3.5 w-3.5" />
-              선택 모드 종료
+              <XIcon className="h-3 w-3" />
+              종료
             </Button>
             {bulkRegenAction.message && (
-              <span className="text-xs font-bold text-blue-600">
+              <span className="text-[10px] font-bold text-blue-600">
                 {bulkRegenAction.message}
               </span>
             )}
@@ -1729,7 +1757,7 @@ export const CombinationPicker = memo(function CombinationPicker({
         <div className="flex gap-4">
           {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
           {!isBrowsing && (
-            <div className="sticky top-[210px] self-start flex w-64 flex-none flex-col overflow-hidden rounded-lg border bg-card max-h-[calc(100vh-230px)]">
+            <div className="sticky top-[210px] flex max-h-[calc(100vh-230px)] w-64 flex-none flex-col self-start overflow-hidden rounded-lg border bg-card">
               <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
                 Combinations
               </div>
@@ -1783,7 +1811,7 @@ export const CombinationPicker = memo(function CombinationPicker({
           )}
 
           {/* 오른쪽: 콘텐츠 영역 */}
-          <div className="flex min-w-0 flex-1 flex-col min-h-[700px]">
+          <div className="flex min-h-[700px] min-w-0 flex-1 flex-col">
             {isBrowsing ? (
               <div className="flex flex-1 flex-col">
                 <div>
