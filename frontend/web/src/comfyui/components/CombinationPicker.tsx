@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import {
   CheckCircle2Icon,
@@ -73,162 +81,13 @@ import {
 } from "./CombinationPickerComponents"
 import { ImageViewer } from "./ImageViewer"
 import { hasApproved, findApproved } from "../types/Message"
+import {
+  Magnifier,
+  TournamentView,
+  LongPressWrapper,
+} from "./CombinationPickerViews"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
-
-export function Magnifier({
-  src,
-  className = "",
-}: {
-  src: string
-  className?: string
-}) {
-  const [pos, setPos] = useState({ x: 0, y: 0 })
-  const [show, setShow] = useState(false)
-  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(
-    null
-  )
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
-    const x = ((e.clientX - left) / width) * 100
-    const y = ((e.clientY - top) / height) * 100
-    setPos({ x, y })
-  }
-
-  return (
-    <div
-      className={`relative flex items-center justify-center overflow-hidden bg-black/5 ${className}`}
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-      onMouseMove={handleMouseMove}
-      style={
-        imgNatural
-          ? { aspectRatio: `${imgNatural.w}/${imgNatural.h}` }
-          : undefined
-      }
-    >
-      <img
-        src={src}
-        className="max-h-[78vh] max-w-[90vw] object-contain"
-        alt=""
-        onLoad={(e) => {
-          const img = e.currentTarget
-          setImgNatural({ w: img.naturalWidth, h: img.naturalHeight })
-        }}
-      />
-      {show && (
-        <div
-          className="pointer-events-none absolute inset-0 z-10"
-          style={{
-            backgroundImage: `url(${src})`,
-            backgroundPosition: `${pos.x}% ${pos.y}%`,
-            backgroundSize: "250%",
-            backgroundRepeat: "no-repeat",
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-export function TournamentView({
-  images,
-  backendUrl,
-  onComplete,
-}: {
-  images: SavedImage[]
-  backendUrl: string
-  onComplete: (winnerHash: string) => void
-}) {
-  const [matches, setMatches] = useState<SavedImage[]>(() =>
-    [...images].sort(() => Math.random() - 0.5)
-  )
-  const [nextRound, setNextRound] = useState<SavedImage[]>([])
-
-  if (matches.length === 0 && nextRound.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center font-bold text-muted-foreground">
-        이미지 없음
-      </div>
-    )
-  }
-
-  if (matches.length === 1 && nextRound.length === 0) {
-    const winner = matches[0]!
-    return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <h2 className="mb-6 text-2xl font-bold text-green-500">
-          🏆 최종 우승 🏆
-        </h2>
-        <img
-          src={`${backendUrl}/saved-images/${winner.hash}`}
-          className="max-h-[60%] max-w-full rounded-lg border shadow-lg"
-          alt="Winner"
-        />
-        <Button
-          className="mt-8 px-8 py-6 text-lg font-bold"
-          onClick={() => onComplete(winner.hash)}
-        >
-          이 이미지 선택 완료
-        </Button>
-      </div>
-    )
-  }
-
-  const left = matches[0]!
-  const right = matches[1]!
-
-  const handlePick = (winner: SavedImage) => {
-    const newNext = [...nextRound, winner]
-    const remaining = matches.slice(2)
-
-    if (remaining.length === 0) {
-      setMatches(newNext.sort(() => Math.random() - 0.5))
-      setNextRound([])
-    } else if (remaining.length === 1) {
-      setMatches([...newNext, remaining[0]!].sort(() => Math.random() - 0.5))
-      setNextRound([])
-    } else {
-      setNextRound(newNext)
-      setMatches(remaining)
-    }
-  }
-
-  const totalMatchesThisRound = Math.floor(
-    (matches.length + nextRound.length * 2) / 2
-  )
-  const currentMatchNum = nextRound.length + 1
-
-  return (
-    <div className="flex h-full flex-col items-center justify-center p-4">
-      <div className="mb-6 flex flex-col items-center">
-        <h3 className="text-xl font-bold">이상형 월드컵</h3>
-        <span className="text-sm font-medium text-muted-foreground">
-          라운드 매치: {currentMatchNum} / {totalMatchesThisRound}
-        </span>
-      </div>
-      <div className="flex w-full flex-1 gap-6 overflow-hidden">
-        {[left, right].map((img) => (
-          <button
-            key={img.hash}
-            onClick={() => handlePick(img)}
-            className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 focus:outline-none"
-          >
-            <img
-              src={`${backendUrl}/saved-images/${img.hash}`}
-              className="h-full w-full object-contain"
-              alt=""
-            />
-            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-4 text-center font-bold text-white opacity-0 group-hover:opacity-100">
-              이 이미지 선택
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 function GalleryView({
   items,
@@ -317,18 +176,7 @@ function GalleryView({
                         <div className="truncate font-mono text-[11px] font-bold">
                           {item.filename}
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {Object.values(item.meta)
-                            .slice(0, 2)
-                            .map((v, i) => (
-                              <span
-                                key={i}
-                                className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
-                              >
-                                {v}
-                              </span>
-                            ))}
-                        </div>
+                        <MetaTags meta={item.meta} variant="compact" max={2} />
                       </div>
                     </LongPressWrapper>
                   </HoverCardTrigger>
@@ -424,11 +272,7 @@ function TableView({
                       </td>
                     )}
                     <td className="px-4 py-2">
-                      {isDone ? (
-                        <CheckCircle2Icon className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <CircleIcon className="h-4 w-4 text-muted-foreground/30" />
-                      )}
+                      <StatusIcon done={isDone} />
                     </td>
                     <HoverCard
                       openDelay={enableHover ? 500 : 99999}
@@ -450,16 +294,7 @@ function TableView({
                       )}
                     </HoverCard>
                     <td className="px-4 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {Object.values(item.meta).map((v, i) => (
-                          <span
-                            key={i}
-                            className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                          >
-                            {v}
-                          </span>
-                        ))}
-                      </div>
+                      <MetaTags meta={item.meta} variant="default" />
                     </td>
                     <td className="px-4 py-2 text-right">
                       <span className="font-mono text-xs text-muted-foreground">
@@ -486,83 +321,72 @@ function TableView({
   )
 }
 
-// LongPressWrapper: 500ms 이상 누르면 long press 이벤트 발생
-function LongPressWrapper({
-  children,
-  onLongPress,
-  onClick,
-  className,
-  as: Component = "button",
-  ...rest
+// 상태 아이콘 컴포넌트
+function StatusIcon({ done, active }: { done: boolean; active?: boolean }) {
+  if (active) {
+    return done ? (
+      <CheckCircle2Icon className="h-4 w-4" />
+    ) : (
+      <CircleIcon className="h-4 w-4" />
+    )
+  }
+  return done ? (
+    <CheckCircle2Icon className="h-4 w-4 text-green-500" />
+  ) : (
+    <CircleIcon className="h-4 w-4 text-muted-foreground/30" />
+  )
+}
+
+// 메타 태그 렌더링 컴포넌트
+function MetaTags({
+  meta,
+  variant = "default",
+  max,
 }: {
-  children: React.ReactNode
-  onLongPress: () => void
-  onClick: () => void
-  className?: string
-  as?: React.ElementType
-} & Omit<
-  React.HTMLAttributes<HTMLElement>,
-  "children" | "onClick" | "className"
->) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const longPressTriggeredRef = useRef(false)
-  const [pressing, setPressing] = useState(false)
-
-  const clear = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-  }, [])
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      // 오른쪽 클릭은 무시
-      if (e.button !== 0) return
-      longPressTriggeredRef.current = false
-      setPressing(true)
-      timerRef.current = setTimeout(() => {
-        longPressTriggeredRef.current = true
-        setPressing(false)
-        onLongPress()
-      }, 500)
-    },
-    [onLongPress]
-  )
-
-  const handleMouseUp = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return
-      clear()
-      setPressing(false)
-      if (!longPressTriggeredRef.current) {
-        onClick()
-      }
-    },
-    [clear, onClick]
-  )
-
-  const handleMouseLeave = useCallback(() => {
-    clear()
-    setPressing(false)
-  }, [clear])
-
-  // cleanup on unmount
-  useEffect(() => {
-    return () => clear()
-  }, [clear])
-
+  meta: Record<string, string>
+  variant?: "default" | "compact" | "primary" | "sidebar"
+  max?: number
+}) {
+  const values = Object.values(meta)
+  const display = max ? values.slice(0, max) : values
+  const variants = {
+    default: "rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground",
+    compact:
+      "rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground",
+    primary:
+      "rounded border border-primary/10 bg-primary/10 px-1.5 py-0 text-[8px] font-bold whitespace-nowrap text-primary",
+    sidebar: `text-[9px] font-medium uppercase`,
+  }
   return (
-    <Component
-      className={className}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-      style={pressing ? { opacity: 0.7 } : undefined}
-      {...rest}
-    >
-      {children}
-    </Component>
+    <div className="flex flex-wrap gap-1">
+      {display.map((v, i) => (
+        <span key={i} className={variants[variant]}>
+          {v}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// Set 토글 훅: value 추가/제거 토글
+function useSetToggle<T>(
+  setValue: React.Dispatch<React.SetStateAction<Set<T>>>,
+  onEmpty?: () => void
+) {
+  return useCallback(
+    (value: T) => {
+      setValue((prev) => {
+        const next = new Set(prev)
+        if (next.has(value)) {
+          next.delete(value)
+          if (next.size === 0 && onEmpty) onEmpty()
+        } else {
+          next.add(value)
+        }
+        return next
+      })
+    },
+    [setValue, onEmpty]
   )
 }
 
@@ -636,9 +460,34 @@ export const CombinationPicker = memo(function CombinationPicker({
   const [checkingTemplates, setCheckingTemplates] = useState(false)
   const bulkTrashAction = useAsyncAction(4000)
 
-  const activeTemplate =
-    savedTemplates.find((t) => t.id === selectedTemplateId)?.template ??
-    cegTemplate
+  // 툴바 높이 자동 계산 (CSS 변수)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+
+  // 필터 변경 시 자동 확장 헬퍼
+  const withExpand = useCallback(
+    <T,>(setter: React.Dispatch<React.SetStateAction<T>>, value: T) => {
+      setter(value)
+      setFiltersExpanded(true)
+    },
+    []
+  )
+  const [toolbarHeight, setToolbarHeight] = useState(0)
+  useLayoutEffect(() => {
+    const el = toolbarRef.current
+    if (!el) return
+    const update = () => setToolbarHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const activeTemplate = useMemo(
+    () =>
+      savedTemplates.find((t) => t.id === selectedTemplateId)?.template ??
+      cegTemplate,
+    [savedTemplates, selectedTemplateId, cegTemplate]
+  )
 
   const fetchData = useCallback(async () => {
     if (!activeTemplate.trim()) {
@@ -792,17 +641,9 @@ export const CombinationPicker = memo(function CombinationPicker({
   }, [unassignedGroups, showTrueOrphansOnly, templateAffiliationCache])
 
   // 미할당 그룹에서 선택 토글
-  const handleUnassignedToggleSelect = useCallback((filename: string) => {
-    setUnassignedSelectedFilenames((prev) => {
-      const next = new Set(prev)
-      if (next.has(filename)) {
-        next.delete(filename)
-      } else {
-        next.add(filename)
-      }
-      return next
-    })
-  }, [])
+  const handleUnassignedToggleSelect = useSetToggle(
+    setUnassignedSelectedFilenames
+  )
 
   // 미할당 그룹 전체 선택 / 해제
   const handleUnassignedSelectAll = useCallback(() => {
@@ -901,8 +742,9 @@ export const CombinationPicker = memo(function CombinationPicker({
     metadataFilter,
   ])
 
-  const selectedItem = renderItems.find(
-    (ri) => ri.filename === selectedFilename
+  const selectedItem = useMemo(
+    () => renderItems.find((ri) => ri.filename === selectedFilename),
+    [renderItems, selectedFilename]
   )
   const selectedImages = useMemo(
     () =>
@@ -1002,11 +844,6 @@ export const CombinationPicker = memo(function CombinationPicker({
     setRegenDialogState({ open: true, filenames: [filename] })
   }, [])
 
-  const handleRegenerate = useCallback(() => {
-    if (!selectedFilename) return
-    handleContextMenuRegenerate(selectedFilename)
-  }, [selectedFilename, handleContextMenuRegenerate])
-
   // 선택 모드 종료
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false)
@@ -1060,90 +897,63 @@ export const CombinationPicker = memo(function CombinationPicker({
     setViewMode("grid")
   }, [])
 
-  const handleRejectImage = useCallback(
-    async (hash: string) => {
+  // 단일 이미지 상태 변경
+  const setStatus = useCallback(
+    async (hash: string, status: SavedImage["status"]) => {
       setAllImages((prev) =>
-        prev.map((img) =>
-          img.hash === hash ? { ...img, status: "rejected" as const } : img
-        )
+        prev.map((img) => (img.hash === hash ? { ...img, status } : img))
       )
-      await curationApi.patchStatus(backendUrl, hash, "rejected")
+      await curationApi.patchStatus(backendUrl, hash, status)
     },
     [backendUrl]
   )
 
-  const handleCancelReject = useCallback(
-    async (hash: string) => {
+  // 배치 상태 변경 (필터 함수로 대상 선택)
+  const batchUpdateStatus = useCallback(
+    async (
+      filter: (img: SavedImage) => boolean,
+      status: SavedImage["status"]
+    ) => {
+      const targets = selectedImages.filter(filter)
+      if (targets.length === 0) return
       setAllImages((prev) =>
         prev.map((img) =>
-          img.hash === hash ? { ...img, status: "pending" as const } : img
+          img.originalFilename === selectedFilename && filter(img)
+            ? { ...img, status }
+            : img
         )
       )
-      await curationApi.patchStatus(backendUrl, hash, "pending")
+      await Promise.all(
+        targets.map((img) =>
+          curationApi.patchStatus(backendUrl, img.hash, status)
+        )
+      )
     },
-    [backendUrl]
+    [backendUrl, selectedImages, selectedFilename]
   )
 
-  const handleRejectAll = useCallback(async () => {
-    const targets = selectedImages.filter(
-      (img) => img.status !== "approved" && img.status !== "rejected"
-    )
-    if (targets.length === 0) return
-    setAllImages((prev) =>
-      prev.map((img) => {
-        if (
-          img.originalFilename !== selectedFilename ||
-          img.status === "approved"
-        )
-          return img
-        return { ...img, status: "rejected" as const }
-      })
-    )
-    await Promise.all(
-      targets.map((img) =>
-        curationApi.patchStatus(backendUrl, img.hash, "rejected")
-      )
-    )
-  }, [backendUrl, selectedImages, selectedFilename])
+  const handleRejectAll = useCallback(
+    () =>
+      batchUpdateStatus(
+        (img) => img.status !== "approved" && img.status !== "rejected",
+        "rejected"
+      ),
+    [batchUpdateStatus]
+  )
 
-  const handleCancelAllRejects = useCallback(async () => {
-    const targets = selectedImages.filter((img) => img.status === "rejected")
-    if (targets.length === 0) return
-    setAllImages((prev) =>
-      prev.map((img) => {
-        if (img.originalFilename !== selectedFilename) return img
-        return img.status === "rejected"
-          ? { ...img, status: "pending" as const }
-          : img
-      })
-    )
-    await Promise.all(
-      targets.map((img) =>
-        curationApi.patchStatus(backendUrl, img.hash, "pending")
-      )
-    )
-  }, [backendUrl, selectedImages, selectedFilename])
+  const handleCancelAllRejects = useCallback(
+    () => batchUpdateStatus((img) => img.status === "rejected", "pending"),
+    [batchUpdateStatus]
+  )
 
-  const handleCancelApproval = useCallback(async () => {
-    const allInGroup = selectedImages.filter(
-      (img) => img.status === "approved" || img.status === "rejected"
-    )
-    if (allInGroup.length === 0) return
-    setAllImages((prev) =>
-      prev.map((img) => {
-        if (img.originalFilename !== selectedFilename) return img
-        if (img.status === "approved" || img.status === "rejected") {
-          return { ...img, status: "pending" as const }
-        }
-        return img
-      })
-    )
-    await Promise.all(
-      allInGroup.map((img) =>
-        curationApi.patchStatus(backendUrl, img.hash, "pending")
-      )
-    )
-  }, [backendUrl, selectedImages, selectedFilename])
+  const handleCancelApproval = useCallback(
+    () =>
+      batchUpdateStatus(
+        (img) => img.status === "approved" || img.status === "rejected",
+        "pending"
+      ),
+    [batchUpdateStatus]
+  )
 
   // 선택 모드 진입 (long press)
   const handleLongPress = useCallback(
@@ -1157,21 +967,10 @@ export const CombinationPicker = memo(function CombinationPicker({
   )
 
   // 선택 토글
-  const handleToggleSelect = useCallback((filename: string) => {
-    setSelectedFilenames((prev) => {
-      const next = new Set(prev)
-      if (next.has(filename)) {
-        next.delete(filename)
-        // 마지막 선택 해제 시 선택 모드 종료
-        if (next.size === 0) {
-          setSelectionMode(false)
-        }
-      } else {
-        next.add(filename)
-      }
-      return next
-    })
-  }, [])
+  const handleToggleSelect = useSetToggle(
+    setSelectedFilenames,
+    exitSelectionMode
+  )
 
   // 선택된 항목들 일괄 재생성
   const handleBulkRegenerate = useCallback(() => {
@@ -1209,7 +1008,7 @@ export const CombinationPicker = memo(function CombinationPicker({
           e.preventDefault()
           navigateTo("prev")
         } else if (e.key === "r" || e.key === "R") {
-          handleRegenerate()
+          handleContextMenuRegenerate(selectedFilename)
         } else if (e.key === "Escape") {
           setSelectedFilename(null)
           setViewMode("gallery")
@@ -1226,7 +1025,7 @@ export const CombinationPicker = memo(function CombinationPicker({
   }, [
     selectedFilename,
     navigateTo,
-    handleRegenerate,
+    handleContextMenuRegenerate,
     selectImage,
     selectedItem,
     visibleImages,
@@ -1251,8 +1050,6 @@ export const CombinationPicker = memo(function CombinationPicker({
       setSelectedFilename(renderItems[0]!.filename)
     }
   }
-
-  const isBrowsing = !selectedFilename
 
   if (loading)
     return (
@@ -1281,7 +1078,13 @@ export const CombinationPicker = memo(function CombinationPicker({
   return (
     <div className="flex flex-col">
       {/* ── Sticky Toolbar Header (1단 통합) ── */}
-      <div className="sticky top-[45px] z-40 shrink-0 border-b border-line bg-panel">
+      <div
+        ref={toolbarRef}
+        className="sticky top-[45px] z-40 shrink-0 border-b border-line bg-panel"
+        style={
+          { "--toolbar-height": `${toolbarHeight}px` } as React.CSSProperties
+        }
+      >
         {/* 메인 툴바: 1줄 */}
         <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
           {/* 템플릿 선택 */}
@@ -1325,7 +1128,7 @@ export const CombinationPicker = memo(function CombinationPicker({
               <TabsTrigger
                 value="grid"
                 className="gap-1 px-2.5 text-[10px] font-bold"
-                disabled={isBrowsing}
+                disabled={!selectedFilename}
               >
                 <Maximize2Icon className="h-3 w-3" />
                 그리드
@@ -1333,7 +1136,7 @@ export const CombinationPicker = memo(function CombinationPicker({
               <TabsTrigger
                 value="compare"
                 className="gap-1 px-2.5 text-[10px] font-bold"
-                disabled={isBrowsing || pinnedHashes.length === 0}
+                disabled={!selectedFilename || pinnedHashes.length === 0}
               >
                 <ColumnsIcon className="h-3 w-3" />
                 비교
@@ -1341,7 +1144,7 @@ export const CombinationPicker = memo(function CombinationPicker({
               <TabsTrigger
                 value="tournament"
                 className="gap-1 px-2.5 text-[10px] font-bold"
-                disabled={isBrowsing || visibleImages.length < 2}
+                disabled={!selectedFilename || visibleImages.length < 2}
               >
                 <SwordsIcon className="h-3 w-3" />
                 월드컵
@@ -1444,6 +1247,40 @@ export const CombinationPicker = memo(function CombinationPicker({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* 선택 모드 (인라인) */}
+          {selectionMode && (
+            <>
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-1.5 rounded-md border border-blue-300 bg-blue-50/60 px-2 py-0.5">
+                <span className="text-[10px] font-bold text-blue-700">
+                  {selectedFilenames.size}개
+                </span>
+                <Button
+                  size="sm"
+                  className="h-6 px-1.5 text-[9px] font-bold"
+                  onClick={handleBulkRegenerate}
+                  disabled={selectedFilenames.size === 0}
+                >
+                  <RefreshCwIcon className="h-2.5 w-2.5" />
+                  재생성
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1 text-[9px] font-bold text-muted-foreground"
+                  onClick={exitSelectionMode}
+                >
+                  <XIcon className="h-2.5 w-2.5" />
+                </Button>
+              </div>
+              {bulkRegenAction.message && (
+                <span className="text-[10px] font-bold text-blue-600">
+                  {bulkRegenAction.message}
+                </span>
+              )}
+            </>
+          )}
+
           {/* EXPORT 버튼 */}
           <LoadingButton
             size="sm"
@@ -1475,10 +1312,9 @@ export const CombinationPicker = memo(function CombinationPicker({
             {/* 상태 필터 */}
             <Select
               value={statusFilter}
-              onValueChange={(v) => {
-                setStatusFilter(v as "all" | "done" | "pending")
-                setFiltersExpanded(true)
-              }}
+              onValueChange={(v) =>
+                withExpand(setStatusFilter, v as "all" | "done" | "pending")
+              }
             >
               <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
                 <SelectValue />
@@ -1496,10 +1332,7 @@ export const CombinationPicker = memo(function CombinationPicker({
                 type="text"
                 placeholder="파일명 검색..."
                 value={filenameFilter}
-                onChange={(e) => {
-                  setFilenameFilter(e.target.value)
-                  setFiltersExpanded(true)
-                }}
+                onChange={(e) => withExpand(setFilenameFilter, e.target.value)}
                 className="h-7 w-40 pl-7 text-[10px] font-bold"
               />
             </div>
@@ -1510,10 +1343,7 @@ export const CombinationPicker = memo(function CombinationPicker({
                 type="text"
                 placeholder="메타데이터 검색..."
                 value={metadataFilter}
-                onChange={(e) => {
-                  setMetadataFilter(e.target.value)
-                  setFiltersExpanded(true)
-                }}
+                onChange={(e) => withExpand(setMetadataFilter, e.target.value)}
                 className="h-7 w-44 pl-7 text-[10px] font-bold"
               />
             </div>
@@ -1535,38 +1365,6 @@ export const CombinationPicker = memo(function CombinationPicker({
             <div className="ml-auto text-[10px] font-bold text-muted-foreground">
               {filteredRenderItems.length} / {renderItems.length}개
             </div>
-          </div>
-        )}
-
-        {/* 선택 모드 액션 바 */}
-        {selectionMode && (
-          <div className="flex items-center gap-3 rounded-lg border border-t-0 bg-blue-50/30 px-3 py-1.5">
-            <span className="text-xs font-bold text-blue-700">
-              {selectedFilenames.size}개 선택됨
-            </span>
-            <Button
-              size="sm"
-              className="h-7 gap-1 text-[10px] font-bold"
-              onClick={handleBulkRegenerate}
-              disabled={selectedFilenames.size === 0}
-            >
-              <RefreshCwIcon className="h-3 w-3" />
-              재생성
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 text-[10px] font-bold text-muted-foreground"
-              onClick={exitSelectionMode}
-            >
-              <XIcon className="h-3 w-3" />
-              종료
-            </Button>
-            {bulkRegenAction.message && (
-              <span className="text-[10px] font-bold text-blue-600">
-                {bulkRegenAction.message}
-              </span>
-            )}
           </div>
         )}
       </div>
@@ -1756,8 +1554,17 @@ export const CombinationPicker = memo(function CombinationPicker({
         {/* 메인 레이아웃 */}
         <div className="flex gap-4">
           {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
-          {!isBrowsing && (
-            <div className="sticky top-[210px] flex max-h-[calc(100vh-230px)] w-64 flex-none flex-col self-start overflow-hidden rounded-lg border bg-card">
+          {selectedFilename && (
+            <div
+              className="sticky flex w-64 flex-none flex-col self-start overflow-hidden rounded-lg border bg-card"
+              style={
+                {
+                  top: "calc(45px + var(--toolbar-height, 60px))",
+                  maxHeight:
+                    "calc(100vh - 45px - var(--toolbar-height, 60px) - 20px)",
+                } as React.CSSProperties
+              }
+            >
               <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
                 Combinations
               </div>
@@ -1776,14 +1583,8 @@ export const CombinationPicker = memo(function CombinationPicker({
                           : "text-foreground hover:bg-accent/50"
                       }`}
                     >
-                      <span
-                        className={`mt-0.5 flex-none ${isActive ? "" : isDone ? "text-green-500" : "text-muted-foreground/30"}`}
-                      >
-                        {isDone ? (
-                          <CheckCircle2Icon className="h-4 w-4" />
-                        ) : (
-                          <CircleIcon className="h-4 w-4" />
-                        )}
+                      <span className="mt-0.5 flex-none">
+                        <StatusIcon done={isDone} active={isActive} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-mono text-[10px] leading-tight font-bold">
@@ -1812,7 +1613,7 @@ export const CombinationPicker = memo(function CombinationPicker({
 
           {/* 오른쪽: 콘텐츠 영역 */}
           <div className="flex min-h-[700px] min-w-0 flex-1 flex-col">
-            {isBrowsing ? (
+            {!selectedFilename ? (
               <div className="flex flex-1 flex-col">
                 <div>
                   {viewMode === "gallery" ? (
@@ -1858,92 +1659,83 @@ export const CombinationPicker = memo(function CombinationPicker({
               </div>
             ) : (
               <div className="flex flex-1 flex-col">
-                {/* 상세 헤더 */}
-                <div className="flex-none border-b bg-muted/10 px-4 py-3">
-                  <div className="flex flex-col gap-2">
-                    {/* Row 1: 네비게이션 + 파일명 + 메타 태그 */}
-                    <div className="flex min-w-0 flex-wrap items-center gap-3">
-                      <Button
-                        variant="outline"
+                {/* 상세 헤더 (1줄 통합) */}
+                <div className="flex-none border-b bg-muted/10 px-3 py-1.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFilename(null)
+                        setViewMode("gallery")
+                      }}
+                      className="h-6 w-6 shrink-0 p-0"
+                    >
+                      <ArrowLeftIcon className="h-2.5 w-2.5" />
+                    </Button>
+                    <span className="truncate font-mono text-[11px] font-bold">
+                      {selectedFilename}
+                    </span>
+                    <MetaTags
+                      meta={selectedItem?.meta || {}}
+                      variant="primary"
+                    />
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <LoadingButton
                         size="sm"
-                        onClick={() => {
-                          setSelectedFilename(null)
-                          setViewMode("gallery")
-                        }}
-                        className="h-8 shrink-0 gap-1.5 font-bold"
-                      >
-                        <ArrowLeftIcon className="h-3.5 w-3.5" />
-                        목록
-                      </Button>
-                      <span className="truncate font-mono text-sm font-bold">
-                        {selectedFilename}
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.values(selectedItem?.meta || {}).map((v, i) => (
-                          <span
-                            key={i}
-                            className="rounded border border-primary/10 bg-primary/10 px-2 py-0.5 text-[9px] font-bold whitespace-nowrap text-primary"
+                        className="h-6 w-6 p-0"
+                        onClick={() =>
+                          selectedFilename &&
+                          handleContextMenuRegenerate(selectedFilename)
+                        }
+                        isLoading={regenAction.isLoading}
+                        icon={RefreshCwIcon}
+                      ></LoadingButton>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 w-6 p-0"
                           >
-                            {v}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Row 2: 액션 버튼 그룹 */}
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        className="h-8 gap-1.5 text-[10px] font-bold"
-                        onClick={handleRegenerate}
-                        disabled={regenAction.isLoading}
-                      >
-                        <RefreshCwIcon className="h-3.5 w-3.5" />
-                        재생성
-                      </Button>
-                      <div className="h-4 w-px bg-border" />
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1 border-red-300 text-[10px] font-bold text-red-600 hover:bg-red-50"
-                          onClick={handleRejectAll}
-                          disabled={
-                            !selectedImages.some(
-                              (img) =>
-                                img.status !== "approved" &&
-                                img.status !== "rejected"
-                            )
-                          }
-                        >
-                          <XIcon className="h-3 w-3" />
-                          모두 리젝
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1 text-[10px] font-bold"
-                          onClick={handleCancelAllRejects}
-                          disabled={
-                            !selectedImages.some(
-                              (img) => img.status === "rejected"
-                            )
-                          }
-                        >
-                          <RefreshCwIcon className="h-3 w-3" />
-                          리젝 취소
-                        </Button>
-                        <div className="h-4 w-px bg-border" />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1 border-amber-300 text-[10px] font-bold text-amber-600 hover:bg-amber-50"
-                          onClick={handleCancelApproval}
-                          disabled={!hasApproved(selectedImages)}
-                        >
-                          <XIcon className="h-3 w-3" />
-                          선택 취소
-                        </Button>
-                      </div>
+                            <Settings2Icon className="h-2.5 w-2.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={handleRejectAll}
+                            disabled={
+                              !selectedImages.some(
+                                (img) =>
+                                  img.status !== "approved" &&
+                                  img.status !== "rejected"
+                              )
+                            }
+                          >
+                            <XIcon className="mr-2 h-3.5 w-3.5 text-red-500" />
+                            모두 리젝
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={handleCancelAllRejects}
+                            disabled={
+                              !selectedImages.some(
+                                (img) => img.status === "rejected"
+                              )
+                            }
+                          >
+                            <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
+                            리젝 취소
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={handleCancelApproval}
+                            disabled={!hasApproved(selectedImages)}
+                          >
+                            <XIcon className="mr-2 h-3.5 w-3.5 text-amber-600" />
+                            선택 취소
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>
@@ -1959,7 +1751,10 @@ export const CombinationPicker = memo(function CombinationPicker({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleRegenerate}
+                        onClick={() =>
+                          selectedFilename &&
+                          handleContextMenuRegenerate(selectedFilename)
+                        }
                         className="font-bold"
                       >
                         이미지 생성 시작
@@ -2077,14 +1872,16 @@ export const CombinationPicker = memo(function CombinationPicker({
                                 </ContextMenuItem>
                               ) : isRejected ? (
                                 <ContextMenuItem
-                                  onClick={() => handleCancelReject(img.hash)}
+                                  onClick={() => setStatus(img.hash, "pending")}
                                 >
                                   <RefreshCwIcon className="h-3.5 w-3.5" /> 리젝
                                   취소
                                 </ContextMenuItem>
                               ) : (
                                 <ContextMenuItem
-                                  onClick={() => handleRejectImage(img.hash)}
+                                  onClick={() =>
+                                    setStatus(img.hash, "rejected")
+                                  }
                                 >
                                   <XIcon className="h-3.5 w-3.5" /> 리젝
                                 </ContextMenuItem>

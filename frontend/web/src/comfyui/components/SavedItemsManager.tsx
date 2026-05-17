@@ -212,6 +212,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                   >
                     {item.name}
                   </button>
+                  
                   <span className="text-xs text-muted-foreground">
                     {new Date(item.savedAt).toLocaleDateString()}
                   </span>
