@@ -168,13 +168,13 @@ export function CombinationPickerToolbar({
   return (
     <div
       ref={toolbarRef}
-      className="sticky z-40 shrink-0 border-b border-line bg-panel"
+      className="sticky z-40 shrink-0 border-t border-line bg-panel"
       style={
         { "--toolbar-height": `${toolbarHeight}px` } as React.CSSProperties
       }
     >
       {/* 메인 툴바: 1 줄 */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+      <div className="flex flex-nowrap items-center gap-2 px-4 py-1.5 border-b">
         {/* 템플릿 선택 */}
         <Select
           value={selectedTemplateId || "__current__"}
@@ -194,7 +194,7 @@ export function CombinationPickerToolbar({
             ))}
           </SelectContent>
         </Select>
-
+<div className="h-4 w-px bg-border" />
         {/* 뷰 모드 탭 */}
         <Tabs value={viewMode} onValueChange={handleTabChange}>
           <TabsList className="h-7">
@@ -203,14 +203,12 @@ export function CombinationPickerToolbar({
               className="gap-1 px-2.5 text-[10px] font-bold"
             >
               <FolderIcon className="h-3 w-3" />
-              갤러리
             </TabsTrigger>
             <TabsTrigger
               value="table"
               className="gap-1 px-2.5 text-[10px] font-bold"
             >
               <LayoutListIcon className="h-3 w-3" />
-              리스트
             </TabsTrigger>
             <div className="mx-0.5 h-3 w-px bg-muted-foreground/30" />
             <TabsTrigger
@@ -219,7 +217,6 @@ export function CombinationPickerToolbar({
               disabled={!selectedFilename}
             >
               <Maximize2Icon className="h-3 w-3" />
-              그리드
             </TabsTrigger>
             <TabsTrigger
               value="compare"
@@ -227,7 +224,6 @@ export function CombinationPickerToolbar({
               disabled={!selectedFilename}
             >
               <ColumnsIcon className="h-3 w-3" />
-              비교
             </TabsTrigger>
             <TabsTrigger
               value="tournament"
@@ -235,13 +231,12 @@ export function CombinationPickerToolbar({
               disabled={!selectedFilename}
             >
               <SwordsIcon className="h-3 w-3" />
-              월드컵
             </TabsTrigger>
           </TabsList>
         </Tabs>
-
+<div className="h-4 w-px bg-border" />
         {/* 진행률 */}
-        <div className="flex min-w-[120px] items-center gap-2">
+        <div className="flex flex-1 items-center gap-2 ">
           <Progress
             value={(doneCount / renderItemsLength) * 100}
             className="h-1.5 flex-1"
@@ -282,7 +277,7 @@ export function CombinationPickerToolbar({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 gap-1 px-2 text-[10px] font-bold"
+              className="h-7 gap-1 px-3 text-[10px] font-bold"
               title="설정"
             >
               <Settings2Icon className="h-3 w-3" />
@@ -372,13 +367,12 @@ export function CombinationPickerToolbar({
         {/* EXPORT 버튼 */}
         <LoadingButton
           size="sm"
-          className="h-7 px-2.5 text-[10px] font-black"
+          className="h-7 px-3 text-[10px] font-black"
           onClick={handleExport}
           isLoading={exportActionIsLoading}
           disabled={doneCount === 0}
           icon={DownloadIcon}
         >
-          EXPORT
         </LoadingButton>
 
         {/* 메시지 */}

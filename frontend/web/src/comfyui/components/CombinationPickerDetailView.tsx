@@ -91,31 +91,25 @@ export function CombinationPickerDetailView({
   return (
     <div className="flex min-h-[700px] min-w-0 flex-1 flex-col">
       {/* 상세 헤더 (1 줄 통합) */}
-      <div className="flex-none border-b bg-muted/10 px-3 py-1.5">
+      <div className="flex-none border-b bg-muted/10 py-1.5">
         <div className="flex min-w-0 items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={onBack}
-            className="h-6 w-6 shrink-0 p-0"
+            className="h-6 w-6 shrink-0 p-0 px-4"
           >
             <ArrowLeftIcon className="h-2.5 w-2.5" />
           </Button>
           <span className="truncate font-mono text-[11px] font-bold">
             {selectedFilename}
           </span>
-          <MetaTags meta={selectedItem?.meta || {}} variant="primary" />
+          <MetaTags meta={selectedItem?.meta || {}} variant="default"  />
           <div className="ml-auto flex items-center gap-1.5">
-            <LoadingButton
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={() => selectedFilename && onRegenerate(selectedFilename)}
-              isLoading={regenActionIsLoading}
-              icon={RefreshCwIcon}
-            ></LoadingButton>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-6 w-6 p-0">
+                <Button variant="outline" size="sm" className="h-6 w-6 p-0 px-4">
                   <Settings2Icon className="h-2.5 w-2.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -151,12 +145,19 @@ export function CombinationPickerDetailView({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <LoadingButton
+              size="sm"
+              className="h-6 w-6 p-0 px-4"
+              onClick={() => selectedFilename && onRegenerate(selectedFilename)}
+              isLoading={regenActionIsLoading}
+              icon={RefreshCwIcon}
+            ></LoadingButton>
           </div>
         </div>
       </div>
 
       {/* 이미지 뷰어 */}
-      <div className="relative p-4">
+      <div className="relative py-1">
         {visibleImages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
             <Maximize2Icon className="h-10 w-10 opacity-20" />

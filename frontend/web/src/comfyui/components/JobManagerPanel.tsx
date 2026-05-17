@@ -1537,9 +1537,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       {/* Pagination */}
       {sortedJobs.length > PAGE_SIZE && (
         <div className="flex flex-col items-center gap-2">
-           <p className="text-xs text-muted-foreground">
-            총 {sortedJobs.length}개 · {page}/{totalPages} 페이지
-          </p>
+      
           <Pagination className="text-xs">
             <PaginationContent className="gap-0.5 pb-2">
               <PaginationItem>

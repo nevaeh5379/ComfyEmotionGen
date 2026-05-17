@@ -726,7 +726,7 @@ export const CombinationPicker = memo(function CombinationPicker({
       />
 
       {/* ── Scrollable Content ── */}
-      <div className="flex-1 px-4 py-4">
+      <div className="flex-1 px-4">
         {/* 미할당 이미지 관리 패널 */}
         {showUnassignedPanel && (
           <CombinationPickerUnassignedPanel
