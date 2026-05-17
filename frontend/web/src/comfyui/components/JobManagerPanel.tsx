@@ -1191,7 +1191,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         <Tabs
           value={filterTab}
           onValueChange={(v) => setFilterTab(v as FilterTab)}
-          className="w-auto"
+          className="w-auto pr-4 pl-4"
         >
           <TabsList className="h-7 gap-0 bg-transparent p-0">
             <TabsTrigger
@@ -1227,7 +1227,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         {/* Right side controls (Selection & Date) */}
         <div className="flex flex-wrap items-center gap-3">
           {filterTab === "failed" && (
-            <div className="flex items-center gap-1.5 border-r pr-3">
+            <div className="flex items-center gap-1.5 border-r pr-4">
               <Button
                 size="sm"
                 variant="ghost"
@@ -1273,7 +1273,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 className="h-6 w-32 text-[11px]"
               />
             </div>
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5 pr-4 pl-4">
               <Button
                 variant="ghost"
                 size="sm"
@@ -1534,8 +1534,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       {/* Pagination */}
       {sortedJobs.length > PAGE_SIZE && (
         <div className="flex flex-col items-center gap-2">
+           <p className="text-xs text-muted-foreground">
+            총 {sortedJobs.length}개 · {page}/{totalPages} 페이지
+          </p>
           <Pagination className="text-xs">
-            <PaginationContent className="gap-0.5">
+            <PaginationContent className="gap-0.5 pb-2">
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => page > 1 && setPage(page - 1)}
@@ -1569,9 +1572,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               </PaginationItem>
             </PaginationContent>
           </Pagination>
-          <p className="text-xs text-muted-foreground">
-            총 {sortedJobs.length}개 · {page}/{totalPages} 페이지
-          </p>
+         
         </div>
       )}
 
