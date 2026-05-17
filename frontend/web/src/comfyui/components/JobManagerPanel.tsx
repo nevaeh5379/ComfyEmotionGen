@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-import type { JobStatus, JobView } from "./Message"
+import type { JobStatus, JobView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"

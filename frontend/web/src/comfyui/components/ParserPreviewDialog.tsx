@@ -15,8 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { RenderItem } from "./renderTypes"
-import { itemKey } from "../lib/workflowUtils"
+import type { RenderItem } from "../types/renderTypes"
+import { itemKey } from "../../lib/workflowUtils"
 
 interface ParserPreviewDialogProps {
   open: boolean

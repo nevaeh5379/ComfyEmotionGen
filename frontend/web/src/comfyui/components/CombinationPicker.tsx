@@ -46,11 +46,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { curationApi } from "./useSavedImages"
-import { useAsyncAction } from "./hooks/useAsyncAction"
-import type { SavedImage } from "./Message"
-import type { SavedTemplate } from "./useSavedTemplates"
-import type { SavedWorkflow } from "./useSavedWorkflows"
+import { curationApi } from "../hooks/useSavedImages"
+import { useAsyncAction } from "../hooks/useAsyncAction"
+import type { SavedImage } from "../types/Message"
+import type { SavedTemplate } from "../hooks/useSavedTemplates"
+import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
 import type {
   RenderItem,
   CombinationViewProps,
@@ -62,7 +62,7 @@ import {
   RegenerateDialog,
 } from "./CombinationPickerComponents"
 import { ImageViewer } from "./ImageViewer"
-import { hasApproved, findApproved } from "./Message"
+import { hasApproved, findApproved } from "../types/Message"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 

@@ -6,8 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { SavedWorkflow } from "./useSavedWorkflows"
-import type { NodeMapping } from "../lib/workflow"
+import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
+import type { NodeMapping } from "../../lib/workflow"
 
 interface PresetSelectionDialogProps {
   pendingWorkflow: SavedWorkflow | null

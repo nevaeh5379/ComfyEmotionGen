@@ -3,7 +3,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-import type { WorkerView } from "./Message"
+import type { WorkerView } from "../types/Message"
 
 interface Props {
   backendUrl: string

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { type NodeMapping } from "../lib/workflow"
+import { type NodeMapping } from "../../lib/workflow"
 
 export interface SavedNodeMappingPreset {
   id: string

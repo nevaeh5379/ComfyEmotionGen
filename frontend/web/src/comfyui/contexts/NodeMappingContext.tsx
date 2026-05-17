@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
-import { useLocalStorage } from "../useLocalStorage"
+import { useLocalStorage } from "../hooks/useLocalStorage"
 import type { NodeMapping } from "@/lib/workflow"
 import { buildAutoMappings } from "@/lib/workflowUtils"
-import type { ObjectInfo } from "../renderTypes"
+import type { ObjectInfo } from "../types/renderTypes"
 import type {
   SavedNodeMappingPreset,
   SavedWorkflow,
-} from "../useSavedWorkflows"
+} from "../hooks/useSavedWorkflows"
 import { useWorkflowContext } from "./WorkflowContext"
 
 // ---------------------------------------------------------------------------

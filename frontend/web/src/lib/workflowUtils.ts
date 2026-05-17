@@ -3,7 +3,7 @@ import {
   type ComfyWorkflow,
   type NodeMapping,
 } from "./workflow"
-import type { RenderItem } from "../comfyui/renderTypes"
+import type { RenderItem } from "../comfyui/types/renderTypes"
 
 const MAX_RANDOM_SEED = 1_000_000_000
 

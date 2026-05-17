@@ -4,7 +4,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item"
-import type { WorkerView } from "./Message"
+import type { WorkerView } from "../types/Message"
 
 // ---------------------------------------------------------------------------
 // Base

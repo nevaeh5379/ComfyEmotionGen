@@ -8,8 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { RenderItem } from "./renderTypes"
-import { itemKey } from "../lib/workflowUtils"
+import type { RenderItem } from "../types/renderTypes"
+import { itemKey } from "../../lib/workflowUtils"
 
 interface PreviewTableProps {
   title: string

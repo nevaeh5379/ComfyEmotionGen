@@ -8,8 +8,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import type { ComfyWorkflow } from "@/lib/workflow"
-import { computeLayout } from "./workflowGraphLayout"
-import { getCategoryStyle } from "./workflowGraphCategories"
+import { computeLayout } from "../utils/workflowGraphLayout"
+import { getCategoryStyle } from "../utils/workflowGraphCategories"
 
 type InputSpec = [string | string[], Record<string, unknown>]
 

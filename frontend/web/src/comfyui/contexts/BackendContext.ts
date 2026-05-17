@@ -1,5 +1,5 @@
 import { createContext } from "react"
-import type { JobView, WorkerView } from "./Message"
+import type { JobView, WorkerView } from "../types/Message"
 
 export interface BackendContextValue {
   isConnected: boolean

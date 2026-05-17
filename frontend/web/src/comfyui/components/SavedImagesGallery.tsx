@@ -71,8 +71,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import type { CurationStatus, SavedImage } from "./Message"
-import { curationApi, useSavedImages } from "./useSavedImages"
+import type { CurationStatus, SavedImage } from "../types/Message"
+import { curationApi, useSavedImages } from "../hooks/useSavedImages"
 import { Magnifier } from "./CombinationPicker"
 
 type GalleryViewMode = "grid" | "compare"

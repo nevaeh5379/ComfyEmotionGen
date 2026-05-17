@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import CodeEditor from "@/components/CodeEditor"
 
 import { SaveInputBar } from "./SavedItemsManager"
-import type { SavedTemplate } from "./useSavedTemplates"
+import type { SavedTemplate } from "../hooks/useSavedTemplates"
 
 interface CegTemplatePanelProps {
   cegTemplate: string

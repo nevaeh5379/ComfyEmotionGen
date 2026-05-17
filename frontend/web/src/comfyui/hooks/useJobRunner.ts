@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
-import type { NodeMapping } from "../lib/workflow"
+import type { NodeMapping } from "../../lib/workflow"
 import {
   applyAxisFilters,
   buildWorkflowForItem,
   itemKey,
-} from "../lib/workflowUtils"
-import type { RenderItem, RenderItemsResponse } from "./renderTypes"
+} from "../../lib/workflowUtils"
+import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 
 interface ImageUploadState {
   uploadedName: string | null

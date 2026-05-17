@@ -22,9 +22,9 @@ import CodeEditor from "@/components/CodeEditor"
 import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
 import { NodeMappingSection } from "./NodeMappingSection"
-import { useTemplateContext } from "./contexts/TemplateContext"
-import { useWorkflowContext } from "./contexts/WorkflowContext"
-import { useNodeMappingContext } from "./contexts/NodeMappingContext"
+import { useTemplateContext } from "../contexts/TemplateContext"
+import { useWorkflowContext } from "../contexts/WorkflowContext"
+import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 
 // ---------------------------------------------------------------------------
 // Types

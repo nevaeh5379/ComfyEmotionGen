@@ -13,7 +13,7 @@ import type {
   BackendEvent,
   CurationStatus,
   SavedImage,
-} from "./Message"
+} from "../types/Message"
 
 const globalConfigUrl = (
   window as Window & { COMFY_EMOTION_GEN_BACKEND_URL?: string }

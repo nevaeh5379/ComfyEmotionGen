@@ -14,9 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
-import type { AppSettings } from "./useSettings"
+import type { AppSettings } from "../hooks/useSettings"
 import { WorkerManager } from "./WorkerManager"
-import type { WorkerView } from "./Message"
+import type { WorkerView } from "../types/Message"
 
 interface Props {
   settings: AppSettings

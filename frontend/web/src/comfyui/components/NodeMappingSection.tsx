@@ -30,9 +30,9 @@ import type {
   ComfyWorkflow,
   NodeMapping,
   MappingSourceType,
-} from "../lib/workflow"
-import type { ObjectInfo, ObjectInfoInputSpec } from "./renderTypes"
-import type { SavedWorkflow } from "./useSavedWorkflows"
+} from "../../lib/workflow"
+import type { ObjectInfo, ObjectInfoInputSpec } from "../types/renderTypes"
+import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
 
 interface ImageUploadState {
   uploadedName: string | null

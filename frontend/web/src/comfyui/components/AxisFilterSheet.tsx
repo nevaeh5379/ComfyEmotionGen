@@ -9,8 +9,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { PreviewTable } from "./PreviewTable"
-import type { RenderItem } from "./renderTypes"
-import { filterByItem } from "../lib/workflowUtils"
+import type { RenderItem } from "../types/renderTypes"
+import { filterByItem } from "../../lib/workflowUtils"
 
 interface AxisFilterSheetProps {
   open: boolean

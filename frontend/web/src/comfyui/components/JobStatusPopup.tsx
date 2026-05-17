@@ -3,7 +3,7 @@ import { Minimize2, Play, Pause, Trash2, ExternalLink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import type { JobView } from "./Message"
+import type { JobView } from "../types/Message"
 
 // ---------------------------------------------------------------------------
 // helpers

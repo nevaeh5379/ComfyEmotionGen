@@ -9,13 +9,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { BackendEvent, JobView, WorkerView } from "./Message"
+import type { BackendEvent, JobView, WorkerView } from "../types/Message"
 import {
   DEFAULT_BACKEND_URL,
   IS_PACKAGE_MODE,
   PACKAGE_BACKEND_URL,
-} from "../lib/runtime"
-import { useEffectLog, useRenderLog } from "../lib/renderLogger"
+} from "../../lib/runtime"
+import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
 
 const INITIAL_BACKOFF_MS = 1000

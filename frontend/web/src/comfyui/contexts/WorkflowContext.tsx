@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState } from "react"
-import { useLocalStorage } from "../useLocalStorage"
-import { useSavedWorkflows, type SavedWorkflow } from "../useSavedWorkflows"
+import { useLocalStorage } from "../hooks/useLocalStorage"
+import { useSavedWorkflows, type SavedWorkflow } from "../hooks/useSavedWorkflows"
 import {
   ComfyWorkflowSchema,
   type NodeMapping,
