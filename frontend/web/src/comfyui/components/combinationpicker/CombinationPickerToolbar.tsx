@@ -3,8 +3,6 @@ import {
   useState,
   useLayoutEffect,
   useCallback,
-  type Dispatch,
-  type SetStateAction,
 } from "react"
 import {
   FolderIcon,
@@ -40,38 +38,21 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import { LoadingButton } from "./CombinationPickerComponents"
+import { useCurationContext } from "./CurationContext"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
 interface ToolbarProps {
-  // 템플릿
   selectedTemplateId: string
   setSelectedTemplateId: (id: string) => void
-  savedTemplates: SavedTemplate[]
-
-  // 뷰 모드
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
   selectedFilename: string | null
-  renderItemsLength: number
-
-  // 진행률
-  doneCount: number
-
-  // 필터
+  
   filtersExpanded: boolean
   setFiltersExpanded: (v: boolean) => void
-  statusFilter: "all" | "done" | "pending"
-  setStatusFilter: Dispatch<SetStateAction<"all" | "done" | "pending">>
-  filenameFilter: string
-  setFilenameFilter: Dispatch<SetStateAction<string>>
-  metadataFilter: string
-  setMetadataFilter: Dispatch<SetStateAction<string>>
-  filteredRenderItemsLength: number
 
-  // 설정
   hideRejected: boolean
   setHideRejected: (v: boolean) => void
   autoAdvance: boolean
@@ -79,45 +60,28 @@ interface ToolbarProps {
   duplicateStrategy: "hash" | "number"
   setDuplicateStrategy: (v: "hash" | "number") => void
 
-  // 미할당
   unassignedGroupsSize: number
   unassignedTotalCount: number
   showUnassignedPanel: boolean
   setShowUnassignedPanel: (v: boolean) => void
 
-  // 선택 모드
-  selectionMode: boolean
-  selectedFilenamesSize: number
   handleBulkRegenerate: () => void
-  exitSelectionMode: () => void
   bulkRegenActionMessage: string | null
 
-  // 액션
   handleExport: () => void
   exportActionIsLoading: boolean
   exportActionMessage: string | null
   regenActionMessage: string | null
-  fetchData: () => void
 }
 
 export function CombinationPickerToolbar({
   selectedTemplateId,
   setSelectedTemplateId,
-  savedTemplates,
   viewMode,
   onViewModeChange,
   selectedFilename,
-  renderItemsLength,
-  doneCount,
   filtersExpanded,
   setFiltersExpanded,
-  statusFilter,
-  setStatusFilter,
-  filenameFilter,
-  setFilenameFilter,
-  metadataFilter,
-  setMetadataFilter,
-  filteredRenderItemsLength,
   hideRejected,
   setHideRejected,
   autoAdvance,
@@ -128,17 +92,29 @@ export function CombinationPickerToolbar({
   unassignedTotalCount,
   showUnassignedPanel,
   setShowUnassignedPanel,
-  selectionMode,
-  selectedFilenamesSize,
   handleBulkRegenerate,
-  exitSelectionMode,
   bulkRegenActionMessage,
   handleExport,
   exportActionIsLoading,
   exportActionMessage,
   regenActionMessage,
-  fetchData,
 }: ToolbarProps) {
+  const { savedTemplates, data, selection } = useCurationContext()
+  const {
+    renderItems,
+    doneCount,
+    statusFilter,
+    setStatusFilter,
+    filenameFilter,
+    setFilenameFilter,
+    metadataFilter,
+    setMetadataFilter,
+    filteredRenderItems,
+    fetchData,
+  } = data
+
+  const { selectionMode, selectedFilenames, exitSelectionMode } = selection
+
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [toolbarHeight, setToolbarHeight] = useState(0)
 
@@ -238,11 +214,11 @@ export function CombinationPickerToolbar({
         {/* 진행률 */}
         <div className="flex flex-1 items-center gap-3">
           <Progress
-            value={(doneCount / renderItemsLength) * 100}
+            value={(doneCount / renderItems.length) * 100}
             className="h-2 flex-1 bg-muted shadow-inner"
           />
           <span className="shrink-0 text-[11px] font-bold text-muted-foreground tabular-nums">
-            {doneCount} / {renderItemsLength}
+            {doneCount} / {renderItems.length}
           </span>
         </div>
 
@@ -336,13 +312,13 @@ export function CombinationPickerToolbar({
             <div className="h-4 w-px bg-border" />
             <div className="flex items-center gap-1.5 rounded-md border border-blue-300 bg-blue-50/60 px-2 py-0.5">
               <span className="text-[10px] font-bold text-blue-700">
-                {selectedFilenamesSize}개
+                {selectedFilenames.size}개
               </span>
               <Button
                 size="sm"
                 className="h-6 px-1.5 text-[9px] font-bold"
                 onClick={handleBulkRegenerate}
-                disabled={selectedFilenamesSize === 0}
+                disabled={selectedFilenames.size === 0}
               >
                 <RefreshCwIcon className="h-2.5 w-2.5" />
                 재생성
@@ -445,7 +421,7 @@ export function CombinationPickerToolbar({
             </Button>
           )}
           <div className="ml-auto text-[10px] font-bold text-muted-foreground">
-            {filteredRenderItemsLength} / {renderItemsLength}개
+            {filteredRenderItems.length} / {renderItems.length}개
           </div>
         </div>
       )}

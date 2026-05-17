@@ -28,24 +28,21 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import type { SavedImage } from "../../types/Message"
-import type { RenderItem } from "./CombinationPickerComponents"
 import { LoadingButton } from "./CombinationPickerComponents"
-import { MetaTags } from "./CombinationPickerHelpers"
+import { MetaTags, ImageWithSkeleton } from "./CombinationPickerHelpers"
 import { Magnifier } from "./CombinationPickerViews"
 import { hasApproved } from "../../types/Message"
+import { useCurationContext } from "./CurationContext"
+import { useEffect, useState } from "react"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
 interface DetailViewProps {
-  backendUrl: string
   selectedFilename: string
-  selectedItem: RenderItem | undefined
-  selectedImages: SavedImage[]
   visibleImages: SavedImage[]
   selectedApprovedHash: string | null
   pinnedHashes: string[]
   viewMode: ViewMode
-  enableHover: boolean
 
   // Callbacks
   onBack: () => void
@@ -57,19 +54,14 @@ interface DetailViewProps {
   onRejectAll: () => void
   onCancelAllRejects: () => void
   onCancelApproval: () => void
-  onSetStatus: (hash: string, status: SavedImage["status"]) => void
 }
 
 export function CombinationPickerDetailView({
-  backendUrl,
   selectedFilename,
-  selectedItem,
-  selectedImages,
   visibleImages,
   selectedApprovedHash,
   pinnedHashes,
   viewMode,
-  enableHover,
   onBack,
   onSetPreviewHash,
   onTogglePin,
@@ -79,8 +71,37 @@ export function CombinationPickerDetailView({
   onRejectAll,
   onCancelAllRejects,
   onCancelApproval,
-  onSetStatus,
 }: DetailViewProps) {
+  const { backendUrl, enableHover, data } = useCurationContext()
+  const { setStatus, imagesByFilename, renderItems } = data
+  
+  const selectedItem = renderItems.find(ri => ri.filename === selectedFilename)
+  const selectedImages = imagesByFilename.get(selectedFilename) ?? []
+
+  const [focusedIdx, setFocusedIdx] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (viewMode !== "grid") return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+      if (e.key === "ArrowRight" || e.key === "l") {
+        setFocusedIdx(prev => prev === null ? 0 : Math.min(prev + 1, visibleImages.length - 1))
+      } else if (e.key === "ArrowLeft" || e.key === "h") {
+        setFocusedIdx(prev => prev === null ? 0 : Math.max(prev - 1, 0))
+      } else if (e.key === "Enter" || e.key === " ") {
+        if (focusedIdx !== null && visibleImages[focusedIdx]) {
+            e.preventDefault()
+            onSelectImage(selectedFilename, visibleImages[focusedIdx].hash)
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [viewMode, visibleImages, focusedIdx, onSelectImage, selectedFilename])
+
   const colClass =
     visibleImages.length <= 2
       ? "grid-cols-2"
@@ -177,6 +198,8 @@ export function CombinationPickerDetailView({
               const isSelected = img.hash === selectedApprovedHash
               const isRejected = img.status === "rejected"
               const isPinned = pinnedHashes.includes(img.hash)
+              const isFocused = focusedIdx === idx
+
               return (
                 <ContextMenu key={img.hash}>
                   <div className="flex flex-col gap-1.5">
@@ -188,18 +211,17 @@ export function CombinationPickerDetailView({
                         <HoverCardTrigger asChild>
                           <button
                             onClick={() => onSetPreviewHash(img.hash)}
-                            className={`group relative overflow-hidden rounded-lg transition-colors ${
+                            onFocus={() => setFocusedIdx(idx)}
+                            className={`group relative overflow-hidden rounded-lg transition-all ${
                               isSelected
                                 ? "scale-[0.98] shadow-lg ring-4 ring-green-500"
                                 : isRejected
                                   ? "opacity-30 hover:opacity-100"
                                   : "shadow-sm hover:-translate-y-1 hover:ring-2 hover:ring-primary/40"
-                            }`}
+                            } ${isFocused ? "ring-4 ring-blue-500 ring-offset-2" : ""}`}
                           >
-                            <img
+                            <ImageWithSkeleton
                               src={`${backendUrl}/saved-images/${img.hash}`}
-                              alt=""
-                              className="w-full object-cover"
                             />
                             <button
                               type="button"
@@ -248,10 +270,10 @@ export function CombinationPickerDetailView({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 w-full gap-1 border-green-300 text-[10px] font-bold text-green-600 hover:bg-green-50 hover:text-green-700"
+                        className={`h-7 w-full gap-1 border-green-300 text-[10px] font-bold text-green-600 hover:bg-green-50 hover:text-green-700 ${isFocused ? "bg-green-50 ring-2 ring-green-500" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation()
-                          onSelectImage(selectedItem!.filename, img.hash)
+                          onSelectImage(selectedFilename, img.hash)
                         }}
                       >
                         <CheckIcon className="h-3 w-3" />
@@ -278,13 +300,13 @@ export function CombinationPickerDetailView({
                       </ContextMenuItem>
                     ) : isRejected ? (
                       <ContextMenuItem
-                        onClick={() => onSetStatus(img.hash, "pending")}
+                        onClick={() => setStatus(img.hash, "pending")}
                       >
                         <RefreshCwIcon className="h-3.5 w-3.5" /> 리젝 취소
                       </ContextMenuItem>
                     ) : (
                       <ContextMenuItem
-                        onClick={() => onSetStatus(img.hash, "rejected")}
+                        onClick={() => setStatus(img.hash, "rejected")}
                       >
                         <XIcon className="h-3.5 w-3.5" /> 리젝
                       </ContextMenuItem>

@@ -1,0 +1,723 @@
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { useRenderLog } from "@/lib/renderLogger"
+import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyMedia,
+} from "@/components/ui/empty"
+import { AlertTriangleIcon, LayersIcon, Loader2Icon, SearchXIcon } from "lucide-react"
+import { curationApi } from "../../hooks/useSavedImages"
+import { useAsyncAction } from "../../hooks/useAsyncAction"
+import type { SavedImage } from "../../types/Message"
+import type { RenderItem } from "./CombinationPickerComponents"
+import { RegenerateDialog } from "./CombinationPickerComponents"
+import { ImageViewer } from "../ImageViewer"
+import { hasApproved, findApproved } from "../../types/Message"
+import { TournamentView } from "./CombinationPickerViews"
+import { GalleryView, TableView } from "./CombinationPickerViews"
+import { useSetToggle } from "./CombinationPickerHelpers"
+import { CombinationPickerToolbar } from "./CombinationPickerToolbar"
+import { CombinationPickerUnassignedPanel } from "./CombinationPickerUnassignedPanel"
+import { CombinationPickerSidebar } from "./CombinationPickerSidebar"
+import { CombinationPickerDetailView } from "./CombinationPickerDetailView"
+import { useCurationContext } from "./CurationContext"
+
+type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
+
+interface CombinationPickerContentProps {
+  selectedTemplateId: string
+  setSelectedTemplateId: (id: string) => void
+  activeTemplate: string
+}
+
+export const CombinationPickerContent = memo(
+  function CombinationPickerContent({
+    selectedTemplateId,
+    setSelectedTemplateId,
+    activeTemplate,
+  }: CombinationPickerContentProps) {
+    useRenderLog("CombinationPickerContent")
+    const {
+      backendUrl,
+      savedTemplates,
+      savedWorkflows,
+      autoApplyReject,
+      data,
+      selection,
+    } = useCurationContext()
+
+    const {
+      renderItems,
+      loading,
+      error,
+      fetchData,
+      imagesByFilename,
+      doneCount,
+      filteredRenderItems,
+      unassignedGroups,
+      unassignedTotalCount,
+      setStatusFilter,
+      setFilenameFilter,
+      setMetadataFilter,
+      approveImage,
+      setAllImages,
+    } = data
+
+    const {
+      selectionMode,
+      selectedFilenames,
+      toggleSelect,
+      exitSelectionMode,
+    } = selection
+
+    // ── State ──
+    const [selectedFilename, setSelectedFilename] = useState<string | null>(
+      null
+    )
+    const [duplicateStrategy, setDuplicateStrategy] = useState<
+      "hash" | "number"
+    >("hash")
+
+    const exportAction = useAsyncAction(3000)
+    const regenAction = useAsyncAction(3000)
+
+    const [hideRejected, setHideRejected] = useState(false)
+    const [autoAdvance, setAutoAdvance] = useState(autoApplyReject)
+
+    const [viewMode, setViewMode] = useState<ViewMode>("gallery")
+    const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
+    const [previewHash, setPreviewHash] = useState<string | null>(null)
+
+    const bulkRegenAction = useAsyncAction(4000)
+
+    // 재생성 다이얼로그 관련 상태
+    const [regenDialogState, setRegenDialogState] = useState<{
+      open: boolean
+      filenames: string[]
+    }>({ open: false, filenames: [] })
+
+    // 미할당 이미지(고아) 관리 관련 상태
+    const [showUnassignedPanel, setShowUnassignedPanel] = useState(false)
+    const [filtersExpanded, setFiltersExpanded] = useState(false)
+    const [unassignedSelectedFilenames, setUnassignedSelectedFilenames] =
+      useState<Set<string>>(new Set())
+    const [showTrueOrphansOnly, setShowTrueOrphansOnly] = useState(false)
+    const [templateAffiliationCache, setTemplateAffiliationCache] = useState<
+      Map<string, string[]>
+    >(new Map())
+    const [checkingTemplates, setCheckingTemplates] = useState(false)
+    const bulkTrashAction = useAsyncAction(4000)
+
+    // 템플릿 소속 확인 함수 (lazy: 사용자가 패널 열었을 때)
+    const checkTemplateAffiliation = useCallback(async () => {
+      if (checkingTemplates || savedTemplates.length === 0) return
+      setCheckingTemplates(true)
+      const cache = new Map<string, string[]>()
+      try {
+        const allTemplateSpecs: {
+          id: string
+          name: string
+          template: string
+        }[] = [
+          {
+            id: "__current__",
+            name: "현재 편집 중인 템플릿",
+            template: activeTemplate,
+          },
+          ...savedTemplates.map((st) => ({
+            id: st.id,
+            name: st.name,
+            template: st.template,
+          })),
+        ]
+        for (const spec of allTemplateSpecs) {
+          if (!spec.template.trim()) continue
+          try {
+            const res = await fetch(`${backendUrl}/render`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ template: spec.template }),
+            })
+            if (!res.ok) continue
+            const data = (await res.json()) as { items: RenderItem[] }
+            for (const item of data.items) {
+              const existing = cache.get(item.filename) ?? []
+              if (!existing.includes(spec.name)) {
+                existing.push(spec.name)
+                cache.set(item.filename, existing)
+              }
+            }
+          } catch {
+            // 템플릿 렌더 실패 시 스킵
+          }
+        }
+        setTemplateAffiliationCache(cache)
+      } finally {
+        setCheckingTemplates(false)
+      }
+    }, [backendUrl, savedTemplates, activeTemplate, checkingTemplates])
+
+    // 미할당 패널 열릴 때 템플릿 소속 확인 실행
+    useEffect(() => {
+      if (showUnassignedPanel && templateAffiliationCache.size === 0) {
+        checkTemplateAffiliation()
+      }
+    }, [
+      showUnassignedPanel,
+      templateAffiliationCache.size,
+      checkTemplateAffiliation,
+    ])
+
+    // 미할당 그룹 - 완전 고아 필터 적용
+    const filteredUnassignedGroups = useMemo(() => {
+      if (!showTrueOrphansOnly) return unassignedGroups
+      const filtered = new Map<string, SavedImage[]>()
+      for (const [filename, imgs] of unassignedGroups) {
+        const affiliations = templateAffiliationCache.get(filename)
+        if (!affiliations || affiliations.length === 0) {
+          filtered.set(filename, imgs)
+        }
+      }
+      return filtered
+    }, [unassignedGroups, showTrueOrphansOnly, templateAffiliationCache])
+
+    // 미할당 그룹에서 선택 토글
+    const handleUnassignedToggleSelect = useSetToggle(
+      setUnassignedSelectedFilenames
+    )
+
+    // 미할당 그룹 전체 선택 / 해제
+    const handleUnassignedSelectAll = useCallback(() => {
+      const allFilenames = Array.from(filteredUnassignedGroups.keys())
+      if (
+        unassignedSelectedFilenames.size === allFilenames.length &&
+        allFilenames.length > 0
+      ) {
+        setUnassignedSelectedFilenames(new Set())
+      } else {
+        setUnassignedSelectedFilenames(new Set(allFilenames))
+      }
+    }, [filteredUnassignedGroups, unassignedSelectedFilenames])
+
+    // 미할당 이미지 선택 항목 일괄 trash 처리
+    const handleBulkTrash = useCallback(async () => {
+      if (bulkTrashAction.isLoading || unassignedSelectedFilenames.size === 0)
+        return
+      const selectedCount = unassignedSelectedFilenames.size
+      const result = await bulkTrashAction.execute(
+        async () => {
+          let trashedCount = 0
+          for (const filename of unassignedSelectedFilenames) {
+            const imgs = unassignedGroups.get(filename) ?? []
+            for (const img of imgs) {
+              if (img.status !== "trashed") {
+                await curationApi.patchStatus(backendUrl, img.hash, "trashed")
+                trashedCount++
+              }
+            }
+          }
+          return trashedCount
+        },
+        (trashedCount) =>
+          `${selectedCount}개 그룹, ${trashedCount}장 휴지통으로 이동`,
+        "삭제 실패"
+      )
+      if (result !== null) {
+        setAllImages((prev) =>
+          prev.map((img) =>
+            unassignedSelectedFilenames.has(img.originalFilename) &&
+            img.status !== "trashed"
+              ? { ...img, status: "trashed" as const, trashedAt: Date.now() }
+              : img
+          )
+        )
+        setUnassignedSelectedFilenames(new Set())
+      }
+    }, [
+      backendUrl,
+      unassignedSelectedFilenames,
+      unassignedGroups,
+      bulkTrashAction,
+      setAllImages,
+    ])
+
+    // 미할당 패널 닫기
+    const closeUnassignedPanel = useCallback(() => {
+      setShowUnassignedPanel(false)
+      setUnassignedSelectedFilenames(new Set())
+    }, [])
+
+    const selectedImages = useMemo(
+      () =>
+        (selectedFilename
+          ? (imagesByFilename.get(selectedFilename) ?? [])
+          : []
+        ).sort((a, b) => a.createdAt - b.createdAt),
+      [selectedFilename, imagesByFilename]
+    )
+    const selectedApprovedHash = findApproved(selectedImages)?.hash
+
+    const visibleImages = useMemo(
+      () =>
+        selectedImages.filter(
+          (img) => !hideRejected || img.status !== "rejected"
+        ),
+      [selectedImages, hideRejected]
+    )
+
+    // ── Handlers ──
+    const navigateTo = useCallback(
+      (direction: "prev" | "next") => {
+        const currentIdx = renderItems.findIndex(
+          (ri) => ri.filename === selectedFilename
+        )
+        const nextIdx = direction === "next" ? currentIdx + 1 : currentIdx - 1
+        if (nextIdx >= 0 && nextIdx < renderItems.length) {
+          setSelectedFilename(renderItems[nextIdx]!.filename)
+        }
+      },
+      [renderItems, selectedFilename]
+    )
+
+    const handleSelectImage = useCallback(
+      async (filename: string, selectedHash: string) => {
+        await approveImage(filename, selectedHash)
+
+        if (autoAdvance) {
+          const currentIdx = renderItems.findIndex(
+            (ri) => ri.filename === filename
+          )
+          const next = renderItems.find((ri, idx) => {
+            if (idx <= currentIdx) return false
+            const nextImgs = imagesByFilename.get(ri.filename) ?? []
+            return !hasApproved(nextImgs)
+          })
+          if (next) setSelectedFilename(next.filename)
+        }
+      },
+      [approveImage, autoAdvance, renderItems, imagesByFilename]
+    )
+
+    const handleExport = useCallback(async () => {
+      if (exportAction.isLoading || doneCount === 0) return
+      await exportAction.execute(
+        async () => {
+          const approvedFilenames = renderItems
+            .filter((ri) =>
+              hasApproved(imagesByFilename.get(ri.filename) ?? [])
+            )
+            .map((ri) => ri.filename)
+          await curationApi.exportDataset(backendUrl, {
+            filenames: approvedFilenames,
+            duplicateStrategy,
+          })
+          return approvedFilenames.length
+        },
+        (count) => `${count}개 파일 내보내기 완료`,
+        "내보내기 실패"
+      )
+    }, [
+      backendUrl,
+      exportAction,
+      doneCount,
+      renderItems,
+      imagesByFilename,
+      duplicateStrategy,
+    ])
+
+    const handleContextMenuRegenerate = useCallback((filename: string) => {
+      setRegenDialogState({ open: true, filenames: [filename] })
+    }, [])
+
+    const performRegenerate = useCallback(
+      async (count: number, template: string, workflow?: string) => {
+        if (regenAction.isLoading || regenDialogState.filenames.length === 0)
+          return
+        const filenames = regenDialogState.filenames
+        const isBulk = filenames.length > 1
+
+        const result = await regenAction.execute(
+          async () => {
+            let totalJobs = 0
+            for (const filename of filenames) {
+              const jobIds = await curationApi.regenerate(
+                backendUrl,
+                filename,
+                count,
+                "random",
+                template || undefined,
+                workflow
+              )
+              totalJobs += jobIds.length
+            }
+            return { count: filenames.length, totalJobs }
+          },
+          ({ count, totalJobs }) =>
+            isBulk
+              ? `${count}개 항목, 총 ${totalJobs}개 작업 생성 완료`
+              : `작업 ${totalJobs}개 추가됨`,
+          "재생성 실패"
+        )
+
+        if (result !== null) {
+          setRegenDialogState({ open: false, filenames: [] })
+          if (isBulk) {
+            exitSelectionMode()
+          }
+        }
+      },
+      [backendUrl, regenAction, regenDialogState.filenames, exitSelectionMode]
+    )
+
+    const handleOpen = useCallback(
+      (filename: string) => {
+        exitSelectionMode()
+        setSelectedFilename(filename)
+        setViewMode("grid")
+      },
+      [exitSelectionMode]
+    )
+
+    const handleRejectAll = useCallback(
+      () =>
+        data.batchUpdateStatus(
+          selectedFilename!,
+          (img) => img.status !== "approved" && img.status !== "rejected",
+          "rejected"
+        ),
+      [data, selectedFilename]
+    )
+
+    const handleCancelAllRejects = useCallback(
+      () =>
+        data.batchUpdateStatus(
+          selectedFilename!,
+          (img) => img.status === "rejected",
+          "pending"
+        ),
+      [data, selectedFilename]
+    )
+
+    const handleCancelApproval = useCallback(
+      () =>
+        data.batchUpdateStatus(
+          selectedFilename!,
+          (img) => img.status === "approved" || img.status === "rejected",
+          "pending"
+        ),
+      [data, selectedFilename]
+    )
+
+    // 선택 모드 진입 (long press)
+    const handleLongPress = useCallback(
+      (filename: string) => {
+        if (!selectionMode) {
+          toggleSelect(filename)
+        }
+      },
+      [selectionMode, toggleSelect]
+    )
+
+    // 선택된 항목들 일괄 재생성
+    const handleBulkRegenerate = useCallback(() => {
+      if (selectedFilenames.size === 0) return
+      setRegenDialogState({
+        open: true,
+        filenames: Array.from(selectedFilenames),
+      })
+    }, [selectedFilenames])
+
+    const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
+      e.stopPropagation()
+      setPinnedHashes((prev) =>
+        prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]
+      )
+    }, [])
+
+    // ── Keyboard Handler ──
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        const tag = (e.target as HTMLElement).tagName
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+
+        if (selectionMode) {
+          if (e.key === "Escape") {
+            exitSelectionMode()
+          }
+          return
+        }
+
+        if (selectedFilename) {
+          if (e.key === "ArrowDown" || e.key === "j") {
+            e.preventDefault()
+            navigateTo("next")
+          } else if (e.key === "ArrowUp" || e.key === "k") {
+            e.preventDefault()
+            navigateTo("prev")
+          } else if (e.key === "r" || e.key === "R") {
+            handleContextMenuRegenerate(selectedFilename)
+          } else if (e.key === "Escape") {
+            setSelectedFilename(null)
+            setViewMode("gallery")
+          } else if (e.key >= "1" && e.key <= "9") {
+            const idx = parseInt(e.key) - 1
+            if (idx < visibleImages.length) {
+              handleSelectImage(selectedFilename, visibleImages[idx]!.hash)
+            }
+          }
+        }
+      }
+      document.addEventListener("keydown", handleKeyDown)
+      return () => document.removeEventListener("keydown", handleKeyDown)
+    }, [
+      selectedFilename,
+      navigateTo,
+      handleContextMenuRegenerate,
+      handleSelectImage,
+      visibleImages,
+      selectionMode,
+      exitSelectionMode,
+    ])
+
+    const handleTabChange = (v: ViewMode) => {
+      setViewMode(v)
+      if (v === "gallery" || v === "table") {
+        setSelectedFilename(null)
+        exitSelectionMode()
+      } else if (!selectedFilename && renderItems.length > 0) {
+        setSelectedFilename(renderItems[0]!.filename)
+      }
+    }
+
+  // ── Render ──
+  if (loading)
+    return (
+      <div className="flex flex-1 items-center justify-center py-32 bg-muted/5 rounded-lg border border-dashed m-4">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Loader2Icon className="h-10 w-10 animate-spin text-primary opacity-40" />
+          <div className="space-y-1">
+            <p className="text-base font-bold text-foreground">데이터를 불러오는 중입니다</p>
+            <p className="text-sm text-muted-foreground">이미지와 렌더링 정보를 동기화하고 있습니다...</p>
+          </div>
+        </div>
+      </div>
+    )
+
+  if (error)
+    return (
+      <div className="flex flex-1 items-center justify-center py-20 px-4">
+        <Empty className="max-w-md border-destructive/20 bg-destructive/5 shadow-none">
+          <EmptyMedia variant="icon">
+            <AlertTriangleIcon className="size-10 text-destructive opacity-40" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle className="text-destructive font-bold text-lg">설정 오류 발생</EmptyTitle>
+            <EmptyDescription className="font-medium text-destructive/70">
+              {error}
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={fetchData} variant="outline" className="mt-4 font-bold border-destructive/30 hover:bg-destructive/10 hover:text-destructive transition-all">
+            다시 시도
+          </Button>
+        </Empty>
+      </div>
+    )
+
+  if (renderItems.length === 0)
+    return (
+      <div className="flex flex-1 items-center justify-center py-20 px-4">
+        <Empty className="max-w-lg py-20 shadow-none">
+          <EmptyMedia variant="icon">
+            <LayersIcon className="size-12 opacity-10" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle className="text-xl font-black tracking-tight">렌더링된 조합이 없습니다</EmptyTitle>
+            <EmptyDescription className="text-base">
+              '작업' 탭에서 템플릿을 작성하고 실행하면 생성된 이미지들의 조합이 여기에 표시됩니다.
+            </EmptyDescription>
+          </EmptyHeader>
+          <p className="mt-2 text-xs text-muted-foreground/60 italic">
+            Tip: 템플릿의 &#123;&#123;axis&#125;&#125;와 &#123;&#123;combine&#125;&#125; 문법을 확인해주세요.
+          </p>
+        </Empty>
+      </div>
+    )
+
+  return (
+    <div className="flex flex-col">
+      {/* ── Toolbar ── */}
+      <CombinationPickerToolbar
+        selectedTemplateId={selectedTemplateId}
+        setSelectedTemplateId={setSelectedTemplateId}
+        viewMode={viewMode}
+        onViewModeChange={handleTabChange}
+        selectedFilename={selectedFilename}
+        filtersExpanded={filtersExpanded}
+        setFiltersExpanded={setFiltersExpanded}
+        hideRejected={hideRejected}
+        setHideRejected={setHideRejected}
+        autoAdvance={autoAdvance}
+        setAutoAdvance={setAutoAdvance}
+        duplicateStrategy={duplicateStrategy}
+        setDuplicateStrategy={setDuplicateStrategy}
+        unassignedGroupsSize={unassignedGroups.size}
+        unassignedTotalCount={unassignedTotalCount}
+        showUnassignedPanel={showUnassignedPanel}
+        setShowUnassignedPanel={setShowUnassignedPanel}
+        handleBulkRegenerate={handleBulkRegenerate}
+        bulkRegenActionMessage={bulkRegenAction.message}
+        handleExport={handleExport}
+        exportActionIsLoading={exportAction.isLoading}
+        exportActionMessage={exportAction.message}
+        regenActionMessage={regenAction.message}
+      />
+
+      {/* ── Scrollable Content ── */}
+      <div className="flex-1 px-4">
+        {/* 미할당 이미지 관리 패널 */}
+        {showUnassignedPanel && (
+          <CombinationPickerUnassignedPanel
+            filteredUnassignedGroups={filteredUnassignedGroups}
+            templateAffiliationCache={templateAffiliationCache}
+            showTrueOrphansOnly={showTrueOrphansOnly}
+            setShowTrueOrphansOnly={setShowTrueOrphansOnly}
+            checkingTemplates={checkingTemplates}
+            checkTemplateAffiliation={checkTemplateAffiliation}
+            unassignedSelectedFilenames={unassignedSelectedFilenames}
+            handleUnassignedToggleSelect={handleUnassignedToggleSelect}
+            handleUnassignedSelectAll={handleUnassignedSelectAll}
+            handleBulkTrash={handleBulkTrash}
+            bulkTrashActionIsLoading={bulkTrashAction.isLoading}
+            bulkTrashActionMessage={bulkTrashAction.message}
+            closeUnassignedPanel={closeUnassignedPanel}
+          />
+        )}
+
+        {/* 메인 레이아웃 */}
+        <div className="flex gap-4">
+          {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
+          {selectedFilename && (
+            <CombinationPickerSidebar
+              selectedFilename={selectedFilename}
+              setSelectedFilename={setSelectedFilename}
+            />
+          )}
+
+          {/* 오른쪽: 콘텐츠 영역 */}
+          {!selectedFilename ? (
+            <div className="flex flex-1 flex-col">
+              {filteredRenderItems.length === 0 ? (
+                  <div className="flex flex-1 items-center justify-center py-20 px-4">
+                    <Empty className="max-w-md py-10 shadow-none border-dashed bg-muted/5">
+                      <EmptyMedia variant="icon">
+                        <SearchXIcon className="size-10 text-muted-foreground/30" />
+                      </EmptyMedia>
+                      <EmptyHeader>
+                        <EmptyTitle className="text-lg font-bold">검색 결과가 없습니다</EmptyTitle>
+                        <EmptyDescription>
+                          설정한 필터 조건에 맞는 조합이 없습니다. 필터를 초기화하거나 검색어를 확인해주세요.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-4 font-bold"
+                        onClick={() => {
+                            setStatusFilter("all")
+                            setFilenameFilter("")
+                            setMetadataFilter("")
+                        }}
+                      >
+                        모든 필터 초기화
+                      </Button>
+                    </Empty>
+                  </div>
+              ) : (
+                <div>
+                  {viewMode === "gallery" ? (
+                    <GalleryView
+                      onSelect={(filename) => {
+                        setSelectedFilename(filename)
+                        setViewMode("grid")
+                      }}
+                      onOpen={handleOpen}
+                      onLongPress={handleLongPress}
+                      onRegenerate={handleContextMenuRegenerate}
+                    />
+                  ) : (
+                    <TableView
+                      onSelect={(filename) => {
+                        setSelectedFilename(filename)
+                        setViewMode("grid")
+                      }}
+                      onOpen={handleOpen}
+                      onLongPress={handleLongPress}
+                      onRegenerate={handleContextMenuRegenerate}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <CombinationPickerDetailView
+                selectedFilename={selectedFilename}
+                visibleImages={visibleImages}
+                selectedApprovedHash={selectedApprovedHash ?? null}
+                pinnedHashes={pinnedHashes}
+                viewMode={viewMode}
+                onBack={() => {
+                  setSelectedFilename(null)
+                  setViewMode("gallery")
+                }}
+                onSetPreviewHash={setPreviewHash}
+                onTogglePin={togglePin}
+                onSelectImage={handleSelectImage}
+                onRegenerate={handleContextMenuRegenerate}
+                regenActionIsLoading={regenAction.isLoading}
+                onRejectAll={handleRejectAll}
+                onCancelAllRejects={handleCancelAllRejects}
+                onCancelApproval={handleCancelApproval}
+              />
+              {viewMode === "tournament" && (
+                <div className="min-h-[700px]">
+                  <TournamentView
+                    images={visibleImages}
+                    onComplete={(hash) => {
+                      handleSelectImage(selectedFilename, hash)
+                      setViewMode("grid")
+                    }}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* 이미지 미리보기 팝업 */}
+        <ImageViewer
+          src={`${backendUrl}/saved-images/${previewHash}`}
+          isOpen={previewHash !== null}
+          onClose={() => setPreviewHash(null)}
+        />
+
+        <RegenerateDialog
+          open={regenDialogState.open}
+          onOpenChange={(open) =>
+            setRegenDialogState((prev) => ({ ...prev, open }))
+          }
+          filenames={regenDialogState.filenames}
+          imagesByFilename={imagesByFilename}
+          currentCegTemplate={activeTemplate}
+          savedTemplates={savedTemplates}
+          savedWorkflows={savedWorkflows}
+          onRegenerate={performRegenerate}
+          isLoading={regenAction.isLoading}
+        />
+      </div>
+    </div>
+  )
+})

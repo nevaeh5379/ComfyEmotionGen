@@ -17,12 +17,13 @@ import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
 import type { SavedImage } from "../../types/Message"
 import { hasApproved, findApproved } from "../../types/Message"
-import type { CombinationViewProps } from "./CombinationPickerComponents"
 import {
   ImagePreviewHoverCard,
   CombinationContextMenu,
+  type RenderItem,
 } from "./CombinationPickerComponents"
-import { StatusIcon, MetaTags } from "./CombinationPickerHelpers"
+import { StatusIcon, MetaTags, ImageWithSkeleton } from "./CombinationPickerHelpers"
+import { useCurationContext } from "./CurationContext"
 
 /* ─── Magnifier ─── */
 export function Magnifier({
@@ -84,17 +85,61 @@ export function Magnifier({
 /* ─── TournamentView ─── */
 export function TournamentView({
   images,
-  backendUrl,
   onComplete,
 }: {
   images: SavedImage[]
-  backendUrl: string
   onComplete: (winnerHash: string) => void
 }) {
+  const { backendUrl } = useCurationContext()
   const [matches, setMatches] = useState<SavedImage[]>(() =>
     [...images].sort(() => Math.random() - 0.5)
   )
   const [nextRound, setNextRound] = useState<SavedImage[]>([])
+  const [history, setHistory] = useState<{ matches: SavedImage[], nextRound: SavedImage[] }[]>([])
+
+  const handlePick = useCallback((winner: SavedImage) => {
+    setHistory(prev => [...prev, { matches, nextRound }])
+    const newNext = [...nextRound, winner]
+    const remaining = matches.slice(2)
+
+    if (remaining.length === 0) {
+      setMatches(newNext.sort(() => Math.random() - 0.5))
+      setNextRound([])
+    } else if (remaining.length === 1) {
+      // Bye round for the last image
+      setMatches([...newNext, remaining[0]!].sort(() => Math.random() - 0.5))
+      setNextRound([])
+    } else {
+      setNextRound(newNext)
+      setMatches(remaining)
+    }
+  }, [matches, nextRound])
+
+  const handleUndo = useCallback(() => {
+    if (history.length === 0) return
+    const last = history[history.length - 1]
+    if (!last) return
+    setMatches(last.matches)
+    setNextRound(last.nextRound)
+    setHistory(prev => prev.slice(0, -1))
+  }, [history])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (matches.length < 2) return
+
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "h") {
+        handlePick(matches[0]!)
+      } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "l") {
+        handlePick(matches[1]!)
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        handleUndo()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [matches, handlePick, handleUndo])
 
   if (matches.length === 0 && nextRound.length === 0) {
     return (
@@ -116,34 +161,27 @@ export function TournamentView({
           className="max-h-[60%] max-w-full rounded-lg border shadow-lg"
           alt="Winner"
         />
-        <Button
-          className="mt-8 px-8 py-6 text-lg font-bold"
-          onClick={() => onComplete(winner.hash)}
-        >
-          이 이미지 선택 완료
-        </Button>
+        <div className="mt-8 flex gap-4">
+            <Button
+                variant="outline"
+                size="lg"
+                onClick={handleUndo}
+            >
+                취소 (Undo)
+            </Button>
+            <Button
+                className="px-8 py-6 text-lg font-bold"
+                onClick={() => onComplete(winner.hash)}
+            >
+                이 이미지 선택 완료
+            </Button>
+        </div>
       </div>
     )
   }
 
   const left = matches[0]!
   const right = matches[1]!
-
-  const handlePick = (winner: SavedImage) => {
-    const newNext = [...nextRound, winner]
-    const remaining = matches.slice(2)
-
-    if (remaining.length === 0) {
-      setMatches(newNext.sort(() => Math.random() - 0.5))
-      setNextRound([])
-    } else if (remaining.length === 1) {
-      setMatches([...newNext, remaining[0]!].sort(() => Math.random() - 0.5))
-      setNextRound([])
-    } else {
-      setNextRound(newNext)
-      setMatches(remaining)
-    }
-  }
 
   const totalMatchesThisRound = Math.floor(
     (matches.length + nextRound.length * 2) / 2
@@ -157,13 +195,19 @@ export function TournamentView({
         <span className="text-sm font-medium text-muted-foreground">
           라운드 매치: {currentMatchNum} / {totalMatchesThisRound}
         </span>
+        <div className="mt-2 flex gap-2">
+            <Button variant="ghost" size="xs" onClick={handleUndo} disabled={history.length === 0}>
+                Z: 되돌리기
+            </Button>
+            <span className="text-[10px] text-muted-foreground">A/D 또는 방향키로 선택</span>
+        </div>
       </div>
       <div className="flex w-full flex-1 gap-6 overflow-hidden">
-        {[left, right].map((img) => (
+        {[left, right].map((img, idx) => (
           <button
             key={img.hash}
             onClick={() => handlePick(img)}
-            className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 focus:outline-none"
+            className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 focus:outline-none transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20"
           >
             <img
               src={`${backendUrl}/saved-images/${img.hash}`}
@@ -171,7 +215,7 @@ export function TournamentView({
               alt=""
             />
             <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-4 text-center font-bold text-white opacity-0 group-hover:opacity-100">
-              이 이미지 선택
+              {idx === 0 ? "A: 왼쪽 선택" : "D: 오른쪽 선택"}
             </div>
           </button>
         ))}
@@ -191,7 +235,7 @@ export function LongPressWrapper({
 }: {
   children: ReactNode
   onLongPress: () => void
-  onClick: () => void
+  onClick: (e: React.MouseEvent | React.KeyboardEvent) => void
   className?: string
   as?: ElementType
 } & Omit<
@@ -229,7 +273,7 @@ export function LongPressWrapper({
       clear()
       setPressing(false)
       if (!longPressTriggeredRef.current) {
-        onClick()
+        onClick(e)
       }
     },
     [clear, onClick]
@@ -250,6 +294,11 @@ export function LongPressWrapper({
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
+      onContextMenu={(e: React.MouseEvent) => {
+        if (longPressTriggeredRef.current) {
+          e.preventDefault()
+        }
+      }}
       style={pressing ? { opacity: 0.7 } : undefined}
       {...rest}
     >
@@ -259,24 +308,24 @@ export function LongPressWrapper({
 }
 
 /* ─── GalleryView ─── */
-export function GalleryView(props: CombinationViewProps) {
-  const {
-    items,
-    imagesByFilename,
-    backendUrl,
-    onSelect,
-    onOpen,
-    selectionMode,
-    selectedFilenames,
-    onToggleSelect,
-    onLongPress,
-    onRegenerate,
-    enableHover,
-  } = props
+export function GalleryView({
+  onSelect,
+  onOpen,
+  onLongPress,
+  onRegenerate,
+}: {
+  onSelect: (filename: string) => void
+  onOpen: (filename: string) => void
+  onLongPress: (filename: string) => void
+  onRegenerate?: (filename: string) => void
+}) {
+  const { backendUrl, enableHover, data, selection } = useCurationContext()
+  const { filteredRenderItems: items, imagesByFilename } = data
+  const { selectionMode, selectedFilenames, toggleSelect } = selection
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {items.map((item) => {
+      {items.map((item: RenderItem) => {
         const imgs = imagesByFilename.get(item.filename) ?? []
         const approved = findApproved(imgs)
         const preview = approved || imgs[0]
@@ -294,9 +343,9 @@ export function GalleryView(props: CombinationViewProps) {
                   <HoverCardTrigger asChild>
                     <LongPressWrapper
                       onLongPress={() => onLongPress(item.filename)}
-                      onClick={() => {
-                        if (selectionMode) {
-                          onToggleSelect(item.filename)
+                      onClick={(e) => {
+                        if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                          toggleSelect(item.filename, e)
                         } else {
                           onSelect(item.filename)
                         }
@@ -305,10 +354,8 @@ export function GalleryView(props: CombinationViewProps) {
                     >
                       <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
                         {preview ? (
-                          <img
+                          <ImageWithSkeleton
                             src={`${backendUrl}/saved-images/${preview.hash}`}
-                            className="h-full w-full object-cover"
-                            alt=""
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
@@ -367,7 +414,7 @@ export function GalleryView(props: CombinationViewProps) {
               isSelected={isSelected}
               selectionMode={selectionMode}
               onOpen={onOpen}
-              onToggleSelect={onToggleSelect}
+              onToggleSelect={(f) => toggleSelect(f)}
               onLongPress={onLongPress}
               {...(onRegenerate && { onRegenerate })}
             />
@@ -379,20 +426,20 @@ export function GalleryView(props: CombinationViewProps) {
 }
 
 /* ─── TableView ─── */
-export function TableView(props: CombinationViewProps) {
-  const {
-    items,
-    imagesByFilename,
-    backendUrl,
-    onSelect,
-    onOpen,
-    selectionMode,
-    selectedFilenames,
-    onToggleSelect,
-    onLongPress,
-    onRegenerate,
-    enableHover,
-  } = props
+export function TableView({
+  onSelect,
+  onOpen,
+  onLongPress,
+  onRegenerate,
+}: {
+  onSelect: (filename: string) => void
+  onOpen: (filename: string) => void
+  onLongPress: (filename: string) => void
+  onRegenerate?: (filename: string) => void
+}) {
+  const { backendUrl, enableHover, data, selection } = useCurationContext()
+  const { filteredRenderItems: items, imagesByFilename } = data
+  const { selectionMode, selectedFilenames, toggleSelect } = selection
 
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
@@ -417,7 +464,7 @@ export function TableView(props: CombinationViewProps) {
           </tr>
         </thead>
         <tbody className="divide-y">
-          {items.map((item) => {
+          {items.map((item: RenderItem) => {
             const imgs = imagesByFilename.get(item.filename) ?? []
             const isDone = hasApproved(imgs)
             const isSelected = selectedFilenames.has(item.filename)
@@ -427,9 +474,9 @@ export function TableView(props: CombinationViewProps) {
                 <ContextMenuTrigger asChild>
                   <LongPressWrapper
                     onLongPress={() => onLongPress(item.filename)}
-                    onClick={() => {
-                      if (selectionMode) {
-                        onToggleSelect(item.filename)
+                    onClick={(e) => {
+                      if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                        toggleSelect(item.filename, e)
                       } else {
                         onSelect(item.filename)
                       }
@@ -483,7 +530,7 @@ export function TableView(props: CombinationViewProps) {
                   isSelected={isSelected}
                   selectionMode={selectionMode}
                   onOpen={onOpen}
-                  onToggleSelect={onToggleSelect}
+                  onToggleSelect={(f) => toggleSelect(f)}
                   onLongPress={onLongPress}
                   {...(onRegenerate && { onRegenerate })}
                 />

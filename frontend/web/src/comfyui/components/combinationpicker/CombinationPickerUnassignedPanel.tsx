@@ -10,13 +10,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import type { SavedImage } from "../../types/Message"
 import { LoadingButton } from "./CombinationPickerComponents"
+import { useCurationContext } from "./CurationContext"
+import { ImageWithSkeleton } from "./CombinationPickerHelpers"
+import type { SavedImage } from "../../types/Message"
 
 interface UnassignedPanelProps {
-  backendUrl: string
-  unassignedGroupsSize: number
-  unassignedTotalCount: number
   filteredUnassignedGroups: Map<string, SavedImage[]>
   templateAffiliationCache: Map<string, string[]>
   showTrueOrphansOnly: boolean
@@ -33,9 +32,6 @@ interface UnassignedPanelProps {
 }
 
 export function CombinationPickerUnassignedPanel({
-  backendUrl,
-  unassignedGroupsSize,
-  unassignedTotalCount,
   filteredUnassignedGroups,
   templateAffiliationCache,
   showTrueOrphansOnly,
@@ -50,13 +46,16 @@ export function CombinationPickerUnassignedPanel({
   bulkTrashActionMessage,
   closeUnassignedPanel,
 }: UnassignedPanelProps) {
+  const { backendUrl, data } = useCurationContext()
+  const { unassignedGroups, unassignedTotalCount } = data
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-amber-400/60 bg-amber-50/20 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
           <span className="text-sm font-bold text-amber-800">
-            미할당 이미지: {unassignedGroupsSize}개 파일 ({unassignedTotalCount}
+            미할당 이미지: {unassignedGroups.size}개 파일 ({unassignedTotalCount}
             장)
           </span>
         </div>
@@ -159,10 +158,8 @@ export function CombinationPickerUnassignedPanel({
                   >
                     <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
                       {preview ? (
-                        <img
+                        <ImageWithSkeleton
                           src={`${backendUrl}/saved-images/${preview.hash}`}
-                          className="h-full w-full object-cover"
-                          alt=""
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">

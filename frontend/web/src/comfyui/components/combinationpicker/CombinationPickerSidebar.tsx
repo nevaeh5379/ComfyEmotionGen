@@ -1,21 +1,19 @@
-import type { SavedImage } from "../../types/Message"
-import type { RenderItem } from "./CombinationPickerComponents"
+import { useCurationContext } from "./CurationContext"
 import { StatusIcon } from "./CombinationPickerHelpers"
 import { hasApproved } from "../../types/Message"
 
 interface SidebarProps {
-  renderItems: RenderItem[]
-  imagesByFilename: Map<string, SavedImage[]>
   selectedFilename: string
   setSelectedFilename: (filename: string) => void
 }
 
 export function CombinationPickerSidebar({
-  renderItems,
-  imagesByFilename,
   selectedFilename,
   setSelectedFilename,
 }: SidebarProps) {
+  const { data } = useCurationContext()
+  const { renderItems, imagesByFilename } = data
+
   return (
     <div
       className="sticky flex w-64 flex-none flex-col self-start overflow-hidden rounded-lg border bg-card"

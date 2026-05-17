@@ -1,5 +1,6 @@
-import { useCallback, type Dispatch, type SetStateAction } from "react"
-import { CheckCircle2Icon, CircleIcon } from "lucide-react"
+import { useCallback, useState, type Dispatch, type SetStateAction } from "react"
+import { CheckCircle2Icon, CircleIcon, ImageIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 /* ─── StatusIcon ─── */
 export function StatusIcon({
@@ -50,6 +51,48 @@ export function MetaTags({
           {v}
         </span>
       ))}
+    </div>
+  )
+}
+
+/* ─── ImageWithSkeleton ─── */
+export function ImageWithSkeleton({
+  src,
+  alt = "",
+  className = "",
+  aspectRatio = "aspect-square",
+}: {
+  src: string
+  alt?: string
+  className?: string
+  aspectRatio?: string
+}) {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  return (
+    <div className={`relative overflow-hidden bg-muted ${aspectRatio} ${className}`}>
+      {loading && (
+        <Skeleton className="absolute inset-0 h-full w-full" />
+      )}
+      {error ? (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/40">
+            <ImageIcon className="h-1/3 w-1/3" />
+            <span className="text-[8px] font-bold">LOAD ERROR</span>
+        </div>
+      ) : (
+        <img
+          src={src}
+          alt={alt}
+          className={`h-full w-full object-cover transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"}`}
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setLoading(false)
+            setError(true)
+          }}
+          loading="lazy"
+        />
+      )}
     </div>
   )
 }
