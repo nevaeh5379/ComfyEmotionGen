@@ -349,8 +349,12 @@ function AppContent(props: AppContentProps) {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <nav className="sticky top-0 z-10 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
+    <div
+      className={`flex flex-col bg-background ${
+        props.activeTab === "jobs" ? "h-screen overflow-hidden" : "min-h-screen"
+      }`}
+    >
+      <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
         <div className="flex items-center justify-between gap-4 px-4 py-2">
           <div className="flex items-center gap-3">
             <div className="flex h-6 w-6 items-center justify-center rounded-[5px] bg-ink text-[11px] font-bold text-panel">
@@ -393,9 +397,13 @@ function AppContent(props: AppContentProps) {
         </div>
       </nav>
 
-      <main className="flex w-full flex-1 flex-col overflow-hidden">
+      <main
+        className={`flex w-full flex-1 flex-col ${
+          props.activeTab === "jobs" ? "overflow-hidden" : ""
+        }`}
+      >
         {props.activeTab === "gallery" && (
-          <div className="flex h-full flex-col overflow-hidden bg-background">
+          <div className="flex flex-col bg-background">
             <SavedImagesGallery
               backendUrl={props.backendUrl}
               enableHover={props.settings.enableHover}
@@ -405,7 +413,7 @@ function AppContent(props: AppContentProps) {
           </div>
         )}
         {props.activeTab === "curation" && (
-          <div className="flex h-full flex-col overflow-hidden bg-background">
+          <div className="flex flex-col bg-background">
             <CombinationPicker
               backendUrl={props.backendUrl}
               cegTemplate={template.cegTemplate}

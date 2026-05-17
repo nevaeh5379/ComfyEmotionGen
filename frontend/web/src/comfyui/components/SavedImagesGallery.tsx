@@ -32,6 +32,7 @@ import {
   CheckIcon,
   CopyIcon,
   EyeIcon,
+  FilterIcon,
 } from "lucide-react"
 import {
   HoverCard,
@@ -178,6 +179,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
   const [galleryViewMode, setGalleryViewMode] =
     useState<GalleryViewMode>("grid")
+  const [showFilters, setShowFilters] = useState(false)
 
   const {
     images,
@@ -381,103 +383,106 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     )
   }, [])
 
+  const hasAnyFilter = useMemo(
+    () =>
+      !!(
+        filenameFilter.trim() ||
+        tagFilter.trim() ||
+        metadataFilter.trim() ||
+        hideRejected
+      ),
+    [filenameFilter, tagFilter, metadataFilter, hideRejected]
+  )
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       {/* ── Sticky Toolbar Header ── */}
-      <div className="sticky top-0 z-10 shrink-0 space-y-2 border-b border-line bg-panel px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Tabs
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as CurationStatus | "all")}
-          >
-            <TabsList>
-              {(
-                ["all", "pending", "approved", "rejected", "trashed"] as const
-              ).map((s) => (
-                <TabsTrigger key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          <Input
-            className="h-8 w-48"
-            type="search"
-            placeholder="filename 필터"
-            value={filenameFilter}
-            onChange={(e) => setFilenameFilter(e.target.value)}
-          />
-          <Input
-            className="h-8 w-40"
-            type="search"
-            placeholder="태그 필터"
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-          />
-          <Input
-            className="h-8 w-48"
-            type="search"
-            placeholder="메타데이터/prmpt 검색"
-            value={metadataFilter}
-            onChange={(e) => setMetadataFilter(e.target.value)}
-          />
-          <div className="flex cursor-pointer items-center gap-1.5">
-            <Checkbox
-              id="hide-rejected"
-              checked={hideRejected}
-              onCheckedChange={(v) => setHideRejected(v === true)}
-            />
-            <Label
-              htmlFor="hide-rejected"
-              className="cursor-pointer text-[11px] font-bold text-muted-foreground"
+      <div className="sticky top-[45px] z-40 shrink-0 border-b border-line bg-panel px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Tabs
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as CurationStatus | "all")}
             >
-              리젝 숨기기
-            </Label>
-          </div>
-          <Button
-            size="sm"
-            variant={groupMode ? "default" : "outline"}
-            onClick={() => setGroupMode(!groupMode)}
-          >
-            {groupMode ? "그리드 모드" : "그룹 모드"}
-          </Button>
-          {/* 뷰 모드 토글 */}
-          <ToggleGroup
-            type="single"
-            value={galleryViewMode}
-            onValueChange={(v) => v && setGalleryViewMode(v as GalleryViewMode)}
-            variant="outline"
-            spacing={0}
-            className="h-8"
-          >
-            <ToggleGroupItem
-              value="grid"
-              className="h-7 px-2 text-[10px] font-bold"
+              <TabsList>
+                {(
+                  ["all", "pending", "approved", "rejected", "trashed"] as const
+                ).map((s) => (
+                  <TabsTrigger key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
+            <div className="h-4 w-px bg-line" />
+
+            <Button
+              size="sm"
+              variant={groupMode ? "default" : "outline"}
+              onClick={() => setGroupMode(!groupMode)}
             >
-              <Maximize2Icon className="mr-1 h-3 w-3" />
-              그리드
-            </ToggleGroupItem>
-            <HoverCard openDelay={200}>
-              <HoverCardTrigger asChild>
-                <ToggleGroupItem
-                  value="compare"
-                  className="h-7 px-2 text-[10px] font-bold"
-                >
-                  <ColumnsIcon className="mr-1 h-3 w-3" />
-                  비교
-                </ToggleGroupItem>
-              </HoverCardTrigger>
-              {pinnedHashes.length === 0 && (
-                <HoverCardContent
-                  side="bottom"
-                  className="w-auto px-3 py-2 text-[11px] font-bold"
-                >
-                  이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
-                </HoverCardContent>
+              {groupMode ? "그리드 모드" : "그룹 모드"}
+            </Button>
+
+            <ToggleGroup
+              type="single"
+              value={galleryViewMode}
+              onValueChange={(v) =>
+                v && setGalleryViewMode(v as GalleryViewMode)
+              }
+              variant="outline"
+              spacing={0}
+              className="h-8"
+            >
+              <ToggleGroupItem
+                value="grid"
+                className="h-7 px-2 text-[10px] font-bold"
+              >
+                <Maximize2Icon className="mr-1 h-3 w-3" />
+                그리드
+              </ToggleGroupItem>
+              <HoverCard openDelay={200}>
+                <HoverCardTrigger asChild>
+                  <ToggleGroupItem
+                    value="compare"
+                    className="h-7 px-2 text-[10px] font-bold"
+                  >
+                    <ColumnsIcon className="mr-1 h-3 w-3" />
+                    비교
+                  </ToggleGroupItem>
+                </HoverCardTrigger>
+                {pinnedHashes.length === 0 && (
+                  <HoverCardContent
+                    side="bottom"
+                    className="w-auto px-3 py-2 text-[11px] font-bold"
+                  >
+                    이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
+                  </HoverCardContent>
+                )}
+              </HoverCard>
+            </ToggleGroup>
+
+            <div className="h-4 w-px bg-line" />
+
+            <Button
+              size="sm"
+              variant={showFilters ? "secondary" : "outline"}
+              onClick={() => setShowFilters(!showFilters)}
+              className="relative gap-1.5 font-bold"
+            >
+              <FilterIcon className="h-3.5 w-3.5" />
+              필터
+              {hasAnyFilter && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary"></span>
+                </span>
               )}
-            </HoverCard>
-          </ToggleGroup>
-          <div className="ml-auto flex items-center gap-2">
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 rounded-md border bg-background p-1">
               <Select
                 value={duplicateStrategy}
@@ -510,9 +515,74 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           </div>
         </div>
 
+        {/* ── Collapsible Filters ── */}
+        {showFilters && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border bg-muted/10 px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase">
+                검색:
+              </span>
+              <Input
+                className="h-7 w-40 text-xs"
+                type="search"
+                placeholder="파일명 필터"
+                value={filenameFilter}
+                onChange={(e) => setFilenameFilter(e.target.value)}
+              />
+              <Input
+                className="h-7 w-36 text-xs"
+                type="search"
+                placeholder="태그 필터"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+              />
+              <Input
+                className="h-7 w-48 text-xs"
+                type="search"
+                placeholder="메타데이터/prompt 검색"
+                value={metadataFilter}
+                onChange={(e) => setMetadataFilter(e.target.value)}
+              />
+            </div>
+
+            <div className="h-4 w-px bg-line" />
+
+            <div className="flex cursor-pointer items-center gap-1.5">
+              <Checkbox
+                id="hide-rejected"
+                checked={hideRejected}
+                onCheckedChange={(v) => setHideRejected(v === true)}
+              />
+              <Label
+                htmlFor="hide-rejected"
+                className="cursor-pointer text-[11px] font-bold text-muted-foreground"
+              >
+                리젝 숨기기
+              </Label>
+            </div>
+
+            <div className="ml-auto">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
+                onClick={() => {
+                  setFilenameFilter("")
+                  setTagFilter("")
+                  setMetadataFilter("")
+                  setHideRejected(false)
+                }}
+              >
+                <XIcon className="mr-1 h-3 w-3" />
+                필터 초기화
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* 선택 모드 액션 바 */}
         {selectionMode && (
-          <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
+          <div className="mt-2 flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
             <span className="text-sm font-bold text-blue-700">
               {selectedHashes.size}개 이미지 선택됨
             </span>
@@ -566,7 +636,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       </div>
 
       {/* ── Scrollable Content ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 px-4 py-4">
         {error && (
           <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
             {error}

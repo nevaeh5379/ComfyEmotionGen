@@ -1268,9 +1268,9 @@ export const CombinationPicker = memo(function CombinationPicker({
     )
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       {/* ── Sticky Toolbar Header ── */}
-      <div className="sticky top-0 z-10 shrink-0 border-b border-line bg-panel">
+      <div className="sticky top-[45px] z-40 shrink-0 border-b border-line bg-panel">
         <div className="flex flex-col gap-3 px-4 pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1442,6 +1442,72 @@ export const CombinationPicker = memo(function CombinationPicker({
               </Button>
             )}
           </div>
+
+          {/* 필터 바 */}
+          <div className="flex flex-wrap items-center gap-3 border-t border-dashed pt-3">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <FilterIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                필터
+              </span>
+            </div>
+            {/* 상태 필터 */}
+            <Select
+              value={statusFilter}
+              onValueChange={(v) =>
+                setStatusFilter(v as "all" | "done" | "pending")
+              }
+            >
+              <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 상태</SelectItem>
+                <SelectItem value="done">완료만</SelectItem>
+                <SelectItem value="pending">미완료만</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* 파일명 필터 */}
+            <div className="relative">
+              <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="파일명 검색..."
+                value={filenameFilter}
+                onChange={(e) => setFilenameFilter(e.target.value)}
+                className="h-7 w-40 pl-7 text-[10px] font-bold"
+              />
+            </div>
+            {/* 메타데이터 필터 */}
+            <div className="relative">
+              <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="메타데이터 검색..."
+                value={metadataFilter}
+                onChange={(e) => setMetadataFilter(e.target.value)}
+                className="h-7 w-44 pl-7 text-[10px] font-bold"
+              />
+            </div>
+            {/* 필터 초기화 버튼 (필터가 활성화되었을 때만 표시) */}
+            {(statusFilter !== "all" || filenameFilter || metadataFilter) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[10px] font-bold text-muted-foreground"
+                onClick={() => {
+                  setStatusFilter("all")
+                  setFilenameFilter("")
+                  setMetadataFilter("")
+                }}
+              >
+                <XIcon className="mr-1 h-3 w-3" /> 초기화
+              </Button>
+            )}
+            <div className="ml-auto text-[10px] font-bold text-muted-foreground">
+              {filteredRenderItems.length} / {renderItems.length}개
+            </div>
+          </div>
         </div>
 
         {/* 선택 모드 액션 바 */}
@@ -1478,7 +1544,7 @@ export const CombinationPicker = memo(function CombinationPicker({
       </div>
 
       {/* ── Scrollable Content ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 px-4 py-4">
         {/* 미할당 이미지 관리 패널 */}
         {showUnassignedPanel && (
           <div className="flex flex-col gap-3 rounded-lg border border-amber-400/60 bg-amber-50/20 px-4 py-3">
@@ -1660,13 +1726,10 @@ export const CombinationPicker = memo(function CombinationPicker({
         )}
 
         {/* 메인 레이아웃 */}
-        <div
-          className="flex gap-4"
-          style={{ height: "calc(100vh - 250px)", minHeight: 500 }}
-        >
+        <div className="flex gap-4">
           {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
           {!isBrowsing && (
-            <div className="flex w-64 flex-none flex-col overflow-hidden rounded-lg border bg-card">
+            <div className="sticky top-[210px] self-start flex w-64 flex-none flex-col overflow-hidden rounded-lg border bg-card max-h-[calc(100vh-230px)]">
               <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
                 Combinations
               </div>
@@ -1720,89 +1783,10 @@ export const CombinationPicker = memo(function CombinationPicker({
           )}
 
           {/* 오른쪽: 콘텐츠 영역 */}
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+          <div className="flex min-w-0 flex-1 flex-col min-h-[700px]">
             {isBrowsing ? (
-              <div className="flex flex-1 flex-col overflow-hidden">
-                {/* 필터 바 */}
-                <div className="flex-none border-b bg-muted/10 px-4 py-2.5">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <FilterIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                        필터
-                      </span>
-                    </div>
-                    {/* 상태 필터 */}
-                    <Select
-                      value={statusFilter}
-                      onValueChange={(v) =>
-                        setStatusFilter(v as "all" | "done" | "pending")
-                      }
-                    >
-                      <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">전체 상태</SelectItem>
-                        <SelectItem value="done">완료만</SelectItem>
-                        <SelectItem value="pending">미완료만</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {/* 파일명 필터 */}
-                    <div className="relative">
-                      <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="파일명 검색..."
-                        value={filenameFilter}
-                        onChange={(e) => setFilenameFilter(e.target.value)}
-                        className="h-7 w-40 pl-7 text-[10px] font-bold"
-                      />
-                    </div>
-                    {/* 메타데이터 필터 */}
-                    <div className="relative">
-                      <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="메타데이터 검색..."
-                        value={metadataFilter}
-                        onChange={(e) => setMetadataFilter(e.target.value)}
-                        className="h-7 w-44 pl-7 text-[10px] font-bold"
-                      />
-                    </div>
-                    {/* 필터 초기화 버튼 (필터가 활성화되었을 때만 표시) */}
-                    {(statusFilter !== "all" ||
-                      filenameFilter ||
-                      metadataFilter) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-[10px] font-bold text-muted-foreground"
-                        onClick={() => {
-                          setStatusFilter("all")
-                          setFilenameFilter("")
-                          setMetadataFilter("")
-                        }}
-                      >
-                        <XIcon className="mr-1 h-3 w-3" /> 초기화
-                      </Button>
-                    )}
-                    <div className="ml-auto text-[10px] font-bold text-muted-foreground">
-                      {filteredRenderItems.length} / {renderItems.length}개
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-bold">
-                      <FolderIcon className="h-4 w-4" /> 모든 조합 탐색
-                    </h3>
-                    {!selectionMode && (
-                      <span className="text-[10px] font-medium text-muted-foreground">
-                        길게 누르면 선택 모드 진입
-                      </span>
-                    )}
-                  </div>
+              <div className="flex flex-1 flex-col">
+                <div>
                   {viewMode === "gallery" ? (
                     <GalleryView
                       items={filteredRenderItems}
@@ -1845,7 +1829,7 @@ export const CombinationPicker = memo(function CombinationPicker({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex flex-1 flex-col">
                 {/* 상세 헤더 */}
                 <div className="flex-none border-b bg-muted/10 px-4 py-3">
                   <div className="flex flex-col gap-2">
@@ -1937,7 +1921,7 @@ export const CombinationPicker = memo(function CombinationPicker({
                 </div>
 
                 {/* 이미지 뷰어 */}
-                <div className="relative flex-1 overflow-y-auto p-4">
+                <div className="relative p-4">
                   {visibleImages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
                       <Maximize2Icon className="h-10 w-10 opacity-20" />
