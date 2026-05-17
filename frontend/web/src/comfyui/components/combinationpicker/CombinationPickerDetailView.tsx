@@ -27,12 +27,12 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
-import type { SavedImage } from "../types/Message"
+import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import { LoadingButton } from "./CombinationPickerComponents"
 import { MetaTags } from "./CombinationPickerHelpers"
 import { Magnifier } from "./CombinationPickerViews"
-import { hasApproved } from "../types/Message"
+import { hasApproved } from "../../types/Message"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
