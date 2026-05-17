@@ -9,7 +9,7 @@ import {
 
 import { useBackend } from "./comfyui/hooks/useBackend"
 import { SavedImagesGallery } from "./comfyui/components/SavedImagesGallery"
-import { CombinationPicker } from "./comfyui/components/CombinationPicker"
+import { CombinationPicker } from "./comfyui/components/combinationpicker/CombinationPicker"
 import { WorkflowGraphViewer } from "./comfyui/components/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
@@ -42,7 +42,7 @@ import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
 const NAV_TABS = [
-  { id: "jobs", label: "잡" },
+  { id: "jobs", label: "작업" },
   { id: "gallery", label: "갤러리" },
   { id: "curation", label: "큐레이션" },
   { id: "settings", label: "설정" },
@@ -354,7 +354,7 @@ function AppContent(props: AppContentProps) {
         props.activeTab === "jobs" ? "h-screen overflow-hidden" : "min-h-screen"
       }`}
     >
-      <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
+      <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur border-b supports-backdrop-filter:bg-panel/80">
         <div className="flex items-center justify-between gap-4 px-4 py-2">
           <div className="flex items-center gap-3">
             <span className="text-[13px] font-semibold tracking-tight">

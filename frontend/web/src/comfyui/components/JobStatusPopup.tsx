@@ -74,7 +74,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     [jobs]
   )
 
-  // 전체 세션 잡 (완료된 것도 포함)
+  // 전체 세션 작업 (완료된 것도 포함)
   const allSessionCount = jobs.length
   const doneCount = jobs.filter((j) => j.status === "done").length
   const overallPercent =
@@ -168,7 +168,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           <span
             className={`h-2 w-2 shrink-0 rounded-full ${paused ? "animate-pulse bg-yellow-400" : runningJobs.length > 0 ? "animate-pulse bg-green-500" : "bg-blue-400"}`}
           />
-          <span className="text-sm font-semibold">잡 진행상황</span>
+          <span className="text-sm font-semibold">작업 진행상황</span>
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">
             {activeJobs.length}개
           </span>
@@ -191,7 +191,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
               setExpanded(false)
               onNavigateToJobs?.()
             }}
-            title="잡 탭으로 이동"
+            title="작업 탭으로 이동"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </Button>

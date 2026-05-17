@@ -60,7 +60,7 @@ export function SettingsPanel({
             <FieldLabel>ComfyUI 워커</FieldLabel>
             <WorkerManager backendUrl={backendUrl} workers={workers} />
             <FieldDescription>
-              여러 ComfyUI 인스턴스를 추가하면 잡이 idle 워커에 자동 분배됩니다.
+              여러 ComfyUI 인스턴스를 추가하면 작업이 idle 워커에 자동 분배됩니다.
             </FieldDescription>
           </Field>
         </FieldGroup>

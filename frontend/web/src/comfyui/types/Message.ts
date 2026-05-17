@@ -2,7 +2,7 @@
  * 백엔드 → 프론트 정규화 이벤트 타입.
  *
  * ComfyUI raw 메시지(`progress`, `executing`, `executed`, `execution_*` 등)는
- * 백엔드가 흡수해서 잡 단위로 추상화한다. 프론트는 잡/워커 단위만 본다.
+ * 백엔드가 흡수해서 작업 단위로 추상화한다. 프론트는 작업/워커 단위만 본다.
  */
 
 export type JobStatus =

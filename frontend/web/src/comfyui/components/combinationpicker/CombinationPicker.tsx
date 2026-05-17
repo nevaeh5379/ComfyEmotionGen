@@ -1,15 +1,15 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
-import { curationApi } from "../hooks/useSavedImages"
-import { useAsyncAction } from "../hooks/useAsyncAction"
-import type { SavedImage } from "../types/Message"
-import type { SavedTemplate } from "../hooks/useSavedTemplates"
-import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
+import { curationApi } from "../../hooks/useSavedImages"
+import { useAsyncAction } from "../../hooks/useAsyncAction"
+import type { SavedImage } from "../../types/Message"
+import type { SavedTemplate } from "../../hooks/useSavedTemplates"
+import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 import type { RenderItem } from "./CombinationPickerComponents"
 import { RegenerateDialog } from "./CombinationPickerComponents"
-import { ImageViewer } from "./ImageViewer"
-import { hasApproved, findApproved } from "../types/Message"
+import { ImageViewer } from "../ImageViewer"
+import { hasApproved, findApproved } from "../../types/Message"
 import { TournamentView } from "./CombinationPickerViews"
 import { GalleryView, TableView } from "./CombinationPickerViews"
 import { useSetToggle } from "./CombinationPickerHelpers"
@@ -489,7 +489,7 @@ export const CombinationPicker = memo(function CombinationPicker({
         ({ count, totalJobs }) =>
           isBulk
             ? `${count}개 항목, 총 ${totalJobs}개 작업 생성 완료`
-            : `잡 ${totalJobs}개 추가됨`,
+            : `작업 ${totalJobs}개 추가됨`,
         "재생성 실패"
       )
 

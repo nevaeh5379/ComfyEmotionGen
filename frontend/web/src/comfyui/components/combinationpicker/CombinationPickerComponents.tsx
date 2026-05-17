@@ -34,9 +34,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { useState, useMemo, useEffect, type ComponentProps } from "react"
-import type { SavedImage } from "../types/Message"
-import type { SavedTemplate } from "../hooks/useSavedTemplates"
-import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
+import type { SavedImage } from "../../types/Message"
+import type { SavedTemplate } from "../../hooks/useSavedTemplates"
+import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 
 export interface RenderItem {
   filename: string

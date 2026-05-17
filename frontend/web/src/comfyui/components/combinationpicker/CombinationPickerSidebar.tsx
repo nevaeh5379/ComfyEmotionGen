@@ -1,7 +1,7 @@
-import type { SavedImage } from "../types/Message"
+import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import { StatusIcon } from "./CombinationPickerHelpers"
-import { hasApproved } from "../types/Message"
+import { hasApproved } from "../../types/Message"
 
 interface SidebarProps {
   renderItems: RenderItem[]

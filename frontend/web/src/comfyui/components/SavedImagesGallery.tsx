@@ -74,7 +74,7 @@ import {
 } from "@/components/ui/context-menu"
 import type { CurationStatus, SavedImage } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
-import { Magnifier } from "./CombinationPickerViews"
+import { Magnifier } from "./combinationpicker/CombinationPickerViews"
 
 type GalleryViewMode = "grid" | "compare"
 
@@ -652,7 +652,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               <EmptyHeader>
                 <EmptyTitle>표시할 이미지가 없습니다</EmptyTitle>
                 <EmptyDescription>
-                  잡을 실행하거나 필터 조건을 바꿔보세요.
+                  작업을 실행하거나 필터 조건을 바꿔보세요.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

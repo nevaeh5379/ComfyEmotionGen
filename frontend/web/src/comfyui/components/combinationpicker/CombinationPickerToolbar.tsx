@@ -40,7 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import type { SavedTemplate } from "../hooks/useSavedTemplates"
+import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import { LoadingButton } from "./CombinationPickerComponents"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"

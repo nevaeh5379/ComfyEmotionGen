@@ -12,7 +12,6 @@ import {
   Trash2,
   X,
   MoreVertical,
-  RecycleIcon,
   RefreshCcw,
 } from "lucide-react"
 
@@ -633,7 +632,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const deleteSession = (markerId: string) => {
     if (
       !confirm(
-        "이 세션을 삭제하시겠습니까? 세션의 마커만 제거되며 잡 데이터는 삭제되지 않습니다."
+        "이 세션을 삭제하시겠습니까? 세션의 마커만 제거되며 작업 데이터는 삭제되지 않습니다."
       )
     )
       return
@@ -712,14 +711,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       try {
         await fetch(`${backendUrl}/jobs/${j.id}/retry`, { method: "POST" })
       } catch {
-        // 네트워크 오류 무시 — 다음 잡 계속 처리
+        // 네트워크 오류 무시 — 다음 작업 계속 처리
       }
     }
   }
 
   const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
-    if (!window.confirm("이 잡을 영구 삭제하시겠습니까?")) return
+    if (!window.confirm("이 작업을 영구 삭제하시겠습니까?")) return
     try {
       await fetch(`${backendUrl}/jobs/delete`, {
         method: "POST",
@@ -738,7 +737,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     if (failed.length === 0) return
     if (
       !window.confirm(
-        `실패/취소된 잡 ${failed.length}개를 모두 영구 삭제하시겠습니까?`
+        `실패/취소된 작업 ${failed.length}개를 모두 영구 삭제하시겠습니까?`
       )
     )
       return
@@ -757,7 +756,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     if (selectedForDelete.size === 0) return
     if (
       !window.confirm(
-        `선택한 ${selectedForDelete.size}개 잡을 영구 삭제하시겠습니까?`
+        `선택한 ${selectedForDelete.size}개 작업을 영구 삭제하시겠습니까?`
       )
     )
       return
@@ -864,7 +863,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       {/* 1. Global Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b">
         {/* Session selector dropdown */}
         <div className="relative">
           <Button
@@ -934,7 +933,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                             className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? "bg-green-500" : isSelected ? "bg-foreground" : "border border-muted-foreground/40"}`}
                             title={
                               isActive
-                                ? "현재 새 잡이 이 세션에 할당됩니다"
+                                ? "현재 새 작업이 이 세션에 할당됩니다"
                                 : isSelected
                                   ? "현재 보고 있는 세션"
                                   : ""
@@ -977,7 +976,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                               e.stopPropagation()
                               activateSession(m.id)
                             }}
-                            title="이 세션을 활성 세션으로 지정하여 새 잡이 여기에 할당되도록 합니다"
+                            title="이 세션을 활성 세션으로 지정하여 새 작업이 여기에 할당되도록 합니다"
                           >
                             활성화
                           </Button>
@@ -1020,7 +1019,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <span className="h-1 w-1 rounded-full bg-green-500" />
-                    활성 세션 — 새로 제출하는 잡이 이 세션에 저장됩니다
+                    활성 세션 — 새로 제출하는 작업이 이 세션에 저장됩니다
                   </span>
                 </div>
               </div>
@@ -1032,7 +1031,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         <div className="flex items-center gap-2">
           {paused && (
             <span className="mr-2 text-xs font-medium text-muted-foreground">
-              새 잡이 워커로 전송되지 않습니다.
+              새 작업이 워커로 전송되지 않습니다.
             </span>
           )}
           <Button
@@ -1338,7 +1337,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 dir={sortDir}
                 onSort={toggleSort}
               />
-              <TableHead className="w-20">잡 ID</TableHead>
+              <TableHead className="w-20">작업 ID</TableHead>
               <SortableHead
                 label="파일명"
                 sortKey="filename"
@@ -1525,8 +1524,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   className="py-8 text-center text-xs text-muted-foreground"
                 >
                   {hasDateFilter
-                    ? "선택한 날짜 범위에 맞는 잡이 없습니다."
-                    : "해당 필터에 맞는 잡이 없습니다."}
+                    ? "선택한 날짜 범위에 맞는 작업이 없습니다."
+                    : "해당 필터에 맞는 작업이 없습니다."}
                 </TableCell>
               </TableRow>
             )}
@@ -1586,7 +1585,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       >
         <SheetContent className="flex min-w-105 flex-col gap-4 overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>잡 상세</SheetTitle>
+            <SheetTitle>작업 상세</SheetTitle>
           </SheetHeader>
           {selectedJob && (
             <div className="flex flex-col gap-4">

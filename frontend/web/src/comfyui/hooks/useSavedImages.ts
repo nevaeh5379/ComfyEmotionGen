@@ -3,7 +3,7 @@
  *
  * 백엔드의 image.saved / image.curation / image.deleted 이벤트는
  * WebSocketProvider가 흡수하지 않고 직접 ws에 한 번 더 붙어서 처리한다.
- * (잡/워커는 Provider, 이미지는 갤러리 hook으로 책임 분리.)
+ * (작업/워커는 Provider, 이미지는 갤러리 hook으로 책임 분리.)
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"

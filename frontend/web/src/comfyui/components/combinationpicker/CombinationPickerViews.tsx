@@ -15,8 +15,8 @@ import {
 } from "lucide-react"
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
-import type { SavedImage } from "../types/Message"
-import { hasApproved, findApproved } from "../types/Message"
+import type { SavedImage } from "../../types/Message"
+import { hasApproved, findApproved } from "../../types/Message"
 import type { CombinationViewProps } from "./CombinationPickerComponents"
 import {
   ImagePreviewHoverCard,

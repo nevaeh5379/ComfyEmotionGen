@@ -150,11 +150,11 @@ export function WorkerManager({ backendUrl, workers }: Props) {
 
       {conflict && (
         <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm">
-          <p className="mb-2 font-semibold">진행 중인 잡이 있습니다</p>
+          <p className="mb-2 font-semibold">진행 중인 작업이 있습니다</p>
           <p className="mb-3 text-xs text-muted-foreground">
-            워커 <code className="font-mono">{conflict.workerId}</code>가 잡{" "}
+            워커 <code className="font-mono">{conflict.workerId}</code>가 작업{" "}
             <code className="font-mono">{conflict.jobId}</code>를 실행 중입니다.
-            잡을 취소하고 워커를 삭제할까요?
+            작업을 취소하고 워커를 삭제할까요?
           </p>
           <div className="flex gap-2">
             <Button
@@ -163,7 +163,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
               onClick={confirmForceDelete}
               disabled={busy}
             >
-              잡 취소 후 삭제
+              작업 취소 후 삭제
             </Button>
             <Button
               variant="ghost"
