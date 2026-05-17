@@ -22,100 +22,29 @@ import CodeEditor from "@/components/CodeEditor"
 import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
 import { NodeMappingSection } from "./NodeMappingSection"
-import type { ObjectInfo } from "./renderTypes"
-import type { SavedTemplate } from "./useSavedTemplates"
-import {
-  type SavedWorkflow,
-  type SavedNodeMappingPreset,
-} from "./useSavedWorkflows"
-import { type ComfyWorkflow, type NodeMapping } from "@/lib/workflow"
-
-type ParsedWorkflow =
-  | { success: true; data: ComfyWorkflow }
-  | { success: false; error: { message: string } }
+import { useTemplateContext } from "./contexts/TemplateContext"
+import { useWorkflowContext } from "./contexts/WorkflowContext"
+import { useNodeMappingContext } from "./contexts/NodeMappingContext"
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface WorkCompositionPanelProps {
-  // Repeat / Run
+  // Job Runner
   repeatCount: number
   setRepeatCount: (value: number | ((prev: number) => number)) => void
   handleRun: () => void
   estimatedRunCount: number | null
   canRun: boolean
+  previewCount: number
 
-  // Preview / Axis filter / Selection sheets
+  // UI Callbacks
   onPreviewOpen: () => void
   onAxisFilterOpen: () => void
   onSelectionOpen: () => void
   hasActiveFilter: boolean
-
-  // CEG Template
-  cegTemplate: string
-  setCegTemplate: (value: string) => void
-  previewCount: number
-  templateResetKey: number
-  savedTemplates: SavedTemplate[]
-  activeTemplateId: string | null
-  setActiveTemplateId: (id: string | null) => void
-  saveTemplate: (name: string, template: string) => SavedTemplate
-  deleteTemplate: (id: string) => void
-  activeTemplate: SavedTemplate | null
-  onPendingSave: (
-    name: string,
-    type: "template" | "workflow" | "nodeMapping"
-  ) => void
-
-  // Workflow
-  workflowJson: string
-  setWorkflowJson: (value: string) => void
-  parsedWorkflow: ParsedWorkflow | undefined
-  workflowResetKey: number
-  savedWorkflows: SavedWorkflow[]
-  activeWorkflowId: string | null
-  setActiveWorkflowId: (id: string | null) => void
-  saveWorkflow: (name: string, workflow: string) => SavedWorkflow
-  deleteWorkflow: (id: string) => void
-  activeWorkflow: SavedWorkflow | null
-  loadWorkflowItem: (w: SavedWorkflow) => void
   onGraphOpen: () => void
-
-  // Node Mappings
-  nodeMappings: NodeMapping[]
-  setNodeMappings: (
-    value: NodeMapping[] | ((prev: NodeMapping[]) => NodeMapping[])
-  ) => void
-  updateMapping: (id: string, patch: Partial<NodeMapping>) => void
-  handleAutoMap: () => void
-  handleImageUpload: (file: File, nodeId: string, inputKey: string) => void
-  imageUploads: Record<
-    string,
-    { uploadedName: string | null; error: string | null; uploading: boolean }
-  >
-  availableNodeOptions: {
-    nodeId: string
-    title: string
-    inputKey: string
-    isNumeric: boolean
-    isLoadImage: boolean
-  }[]
-  objectInfo: ObjectInfo | null
-  savedNodeMappings: SavedNodeMappingPreset[]
-  activeNodeMappingPresetId: string | null
-  setActiveNodeMappingPresetId: (id: string | null) => void
-  nodeMappingResetKey: number
-  saveMappingPreset: (
-    workflowId: string,
-    name: string,
-    mappings: NodeMapping[]
-  ) => SavedWorkflow | null
-  deleteMappingPreset: (
-    workflowId: string,
-    presetId: string
-  ) => SavedWorkflow | null
-  activeNodeMappingPreset: SavedNodeMappingPreset | null
 }
 
 // ---------------------------------------------------------------------------
@@ -128,49 +57,18 @@ export function WorkCompositionPanel({
   handleRun,
   estimatedRunCount,
   canRun,
+  previewCount,
   onPreviewOpen,
   onAxisFilterOpen,
   onSelectionOpen,
   hasActiveFilter,
-  cegTemplate,
-  setCegTemplate,
-  previewCount,
-  templateResetKey,
-  savedTemplates,
-  activeTemplateId,
-  setActiveTemplateId,
-  saveTemplate,
-  deleteTemplate,
-  activeTemplate,
-  onPendingSave,
-  workflowJson,
-  setWorkflowJson,
-  parsedWorkflow,
-  workflowResetKey,
-  savedWorkflows,
-  activeWorkflowId,
-  setActiveWorkflowId,
-  saveWorkflow,
-  deleteWorkflow,
-  activeWorkflow,
-  loadWorkflowItem,
   onGraphOpen,
-  nodeMappings,
-  setNodeMappings,
-  updateMapping,
-  handleAutoMap,
-  handleImageUpload,
-  imageUploads,
-  availableNodeOptions,
-  objectInfo,
-  savedNodeMappings,
-  activeNodeMappingPresetId,
-  setActiveNodeMappingPresetId,
-  nodeMappingResetKey,
-  saveMappingPreset,
-  deleteMappingPreset,
-  activeNodeMappingPreset,
 }: WorkCompositionPanelProps) {
+  // ── Consume contexts ──
+  const template = useTemplateContext()
+  const workflow = useWorkflowContext()
+  const nodeMapping = useNodeMappingContext()
+
   return (
     <>
       <div className="flex h-7 items-center border-b border-line px-3 whitespace-nowrap">
@@ -267,34 +165,45 @@ export function WorkCompositionPanel({
             className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
           >
             <CegTemplatePanel
-              cegTemplate={cegTemplate}
-              setCegTemplate={setCegTemplate}
+              cegTemplate={template.cegTemplate}
+              setCegTemplate={template.setCegTemplate}
               previewCount={previewCount}
               onPreviewOpen={onPreviewOpen}
-              templateResetKey={templateResetKey}
-              savedTemplates={savedTemplates}
-              activeTemplateId={activeTemplateId}
+              templateResetKey={template.templateResetKey}
+              savedTemplates={template.savedTemplates}
+              activeTemplateId={template.activeTemplateId}
               onSaveTemplate={(name) => {
                 const trimmed = name.trim()
-                if (savedTemplates.some((t) => t.name === trimmed)) {
-                  onPendingSave(trimmed, "template")
+                if (template.savedTemplates.some((t) => t.name === trimmed)) {
+                  template.onPendingSave(trimmed, "template")
                   return false
                 }
-                const saved = saveTemplate(trimmed, cegTemplate)
-                setActiveTemplateId(saved.id)
+                const saved = template.saveTemplate(
+                  trimmed,
+                  template.cegTemplate
+                )
+                template.setActiveTemplateId(saved.id)
                 return true
               }}
               onLoadTemplate={(t) => {
-                setCegTemplate(t.template)
-                setActiveTemplateId(t.id)
+                template.setCegTemplate(t.template)
+                template.setActiveTemplateId(t.id)
               }}
               onDeleteTemplate={(id) => {
-                if (activeTemplateId === id) setActiveTemplateId(null)
-                deleteTemplate(id)
+                if (template.activeTemplateId === id)
+                  template.setActiveTemplateId(null)
+                template.deleteTemplate(id)
               }}
               onUpdateTemplate={
-                activeTemplate
-                  ? () => saveTemplate(activeTemplate.name, cegTemplate)
+                template.savedTemplates.find(
+                  (t) => t.id === template.activeTemplateId
+                )
+                  ? () => {
+                      const active = template.savedTemplates.find(
+                        (t) => t.id === template.activeTemplateId
+                      )!
+                      template.saveTemplate(active.name, template.cegTemplate)
+                    }
                   : undefined
               }
             />
@@ -311,9 +220,9 @@ export function WorkCompositionPanel({
                   <span className="text-xs font-medium">
                     ComfyUI API 워크플로우
                   </span>
-                  {parsedWorkflow?.success && (
+                  {workflow.parsedWorkflow?.success && (
                     <span className="mono text-[10px] text-muted-foreground">
-                      노드 {Object.keys(parsedWorkflow.data).length}개
+                      노드 {Object.keys(workflow.parsedWorkflow.data).length}개
                     </span>
                   )}
                 </div>
@@ -323,7 +232,9 @@ export function WorkCompositionPanel({
                     size="sm"
                     className="h-6 w-6 p-0 text-muted-foreground"
                     title="복사"
-                    onClick={() => navigator.clipboard.writeText(workflowJson)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(workflow.workflowJson)
+                    }
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
@@ -333,7 +244,7 @@ export function WorkCompositionPanel({
                     className="h-6 w-6 p-0 text-muted-foreground"
                     title="다운로드"
                     onClick={() => {
-                      const blob = new Blob([workflowJson], {
+                      const blob = new Blob([workflow.workflowJson], {
                         type: "application/json",
                       })
                       const url = URL.createObjectURL(blob)
@@ -360,8 +271,8 @@ export function WorkCompositionPanel({
               <CodeEditor
                 language="json"
                 placeholder="ComfyUI API 워크플로우 입력 칸"
-                value={workflowJson}
-                onChange={setWorkflowJson}
+                value={workflow.workflowJson}
+                onChange={workflow.setWorkflowJson}
                 minHeight="100px"
                 maxHeight="280px"
                 bareWrapper
@@ -369,89 +280,123 @@ export function WorkCompositionPanel({
               />
               <div className="flex items-center justify-end border-t border-line px-3 py-1.5">
                 <SaveInputBar
-                  key={workflowResetKey}
+                  key={workflow.workflowResetKey}
                   onSave={(name) => {
                     const trimmed = name.trim()
-                    if (savedWorkflows.some((w) => w.name === trimmed)) {
-                      onPendingSave(trimmed, "workflow")
+                    if (
+                      workflow.savedWorkflows.some((w) => w.name === trimmed)
+                    ) {
+                      workflow.onPendingSave(trimmed, "workflow")
                       return false
                     }
-                    const w = saveWorkflow(trimmed, workflowJson)
-                    setActiveWorkflowId(w.id)
+                    const w = workflow.saveWorkflow(
+                      trimmed,
+                      workflow.workflowJson
+                    )
+                    workflow.setActiveWorkflowId(w.id)
                     return true
                   }}
-                  placeholder={activeWorkflow?.name ?? "워크플로우 이름"}
-                  saveDisabled={!workflowJson.trim()}
-                  activeName={activeWorkflow?.name}
-                  items={savedWorkflows}
-                  onLoad={loadWorkflowItem}
-                  onDelete={(id) => {
-                    if (activeWorkflowId === id) setActiveWorkflowId(null)
-                    deleteWorkflow(id)
+                  placeholder={
+                    workflow.activeWorkflow?.name ?? "워크플로우 이름"
+                  }
+                  saveDisabled={!workflow.workflowJson.trim()}
+                  activeName={workflow.activeWorkflow?.name}
+                  items={workflow.savedWorkflows}
+                  onLoad={(w) => {
+                    nodeMapping.setActiveNodeMappingPresetId(null)
+                    workflow.loadWorkflowItem(
+                      w,
+                      () => nodeMapping.setNodeMappings([]),
+                      (m, presetId) => {
+                        nodeMapping.setNodeMappings(m)
+                        nodeMapping.setActiveNodeMappingPresetId(presetId)
+                      }
+                    )
                   }}
-                  activeItemId={activeWorkflowId ?? undefined}
+                  onDelete={(id) => {
+                    if (workflow.activeWorkflowId === id)
+                      workflow.setActiveWorkflowId(null)
+                    workflow.deleteWorkflow(id)
+                  }}
+                  activeItemId={workflow.activeWorkflowId ?? undefined}
                   onUpdate={() => {
-                    if (activeWorkflow)
-                      saveWorkflow(activeWorkflow.name, workflowJson)
+                    if (workflow.activeWorkflow)
+                      workflow.saveWorkflow(
+                        workflow.activeWorkflow.name,
+                        workflow.workflowJson
+                      )
                   }}
                 />
               </div>
             </div>
 
-            {parsedWorkflow && !parsedWorkflow.success && (
+            {workflow.parsedWorkflow && !workflow.parsedWorkflow.success && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-                workflow 파싱 오류: {parsedWorkflow.error?.message}
+                workflow 파싱 오류: {workflow.parsedWorkflow.error?.message}
               </div>
             )}
 
-            {parsedWorkflow?.success && (
+            {workflow.parsedWorkflow?.success && (
               <NodeMappingSection
-                nodeMappings={nodeMappings}
-                setNodeMappings={setNodeMappings}
-                updateMapping={updateMapping}
-                handleAutoMap={handleAutoMap}
-                handleImageUpload={handleImageUpload}
-                imageUploads={imageUploads}
-                availableNodeOptions={availableNodeOptions}
-                parsedWorkflowData={parsedWorkflow.data}
-                objectInfo={objectInfo}
-                activeWorkflowId={activeWorkflowId}
-                savedNodeMappings={savedNodeMappings}
-                activeNodeMappingPresetId={activeNodeMappingPresetId}
-                nodeMappingResetKey={nodeMappingResetKey}
-                savedWorkflows={savedWorkflows}
+                nodeMappings={nodeMapping.nodeMappings}
+                setNodeMappings={nodeMapping.setNodeMappings}
+                updateMapping={nodeMapping.updateMapping}
+                handleAutoMap={nodeMapping.handleAutoMap}
+                handleImageUpload={nodeMapping.handleImageUpload}
+                imageUploads={nodeMapping.imageUploads}
+                availableNodeOptions={nodeMapping.availableNodeOptions}
+                parsedWorkflowData={workflow.parsedWorkflow.data}
+                objectInfo={nodeMapping.objectInfo}
+                activeWorkflowId={workflow.activeWorkflowId}
+                savedNodeMappings={nodeMapping.savedNodeMappings}
+                activeNodeMappingPresetId={
+                  nodeMapping.activeNodeMappingPresetId
+                }
+                nodeMappingResetKey={nodeMapping.nodeMappingResetKey}
+                savedWorkflows={workflow.savedWorkflows}
                 pendingSaveType={null}
                 onSaveNodeMapping={(name) => {
                   const trimmed = name.trim()
-                  if (savedNodeMappings.some((m) => m.name === trimmed)) {
-                    onPendingSave(trimmed, "nodeMapping")
+                  if (
+                    nodeMapping.savedNodeMappings.some(
+                      (m) => m.name === trimmed
+                    )
+                  ) {
                     return false
                   }
-                  if (activeWorkflowId)
-                    saveMappingPreset(activeWorkflowId, trimmed, nodeMappings)
+                  if (workflow.activeWorkflowId)
+                    nodeMapping.saveMappingPreset(
+                      workflow.activeWorkflowId,
+                      trimmed,
+                      nodeMapping.nodeMappings
+                    )
                   return true
                 }}
                 onLoadNodeMapping={(m) => {
-                  setNodeMappings(m.mappings)
-                  setActiveNodeMappingPresetId(m.id)
+                  nodeMapping.setNodeMappings(m.mappings)
+                  nodeMapping.setActiveNodeMappingPresetId(m.id)
                 }}
                 onDeleteNodeMapping={(presetId) => {
-                  if (activeNodeMappingPresetId === presetId)
-                    setActiveNodeMappingPresetId(null)
-                  if (activeWorkflowId)
-                    deleteMappingPreset(activeWorkflowId, presetId)
-                }}
-                onUpdateNodeMapping={() => {
-                  if (activeNodeMappingPreset && activeWorkflowId)
-                    saveMappingPreset(
-                      activeWorkflowId,
-                      activeNodeMappingPreset.name,
-                      nodeMappings
+                  if (nodeMapping.activeNodeMappingPresetId === presetId)
+                    nodeMapping.setActiveNodeMappingPresetId(null)
+                  if (workflow.activeWorkflowId)
+                    nodeMapping.deleteMappingPreset(
+                      workflow.activeWorkflowId,
+                      presetId
                     )
                 }}
-                onPendingNameConflict={(name) =>
-                  onPendingSave(name, "nodeMapping")
-                }
+                onUpdateNodeMapping={() => {
+                  if (
+                    nodeMapping.activeNodeMappingPreset &&
+                    workflow.activeWorkflowId
+                  )
+                    nodeMapping.saveMappingPreset(
+                      workflow.activeWorkflowId,
+                      nodeMapping.activeNodeMappingPreset.name,
+                      nodeMapping.nodeMappings
+                    )
+                }}
+                onPendingNameConflict={() => {}}
               />
             )}
           </TabsContent>

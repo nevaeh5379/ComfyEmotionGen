@@ -382,427 +382,444 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }, [])
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Tabs
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as CurationStatus | "all")}
-        >
-          <TabsList>
-            {(
-              ["all", "pending", "approved", "rejected", "trashed"] as const
-            ).map((s) => (
-              <TabsTrigger key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <Input
-          className="h-8 w-48"
-          type="search"
-          placeholder="filename 필터"
-          value={filenameFilter}
-          onChange={(e) => setFilenameFilter(e.target.value)}
-        />
-        <Input
-          className="h-8 w-40"
-          type="search"
-          placeholder="태그 필터"
-          value={tagFilter}
-          onChange={(e) => setTagFilter(e.target.value)}
-        />
-        <Input
-          className="h-8 w-48"
-          type="search"
-          placeholder="메타데이터/prmpt 검색"
-          value={metadataFilter}
-          onChange={(e) => setMetadataFilter(e.target.value)}
-        />
-        <div className="flex cursor-pointer items-center gap-1.5">
-          <Checkbox
-            id="hide-rejected"
-            checked={hideRejected}
-            onCheckedChange={(v) => setHideRejected(v === true)}
+    <div className="flex h-full flex-col">
+      {/* ── Sticky Toolbar Header ── */}
+      <div className="sticky top-0 z-10 shrink-0 space-y-2 border-b border-line bg-panel px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as CurationStatus | "all")}
+          >
+            <TabsList>
+              {(
+                ["all", "pending", "approved", "rejected", "trashed"] as const
+              ).map((s) => (
+                <TabsTrigger key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <Input
+            className="h-8 w-48"
+            type="search"
+            placeholder="filename 필터"
+            value={filenameFilter}
+            onChange={(e) => setFilenameFilter(e.target.value)}
           />
-          <Label htmlFor="hide-rejected" className="cursor-pointer text-[11px] font-bold text-muted-foreground">
-            리젝 숨기기
-          </Label>
-        </div>
-        <Button
-          size="sm"
-          variant={groupMode ? "default" : "outline"}
-          onClick={() => setGroupMode(!groupMode)}
-        >
-          {groupMode ? "그리드 모드" : "그룹 모드"}
-        </Button>
-        {/* 뷰 모드 토글 */}
-        <ToggleGroup
-          type="single"
-          value={galleryViewMode}
-          onValueChange={(v) => v && setGalleryViewMode(v as GalleryViewMode)}
-          variant="outline"
-          spacing={0}
-          className="h-8"
-        >
-          <ToggleGroupItem value="grid" className="h-7 px-2 text-[10px] font-bold">
-            <Maximize2Icon className="mr-1 h-3 w-3" />
-            그리드
-          </ToggleGroupItem>
-          <HoverCard openDelay={200}>
-            <HoverCardTrigger asChild>
-              <ToggleGroupItem value="compare" className="h-7 px-2 text-[10px] font-bold">
-                <ColumnsIcon className="mr-1 h-3 w-3" />
-                비교
-              </ToggleGroupItem>
-            </HoverCardTrigger>
-            {pinnedHashes.length === 0 && (
-              <HoverCardContent
-                side="bottom"
-                className="w-auto px-3 py-2 text-[11px] font-bold"
-              >
-                이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
-              </HoverCardContent>
-            )}
-          </HoverCard>
-        </ToggleGroup>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
-            <Select
-              value={duplicateStrategy}
-              onValueChange={(v) => setDuplicateStrategy(v as "hash" | "number")}
+          <Input
+            className="h-8 w-40"
+            type="search"
+            placeholder="태그 필터"
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+          />
+          <Input
+            className="h-8 w-48"
+            type="search"
+            placeholder="메타데이터/prmpt 검색"
+            value={metadataFilter}
+            onChange={(e) => setMetadataFilter(e.target.value)}
+          />
+          <div className="flex cursor-pointer items-center gap-1.5">
+            <Checkbox
+              id="hide-rejected"
+              checked={hideRejected}
+              onCheckedChange={(v) => setHideRejected(v === true)}
+            />
+            <Label
+              htmlFor="hide-rejected"
+              className="cursor-pointer text-[11px] font-bold text-muted-foreground"
             >
-              <SelectTrigger className="h-7 w-20 border-0 bg-transparent px-2 text-[10px] font-bold shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hash">HASH</SelectItem>
-                <SelectItem value="number">NUM</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              className="h-7 px-3 text-[10px] font-black"
-              onClick={handleExport}
-            >
-              데이터셋 익스포트
-            </Button>
-          </div>
-          <Button size="sm" variant="destructive" onClick={handleEmptyTrash}>
-            휴지통 비우기
-          </Button>
-          <Button size="sm" variant="ghost" onClick={reload}>
-            새로고침
-          </Button>
-        </div>
-      </div>
-
-      {/* 선택 모드 액션 바 */}
-      {selectionMode && (
-        <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
-          <span className="text-sm font-bold text-blue-700">
-            {selectedHashes.size}개 이미지 선택됨
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 bg-green-600 text-[10px] font-bold hover:bg-green-700"
-              onClick={() => handleBulkAction("approved")}
-              disabled={bulkActionLoading}
-            >
-              <CheckIcon className="h-3.5 w-3.5" />
-              일괄 통과
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 border-red-300 text-[10px] font-bold text-red-700 hover:bg-red-50"
-              onClick={() => handleBulkAction("rejected")}
-              disabled={bulkActionLoading}
-            >
-              <XIcon className="h-3.5 w-3.5" />
-              일괄 탈락
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-[10px] font-bold"
-              onClick={() => handleBulkAction("trashed")}
-              disabled={bulkActionLoading}
-            >
-              <Trash2Icon className="h-3.5 w-3.5" />
-              일괄 휴지통
-            </Button>
+              리젝 숨기기
+            </Label>
           </div>
           <Button
-            variant="ghost"
             size="sm"
-            className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
-            onClick={exitSelectionMode}
+            variant={groupMode ? "default" : "outline"}
+            onClick={() => setGroupMode(!groupMode)}
           >
-            <XIcon className="h-3.5 w-3.5" />
-            선택 종료
+            {groupMode ? "그리드 모드" : "그룹 모드"}
           </Button>
-          {bulkActionMessage && (
-            <span className="text-xs font-bold text-blue-600">
-              {bulkActionMessage}
-            </span>
-          )}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {!loading &&
-        ((!groupMode && visibleImages.length === 0) ||
-          (groupMode && visibleGroups.length === 0)) && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>표시할 이미지가 없습니다</EmptyTitle>
-              <EmptyDescription>
-                잡을 실행하거나 필터 조건을 바꿔보세요.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
-
-      {/* 비교 뷰 (그룹 모드 off + 비교 선택 시) */}
-      {!groupMode &&
-        galleryViewMode === "compare" &&
-        pinnedHashes.length > 0 && (
-          <div
-            className={`grid gap-3 ${
-              pinnedHashes.length === 1
-                ? "grid-cols-1"
-                : pinnedHashes.length === 2
-                  ? "grid-cols-2"
-                  : "grid-cols-3"
-            }`}
-            style={{ minHeight: 400 }}
+          {/* 뷰 모드 토글 */}
+          <ToggleGroup
+            type="single"
+            value={galleryViewMode}
+            onValueChange={(v) => v && setGalleryViewMode(v as GalleryViewMode)}
+            variant="outline"
+            spacing={0}
+            className="h-8"
           >
-            {pinnedHashes.map((hash) => {
-              const img = visibleImages.find((i) => i.hash === hash)
-              return (
-                <div
-                  key={hash}
-                  className="relative overflow-hidden rounded-lg border bg-black/5 shadow-inner"
+            <ToggleGroupItem
+              value="grid"
+              className="h-7 px-2 text-[10px] font-bold"
+            >
+              <Maximize2Icon className="mr-1 h-3 w-3" />
+              그리드
+            </ToggleGroupItem>
+            <HoverCard openDelay={200}>
+              <HoverCardTrigger asChild>
+                <ToggleGroupItem
+                  value="compare"
+                  className="h-7 px-2 text-[10px] font-bold"
                 >
-                  <button
-                    type="button"
-                    onClick={() => togglePin(hash)}
-                    className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
-                  >
-                    <PinIcon className="h-5 w-5" />
-                  </button>
-                  {img &&
-                    (enableHover ? (
-                      <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
-                    ) : (
-                      <img
-                        src={`${backendUrl}/saved-images/${hash}`}
-                        className="max-h-full max-w-full object-contain"
-                        alt=""
-                      />
-                    ))}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-      {/* 그룹 모드 */}
-      {groupMode ? (
-        <div className="flex flex-col gap-4">
-          {visibleGroups.map(({ name, items }) => {
-            const groupMeta = groups.find((g) => g.filename === name)
-            return (
-              <div key={name} className="rounded-md border p-3">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-semibold">
-                    {name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    총 {groupMeta?.total ?? items.length} · 통과{" "}
-                    {groupMeta?.approvedCount ?? 0} · 탈락{" "}
-                    {groupMeta?.rejectedCount ?? 0} · 휴지통{" "}
-                    {groupMeta?.trashedCount ?? 0}
-                  </span>
-                  <div className="ml-auto">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleRegenerate(name)}
-                    >
-                      재생성
-                    </Button>
-                  </div>
-                </div>
-                <ImageGrid
-                  items={items}
-                  backendUrl={backendUrl}
-                  setStatus={setStatus}
-                  onOpen={setSelected}
-                  selectionMode={selectionMode}
-                  selectedHashes={selectedHashes}
-                  onToggleSelect={toggleSelectHash}
-                  onLongPress={handleLongPress}
-                  togglePin={togglePin}
-                  pinnedHashes={pinnedHashes}
-                  imageLazyLoad={imageLazyLoad}
-                />
-              </div>
-            )
-          })}
-
-          {/* 그룹 페이지네이션 */}
-          {groupTotal > GROUP_PAGE_SIZE && (
-            <div className="flex flex-col items-center gap-2">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        groupPage > 1 && setGroupPage(groupPage - 1)
-                      }
-                      aria-disabled={groupPage <= 1}
-                      className={
-                        groupPage <= 1
-                          ? "pointer-events-none opacity-50"
-                          : undefined
-                      }
-                    />
-                  </PaginationItem>
-                  {groupPageList.map((p, i) =>
-                    p === "…" ? (
-                      <PaginationItem key={`ge-${i}`}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    ) : (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          isActive={p === groupPage}
-                          onClick={() => setGroupPage(p)}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        groupPage < groupTotalPages &&
-                        setGroupPage(groupPage + 1)
-                      }
-                      aria-disabled={groupPage >= groupTotalPages}
-                      className={
-                        groupPage >= groupTotalPages
-                          ? "pointer-events-none opacity-50"
-                          : undefined
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-              <p className="text-xs text-muted-foreground">
-                총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages} 페이지
-              </p>
-            </div>
-          )}
-        </div>
-      ) : galleryViewMode === "grid" ||
-        (galleryViewMode === "compare" && pinnedHashes.length === 0) ? (
-        <ImageGrid
-          items={visibleImages}
-          backendUrl={backendUrl}
-          setStatus={setStatus}
-          onOpen={setSelected}
-          selectionMode={selectionMode}
-          selectedHashes={selectedHashes}
-          onToggleSelect={toggleSelectHash}
-          onLongPress={handleLongPress}
-          togglePin={togglePin}
-          pinnedHashes={pinnedHashes}
-          imageLazyLoad={imageLazyLoad}
-        />
-      ) : null}
-
-      {!groupMode && galleryViewMode === "grid" && total > imagePageSize && (
-        <div className="flex flex-col items-center gap-2">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => page > 1 && setPage(page - 1)}
-                  aria-disabled={page <= 1}
-                  className={
-                    page <= 1 ? "pointer-events-none opacity-50" : undefined
-                  }
-                />
-              </PaginationItem>
-              {pageList.map((p, i) =>
-                p === "…" ? (
-                  <PaginationItem key={`e-${i}`}>
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                ) : (
-                  <PaginationItem key={p}>
-                    <PaginationLink
-                      isActive={p === page}
-                      onClick={() => setPage(p)}
-                    >
-                      {p}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
+                  <ColumnsIcon className="mr-1 h-3 w-3" />
+                  비교
+                </ToggleGroupItem>
+              </HoverCardTrigger>
+              {pinnedHashes.length === 0 && (
+                <HoverCardContent
+                  side="bottom"
+                  className="w-auto px-3 py-2 text-[11px] font-bold"
+                >
+                  이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
+                </HoverCardContent>
               )}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => page < totalPages && setPage(page + 1)}
-                  aria-disabled={page >= totalPages}
-                  className={
-                    page >= totalPages
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-          <p className="text-xs text-muted-foreground">
-            총 {total}개 · {page}/{totalPages} 페이지
-          </p>
-          {selectionMode && (
-            <div className="flex items-center gap-2">
+            </HoverCard>
+          </ToggleGroup>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+              <Select
+                value={duplicateStrategy}
+                onValueChange={(v) =>
+                  setDuplicateStrategy(v as "hash" | "number")
+                }
+              >
+                <SelectTrigger className="h-7 w-20 border-0 bg-transparent px-2 text-[10px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hash">HASH</SelectItem>
+                  <SelectItem value="number">NUM</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                className="h-7 px-3 text-[10px] font-black"
+                onClick={handleExport}
+              >
+                데이터셋 익스포트
+              </Button>
+            </div>
+            <Button size="sm" variant="destructive" onClick={handleEmptyTrash}>
+              휴지통 비우기
+            </Button>
+            <Button size="sm" variant="ghost" onClick={reload}>
+              새로고침
+            </Button>
+          </div>
+        </div>
+
+        {/* 선택 모드 액션 바 */}
+        {selectionMode && (
+          <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
+            <span className="text-sm font-bold text-blue-700">
+              {selectedHashes.size}개 이미지 선택됨
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 bg-green-600 text-[10px] font-bold hover:bg-green-700"
+                onClick={() => handleBulkAction("approved")}
+                disabled={bulkActionLoading}
+              >
+                <CheckIcon className="h-3.5 w-3.5" />
+                일괄 통과
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-[10px] font-bold"
-                onClick={selectAll}
+                className="h-8 gap-1.5 border-red-300 text-[10px] font-bold text-red-700 hover:bg-red-50"
+                onClick={() => handleBulkAction("rejected")}
+                disabled={bulkActionLoading}
               >
-                {selectedHashes.size === visibleImages.length &&
-                visibleImages.length > 0
-                  ? "전체 해제"
-                  : "전체 선택"}
+                <XIcon className="h-3.5 w-3.5" />
+                일괄 탈락
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[10px] font-bold"
+                onClick={() => handleBulkAction("trashed")}
+                disabled={bulkActionLoading}
+              >
+                <Trash2Icon className="h-3.5 w-3.5" />
+                일괄 휴지통
               </Button>
             </div>
-          )}
-        </div>
-      )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
+              onClick={exitSelectionMode}
+            >
+              <XIcon className="h-3.5 w-3.5" />
+              선택 종료
+            </Button>
+            {bulkActionMessage && (
+              <span className="text-xs font-bold text-blue-600">
+                {bulkActionMessage}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
-      {selected && (
-        <ImageDetail
-          key={selected.hash}
-          backendUrl={backendUrl}
-          image={selected}
-          onClose={() => setSelected(null)}
-          onChanged={reload}
-        />
-      )}
+      {/* ── Scrollable Content ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {error && (
+          <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {!loading &&
+          ((!groupMode && visibleImages.length === 0) ||
+            (groupMode && visibleGroups.length === 0)) && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>표시할 이미지가 없습니다</EmptyTitle>
+                <EmptyDescription>
+                  잡을 실행하거나 필터 조건을 바꿔보세요.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+        {/* 비교 뷰 (그룹 모드 off + 비교 선택 시) */}
+        {!groupMode &&
+          galleryViewMode === "compare" &&
+          pinnedHashes.length > 0 && (
+            <div
+              className={`grid gap-3 ${
+                pinnedHashes.length === 1
+                  ? "grid-cols-1"
+                  : pinnedHashes.length === 2
+                    ? "grid-cols-2"
+                    : "grid-cols-3"
+              }`}
+              style={{ minHeight: 400 }}
+            >
+              {pinnedHashes.map((hash) => {
+                const img = visibleImages.find((i) => i.hash === hash)
+                return (
+                  <div
+                    key={hash}
+                    className="relative overflow-hidden rounded-lg border bg-black/5 shadow-inner"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => togglePin(hash)}
+                      className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+                    >
+                      <PinIcon className="h-5 w-5" />
+                    </button>
+                    {img &&
+                      (enableHover ? (
+                        <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                      ) : (
+                        <img
+                          src={`${backendUrl}/saved-images/${hash}`}
+                          className="max-h-full max-w-full object-contain"
+                          alt=""
+                        />
+                      ))}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+        {/* 그룹 모드 */}
+        {groupMode ? (
+          <div className="flex flex-col gap-4">
+            {visibleGroups.map(({ name, items }) => {
+              const groupMeta = groups.find((g) => g.filename === name)
+              return (
+                <div key={name} className="rounded-md border p-3">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm font-semibold">
+                      {name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      총 {groupMeta?.total ?? items.length} · 통과{" "}
+                      {groupMeta?.approvedCount ?? 0} · 탈락{" "}
+                      {groupMeta?.rejectedCount ?? 0} · 휴지통{" "}
+                      {groupMeta?.trashedCount ?? 0}
+                    </span>
+                    <div className="ml-auto">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRegenerate(name)}
+                      >
+                        재생성
+                      </Button>
+                    </div>
+                  </div>
+                  <ImageGrid
+                    items={items}
+                    backendUrl={backendUrl}
+                    setStatus={setStatus}
+                    onOpen={setSelected}
+                    selectionMode={selectionMode}
+                    selectedHashes={selectedHashes}
+                    onToggleSelect={toggleSelectHash}
+                    onLongPress={handleLongPress}
+                    togglePin={togglePin}
+                    pinnedHashes={pinnedHashes}
+                    imageLazyLoad={imageLazyLoad}
+                  />
+                </div>
+              )
+            })}
+
+            {/* 그룹 페이지네이션 */}
+            {groupTotal > GROUP_PAGE_SIZE && (
+              <div className="flex flex-col items-center gap-2">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() =>
+                          groupPage > 1 && setGroupPage(groupPage - 1)
+                        }
+                        aria-disabled={groupPage <= 1}
+                        className={
+                          groupPage <= 1
+                            ? "pointer-events-none opacity-50"
+                            : undefined
+                        }
+                      />
+                    </PaginationItem>
+                    {groupPageList.map((p, i) =>
+                      p === "…" ? (
+                        <PaginationItem key={`ge-${i}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={p}>
+                          <PaginationLink
+                            isActive={p === groupPage}
+                            onClick={() => setGroupPage(p)}
+                          >
+                            {p}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() =>
+                          groupPage < groupTotalPages &&
+                          setGroupPage(groupPage + 1)
+                        }
+                        aria-disabled={groupPage >= groupTotalPages}
+                        className={
+                          groupPage >= groupTotalPages
+                            ? "pointer-events-none opacity-50"
+                            : undefined
+                        }
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+                <p className="text-xs text-muted-foreground">
+                  총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages} 페이지
+                </p>
+              </div>
+            )}
+          </div>
+        ) : galleryViewMode === "grid" ||
+          (galleryViewMode === "compare" && pinnedHashes.length === 0) ? (
+          <ImageGrid
+            items={visibleImages}
+            backendUrl={backendUrl}
+            setStatus={setStatus}
+            onOpen={setSelected}
+            selectionMode={selectionMode}
+            selectedHashes={selectedHashes}
+            onToggleSelect={toggleSelectHash}
+            onLongPress={handleLongPress}
+            togglePin={togglePin}
+            pinnedHashes={pinnedHashes}
+            imageLazyLoad={imageLazyLoad}
+          />
+        ) : null}
+
+        {!groupMode && galleryViewMode === "grid" && total > imagePageSize && (
+          <div className="flex flex-col items-center gap-2">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => page > 1 && setPage(page - 1)}
+                    aria-disabled={page <= 1}
+                    className={
+                      page <= 1 ? "pointer-events-none opacity-50" : undefined
+                    }
+                  />
+                </PaginationItem>
+                {pageList.map((p, i) =>
+                  p === "…" ? (
+                    <PaginationItem key={`e-${i}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={p}>
+                      <PaginationLink
+                        isActive={p === page}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => page < totalPages && setPage(page + 1)}
+                    aria-disabled={page >= totalPages}
+                    className={
+                      page >= totalPages
+                        ? "pointer-events-none opacity-50"
+                        : undefined
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+            <p className="text-xs text-muted-foreground">
+              총 {total}개 · {page}/{totalPages} 페이지
+            </p>
+            {selectionMode && (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px] font-bold"
+                  onClick={selectAll}
+                >
+                  {selectedHashes.size === visibleImages.length &&
+                  visibleImages.length > 0
+                    ? "전체 해제"
+                    : "전체 선택"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {selected && (
+          <ImageDetail
+            key={selected.hash}
+            backendUrl={backendUrl}
+            image={selected}
+            onClose={() => setSelected(null)}
+            onChanged={reload}
+          />
+        )}
+      </div>
     </div>
   )
 })

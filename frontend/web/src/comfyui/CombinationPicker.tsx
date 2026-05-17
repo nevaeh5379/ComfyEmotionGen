@@ -1268,842 +1268,865 @@ export const CombinationPicker = memo(function CombinationPicker({
     )
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* 글로벌 툴바 */}
-      <div className="flex flex-col gap-3 border-b pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold">템플릿:</span>
-            <Select
-              value={selectedTemplateId || "__current__"}
-              onValueChange={(v) =>
-                setSelectedTemplateId(v === "__current__" ? "" : v)
-              }
-            >
-              <SelectTrigger className="h-9 w-64 font-bold">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__current__">현재 편집 중인 탬플릿</SelectItem>
-                {savedTemplates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-3">
-            <Tabs value={viewMode} onValueChange={handleTabChange}>
-              <TabsList className="h-9">
-                <TabsTrigger
-                  value="gallery"
-                  className="gap-1.5 px-3 text-xs font-bold"
-                >
-                  <FolderIcon className="h-3.5 w-3.5" />
-                  갤러리
-                </TabsTrigger>
-                <TabsTrigger
-                  value="table"
-                  className="gap-1.5 px-3 text-xs font-bold"
-                >
-                  <LayoutListIcon className="h-3.5 w-3.5" />
-                  리스트
-                </TabsTrigger>
-                <div className="mx-1 h-4 w-px bg-muted-foreground/30" />
-                <TabsTrigger
-                  value="grid"
-                  className="gap-1.5 px-3 text-xs font-bold"
-                  disabled={isBrowsing}
-                >
-                  <Maximize2Icon className="h-3.5 w-3.5" />
-                  그리드
-                </TabsTrigger>
-                <TabsTrigger
-                  value="compare"
-                  className="gap-1.5 px-3 text-xs font-bold"
-                  disabled={isBrowsing || pinnedHashes.length === 0}
-                >
-                  <ColumnsIcon className="h-3.5 w-3.5" />
-                  비교
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tournament"
-                  className="gap-1.5 px-3 text-xs font-bold"
-                  disabled={isBrowsing || visibleImages.length < 2}
-                >
-                  <SwordsIcon className="h-3.5 w-3.5" />
-                  월드컵
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
-              <span>진행률</span>
-              <span>
-                {doneCount} / {renderItems.length}
-              </span>
-            </div>
-            <Progress
-              value={(doneCount / renderItems.length) * 100}
-              className="h-1.5"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchData}
-              title="새로고침"
-            >
-              <RefreshCwIcon className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+    <div className="flex h-full flex-col">
+      {/* ── Sticky Toolbar Header ── */}
+      <div className="sticky top-0 z-10 shrink-0 border-b border-line bg-panel">
+        <div className="flex flex-col gap-3 px-4 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold">템플릿:</span>
               <Select
-                value={duplicateStrategy}
+                value={selectedTemplateId || "__current__"}
                 onValueChange={(v) =>
-                  setDuplicateStrategy(v as "hash" | "number")
+                  setSelectedTemplateId(v === "__current__" ? "" : v)
                 }
               >
-                <SelectTrigger className="h-7 w-20 border-0 bg-transparent px-2 text-[10px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className="h-9 w-64 font-bold">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="hash">HASH</SelectItem>
-                  <SelectItem value="number">NUM</SelectItem>
+                  <SelectItem value="__current__">
+                    현재 편집 중인 탬플릿
+                  </SelectItem>
+                  {savedTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <LoadingButton
-                size="sm"
-                className="h-7 px-3 text-[10px] font-black"
-                onClick={handleExport}
-                isLoading={exportAction.isLoading}
-                disabled={doneCount === 0}
-                icon={DownloadIcon}
-              >
-                DATASET EXPORT
-              </LoadingButton>
+            </div>
+            <div className="flex items-center gap-3">
+              <Tabs value={viewMode} onValueChange={handleTabChange}>
+                <TabsList className="h-9">
+                  <TabsTrigger
+                    value="gallery"
+                    className="gap-1.5 px-3 text-xs font-bold"
+                  >
+                    <FolderIcon className="h-3.5 w-3.5" />
+                    갤러리
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="table"
+                    className="gap-1.5 px-3 text-xs font-bold"
+                  >
+                    <LayoutListIcon className="h-3.5 w-3.5" />
+                    리스트
+                  </TabsTrigger>
+                  <div className="mx-1 h-4 w-px bg-muted-foreground/30" />
+                  <TabsTrigger
+                    value="grid"
+                    className="gap-1.5 px-3 text-xs font-bold"
+                    disabled={isBrowsing}
+                  >
+                    <Maximize2Icon className="h-3.5 w-3.5" />
+                    그리드
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="compare"
+                    className="gap-1.5 px-3 text-xs font-bold"
+                    disabled={isBrowsing || pinnedHashes.length === 0}
+                  >
+                    <ColumnsIcon className="h-3.5 w-3.5" />
+                    비교
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="tournament"
+                    className="gap-1.5 px-3 text-xs font-bold"
+                    disabled={isBrowsing || visibleImages.length < 2}
+                  >
+                    <SwordsIcon className="h-3.5 w-3.5" />
+                    월드컵
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </div>
-          <div className="flex items-center gap-3 border-l pl-4">
-            <div className="flex cursor-pointer items-center gap-1.5">
-              <Checkbox
-                id="cp-hide-rejected"
-                checked={hideRejected}
-                onCheckedChange={(v) => setHideRejected(v === true)}
-              />
-              <Label htmlFor="cp-hide-rejected" className="cursor-pointer text-[11px] font-bold text-muted-foreground">
-                리젝 숨기기
-              </Label>
-            </div>
-            <div className="flex cursor-pointer items-center gap-1.5">
-              <Checkbox
-                id="cp-auto-advance"
-                checked={autoAdvance}
-                onCheckedChange={(v) => setAutoAdvance(v === true)}
-              />
-              <Label htmlFor="cp-auto-advance" className="cursor-pointer text-[11px] font-bold text-muted-foreground">
-                자동 다음 이동
-              </Label>
-            </div>
-          </div>
-          {exportAction.message && (
-            <span className="text-xs font-bold text-green-600">
-              {exportAction.message}
-            </span>
-          )}
-          {regenAction.message && (
-            <span className="text-xs font-bold text-blue-600">
-              {regenAction.message}
-            </span>
-          )}
-          {unassignedGroups.size > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
-              className={`h-7 gap-1.5 border-amber-400/60 bg-amber-50/50 text-[10px] font-bold hover:bg-amber-100/60 ${showUnassignedPanel ? "ring-2 ring-amber-400" : ""}`}
-            >
-              <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600" />
-              미할당: {unassignedGroups.size}파일 ({unassignedTotalCount}장)
-            </Button>
-          )}
-        </div>
-      </div>
 
-      {/* 선택 모드 액션 바 */}
-      {selectionMode && (
-        <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
-          <span className="text-sm font-bold text-blue-700">
-            {selectedFilenames.size}개 항목 선택됨
-          </span>
-          <Button
-            size="sm"
-            className="h-8 gap-1.5 text-[10px] font-bold"
-            onClick={handleBulkRegenerate}
-            disabled={selectedFilenames.size === 0}
-          >
-            <RefreshCwIcon className="h-3.5 w-3.5" />
-            선택 항목 재생성
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
-            onClick={exitSelectionMode}
-          >
-            <XIcon className="h-3.5 w-3.5" />
-            선택 모드 종료
-          </Button>
-          {bulkRegenAction.message && (
-            <span className="text-xs font-bold text-blue-600">
-              {bulkRegenAction.message}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* 미할당 이미지 관리 패널 */}
-      {showUnassignedPanel && (
-        <div className="flex flex-col gap-3 rounded-lg border border-amber-400/60 bg-amber-50/20 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-4">
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
+                <span>진행률</span>
+                <span>
+                  {doneCount} / {renderItems.length}
+                </span>
+              </div>
+              <Progress
+                value={(doneCount / renderItems.length) * 100}
+                className="h-1.5"
+              />
+            </div>
             <div className="flex items-center gap-2">
-              <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-bold text-amber-800">
-                미할당 이미지: {unassignedGroups.size}개 파일 (
-                {unassignedTotalCount}장)
-              </span>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <LoadingButton
+              <Button
                 variant="outline"
                 size="sm"
-                onClick={checkTemplateAffiliation}
-                isLoading={checkingTemplates}
-                icon={RefreshCwIcon}
-                className="h-7 gap-1.5 text-[10px] font-bold"
+                onClick={fetchData}
+                title="새로고침"
               >
-                템플릿 연결 확인
-              </LoadingButton>
+                <RefreshCwIcon className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+                <Select
+                  value={duplicateStrategy}
+                  onValueChange={(v) =>
+                    setDuplicateStrategy(v as "hash" | "number")
+                  }
+                >
+                  <SelectTrigger className="h-7 w-20 border-0 bg-transparent px-2 text-[10px] font-bold shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hash">HASH</SelectItem>
+                    <SelectItem value="number">NUM</SelectItem>
+                  </SelectContent>
+                </Select>
+                <LoadingButton
+                  size="sm"
+                  className="h-7 px-3 text-[10px] font-black"
+                  onClick={handleExport}
+                  isLoading={exportAction.isLoading}
+                  disabled={doneCount === 0}
+                  icon={DownloadIcon}
+                >
+                  DATASET EXPORT
+                </LoadingButton>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 border-l pl-4">
               <div className="flex cursor-pointer items-center gap-1.5">
                 <Checkbox
-                  id="cp-true-orphans"
-                  checked={showTrueOrphansOnly}
-                  onCheckedChange={(v) => {
-                    setShowTrueOrphansOnly(v === true)
-                    setUnassignedSelectedFilenames(new Set())
-                  }}
+                  id="cp-hide-rejected"
+                  checked={hideRejected}
+                  onCheckedChange={(v) => setHideRejected(v === true)}
                 />
-                <Label htmlFor="cp-true-orphans" className="cursor-pointer text-[10px] font-bold text-muted-foreground">
-                  ⚠ 완전 고아만 보기
+                <Label
+                  htmlFor="cp-hide-rejected"
+                  className="cursor-pointer text-[11px] font-bold text-muted-foreground"
+                >
+                  리젝 숨기기
                 </Label>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1 text-[10px] font-bold text-muted-foreground"
-                onClick={closeUnassignedPanel}
-              >
-                <XIcon className="h-3.5 w-3.5" />
-                닫기
-              </Button>
+              <div className="flex cursor-pointer items-center gap-1.5">
+                <Checkbox
+                  id="cp-auto-advance"
+                  checked={autoAdvance}
+                  onCheckedChange={(v) => setAutoAdvance(v === true)}
+                />
+                <Label
+                  htmlFor="cp-auto-advance"
+                  className="cursor-pointer text-[11px] font-bold text-muted-foreground"
+                >
+                  자동 다음 이동
+                </Label>
+              </div>
             </div>
-          </div>
-
-          {/* 액션 바 */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-[10px] font-bold"
-              onClick={handleUnassignedSelectAll}
-            >
-              {unassignedSelectedFilenames.size ===
-                filteredUnassignedGroups.size &&
-              filteredUnassignedGroups.size > 0
-                ? "전체 해제"
-                : "전체 선택"}
-            </Button>
-            <LoadingButton
-              size="sm"
-              className="h-7 gap-1.5 bg-red-600 text-[10px] font-bold hover:bg-red-700"
-              onClick={handleBulkTrash}
-              isLoading={bulkTrashAction.isLoading}
-              disabled={unassignedSelectedFilenames.size === 0}
-              icon={Trash2Icon}
-            >
-              선택 항목 휴지통으로 ({unassignedSelectedFilenames.size}개)
-            </LoadingButton>
-            {bulkTrashAction.message && (
-              <span className="text-xs font-bold text-red-600">
-                {bulkTrashAction.message}
+            {exportAction.message && (
+              <span className="text-xs font-bold text-green-600">
+                {exportAction.message}
               </span>
             )}
-          </div>
-
-          {/* 미할당 이미지 그리드 */}
-          <div className="max-h-96 overflow-y-auto">
-            {filteredUnassignedGroups.size === 0 ? (
-              <div className="py-8 text-center text-[11px] font-bold text-muted-foreground">
-                {showTrueOrphansOnly
-                  ? "완전 고아 이미지가 없습니다. 모든 미할당 이미지가 다른 템플릿에 속해 있습니다."
-                  : "미할당 이미지가 없습니다."}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {Array.from(filteredUnassignedGroups.entries()).map(
-                  ([filename, imgs]) => {
-                    const preview = imgs[0]
-                    const isSelected = unassignedSelectedFilenames.has(filename)
-                    const affiliations = templateAffiliationCache.get(filename)
-                    const isTrueOrphan =
-                      !affiliations || affiliations.length === 0
-
-                    return (
-                      <button
-                        key={filename}
-                        onClick={() => handleUnassignedToggleSelect(filename)}
-                        className={`group relative flex flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors ${
-                          isSelected
-                            ? "bg-red-50/30 ring-2 ring-red-500"
-                            : isTrueOrphan && templateAffiliationCache.size > 0
-                              ? "border-red-300/60 bg-red-50/20 hover:border-red-400"
-                              : "border-muted bg-card hover:border-amber-400/60"
-                        }`}
-                      >
-                        <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                          {preview ? (
-                            <img
-                              src={`${backendUrl}/saved-images/${preview.hash}`}
-                              className="h-full w-full object-cover"
-                              alt=""
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center">
-                              <FolderIcon className="h-8 w-8 text-muted-foreground/20" />
-                            </div>
-                          )}
-                          {/* 선택 체크 */}
-                          <div className="absolute top-1.5 left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded">
-                            {isSelected ? (
-                              <CheckSquareIcon className="h-5 w-5 text-red-500 drop-shadow-sm" />
-                            ) : (
-                              <SquareIcon className="h-5 w-5 text-white/60 drop-shadow-sm" />
-                            )}
-                          </div>
-                          {/* 완전 고아 표시 */}
-                          {isTrueOrphan &&
-                            templateAffiliationCache.size > 0 && (
-                              <div className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded bg-red-500 text-white shadow-sm">
-                                <AlertTriangleIcon className="h-3 w-3" />
-                              </div>
-                            )}
-                          <div className="absolute right-1.5 bottom-1.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-medium text-white">
-                            {imgs.length}장
-                          </div>
-                        </div>
-
-                        <div className="min-w-0 px-0.5">
-                          <div className="truncate font-mono text-[10px] font-bold">
-                            {filename}
-                          </div>
-                          {/* 템플릿 소속 정보 */}
-                          {templateAffiliationCache.size > 0 && (
-                            <div className="mt-0.5 flex flex-wrap gap-0.5">
-                              {isTrueOrphan ? (
-                                <span className="rounded bg-red-100 px-1 py-0.5 text-[8px] font-bold text-red-700">
-                                  완전 고아
-                                </span>
-                              ) : (
-                                affiliations!.map((name, i) => (
-                                  <span
-                                    key={i}
-                                    className="rounded bg-green-100 px-1 py-0.5 text-[8px] font-bold text-green-700"
-                                  >
-                                    ✅ {name}
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    )
-                  }
-                )}
-              </div>
+            {regenAction.message && (
+              <span className="text-xs font-bold text-blue-600">
+                {regenAction.message}
+              </span>
+            )}
+            {unassignedGroups.size > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
+                className={`h-7 gap-1.5 border-amber-400/60 bg-amber-50/50 text-[10px] font-bold hover:bg-amber-100/60 ${showUnassignedPanel ? "ring-2 ring-amber-400" : ""}`}
+              >
+                <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600" />
+                미할당: {unassignedGroups.size}파일 ({unassignedTotalCount}장)
+              </Button>
             )}
           </div>
         </div>
-      )}
 
-      {/* 메인 레이아웃 */}
-      <div
-        className="flex gap-4"
-        style={{ height: "calc(100vh - 250px)", minHeight: 500 }}
-      >
-        {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
-        {!isBrowsing && (
-          <div className="flex w-64 flex-none flex-col overflow-hidden rounded-lg border bg-card">
-            <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-              Combinations
-            </div>
-            <div className="flex-1 space-y-0.5 overflow-y-auto p-1">
-              {renderItems.map((item) => {
-                const imgs = imagesByFilename.get(item.filename) ?? []
-                const isDone = hasApproved(imgs)
-                const isActive = item.filename === selectedFilename
-                return (
-                  <button
-                    key={item.filename}
-                    onClick={() => setSelectedFilename(item.filename)}
-                    className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors ${
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-foreground hover:bg-accent/50"
-                    }`}
+        {/* 선택 모드 액션 바 */}
+        {selectionMode && (
+          <div className="flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
+            <span className="text-sm font-bold text-blue-700">
+              {selectedFilenames.size}개 항목 선택됨
+            </span>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-[10px] font-bold"
+              onClick={handleBulkRegenerate}
+              disabled={selectedFilenames.size === 0}
+            >
+              <RefreshCwIcon className="h-3.5 w-3.5" />
+              선택 항목 재생성
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
+              onClick={exitSelectionMode}
+            >
+              <XIcon className="h-3.5 w-3.5" />
+              선택 모드 종료
+            </Button>
+            {bulkRegenAction.message && (
+              <span className="text-xs font-bold text-blue-600">
+                {bulkRegenAction.message}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Scrollable Content ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {/* 미할당 이미지 관리 패널 */}
+        {showUnassignedPanel && (
+          <div className="flex flex-col gap-3 rounded-lg border border-amber-400/60 bg-amber-50/20 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
+                <span className="text-sm font-bold text-amber-800">
+                  미할당 이미지: {unassignedGroups.size}개 파일 (
+                  {unassignedTotalCount}장)
+                </span>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <LoadingButton
+                  variant="outline"
+                  size="sm"
+                  onClick={checkTemplateAffiliation}
+                  isLoading={checkingTemplates}
+                  icon={RefreshCwIcon}
+                  className="h-7 gap-1.5 text-[10px] font-bold"
+                >
+                  템플릿 연결 확인
+                </LoadingButton>
+                <div className="flex cursor-pointer items-center gap-1.5">
+                  <Checkbox
+                    id="cp-true-orphans"
+                    checked={showTrueOrphansOnly}
+                    onCheckedChange={(v) => {
+                      setShowTrueOrphansOnly(v === true)
+                      setUnassignedSelectedFilenames(new Set())
+                    }}
+                  />
+                  <Label
+                    htmlFor="cp-true-orphans"
+                    className="cursor-pointer text-[10px] font-bold text-muted-foreground"
                   >
-                    <span
-                      className={`mt-0.5 flex-none ${isActive ? "" : isDone ? "text-green-500" : "text-muted-foreground/30"}`}
+                    ⚠ 완전 고아만 보기
+                  </Label>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-[10px] font-bold text-muted-foreground"
+                  onClick={closeUnassignedPanel}
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                  닫기
+                </Button>
+              </div>
+            </div>
+
+            {/* 액션 바 */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] font-bold"
+                onClick={handleUnassignedSelectAll}
+              >
+                {unassignedSelectedFilenames.size ===
+                  filteredUnassignedGroups.size &&
+                filteredUnassignedGroups.size > 0
+                  ? "전체 해제"
+                  : "전체 선택"}
+              </Button>
+              <LoadingButton
+                size="sm"
+                className="h-7 gap-1.5 bg-red-600 text-[10px] font-bold hover:bg-red-700"
+                onClick={handleBulkTrash}
+                isLoading={bulkTrashAction.isLoading}
+                disabled={unassignedSelectedFilenames.size === 0}
+                icon={Trash2Icon}
+              >
+                선택 항목 휴지통으로 ({unassignedSelectedFilenames.size}개)
+              </LoadingButton>
+              {bulkTrashAction.message && (
+                <span className="text-xs font-bold text-red-600">
+                  {bulkTrashAction.message}
+                </span>
+              )}
+            </div>
+
+            {/* 미할당 이미지 그리드 */}
+            <div className="max-h-96 overflow-y-auto">
+              {filteredUnassignedGroups.size === 0 ? (
+                <div className="py-8 text-center text-[11px] font-bold text-muted-foreground">
+                  {showTrueOrphansOnly
+                    ? "완전 고아 이미지가 없습니다. 모든 미할당 이미지가 다른 템플릿에 속해 있습니다."
+                    : "미할당 이미지가 없습니다."}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {Array.from(filteredUnassignedGroups.entries()).map(
+                    ([filename, imgs]) => {
+                      const preview = imgs[0]
+                      const isSelected =
+                        unassignedSelectedFilenames.has(filename)
+                      const affiliations =
+                        templateAffiliationCache.get(filename)
+                      const isTrueOrphan =
+                        !affiliations || affiliations.length === 0
+
+                      return (
+                        <button
+                          key={filename}
+                          onClick={() => handleUnassignedToggleSelect(filename)}
+                          className={`group relative flex flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors ${
+                            isSelected
+                              ? "bg-red-50/30 ring-2 ring-red-500"
+                              : isTrueOrphan &&
+                                  templateAffiliationCache.size > 0
+                                ? "border-red-300/60 bg-red-50/20 hover:border-red-400"
+                                : "border-muted bg-card hover:border-amber-400/60"
+                          }`}
+                        >
+                          <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                            {preview ? (
+                              <img
+                                src={`${backendUrl}/saved-images/${preview.hash}`}
+                                className="h-full w-full object-cover"
+                                alt=""
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <FolderIcon className="h-8 w-8 text-muted-foreground/20" />
+                              </div>
+                            )}
+                            {/* 선택 체크 */}
+                            <div className="absolute top-1.5 left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded">
+                              {isSelected ? (
+                                <CheckSquareIcon className="h-5 w-5 text-red-500 drop-shadow-sm" />
+                              ) : (
+                                <SquareIcon className="h-5 w-5 text-white/60 drop-shadow-sm" />
+                              )}
+                            </div>
+                            {/* 완전 고아 표시 */}
+                            {isTrueOrphan &&
+                              templateAffiliationCache.size > 0 && (
+                                <div className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded bg-red-500 text-white shadow-sm">
+                                  <AlertTriangleIcon className="h-3 w-3" />
+                                </div>
+                              )}
+                            <div className="absolute right-1.5 bottom-1.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-medium text-white">
+                              {imgs.length}장
+                            </div>
+                          </div>
+
+                          <div className="min-w-0 px-0.5">
+                            <div className="truncate font-mono text-[10px] font-bold">
+                              {filename}
+                            </div>
+                            {/* 템플릿 소속 정보 */}
+                            {templateAffiliationCache.size > 0 && (
+                              <div className="mt-0.5 flex flex-wrap gap-0.5">
+                                {isTrueOrphan ? (
+                                  <span className="rounded bg-red-100 px-1 py-0.5 text-[8px] font-bold text-red-700">
+                                    완전 고아
+                                  </span>
+                                ) : (
+                                  affiliations!.map((name, i) => (
+                                    <span
+                                      key={i}
+                                      className="rounded bg-green-100 px-1 py-0.5 text-[8px] font-bold text-green-700"
+                                    >
+                                      ✅ {name}
+                                    </span>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    }
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 메인 레이아웃 */}
+        <div
+          className="flex gap-4"
+          style={{ height: "calc(100vh - 250px)", minHeight: 500 }}
+        >
+          {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
+          {!isBrowsing && (
+            <div className="flex w-64 flex-none flex-col overflow-hidden rounded-lg border bg-card">
+              <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                Combinations
+              </div>
+              <div className="flex-1 space-y-0.5 overflow-y-auto p-1">
+                {renderItems.map((item) => {
+                  const imgs = imagesByFilename.get(item.filename) ?? []
+                  const isDone = hasApproved(imgs)
+                  const isActive = item.filename === selectedFilename
+                  return (
+                    <button
+                      key={item.filename}
+                      onClick={() => setSelectedFilename(item.filename)}
+                      className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors ${
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-foreground hover:bg-accent/50"
+                      }`}
                     >
-                      {isDone ? (
-                        <CheckCircle2Icon className="h-4 w-4" />
-                      ) : (
-                        <CircleIcon className="h-4 w-4" />
-                      )}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-mono text-[10px] leading-tight font-bold">
-                        {item.filename}
+                      <span
+                        className={`mt-0.5 flex-none ${isActive ? "" : isDone ? "text-green-500" : "text-muted-foreground/30"}`}
+                      >
+                        {isDone ? (
+                          <CheckCircle2Icon className="h-4 w-4" />
+                        ) : (
+                          <CircleIcon className="h-4 w-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-mono text-[10px] leading-tight font-bold">
+                          {item.filename}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap gap-x-1">
+                          {Object.values(item.meta).map((v, i) => (
+                            <span
+                              key={i}
+                              className={`text-[9px] font-medium uppercase ${isActive ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                            >
+                              {v}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <div className="mt-0.5 flex flex-wrap gap-x-1">
-                        {Object.values(item.meta).map((v, i) => (
+                      <span className="text-[9px] font-bold opacity-50">
+                        {imgs.length}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 오른쪽: 콘텐츠 영역 */}
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+            {isBrowsing ? (
+              <div className="flex flex-1 flex-col overflow-hidden">
+                {/* 필터 바 */}
+                <div className="flex-none border-b bg-muted/10 px-4 py-2.5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <FilterIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                        필터
+                      </span>
+                    </div>
+                    {/* 상태 필터 */}
+                    <Select
+                      value={statusFilter}
+                      onValueChange={(v) =>
+                        setStatusFilter(v as "all" | "done" | "pending")
+                      }
+                    >
+                      <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체 상태</SelectItem>
+                        <SelectItem value="done">완료만</SelectItem>
+                        <SelectItem value="pending">미완료만</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {/* 파일명 필터 */}
+                    <div className="relative">
+                      <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="파일명 검색..."
+                        value={filenameFilter}
+                        onChange={(e) => setFilenameFilter(e.target.value)}
+                        className="h-7 w-40 pl-7 text-[10px] font-bold"
+                      />
+                    </div>
+                    {/* 메타데이터 필터 */}
+                    <div className="relative">
+                      <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="메타데이터 검색..."
+                        value={metadataFilter}
+                        onChange={(e) => setMetadataFilter(e.target.value)}
+                        className="h-7 w-44 pl-7 text-[10px] font-bold"
+                      />
+                    </div>
+                    {/* 필터 초기화 버튼 (필터가 활성화되었을 때만 표시) */}
+                    {(statusFilter !== "all" ||
+                      filenameFilter ||
+                      metadataFilter) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[10px] font-bold text-muted-foreground"
+                        onClick={() => {
+                          setStatusFilter("all")
+                          setFilenameFilter("")
+                          setMetadataFilter("")
+                        }}
+                      >
+                        <XIcon className="mr-1 h-3 w-3" /> 초기화
+                      </Button>
+                    )}
+                    <div className="ml-auto text-[10px] font-bold text-muted-foreground">
+                      {filteredRenderItems.length} / {renderItems.length}개
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-sm font-bold">
+                      <FolderIcon className="h-4 w-4" /> 모든 조합 탐색
+                    </h3>
+                    {!selectionMode && (
+                      <span className="text-[10px] font-medium text-muted-foreground">
+                        길게 누르면 선택 모드 진입
+                      </span>
+                    )}
+                  </div>
+                  {viewMode === "gallery" ? (
+                    <GalleryView
+                      items={filteredRenderItems}
+                      imagesByFilename={imagesByFilename}
+                      backendUrl={backendUrl}
+                      onSelect={(filename) => {
+                        if (!selectionMode) {
+                          setSelectedFilename(filename)
+                          setViewMode("grid")
+                        }
+                      }}
+                      onOpen={handleOpen}
+                      selectionMode={selectionMode}
+                      selectedFilenames={selectedFilenames}
+                      onToggleSelect={handleToggleSelect}
+                      onLongPress={handleLongPress}
+                      onRegenerate={handleContextMenuRegenerate}
+                      enableHover={enableHover}
+                    />
+                  ) : (
+                    <TableView
+                      items={filteredRenderItems}
+                      imagesByFilename={imagesByFilename}
+                      backendUrl={backendUrl}
+                      onSelect={(filename) => {
+                        if (!selectionMode) {
+                          setSelectedFilename(filename)
+                          setViewMode("grid")
+                        }
+                      }}
+                      onOpen={handleOpen}
+                      selectionMode={selectionMode}
+                      selectedFilenames={selectedFilenames}
+                      onToggleSelect={handleToggleSelect}
+                      onLongPress={handleLongPress}
+                      onRegenerate={handleContextMenuRegenerate}
+                      enableHover={enableHover}
+                    />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 flex-col overflow-hidden">
+                {/* 상세 헤더 */}
+                <div className="flex-none border-b bg-muted/10 px-4 py-3">
+                  <div className="flex flex-col gap-2">
+                    {/* Row 1: 네비게이션 + 파일명 + 메타 태그 */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFilename(null)
+                          setViewMode("gallery")
+                        }}
+                        className="h-8 shrink-0 gap-1.5 font-bold"
+                      >
+                        <ArrowLeftIcon className="h-3.5 w-3.5" />
+                        목록
+                      </Button>
+                      <span className="truncate font-mono text-sm font-bold">
+                        {selectedFilename}
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.values(selectedItem?.meta || {}).map((v, i) => (
                           <span
                             key={i}
-                            className={`text-[9px] font-medium uppercase ${isActive ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                            className="rounded border border-primary/10 bg-primary/10 px-2 py-0.5 text-[9px] font-bold whitespace-nowrap text-primary"
                           >
                             {v}
                           </span>
                         ))}
                       </div>
                     </div>
-                    <span className="text-[9px] font-bold opacity-50">
-                      {imgs.length}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 오른쪽: 콘텐츠 영역 */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
-          {isBrowsing ? (
-            <div className="flex flex-1 flex-col overflow-hidden">
-              {/* 필터 바 */}
-              <div className="flex-none border-b bg-muted/10 px-4 py-2.5">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <FilterIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                      필터
-                    </span>
-                  </div>
-                  {/* 상태 필터 */}
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(v) =>
-                      setStatusFilter(v as "all" | "done" | "pending")
-                    }
-                  >
-                    <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체 상태</SelectItem>
-                      <SelectItem value="done">완료만</SelectItem>
-                      <SelectItem value="pending">미완료만</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {/* 파일명 필터 */}
-                  <div className="relative">
-                    <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="파일명 검색..."
-                      value={filenameFilter}
-                      onChange={(e) => setFilenameFilter(e.target.value)}
-                      className="h-7 w-40 pl-7 text-[10px] font-bold"
-                    />
-                  </div>
-                  {/* 메타데이터 필터 */}
-                  <div className="relative">
-                    <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="메타데이터 검색..."
-                      value={metadataFilter}
-                      onChange={(e) => setMetadataFilter(e.target.value)}
-                      className="h-7 w-44 pl-7 text-[10px] font-bold"
-                    />
-                  </div>
-                  {/* 필터 초기화 버튼 (필터가 활성화되었을 때만 표시) */}
-                  {(statusFilter !== "all" ||
-                    filenameFilter ||
-                    metadataFilter) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[10px] font-bold text-muted-foreground"
-                      onClick={() => {
-                        setStatusFilter("all")
-                        setFilenameFilter("")
-                        setMetadataFilter("")
-                      }}
-                    >
-                      <XIcon className="mr-1 h-3 w-3" /> 초기화
-                    </Button>
-                  )}
-                  <div className="ml-auto text-[10px] font-bold text-muted-foreground">
-                    {filteredRenderItems.length} / {renderItems.length}개
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 text-sm font-bold">
-                    <FolderIcon className="h-4 w-4" /> 모든 조합 탐색
-                  </h3>
-                  {!selectionMode && (
-                    <span className="text-[10px] font-medium text-muted-foreground">
-                      길게 누르면 선택 모드 진입
-                    </span>
-                  )}
-                </div>
-                {viewMode === "gallery" ? (
-                  <GalleryView
-                    items={filteredRenderItems}
-                    imagesByFilename={imagesByFilename}
-                    backendUrl={backendUrl}
-                    onSelect={(filename) => {
-                      if (!selectionMode) {
-                        setSelectedFilename(filename)
-                        setViewMode("grid")
-                      }
-                    }}
-                    onOpen={handleOpen}
-                    selectionMode={selectionMode}
-                    selectedFilenames={selectedFilenames}
-                    onToggleSelect={handleToggleSelect}
-                    onLongPress={handleLongPress}
-                    onRegenerate={handleContextMenuRegenerate}
-                    enableHover={enableHover}
-                  />
-                ) : (
-                  <TableView
-                    items={filteredRenderItems}
-                    imagesByFilename={imagesByFilename}
-                    backendUrl={backendUrl}
-                    onSelect={(filename) => {
-                      if (!selectionMode) {
-                        setSelectedFilename(filename)
-                        setViewMode("grid")
-                      }
-                    }}
-                    onOpen={handleOpen}
-                    selectionMode={selectionMode}
-                    selectedFilenames={selectedFilenames}
-                    onToggleSelect={handleToggleSelect}
-                    onLongPress={handleLongPress}
-                    onRegenerate={handleContextMenuRegenerate}
-                    enableHover={enableHover}
-                  />
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-1 flex-col overflow-hidden">
-              {/* 상세 헤더 */}
-              <div className="flex-none border-b bg-muted/10 px-4 py-3">
-                <div className="flex flex-col gap-2">
-                  {/* Row 1: 네비게이션 + 파일명 + 메타 태그 */}
-                  <div className="flex min-w-0 flex-wrap items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedFilename(null)
-                        setViewMode("gallery")
-                      }}
-                      className="h-8 shrink-0 gap-1.5 font-bold"
-                    >
-                      <ArrowLeftIcon className="h-3.5 w-3.5" />
-                      목록
-                    </Button>
-                    <span className="truncate font-mono text-sm font-bold">
-                      {selectedFilename}
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                      {Object.values(selectedItem?.meta || {}).map((v, i) => (
-                        <span
-                          key={i}
-                          className="rounded border border-primary/10 bg-primary/10 px-2 py-0.5 text-[9px] font-bold whitespace-nowrap text-primary"
-                        >
-                          {v}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Row 2: 액션 버튼 그룹 */}
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <Button
-                      size="sm"
-                      className="h-8 gap-1.5 text-[10px] font-bold"
-                      onClick={handleRegenerate}
-                      disabled={regenAction.isLoading}
-                    >
-                      <RefreshCwIcon className="h-3.5 w-3.5" />
-                      재생성
-                    </Button>
-                    <div className="h-4 w-px bg-border" />
-                    <div className="flex items-center gap-1">
+                    {/* Row 2: 액션 버튼 그룹 */}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="h-8 gap-1 border-red-300 text-[10px] font-bold text-red-600 hover:bg-red-50"
-                        onClick={handleRejectAll}
-                        disabled={
-                          !selectedImages.some(
-                            (img) =>
-                              img.status !== "approved" &&
-                              img.status !== "rejected"
-                          )
-                        }
+                        className="h-8 gap-1.5 text-[10px] font-bold"
+                        onClick={handleRegenerate}
+                        disabled={regenAction.isLoading}
                       >
-                        <XIcon className="h-3 w-3" />
-                        모두 리젝
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 gap-1 text-[10px] font-bold"
-                        onClick={handleCancelAllRejects}
-                        disabled={
-                          !selectedImages.some(
-                            (img) => img.status === "rejected"
-                          )
-                        }
-                      >
-                        <RefreshCwIcon className="h-3 w-3" />
-                        리젝 취소
+                        <RefreshCwIcon className="h-3.5 w-3.5" />
+                        재생성
                       </Button>
                       <div className="h-4 w-px bg-border" />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 gap-1 border-amber-300 text-[10px] font-bold text-amber-600 hover:bg-amber-50"
-                        onClick={handleCancelApproval}
-                        disabled={!hasApproved(selectedImages)}
-                      >
-                        <XIcon className="h-3 w-3" />
-                        선택 취소
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1 border-red-300 text-[10px] font-bold text-red-600 hover:bg-red-50"
+                          onClick={handleRejectAll}
+                          disabled={
+                            !selectedImages.some(
+                              (img) =>
+                                img.status !== "approved" &&
+                                img.status !== "rejected"
+                            )
+                          }
+                        >
+                          <XIcon className="h-3 w-3" />
+                          모두 리젝
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1 text-[10px] font-bold"
+                          onClick={handleCancelAllRejects}
+                          disabled={
+                            !selectedImages.some(
+                              (img) => img.status === "rejected"
+                            )
+                          }
+                        >
+                          <RefreshCwIcon className="h-3 w-3" />
+                          리젝 취소
+                        </Button>
+                        <div className="h-4 w-px bg-border" />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1 border-amber-300 text-[10px] font-bold text-amber-600 hover:bg-amber-50"
+                          onClick={handleCancelApproval}
+                          disabled={!hasApproved(selectedImages)}
+                        >
+                          <XIcon className="h-3 w-3" />
+                          선택 취소
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* 이미지 뷰어 */}
-              <div className="relative flex-1 overflow-y-auto p-4">
-                {visibleImages.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
-                    <Maximize2Icon className="h-10 w-10 opacity-20" />
-                    <p className="text-sm font-bold">
-                      생성된 이미지가 없습니다
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRegenerate}
-                      className="font-bold"
-                    >
-                      이미지 생성 시작
-                    </Button>
-                  </div>
-                ) : viewMode === "grid" ? (
-                  <div className={`grid gap-4 ${colClass}`}>
-                    {visibleImages.map((img, idx) => {
-                      const isSelected = img.hash === selectedApprovedHash
-                      const isRejected = img.status === "rejected"
-                      const isPinned = pinnedHashes.includes(img.hash)
-                      return (
-                        <ContextMenu key={img.hash}>
-                          <div className="flex flex-col gap-1.5">
-                            <ContextMenuTrigger asChild>
-                              <HoverCard
-                                openDelay={enableHover ? 400 : 99999}
-                                closeDelay={100}
-                              >
-                                <HoverCardTrigger asChild>
-                                  <button
-                                    onClick={() => setPreviewHash(img.hash)}
-                                    className={`group relative overflow-hidden rounded-lg transition-colors ${
-                                      isSelected
-                                        ? "scale-[0.98] shadow-lg ring-4 ring-green-500"
-                                        : isRejected
-                                          ? "opacity-30 hover:opacity-100"
-                                          : "shadow-sm hover:-translate-y-1 hover:ring-2 hover:ring-primary/40"
-                                    }`}
-                                  >
-                                    <img
-                                      src={`${backendUrl}/saved-images/${img.hash}`}
-                                      alt=""
-                                      className="w-full object-cover"
-                                    />
+                {/* 이미지 뷰어 */}
+                <div className="relative flex-1 overflow-y-auto p-4">
+                  {visibleImages.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
+                      <Maximize2Icon className="h-10 w-10 opacity-20" />
+                      <p className="text-sm font-bold">
+                        생성된 이미지가 없습니다
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRegenerate}
+                        className="font-bold"
+                      >
+                        이미지 생성 시작
+                      </Button>
+                    </div>
+                  ) : viewMode === "grid" ? (
+                    <div className={`grid gap-4 ${colClass}`}>
+                      {visibleImages.map((img, idx) => {
+                        const isSelected = img.hash === selectedApprovedHash
+                        const isRejected = img.status === "rejected"
+                        const isPinned = pinnedHashes.includes(img.hash)
+                        return (
+                          <ContextMenu key={img.hash}>
+                            <div className="flex flex-col gap-1.5">
+                              <ContextMenuTrigger asChild>
+                                <HoverCard
+                                  openDelay={enableHover ? 400 : 99999}
+                                  closeDelay={100}
+                                >
+                                  <HoverCardTrigger asChild>
                                     <button
-                                      type="button"
-                                      onClick={(e) => togglePin(img.hash, e)}
-                                      className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
+                                      onClick={() => setPreviewHash(img.hash)}
+                                      className={`group relative overflow-hidden rounded-lg transition-colors ${
+                                        isSelected
+                                          ? "scale-[0.98] shadow-lg ring-4 ring-green-500"
+                                          : isRejected
+                                            ? "opacity-30 hover:opacity-100"
+                                            : "shadow-sm hover:-translate-y-1 hover:ring-2 hover:ring-primary/40"
+                                      }`}
                                     >
-                                      {isPinned ? (
-                                        <PinIcon className="h-4 w-4" />
-                                      ) : (
-                                        <PinOffIcon className="h-4 w-4" />
+                                      <img
+                                        src={`${backendUrl}/saved-images/${img.hash}`}
+                                        alt=""
+                                        className="w-full object-cover"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={(e) => togglePin(img.hash, e)}
+                                        className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
+                                      >
+                                        {isPinned ? (
+                                          <PinIcon className="h-4 w-4" />
+                                        ) : (
+                                          <PinOffIcon className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                      {idx < 9 && (
+                                        <span className="absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm group-hover:opacity-100">
+                                          {idx + 1}
+                                        </span>
+                                      )}
+                                      {isSelected && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-green-500/10">
+                                          <div className="rounded-full bg-green-500 p-2 text-white shadow-2xl">
+                                            <CheckIcon
+                                              className="h-8 w-8"
+                                              strokeWidth={4}
+                                            />
+                                          </div>
+                                        </div>
                                       )}
                                     </button>
-                                    {idx < 9 && (
-                                      <span className="absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm group-hover:opacity-100">
-                                        {idx + 1}
-                                      </span>
-                                    )}
-                                    {isSelected && (
-                                      <div className="absolute inset-0 flex items-center justify-center bg-green-500/10">
-                                        <div className="rounded-full bg-green-500 p-2 text-white shadow-2xl">
-                                          <CheckIcon
-                                            className="h-8 w-8"
-                                            strokeWidth={4}
-                                          />
-                                        </div>
+                                  </HoverCardTrigger>
+                                  {enableHover && (
+                                    <HoverCardContent
+                                      className="w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md"
+                                      side="right"
+                                    >
+                                      <div className="mb-2 border-b pb-2 font-black tracking-widest text-primary uppercase">
+                                        Metadata
                                       </div>
-                                    )}
-                                  </button>
-                                </HoverCardTrigger>
-                                {enableHover && (
-                                  <HoverCardContent
-                                    className="w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md"
-                                    side="right"
-                                  >
-                                    <div className="mb-2 border-b pb-2 font-black tracking-widest text-primary uppercase">
-                                      Metadata
-                                    </div>
-                                    {img.prompt}
-                                  </HoverCardContent>
-                                )}
-                              </HoverCard>
-                            </ContextMenuTrigger>
+                                      {img.prompt}
+                                    </HoverCardContent>
+                                  )}
+                                </HoverCard>
+                              </ContextMenuTrigger>
 
-                            {/* 선택하기 버튼 */}
-                            {!isSelected && !isRejected && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 w-full gap-1 border-green-300 text-[10px] font-bold text-green-600 hover:bg-green-50 hover:text-green-700"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  selectImage(selectedItem!.filename, img.hash)
-                                }}
-                              >
-                                <CheckIcon className="h-3 w-3" />
-                                선택
-                              </Button>
-                            )}
-                            {isSelected && (
-                              <div className="flex h-7 items-center justify-center rounded bg-green-100 text-[10px] font-bold text-green-700">
-                                <CheckIcon className="mr-1 h-3 w-3" />
-                                선택됨
-                              </div>
-                            )}
-                            {isRejected && (
-                              <div className="flex h-7 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">
-                                <XIcon className="mr-1 h-3 w-3" />
-                                리젝됨
-                              </div>
-                            )}
-                          </div>
-                          <ContextMenuContent className="w-40">
-                            {isSelected ? (
-                              <ContextMenuItem
-                                onClick={() => handleCancelApproval()}
-                              >
-                                <XIcon className="h-3.5 w-3.5" /> 선택 취소
-                              </ContextMenuItem>
-                            ) : isRejected ? (
-                              <ContextMenuItem
-                                onClick={() => handleCancelReject(img.hash)}
-                              >
-                                <RefreshCwIcon className="h-3.5 w-3.5" /> 리젝
-                                취소
-                              </ContextMenuItem>
-                            ) : (
-                              <ContextMenuItem
-                                onClick={() => handleRejectImage(img.hash)}
-                              >
-                                <XIcon className="h-3.5 w-3.5" /> 리젝
-                              </ContextMenuItem>
-                            )}
-                          </ContextMenuContent>
-                        </ContextMenu>
-                      )
-                    })}
-                  </div>
-                ) : viewMode === "compare" ? (
-                  <div
-                    className={`grid h-full gap-3 ${pinnedHashes.length === 1 ? "grid-cols-1" : pinnedHashes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}
-                  >
-                    {pinnedHashes.map((hash) => (
-                      <div
-                        key={hash}
-                        className="relative flex h-full overflow-hidden rounded-lg border bg-black/5 shadow-inner"
-                      >
-                        <button
-                          type="button"
-                          onClick={(e) => togglePin(hash, e)}
-                          className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+                              {/* 선택하기 버튼 */}
+                              {!isSelected && !isRejected && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 w-full gap-1 border-green-300 text-[10px] font-bold text-green-600 hover:bg-green-50 hover:text-green-700"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    selectImage(
+                                      selectedItem!.filename,
+                                      img.hash
+                                    )
+                                  }}
+                                >
+                                  <CheckIcon className="h-3 w-3" />
+                                  선택
+                                </Button>
+                              )}
+                              {isSelected && (
+                                <div className="flex h-7 items-center justify-center rounded bg-green-100 text-[10px] font-bold text-green-700">
+                                  <CheckIcon className="mr-1 h-3 w-3" />
+                                  선택됨
+                                </div>
+                              )}
+                              {isRejected && (
+                                <div className="flex h-7 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">
+                                  <XIcon className="mr-1 h-3 w-3" />
+                                  리젝됨
+                                </div>
+                              )}
+                            </div>
+                            <ContextMenuContent className="w-40">
+                              {isSelected ? (
+                                <ContextMenuItem
+                                  onClick={() => handleCancelApproval()}
+                                >
+                                  <XIcon className="h-3.5 w-3.5" /> 선택 취소
+                                </ContextMenuItem>
+                              ) : isRejected ? (
+                                <ContextMenuItem
+                                  onClick={() => handleCancelReject(img.hash)}
+                                >
+                                  <RefreshCwIcon className="h-3.5 w-3.5" /> 리젝
+                                  취소
+                                </ContextMenuItem>
+                              ) : (
+                                <ContextMenuItem
+                                  onClick={() => handleRejectImage(img.hash)}
+                                >
+                                  <XIcon className="h-3.5 w-3.5" /> 리젝
+                                </ContextMenuItem>
+                              )}
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        )
+                      })}
+                    </div>
+                  ) : viewMode === "compare" ? (
+                    <div
+                      className={`grid h-full gap-3 ${pinnedHashes.length === 1 ? "grid-cols-1" : pinnedHashes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+                    >
+                      {pinnedHashes.map((hash) => (
+                        <div
+                          key={hash}
+                          className="relative flex h-full overflow-hidden rounded-lg border bg-black/5 shadow-inner"
                         >
-                          <PinIcon className="h-5 w-5" />
-                        </button>
-                        <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <TournamentView
-                    images={visibleImages}
-                    backendUrl={backendUrl}
-                    onComplete={(hash) => {
-                      selectImage(selectedItem!.filename, hash)
-                      setViewMode("grid")
-                    }}
-                  />
-                )}
+                          <button
+                            type="button"
+                            onClick={(e) => togglePin(hash, e)}
+                            className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+                          >
+                            <PinIcon className="h-5 w-5" />
+                          </button>
+                          <Magnifier
+                            src={`${backendUrl}/saved-images/${hash}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <TournamentView
+                      images={visibleImages}
+                      backendUrl={backendUrl}
+                      onComplete={(hash) => {
+                        selectImage(selectedItem!.filename, hash)
+                        setViewMode("grid")
+                      }}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* 이미지 미리보기 팝업 */}
-      <ImageViewer
-        src={`${backendUrl}/saved-images/${previewHash}`}
-        isOpen={previewHash !== null}
-        onClose={() => setPreviewHash(null)}
-      >
-        {/* <Button
+        {/* 이미지 미리보기 팝업 */}
+        <ImageViewer
+          src={`${backendUrl}/saved-images/${previewHash}`}
+          isOpen={previewHash !== null}
+          onClose={() => setPreviewHash(null)}
+        >
+          {/* <Button
           size="lg"
           className="gap-2 px-10 py-5 text-base font-black shadow-lg shadow-green-500/20 transition-all hover:scale-105"
           onClick={() => {
@@ -2125,21 +2148,22 @@ export const CombinationPicker = memo(function CombinationPicker({
           <XIcon className="h-4 w-4" />
           닫기
         </Button> */}
-      </ImageViewer>
+        </ImageViewer>
 
-      <RegenerateDialog
-        open={regenDialogState.open}
-        onOpenChange={(open) =>
-          setRegenDialogState((prev) => ({ ...prev, open }))
-        }
-        filenames={regenDialogState.filenames}
-        imagesByFilename={imagesByFilename}
-        currentCegTemplate={activeTemplate}
-        savedTemplates={savedTemplates}
-        savedWorkflows={savedWorkflows}
-        onRegenerate={performRegenerate}
-        isLoading={regenAction.isLoading}
-      />
+        <RegenerateDialog
+          open={regenDialogState.open}
+          onOpenChange={(open) =>
+            setRegenDialogState((prev) => ({ ...prev, open }))
+          }
+          filenames={regenDialogState.filenames}
+          imagesByFilename={imagesByFilename}
+          currentCegTemplate={activeTemplate}
+          savedTemplates={savedTemplates}
+          savedWorkflows={savedWorkflows}
+          onRegenerate={performRegenerate}
+          isLoading={regenAction.isLoading}
+        />
+      </div>
     </div>
   )
 })
