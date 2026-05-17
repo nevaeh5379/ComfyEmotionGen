@@ -2,11 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from "@/components/ui/popover"
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Trash2Icon } from "lucide-react"
 
@@ -159,7 +155,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
         size="sm"
         disabled={!canSave}
         onClick={handleSave}
-        className="h-7 shrink-0 px-3 text-xs"
+        className="h-6 shrink-0 bg-foreground px-3 text-[11px] font-semibold text-background hover:bg-foreground/90"
         title={
           hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
         }
@@ -185,10 +181,12 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
       >
         {filteredItems.length === 0 ? (
           <p className="py-2 text-center text-xs text-muted-foreground">
-            {name.trim() ? "일치하는 항목이 없습니다" : "저장된 항목이 없습니다"}
+            {name.trim()
+              ? "일치하는 항목이 없습니다"
+              : "저장된 항목이 없습니다"}
           </p>
         ) : (
-          <div ref={listRef} className="space-y-1 p-2">
+          <div ref={listRef} className="max-h-64 space-y-1 overflow-y-auto p-2">
             {filteredItems.map((item, index) => {
               const isActive = item.id === activeItemId
               const isFocused = index === focusedIndex
@@ -199,7 +197,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                   className={cn(
                     "flex items-center gap-2 rounded px-1",
                     isActive && "bg-primary/10",
-                    isFocused && "bg-accent outline-none ring-1 ring-primary/50",
+                    isFocused && "bg-accent ring-1 ring-primary/50 outline-none"
                   )}
                   onMouseDown={(e) => e.preventDefault()}
                   onMouseEnter={() => setFocusedIndex(index)}
@@ -218,11 +216,11 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                     {new Date(item.savedAt).toLocaleDateString()}
                   </span>
                   <div className="flex items-center">
-                   
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
+                      title="삭제"
                       onClick={() => onDelete?.(item.id)}
                     >
                       <Trash2Icon />
@@ -257,7 +255,9 @@ export function SavedItemsList<T extends SaveableItem>({
   }
 
   return (
-    <div className={cn("space-y-1 rounded-md border bg-muted/30 p-2", className)}>
+    <div
+      className={cn("space-y-1 rounded-md border bg-muted/30 p-2", className)}
+    >
       {items.map((item) => {
         const isActive = item.id === activeItemId
         return (
@@ -272,13 +272,11 @@ export function SavedItemsList<T extends SaveableItem>({
             >
               {item.name}
             </button>
-             <span className=" text-xs text-left text-muted-foreground">
+            <span className="text-left text-xs text-muted-foreground">
               {new Date(item.savedAt).toLocaleDateString()}
             </span>
-            
-          
+
             <div className="flex items-center">
-            
               <Button
                 variant="ghost"
                 size="sm"
@@ -288,7 +286,6 @@ export function SavedItemsList<T extends SaveableItem>({
                 <Trash2Icon />
               </Button>
             </div>
-               
           </div>
         )
       })}

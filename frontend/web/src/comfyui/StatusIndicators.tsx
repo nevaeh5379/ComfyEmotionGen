@@ -29,17 +29,17 @@ const StatusHoverCard = ({
   <HoverCard openDelay={200} closeDelay={100}>
     <HoverCardTrigger asChild>
       <div className="w-fit cursor-help">
-        <Item className="flex items-center gap-2 border-none bg-transparent p-2">
-          <span className="relative flex h-3 w-3">
+        <Item className="flex items-center gap-1.5 border-none bg-transparent p-1">
+          <span className="relative flex h-2.5 w-2.5">
             <span
               className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${dotColor}`}
             />
             <span
-              className={`relative inline-flex h-3 w-3 rounded-full ${pingColor}`}
+              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${pingColor}`}
             />
           </span>
           <ItemContent>
-            <ItemTitle className="text-sm font-semibold">{title}</ItemTitle>
+            <ItemTitle className="text-xs font-medium">{title}</ItemTitle>
           </ItemContent>
         </Item>
       </div>

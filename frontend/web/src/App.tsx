@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from "react"
-import { MinusIcon, PlusIcon, Code2, EllipsisVertical } from "lucide-react"
+import {
+  MinusIcon,
+  PlusIcon,
+  Code2,
+  EllipsisVertical,
+  Copy,
+  Download,
+  Settings,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Field, FieldGroup } from "@/components/ui/field"
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupText,
-} from "@/components/ui/input-group"
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-} from "@/components/ui/navigation-menu"
 import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/useBackend"
@@ -453,25 +453,35 @@ export function App() {
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <nav className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-          <NavigationMenu>
-            <NavigationMenuList>
+      <nav className="sticky top-0 z-10 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
+        <div className="flex items-center justify-between gap-4 px-4 py-2">
+          <div className="flex items-center gap-3">
+            <div className="flex h-6 w-6 items-center justify-center rounded-[5px] bg-ink text-[11px] font-bold text-panel">
+              C
+            </div>
+            <span className="text-[13px] font-semibold tracking-tight">
+              CEG
+            </span>
+            <div className="h-5 w-px bg-line" />
+            <div className="flex items-center gap-1">
               {NAV_TABS.map((tab) => (
-                <NavigationMenuItem key={tab.id}>
-                  <NavigationMenuLink
-                    className={activeTab === tab.id ? "font-semibold" : ""}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    {tab.label}
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`h-7 rounded-[5px] px-3 text-xs font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "border border-line bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50"
+                  }`}
+                >
+                  {tab.label}
+                </button>
               ))}
-            </NavigationMenuList>
-          </NavigationMenu>
-          <div className="flex items-center gap-1">
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
             <ServerStatus
-              name="백엔드 서버"
+              name="백엔드"
               isConnected={isAliveBackend && backendAlive}
               okHint="백엔드와 연결되어 있습니다."
               failHint="백엔드 서버 상태를 확인해주세요."
@@ -481,7 +491,7 @@ export function App() {
         </div>
       </nav>
 
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col overflow-hidden p-6">
+      <main className="flex w-full flex-1 flex-col overflow-hidden">
         {activeTab === "gallery" && (
           <section className="flex-1 overflow-y-auto rounded-lg border bg-card p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold">에셋 갤러리</h2>
@@ -518,25 +528,53 @@ export function App() {
           </div>
         )}
         {activeTab === "jobs" && (
-          <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-2">
-            <section className="flex min-h-0 flex-col overflow-hidden">
-              <div className="flex min-h-0 flex-1 flex-col">
+          <ResizablePanelGroup
+            orientation="horizontal"
+            className="min-h-0 flex-1 overflow-hidden"
+          >
+            <ResizablePanel
+              defaultSize="35%"
+              minSize="360px"
+              className="flex min-h-0 flex-col overflow-hidden border-r border-line bg-panel"
+            >
+              <div className="flex h-7 items-center border-b border-line px-3 whitespace-nowrap">
+                <span className="text-[9px] font-semibold tracking-wider text-faint uppercase">
+                  작업 구성
+                </span>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <Tabs
                   defaultValue="ceg"
                   className="flex min-h-0 flex-1 flex-col"
                 >
-                  <div className="flex shrink-0 items-center justify-between">
-                    <TabsList>
-                      <TabsTrigger value="ceg">CEG 탬플릿</TabsTrigger>
-                      <TabsTrigger value="workflow">
+                  <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5">
+                    <TabsList className="h-6 gap-0 bg-transparent p-0">
+                      <TabsTrigger
+                        value="ceg"
+                        className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+                      >
+                        CEG 탬플릿
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="workflow"
+                        className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+                      >
                         ComfyUI 워크플로우
                       </TabsTrigger>
                     </TabsList>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-stretch overflow-hidden rounded-md border bg-background">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 items-center overflow-hidden rounded-[3px] border border-line bg-panel">
+                        <button
+                          className="flex h-full w-5 items-center justify-center hover:bg-accent"
+                          onClick={() =>
+                            setRepeatCount((c) => Math.max(1, c - 1))
+                          }
+                        >
+                          <MinusIcon className="h-3 w-3" />
+                        </button>
                         <input
                           type="number"
-                          className="w-16 bg-transparent px-3 outline-none"
+                          className="mono h-full w-8 border-x border-line bg-transparent text-center text-[11px] font-semibold outline-none"
                           min={1}
                           value={repeatCount}
                           onChange={(e) =>
@@ -545,29 +583,17 @@ export function App() {
                             )
                           }
                         />
-                        <div className="flex w-8 flex-col border-l">
-                          <Button
-                            variant="ghost"
-                            className="flex-1"
-                            aria-label="Increase"
-                            onClick={() => setRepeatCount((c) => c + 1)}
-                          >
-                            <PlusIcon className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="flex-1"
-                            aria-label="Decrease"
-                            onClick={() =>
-                              setRepeatCount((c) => Math.max(1, c - 1))
-                            }
-                          >
-                            <MinusIcon className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        <button
+                          className="flex h-full w-5 items-center justify-center hover:bg-accent"
+                          onClick={() => setRepeatCount((c) => c + 1)}
+                        >
+                          <PlusIcon className="h-3 w-3" />
+                        </button>
                       </div>
                       <Button
                         variant="default"
+                        size="sm"
+                        className="h-6 bg-foreground px-3 text-[11px] font-semibold text-background hover:bg-foreground/90"
                         onClick={handleRun}
                         disabled={!canRun}
                       >
@@ -578,8 +604,12 @@ export function App() {
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline">
-                            <EllipsisVertical />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground"
+                          >
+                            <EllipsisVertical className="h-3.5 w-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -641,95 +671,111 @@ export function App() {
 
                   <TabsContent
                     value="workflow"
-                    className="mt-0 flex min-h-0 flex-1 flex-col space-y-6 overflow-y-auto rounded-lg border bg-card p-6 shadow-sm data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
+                    className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
                   >
-                    <FieldGroup className="min-h-0 flex-1">
-                      <Field className="min-h-0 flex-1">
-                        <InputGroup className="!h-full min-h-0 flex-1 overflow-hidden">
-                          {/* ── top addon bar ─────────────── */}
-                          <InputGroupAddon
-                            align="block-start"
-                            className="border-b"
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="flex items-center justify-between border-b border-line px-3 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-medium">
+                            ComfyUI API 워크플로우
+                          </span>
+                          {parsedWorkflow?.success && (
+                            <span className="mono text-[10px] text-muted-foreground">
+                              노드 {Object.keys(parsedWorkflow.data).length}개
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground"
+                            title="복사"
+                            onClick={() =>
+                              navigator.clipboard.writeText(workflowJson)
+                            }
                           >
-                            <InputGroupText>
-                              <Code2 className="h-3.5 w-3.5" />
-                              ComfyUI API 워크플로우
-                            </InputGroupText>
-                            <div className="ml-auto flex items-center gap-1">
-                              {parsedWorkflow?.success && (
-                                // <InputGroupText className="font-normal text-muted-foreground/70">
-                                //   노드 {Object.keys(parsedWorkflow.data).length}
-                                //   개
-                                // </InputGroupText>
-                                <InputGroupButton
-                                  className="font-normal text-muted-foreground/70"
-                                  onClick={() => setIsGraphOpen(true)}
-                                >
-                                  노드 {Object.keys(parsedWorkflow.data).length}
-                                  개
-                                </InputGroupButton>
-                              )}
-                            </div>
-                          </InputGroupAddon>
-
-                          {/* ── editor ─────────────── */}
-                          <CodeEditor
-                            language="json"
-                            placeholder="ComfyUI API 워크플로우 입력 칸"
-                            value={workflowJson}
-                            onChange={setWorkflowJson}
-                            minHeight="100px"
-                            bareWrapper
-                            className="h-full min-h-0 w-full flex-1"
-                          />
-
-                          {/* ── bottom addon bar (save input) ─── */}
-                          <InputGroupAddon
-                            align="block-end"
-                            className="border-t"
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground"
+                            title="다운로드"
+                            onClick={() => {
+                              const blob = new Blob([workflowJson], {
+                                type: "application/json",
+                              })
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement("a")
+                              a.href = url
+                              a.download = "workflow.json"
+                              a.click()
+                              URL.revokeObjectURL(url)
+                            }}
                           >
-                            <SaveInputBar
-                              key={workflowResetKey}
-                              onSave={(name) => {
-                                const trimmed = name.trim()
-                                if (
-                                  savedWorkflows.some((w) => w.name === trimmed)
-                                ) {
-                                  setPendingSave({
-                                    name: trimmed,
-                                    type: "workflow",
-                                  })
-                                  return false
-                                }
-                                const w = saveWorkflow(trimmed, workflowJson)
-                                setActiveWorkflowId(w.id)
-                                return true
-                              }}
-                              placeholder={
-                                activeWorkflow?.name ?? "워크플로우 이름"
-                              }
-                              saveDisabled={!workflowJson.trim()}
-                              activeName={activeWorkflow?.name}
-                              items={savedWorkflows}
-                              onLoad={loadWorkflowItem}
-                              onDelete={(id) => {
-                                if (activeWorkflowId === id)
-                                  setActiveWorkflowId(null)
-                                deleteWorkflow(id)
-                              }}
-                              activeItemId={activeWorkflowId ?? undefined}
-                              onUpdate={() => {
-                                if (activeWorkflow)
-                                  saveWorkflow(
-                                    activeWorkflow.name,
-                                    workflowJson
-                                  )
-                              }}
-                            />
-                          </InputGroupAddon>
-                        </InputGroup>
-                      </Field>
-                    </FieldGroup>
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground"
+                            title="그래프 보기"
+                            onClick={() => setIsGraphOpen(true)}
+                          >
+                            <Settings className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <CodeEditor
+                        language="json"
+                        placeholder="ComfyUI API 워크플로우 입력 칸"
+                        value={workflowJson}
+                        onChange={setWorkflowJson}
+                        minHeight="100px"
+                        maxHeight="280px"
+                        bareWrapper
+                        className="h-full min-h-0 w-full flex-1"
+                      />
+                      <div className="flex items-center justify-end border-t border-line px-3 py-1.5">
+                        <SaveInputBar
+                          key={workflowResetKey}
+                          onSave={(name) => {
+                            const trimmed = name.trim()
+                            if (
+                              savedWorkflows.some((w) => w.name === trimmed)
+                            ) {
+                              setPendingSave({
+                                name: trimmed,
+                                type: "workflow",
+                              })
+                              return false
+                            }
+                            const w = saveWorkflow(trimmed, workflowJson)
+                            setActiveWorkflowId(w.id)
+                            return true
+                          }}
+                          placeholder={
+                            activeWorkflow?.name ?? "워크플로우 이름"
+                          }
+                          saveDisabled={!workflowJson.trim()}
+                          activeName={activeWorkflow?.name}
+                          items={savedWorkflows}
+                          onLoad={loadWorkflowItem}
+                          onDelete={(id) => {
+                            if (activeWorkflowId === id)
+                              setActiveWorkflowId(null)
+                            deleteWorkflow(id)
+                          }}
+                          activeItemId={activeWorkflowId ?? undefined}
+                          onUpdate={() => {
+                            if (activeWorkflow)
+                              saveWorkflow(activeWorkflow.name, workflowJson)
+                          }}
+                        />
+                      </div>
+                    </div>
 
                     {parsedWorkflow && !parsedWorkflow.success && (
                       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -803,21 +849,27 @@ export function App() {
                   </TabsContent>
                 </Tabs>
               </div>
-            </section>
-            <div className="flex min-h-0 flex-col overflow-hidden">
-              <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card p-6 shadow-sm">
-                <h2 className="mb-4 shrink-0 text-lg font-semibold">결과</h2>
-                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
-                  <JobManagerPanel
-                    jobs={jobs}
-                    paused={paused}
-                    backendUrl={backendUrl}
-                    isAliveBackend={isAliveBackend}
-                  />
-                </div>
-              </section>
-            </div>
-          </div>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel
+              defaultSize={65}
+              className="flex min-h-0 flex-col overflow-hidden bg-panel"
+            >
+              <div className="flex h-9 items-center justify-between border-b border-line bg-panel-2 px-3.5 whitespace-nowrap">
+                <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                  결과
+                </span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <JobManagerPanel
+                  jobs={jobs}
+                  paused={paused}
+                  backendUrl={backendUrl}
+                  isAliveBackend={isAliveBackend}
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         )}
       </main>
 

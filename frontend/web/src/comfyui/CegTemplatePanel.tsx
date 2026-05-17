@@ -1,12 +1,6 @@
 import { FileCode2, Eye } from "lucide-react"
 
-import { Field, FieldGroup } from "@/components/ui/field"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupText,
-} from "@/components/ui/input-group"
+import { Button } from "@/components/ui/button"
 import CodeEditor from "@/components/CodeEditor"
 
 import { SaveInputBar } from "./SavedItemsManager"
@@ -44,58 +38,54 @@ export function CegTemplatePanel({
     : undefined
 
   return (
-    <FieldGroup className="min-h-0 flex-1">
-      <Field className="min-h-0 flex-1">
-        <InputGroup className="!h-full min-h-0 flex-1 overflow-hidden">
-          {/* ── top addon bar ─────────────────────── */}
-          <InputGroupAddon align="block-start">
-            <InputGroupText>
-              <FileCode2 className="h-3.5 w-3.5" />
-              CEG 탬플릿
-            </InputGroupText>
-            <div className="ml-auto flex items-center gap-1">
-              {previewCount > 0 && (
-                <InputGroupButton
-                  onClick={onPreviewOpen}
-                  size="sm"
-                  title="미리보기"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  미리보기 ({previewCount})
-                </InputGroupButton>
-              )}
-            </div>
-          </InputGroupAddon>
-
-          {/* ── editor ───────────────────────────── */}
-          <CodeEditor
-            language="ceg"
-            placeholder="CEG 탬플릿 입력 칸"
-            value={cegTemplate}
-            onChange={setCegTemplate}
-            minHeight="100px"
-            bareWrapper
-            className="h-full min-h-0 w-full flex-1"
-          />
-
-          {/* ── bottom addon bar (save input + dropdown) ─────── */}
-          <InputGroupAddon align="block-end" className="border-t">
-            <SaveInputBar
-              key={templateResetKey}
-              onSave={onSaveTemplate}
-              placeholder={activeName ?? "탬플릿 이름"}
-              saveDisabled={!cegTemplate.trim()}
-              activeName={activeName}
-              items={savedTemplates}
-              getFilterText={(t) => t.template}
-              onLoad={onLoadTemplate}
-              onDelete={onDeleteTemplate}
-              activeItemId={activeTemplateId ?? undefined}
-              onUpdate={onUpdateTemplate}
-            />
-          </InputGroupAddon>
-        </InputGroup>
-      </Field>
-    </FieldGroup>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-between border-b border-line px-3 py-1.5">
+        <div className="flex items-center gap-2">
+          <FileCode2 className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium">CEG 탬플릿</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {previewCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-muted-foreground"
+              onClick={onPreviewOpen}
+              title="미리보기"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              미리보기 <span className="mono">({previewCount})</span>
+            </Button>
+          )}
+        </div>
+      </div>
+      <CodeEditor
+        language="ceg"
+        placeholder="CEG 탬플릿 입력 칸"
+        value={cegTemplate}
+        onChange={setCegTemplate}
+        minHeight="100px"
+        bareWrapper
+        className="h-full min-h-0 w-full flex-1"
+      />
+      <div className="flex items-center justify-between border-t border-line px-3 py-1.5">
+        <span className="text-[11px] text-muted-foreground">
+          CEG 탬플릿 DSL 지원
+        </span>
+        <SaveInputBar
+          key={templateResetKey}
+          onSave={onSaveTemplate}
+          placeholder={activeName ?? "탬플릿 이름"}
+          saveDisabled={!cegTemplate.trim()}
+          activeName={activeName}
+          items={savedTemplates}
+          getFilterText={(t) => t.template}
+          onLoad={onLoadTemplate}
+          onDelete={onDeleteTemplate}
+          activeItemId={activeTemplateId ?? undefined}
+          onUpdate={onUpdateTemplate}
+        />
+      </div>
+    </div>
   )
 }

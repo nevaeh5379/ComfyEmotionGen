@@ -57,6 +57,17 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import type { JobStatus, JobView } from "./Message"
 import { useRenderLog } from "@/lib/renderLogger"
+import { StatusPill } from "@/components/ceg/StatusPill"
+import { StatCard } from "@/components/ceg/StatCard"
+
+function stringToColor(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const c = (hash & 0x00ffffff).toString(16).toUpperCase()
+  return "#" + "00000".substring(0, 6 - c.length) + c
+}
 
 // ── session storage ───────────────────────────────────────────────────────────
 
@@ -180,15 +191,6 @@ const STATUS_STYLE: Record<JobStatus, { label: string; badge: string }> = {
     badge: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
   },
   cancelled: { label: "취소됨", badge: "bg-muted text-muted-foreground" },
-}
-
-const STAT_LABELS: Record<JobStatus, string> = {
-  pending: "대기",
-  queued: "큐",
-  running: "진행",
-  done: "완료",
-  error: "실패",
-  cancelled: "취소",
 }
 
 const STATUS_ORDER: Record<JobStatus, number> = {
@@ -857,28 +859,26 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   // ── render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-2">
       {/* 1. Global Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
         {/* Session selector dropdown */}
         <div className="relative">
           <Button
             size="sm"
-            variant="outline"
-            className="gap-1.5"
+            variant="ghost"
+            className="h-7 gap-1.5 px-2 text-xs"
             onClick={() => setSessionPickerOpen((o) => !o)}
           >
             <span
-              className="h-1.5 w-1.5 rounded-full bg-green-500"
+              className="h-1.5 w-1.5 rounded-full bg-ok"
               title="현재 활성 세션"
             />
-            <span className="max-w-40 truncate text-xs">
-              {sessionButtonLabel}
-            </span>
+            <span className="max-w-40 truncate">{sessionButtonLabel}</span>
             {sessionPickerOpen ? (
-              <ChevronUp className="h-3 w-3 shrink-0" />
+              <ChevronUp className="h-3 w-3 shrink-0 text-muted-foreground" />
             ) : (
-              <ChevronDown className="h-3 w-3 shrink-0" />
+              <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
             )}
           </Button>
 
@@ -1072,41 +1072,52 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       </div>
 
       {/* 2. Overview (Stats & Progress) */}
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 text-card-foreground shadow-sm">
-        <div className="grid grid-cols-6 gap-2">
-          {(
-            [
-              "pending",
-              "queued",
-              "running",
-              "done",
-              "error",
-              "cancelled",
-            ] as JobStatus[]
-          ).map((s) => (
-            <div
-              key={s}
-              className="rounded-md bg-muted/30 px-2 py-1.5 text-center"
-            >
-              <div
-                className={`text-lg leading-none font-bold tabular-nums ${STATUS_STYLE[s].badge.split(" ").find((c) => c.startsWith("text-")) ?? "text-foreground"}`}
-              >
-                {counts[s]}
-              </div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                {STAT_LABELS[s]}
-              </div>
-            </div>
-          ))}
+      <div className="flex flex-col border-b border-line bg-panel">
+        <div className="flex items-stretch">
+          <StatCard
+            label="대기"
+            value={counts.pending}
+            color="text-ink-2"
+            faded={counts.pending === 0}
+          />
+          <StatCard
+            label="큐"
+            value={counts.queued}
+            color="text-warn"
+            faded={counts.queued === 0}
+          />
+          <StatCard
+            label="진행"
+            value={counts.running}
+            color="text-info"
+            faded={counts.running === 0}
+          />
+          <StatCard
+            label="완료"
+            value={counts.done}
+            color="text-ok"
+            faded={counts.done === 0}
+          />
+          <StatCard
+            label="실패"
+            value={counts.error}
+            color="text-bad"
+            faded={counts.error === 0}
+          />
+          <StatCard
+            label="취소"
+            value={counts.cancelled}
+            faded={counts.cancelled === 0}
+          />
         </div>
-        <div className="space-y-1.5">
+        <div className="px-3 py-1">
           <div className="flex items-center justify-between text-xs font-medium">
             <span className="text-muted-foreground">
               {paused
                 ? "일시중지됨"
                 : `완료: ${counts.done} / 전체: ${sessionJobs.length}`}
             </span>
-            <span className="tabular-nums">
+            <span className="mono tabular-nums">
               {sessionJobs.length > 0
                 ? Math.round((counts.done / sessionJobs.length) * 100)
                 : 0}
@@ -1119,115 +1130,88 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 ? (counts.done / sessionJobs.length) * 100
                 : 0
             }
-            className="h-2 w-full"
+            className="mt-0.5 h-1 w-full"
           />
         </div>
 
-        {/* Per-job progress card — always visible, content changes */}
+        {/* Per-job progress card — only when running jobs exist */}
         {(() => {
           const runningJobs = sessionJobs.filter((j) => j.status === "running")
-          const j: JobView = runningJobs[0] ?? {
-            id: "",
-            filename: "-",
-            status: "pending",
-            createdAt: 0,
-            progressPercent: 0,
-            currentNodeName: "",
-            completedNodeCount: 0,
-            totalNodeCount: 0,
-            retryCount: 0,
-            imageUrls: [],
-            prompt: "",
-            error: null,
-            executionDurationMs: null,
-            finishedAt: null,
-            startedAt: null,
-            savedImageHashes: [],
-            workerId: null,
-          }
-
+          if (runningJobs.length === 0) return null
+          const j = runningJobs[0]!
           return (
-            <div className="space-y-1 rounded-md bg-muted/20 px-2.5 py-2">
-              <>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-xs">
-                    {j.filename}
-                    {runningJobs.length > 1 && (
-                      <span className="ml-1 text-muted-foreground">
-                        외 {runningJobs.length - 1}개
-                      </span>
-                    )}
-                  </span>
-                  {(() => {
-                    const remaining = j.startedAt
-                      ? estimateRemaining(j.startedAt, j.progressPercent)
-                      : null
-                    return remaining != null ? (
-                      <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
-                        예상 {formatETA(remaining)} 남음
-                      </span>
-                    ) : null
-                  })()}
-                </div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="truncate text-muted-foreground">
-                    {j.currentNodeName
-                      ? `노드: ${j.currentNodeName}`
-                      : j.id
-                        ? "노드 처리 중…"
-                        : "—"}
-                  </span>
-                  <span className="shrink-0 tabular-nums">
-                    {Math.round(j.progressPercent)}%
-                  </span>
-                </div>
-                <Progress value={j.progressPercent} className="h-1.5 w-full" />
-                {
-                  <>
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-muted-foreground">
-                        전체 작업 ({j.completedNodeCount}/{j.totalNodeCount}{" "}
-                        노드)
-                      </span>
-                      <span className="tabular-nums">
-                        {Math.round(
-                          (j.completedNodeCount / j.totalNodeCount) * 100
-                        )}
-                        %
-                      </span>
-                    </div>
-                    <Progress
-                      value={(j.completedNodeCount / j.totalNodeCount) * 100}
-                      className="h-1.5 w-full [&>div]:bg-blue-500"
-                    />
-                  </>
-                }
-              </>
+            <div className="space-y-0.5 border-t border-line px-3.5 py-1">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate font-mono">
+                  {j.filename}
+                  {runningJobs.length > 1 && (
+                    <span className="ml-1 text-muted-foreground">
+                      외 {runningJobs.length - 1}개
+                    </span>
+                  )}
+                </span>
+                {(() => {
+                  const remaining = j.startedAt
+                    ? estimateRemaining(j.startedAt, j.progressPercent)
+                    : null
+                  return remaining != null ? (
+                    <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                      예상 {formatETA(remaining)} 남음
+                    </span>
+                  ) : null
+                })()}
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="truncate text-muted-foreground">
+                  {j.currentNodeName
+                    ? `노드: ${j.currentNodeName}`
+                    : "노드 처리 중…"}
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {Math.round(j.progressPercent)}%
+                </span>
+              </div>
+              <Progress value={j.progressPercent} className="h-1 w-full" />
             </div>
           )
         })()}
       </div>
 
       {/* 3. Table Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Filter tabs */}
         <Tabs
           value={filterTab}
           onValueChange={(v) => setFilterTab(v as FilterTab)}
           className="w-auto"
         >
-          <TabsList className="h-9">
-            <TabsTrigger value="all" className="text-xs">
-              전체 ({sessionJobs.length})
+          <TabsList className="h-7 gap-0 bg-transparent p-0">
+            <TabsTrigger
+              value="all"
+              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+            >
+              전체 <span className="mono ml-0.5">({sessionJobs.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="active" className="text-xs">
-              활성 ({counts.active})
+            <TabsTrigger
+              value="active"
+              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+            >
+              활성 <span className="mono ml-0.5">({counts.active})</span>
             </TabsTrigger>
-            <TabsTrigger value="done" className="text-xs">
-              완료 ({counts.done})
+            <TabsTrigger
+              value="done"
+              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+            >
+              완료 <span className="mono ml-0.5">({counts.done})</span>
             </TabsTrigger>
-            <TabsTrigger value="failed" className="text-xs">
-              실패/취소 ({counts.error + counts.cancelled})
+            <TabsTrigger
+              value="failed"
+              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+            >
+              실패/취소{" "}
+              <span className="mono ml-0.5">
+                ({counts.error + counts.cancelled})
+              </span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -1240,7 +1224,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 size="sm"
                 variant="ghost"
                 onClick={selectAllFailed}
-                className="h-8 text-xs"
+                className="h-6 px-2 text-[11px]"
               >
                 전체 선택
               </Button>
@@ -1248,7 +1232,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 size="sm"
                 variant="ghost"
                 onClick={deselectAll}
-                className="h-8 text-xs"
+                className="h-6 px-2 text-[11px]"
               >
                 선택 해제
               </Button>
@@ -1257,7 +1241,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   size="sm"
                   variant="destructive"
                   onClick={handleDeleteSelected}
-                  className="h-8 text-xs"
+                  className="h-6 px-2 text-[11px]"
                 >
                   선택 삭제 ({selectedForDelete.size})
                 </Button>
@@ -1271,31 +1255,31 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="h-8 w-32 text-xs"
+                className="h-6 w-28 text-[11px]"
               />
               <span className="text-xs text-muted-foreground">~</span>
               <Input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="h-8 w-32 text-xs"
+                className="h-6 w-28 text-[11px]"
               />
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <button
-                className="rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 onClick={() => setQuickDate("1h")}
               >
                 1h
               </button>
               <button
-                className="rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 onClick={() => setQuickDate("today")}
               >
                 오늘
               </button>
               <button
-                className="rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 onClick={() => setQuickDate("24h")}
               >
                 24h
@@ -1327,17 +1311,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
       {/* Job table */}
       <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
-        <Table>
+        <Table className="text-xs">
           <TableHeader>
             <TableRow>
-              {filterTab === "failed" && <TableHead className="w-8" />}
-              <SortableHead
-                label="파일명"
-                sortKey="filename"
-                current={sortKey}
-                dir={sortDir}
-                onSort={toggleSort}
-              />
+              {filterTab === "failed" && <TableHead className="w-6" />}
               <SortableHead
                 label="상태"
                 sortKey="status"
@@ -1345,7 +1322,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 dir={sortDir}
                 onSort={toggleSort}
               />
-              <TableHead>워커</TableHead>
+              <TableHead className="w-20">잡 ID</TableHead>
+              <SortableHead
+                label="파일명"
+                sortKey="filename"
+                current={sortKey}
+                dir={sortDir}
+                onSort={toggleSort}
+              />
+              <TableHead className="w-12 text-center">워커</TableHead>
               <SortableHead
                 label="생성"
                 sortKey="createdAt"
@@ -1360,7 +1345,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 dir={sortDir}
                 onSort={toggleSort}
               />
-              <TableHead className="w-28" />
+              <TableHead className="w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1371,10 +1356,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 j.status === "running"
               const isFailed = j.status === "error" || j.status === "cancelled"
               const dur = jobDuration(j)
-              const statusLabel =
-                j.status === "pending" && j.retryCount > 0
-                  ? `대기 중 (재시도 ${j.retryCount})`
-                  : STATUS_STYLE[j.status].label
               const previewHashes = fetchedImages.get(j.id) ?? []
               const row = (
                 <TableRow
@@ -1390,82 +1371,60 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       />
                     </TableCell>
                   )}
-                  <TableCell className="max-w-35 truncate font-mono text-xs">
-                    {j.filename}
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1">
+                      <StatusPill status={j.status} />
+                      {j.status === "error" && j.error && (
+                        <HoverCard openDelay={200} closeDelay={100}>
+                          <HoverCardTrigger asChild>
+                            <AlertTriangle className="h-3 w-3 shrink-0 cursor-help text-destructive/70" />
+                          </HoverCardTrigger>
+                          <HoverCardContent
+                            side="top"
+                            align="start"
+                            className="max-w-[320px]"
+                          >
+                            <p className="text-xs font-semibold text-destructive">
+                              오류 내용
+                            </p>
+                            <p className="mt-1 max-h-30 overflow-y-auto text-xs break-all whitespace-pre-wrap">
+                              {j.error}
+                            </p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-mono text-[10px] text-muted-foreground">
+                    j_{j.id.slice(-6)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <span className="inline-flex items-center gap-1">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status].badge}`}
-                        >
-                          {statusLabel}
-                        </span>
-                        {j.status === "error" && j.error && (
-                          <HoverCard openDelay={200} closeDelay={100}>
-                            <HoverCardTrigger asChild>
-                              <AlertTriangle className="h-3.5 w-3.5 shrink-0 cursor-help text-destructive/70" />
-                            </HoverCardTrigger>
-                            <HoverCardContent
-                              side="top"
-                              align="start"
-                              className="max-w-[320px]"
-                            >
-                              <p className="text-xs font-semibold text-destructive">
-                                오류 내용
-                              </p>
-                              <p className="mt-1 max-h-30 overflow-y-auto text-xs break-all whitespace-pre-wrap">
-                                {j.error}
-                              </p>
-                            </HoverCardContent>
-                          </HoverCard>
-                        )}
-                      </span>
-                      {j.status === "running" && j.progressPercent > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <Progress
-                            value={j.progressPercent}
-                            className="h-1 flex-1"
-                          />
-                          <span className="w-7 text-right text-[10px] text-muted-foreground tabular-nums">
-                            {Math.round(j.progressPercent)}%
-                          </span>
-                        </div>
-                      )}
-                      {j.status === "running" && j.totalNodeCount > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <Progress
-                            value={
-                              (j.completedNodeCount / j.totalNodeCount) * 100
-                            }
-                            className="h-1 flex-1 [&>div]:bg-blue-500"
-                          />
-                          <span className="w-7 text-right text-[10px] text-blue-500 tabular-nums">
-                            {Math.round(
-                              (j.completedNodeCount / j.totalNodeCount) * 100
-                            )}
-                            %
-                          </span>
-                        </div>
-                      )}
+                    <div className="flex max-w-52 items-center gap-1.5 truncate">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                        style={{
+                          backgroundColor: stringToColor(j.filename),
+                        }}
+                      />
+                      <span className="truncate text-xs">{j.filename}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="w-12 text-center font-mono text-[10px] text-muted-foreground">
                     {j.workerId ?? "—"}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-[10px] text-muted-foreground">
                     {timeAgo(j.createdAt)}
                   </TableCell>
-                  <TableCell className="text-xs tabular-nums">
+                  <TableCell className="w-14 text-[10px] tabular-nums">
                     {dur != null ? formatDuration(dur) : "—"}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-0.5">
                       {isActive && (
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 px-2 text-xs"
+                          className="h-6 px-1.5 text-[11px]"
                           onClick={(e) => handleCancel(e, j.id)}
                         >
                           취소
@@ -1475,7 +1434,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 px-2 text-xs"
+                          className="h-6 px-1.5 text-[11px]"
                           onClick={(e) => handleRetry(e, j.id)}
                         >
                           재시도
@@ -1485,10 +1444,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                           onClick={(e) => handleDeleteOne(e, j.id)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       )}
                     </div>
@@ -1561,27 +1520,26 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       {/* Pagination */}
       {sortedJobs.length > PAGE_SIZE && (
         <div className="flex flex-col items-center gap-2">
-          <Pagination>
-            <PaginationContent>
+          <Pagination className="text-xs">
+            <PaginationContent className="gap-0.5">
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => page > 1 && setPage(page - 1)}
                   aria-disabled={page <= 1}
-                  className={
-                    page <= 1 ? "pointer-events-none opacity-50" : undefined
-                  }
+                  className={`h-7 w-7 p-0 text-xs [&>span]:hidden ${page <= 1 ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
               {pageList.map((p, i) =>
                 p === "…" ? (
                   <PaginationItem key={`e-${i}`}>
-                    <PaginationEllipsis />
+                    <PaginationEllipsis className="h-7 w-7 text-xs" />
                   </PaginationItem>
                 ) : (
                   <PaginationItem key={p}>
                     <PaginationLink
                       isActive={p === page}
                       onClick={() => setPage(p)}
+                      className="h-7 w-7 p-0 text-xs"
                     >
                       {p}
                     </PaginationLink>
@@ -1592,11 +1550,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 <PaginationNext
                   onClick={() => page < totalPages && setPage(page + 1)}
                   aria-disabled={page >= totalPages}
-                  className={
-                    page >= totalPages
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
+                  className={`h-7 w-7 p-0 text-xs [&>span]:hidden ${page >= totalPages ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
             </PaginationContent>
@@ -1622,11 +1576,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             <div className="flex flex-col gap-4">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[selectedJob.status].badge}`}
-                  >
-                    {STATUS_STYLE[selectedJob.status].label}
-                  </span>
+                  <StatusPill status={selectedJob.status} />
                   <span className="font-mono text-xs text-muted-foreground">
                     {selectedJob.id.slice(0, 8)}…
                   </span>
