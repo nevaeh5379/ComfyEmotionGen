@@ -74,7 +74,7 @@ import {
 } from "@/components/ui/context-menu"
 import type { CurationStatus, SavedImage } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
-import { Magnifier } from "./CombinationPicker"
+import { Magnifier } from "./CombinationPickerViews"
 
 type GalleryViewMode = "grid" | "compare"
 
@@ -402,7 +402,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           <div className="flex items-center gap-2">
             <Tabs
               value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as CurationStatus | "all")}
+              onValueChange={(v) =>
+                setStatusFilter(v as CurationStatus | "all")
+              }
             >
               <TabsList>
                 {(
@@ -517,7 +519,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
         {/* ── Collapsible Filters ── */}
         {showFilters && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border bg-muted/10 px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="mt-3 flex animate-in flex-wrap items-center gap-3 rounded-md border bg-muted/10 px-3 py-2 duration-200 fade-in slide-in-from-top-1">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold text-muted-foreground uppercase">
                 검색:
