@@ -23,8 +23,17 @@ import {
   Trash2Icon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   HoverCard,
@@ -1265,18 +1274,24 @@ export const CombinationPicker = memo(function CombinationPicker({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold">템플릿:</span>
-            <select
-              value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="h-9 w-64 rounded-md border bg-background px-3 text-sm font-bold focus:ring-1 focus:ring-ring focus:outline-none"
+            <Select
+              value={selectedTemplateId || "__current__"}
+              onValueChange={(v) =>
+                setSelectedTemplateId(v === "__current__" ? "" : v)
+              }
             >
-              <option value="">현재 편집 중인 탬플릿</option>
-              {savedTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 w-64 font-bold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__current__">현재 편집 중인 탬플릿</SelectItem>
+                {savedTemplates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center gap-3">
             <Tabs value={viewMode} onValueChange={handleTabChange}>
@@ -1348,16 +1363,20 @@ export const CombinationPicker = memo(function CombinationPicker({
               <RefreshCwIcon className="h-4 w-4" />
             </Button>
             <div className="flex items-center gap-1 rounded-md border bg-background p-1">
-              <select
+              <Select
                 value={duplicateStrategy}
-                onChange={(e) =>
-                  setDuplicateStrategy(e.target.value as "hash" | "number")
+                onValueChange={(v) =>
+                  setDuplicateStrategy(v as "hash" | "number")
                 }
-                className="h-7 bg-transparent px-2 text-[10px] font-bold focus:outline-none"
               >
-                <option value="hash">HASH</option>
-                <option value="number">NUM</option>
-              </select>
+                <SelectTrigger className="h-7 w-20 border-0 bg-transparent px-2 text-[10px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hash">HASH</SelectItem>
+                  <SelectItem value="number">NUM</SelectItem>
+                </SelectContent>
+              </Select>
               <LoadingButton
                 size="sm"
                 className="h-7 px-3 text-[10px] font-black"
@@ -1371,24 +1390,26 @@ export const CombinationPicker = memo(function CombinationPicker({
             </div>
           </div>
           <div className="flex items-center gap-3 border-l pl-4">
-            <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
-              <input
-                type="checkbox"
+            <div className="flex cursor-pointer items-center gap-1.5">
+              <Checkbox
+                id="cp-hide-rejected"
                 checked={hideRejected}
-                onChange={(e) => setHideRejected(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(v) => setHideRejected(v === true)}
               />
-              리젝 숨기기
-            </label>
-            <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
-              <input
-                type="checkbox"
+              <Label htmlFor="cp-hide-rejected" className="cursor-pointer text-[11px] font-bold text-muted-foreground">
+                리젝 숨기기
+              </Label>
+            </div>
+            <div className="flex cursor-pointer items-center gap-1.5">
+              <Checkbox
+                id="cp-auto-advance"
                 checked={autoAdvance}
-                onChange={(e) => setAutoAdvance(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(v) => setAutoAdvance(v === true)}
               />
-              자동 다음 이동
-            </label>
+              <Label htmlFor="cp-auto-advance" className="cursor-pointer text-[11px] font-bold text-muted-foreground">
+                자동 다음 이동
+              </Label>
+            </div>
           </div>
           {exportAction.message && (
             <span className="text-xs font-bold text-green-600">
@@ -1468,18 +1489,19 @@ export const CombinationPicker = memo(function CombinationPicker({
               >
                 템플릿 연결 확인
               </LoadingButton>
-              <label className="flex cursor-pointer items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
-                <input
-                  type="checkbox"
+              <div className="flex cursor-pointer items-center gap-1.5">
+                <Checkbox
+                  id="cp-true-orphans"
                   checked={showTrueOrphansOnly}
-                  onChange={(e) => {
-                    setShowTrueOrphansOnly(e.target.checked)
+                  onCheckedChange={(v) => {
+                    setShowTrueOrphansOnly(v === true)
                     setUnassignedSelectedFilenames(new Set())
                   }}
-                  className="rounded"
                 />
-                ⚠ 완전 고아만 보기
-              </label>
+                <Label htmlFor="cp-true-orphans" className="cursor-pointer text-[10px] font-bold text-muted-foreground">
+                  ⚠ 완전 고아만 보기
+                </Label>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1693,19 +1715,21 @@ export const CombinationPicker = memo(function CombinationPicker({
                     </span>
                   </div>
                   {/* 상태 필터 */}
-                  <select
+                  <Select
                     value={statusFilter}
-                    onChange={(e) =>
-                      setStatusFilter(
-                        e.target.value as "all" | "done" | "pending"
-                      )
+                    onValueChange={(v) =>
+                      setStatusFilter(v as "all" | "done" | "pending")
                     }
-                    className="h-7 rounded border bg-background px-2 text-[10px] font-bold focus:ring-1 focus:ring-ring focus:outline-none"
                   >
-                    <option value="all">전체 상태</option>
-                    <option value="done">완료만</option>
-                    <option value="pending">미완료만</option>
-                  </select>
+                    <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">전체 상태</SelectItem>
+                      <SelectItem value="done">완료만</SelectItem>
+                      <SelectItem value="pending">미완료만</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {/* 파일명 필터 */}
                   <div className="relative">
                     <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />

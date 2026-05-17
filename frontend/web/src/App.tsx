@@ -465,8 +465,10 @@ export function App() {
             <div className="h-5 w-px bg-line" />
             <div className="flex items-center gap-1">
               {NAV_TABS.map((tab) => (
-                <button
+                <Button
                   key={tab.id}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setActiveTab(tab.id)}
                   className={`h-7 rounded-[5px] px-3 text-xs font-medium transition-colors ${
                     activeTab === tab.id
@@ -475,7 +477,7 @@ export function App() {
                   }`}
                 >
                   {tab.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -564,14 +566,16 @@ export function App() {
                     </TabsList>
                     <div className="flex items-center gap-2">
                       <div className="flex h-6 items-center overflow-hidden rounded-[3px] border border-line bg-panel">
-                        <button
-                          className="flex h-full w-5 items-center justify-center hover:bg-accent"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-full w-5 rounded-none"
                           onClick={() =>
                             setRepeatCount((c) => Math.max(1, c - 1))
                           }
                         >
                           <MinusIcon className="h-3 w-3" />
-                        </button>
+                        </Button>
                         <input
                           type="number"
                           className="mono h-full w-8 border-x border-line bg-transparent text-center text-[11px] font-semibold outline-none"
@@ -583,12 +587,14 @@ export function App() {
                             )
                           }
                         />
-                        <button
-                          className="flex h-full w-5 items-center justify-center hover:bg-accent"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-full w-5 rounded-none"
                           onClick={() => setRepeatCount((c) => c + 1)}
                         >
                           <PlusIcon className="h-3 w-3" />
-                        </button>
+                        </Button>
                       </div>
                       <Button
                         variant="default"

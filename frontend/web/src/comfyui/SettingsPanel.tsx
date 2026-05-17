@@ -6,6 +6,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import type { AppSettings } from "./useSettings"
 import { WorkerManager } from "./WorkerManager"
@@ -64,20 +71,24 @@ export function SettingsPanel({
         <FieldGroup>
           <Field>
             <FieldLabel>갤러리 페이지당 이미지 수</FieldLabel>
-            <select
-              className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
-              value={settings.imagePageSize}
-              onChange={(e) =>
+            <Select
+              value={String(settings.imagePageSize)}
+              onValueChange={(v) =>
                 updateSetting(
                   "imagePageSize",
-                  Number(e.target.value) as AppSettings["imagePageSize"]
+                  Number(v) as AppSettings["imagePageSize"]
                 )
               }
             >
-              <option value={24}>24장</option>
-              <option value={48}>48장 (기본)</option>
-              <option value={96}>96장</option>
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="24">24장</SelectItem>
+                <SelectItem value="48">48장 (기본)</SelectItem>
+                <SelectItem value="96">96장</SelectItem>
+              </SelectContent>
+            </Select>
             <FieldDescription>
               갤러리 탭의 한 페이지에 표시할 이미지 수입니다.
             </FieldDescription>

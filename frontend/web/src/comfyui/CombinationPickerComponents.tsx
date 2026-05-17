@@ -9,6 +9,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { HoverCardContent } from "@/components/ui/hover-card"
 import {
   ContextMenuContent,
@@ -291,38 +301,47 @@ export function RegenerateDialog({
             >
               ComfyUI 워크플로우 선택
             </Label>
-            <select
-              id="workflow-select"
-              value={selectedWorkflowId}
-              onChange={(e) => {
-                setSelectedWorkflowId(e.target.value)
-              }}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
+            <Select
+              value={selectedWorkflowId || "__none__"}
+              onValueChange={(v) =>
+                setSelectedWorkflowId(v === "__none__" ? "" : v)
+              }
             >
-              <option value="">
-                {selectedWorkflowId
-                  ? "워크플로우 해제"
-                  : "워크플로우 직접 선택"}
-              </option>
-              {savedWorkflows.length > 0 && (
-                <optgroup label="저장된 워크플로우">
-                  {savedWorkflows.map((sw) => (
-                    <option key={sw.id} value={sw.id}>
-                      {sw.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {historicalWorkflows.length > 0 && (
-                <optgroup label="과거 사용 내역 (History)">
-                  {historicalWorkflows.map((hw) => (
-                    <option key={hw.id} value={hw.id}>
-                      {hw.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">
+                  {selectedWorkflowId ? "워크플로우 해제" : "워크플로우 직접 선택"}
+                </SelectItem>
+                {savedWorkflows.length > 0 && (
+                  <>
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>저장된 워크플로우</SelectLabel>
+                      {savedWorkflows.map((sw) => (
+                        <SelectItem key={sw.id} value={sw.id}>
+                          {sw.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </>
+                )}
+                {historicalWorkflows.length > 0 && (
+                  <>
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>과거 사용 내역 (History)</SelectLabel>
+                      {historicalWorkflows.map((hw) => (
+                        <SelectItem key={hw.id} value={hw.id}>
+                          {hw.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
           </div>
 
           {selectedWorkflow && (
@@ -343,32 +362,40 @@ export function RegenerateDialog({
             >
               사용할 템플릿 (CEG Template)
             </Label>
-            <select
-              id="template-select"
+            <Select
               value={selectedTemplate}
-              onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
+              onValueChange={setSelectedTemplate}
             >
-              <optgroup label="현재 환경">
-                <option value={currentCegTemplate}>
-                  현재 편집 중인 템플릿
-                </option>
-                {savedTemplates.map((st) => (
-                  <option key={st.id} value={st.template}>
-                    프리셋: {st.name}
-                  </option>
-                ))}
-              </optgroup>
-              {historicalTemplates.length > 0 && (
-                <optgroup label="과거 사용 내역 (History)">
-                  {historicalTemplates.map((t, i) => (
-                    <option key={i} value={t}>
-                      과거 기록 {i + 1} (길이: {t.length})
-                    </option>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>현재 환경</SelectLabel>
+                  <SelectItem value={currentCegTemplate}>
+                    현재 편집 중인 템플릿
+                  </SelectItem>
+                  {savedTemplates.map((st) => (
+                    <SelectItem key={st.id} value={st.template}>
+                      프리셋: {st.name}
+                    </SelectItem>
                   ))}
-                </optgroup>
-              )}
-            </select>
+                </SelectGroup>
+                {historicalTemplates.length > 0 && (
+                  <>
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>과거 사용 내역 (History)</SelectLabel>
+                      {historicalTemplates.map((t, i) => (
+                        <SelectItem key={i} value={t}>
+                          과거 기록 {i + 1} (길이: {t.length})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
           </div>
 
           {selectedTemplate && !selectedWorkflowId && (

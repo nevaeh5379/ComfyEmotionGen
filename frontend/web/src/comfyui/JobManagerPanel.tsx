@@ -14,8 +14,10 @@ import {
   MoreVertical,
 } from "lucide-react"
 
+import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { DatePicker } from "@/components/ui/date-picker"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +30,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
-import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import {
   Pagination,
@@ -895,12 +896,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   <span className="text-xs font-medium text-muted-foreground">
                     세션 관리
                   </span>
-                  <button
-                    className="rounded px-2 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
                     onClick={createNewSession}
                   >
                     + 새 세션
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Session list */}
@@ -917,8 +920,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                         className={`flex items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-muted/60 ${isSelected ? "bg-muted" : ""}`}
                       >
                         {/* Select/view button */}
-                        <button
-                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        <Button
+                          variant="ghost"
+                          className="flex h-auto min-w-0 flex-1 items-center justify-start gap-2 rounded-none p-0 text-left"
                           onClick={() => {
                             setSelectedId(m.id)
                             setSessionPickerOpen(false)
@@ -959,7 +963,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                               활성
                             </span>
                           )}
-                        </button>
+                        </Button>
 
                         {/* Activate button (only show for non-active) */}
                         {!isActive && (
@@ -978,22 +982,26 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                         )}
 
                         {/* Edit */}
-                        <button
-                          className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-muted hover:text-foreground"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 text-muted-foreground/50"
                           onClick={() => startRename(m)}
                           title="이름 변경"
                         >
                           <Pencil className="h-3 w-3" />
-                        </button>
+                        </Button>
 
                         {/* Delete */}
-                        <button
-                          className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-destructive/20 hover:text-destructive"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 text-muted-foreground/50 hover:bg-destructive/20 hover:text-destructive"
                           onClick={() => deleteSession(m.id)}
                           title="세션 삭제"
                         >
                           <Trash2 className="h-3 w-3" />
-                        </button>
+                        </Button>
 
                         {/* Count */}
                         <span
@@ -1251,39 +1259,45 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="h-6 w-28 text-[11px]"
+              <DatePicker
+                value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
+                onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
+                placeholder="시작일"
+                className="h-6 w-32 text-[11px]"
               />
               <span className="text-xs text-muted-foreground">~</span>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="h-6 w-28 text-[11px]"
+              <DatePicker
+                value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
+                onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
+                placeholder="종료일"
+                className="h-6 w-32 text-[11px]"
               />
             </div>
             <div className="flex items-center gap-0.5">
-              <button
-                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground"
                 onClick={() => setQuickDate("1h")}
               >
                 1h
-              </button>
-              <button
-                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground"
                 onClick={() => setQuickDate("today")}
               >
                 오늘
-              </button>
-              <button
-                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground"
                 onClick={() => setQuickDate("24h")}
               >
                 24h
-              </button>
+              </Button>
             </div>
             {hasDateFilter && (
               <>

@@ -39,6 +39,16 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Pagination,
   PaginationContent,
@@ -409,15 +419,16 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           value={metadataFilter}
           onChange={(e) => setMetadataFilter(e.target.value)}
         />
-        <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
-          <input
-            type="checkbox"
+        <div className="flex cursor-pointer items-center gap-1.5">
+          <Checkbox
+            id="hide-rejected"
             checked={hideRejected}
-            onChange={(e) => setHideRejected(e.target.checked)}
-            className="rounded"
+            onCheckedChange={(v) => setHideRejected(v === true)}
           />
-          리젝 숨기기
-        </label>
+          <Label htmlFor="hide-rejected" className="cursor-pointer text-[11px] font-bold text-muted-foreground">
+            리젝 숨기기
+          </Label>
+        </div>
         <Button
           size="sm"
           variant={groupMode ? "default" : "outline"}
@@ -426,27 +437,24 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           {groupMode ? "그리드 모드" : "그룹 모드"}
         </Button>
         {/* 뷰 모드 토글 */}
-        <div className="flex items-center gap-1 rounded-md border bg-background p-0.5">
-          <Button
-            size="sm"
-            variant={galleryViewMode === "grid" ? "default" : "ghost"}
-            className="h-7 px-2 text-[10px] font-bold"
-            onClick={() => setGalleryViewMode("grid")}
-          >
+        <ToggleGroup
+          type="single"
+          value={galleryViewMode}
+          onValueChange={(v) => v && setGalleryViewMode(v as GalleryViewMode)}
+          variant="outline"
+          spacing={0}
+          className="h-8"
+        >
+          <ToggleGroupItem value="grid" className="h-7 px-2 text-[10px] font-bold">
             <Maximize2Icon className="mr-1 h-3 w-3" />
             그리드
-          </Button>
+          </ToggleGroupItem>
           <HoverCard openDelay={200}>
             <HoverCardTrigger asChild>
-              <Button
-                size="sm"
-                variant={galleryViewMode === "compare" ? "default" : "ghost"}
-                className="h-7 px-2 text-[10px] font-bold"
-                onClick={() => setGalleryViewMode("compare")}
-              >
+              <ToggleGroupItem value="compare" className="h-7 px-2 text-[10px] font-bold">
                 <ColumnsIcon className="mr-1 h-3 w-3" />
                 비교
-              </Button>
+              </ToggleGroupItem>
             </HoverCardTrigger>
             {pinnedHashes.length === 0 && (
               <HoverCardContent
@@ -457,19 +465,21 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               </HoverCardContent>
             )}
           </HoverCard>
-        </div>
+        </ToggleGroup>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-md border bg-background p-1">
-            <select
+            <Select
               value={duplicateStrategy}
-              onChange={(e) =>
-                setDuplicateStrategy(e.target.value as "hash" | "number")
-              }
-              className="h-7 bg-transparent px-2 text-[10px] font-bold focus:outline-none"
+              onValueChange={(v) => setDuplicateStrategy(v as "hash" | "number")}
             >
-              <option value="hash">HASH</option>
-              <option value="number">NUM</option>
-            </select>
+              <SelectTrigger className="h-7 w-20 border-0 bg-transparent px-2 text-[10px] font-bold shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hash">HASH</SelectItem>
+                <SelectItem value="number">NUM</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               size="sm"
               className="h-7 px-3 text-[10px] font-black"
