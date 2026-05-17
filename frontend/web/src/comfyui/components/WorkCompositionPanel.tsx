@@ -71,11 +71,7 @@ export function WorkCompositionPanel({
 
   return (
     <>
-      <div className="flex h-7 items-center border-b border-line px-3 whitespace-nowrap">
-        <span className="text-[9px] font-semibold tracking-wider text-faint uppercase">
-          작업 구성
-        </span>
-      </div>
+
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Tabs defaultValue="ceg" className="flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5">

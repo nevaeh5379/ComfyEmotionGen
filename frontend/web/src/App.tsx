@@ -357,11 +357,8 @@ function AppContent(props: AppContentProps) {
       <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
         <div className="flex items-center justify-between gap-4 px-4 py-2">
           <div className="flex items-center gap-3">
-            <div className="flex h-6 w-6 items-center justify-center rounded-[5px] bg-ink text-[11px] font-bold text-panel">
-              C
-            </div>
             <span className="text-[13px] font-semibold tracking-tight">
-              CEG
+              ComfyEmotionGen
             </span>
             <div className="h-5 w-px bg-line" />
             <div className="flex items-center gap-1">
@@ -464,11 +461,7 @@ function AppContent(props: AppContentProps) {
               defaultSize={65}
               className="flex min-h-0 flex-col overflow-hidden bg-panel"
             >
-              <div className="flex h-9 items-center justify-between border-b border-line bg-panel-2 px-3.5 whitespace-nowrap">
-                <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  결과
-                </span>
-              </div>
+            
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <JobManagerPanel
                   jobs={props.jobs}

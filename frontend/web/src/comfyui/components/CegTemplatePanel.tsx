@@ -69,9 +69,6 @@ export function CegTemplatePanel({
         className="h-full min-h-0 w-full flex-1"
       />
       <div className="flex items-center justify-between border-t border-line px-3 py-1.5">
-        <span className="text-[11px] text-muted-foreground">
-          CEG 탬플릿 DSL 지원
-        </span>
         <SaveInputBar
           key={templateResetKey}
           onSave={onSaveTemplate}
