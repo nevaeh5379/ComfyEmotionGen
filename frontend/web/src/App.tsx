@@ -1,13 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import {
-  MinusIcon,
-  PlusIcon,
-  Code2,
-  EllipsisVertical,
-  Copy,
-  Download,
-  Settings,
-} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,12 +6,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import CodeEditor from "@/components/CodeEditor"
 
 import { useBackend } from "./comfyui/useBackend"
-import { CegTemplatePanel } from "./comfyui/CegTemplatePanel"
-import { SaveInputBar } from "./comfyui/SavedItemsManager"
 import { SavedImagesGallery } from "./comfyui/SavedImagesGallery"
 import { CombinationPicker } from "./comfyui/CombinationPicker"
 import { useSavedTemplates } from "./comfyui/useSavedTemplates"
@@ -41,7 +28,7 @@ import { AxisFilterSheet } from "./comfyui/AxisFilterSheet"
 import { SelectionSheet } from "./comfyui/SelectionSheet"
 import { NameConflictDialog } from "./comfyui/NameConflictDialog"
 import { PresetSelectionDialog } from "./comfyui/PresetSelectionDialog"
-import { NodeMappingSection } from "./comfyui/NodeMappingSection"
+import { WorkCompositionPanel } from "./comfyui/WorkCompositionPanel"
 import type { ObjectInfo } from "./comfyui/renderTypes"
 import { ComfyWorkflowSchema, type NodeMapping } from "./lib/workflow"
 import { buildAutoMappings } from "./lib/workflowUtils"
@@ -51,13 +38,6 @@ import {
   PACKAGE_BACKEND_URL,
 } from "./lib/runtime"
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./components/ui/dropdown-menu"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
@@ -539,322 +519,55 @@ export function App() {
               minSize="360px"
               className="flex min-h-0 flex-col overflow-hidden border-r border-line bg-panel"
             >
-              <div className="flex h-7 items-center border-b border-line px-3 whitespace-nowrap">
-                <span className="text-[9px] font-semibold tracking-wider text-faint uppercase">
-                  작업 구성
-                </span>
-              </div>
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <Tabs
-                  defaultValue="ceg"
-                  className="flex min-h-0 flex-1 flex-col"
-                >
-                  <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5">
-                    <TabsList className="h-6 gap-0 bg-transparent p-0">
-                      <TabsTrigger
-                        value="ceg"
-                        className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
-                      >
-                        CEG 탬플릿
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="workflow"
-                        className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
-                      >
-                        ComfyUI 워크플로우
-                      </TabsTrigger>
-                    </TabsList>
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-6 items-center overflow-hidden rounded-[3px] border border-line bg-panel">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-full w-5 rounded-none"
-                          onClick={() =>
-                            setRepeatCount((c) => Math.max(1, c - 1))
-                          }
-                        >
-                          <MinusIcon className="h-3 w-3" />
-                        </Button>
-                        <input
-                          type="number"
-                          className="mono h-full w-8 border-x border-line bg-transparent text-center text-[11px] font-semibold outline-none"
-                          min={1}
-                          value={repeatCount}
-                          onChange={(e) =>
-                            setRepeatCount(
-                              Math.max(1, Number(e.target.value) || 1)
-                            )
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-full w-5 rounded-none"
-                          onClick={() => setRepeatCount((c) => c + 1)}
-                        >
-                          <PlusIcon className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-6 bg-foreground px-3 text-[11px] font-semibold text-background hover:bg-foreground/90"
-                        onClick={handleRun}
-                        disabled={!canRun}
-                      >
-                        실행
-                        {estimatedRunCount !== null
-                          ? ` (${estimatedRunCount}${repeatCount > 1 ? ` × ${repeatCount}` : ""})`
-                          : ""}
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground"
-                          >
-                            <EllipsisVertical className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            onClick={() => setIsSelectionOpen(true)}
-                            disabled={!canRun}
-                          >
-                            선택 실행
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setIsAxisFilterOpen(true)}
-                          >
-                            축 필터
-                            {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-
-                  <TabsContent
-                    value="ceg"
-                    className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
-                  >
-                    <CegTemplatePanel
-                      cegTemplate={cegTemplate}
-                      setCegTemplate={setCegTemplate}
-                      previewCount={fakeJobQueue.length}
-                      onPreviewOpen={() => setIsSheetOpen(true)}
-                      templateResetKey={templateResetKey}
-                      savedTemplates={savedTemplates}
-                      activeTemplateId={activeTemplateId}
-                      onSaveTemplate={(name) => {
-                        const trimmed = name.trim()
-                        if (savedTemplates.some((t) => t.name === trimmed)) {
-                          setPendingSave({ name: trimmed, type: "template" })
-                          return false
-                        }
-                        const saved = saveTemplate(trimmed, cegTemplate)
-                        setActiveTemplateId(saved.id)
-                        return true
-                      }}
-                      onLoadTemplate={(t) => {
-                        setCegTemplate(t.template)
-                        setActiveTemplateId(t.id)
-                      }}
-                      onDeleteTemplate={(id) => {
-                        if (activeTemplateId === id) setActiveTemplateId(null)
-                        deleteTemplate(id)
-                      }}
-                      onUpdateTemplate={
-                        activeTemplate
-                          ? () => saveTemplate(activeTemplate.name, cegTemplate)
-                          : undefined
-                      }
-                    />
-                  </TabsContent>
-
-                  <TabsContent
-                    value="workflow"
-                    className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
-                  >
-                    <div className="flex min-h-0 flex-1 flex-col">
-                      <div className="flex items-center justify-between border-b border-line px-3 py-1.5">
-                        <div className="flex items-center gap-2">
-                          <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium">
-                            ComfyUI API 워크플로우
-                          </span>
-                          {parsedWorkflow?.success && (
-                            <span className="mono text-[10px] text-muted-foreground">
-                              노드 {Object.keys(parsedWorkflow.data).length}개
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground"
-                            title="복사"
-                            onClick={() =>
-                              navigator.clipboard.writeText(workflowJson)
-                            }
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground"
-                            title="다운로드"
-                            onClick={() => {
-                              const blob = new Blob([workflowJson], {
-                                type: "application/json",
-                              })
-                              const url = URL.createObjectURL(blob)
-                              const a = document.createElement("a")
-                              a.href = url
-                              a.download = "workflow.json"
-                              a.click()
-                              URL.revokeObjectURL(url)
-                            }}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground"
-                            title="그래프 보기"
-                            onClick={() => setIsGraphOpen(true)}
-                          >
-                            <Settings className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      <CodeEditor
-                        language="json"
-                        placeholder="ComfyUI API 워크플로우 입력 칸"
-                        value={workflowJson}
-                        onChange={setWorkflowJson}
-                        minHeight="100px"
-                        maxHeight="280px"
-                        bareWrapper
-                        className="h-full min-h-0 w-full flex-1"
-                      />
-                      <div className="flex items-center justify-end border-t border-line px-3 py-1.5">
-                        <SaveInputBar
-                          key={workflowResetKey}
-                          onSave={(name) => {
-                            const trimmed = name.trim()
-                            if (
-                              savedWorkflows.some((w) => w.name === trimmed)
-                            ) {
-                              setPendingSave({
-                                name: trimmed,
-                                type: "workflow",
-                              })
-                              return false
-                            }
-                            const w = saveWorkflow(trimmed, workflowJson)
-                            setActiveWorkflowId(w.id)
-                            return true
-                          }}
-                          placeholder={
-                            activeWorkflow?.name ?? "워크플로우 이름"
-                          }
-                          saveDisabled={!workflowJson.trim()}
-                          activeName={activeWorkflow?.name}
-                          items={savedWorkflows}
-                          onLoad={loadWorkflowItem}
-                          onDelete={(id) => {
-                            if (activeWorkflowId === id)
-                              setActiveWorkflowId(null)
-                            deleteWorkflow(id)
-                          }}
-                          activeItemId={activeWorkflowId ?? undefined}
-                          onUpdate={() => {
-                            if (activeWorkflow)
-                              saveWorkflow(activeWorkflow.name, workflowJson)
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {parsedWorkflow && !parsedWorkflow.success && (
-                      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-                        workflow 파싱 오류: {parsedWorkflow.error.message}
-                      </div>
-                    )}
-
-                    {parsedWorkflow?.success && (
-                      <NodeMappingSection
-                        nodeMappings={nodeMappings}
-                        setNodeMappings={setNodeMappings}
-                        updateMapping={updateMapping}
-                        handleAutoMap={handleAutoMap}
-                        handleImageUpload={handleImageUpload}
-                        imageUploads={imageUploads}
-                        availableNodeOptions={availableNodeOptions}
-                        parsedWorkflowData={parsedWorkflow.data}
-                        objectInfo={objectInfo}
-                        activeWorkflowId={activeWorkflowId}
-                        savedNodeMappings={savedNodeMappings}
-                        activeNodeMappingPresetId={activeNodeMappingPresetId}
-                        nodeMappingResetKey={nodeMappingResetKey}
-                        savedWorkflows={savedWorkflows}
-                        pendingSaveType={
-                          pendingSave?.type === "nodeMapping"
-                            ? "nodeMapping"
-                            : null
-                        }
-                        onSaveNodeMapping={(name) => {
-                          const trimmed = name.trim()
-                          if (
-                            savedNodeMappings.some((m) => m.name === trimmed)
-                          ) {
-                            setPendingSave({
-                              name: trimmed,
-                              type: "nodeMapping",
-                            })
-                            return false
-                          }
-                          if (activeWorkflowId)
-                            saveMappingPreset(
-                              activeWorkflowId,
-                              trimmed,
-                              nodeMappings
-                            )
-                          return true
-                        }}
-                        onLoadNodeMapping={(m) => {
-                          setNodeMappings(m.mappings)
-                          setActiveNodeMappingPresetId(m.id)
-                        }}
-                        onDeleteNodeMapping={(presetId) => {
-                          if (activeNodeMappingPresetId === presetId)
-                            setActiveNodeMappingPresetId(null)
-                          if (activeWorkflowId)
-                            deleteMappingPreset(activeWorkflowId, presetId)
-                        }}
-                        onUpdateNodeMapping={() => {
-                          if (activeNodeMappingPreset && activeWorkflowId)
-                            saveMappingPreset(
-                              activeWorkflowId,
-                              activeNodeMappingPreset.name,
-                              nodeMappings
-                            )
-                        }}
-                        onPendingNameConflict={(name) =>
-                          setPendingSave({ name, type: "nodeMapping" })
-                        }
-                      />
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </div>
+              <WorkCompositionPanel
+                repeatCount={repeatCount}
+                setRepeatCount={setRepeatCount}
+                handleRun={handleRun}
+                estimatedRunCount={estimatedRunCount}
+                canRun={canRun}
+                onPreviewOpen={() => setIsSheetOpen(true)}
+                onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
+                onSelectionOpen={() => setIsSelectionOpen(true)}
+                hasActiveFilter={hasActiveFilter}
+                cegTemplate={cegTemplate}
+                setCegTemplate={setCegTemplate}
+                previewCount={fakeJobQueue.length}
+                templateResetKey={templateResetKey}
+                savedTemplates={savedTemplates}
+                activeTemplateId={activeTemplateId}
+                setActiveTemplateId={setActiveTemplateId}
+                saveTemplate={saveTemplate}
+                deleteTemplate={deleteTemplate}
+                activeTemplate={activeTemplate}
+                onPendingSave={(name, type) => setPendingSave({ name, type })}
+                workflowJson={workflowJson}
+                setWorkflowJson={setWorkflowJson}
+                parsedWorkflow={parsedWorkflow}
+                workflowResetKey={workflowResetKey}
+                savedWorkflows={savedWorkflows}
+                activeWorkflowId={activeWorkflowId}
+                setActiveWorkflowId={setActiveWorkflowId}
+                saveWorkflow={saveWorkflow}
+                deleteWorkflow={deleteWorkflow}
+                activeWorkflow={activeWorkflow}
+                loadWorkflowItem={loadWorkflowItem}
+                onGraphOpen={() => setIsGraphOpen(true)}
+                nodeMappings={nodeMappings}
+                setNodeMappings={setNodeMappings}
+                updateMapping={updateMapping}
+                handleAutoMap={handleAutoMap}
+                handleImageUpload={handleImageUpload}
+                imageUploads={imageUploads}
+                availableNodeOptions={availableNodeOptions}
+                objectInfo={objectInfo}
+                savedNodeMappings={savedNodeMappings}
+                activeNodeMappingPresetId={activeNodeMappingPresetId}
+                setActiveNodeMappingPresetId={setActiveNodeMappingPresetId}
+                nodeMappingResetKey={nodeMappingResetKey}
+                saveMappingPreset={saveMappingPreset}
+                deleteMappingPreset={deleteMappingPreset}
+                activeNodeMappingPreset={activeNodeMappingPreset}
+              />
             </ResizablePanel>
             <ResizableHandle />
             <ResizablePanel
