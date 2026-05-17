@@ -168,7 +168,7 @@ export function CombinationPickerToolbar({
   return (
     <div
       ref={toolbarRef}
-      className="sticky top-[45px] z-40 shrink-0 border-b border-line bg-panel"
+      className="sticky z-40 shrink-0 border-b border-line bg-panel"
       style={
         { "--toolbar-height": `${toolbarHeight}px` } as React.CSSProperties
       }

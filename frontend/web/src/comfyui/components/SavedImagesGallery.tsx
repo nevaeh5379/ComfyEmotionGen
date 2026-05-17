@@ -397,7 +397,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   return (
     <div className="flex flex-col">
       {/* ── Sticky Toolbar Header ── */}
-      <div className="sticky top-[45px] z-40 shrink-0 border-b border-line bg-panel px-4 py-3">
+      <div className="sticky z-40 shrink-0 border-b border-line bg-panel px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Tabs
