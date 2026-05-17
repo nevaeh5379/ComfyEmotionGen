@@ -80,7 +80,7 @@ export function WorkCompositionPanel({
                 value="ceg"
                 className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
               >
-                CEG 탬플릿
+                CEG 템플릿
               </TabsTrigger>
               <TabsTrigger
                 value="workflow"
@@ -90,18 +90,18 @@ export function WorkCompositionPanel({
               </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
-              <div className="flex h-6 items-center overflow-hidden rounded-[3px] border border-line bg-panel">
+              <div className="flex h-8 items-center overflow-hidden rounded-[4px] border border-line bg-panel shadow-xs">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-full w-5 rounded-none"
+                  className="h-full w-7 rounded-none hover:bg-accent"
                   onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
                 >
-                  <MinusIcon className="h-3 w-3" />
+                  <MinusIcon className="h-3.5 w-3.5" />
                 </Button>
                 <input
                   type="number"
-                  className="mono h-full w-8 border-x border-line bg-transparent text-center text-[11px] font-semibold outline-none"
+                  className="mono h-full w-10 border-x border-line bg-transparent text-center text-[12px] font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   min={1}
                   value={repeatCount}
                   onChange={(e) =>
@@ -111,16 +111,16 @@ export function WorkCompositionPanel({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-full w-5 rounded-none"
+                  className="h-full w-7 rounded-none hover:bg-accent"
                   onClick={() => setRepeatCount((c) => c + 1)}
                 >
-                  <PlusIcon className="h-3 w-3" />
+                  <PlusIcon className="h-3.5 w-3.5" />
                 </Button>
               </div>
               <Button
                 variant="default"
                 size="sm"
-                className="h-6 bg-foreground px-3 text-[11px] font-semibold text-background hover:bg-foreground/90"
+                className="h-8 bg-foreground px-4 text-[12px] font-bold text-background hover:bg-foreground/90 shadow-md active:scale-95 transition-all"
                 onClick={handleRun}
                 disabled={!canRun}
               >

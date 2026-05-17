@@ -354,24 +354,24 @@ function AppContent(props: AppContentProps) {
         props.activeTab === "jobs" ? "h-screen overflow-hidden" : "min-h-screen"
       }`}
     >
-      <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur border-b supports-backdrop-filter:bg-panel/80">
-        <div className="flex items-center justify-between gap-4 px-4 py-2">
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] font-semibold tracking-tight">
+      <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
+        <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+          <div className="flex items-center gap-4">
+            <span className="text-[15px] font-bold tracking-tight bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               ComfyEmotionGen
             </span>
-            <div className="h-5 w-px bg-line" />
-            <div className="flex items-center gap-1">
+            <div className="h-4 w-px bg-line/60" />
+            <div className="flex items-center gap-1.5">
               {NAV_TABS.map((tab) => (
                 <Button
                   key={tab.id}
                   variant="ghost"
                   size="sm"
                   onClick={() => props.setActiveTab(tab.id)}
-                  className={`h-7 rounded-[5px] px-3 text-xs font-medium transition-colors ${
+                  className={`h-8 rounded-[6px] px-3.5 text-[13px] font-semibold transition-all ${
                     props.activeTab === tab.id
-                      ? "border border-line bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/50"
+                      ? "bg-accent text-accent-foreground shadow-xs ring-1 ring-border"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   }`}
                 >
                   {tab.label}
@@ -438,8 +438,8 @@ function AppContent(props: AppContentProps) {
             className="min-h-0 flex-1 overflow-hidden"
           >
             <ResizablePanel
-              defaultSize="35%"
-              minSize="360px"
+              defaultSize={35}
+              minSize={25}
               className="flex min-h-0 flex-col overflow-hidden border-r border-line bg-panel"
             >
               <WorkCompositionPanel

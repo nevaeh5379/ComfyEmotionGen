@@ -168,13 +168,13 @@ export function CombinationPickerToolbar({
   return (
     <div
       ref={toolbarRef}
-      className="sticky z-40 shrink-0 border-t border-line bg-panel"
+      className="sticky z-40 shrink-0 border-t border-line bg-panel shadow-sm"
       style={
         { "--toolbar-height": `${toolbarHeight}px` } as React.CSSProperties
       }
     >
       {/* 메인 툴바: 1 줄 */}
-      <div className="flex flex-nowrap items-center gap-2 px-4 py-1.5 border-b">
+      <div className="flex flex-nowrap items-center gap-3 px-4 py-2 border-b bg-muted/5">
         {/* 템플릿 선택 */}
         <Select
           value={selectedTemplateId || "__current__"}
@@ -182,11 +182,11 @@ export function CombinationPickerToolbar({
             setSelectedTemplateId(v === "__current__" ? "" : v)
           }
         >
-          <SelectTrigger className="h-7 w-44 border-0 bg-transparent font-bold shadow-none focus:ring-0">
+          <SelectTrigger className="h-8 w-52 border-0 bg-transparent font-bold shadow-none focus:ring-0 text-[13px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__current__">현재 편집 중인 탬플릿</SelectItem>
+            <SelectItem value="__current__">현재 편집 중인 템플릿</SelectItem>
             {savedTemplates.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.name}
@@ -194,59 +194,59 @@ export function CombinationPickerToolbar({
             ))}
           </SelectContent>
         </Select>
-<div className="h-4 w-px bg-border" />
+<div className="h-5 w-px bg-border/60" />
         {/* 뷰 모드 탭 */}
         <Tabs value={viewMode} onValueChange={handleTabChange}>
-          <TabsList className="h-7">
+          <TabsList className="h-8 bg-muted/50 p-1 gap-0.5">
             <TabsTrigger
               value="gallery"
-              className="gap-1 px-2.5 text-[10px] font-bold"
+              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
             >
-              <FolderIcon className="h-3 w-3" />
+              <FolderIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
             <TabsTrigger
               value="table"
-              className="gap-1 px-2.5 text-[10px] font-bold"
+              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
             >
-              <LayoutListIcon className="h-3 w-3" />
+              <LayoutListIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
-            <div className="mx-0.5 h-3 w-px bg-muted-foreground/30" />
+            <div className="mx-0.5 h-4 w-px bg-border/60" />
             <TabsTrigger
               value="grid"
-              className="gap-1 px-2.5 text-[10px] font-bold"
+              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
               disabled={!selectedFilename}
             >
-              <Maximize2Icon className="h-3 w-3" />
+              <Maximize2Icon className="h-3.5 w-3.5" />
             </TabsTrigger>
             <TabsTrigger
               value="compare"
-              className="gap-1 px-2.5 text-[10px] font-bold"
+              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
               disabled={!selectedFilename}
             >
-              <ColumnsIcon className="h-3 w-3" />
+              <ColumnsIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
             <TabsTrigger
               value="tournament"
-              className="gap-1 px-2.5 text-[10px] font-bold"
+              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
               disabled={!selectedFilename}
             >
-              <SwordsIcon className="h-3 w-3" />
+              <SwordsIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
           </TabsList>
         </Tabs>
-<div className="h-4 w-px bg-border" />
+<div className="h-5 w-px bg-border/60" />
         {/* 진행률 */}
-        <div className="flex flex-1 items-center gap-2 ">
+        <div className="flex flex-1 items-center gap-3">
           <Progress
             value={(doneCount / renderItemsLength) * 100}
-            className="h-1.5 flex-1"
+            className="h-2 flex-1 bg-muted shadow-inner"
           />
-          <span className="shrink-0 text-[10px] font-bold text-muted-foreground">
-            {doneCount}/{renderItemsLength}
+          <span className="shrink-0 text-[11px] font-bold text-muted-foreground tabular-nums">
+            {doneCount} / {renderItemsLength}
           </span>
         </div>
 
-        <div className="h-4 w-px bg-border" />
+        <div className="h-5 w-px bg-border/60" />
 
         {/* 필터 토글 */}
         <Button
@@ -259,15 +259,15 @@ export function CombinationPickerToolbar({
               : "outline"
           }
           size="sm"
-          className={`h-7 gap-1 px-2 text-[10px] font-bold ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-1 ring-blue-400" : ""}`}
+          className={`h-8 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
           onClick={() => setFiltersExpanded(!filtersExpanded)}
           title="필터"
         >
-          <FilterIcon className="h-3 w-3" />
+          <FilterIcon className="h-3.5 w-3.5" />
           필터
           {(statusFilter !== "all" || filenameFilter || metadataFilter) &&
             !filtersExpanded && (
-              <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <span className="ml-0.5 inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
             )}
         </Button>
 

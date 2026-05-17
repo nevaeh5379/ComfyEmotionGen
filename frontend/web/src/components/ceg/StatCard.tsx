@@ -25,19 +25,19 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "min-w-0 flex-1 border-r border-line px-2 py-1.5 last:border-r-0",
-        faded && "opacity-50",
+        "min-w-0 flex-1 border-r border-line px-5 py-4 last:border-r-0 transition-all duration-200 hover:bg-muted/50 group/stat",
+        faded && "opacity-30",
         className
       )}
     >
-      <div className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-        {Icon && <Icon className="h-3 w-3" />}
+      <div className="flex items-center gap-2.5 text-[10px] font-extrabold tracking-widest text-muted-foreground uppercase opacity-80 group-hover/stat:opacity-100 transition-opacity">
+        {Icon && <Icon className="inline-block h-4 w-4 shrink-0 text-muted-foreground/80" />}
         {label}
       </div>
-      <div className="mt-0.5 flex items-baseline gap-1">
+      <div className="mt-2 flex items-baseline gap-2">
         <div
           className={cn(
-            "mono text-xl leading-none font-semibold tabular-nums",
+            "mono text-3xl leading-none font-black tabular-nums tracking-tighter",
             color
           )}
         >

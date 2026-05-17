@@ -39,48 +39,52 @@ export function CegTemplatePanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-line px-3 py-1.5">
-        <div className="flex items-center gap-2">
-          <FileCode2 className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium">CEG 탬플릿</span>
+      <div className="flex items-center justify-between border-b border-line bg-muted/40 px-4 py-2">
+        <div className="flex items-center gap-2.5">
+          <FileCode2 className="h-4 w-4 text-primary opacity-70" />
+          <span className="text-[13px] font-bold tracking-tight">CEG 템플릿</span>
         </div>
         <div className="flex items-center gap-1">
           {previewCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-muted-foreground"
+              className="h-7 px-2.5 text-xs text-muted-foreground hover:bg-background/80 hover:text-foreground"
               onClick={onPreviewOpen}
               title="미리보기"
             >
-              <Eye className="h-3.5 w-3.5" />
+              <Eye className="h-4 w-4" />
             </Button>
           )}
         </div>
       </div>
-      <CodeEditor
-        language="ceg"
-        placeholder="CEG 탬플릿 입력 칸"
-        value={cegTemplate}
-        onChange={setCegTemplate}
-        minHeight="100px"
-        bareWrapper
-        className="h-full min-h-0 w-full flex-1"
-      />
-      <div className="flex items-center justify-between border-t border-line px-3 py-1.5">
-        <SaveInputBar
-          key={templateResetKey}
-          onSave={onSaveTemplate}
-          placeholder={activeName ?? "탬플릿 이름"}
-          saveDisabled={!cegTemplate.trim()}
-          activeName={activeName}
-          items={savedTemplates}
-          getFilterText={(t) => t.template}
-          onLoad={onLoadTemplate}
-          onDelete={onDeleteTemplate}
-          activeItemId={activeTemplateId ?? undefined}
-          onUpdate={onUpdateTemplate}
+      <div className="flex-1 min-h-0 relative">
+        <CodeEditor
+          language="ceg"
+          placeholder="CEG 템플릿 입력 칸"
+          value={cegTemplate}
+          onChange={setCegTemplate}
+          minHeight="100px"
+          bareWrapper
+          className="h-full w-full"
         />
+      </div>
+      <div className="flex items-center justify-between border-t border-line bg-muted/30 px-3 py-2">
+        <div className="w-full rounded-md border border-line bg-background/50 shadow-xs focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+          <SaveInputBar
+            key={templateResetKey}
+            onSave={onSaveTemplate}
+            placeholder={activeName ?? "템플릿 이름 입력..."}
+            saveDisabled={!cegTemplate.trim()}
+            activeName={activeName}
+            items={savedTemplates}
+            getFilterText={(t) => t.template}
+            onLoad={onLoadTemplate}
+            onDelete={onDeleteTemplate}
+            activeItemId={activeTemplateId ?? undefined}
+            onUpdate={onUpdateTemplate}
+          />
+        </div>
       </div>
     </div>
   )

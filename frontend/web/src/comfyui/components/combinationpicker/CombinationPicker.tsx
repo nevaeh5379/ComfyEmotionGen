@@ -1,6 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyMedia,
+} from "@/components/ui/empty"
+import { AlertTriangleIcon, LayersIcon, Loader2Icon } from "lucide-react"
 import { curationApi } from "../../hooks/useSavedImages"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
 import type { SavedImage } from "../../types/Message"
@@ -660,25 +668,54 @@ export const CombinationPicker = memo(function CombinationPicker({
   // ── Render ──
   if (loading)
     return (
-      <div className="py-20 text-center font-bold text-muted-foreground italic">
-        데이터를 불러오는 중...
+      <div className="flex flex-1 items-center justify-center py-32 bg-muted/5 rounded-lg border border-dashed m-4">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Loader2Icon className="h-10 w-10 animate-spin text-primary opacity-40" />
+          <div className="space-y-1">
+            <p className="text-base font-bold text-foreground">데이터를 불러오는 중입니다</p>
+            <p className="text-sm text-muted-foreground">이미지와 렌더링 정보를 동기화하고 있습니다...</p>
+          </div>
+        </div>
       </div>
     )
 
   if (error)
     return (
-      <div className="py-20 text-center">
-        <p className="mb-4 font-bold text-destructive">{error}</p>
-        <Button onClick={fetchData} className="font-bold">
-          다시 시도
-        </Button>
+      <div className="flex flex-1 items-center justify-center py-20 px-4">
+        <Empty className="max-w-md border-destructive/20 bg-destructive/5 shadow-none">
+          <EmptyMedia variant="icon">
+            <AlertTriangleIcon className="size-10 text-destructive opacity-40" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle className="text-destructive font-bold text-lg">설정 오류 발생</EmptyTitle>
+            <EmptyDescription className="font-medium text-destructive/70">
+              {error}
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={fetchData} variant="outline" className="mt-4 font-bold border-destructive/30 hover:bg-destructive/10 hover:text-destructive transition-all">
+            다시 시도
+          </Button>
+        </Empty>
       </div>
     )
 
   if (renderItems.length === 0)
     return (
-      <div className="py-20 text-center font-bold text-muted-foreground">
-        렌더링된 조합이 없습니다.
+      <div className="flex flex-1 items-center justify-center py-20 px-4">
+        <Empty className="max-w-lg py-20 shadow-none">
+          <EmptyMedia variant="icon">
+            <LayersIcon className="size-12 opacity-10" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle className="text-xl font-black tracking-tight">렌더링된 조합이 없습니다</EmptyTitle>
+            <EmptyDescription className="text-base">
+              '작업' 탭에서 템플릿을 작성하고 실행하면 생성된 이미지들의 조합이 여기에 표시됩니다.
+            </EmptyDescription>
+          </EmptyHeader>
+          <p className="mt-2 text-xs text-muted-foreground/60 italic">
+            Tip: 템플릿의 &#123;&#123;axis&#125;&#125;와 &#123;&#123;combine&#125;&#125; 문법을 확인해주세요.
+          </p>
+        </Empty>
       </div>
     )
 

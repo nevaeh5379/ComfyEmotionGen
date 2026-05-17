@@ -925,7 +925,7 @@ function ImageGrid({
 }: GridProps) {
   if (items.length === 0) return null
   return (
-    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {items.map((img) => {
         const isSelected = selectedHashes.has(img.hash)
         const isPinned = pinnedHashes.includes(img.hash)
@@ -934,14 +934,14 @@ function ImageGrid({
           <ContextMenu key={img.hash}>
             <ContextMenuTrigger>
               <div
-                className={`flex h-full flex-col gap-1 rounded-md border bg-card p-2 ${
-                  isSelected ? "bg-blue-50/30 ring-2 ring-blue-500" : ""
+                className={`flex h-full flex-col gap-2 rounded-lg border bg-card p-2.5 transition-all hover:shadow-md ${
+                  isSelected ? "bg-primary/5 ring-2 ring-primary shadow-lg scale-[1.02]" : ""
                 }`}
               >
                 <div className="relative">
                   <button
                     type="button"
-                    className="block w-full overflow-hidden rounded"
+                    className="block w-full overflow-hidden rounded-md group"
                     onClick={() => {
                       if (isSelected || selectionMode) {
                         onToggleSelect?.(img.hash)
@@ -954,79 +954,82 @@ function ImageGrid({
                       src={`${backendUrl}/saved-images/${img.hash}`}
                       alt={img.originalFilename}
                       loading={imageLazyLoad ? "lazy" : "eager"}
-                      className="aspect-square w-full object-cover"
+                      className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
                     />
                   </button>
 
                   {/* 선택 체크박스 - 항상 표시 */}
                   <div
-                    className="absolute top-1.5 left-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded"
+                    className="absolute top-2 left-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-black/40 backdrop-blur-sm shadow-sm transition-colors hover:bg-black/60"
                     onClick={(e) => {
                       e.stopPropagation()
                       onToggleSelect?.(img.hash)
                     }}
                   >
                     {isSelected ? (
-                      <CheckSquareIcon className="h-5 w-5 text-blue-500 drop-shadow-sm" />
+                      <CheckSquareIcon className="h-5 w-5 text-blue-400 drop-shadow-sm" />
                     ) : isPinned ? (
-                      <PinIcon className="h-5 w-5 text-blue-400 drop-shadow-sm" />
+                      <PinIcon className="h-4 w-4 text-amber-400 drop-shadow-sm" />
                     ) : (
-                      <SquareIcon className="h-5 w-5 text-white/70 drop-shadow-sm" />
+                      <SquareIcon className="h-5 w-5 text-white/60 drop-shadow-sm" />
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 text-xs">
+                <div className="flex items-center gap-1.5 px-0.5">
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_TINT[img.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${STATUS_TINT[img.status]}`}
                   >
                     {STATUS_LABEL[img.status]}
                   </span>
-                  <span className="truncate font-mono">
+                  <span className="truncate font-mono text-[11px] font-semibold text-muted-foreground">
                     {img.originalFilename}
                   </span>
                 </div>
                 {img.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 text-[10px]">
+                  <div className="flex flex-wrap gap-1 px-0.5">
                     {img.tags.map((t) => (
                       <span
                         key={t}
-                        className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground"
+                        className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/80 border border-line/20"
                       >
                         #{t}
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="mt-auto flex items-center justify-between gap-1 pt-1">
+                <div className="mt-auto flex items-center justify-between gap-1.5 pt-2 border-t border-line/40">
                   <Button
                     size="sm"
                     variant={img.status === "approved" ? "default" : "outline"}
-                    className="h-7 px-2 text-xs"
+                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "approved" ? "bg-green-600 hover:bg-green-700" : "text-green-600 hover:bg-green-50 hover:text-green-700 hover:border-green-300"}`}
                     onClick={() => setStatus(img.hash, "approved")}
                   >
-                    ✓
+                    <CheckIcon className="h-3.5 w-3.5" strokeWidth={3} />
+                    통과
                   </Button>
                   <Button
                     size="sm"
-                    variant={img.status === "rejected" ? "default" : "outline"}
-                    className="h-7 px-2 text-xs"
+                    variant={img.status === "rejected" ? "secondary" : "outline"}
+                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "rejected" ? "bg-red-100 text-red-700" : "text-red-500 hover:bg-red-50 hover:text-red-700 hover:border-red-300"}`}
                     onClick={() => setStatus(img.hash, "rejected")}
                   >
-                    ✗
+                    <XIcon className="h-3.5 w-3.5" strokeWidth={3} />
+                    탈락
                   </Button>
                   <Button
                     size="sm"
-                    variant={img.status === "trashed" ? "destructive" : "ghost"}
-                    className="h-7 px-2 text-xs"
+                    variant="ghost"
+                    className={`h-8 w-8 p-0 shrink-0 ${img.status === "trashed" ? "text-destructive bg-destructive/10" : "text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"}`}
                     onClick={() =>
                       setStatus(
                         img.hash,
                         img.status === "trashed" ? "pending" : "trashed"
                       )
                     }
+                    title="휴지통"
                   >
-                    🗑
+                    <Trash2Icon className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

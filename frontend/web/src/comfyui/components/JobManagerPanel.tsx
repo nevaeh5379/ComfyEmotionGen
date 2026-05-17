@@ -13,6 +13,13 @@ import {
   X,
   MoreVertical,
   RefreshCcw,
+  Clock,
+  Layers,
+  Activity,
+  CheckCircle2,
+  AlertCircle,
+  Ban,
+  ClipboardList,
 } from "lucide-react"
 
 import { format } from "date-fns"
@@ -56,6 +63,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyMedia,
+} from "@/components/ui/empty"
 
 import type { JobStatus, JobView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
@@ -1088,35 +1102,41 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             value={counts.pending}
             color="text-ink-2"
             faded={counts.pending === 0}
+            icon={Clock}
           />
           <StatCard
             label="큐"
             value={counts.queued}
             color="text-warn"
             faded={counts.queued === 0}
+            icon={Layers}
           />
           <StatCard
             label="진행"
             value={counts.running}
             color="text-info"
             faded={counts.running === 0}
+            icon={Activity}
           />
           <StatCard
             label="완료"
             value={counts.done}
             color="text-ok"
             faded={counts.done === 0}
+            icon={CheckCircle2}
           />
           <StatCard
             label="실패"
             value={counts.error}
             color="text-bad"
             faded={counts.error === 0}
+            icon={AlertCircle}
           />
           <StatCard
             label="취소"
             value={counts.cancelled}
             faded={counts.cancelled === 0}
+            icon={Ban}
           />
         </div>
         <div className="px-3 py-1">
@@ -1187,38 +1207,38 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       </div>
 
       {/* 3. Table Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 border-b bg-muted/10">
         {/* Filter tabs */}
         <Tabs
           value={filterTab}
           onValueChange={(v) => setFilterTab(v as FilterTab)}
-          className="w-auto pr-4 pl-4"
+          className="w-auto"
         >
-          <TabsList className="h-7 gap-0 bg-transparent p-0">
+          <TabsList className="h-8 gap-0.5 bg-muted/50 p-1">
             <TabsTrigger
               value="all"
-              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+              className="h-6 rounded-[4px] px-2.5 py-1 text-[12px] font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
-              전체 <span className="mono ml-0.5">({sessionJobs.length})</span>
+              전체 <span className="mono ml-1 opacity-60">({sessionJobs.length})</span>
             </TabsTrigger>
             <TabsTrigger
               value="active"
-              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+              className="h-6 rounded-[4px] px-2.5 py-1 text-[12px] font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
-              활성 <span className="mono ml-0.5">({counts.active})</span>
+              활성 <span className="mono ml-1 opacity-60">({counts.active})</span>
             </TabsTrigger>
             <TabsTrigger
               value="done"
-              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+              className="h-6 rounded-[4px] px-2.5 py-1 text-[12px] font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
-              완료 <span className="mono ml-0.5">({counts.done})</span>
+              완료 <span className="mono ml-1 opacity-60">({counts.done})</span>
             </TabsTrigger>
             <TabsTrigger
               value="failed"
-              className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+              className="h-6 rounded-[4px] px-2.5 py-1 text-[12px] font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
               실패/취소{" "}
-              <span className="mono ml-0.5">
+              <span className="mono ml-1 opacity-60">
                 ({counts.error + counts.cancelled})
               </span>
             </TabsTrigger>
@@ -1226,14 +1246,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         </Tabs>
 
         {/* Right side controls (Selection & Date) */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           {filterTab === "failed" && (
             <div className="flex items-center gap-1.5 border-r pr-4">
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={selectAllFailed}
-                className="h-6 px-2 text-[11px]"
+                className="h-7 px-2 text-[11px] font-medium"
               >
                 전체 선택
               </Button>
@@ -1241,7 +1261,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 size="sm"
                 variant="ghost"
                 onClick={deselectAll}
-                className="h-6 px-2 text-[11px]"
+                className="h-7 px-2 text-[11px] font-medium"
               >
                 선택 해제
               </Button>
@@ -1250,7 +1270,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   size="sm"
                   variant="destructive"
                   onClick={handleDeleteSelected}
-                  className="h-6 px-2 text-[11px]"
+                  className="h-7 px-2 text-[11px] font-bold"
                 >
                   선택 삭제 ({selectedForDelete.size})
                 </Button>
@@ -1258,27 +1278,27 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
               <DatePicker
                 value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
                 onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
                 placeholder="시작일"
-                className="h-6 w-32 text-[11px]"
+                className="h-7 w-32 text-[12px]"
               />
-              <span className="text-xs text-muted-foreground">~</span>
+              <span className="text-xs text-muted-foreground opacity-50">~</span>
               <DatePicker
                 value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
                 onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
                 placeholder="종료일"
-                className="h-6 w-32 text-[11px]"
+                className="h-7 w-32 text-[12px]"
               />
             </div>
-            <div className="flex items-center gap-0.5 pr-4 pl-4">
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground"
+                className="h-7 rounded-[4px] px-2 text-[12px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => setQuickDate("1h")}
               >
                 1h
@@ -1286,7 +1306,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground"
+                className="h-7 rounded-[4px] px-2 text-[12px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => setQuickDate("today")}
               >
                 오늘
@@ -1294,7 +1314,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 rounded-[3px] px-1.5 text-[11px] text-muted-foreground"
+                className="h-7 rounded-[4px] px-2 text-[12px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => setQuickDate("24h")}
               >
                 24h
@@ -1325,11 +1345,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       </div>
 
       {/* Job table */}
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border shadow-inner">
         <Table className="text-xs">
-          <TableHeader>
-            <TableRow>
-              {filterTab === "failed" && <TableHead className="w-6" />}
+          <TableHeader className="sticky top-0 z-10 bg-panel/95 backdrop-blur shadow-sm">
+            <TableRow className="hover:bg-transparent">
+              {filterTab === "failed" && <TableHead className="w-8 px-3" />}
               <SortableHead
                 label="상태"
                 sortKey="status"
@@ -1337,7 +1357,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 dir={sortDir}
                 onSort={toggleSort}
               />
-              <TableHead className="w-20">작업 ID</TableHead>
+              <TableHead className="w-24 px-3">작업 ID</TableHead>
               <SortableHead
                 label="파일명"
                 sortKey="filename"
@@ -1345,7 +1365,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 dir={sortDir}
                 onSort={toggleSort}
               />
-              <TableHead className="w-12 text-center">워커</TableHead>
+              <TableHead className="w-16 text-center px-3">워커</TableHead>
               <SortableHead
                 label="생성"
                 sortKey="createdAt"
@@ -1360,7 +1380,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 dir={sortDir}
                 onSort={toggleSort}
               />
-              <TableHead className="w-16" />
+              <TableHead className="w-20 px-3" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1375,20 +1395,20 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               const row = (
                 <TableRow
                   key={j.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer group/row"
                   onClick={() => openDetail(j.id)}
                 >
                   {filterTab === "failed" && (
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-2.5 px-3">
                       <Checkbox
                         checked={selectedForDelete.has(j.id)}
                         onCheckedChange={() => toggleSelectForDelete(j.id)}
                       />
                     </TableCell>
                   )}
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1">
-                      <StatusPill status={j.status} />
+                  <TableCell className="py-2.5 px-3">
+                    <span className="inline-flex items-center gap-1.5">
+                      <StatusPill status={j.status} className="shadow-xs" />
                       {j.status === "error" && j.error && (
                         <HoverCard openDelay={200} closeDelay={100}>
                           <HoverCardTrigger asChild>
@@ -1518,14 +1538,28 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               return row
             })}
             {pagedJobs.length === 0 && (
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={filterTab === "failed" ? 7 : 6}
-                  className="py-8 text-center text-xs text-muted-foreground"
+                  colSpan={filterTab === "failed" ? 8 : 7}
+                  className="h-72 p-0"
                 >
-                  {hasDateFilter
-                    ? "선택한 날짜 범위에 맞는 작업이 없습니다."
-                    : "해당 필터에 맞는 작업이 없습니다."}
+                  <Empty className="border-0 bg-transparent shadow-none">
+                    <EmptyMedia variant="icon">
+                      <ClipboardList className="size-8 opacity-20" />
+                    </EmptyMedia>
+                    <EmptyHeader>
+                      <EmptyTitle className="text-base font-bold">
+                        {hasDateFilter
+                          ? "선택한 날짜 범위에 작업이 없습니다"
+                          : "표시할 작업이 없습니다"}
+                      </EmptyTitle>
+                      <EmptyDescription className="text-xs">
+                        {filterTab === "all"
+                          ? "왼쪽 패널에서 템플릿과 워크플로우를 설정하고 실행 버튼을 눌러보세요."
+                          : "필터 조건을 변경하거나 새로운 작업을 시작해보세요."}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 </TableCell>
               </TableRow>
             )}
