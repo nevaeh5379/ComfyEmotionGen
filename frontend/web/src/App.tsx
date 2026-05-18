@@ -38,14 +38,20 @@ import {
   PACKAGE_BACKEND_URL,
 } from "./lib/runtime"
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
+import {
+  ClipboardList,
+  Image as ImageIcon,
+  Layers,
+  Settings,
+} from "lucide-react"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
 const NAV_TABS = [
-  { id: "jobs", label: "작업" },
-  { id: "gallery", label: "갤러리" },
-  { id: "curation", label: "큐레이션" },
-  { id: "settings", label: "설정" },
+  { id: "jobs", label: "작업", icon: ClipboardList },
+  { id: "gallery", label: "갤러리", icon: ImageIcon },
+  { id: "curation", label: "큐레이션", icon: Layers },
+  { id: "settings", label: "설정", icon: Settings },
 ] as const
 
 type TabId = (typeof NAV_TABS)[number]["id"]
@@ -180,6 +186,8 @@ function AppContent(props: AppContentProps) {
   const template = useTemplateContext()
   const workflow = useWorkflowContext()
   const nodeMapping = useNodeMappingContext()
+
+  const [mobileJobTab, setMobileJobTab] = useState<"editor" | "status" | "list">("editor")
 
   // ── Job Runner (consumes context values) ──
   const {
@@ -351,41 +359,48 @@ function AppContent(props: AppContentProps) {
   return (
     <div
       className={`flex flex-col bg-background ${
-        props.activeTab === "jobs" ? "h-screen overflow-hidden" : "min-h-screen"
+        props.activeTab === "jobs" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
       }`}
     >
       <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
-        <div className="flex items-center justify-between gap-4 px-4 py-2.5">
-          <div className="flex items-center gap-4">
-            <span className="text-[15px] font-bold tracking-tight bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              ComfyEmotionGen
+        <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
+          <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
+            <span className="text-[14px] md:text-[15px] font-black tracking-tighter bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent shrink-0">
+              <span className="md:inline hidden">ComfyEmotionGen</span>
+              <span className="md:hidden inline">CEG</span>
             </span>
-            <div className="h-4 w-px bg-line/60" />
-            <div className="flex items-center gap-1.5">
-              {NAV_TABS.map((tab) => (
-                <Button
-                  key={tab.id}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => props.setActiveTab(tab.id)}
-                  className={`h-8 rounded-[6px] px-3.5 text-[13px] font-semibold transition-all ${
-                    props.activeTab === tab.id
-                      ? "bg-accent text-accent-foreground shadow-xs ring-1 ring-border"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
-                </Button>
-              ))}
+            <div className="h-4 w-px bg-line/60 shrink-0" />
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 px-1">
+              {NAV_TABS.map((tab) => {
+                const Icon = tab.icon
+                return (
+                  <Button
+                    key={tab.id}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => props.setActiveTab(tab.id)}
+                    className={`h-10 rounded-full px-4 text-[13px] font-black transition-all shrink-0 gap-1.5 ${
+                      props.activeTab === tab.id
+                        ? "bg-foreground text-background shadow-lg"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${props.activeTab === tab.id ? "animate-pulse" : "opacity-70"}`} />
+                    <span className={props.activeTab === tab.id ? "" : "hidden sm:inline"}>{tab.label}</span>
+                  </Button>
+                )
+              })}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <ServerStatus
-              name="백엔드"
-              isConnected={props.isAliveBackend && props.backendAlive}
-              okHint="백엔드와 연결되어 있습니다."
-              failHint="백엔드 서버 상태를 확인해주세요."
-            />
+          <div className="flex items-center gap-2 shrink-0 ml-1">
+            <div className="md:block hidden">
+              <ServerStatus
+                name="백엔드"
+                isConnected={props.isAliveBackend && props.backendAlive}
+                okHint="백엔드와 연결되어 있습니다."
+                failHint="백엔드 서버 상태를 확인해주세요."
+              />
+            </div>
             <WorkerStatus
               workers={props.workers}
               backendAlive={props.isAliveBackend}
@@ -433,45 +448,108 @@ function AppContent(props: AppContentProps) {
           </div>
         )}
         {props.activeTab === "jobs" && (
-          <ResizablePanelGroup
-            orientation="horizontal"
-            className="min-h-0 flex-1 overflow-hidden"
-          >
-            <ResizablePanel
-              defaultSize={35}
-              minSize={25}
-              className="flex min-h-0 flex-col overflow-hidden border-r border-line bg-panel"
-            >
-              <WorkCompositionPanel
-                repeatCount={repeatCount}
-                setRepeatCount={setRepeatCount}
-                handleRun={handleRun}
-                estimatedRunCount={estimatedRunCount}
-                canRun={canRun}
-                previewCount={fakeJobQueue.length}
-                onPreviewOpen={() => props.setIsSheetOpen(true)}
-                onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                onSelectionOpen={() => props.setIsSelectionOpen(true)}
-                hasActiveFilter={hasActiveFilter}
-                onGraphOpen={() => props.setIsGraphOpen(true)}
-              />
-            </ResizablePanel>
-            <ResizableHandle />
-            <ResizablePanel
-              defaultSize={65}
-              className="flex min-h-0 flex-col overflow-hidden bg-panel"
-            >
-            
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <JobManagerPanel
-                  jobs={props.jobs}
-                  paused={props.paused}
-                  backendUrl={props.backendUrl}
-                  isAliveBackend={props.isAliveBackend}
-                />
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Mobile Job Sub-tabs (Unified 3-way toggle) */}
+            <div className="flex shrink-0 items-center gap-1 border-b border-line bg-panel/50 p-1 md:hidden">
+              <Button
+                variant={mobileJobTab === "editor" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1 h-9 text-[11px] font-black rounded-lg"
+                onClick={() => setMobileJobTab("editor")}
+              >
+                에디터
+              </Button>
+              <Button
+                variant={mobileJobTab === "status" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1 h-9 text-[11px] font-black rounded-lg"
+                onClick={() => setMobileJobTab("status")}
+              >
+                현황
+              </Button>
+              <Button
+                variant={mobileJobTab === "list" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1 h-9 text-[11px] font-black rounded-lg"
+                onClick={() => setMobileJobTab("list")}
+              >
+                기록 ({props.jobs.length})
+              </Button>
+            </div>
+
+            {/* Desktop: Resizable, Mobile: Single Panel */}
+            <div className="hidden md:contents">
+              <ResizablePanelGroup
+                orientation="horizontal"
+                className="min-h-0 flex-1 overflow-hidden"
+              >
+                <ResizablePanel
+                  defaultSize={35}
+                  minSize={25}
+                  className="min-h-0 flex flex-col overflow-hidden border-r border-line bg-panel"
+                >
+                  <WorkCompositionPanel
+                    repeatCount={repeatCount}
+                    setRepeatCount={setRepeatCount}
+                    handleRun={handleRun}
+                    estimatedRunCount={estimatedRunCount}
+                    canRun={canRun}
+                    previewCount={fakeJobQueue.length}
+                    onPreviewOpen={() => props.setIsSheetOpen(true)}
+                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                    hasActiveFilter={hasActiveFilter}
+                    onGraphOpen={() => props.setIsGraphOpen(true)}
+                  />
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel
+                  defaultSize={65}
+                  className="min-h-0 flex flex-col overflow-hidden bg-panel"
+                >
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <JobManagerPanel
+                      jobs={props.jobs}
+                      paused={props.paused}
+                      backendUrl={props.backendUrl}
+                      isAliveBackend={props.isAliveBackend}
+                    />
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+
+            <div className="flex flex-1 flex-col overflow-hidden md:hidden">
+              {mobileJobTab === "editor" && (
+                <div className="flex-1 overflow-hidden flex flex-col bg-panel pb-20">
+                  <WorkCompositionPanel
+                    repeatCount={repeatCount}
+                    setRepeatCount={setRepeatCount}
+                    handleRun={handleRun}
+                    estimatedRunCount={estimatedRunCount}
+                    canRun={canRun}
+                    previewCount={fakeJobQueue.length}
+                    onPreviewOpen={() => props.setIsSheetOpen(true)}
+                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                    hasActiveFilter={hasActiveFilter}
+                    onGraphOpen={() => props.setIsGraphOpen(true)}
+                  />
+                </div>
+              )}
+              {(mobileJobTab === "status" || mobileJobTab === "list") && (
+                <div className="flex-1 overflow-y-auto bg-panel">
+                  <JobManagerPanel
+                    jobs={props.jobs}
+                    paused={props.paused}
+                    backendUrl={props.backendUrl}
+                    isAliveBackend={props.isAliveBackend}
+                    mobileTab={mobileJobTab}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
 

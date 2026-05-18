@@ -202,7 +202,7 @@ export function TournamentView({
             <span className="text-[10px] text-muted-foreground">A/D 또는 방향키로 선택</span>
         </div>
       </div>
-      <div className="flex w-full flex-1 gap-6 overflow-hidden">
+      <div className="flex w-full flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-6">
         {[left, right].map((img, idx) => (
           <button
             key={img.hash}
@@ -214,8 +214,8 @@ export function TournamentView({
               className="h-full w-full object-contain"
               alt=""
             />
-            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-4 text-center font-bold text-white opacity-0 group-hover:opacity-100">
-              {idx === 0 ? "A: 왼쪽 선택" : "D: 오른쪽 선택"}
+            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-4 text-center font-bold text-white opacity-100 md:opacity-0 md:group-hover:opacity-100">
+              {idx === 0 ? "왼쪽 (또는 위) 선택" : "오른쪽 (또는 아래) 선택"}
             </div>
           </button>
         ))}

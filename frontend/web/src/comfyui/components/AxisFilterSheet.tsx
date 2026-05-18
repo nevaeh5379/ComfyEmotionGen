@@ -47,19 +47,19 @@ export const AxisFilterSheet = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="min-w-[65vw]">
-        <SheetHeader>
+      <SheetContent className="w-full sm:min-w-[65vw] flex flex-col gap-4">
+        <SheetHeader className="px-1">
           <SheetTitle>축 필터</SheetTitle>
-          <SheetDescription>
+          <SheetDescription className="text-xs">
             체크 해제된 값은 실행에서 제외됩니다.
             {estimatedRunCount !== null
-              ? ` 현재 설정 기준 ${estimatedRunCount}개 실행 예정.`
+              ? ` 현재 ${estimatedRunCount}개 실행 예정.`
               : ""}
           </SheetDescription>
         </SheetHeader>
-        <div className="flex h-[65vh] gap-4">
-          <div className="flex w-[35%] flex-col gap-2">
-            <div className="flex items-center justify-end gap-1">
+        <div className="flex flex-1 flex-col gap-4 overflow-hidden md:flex-row md:h-[65vh]">
+          <div className="flex flex-col gap-2 h-1/2 md:h-full md:w-[35%]">
+            <div className="flex flex-wrap items-center justify-end gap-1">
               <Button
                 variant="ghost"
                 size="sm"

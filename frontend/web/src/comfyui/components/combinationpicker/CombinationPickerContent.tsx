@@ -9,6 +9,12 @@ import {
   EmptyMedia,
 } from "@/components/ui/empty"
 import { AlertTriangleIcon, LayersIcon, Loader2Icon, SearchXIcon } from "lucide-react"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { curationApi } from "../../hooks/useSavedImages"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
 import type { SavedImage } from "../../types/Message"
@@ -90,6 +96,7 @@ export const CombinationPickerContent = memo(
     const [viewMode, setViewMode] = useState<ViewMode>("gallery")
     const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
     const [previewHash, setPreviewHash] = useState<string | null>(null)
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
     const bulkRegenAction = useAsyncAction(4000)
 
@@ -597,18 +604,20 @@ export const CombinationPickerContent = memo(
         )}
 
         {/* 메인 레이아웃 */}
-        <div className="flex gap-4">
-          {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출) */}
+        <div className="flex gap-4 min-h-0 flex-1 overflow-hidden">
+          {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출, 모바일에서는 숨김) */}
           {selectedFilename && (
-            <CombinationPickerSidebar
-              selectedFilename={selectedFilename}
-              setSelectedFilename={setSelectedFilename}
-            />
+            <div className="hidden md:flex flex-none">
+              <CombinationPickerSidebar
+                selectedFilename={selectedFilename}
+                setSelectedFilename={setSelectedFilename}
+              />
+            </div>
           )}
 
           {/* 오른쪽: 콘텐츠 영역 */}
           {!selectedFilename ? (
-            <div className="flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
               {filteredRenderItems.length === 0 ? (
                   <div className="flex flex-1 items-center justify-center py-20 px-4">
                     <Empty className="max-w-md py-10 shadow-none border-dashed bg-muted/5">
@@ -681,6 +690,8 @@ export const CombinationPickerContent = memo(
                 onRejectAll={handleRejectAll}
                 onCancelAllRejects={handleCancelAllRejects}
                 onCancelApproval={handleCancelApproval}
+                onNavigate={navigateTo}
+                onOpenList={() => setIsMobileSidebarOpen(true)}
               />
               {viewMode === "tournament" && (
                 <div className="min-h-[700px]">
@@ -696,6 +707,24 @@ export const CombinationPickerContent = memo(
             </>
           )}
         </div>
+
+        {/* 모바일 사이드바 시트 */}
+        <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+          <SheetContent side="left" className="w-[85vw] p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b shrink-0">
+              <SheetTitle>조합 목록</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              <CombinationPickerSidebar
+                selectedFilename={selectedFilename ?? ""}
+                setSelectedFilename={(fn) => {
+                  setSelectedFilename(fn)
+                  setIsMobileSidebarOpen(false)
+                }}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* 이미지 미리보기 팝업 */}
         <ImageViewer

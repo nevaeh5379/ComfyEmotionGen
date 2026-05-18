@@ -125,7 +125,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 
     return (
       <div
-        className="fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg transition-opacity hover:opacity-90"
+        className="fixed left-4 right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg transition-opacity hover:opacity-90 sm:left-auto sm:right-4 sm:w-auto"
         role="button"
         tabIndex={0}
         onClick={() => setExpanded(true)}
@@ -140,18 +140,18 @@ export const JobStatusPopup = memo(function JobStatusPopup({
         <span className="text-xs font-medium tabular-nums">
           {activeJobs.length}개{" "}
           {runningJobs.length > 0 && !paused
-            ? `진행 중 · ${progressStr}`
+            ? `${progressStr}`
             : paused
-              ? "일시중지"
-              : "대기 중"}
+              ? "중지"
+              : "대기"}
         </span>
         {etaRemaining != null && (
           <span className="text-[10px] text-muted-foreground tabular-nums">
-            ETA {formatETA(etaRemaining)}
+            {formatETA(etaRemaining)}
           </span>
         )}
-        <span className="text-[10px] text-muted-foreground">
-          완료 {doneCount}/{allSessionCount} ({overallPercent}%)
+        <span className="text-[10px] text-muted-foreground ml-auto sm:ml-0">
+          {doneCount}/{allSessionCount} ({overallPercent}%)
         </span>
         <Minimize2 className="h-3 w-3 shrink-0 text-muted-foreground" />
       </div>
@@ -161,7 +161,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   // ── expanded panel ─────────────────────────────────────────────────────
 
   return (
-    <div className="fixed right-4 bottom-4 z-50 w-80 rounded-lg border bg-card shadow-xl">
+    <div className="fixed left-4 right-4 bottom-4 z-50 rounded-lg border bg-card shadow-xl sm:left-auto sm:right-4 sm:w-80">
       {/* ── header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between border-b px-3 py-2">
         <div className="flex items-center gap-2">

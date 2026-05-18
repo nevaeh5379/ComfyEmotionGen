@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 import type { RenderItem } from "../types/renderTypes"
 import { itemKey } from "../../lib/workflowUtils"
 
@@ -52,35 +53,39 @@ export const SelectionSheet = ({
   onRunSelected,
 }: SelectionSheetProps) => (
   <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent className="flex min-w-[30vw] flex-col">
-      <SheetHeader>
+    <SheetContent className="flex w-full sm:min-w-[35vw] flex-col gap-4">
+      <SheetHeader className="px-1">
         <SheetTitle>선택 실행</SheetTitle>
-        <SheetDescription>
+        <SheetDescription className="text-xs font-medium text-muted-foreground">
           전체 {fakeJobQueue.length}개 중 {selectedCount}개 선택됨
         </SheetDescription>
       </SheetHeader>
-      <div className="flex items-center gap-2 px-4">
-        <Input
-          type="search"
-          placeholder="filename/prompt 검색..."
-          value={previewFilter}
-          onChange={(e) => onPreviewFilterChange(e.target.value)}
-          className="h-8 flex-1"
-        />
-        <Button variant="ghost" size="sm" onClick={checkAllItems}>
-          전체 선택
-        </Button>
-        <Button variant="ghost" size="sm" onClick={uncheckAllItems}>
-          전체 해제
-        </Button>
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <div className="relative flex-1 min-w-[200px]">
+          <Input
+            type="search"
+            placeholder="filename/prompt 검색..."
+            value={previewFilter}
+            onChange={(e) => onPreviewFilterChange(e.target.value)}
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={checkAllItems} className="h-8 text-xs font-bold">
+            전체 선택
+          </Button>
+          <Button variant="ghost" size="sm" onClick={uncheckAllItems} className="h-8 text-xs font-bold">
+            전체 해제
+          </Button>
+        </div>
       </div>
-      <ScrollArea className="flex-1 overflow-y-auto rounded-md border">
-        <Table>
-          <TableHeader>
+      <ScrollArea className="flex-1 min-h-0 rounded-md border shadow-inner">
+        <Table className="text-xs">
+          <TableHeader className="sticky top-0 z-10 bg-panel/95 backdrop-blur-sm">
             <TableRow>
-              <TableHead className="w-8" />
-              <TableHead>FileName</TableHead>
-              <TableHead>Prompt</TableHead>
+              <TableHead className="w-8 px-2" />
+              <TableHead className="px-2">파일명</TableHead>
+              <TableHead className="px-2">프롬프트</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -89,18 +94,21 @@ export const SelectionSheet = ({
               return (
                 <TableRow
                   key={`sel-${key}-${index}`}
-                  className={!uncheckedItems.has(key) ? "" : "opacity-40"}
+                  className={cn("cursor-pointer transition-opacity", !uncheckedItems.has(key) ? "" : "opacity-40")}
+                  onClick={() => toggleItemCheck(key)}
                 >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell onClick={(e) => e.stopPropagation()} className="px-2 py-3">
                     <Checkbox
                       checked={!uncheckedItems.has(key)}
                       onCheckedChange={() => toggleItemCheck(key)}
                     />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="font-mono text-[11px] font-bold px-2">
                     {item.filename}
                   </TableCell>
-                  <TableCell>{item.prompt}</TableCell>
+                  <TableCell className="px-2 text-muted-foreground line-clamp-1">
+                    {item.prompt}
+                  </TableCell>
                 </TableRow>
               )
             })}
@@ -108,7 +116,7 @@ export const SelectionSheet = ({
               <TableRow>
                 <TableCell
                   colSpan={3}
-                  className="text-center text-xs text-muted-foreground"
+                  className="h-40 text-center text-muted-foreground"
                 >
                   검색 결과가 없습니다.
                 </TableCell>
@@ -118,13 +126,15 @@ export const SelectionSheet = ({
         </Table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      <div className="flex justify-end px-4">
+      <div className="flex justify-end pt-2 border-t mt-auto px-1">
         <Button
           variant="default"
+          size="lg"
           onClick={onRunSelected}
           disabled={!canRun || selectedCount === 0}
+          className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm font-black"
         >
-          실행 ({selectedCount})
+          {selectedCount}개 작업 실행하기
         </Button>
       </div>
     </SheetContent>

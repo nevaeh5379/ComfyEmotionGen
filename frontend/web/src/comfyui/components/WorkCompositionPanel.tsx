@@ -71,25 +71,26 @@ export function WorkCompositionPanel({
 
   return (
     <>
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
         <Tabs defaultValue="ceg" className="flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5">
-            <TabsList className="h-6 gap-0 bg-transparent p-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5 md:py-2 bg-panel/50">
+            <TabsList className="h-8 md:h-7 gap-0.5 bg-transparent p-0">
               <TabsTrigger
                 value="ceg"
-                className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+                className="h-8 md:h-7 rounded-[5px] px-3 md:px-2.5 py-0.5 text-[12px] md:text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none font-bold"
               >
-                CEG 템플릿
+                템플릿
               </TabsTrigger>
               <TabsTrigger
                 value="workflow"
-                className="h-6 rounded-[5px] px-2 py-0.5 text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
+                className="h-8 md:h-7 rounded-[5px] px-3 md:px-2.5 py-0.5 text-[12px] md:text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none font-bold"
               >
-                ComfyUI 워크플로우
+                워크플로우
               </TabsTrigger>
             </TabsList>
-            <div className="flex items-center gap-2">
+
+            {/* Desktop Only Controls (at top) */}
+            <div className="hidden md:flex items-center gap-2">
               <div className="flex h-8 items-center overflow-hidden rounded-[4px] border border-line bg-panel shadow-xs">
                 <Button
                   variant="ghost"
@@ -97,11 +98,11 @@ export function WorkCompositionPanel({
                   className="h-full w-7 rounded-none hover:bg-accent"
                   onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
                 >
-                  <MinusIcon className="h-3.5 w-3.5" />
+                  <MinusIcon className="h-3 w-3" />
                 </Button>
                 <input
                   type="number"
-                  className="mono h-full w-10 border-x border-line bg-transparent text-center text-[12px] font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="mono h-full w-9 border-x border-line bg-transparent text-center text-[11px] font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   min={1}
                   value={repeatCount}
                   onChange={(e) =>
@@ -114,19 +115,19 @@ export function WorkCompositionPanel({
                   className="h-full w-7 rounded-none hover:bg-accent"
                   onClick={() => setRepeatCount((c) => c + 1)}
                 >
-                  <PlusIcon className="h-3.5 w-3.5" />
+                  <PlusIcon className="h-3 w-3" />
                 </Button>
               </div>
               <Button
                 variant="default"
                 size="sm"
-                className="h-8 bg-foreground px-4 text-[12px] font-bold text-background hover:bg-foreground/90 shadow-md active:scale-95 transition-all"
+                className="h-8 bg-foreground px-3 text-[11px] font-bold text-background hover:bg-foreground/90 shadow-md active:scale-95 transition-all"
                 onClick={handleRun}
                 disabled={!canRun}
               >
                 실행
                 {estimatedRunCount !== null
-                  ? ` (${estimatedRunCount}${repeatCount > 1 ? ` × ${repeatCount}` : ""})`
+                  ? ` (${estimatedRunCount}${repeatCount > 1 ? `×${repeatCount}` : ""})`
                   : ""}
               </Button>
               <DropdownMenu>
@@ -134,12 +135,12 @@ export function WorkCompositionPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground"
+                    className="h-8 w-8 p-0 text-muted-foreground"
                   >
                     <EllipsisVertical className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent>
+                <DropdownMenuContent align="end">
                   <DropdownMenuItem
                     onClick={onSelectionOpen}
                     disabled={!canRun}
@@ -151,6 +152,9 @@ export function WorkCompositionPanel({
                     축 필터
                     {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onGraphOpen}>
+                    그래프 보기
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -158,7 +162,7 @@ export function WorkCompositionPanel({
 
           <TabsContent
             value="ceg"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
+            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden pb-16 md:pb-0"
           >
             <CegTemplatePanel
               cegTemplate={template.cegTemplate}
@@ -207,18 +211,18 @@ export function WorkCompositionPanel({
 
           <TabsContent
             value="workflow"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
+            className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden pb-16 md:pb-0"
           >
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center justify-between border-b border-line px-3 py-1.5">
                 <div className="flex items-center gap-2">
                   <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium">
-                    ComfyUI API 워크플로우
+                    워크플로우
                   </span>
                   {workflow.parsedWorkflow?.success && (
                     <span className="mono text-[10px] text-muted-foreground">
-                      노드 {Object.keys(workflow.parsedWorkflow.data).length}개
+                      {Object.keys(workflow.parsedWorkflow.data).length} Nodes
                     </span>
                   )}
                 </div>
@@ -266,7 +270,7 @@ export function WorkCompositionPanel({
               </div>
               <CodeEditor
                 language="json"
-                placeholder="ComfyUI API 워크플로우 입력 칸"
+                placeholder="워크플로우 JSON 입력"
                 value={workflow.workflowJson}
                 onChange={workflow.setWorkflowJson}
                 minHeight="100px"
@@ -397,6 +401,77 @@ export function WorkCompositionPanel({
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Mobile Fixed Bottom Bar */}
+        <div className="fixed bottom-[44px] left-0 right-0 z-30 flex items-center justify-between gap-3 border-t border-line bg-panel/95 backdrop-blur px-4 py-2.5 md:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+          <div className="flex h-11 items-center overflow-hidden rounded-xl border border-line bg-background shadow-sm flex-1 max-w-[140px]">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-full w-12 rounded-none hover:bg-accent active:bg-accent/80"
+              onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
+            >
+              <MinusIcon className="h-5 w-5" />
+            </Button>
+            <input
+              type="number"
+              className="mono h-full flex-1 min-w-0 bg-transparent text-center text-base font-black outline-none [appearance:textfield]"
+              min={1}
+              value={repeatCount}
+              onChange={(e) =>
+                setRepeatCount(Math.max(1, Number(e.target.value) || 1))
+              }
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-full w-12 rounded-none hover:bg-accent active:bg-accent/80"
+              onClick={() => setRepeatCount((c) => c + 1)}
+            >
+              <PlusIcon className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <Button
+            variant="default"
+            size="lg"
+            className="h-11 flex-[2] bg-foreground text-background font-black text-base shadow-lg rounded-xl active:scale-95 transition-all"
+            onClick={handleRun}
+            disabled={!canRun}
+          >
+            작업 실행
+            {estimatedRunCount !== null ? ` (${estimatedRunCount})` : ""}
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-xl border-line"
+              >
+                <EllipsisVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-2">
+              <DropdownMenuItem
+                onClick={onSelectionOpen}
+                disabled={!canRun}
+                className="py-3 font-bold"
+              >
+                선택 실행
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onAxisFilterOpen} className="py-3 font-bold">
+                축 필터 적용
+                {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onGraphOpen} className="py-3 font-bold">
+                그래프 뷰어
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </>
   )

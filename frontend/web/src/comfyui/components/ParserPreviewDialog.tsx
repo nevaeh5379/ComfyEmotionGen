@@ -102,13 +102,13 @@ export const ParserPreviewDialog = ({
                       !wouldRun ? "opacity-30 grayscale italic" : "hover:bg-accent/30"
                     )}
                   >
-                    <TableCell className="font-mono text-[11px] font-bold align-top py-2.5 px-3">
+                    <TableCell className="font-mono text-xs font-black align-top py-3.5 px-3">
                       <div className="break-all whitespace-pre-wrap leading-relaxed text-foreground">
                         {renderedFilename}
                       </div>
                     </TableCell>
-                    <TableCell className="align-top py-2.5 px-3">
-                      <div className="line-clamp-3 group-hover:line-clamp-none text-muted-foreground group-hover:text-foreground transition-all leading-normal font-mono text-[11px]">
+                    <TableCell className="align-top py-3.5 px-3">
+                      <div className="line-clamp-4 group-hover:line-clamp-none text-muted-foreground group-hover:text-foreground transition-all leading-snug font-mono text-[11px] font-medium">
                         {substitute(item.prompt, item)}
                       </div>
                     </TableCell>

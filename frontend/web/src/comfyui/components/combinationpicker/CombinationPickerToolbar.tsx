@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import { cn } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -149,8 +150,8 @@ export function CombinationPickerToolbar({
         { "--toolbar-height": `${toolbarHeight}px` } as React.CSSProperties
       }
     >
-      {/* 메인 툴바: 1 줄 */}
-      <div className="flex flex-nowrap items-center gap-3 px-4 py-2 border-b bg-muted/5">
+      {/* 메인 툴바: 1 줄 (모바일에서는 줄바꿈 허용) */}
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 px-4 py-2 border-b bg-muted/5">
         {/* 템플릿 선택 */}
         <Select
           value={selectedTemplateId || "__current__"}
@@ -158,7 +159,7 @@ export function CombinationPickerToolbar({
             setSelectedTemplateId(v === "__current__" ? "" : v)
           }
         >
-          <SelectTrigger className="h-8 w-52 border-0 bg-transparent font-bold shadow-none focus:ring-0 text-[13px]">
+          <SelectTrigger className="h-8 w-full sm:w-48 border-0 bg-transparent font-bold shadow-none focus:ring-0 text-[12px] sm:text-[13px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -170,141 +171,160 @@ export function CombinationPickerToolbar({
             ))}
           </SelectContent>
         </Select>
-<div className="h-5 w-px bg-border/60" />
+
+        <div className="hidden h-5 w-px bg-border/60 sm:block" />
+
         {/* 뷰 모드 탭 */}
-        <Tabs value={viewMode} onValueChange={handleTabChange}>
-          <TabsList className="h-8 bg-muted/50 p-1 gap-0.5">
+        <Tabs value={viewMode} onValueChange={handleTabChange} className="w-full sm:w-auto">
+          <TabsList className="h-8 w-full sm:w-auto bg-muted/50 p-1 gap-0.5 justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger
               value="gallery"
-              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
+              className="flex-1 sm:flex-none gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
             >
               <FolderIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
             <TabsTrigger
               value="table"
-              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
+              className="flex-1 sm:flex-none gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
             >
               <LayoutListIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
-            <div className="mx-0.5 h-4 w-px bg-border/60" />
+            <div className="mx-0.5 h-4 w-px bg-border/60 hidden sm:block" />
             <TabsTrigger
               value="grid"
-              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
+              className="flex-1 sm:flex-none gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
               disabled={!selectedFilename}
             >
               <Maximize2Icon className="h-3.5 w-3.5" />
             </TabsTrigger>
             <TabsTrigger
               value="compare"
-              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
+              className="flex-1 sm:flex-none gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
               disabled={!selectedFilename}
             >
               <ColumnsIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
             <TabsTrigger
               value="tournament"
-              className="gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
+              className="flex-1 sm:flex-none gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background"
               disabled={!selectedFilename}
             >
               <SwordsIcon className="h-3.5 w-3.5" />
             </TabsTrigger>
           </TabsList>
         </Tabs>
-<div className="h-5 w-px bg-border/60" />
-        {/* 진행률 */}
-        <div className="flex flex-1 items-center gap-3">
+
+        <div className="hidden h-5 w-px bg-border/60 md:block" />
+
+        {/* 진행률 (모바일에서는 바 숨기고 %만) */}
+        <div className="flex flex-1 items-center justify-end gap-2 md:justify-start md:gap-3">
           <Progress
             value={(doneCount / renderItems.length) * 100}
-            className="h-2 flex-1 bg-muted shadow-inner"
+            className="hidden h-1.5 w-24 bg-muted shadow-inner md:block md:flex-1"
           />
-          <span className="shrink-0 text-[11px] font-bold text-muted-foreground tabular-nums">
-            {doneCount} / {renderItems.length}
+          <span className="shrink-0 text-[11px] font-black text-foreground/70 tabular-nums">
+            {Math.round((doneCount / renderItems.length) * 100)}%
+            <span className="hidden xs:inline ml-1 opacity-50">({doneCount}/{renderItems.length})</span>
           </span>
         </div>
 
-        <div className="h-5 w-px bg-border/60" />
+        <div className="hidden h-5 w-px bg-border/60 xs:block" />
 
-        {/* 필터 토글 */}
-        <Button
-          variant={
-            filtersExpanded ||
-            statusFilter !== "all" ||
-            filenameFilter ||
-            metadataFilter
-              ? "secondary"
-              : "outline"
-          }
-          size="sm"
-          className={`h-8 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-          onClick={() => setFiltersExpanded(!filtersExpanded)}
-          title="필터"
-        >
-          <FilterIcon className="h-3.5 w-3.5" />
-          필터
-          {(statusFilter !== "all" || filenameFilter || metadataFilter) &&
-            !filtersExpanded && (
-              <span className="ml-0.5 inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-            )}
-        </Button>
+        {/* 액션 및 설정 그룹 */}
+        <div className="flex items-center gap-1.5 ml-auto md:ml-0">
+          {/* 필터 토글 */}
+          <Button
+            variant={
+              filtersExpanded ||
+              statusFilter !== "all" ||
+              filenameFilter ||
+              metadataFilter
+                ? "secondary"
+                : "outline"
+            }
+            size="sm"
+            className={`h-9 md:h-8 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all shrink-0 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+            title="필터"
+          >
+            <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+            <span className="hidden sm:inline">필터</span>
+          </Button>
 
-        {/* 설정 드롭다운 */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1 px-3 text-[10px] font-bold"
-              title="설정"
-            >
-              <Settings2Icon className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>설정</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={fetchData}>
-              <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
-              새로고침
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              checked={hideRejected}
-              onCheckedChange={(v) => setHideRejected(v)}
-            >
-              리젝 숨기기
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={autoAdvance}
-              onCheckedChange={(v) => setAutoAdvance(v)}
-            >
-              자동 다음 이동
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuSeparator />
-            {/* 중복 전략 */}
-            <DropdownMenuLabel>중복 전략</DropdownMenuLabel>
-            <DropdownMenuItem
-              className={duplicateStrategy === "hash" ? "bg-accent" : ""}
-              onClick={() => setDuplicateStrategy("hash")}
-            >
-              HASH
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className={duplicateStrategy === "number" ? "bg-accent" : ""}
-              onClick={() => setDuplicateStrategy("number")}
-            >
-              NUM
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {unassignedGroupsSize > 0 && (
-              <DropdownMenuItem
-                onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
+          {/* 설정 드롭다운 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 md:h-8 md:w-auto md:gap-1 md:px-2.5 text-[10px] font-bold"
+                title="설정"
               >
-                <AlertTriangleIcon className="mr-2 h-3.5 w-3.5 text-amber-600" />
-                미할당: {unassignedGroupsSize}파일 ({unassignedTotalCount}장)
+                <Settings2Icon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs">설정</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={fetchData} className="py-2.5 md:py-1.5">
+                <RefreshCwIcon className="mr-2 h-4 w-4 md:h-3.5 md:w-3.5" />
+                새로고침
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={hideRejected}
+                onCheckedChange={(v) => setHideRejected(v)}
+                className="py-2.5 md:py-1.5"
+              >
+                리젝 숨기기
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={autoAdvance}
+                onCheckedChange={(v) => setAutoAdvance(v)}
+                className="py-2.5 md:py-1.5"
+              >
+                자동 다음 이동
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              {/* 중복 전략 */}
+              <DropdownMenuLabel className="text-xs">중복 전략</DropdownMenuLabel>
+              <DropdownMenuItem
+                className={cn("py-2.5 md:py-1.5", duplicateStrategy === "hash" ? "bg-accent" : "")}
+                onClick={() => setDuplicateStrategy("hash")}
+              >
+                HASH
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={cn("py-2.5 md:py-1.5", duplicateStrategy === "number" ? "bg-accent" : "")}
+                onClick={() => setDuplicateStrategy("number")}
+              >
+                NUM
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {unassignedGroupsSize > 0 && (
+                <DropdownMenuItem
+                  onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
+                  className="py-2.5 md:py-1.5"
+                >
+                  <AlertTriangleIcon className="mr-2 h-4 w-4 md:h-3.5 md:w-3.5 text-amber-600" />
+                  미할당: {unassignedGroupsSize}파일 ({unassignedTotalCount}장)
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* EXPORT 버튼 */}
+          <LoadingButton
+            size="sm"
+            className="h-9 px-3 md:h-8 md:px-2.5 text-[11px] font-black"
+            onClick={handleExport}
+            isLoading={exportActionIsLoading}
+            disabled={doneCount === 0}
+            icon={DownloadIcon}
+          >
+            <span className="hidden sm:inline ml-1 text-xs">내보내기</span>
+          </LoadingButton>
+        </div>
 
         {/* 선택 모드 (인라인) */}
         {selectionMode && (
@@ -332,41 +352,34 @@ export function CombinationPickerToolbar({
                 <XIcon className="h-2.5 w-2.5" />
               </Button>
             </div>
-            {bulkRegenActionMessage && (
-              <span className="text-[10px] font-bold text-blue-600">
-                {bulkRegenActionMessage}
-              </span>
-            )}
           </>
-        )}
-
-        {/* EXPORT 버튼 */}
-        <LoadingButton
-          size="sm"
-          className="h-7 px-3 text-[10px] font-black"
-          onClick={handleExport}
-          isLoading={exportActionIsLoading}
-          disabled={doneCount === 0}
-          icon={DownloadIcon}
-        >
-        </LoadingButton>
-
-        {/* 메시지 */}
-        {exportActionMessage && (
-          <span className="text-[10px] font-bold text-green-600">
-            {exportActionMessage}
-          </span>
-        )}
-        {regenActionMessage && (
-          <span className="text-[10px] font-bold text-blue-600">
-            {regenActionMessage}
-          </span>
         )}
       </div>
 
+      {/* 메시지 영역 (툴바 아래 고정 높이 방지 위해 절대 위치 지양) */}
+      {(exportActionMessage || regenActionMessage || bulkRegenActionMessage) && (
+        <div className="bg-muted/10 px-4 py-1 text-center border-b">
+          {exportActionMessage && (
+            <span className="text-[10px] font-bold text-green-600">
+              {exportActionMessage}
+            </span>
+          )}
+          {regenActionMessage && (
+            <span className="text-[10px] font-bold text-blue-600">
+              {regenActionMessage}
+            </span>
+          )}
+          {bulkRegenActionMessage && (
+            <span className="text-[10px] font-bold text-blue-600">
+              {bulkRegenActionMessage}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* 필터 바 (접이식) */}
       {filtersExpanded && (
-        <div className="flex flex-wrap items-center gap-3 border-t border-dashed px-3 py-2">
+        <div className="flex flex-wrap items-center gap-3 border-t border-dashed px-4 py-3 bg-muted/5">
           {/* 상태 필터 */}
           <Select
             value={statusFilter}
@@ -374,7 +387,7 @@ export function CombinationPickerToolbar({
               withExpand(setStatusFilter, v as "all" | "done" | "pending")
             }
           >
-            <SelectTrigger className="h-7 w-28 text-[10px] font-bold">
+            <SelectTrigger className="h-9 md:h-7 w-full md:w-28 text-sm md:text-[10px] font-bold">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -384,44 +397,46 @@ export function CombinationPickerToolbar({
             </SelectContent>
           </Select>
           {/* 파일명 필터 */}
-          <div className="relative">
-            <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative w-full md:w-auto">
+            <SearchIcon className="absolute top-1/2 left-2.5 h-4 w-4 md:h-3 md:w-3 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
               placeholder="파일명 검색..."
               value={filenameFilter}
               onChange={(e) => withExpand(setFilenameFilter, e.target.value)}
-              className="h-7 w-40 pl-7 text-[10px] font-bold"
+              className="h-9 md:h-7 w-full md:w-40 pl-8 text-sm md:text-[10px] font-bold"
             />
           </div>
           {/* 메타데이터 필터 */}
-          <div className="relative">
-            <SearchIcon className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative w-full md:w-auto">
+            <SearchIcon className="absolute top-1/2 left-2.5 h-4 w-4 md:h-3 md:w-3 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
               placeholder="메타데이터 검색..."
               value={metadataFilter}
               onChange={(e) => withExpand(setMetadataFilter, e.target.value)}
-              className="h-7 w-44 pl-7 text-[10px] font-bold"
+              className="h-9 md:h-7 w-full md:w-44 pl-8 text-sm md:text-[10px] font-bold"
             />
           </div>
           {/* 필터 초기화 버튼 */}
-          {(statusFilter !== "all" || filenameFilter || metadataFilter) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-[10px] font-bold text-muted-foreground"
-              onClick={() => {
-                setStatusFilter("all")
-                setFilenameFilter("")
-                setMetadataFilter("")
-              }}
-            >
-              <XIcon className="mr-1 h-3 w-3" /> 초기화
-            </Button>
-          )}
-          <div className="ml-auto text-[10px] font-bold text-muted-foreground">
-            {filteredRenderItems.length} / {renderItems.length}개
+          <div className="flex w-full items-center justify-between mt-1 md:mt-0 md:w-auto">
+            {(statusFilter !== "all" || filenameFilter || metadataFilter) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 md:h-7 text-xs md:text-[10px] font-bold text-muted-foreground hover:text-foreground active:bg-muted"
+                onClick={() => {
+                  setStatusFilter("all")
+                  setFilenameFilter("")
+                  setMetadataFilter("")
+                }}
+              >
+                <XIcon className="mr-1.5 h-4 w-4 md:h-3 md:w-3" /> 초기화
+              </Button>
+            )}
+            <div className="ml-auto text-[11px] font-black text-muted-foreground tabular-nums">
+              {filteredRenderItems.length} / {renderItems.length}
+            </div>
           </div>
         </div>
       )}

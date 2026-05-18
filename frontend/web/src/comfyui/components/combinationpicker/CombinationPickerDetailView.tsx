@@ -7,6 +7,9 @@ import {
   XIcon,
   PinIcon,
   PinOffIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  LayoutListIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -54,6 +57,8 @@ interface DetailViewProps {
   onRejectAll: () => void
   onCancelAllRejects: () => void
   onCancelApproval: () => void
+  onNavigate: (dir: "prev" | "next") => void
+  onOpenList?: () => void
 }
 
 export function CombinationPickerDetailView({
@@ -71,6 +76,8 @@ export function CombinationPickerDetailView({
   onRejectAll,
   onCancelAllRejects,
   onCancelApproval,
+  onNavigate,
+  onOpenList,
 }: DetailViewProps) {
   const { backendUrl, enableHover, data } = useCurationContext()
   const { setStatus, imagesByFilename, renderItems } = data
@@ -104,33 +111,128 @@ export function CombinationPickerDetailView({
 
   const colClass =
     visibleImages.length <= 2
-      ? "grid-cols-2"
+      ? "grid-cols-1 sm:grid-cols-2"
       : visibleImages.length <= 6
-        ? "grid-cols-3"
-        : "grid-cols-4"
+        ? "grid-cols-2 sm:grid-cols-3"
+        : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
 
   return (
-    <div className="flex min-h-[700px] min-w-0 flex-1 flex-col">
-      {/* 상세 헤더 (1 줄 통합) */}
-      <div className="flex-none border-b bg-muted/10 py-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onBack}
-            className="h-6 w-6 shrink-0 p-0 px-4"
-          >
-            <ArrowLeftIcon className="h-2.5 w-2.5" />
-          </Button>
-          <span className="truncate font-mono text-[11px] font-bold">
-            {selectedFilename}
-          </span>
-          <MetaTags meta={selectedItem?.meta || {}} variant="default"  />
-          <div className="ml-auto flex items-center gap-1.5">
-            
+    <div className="flex min-h-[700px] min-w-0 flex-1 flex-col pb-20 md:pb-0">
+      {/* 상세 헤더 (모바일 2단 / 데스크탑 1단) */}
+      <div className="flex-none border-b bg-muted/10 p-2 md:py-1.5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:flex-nowrap md:gap-3">
+          {/* 컨트롤 영역 (모바일: 첫 줄 / 데스크탑: 좌측) */}
+          <div className="flex items-center justify-between md:justify-start md:gap-2">
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBack}
+                className="h-9 w-9 shrink-0 md:h-7 md:w-7"
+              >
+                <ArrowLeftIcon className="h-5 w-5 md:h-3 md:w-3" />
+              </Button>
+            <div className="flex items-center bg-muted/60 rounded-lg p-0.5 border border-line shadow-inner">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0 hover:bg-background/80 active:bg-background"
+                onClick={() => onNavigate("prev")}
+                title="이전 조합 (K)"
+              >
+                <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
+              </Button>
+              {onOpenList && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 md:hidden border-x border-line/50 rounded-none hover:bg-background/80 active:bg-background"
+                  onClick={onOpenList}
+                  title="조합 목록 보기"
+                >
+                  <LayoutListIcon className="h-4.5 w-4.5 text-primary" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0 hover:bg-background/80 active:bg-background"
+                onClick={() => onNavigate("next")}
+                title="다음 조합 (J)"
+              >
+                <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
+              </Button>
+            </div>
+            </div>
+
+            {/* 작업 버튼들 (모바일: 첫 줄 우측 / 데스크탑: 우측 끝으로 이동됨) */}
+            <div className="flex items-center gap-1.5 md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 w-9">
+                    <Settings2Icon className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem
+                    onClick={onRejectAll}
+                    disabled={
+                      !selectedImages.some(
+                        (img) =>
+                          img.status !== "approved" && img.status !== "rejected"
+                      )
+                    }
+                    className="py-3"
+                  >
+                    <XIcon className="mr-2 h-4 w-4 text-red-500" />
+                    모두 리젝
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={onCancelAllRejects}
+                    disabled={
+                      !selectedImages.some((img) => img.status === "rejected")
+                    }
+                    className="py-3"
+                  >
+                    <RefreshCwIcon className="mr-2 h-4 w-4" />
+                    리젝 취소
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onCancelApproval}
+                    disabled={!hasApproved(selectedImages)}
+                    className="py-3"
+                  >
+                    <XIcon className="mr-2 h-4 w-4 text-amber-600" />
+                    선택 취소
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <LoadingButton
+                size="sm"
+                className="h-9 w-9"
+                onClick={() => selectedFilename && onRegenerate(selectedFilename)}
+                isLoading={regenActionIsLoading}
+                icon={RefreshCwIcon}
+              ></LoadingButton>
+            </div>
+          </div>
+          
+          {/* 정보 영역 (모바일: 둘째 줄 / 데스크탑: 중앙) */}
+          <div className="flex flex-1 items-center gap-2 min-w-0 overflow-hidden md:gap-3">
+            <span className="truncate font-mono text-[13px] md:text-[11px] font-black text-foreground">
+              {selectedFilename}
+            </span>
+            <div className="flex-1 overflow-x-auto no-scrollbar">
+              <MetaTags meta={selectedItem?.meta || {}} variant="compact" />
+            </div>
+          </div>
+
+          {/* 데스크탑 전용 우측 버튼 영역 */}
+          <div className="hidden md:flex items-center gap-1.5 ml-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-6 w-6 p-0 px-4">
+                <Button variant="outline" size="sm" className="h-7 w-7 md:h-6 md:w-6 p-0 px-4">
                   <Settings2Icon className="h-2.5 w-2.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -168,7 +270,7 @@ export function CombinationPickerDetailView({
             </DropdownMenu>
             <LoadingButton
               size="sm"
-              className="h-6 w-6 p-0 px-4"
+              className="h-7 w-7 md:h-6 md:w-6 p-0 px-4"
               onClick={() => selectedFilename && onRegenerate(selectedFilename)}
               isLoading={regenActionIsLoading}
               icon={RefreshCwIcon}
@@ -178,9 +280,9 @@ export function CombinationPickerDetailView({
       </div>
 
       {/* 이미지 뷰어 */}
-      <div className="relative py-1">
+      <div className="relative p-2 md:py-1">
         {visibleImages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
+          <div className="flex h-64 flex-col items-center justify-center space-y-4 text-muted-foreground">
             <Maximize2Icon className="h-10 w-10 opacity-20" />
             <p className="text-sm font-bold">생성된 이미지가 없습니다</p>
             <Button
@@ -193,7 +295,7 @@ export function CombinationPickerDetailView({
             </Button>
           </div>
         ) : viewMode === "grid" ? (
-          <div className={`grid gap-4 ${colClass}`}>
+          <div className={`grid gap-3 sm:gap-4 ${colClass}`}>
             {visibleImages.map((img, idx) => {
               const isSelected = img.hash === selectedApprovedHash
               const isRejected = img.status === "rejected"
@@ -202,7 +304,7 @@ export function CombinationPickerDetailView({
 
               return (
                 <ContextMenu key={img.hash}>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <ContextMenuTrigger asChild>
                       <HoverCard
                         openDelay={enableHover ? 400 : 99999}
@@ -212,12 +314,12 @@ export function CombinationPickerDetailView({
                           <button
                             onClick={() => onSetPreviewHash(img.hash)}
                             onFocus={() => setFocusedIdx(idx)}
-                            className={`group relative overflow-hidden rounded-lg transition-all ${
+                            className={`group relative overflow-hidden rounded-xl transition-all ${
                               isSelected
                                 ? "scale-[0.98] shadow-lg ring-4 ring-green-500"
                                 : isRejected
                                   ? "opacity-30 hover:opacity-100"
-                                  : "shadow-sm hover:-translate-y-1 hover:ring-2 hover:ring-primary/40"
+                                  : "shadow-sm hover:ring-2 hover:ring-primary/40 md:hover:-translate-y-1"
                             } ${isFocused ? "ring-4 ring-blue-500 ring-offset-2" : ""}`}
                           >
                             <ImageWithSkeleton
@@ -226,16 +328,16 @@ export function CombinationPickerDetailView({
                             <button
                               type="button"
                               onClick={(e) => onTogglePin(img.hash, e)}
-                              className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-0 group-hover:opacity-100"}`}
+                              className={`absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors md:h-7 md:w-7 ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
                             >
                               {isPinned ? (
-                                <PinIcon className="h-4 w-4" />
+                                <PinIcon className="h-5 w-5 md:h-4 md:w-4" />
                               ) : (
-                                <PinOffIcon className="h-4 w-4" />
+                                <PinOffIcon className="h-5 w-5 md:h-4 md:w-4" />
                               )}
                             </button>
                             {idx < 9 && (
-                              <span className="absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded bg-black/40 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm group-hover:opacity-100">
+                              <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded bg-black/40 text-[11px] font-bold text-white backdrop-blur-sm opacity-100 md:opacity-0 md:group-hover:opacity-100">
                                 {idx + 1}
                               </span>
                             )}
@@ -243,7 +345,7 @@ export function CombinationPickerDetailView({
                               <div className="absolute inset-0 flex items-center justify-center bg-green-500/10">
                                 <div className="rounded-full bg-green-500 p-2 text-white shadow-2xl">
                                   <CheckIcon
-                                    className="h-8 w-8"
+                                    className="h-10 w-10 md:h-8 md:w-8"
                                     strokeWidth={4}
                                   />
                                 </div>
@@ -253,7 +355,7 @@ export function CombinationPickerDetailView({
                         </HoverCardTrigger>
                         {enableHover && (
                           <HoverCardContent
-                            className="w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md"
+                            className="hidden md:block w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md"
                             side="right"
                           >
                             <div className="mb-2 border-b pb-2 font-black tracking-widest text-primary uppercase">
@@ -265,50 +367,52 @@ export function CombinationPickerDetailView({
                       </HoverCard>
                     </ContextMenuTrigger>
 
-                    {/* 선택하기 버튼 */}
-                    {!isSelected && !isRejected && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={`h-7 w-full gap-1 border-green-300 text-[10px] font-bold text-green-600 hover:bg-green-50 hover:text-green-700 ${isFocused ? "bg-green-50 ring-2 ring-green-500" : ""}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSelectImage(selectedFilename, img.hash)
-                        }}
-                      >
-                        <CheckIcon className="h-3 w-3" />
-                        선택
-                      </Button>
-                    )}
-                    {isSelected && (
-                      <div className="flex h-7 items-center justify-center rounded bg-green-100 text-[10px] font-bold text-green-700">
-                        <CheckIcon className="mr-1 h-3 w-3" />
-                        선택됨
-                      </div>
-                    )}
-                    {isRejected && (
-                      <div className="flex h-7 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">
-                        <XIcon className="mr-1 h-3 w-3" />
-                        리젝됨
-                      </div>
-                    )}
+                    {/* 선택하기 버튼 (모바일에서 크게) */}
+                    <div className="px-0.5">
+                      {!isSelected && !isRejected && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`h-10 w-full gap-1.5 border-green-300 text-xs font-bold text-green-600 active:bg-green-100 md:h-7 md:text-[10px] ${isFocused ? "bg-green-50 ring-2 ring-green-500" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectImage(selectedFilename, img.hash)
+                          }}
+                        >
+                          <CheckIcon className="h-4 w-4 md:h-3 md:w-3" />
+                          선택
+                        </Button>
+                      )}
+                      {isSelected && (
+                        <div className="flex h-10 items-center justify-center rounded-lg bg-green-100 text-xs font-bold text-green-700 md:h-7 md:text-[10px]">
+                          <CheckIcon className="mr-1.5 h-4 w-4 md:h-3 md:w-3" />
+                          선택됨
+                        </div>
+                      )}
+                      {isRejected && (
+                        <div className="flex h-10 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground md:h-7 md:text-[10px]">
+                          <XIcon className="mr-1.5 h-4 w-4 md:h-3 md:w-3" />
+                          리젝됨
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <ContextMenuContent className="w-40">
+                  <ContextMenuContent className="w-44">
                     {isSelected ? (
                       <ContextMenuItem onClick={onCancelApproval}>
-                        <XIcon className="h-3.5 w-3.5" /> 선택 취소
+                        <XIcon className="h-4 w-4" /> 선택 취소
                       </ContextMenuItem>
                     ) : isRejected ? (
                       <ContextMenuItem
                         onClick={() => setStatus(img.hash, "pending")}
                       >
-                        <RefreshCwIcon className="h-3.5 w-3.5" /> 리젝 취소
+                        <RefreshCwIcon className="h-4 w-4" /> 리젝 취소
                       </ContextMenuItem>
                     ) : (
                       <ContextMenuItem
                         onClick={() => setStatus(img.hash, "rejected")}
                       >
-                        <XIcon className="h-3.5 w-3.5" /> 리젝
+                        <XIcon className="h-4 w-4" /> 리젝
                       </ContextMenuItem>
                     )}
                   </ContextMenuContent>
@@ -318,17 +422,17 @@ export function CombinationPickerDetailView({
           </div>
         ) : viewMode === "compare" ? (
           <div
-            className={`grid h-full gap-3 ${pinnedHashes.length === 1 ? "grid-cols-1" : pinnedHashes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+            className={`grid gap-4 ${pinnedHashes.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"}`}
           >
             {pinnedHashes.map((hash) => (
               <div
                 key={hash}
-                className="relative flex h-full overflow-hidden rounded-lg border bg-black/5 shadow-inner"
+                className="relative flex min-h-[300px] overflow-hidden rounded-xl border bg-black/5 shadow-inner"
               >
                 <button
                   type="button"
                   onClick={(e) => onTogglePin(hash, e)}
-                  className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+                  className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
                 >
                   <PinIcon className="h-5 w-5" />
                 </button>

@@ -130,7 +130,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   }
 
   const inner = (
-    <div className="flex w-full items-center gap-1.5">
+    <div className="flex w-full items-center gap-2">
       <Input
         placeholder={placeholder}
         value={name}
@@ -148,14 +148,14 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
         }}
         onKeyDown={handleKeyDown}
         ref={inputRef}
-        className="h-7 border-0 bg-transparent shadow-none focus-visible:ring-0"
+        className="h-9 md:h-7 border-0 bg-transparent shadow-none focus-visible:ring-0 text-sm"
       />
       <Button
         variant="default"
         size="sm"
         disabled={!canSave}
         onClick={handleSave}
-        className="h-6 shrink-0 bg-foreground px-3 text-[11px] font-semibold text-background hover:bg-foreground/90"
+        className="h-8 md:h-6 shrink-0 bg-foreground px-4 md:px-3 text-[12px] md:text-[11px] font-bold text-background hover:bg-foreground/90 rounded-full md:rounded-md"
         title={
           hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
         }
@@ -264,10 +264,10 @@ export function SavedItemsList<T extends SaveableItem>({
         return (
           <div
             key={item.id}
-            className={`flex items-center gap-2 rounded px-1 ${isActive ? "bg-primary/10" : ""}`}
+            className={`flex items-center gap-2 rounded px-1.5 py-1 md:py-0.5 ${isActive ? "bg-primary/10" : ""}`}
           >
             <button
-              className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${isActive ? "font-semibold" : ""}`}
+              className={`min-w-0 flex-1 truncate text-left text-sm py-2 md:py-1 hover:underline ${isActive ? "font-semibold text-primary" : ""}`}
               onClick={() => onLoad(item)}
               title="불러오기"
             >

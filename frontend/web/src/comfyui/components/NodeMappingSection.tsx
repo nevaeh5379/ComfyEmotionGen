@@ -190,15 +190,15 @@ export const NodeMappingSection = ({
                     const upload = imageUploads[`${m.nodeId}.${m.inputKey}`]
                     return (
                       <TableRow key={m.id}>
-                        <TableCell>
-                          <div className="text-xs font-medium">
+                        <TableCell className="py-3 px-2">
+                          <div className="text-[11px] font-bold">
                             {node?._meta?.title || "Untitled"}
                           </div>
-                          <div className="font-mono text-xs text-muted-foreground">
+                          <div className="font-mono text-[10px] text-muted-foreground opacity-70">
                             #{m.nodeId} · {m.inputKey}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-3 px-1">
                           <Select
                             value={m.sourceType}
                             onValueChange={(val) =>
@@ -207,7 +207,7 @@ export const NodeMappingSection = ({
                               })
                             }
                           >
-                            <SelectTrigger className="h-6 w-24 text-xs">
+                            <SelectTrigger className="h-9 md:h-7 w-20 md:w-24 text-[11px] font-medium">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -223,9 +223,9 @@ export const NodeMappingSection = ({
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-3 px-1">
                           {m.sourceType === "seed" && (
-                            <InputGroup className="w-32">
+                            <InputGroup className="w-28 md:w-32 h-9 md:h-7">
                               <InputGroupInput
                                 type="number"
                                 value={m.seedValue ?? 0}
@@ -237,6 +237,7 @@ export const NodeMappingSection = ({
                                   })
                                 }
                                 disabled={m.seedRandom}
+                                className="text-[11px]"
                               />
                               <InputGroupAddon align="inline-end">
                                 <InputGroupButton
@@ -264,7 +265,7 @@ export const NodeMappingSection = ({
                           )}
                           {m.sourceType === "image" && (
                             <div className="flex items-center gap-2">
-                              <label className="inline-flex h-6 cursor-pointer items-center rounded-[3px] border border-line bg-panel px-2 text-[11px] hover:bg-accent hover:text-accent-foreground">
+                              <label className="inline-flex h-9 md:h-7 cursor-pointer items-center rounded-lg border border-line bg-panel px-3 text-[11px] font-bold hover:bg-accent active:bg-accent/80">
                                 파일 선택
                                 <input
                                   type="file"
@@ -278,18 +279,13 @@ export const NodeMappingSection = ({
                                 />
                               </label>
                               {upload?.uploading && (
-                                <span className="text-xs text-muted-foreground">
-                                  업로드 중...
+                                <span className="text-[10px] text-muted-foreground animate-pulse">
+                                  ...
                                 </span>
                               )}
                               {upload?.uploadedName && (
-                                <span className="text-xs text-green-600">
-                                  ✓ {upload.uploadedName}
-                                </span>
-                              )}
-                              {upload?.error && (
-                                <span className="text-xs text-destructive">
-                                  {upload.error}
+                                <span className="text-[10px] text-green-600 font-bold">
+                                  OK
                                 </span>
                               )}
                             </div>
@@ -302,7 +298,7 @@ export const NodeMappingSection = ({
                                   updateMapping(m.id, { fixedValue: val })
                                 }
                               >
-                                <SelectTrigger className="h-6 w-28 text-xs">
+                                <SelectTrigger className="h-9 md:h-7 w-24 md:w-28 text-[11px]">
                                   <SelectValue placeholder="선택..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -321,16 +317,16 @@ export const NodeMappingSection = ({
                                     fixedValue: e.target.value,
                                   })
                                 }
-                                className="h-6 w-28 text-xs"
+                                className="h-9 md:h-7 w-24 md:w-28 text-[11px]"
                                 placeholder="값 입력"
                               />
                             ))}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="py-3 px-1 text-right">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive active:bg-destructive/10"
                             onClick={() =>
                               setNodeMappings((prev) =>
                                 prev.filter((x) => x.id !== m.id)
