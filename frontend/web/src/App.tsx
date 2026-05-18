@@ -55,6 +55,31 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import {
+  FilterIcon,
+  MoreVertical,
+  RefreshCwIcon,
+  DownloadIcon,
+  Trash2Icon,
+} from "lucide-react"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
@@ -208,6 +233,30 @@ function AppContent(props: AppContentProps) {
   const [mobileJobTab, setMobileJobTab] = useState<
     "editor" | "status" | "list"
   >("editor")
+
+  // ── Gallery toolbar state (lifted for nav bar rendering) ──
+  const [galleryStatusFilter, setGalleryStatusFilter] = useState<
+    "pending" | "approved" | "rejected" | "trashed" | "all"
+  >("pending")
+  const [galleryViewMode, setGalleryViewMode] = useState<"grid" | "compare">(
+    "grid"
+  )
+  const [galleryGroupMode, setGalleryGroupMode] = useState(false)
+  const [galleryShowFilters, setGalleryShowFilters] = useState(false)
+  const [galleryHideRejected, setGalleryHideRejected] = useState(false)
+  const [galleryFilenameFilter, setGalleryFilenameFilter] = useState("")
+  const [galleryTagFilter, setGalleryTagFilter] = useState("")
+  const [galleryMetadataFilter, setGalleryMetadataFilter] = useState("")
+  const [_galleryDuplicateStrategy, setGalleryDuplicateStrategy] = useState<
+    "hash" | "number"
+  >("hash")
+
+  const galleryHasAnyFilter = !!(
+    galleryFilenameFilter.trim() ||
+    galleryTagFilter.trim() ||
+    galleryMetadataFilter.trim() ||
+    galleryHideRejected
+  )
 
   // ── Job Runner (consumes context values) ──
   const {
@@ -387,63 +436,7 @@ function AppContent(props: AppContentProps) {
       <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
         <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
           <div className="flex items-center gap-2 overflow-hidden md:gap-4">
-            <span className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]">
-              <span className="hidden md:inline">ComfyEmotionGen</span>
-              <span className="inline md:hidden">CEG</span>
-            </span>
-            <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-            {/* Desktop tabs */}
-            <div className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex">
-              {NAV_TABS.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <Button
-                    key={tab.id}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => props.setActiveTab(tab.id)}
-                    className={`h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
-                      props.activeTab === tab.id
-                        ? "bg-foreground text-background shadow-lg"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    }`}
-                  >
-                    <Icon
-                      className={`h-4 w-4 ${props.activeTab === tab.id ? "animate-pulse" : "opacity-70"}`}
-                    />
-                    <span
-                      className={
-                        props.activeTab === tab.id ? "" : "hidden sm:inline"
-                      }
-                    >
-                      {tab.label}
-                    </span>
-                  </Button>
-                )
-              })}
-            </div>
-            {/* Mobile composition tabs (jobs only) */}
-            {props.activeTab === "jobs" && (
-              <div className="flex items-center gap-0.5 md:hidden">
-                {[
-                  { id: "ceg" as const, label: "템플릿" },
-                  { id: "workflow" as const, label: "워크플로우" },
-                ].map((tab) => (
-                  <Button
-                    key={tab.id}
-                    variant={
-                      props.compositionTab === tab.id ? "secondary" : "ghost"
-                    }
-                    size="sm"
-                    className="h-8 rounded-full px-2.5 text-[11px] font-bold"
-                    onClick={() => props.setCompositionTab(tab.id)}
-                  >
-                    {tab.label}
-                  </Button>
-                ))}
-              </div>
-            )}
-            {/* Mobile hamburger */}
+            {/* Mobile hamburger (left side) */}
             <Sheet>
               <SheetTrigger asChild>
                 <Button
@@ -549,22 +542,276 @@ function AppContent(props: AppContentProps) {
                 </div>
               </SheetContent>
             </Sheet>
-          </div>
-          <div className="ml-1 flex shrink-0 items-center gap-2">
-            <div className="hidden md:block">
-              <ServerStatus
-                name="백엔드"
-                isConnected={props.isAliveBackend && props.backendAlive}
-                okHint="백엔드와 연결되어 있습니다."
-                failHint="백엔드 서버 상태를 확인해주세요."
-              />
+            <span className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]">
+              <span className="hidden md:inline">ComfyEmotionGen</span>
+            </span>
+            <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
+            {/* Desktop tabs */}
+            <div className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex">
+              {NAV_TABS.map((tab) => {
+                const Icon = tab.icon
+                return (
+                  <Button
+                    key={tab.id}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => props.setActiveTab(tab.id)}
+                    className={`h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
+                      props.activeTab === tab.id
+                        ? "bg-foreground text-background shadow-lg"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    }`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 ${props.activeTab === tab.id ? "animate-pulse" : "opacity-70"}`}
+                    />
+                    <span
+                      className={
+                        props.activeTab === tab.id ? "" : "hidden sm:inline"
+                      }
+                    >
+                      {tab.label}
+                    </span>
+                  </Button>
+                )
+              })}
             </div>
+            {/* Mobile composition tabs (jobs only) */}
+            {props.activeTab === "jobs" && (
+              <div className="flex items-center gap-0.5 md:hidden">
+                {[
+                  { id: "ceg" as const, label: "템플릿" },
+                  { id: "workflow" as const, label: "워크플로우" },
+                ].map((tab) => (
+                  <Button
+                    key={tab.id}
+                    variant={
+                      props.compositionTab === tab.id ? "secondary" : "ghost"
+                    }
+                    size="sm"
+                    className="h-8 rounded-full px-2.5 text-[11px] font-bold"
+                    onClick={() => props.setCompositionTab(tab.id)}
+                  >
+                    {tab.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {/* Gallery toolbar (merged into nav) */}
+            {props.activeTab === "gallery" && (
+              <div className="flex items-center gap-1.5">
+                <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
+                <Select
+                  value={galleryStatusFilter}
+                  onValueChange={(v: string) => {
+                    setGalleryStatusFilter(
+                      v as
+                        | "pending"
+                        | "approved"
+                        | "rejected"
+                        | "trashed"
+                        | "all"
+                    )
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-[70px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      [
+                        "all",
+                        "pending",
+                        "approved",
+                        "rejected",
+                        "trashed",
+                      ] as const
+                    ).map((s) => (
+                      <SelectItem
+                        key={s}
+                        value={s}
+                        className="text-[12px] font-bold"
+                      >
+                        {s === "all"
+                          ? "전체"
+                          : s === "pending"
+                            ? "대기"
+                            : s === "approved"
+                              ? "통과"
+                              : s === "rejected"
+                                ? "탈락"
+                                : "휴지통"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={galleryGroupMode ? "group" : galleryViewMode}
+                  onValueChange={(v) => {
+                    if (v === "group") {
+                      setGalleryGroupMode(true)
+                    } else {
+                      setGalleryGroupMode(false)
+                      setGalleryViewMode(v as "grid" | "compare")
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-[60px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="group" className="text-[12px] font-bold">
+                      그룹
+                    </SelectItem>
+                    <SelectItem value="grid" className="text-[12px] font-bold">
+                      그리드
+                    </SelectItem>
+                    <SelectItem
+                      value="compare"
+                      className="text-[12px] font-bold"
+                    >
+                      비교
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  size="sm"
+                  variant={galleryShowFilters ? "secondary" : "outline"}
+                  onClick={() => setGalleryShowFilters(!galleryShowFilters)}
+                  className="relative h-7 w-7 p-0"
+                >
+                  <FilterIcon className="h-3.5 w-3.5" />
+                  {galleryHasAnyFilter && (
+                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary"></span>
+                    </span>
+                  )}
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-7 w-7 p-0">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[180px]">
+                    <DropdownMenuLabel className="text-[11px] font-bold">
+                      내보내기
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onClick={() => setGalleryDuplicateStrategy("hash")}
+                      className="text-[12px] font-bold"
+                    >
+                      <DownloadIcon className="mr-2 h-3.5 w-3.5" />
+                      HASH 기반
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setGalleryDuplicateStrategy("number")}
+                      className="text-[12px] font-bold"
+                    >
+                      <DownloadIcon className="mr-2 h-3.5 w-3.5" />
+                      NUM 기반
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => {}}>
+                      <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
+                      새로고침
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                      <Trash2Icon className="mr-2 h-3.5 w-3.5" />
+                      휴지통 비우기
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </div>
+          <div className="ml-1 hidden shrink-0 items-center gap-2 md:flex">
+            <ServerStatus
+              name="백엔드"
+              isConnected={props.isAliveBackend && props.backendAlive}
+              okHint="백엔드와 연결되어 있습니다."
+              failHint="백엔드 서버 상태를 확인해주세요."
+            />
             <WorkerStatus
               workers={props.workers}
               backendAlive={props.isAliveBackend}
             />
           </div>
         </div>
+
+        {/* Collapsible Filters (gallery only) */}
+        {props.activeTab === "gallery" && galleryShowFilters && (
+          <div className="border-t border-line/60 bg-panel/80 px-3 py-2 md:px-4 md:py-2.5">
+            <div className="flex animate-in flex-col gap-3 duration-200 fade-in slide-in-from-top-1 md:flex-row md:items-center">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase">
+                  검색
+                </span>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:items-center">
+                  <Input
+                    className="h-7 w-full text-xs"
+                    type="search"
+                    placeholder="파일명 필터"
+                    value={galleryFilenameFilter}
+                    onChange={(e) => setGalleryFilenameFilter(e.target.value)}
+                  />
+                  <Input
+                    className="h-7 w-full text-xs"
+                    type="search"
+                    placeholder="태그 필터"
+                    value={galleryTagFilter}
+                    onChange={(e) => setGalleryTagFilter(e.target.value)}
+                  />
+                  <Input
+                    className="h-7 w-full text-xs"
+                    type="search"
+                    placeholder="메타데이터/prompt 검색"
+                    value={galleryMetadataFilter}
+                    onChange={(e) => setGalleryMetadataFilter(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="hidden h-4 w-px bg-line md:block" />
+
+              <div className="flex items-center justify-between border-t border-line/40 pt-2 md:border-0 md:pt-0">
+                <div className="flex cursor-pointer items-center gap-2">
+                  <Checkbox
+                    id="gallery-hide-rejected"
+                    checked={galleryHideRejected}
+                    onCheckedChange={(v) => setGalleryHideRejected(v === true)}
+                  />
+                  <Label
+                    htmlFor="gallery-hide-rejected"
+                    className="cursor-pointer text-[11px] font-bold text-muted-foreground"
+                  >
+                    리젝 숨기기
+                  </Label>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
+                  onClick={() => {
+                    setGalleryFilenameFilter("")
+                    setGalleryTagFilter("")
+                    setGalleryMetadataFilter("")
+                    setGalleryHideRejected(false)
+                  }}
+                >
+                  <XIcon className="mr-1 h-3 w-3" />
+                  필터 초기화
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       <main
@@ -579,6 +826,28 @@ function AppContent(props: AppContentProps) {
               enableHover={props.settings.enableHover}
               imagePageSize={props.settings.imagePageSize}
               imageLazyLoad={props.settings.imageLazyLoad}
+              toolbarState={{
+                statusFilter: galleryStatusFilter,
+                setStatusFilter: setGalleryStatusFilter,
+                galleryViewMode: galleryViewMode,
+                setGalleryViewMode: setGalleryViewMode,
+                groupMode: galleryGroupMode,
+                setGroupMode: setGalleryGroupMode,
+                showFilters: galleryShowFilters,
+                setShowFilters: setGalleryShowFilters,
+                hasAnyFilter: galleryHasAnyFilter,
+                hideRejected: galleryHideRejected,
+                setHideRejected: setGalleryHideRejected,
+                clearAllFilters: () => {
+                  setGalleryFilenameFilter("")
+                  setGalleryTagFilter("")
+                  setGalleryMetadataFilter("")
+                  setGalleryHideRejected(false)
+                },
+                reload: () => {},
+                handleExport: () => {},
+                handleEmptyTrash: () => {},
+              }}
             />
           </div>
         )}

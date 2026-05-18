@@ -1,5 +1,7 @@
 import { useState } from "react"
 
+import { X } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -91,33 +93,39 @@ export function WorkerManager({ backendUrl, workers }: Props) {
     <div className="flex flex-col gap-3">
       <div className="space-y-1 rounded-md border bg-muted/30 p-2">
         {workers.length === 0 && (
-          <p className="text-xs text-muted-foreground">
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">
             등록된 워커가 없습니다. 아래에서 ComfyUI URL을 추가하세요.
           </p>
         )}
         {workers.map((w) => {
           const status = !w.alive
-            ? { label: "down", color: "text-red-600" }
+            ? { label: "down", dot: "bg-red-500", text: "text-red-500" }
             : w.busy
-              ? { label: "busy", color: "text-yellow-600" }
-              : { label: "idle", color: "text-green-600" }
+              ? { label: "busy", dot: "bg-yellow-500", text: "text-yellow-600" }
+              : { label: "idle", dot: "bg-green-500", text: "text-green-600" }
           return (
-            <div key={w.id} className="flex items-center gap-2 text-sm">
-              <span className="w-20 flex-none font-mono text-xs">{w.id}</span>
+            <div
+              key={w.id}
+              className="group flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
+            >
+              <span className="w-14 flex-none font-mono text-xs text-muted-foreground">
+                {w.id}
+              </span>
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
                 {w.url}
               </span>
-              <span className={`w-12 flex-none text-xs ${status.color}`}>
-                {status.label}
+              <span className="flex flex-none items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                <span className={`text-xs ${status.text}`}>{status.label}</span>
               </span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                className="h-7 w-7 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
                 onClick={() => handleDelete(w.id)}
                 disabled={busy}
               >
-                삭제
+                <X className="h-4 w-4" />
               </Button>
             </div>
           )
