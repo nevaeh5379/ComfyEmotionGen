@@ -35,19 +35,25 @@ import { CombinationPickerUnassignedPanel } from "./CombinationPickerUnassignedP
 import { CombinationPickerSidebar } from "./CombinationPickerSidebar"
 import { CombinationPickerDetailView } from "./CombinationPickerDetailView"
 import { useCurationContext } from "./CurationContext"
+import type {
+  CurationToolbarState,
+  CurationViewMode,
+} from "./CurationToolbarTypes"
 
-type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
+type ViewMode = CurationViewMode
 
 interface CombinationPickerContentProps {
   selectedTemplateId: string
   setSelectedTemplateId: (id: string) => void
   activeTemplate: string
+  toolbarState?: CurationToolbarState
 }
 
 export const CombinationPickerContent = memo(function CombinationPickerContent({
   selectedTemplateId,
   setSelectedTemplateId,
   activeTemplate,
+  toolbarState,
 }: CombinationPickerContentProps) {
   useRenderLog("CombinationPickerContent")
   const {
@@ -91,7 +97,14 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [hideRejected, setHideRejected] = useState(false)
   const [autoAdvance, setAutoAdvance] = useState(autoApplyReject)
 
-  const [viewMode, setViewMode] = useState<ViewMode>("gallery")
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>("gallery")
+  // hideTopSection일 때 뷰 모드는 내부에서 관리
+  const viewMode = toolbarState?.hideTopSection
+    ? internalViewMode
+    : (toolbarState?.viewMode ?? internalViewMode)
+  const setViewMode = toolbarState?.hideTopSection
+    ? setInternalViewMode
+    : (toolbarState?.setViewMode ?? setInternalViewMode)
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
   const [previewHash, setPreviewHash] = useState<string | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
@@ -485,15 +498,24 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     exitSelectionMode,
   ])
 
-  const handleTabChange = (v: ViewMode) => {
-    setViewMode(v)
-    if (v === "gallery" || v === "table") {
-      setSelectedFilename(null)
-      exitSelectionMode()
-    } else if (!selectedFilename && renderItems.length > 0) {
-      setSelectedFilename(renderItems[0]!.filename)
-    }
-  }
+  const handleTabChange = useCallback(
+    (v: ViewMode) => {
+      setViewMode(v)
+      if (v === "gallery" || v === "table") {
+        setSelectedFilename(null)
+        exitSelectionMode()
+      } else if (!selectedFilename && renderItems.length > 0) {
+        setSelectedFilename(renderItems[0]!.filename)
+      }
+    },
+    [
+      setViewMode,
+      setSelectedFilename,
+      exitSelectionMode,
+      selectedFilename,
+      renderItems,
+    ]
+  )
 
   // ── Render ──
   if (loading)
@@ -569,6 +591,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       <CombinationPickerToolbar
         selectedTemplateId={selectedTemplateId}
         setSelectedTemplateId={setSelectedTemplateId}
+        hideTopSection={toolbarState?.hideTopSection ?? false}
         viewMode={viewMode}
         onViewModeChange={handleTabChange}
         selectedFilename={selectedFilename}
@@ -586,10 +609,14 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         setShowUnassignedPanel={setShowUnassignedPanel}
         handleBulkRegenerate={handleBulkRegenerate}
         bulkRegenActionMessage={bulkRegenAction.message}
-        handleExport={handleExport}
-        exportActionIsLoading={exportAction.isLoading}
-        exportActionMessage={exportAction.message}
-        regenActionMessage={regenAction.message}
+        handleExport={toolbarState?.onExport ?? handleExport}
+        exportActionIsLoading={
+          toolbarState?.exportIsLoading ?? exportAction.isLoading
+        }
+        exportActionMessage={
+          toolbarState?.exportMessage ?? exportAction.message
+        }
+        regenActionMessage={toolbarState?.regenMessage ?? regenAction.message}
       />
 
       {/* ── Scrollable Content ── */}

@@ -42,6 +42,7 @@ type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 interface ToolbarProps {
   selectedTemplateId: string
   setSelectedTemplateId: (id: string) => void
+  hideTopSection?: boolean
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
   selectedFilename: string | null
@@ -76,6 +77,7 @@ export function CombinationPickerToolbar({
   viewMode,
   onViewModeChange,
   selectedFilename,
+  hideTopSection,
   filtersExpanded,
   setFiltersExpanded,
   hideRejected,
@@ -147,27 +149,33 @@ export function CombinationPickerToolbar({
     >
       {/* 메인 툴바: 1 줄 (모바일에서는 줄바꿈 허용) */}
       <div className="flex flex-wrap items-center gap-2 border-b bg-muted/5 px-4 py-2 md:gap-3">
-        {/* 템플릿 선택 */}
-        <Select
-          value={selectedTemplateId || "__current__"}
-          onValueChange={(v) =>
-            setSelectedTemplateId(v === "__current__" ? "" : v)
-          }
-        >
-          <SelectTrigger className="h-8 w-full border-0 bg-transparent text-[12px] font-bold shadow-none focus:ring-0 sm:w-48 sm:text-[13px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__current__">현재 편집 중인 템플릿</SelectItem>
-            {savedTemplates.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* 템플릿 선택 (hideTopSection일 때 숨김) */}
+        {!hideTopSection && (
+          <>
+            <Select
+              value={selectedTemplateId || "__current__"}
+              onValueChange={(v) =>
+                setSelectedTemplateId(v === "__current__" ? "" : v)
+              }
+            >
+              <SelectTrigger className="h-8 w-full border-0 bg-transparent text-[12px] font-bold shadow-none focus:ring-0 sm:w-48 sm:text-[13px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__current__">
+                  현재 편집 중인 템플릿
+                </SelectItem>
+                {savedTemplates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-        <div className="hidden h-5 w-px bg-border/60 sm:block" />
+            <div className="hidden h-5 w-px bg-border/60 sm:block" />
+          </>
+        )}
 
         {/* 뷰 모드 탭 (모바일: 드롭다운, 데스크톱: 탭) */}
         {/* Mobile dropdown */}

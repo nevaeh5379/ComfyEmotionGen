@@ -1,10 +1,11 @@
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo } from "react"
 import { CurationProvider } from "./CurationContext.tsx"
 import { useCombinationData } from "./useCombinationData"
 import { useCombinationSelection } from "./useCombinationSelection"
 import { CombinationPickerContent } from "./CombinationPickerContent"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
+import type { CurationToolbarState } from "./CurationToolbarTypes"
 
 interface Props {
   backendUrl: string
@@ -13,6 +14,7 @@ interface Props {
   savedWorkflows: SavedWorkflow[]
   enableHover?: boolean
   autoApplyReject?: boolean
+  toolbarState?: CurationToolbarState
 }
 
 export const CombinationPicker = memo(function CombinationPicker({
@@ -22,8 +24,11 @@ export const CombinationPicker = memo(function CombinationPicker({
   savedWorkflows,
   enableHover = true,
   autoApplyReject = true,
+  toolbarState,
 }: Props) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("")
+  const selectedTemplateId = toolbarState?.selectedTemplateId ?? ""
+  const setSelectedTemplateId =
+    toolbarState?.setSelectedTemplateId ?? (() => {})
 
   const activeTemplate = useMemo(
     () =>
@@ -59,6 +64,7 @@ export const CombinationPicker = memo(function CombinationPicker({
         selectedTemplateId={selectedTemplateId}
         setSelectedTemplateId={setSelectedTemplateId}
         activeTemplate={activeTemplate}
+        {...(toolbarState && { toolbarState })}
       />
     </CurationProvider>
   )

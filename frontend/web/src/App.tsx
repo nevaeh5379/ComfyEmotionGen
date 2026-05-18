@@ -45,8 +45,8 @@ import {
   ClipboardList,
   Image as ImageIcon,
   Layers,
-  Settings,
   Menu,
+  Settings,
   XIcon,
 } from "lucide-react"
 import {
@@ -257,6 +257,10 @@ function AppContent(props: AppContentProps) {
     galleryMetadataFilter.trim() ||
     galleryHideRejected
   )
+
+  // ── Curation toolbar state (lifted for nav bar rendering) ──
+  const [curationSelectedTemplateId, setCurationSelectedTemplateId] =
+    useState("")
 
   // ── Job Runner (consumes context values) ──
   const {
@@ -726,6 +730,40 @@ function AppContent(props: AppContentProps) {
                 </DropdownMenu>
               </div>
             )}
+            {/* Curation toolbar (merged into nav) */}
+            {props.activeTab === "curation" && (
+              <div className="flex items-center gap-1.5">
+                <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
+                {/* Template selector */}
+                <Select
+                  value={curationSelectedTemplateId || "__current__"}
+                  onValueChange={(v) =>
+                    setCurationSelectedTemplateId(v === "__current__" ? "" : v)
+                  }
+                >
+                  <SelectTrigger className="h-7 w-[130px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      value="__current__"
+                      className="text-[12px] font-bold"
+                    >
+                      현재 편집 중인 템플릿
+                    </SelectItem>
+                    {template.savedTemplates.map((t) => (
+                      <SelectItem
+                        key={t.id}
+                        value={t.id}
+                        className="text-[12px] font-bold"
+                      >
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <div className="ml-1 hidden shrink-0 items-center gap-2 md:flex">
             <ServerStatus
@@ -857,6 +895,21 @@ function AppContent(props: AppContentProps) {
               enableHover={props.settings.enableHover}
               autoApplyReject={props.settings.autoApplyReject}
               savedWorkflows={workflow.savedWorkflows}
+              toolbarState={{
+                selectedTemplateId: curationSelectedTemplateId,
+                setSelectedTemplateId: setCurationSelectedTemplateId,
+                viewMode: "gallery" as const,
+                setViewMode: () => {},
+                hideTopSection: true,
+                exportIsLoading: false,
+                setExportIsLoading: () => {},
+                exportMessage: null,
+                setExportMessage: () => {},
+                regenMessage: null,
+                setRegenMessage: () => {},
+                onExport: () => {},
+                onRegenerate: () => {},
+              }}
             />
           </div>
         )}
