@@ -71,26 +71,26 @@ export function WorkCompositionPanel({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <Tabs defaultValue="ceg" className="flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5 md:py-2 bg-panel/50">
-            <TabsList className="h-8 md:h-7 gap-0.5 bg-transparent p-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-line bg-panel/50 px-3 py-1.5 md:py-2">
+            <TabsList className="h-8 gap-0.5 bg-transparent p-0 md:h-7">
               <TabsTrigger
                 value="ceg"
-                className="h-8 md:h-7 rounded-[5px] px-3 md:px-2.5 py-0.5 text-[12px] md:text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none font-bold"
+                className="h-8 rounded-[5px] px-3 py-0.5 text-[12px] font-bold data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none md:h-7 md:px-2.5 md:text-[11px]"
               >
                 템플릿
               </TabsTrigger>
               <TabsTrigger
                 value="workflow"
-                className="h-8 md:h-7 rounded-[5px] px-3 md:px-2.5 py-0.5 text-[12px] md:text-[11px] data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none font-bold"
+                className="h-8 rounded-[5px] px-3 py-0.5 text-[12px] font-bold data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none md:h-7 md:px-2.5 md:text-[11px]"
               >
                 워크플로우
               </TabsTrigger>
             </TabsList>
 
             {/* Desktop Only Controls (at top) */}
-            <div className="hidden md:flex items-center gap-2">
+            <div className="hidden items-center gap-2 md:flex">
               <div className="flex h-8 items-center overflow-hidden rounded-[4px] border border-line bg-panel shadow-xs">
                 <Button
                   variant="ghost"
@@ -102,7 +102,7 @@ export function WorkCompositionPanel({
                 </Button>
                 <input
                   type="number"
-                  className="mono h-full w-9 border-x border-line bg-transparent text-center text-[11px] font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="mono h-full w-9 [appearance:textfield] border-x border-line bg-transparent text-center text-[11px] font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   min={1}
                   value={repeatCount}
                   onChange={(e) =>
@@ -121,7 +121,7 @@ export function WorkCompositionPanel({
               <Button
                 variant="default"
                 size="sm"
-                className="h-8 bg-foreground px-3 text-[11px] font-bold text-background hover:bg-foreground/90 shadow-md active:scale-95 transition-all"
+                className="h-8 bg-foreground px-3 text-[11px] font-bold text-background shadow-md transition-all hover:bg-foreground/90 active:scale-95"
                 onClick={handleRun}
                 disabled={!canRun}
               >
@@ -162,7 +162,7 @@ export function WorkCompositionPanel({
 
           <TabsContent
             value="ceg"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden pb-16 md:pb-0"
+            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
           >
             <CegTemplatePanel
               cegTemplate={template.cegTemplate}
@@ -211,74 +211,75 @@ export function WorkCompositionPanel({
 
           <TabsContent
             value="workflow"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden pb-16 md:pb-0"
+            className="mt-0 flex min-h-0 flex-1 flex-col data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
           >
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center justify-between border-b border-line px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                  <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium">
-                    워크플로우
+            {/* Workflow Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5">
+              <div className="flex items-center gap-2">
+                <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium">워크플로우</span>
+                {workflow.parsedWorkflow?.success && (
+                  <span className="mono text-[10px] text-muted-foreground">
+                    {Object.keys(workflow.parsedWorkflow.data).length} Nodes
                   </span>
-                  {workflow.parsedWorkflow?.success && (
-                    <span className="mono text-[10px] text-muted-foreground">
-                      {Object.keys(workflow.parsedWorkflow.data).length} Nodes
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground"
-                    title="복사"
-                    onClick={() =>
-                      navigator.clipboard.writeText(workflow.workflowJson)
-                    }
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground"
-                    title="다운로드"
-                    onClick={() => {
-                      const blob = new Blob([workflow.workflowJson], {
-                        type: "application/json",
-                      })
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement("a")
-                      a.href = url
-                      a.download = "workflow.json"
-                      a.click()
-                      URL.revokeObjectURL(url)
-                    }}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground"
-                    title="그래프 보기"
-                    onClick={onGraphOpen}
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                )}
               </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground"
+                  title="복사"
+                  onClick={() =>
+                    navigator.clipboard.writeText(workflow.workflowJson)
+                  }
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground"
+                  title="다운로드"
+                  onClick={() => {
+                    const blob = new Blob([workflow.workflowJson], {
+                      type: "application/json",
+                    })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = "workflow.json"
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground"
+                  title="그래프 보기"
+                  onClick={onGraphOpen}
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <CodeEditor
                 language="json"
                 placeholder="워크플로우 JSON 입력"
                 value={workflow.workflowJson}
                 onChange={workflow.setWorkflowJson}
-                minHeight="100px"
-                maxHeight="280px"
+                minHeight="80px"
                 bareWrapper
                 className="h-full min-h-0 w-full flex-1"
               />
-              <div className="flex items-center justify-end border-t border-line px-3 py-1.5">
+
+              <div className="flex shrink-0 items-center justify-end border-t border-line px-3 py-1.5">
                 <SaveInputBar
                   key={workflow.workflowResetKey}
                   onSave={(name) => {
@@ -331,7 +332,7 @@ export function WorkCompositionPanel({
             </div>
 
             {workflow.parsedWorkflow && !workflow.parsedWorkflow.success && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+              <div className="shrink-0 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
                 workflow 파싱 오류: {workflow.parsedWorkflow.error?.message}
               </div>
             )}
@@ -402,9 +403,9 @@ export function WorkCompositionPanel({
           </TabsContent>
         </Tabs>
 
-        {/* Mobile Fixed Bottom Bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between gap-3 border-t border-line bg-panel/95 backdrop-blur px-4 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-          <div className="flex h-11 items-center overflow-hidden rounded-xl border border-line bg-background shadow-sm flex-1 max-w-[140px]">
+        {/* Mobile Bottom Bar */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-panel px-4 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
+          <div className="flex h-11 max-w-[140px] flex-1 items-center overflow-hidden rounded-xl border border-line bg-background shadow-sm">
             <Button
               variant="ghost"
               size="icon"
@@ -415,7 +416,7 @@ export function WorkCompositionPanel({
             </Button>
             <input
               type="number"
-              className="mono h-full flex-1 min-w-0 bg-transparent text-center text-base font-black outline-none [appearance:textfield]"
+              className="mono h-full min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-base font-black outline-none"
               min={1}
               value={repeatCount}
               onChange={(e) =>
@@ -435,7 +436,7 @@ export function WorkCompositionPanel({
           <Button
             variant="default"
             size="lg"
-            className="h-11 flex-[2] bg-foreground text-background font-black text-base shadow-lg rounded-xl active:scale-95 transition-all"
+            className="h-11 flex-[2] rounded-xl bg-foreground text-base font-black text-background shadow-lg transition-all active:scale-95"
             onClick={handleRun}
             disabled={!canRun}
           >
@@ -462,11 +463,17 @@ export function WorkCompositionPanel({
                 선택 실행
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onAxisFilterOpen} className="py-3 font-bold">
+              <DropdownMenuItem
+                onClick={onAxisFilterOpen}
+                className="py-3 font-bold"
+              >
                 축 필터 적용
                 {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onGraphOpen} className="py-3 font-bold">
+              <DropdownMenuItem
+                onClick={onGraphOpen}
+                className="py-3 font-bold"
+              >
                 그래프 뷰어
               </DropdownMenuItem>
             </DropdownMenuContent>

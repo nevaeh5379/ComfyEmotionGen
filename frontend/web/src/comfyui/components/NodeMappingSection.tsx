@@ -157,190 +157,196 @@ export const NodeMappingSection = ({
         {(nodeMappings.length > 0 || availableNodeOptions.length > 0) && (
           <div>
             {nodeMappings.length > 0 && (
-              <Table className="text-xs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-28">노드</TableHead>
-                    <TableHead className="w-20">소스</TableHead>
-                    <TableHead>값</TableHead>
-                    <TableHead className="w-16 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-1.5 text-[11px]"
-                        onClick={handleAutoMap}
-                      >
-                        자동
-                      </Button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {nodeMappings.map((m) => {
-                    const node = parsedWorkflowData[m.nodeId]
-                    const spec = getNodeInputSpec(
-                      objectInfo,
-                      parsedWorkflowData,
-                      m.nodeId,
-                      m.inputKey
-                    )
-                    const enumOptions = Array.isArray(spec?.[0])
-                      ? (spec![0] as string[])
-                      : null
-                    const upload = imageUploads[`${m.nodeId}.${m.inputKey}`]
-                    return (
-                      <TableRow key={m.id}>
-                        <TableCell className="py-3 px-2">
-                          <div className="text-[11px] font-bold">
-                            {node?._meta?.title || "Untitled"}
-                          </div>
-                          <div className="font-mono text-[10px] text-muted-foreground opacity-70">
-                            #{m.nodeId} · {m.inputKey}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-3 px-1">
-                          <Select
-                            value={m.sourceType}
-                            onValueChange={(val) =>
-                              updateMapping(m.id, {
-                                sourceType: val as MappingSourceType,
-                              })
-                            }
-                          >
-                            <SelectTrigger className="h-9 md:h-7 w-20 md:w-24 text-[11px] font-medium">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(
-                                Object.keys(
-                                  SOURCE_LABELS
-                                ) as MappingSourceType[]
-                              ).map((src) => (
-                                <SelectItem key={src} value={src}>
-                                  {SOURCE_LABELS[src]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="py-3 px-1">
-                          {m.sourceType === "seed" && (
-                            <InputGroup className="w-28 md:w-32 h-9 md:h-7">
-                              <InputGroupInput
-                                type="number"
-                                value={m.seedValue ?? 0}
-                                onChange={(
-                                  e: React.ChangeEvent<HTMLInputElement>
-                                ) =>
-                                  updateMapping(m.id, {
-                                    seedValue: Number(e.target.value),
-                                  })
-                                }
-                                disabled={m.seedRandom}
-                                className="text-[11px]"
-                              />
-                              <InputGroupAddon align="inline-end">
-                                <InputGroupButton
-                                  onClick={() =>
+              <div className="-mx-3.5 overflow-x-auto">
+                <Table className="min-w-[500px] text-xs">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-28">노드</TableHead>
+                      <TableHead className="w-20">소스</TableHead>
+                      <TableHead>값</TableHead>
+                      <TableHead className="w-16 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-[11px]"
+                          onClick={handleAutoMap}
+                        >
+                          자동
+                        </Button>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {nodeMappings.map((m) => {
+                      const node = parsedWorkflowData[m.nodeId]
+                      const spec = getNodeInputSpec(
+                        objectInfo,
+                        parsedWorkflowData,
+                        m.nodeId,
+                        m.inputKey
+                      )
+                      const enumOptions = Array.isArray(spec?.[0])
+                        ? (spec![0] as string[])
+                        : null
+                      const upload = imageUploads[`${m.nodeId}.${m.inputKey}`]
+                      return (
+                        <TableRow key={m.id}>
+                          <TableCell className="px-2 py-3">
+                            <div className="text-[11px] font-bold">
+                              {node?._meta?.title || "Untitled"}
+                            </div>
+                            <div className="font-mono text-[10px] text-muted-foreground opacity-70">
+                              #{m.nodeId} · {m.inputKey}
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-1 py-3">
+                            <Select
+                              value={m.sourceType}
+                              onValueChange={(val) =>
+                                updateMapping(m.id, {
+                                  sourceType: val as MappingSourceType,
+                                })
+                              }
+                            >
+                              <SelectTrigger className="h-9 w-20 text-[11px] font-medium md:h-7 md:w-24">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(
+                                  Object.keys(
+                                    SOURCE_LABELS
+                                  ) as MappingSourceType[]
+                                ).map((src) => (
+                                  <SelectItem key={src} value={src}>
+                                    {SOURCE_LABELS[src]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="px-1 py-3">
+                            {m.sourceType === "seed" && (
+                              <InputGroup className="h-9 w-28 md:h-7 md:w-32">
+                                <InputGroupInput
+                                  type="number"
+                                  value={m.seedValue ?? 0}
+                                  onChange={(
+                                    e: React.ChangeEvent<HTMLInputElement>
+                                  ) =>
                                     updateMapping(m.id, {
-                                      seedRandom: !m.seedRandom,
+                                      seedValue: Number(e.target.value),
                                     })
                                   }
-                                  title={
-                                    m.seedRandom
-                                      ? "랜덤 (클릭하여 고정)"
-                                      : "고정 (클릭하여 랜덤)"
-                                  }
-                                  className={
-                                    m.seedRandom
-                                      ? "text-foreground"
-                                      : "text-muted-foreground"
-                                  }
-                                  size="icon-xs"
-                                >
-                                  <Dices className="size-4" />
-                                </InputGroupButton>
-                              </InputGroupAddon>
-                            </InputGroup>
-                          )}
-                          {m.sourceType === "image" && (
-                            <div className="flex items-center gap-2">
-                              <label className="inline-flex h-9 md:h-7 cursor-pointer items-center rounded-lg border border-line bg-panel px-3 text-[11px] font-bold hover:bg-accent active:bg-accent/80">
-                                파일 선택
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="sr-only"
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0]
-                                    if (f)
-                                      handleImageUpload(f, m.nodeId, m.inputKey)
-                                  }}
+                                  disabled={m.seedRandom}
+                                  className="text-[11px]"
                                 />
-                              </label>
-                              {upload?.uploading && (
-                                <span className="text-[10px] text-muted-foreground animate-pulse">
-                                  ...
-                                </span>
-                              )}
-                              {upload?.uploadedName && (
-                                <span className="text-[10px] text-green-600 font-bold">
-                                  OK
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {m.sourceType === "fixed" &&
-                            (enumOptions ? (
-                              <Select
-                                value={m.fixedValue ?? ""}
-                                onValueChange={(val) =>
-                                  updateMapping(m.id, { fixedValue: val })
-                                }
-                              >
-                                <SelectTrigger className="h-9 md:h-7 w-24 md:w-28 text-[11px]">
-                                  <SelectValue placeholder="선택..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {enumOptions.map((opt) => (
-                                    <SelectItem key={opt} value={opt}>
-                                      {opt}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Input
-                                value={m.fixedValue ?? ""}
-                                onChange={(e) =>
-                                  updateMapping(m.id, {
-                                    fixedValue: e.target.value,
-                                  })
-                                }
-                                className="h-9 md:h-7 w-24 md:w-28 text-[11px]"
-                                placeholder="값 입력"
-                              />
-                            ))}
-                        </TableCell>
-                        <TableCell className="py-3 px-1 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive active:bg-destructive/10"
-                            onClick={() =>
-                              setNodeMappings((prev) =>
-                                prev.filter((x) => x.id !== m.id)
-                              )
-                            }
-                          >
-                            ×
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+                                <InputGroupAddon align="inline-end">
+                                  <InputGroupButton
+                                    onClick={() =>
+                                      updateMapping(m.id, {
+                                        seedRandom: !m.seedRandom,
+                                      })
+                                    }
+                                    title={
+                                      m.seedRandom
+                                        ? "랜덤 (클릭하여 고정)"
+                                        : "고정 (클릭하여 랜덤)"
+                                    }
+                                    className={
+                                      m.seedRandom
+                                        ? "text-foreground"
+                                        : "text-muted-foreground"
+                                    }
+                                    size="icon-xs"
+                                  >
+                                    <Dices className="size-4" />
+                                  </InputGroupButton>
+                                </InputGroupAddon>
+                              </InputGroup>
+                            )}
+                            {m.sourceType === "image" && (
+                              <div className="flex items-center gap-2">
+                                <label className="inline-flex h-9 cursor-pointer items-center rounded-lg border border-line bg-panel px-3 text-[11px] font-bold hover:bg-accent active:bg-accent/80 md:h-7">
+                                  파일 선택
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0]
+                                      if (f)
+                                        handleImageUpload(
+                                          f,
+                                          m.nodeId,
+                                          m.inputKey
+                                        )
+                                    }}
+                                  />
+                                </label>
+                                {upload?.uploading && (
+                                  <span className="animate-pulse text-[10px] text-muted-foreground">
+                                    ...
+                                  </span>
+                                )}
+                                {upload?.uploadedName && (
+                                  <span className="text-[10px] font-bold text-green-600">
+                                    OK
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {m.sourceType === "fixed" &&
+                              (enumOptions ? (
+                                <Select
+                                  value={m.fixedValue ?? ""}
+                                  onValueChange={(val) =>
+                                    updateMapping(m.id, { fixedValue: val })
+                                  }
+                                >
+                                  <SelectTrigger className="h-9 w-24 text-[11px] md:h-7 md:w-28">
+                                    <SelectValue placeholder="선택..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {enumOptions.map((opt) => (
+                                      <SelectItem key={opt} value={opt}>
+                                        {opt}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  value={m.fixedValue ?? ""}
+                                  onChange={(e) =>
+                                    updateMapping(m.id, {
+                                      fixedValue: e.target.value,
+                                    })
+                                  }
+                                  className="h-9 w-24 text-[11px] md:h-7 md:w-28"
+                                  placeholder="값 입력"
+                                />
+                              ))}
+                          </TableCell>
+                          <TableCell className="px-1 py-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive active:bg-destructive/10"
+                              onClick={() =>
+                                setNodeMappings((prev) =>
+                                  prev.filter((x) => x.id !== m.id)
+                                )
+                              }
+                            >
+                              ×
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             )}
 
             {availableNodeOptions.length > 0 && (
