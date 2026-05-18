@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  AlertTriangle,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
@@ -8,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
-  Pencil,
   Trash2,
   X,
   MoreVertical,
@@ -42,9 +40,7 @@ import { Progress } from "@/components/ui/progress"
 import {
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
-  PaginationLink,
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
@@ -188,28 +184,6 @@ interface JobEvent {
   details: Record<string, unknown>
 }
 
-const STATUS_STYLE: Record<JobStatus, { label: string; badge: string }> = {
-  pending: { label: "대기 중", badge: "bg-muted text-muted-foreground" },
-  queued: {
-    label: "큐 대기 중",
-    badge: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  },
-  running: {
-    label: "진행 중",
-    badge:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300",
-  },
-  done: {
-    label: "완료",
-    badge: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
-  },
-  error: {
-    label: "실패",
-    badge: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  },
-  cancelled: { label: "취소됨", badge: "bg-muted text-muted-foreground" },
-}
-
 const STATUS_ORDER: Record<JobStatus, number> = {
   running: 0,
   queued: 1,
@@ -279,22 +253,6 @@ function dateToEpochEnd(s: string): number {
   return d.getTime() / 1000
 }
 
-/** 1..totalPages를 ellipsis와 함께 압축 */
-function buildPageList(current: number, totalPages: number): (number | "…")[] {
-  if (totalPages <= 1) return [1]
-  const pages = new Set<number>([1, totalPages, current])
-  for (let i = current - 1; i <= current + 1; i++) {
-    if (i >= 1 && i <= totalPages) pages.add(i)
-  }
-  const sorted = Array.from(pages).sort((a, b) => a - b)
-  const out: (number | "…")[] = []
-  for (let i = 0; i < sorted.length; i++) {
-    out.push(sorted[i]!)
-    if (i < sorted.length - 1 && sorted[i + 1]! - sorted[i]! > 1) out.push("…")
-  }
-  return out
-}
-
 // ── sub-components ────────────────────────────────────────────────────────────
 
 interface SortableHeadProps {
@@ -315,7 +273,7 @@ function SortableHead({
   return (
     <TableHead className="px-2">
       <button
-        className="flex items-center gap-1 font-bold transition-colors hover:text-foreground whitespace-nowrap"
+        className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
         onClick={() => onSort(sortKey)}
       >
         {label}
@@ -384,7 +342,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   mobileTab = "list",
 }: Props) {
   useRenderLog("JobManagerPanel")
-  
+
   // ── session state ───────────────────────────────────────────────────────────
   const [markers, setMarkersRaw] = useState<SessionMarker[]>(initMarkers)
 
@@ -415,10 +373,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   )
 
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
-
-  // ── session rename state ────────────────────────────────────────────────────
-  const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null)
-  const [editingLabel, setEditingLabel] = useState("")
 
   // ── filter / sort / date-range state ───────────────────────────────────────
   const [filterTab, setFilterTabState] = useState<FilterTab>("all")
@@ -454,8 +408,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   // ── detail sheet ────────────────────────────────────────────────────────────
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
-  const [jobEvents, setJobEvents] = useState<JobEvent[] | null>(null)
-  const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+  const [_jobEvents, setJobEvents] = useState<JobEvent[] | null>(null)
+  const [_isLoadingEvents, setIsLoadingEvents] = useState(false)
   const [fetchedImages, setFetchedImages] = useState<Map<string, string[]>>(
     new Map()
   )
@@ -569,11 +523,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / PAGE_SIZE))
   const page = Math.min(desiredPage, totalPages)
-  const pageList = useMemo(
-    () => buildPageList(page, totalPages),
-    [page, totalPages]
-  )
-
   const pagedJobs = useMemo(
     () => sortedJobs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [sortedJobs, page]
@@ -629,47 +578,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     setSessionPickerOpen(false)
   }
 
-  const startRename = (m: SessionMarker) => {
-    setEditingMarkerId(m.id)
-    setEditingLabel(m.label)
-  }
-
-  const saveRename = () => {
-    if (editingMarkerId && editingLabel.trim()) {
-      persistMarkers(
-        markers.map((m) =>
-          m.id === editingMarkerId ? { ...m, label: editingLabel.trim() } : m
-        )
-      )
-    }
-    setEditingMarkerId(null)
-  }
-
-  const deleteSession = (markerId: string) => {
-    if (
-      !confirm(
-        "이 세션을 삭제하시겠습니까? 세션의 마커만 제거되며 작업 데이터는 삭제되지 않습니다."
-      )
-    )
-      return
-    const next = markers.filter((m) => m.id !== markerId)
-    if (next.length === 0) {
-      const init: SessionMarker = { id: genId(), startAt: 0, label: "세션 1" }
-      persistMarkers([init])
-      setSelectedId(init.id)
-    } else {
-      persistMarkers(next)
-      if (selectedId === markerId)
-        setSelectedId(next.sort((a, b) => b.startAt - a.startAt)[0]!.id)
-    }
-  }
-
-  const activateSession = (markerId: string) => {
-    persistActiveState({ activeSessionId: markerId, activatedAt: Date.now() })
-    setSelectedId(markerId)
-    setSessionPickerOpen(false)
-  }
-
   // ── api ─────────────────────────────────────────────────────────────────────
 
   const toggleSort = (key: SortKey) => {
@@ -684,14 +592,18 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     e.stopPropagation()
     try {
       await fetch(`${backendUrl}/jobs/${jobId}`, { method: "DELETE" })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const handleCancelAll = async () => {
     if (!window.confirm("진행 중인 모든 작업을 취소하시겠습니까?")) return
     try {
       await fetch(`${backendUrl}/jobs/cancel-all`, { method: "POST" })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const handleTogglePause = async () => {
@@ -699,14 +611,18 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       await fetch(`${backendUrl}/jobs/${paused ? "resume" : "pause"}`, {
         method: "POST",
       })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const handleRetry = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
       await fetch(`${backendUrl}/jobs/${jobId}/retry`, { method: "POST" })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const handleRetryAllFailed = async () => {
@@ -716,7 +632,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     for (const j of failed) {
       try {
         await fetch(`${backendUrl}/jobs/${j.id}/retry`, { method: "POST" })
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -729,7 +647,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_ids: [jobId] }),
       })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const handleDeleteAllFailed = async () => {
@@ -749,7 +669,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_ids: failed.map((j) => j.id) }),
       })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const handleDeleteSelected = async () => {
@@ -766,7 +688,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_ids: [...selectedForDelete] }),
       })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setSelectedForDelete(new Set())
   }
 
@@ -809,7 +733,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             return next
           })
         }
-      } catch { /* ignore */ } finally {
+      } catch {
+        /* ignore */
+      } finally {
         fetchingRef.current.delete(jobId)
       }
     },
@@ -855,7 +781,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       {/* 1. Global Controls (Always visible) */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 border-b bg-panel shrink-0">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-panel px-3 py-1.5">
         <div className="relative">
           <Button
             size="sm"
@@ -865,16 +791,32 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           >
             <span className="h-1.5 w-1.5 rounded-full bg-ok" />
             <span className="max-w-40 truncate">{sessionButtonLabel}</span>
-            {sessionPickerOpen ? <ChevronUp className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
+            {sessionPickerOpen ? (
+              <ChevronUp className="h-3 w-3 shrink-0" />
+            ) : (
+              <ChevronDown className="h-3 w-3 shrink-0" />
+            )}
           </Button>
 
           {sessionPickerOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setSessionPickerOpen(false)} />
-              <div className="absolute top-full left-0 z-20 mt-1 w-72 rounded-lg border bg-popover shadow-xl p-1">
-                <div className="flex items-center justify-between border-b px-3 py-2 mb-1">
-                  <span className="text-[10px] font-black text-muted-foreground uppercase">세션 선택</span>
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-black text-blue-600" onClick={createNewSession}>+ 새 세션</Button>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setSessionPickerOpen(false)}
+              />
+              <div className="absolute top-full left-0 z-20 mt-1 w-72 rounded-lg border bg-popover p-1 shadow-xl">
+                <div className="mb-1 flex items-center justify-between border-b px-3 py-2">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase">
+                    세션 선택
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] font-black text-blue-600"
+                    onClick={createNewSession}
+                  >
+                    + 새 세션
+                  </Button>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {sortedMarkers.map((m) => {
@@ -882,11 +824,33 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     const isSelected = m.id === selectedId
                     const isActive = m.id === activeState.activeSessionId
                     return (
-                      <div key={m.id} className={cn("p-1", isSelected && "bg-muted rounded-md")}>
-                        <Button variant="ghost" className="w-full justify-start h-9 px-2 gap-2 text-sm" onClick={() => { setSelectedId(m.id); setSessionPickerOpen(false); }}>
-                          <span className={cn("h-1.5 w-1.5 rounded-full", isActive ? "bg-ok" : "bg-muted-foreground/30")} />
-                          <span className="flex-1 truncate text-left font-medium">{m.label}</span>
-                          <span className="mono text-[10px] opacity-40">{count}</span>
+                      <div
+                        key={m.id}
+                        className={cn(
+                          "p-1",
+                          isSelected && "rounded-md bg-muted"
+                        )}
+                      >
+                        <Button
+                          variant="ghost"
+                          className="h-9 w-full justify-start gap-2 px-2 text-sm"
+                          onClick={() => {
+                            setSelectedId(m.id)
+                            setSessionPickerOpen(false)
+                          }}
+                        >
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              isActive ? "bg-ok" : "bg-muted-foreground/30"
+                            )}
+                          />
+                          <span className="flex-1 truncate text-left font-medium">
+                            {m.label}
+                          </span>
+                          <span className="mono text-[10px] opacity-40">
+                            {count}
+                          </span>
                         </Button>
                       </div>
                     )
@@ -898,130 +862,421 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Button size="sm" variant={paused ? "default" : "outline"} className="h-8 text-[11px] font-bold px-3" onClick={handleTogglePause} disabled={!isAliveBackend}>{paused ? "재개" : "일시중지"}</Button>
+          <Button
+            size="sm"
+            variant={paused ? "default" : "outline"}
+            className="h-8 px-3 text-[11px] font-bold"
+            onClick={handleTogglePause}
+            disabled={!isAliveBackend}
+          >
+            {paused ? "재개" : "일시중지"}
+          </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button size="sm" variant="outline" className="h-8 w-8 p-0"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-2">
-              <DropdownMenuItem onClick={handleCancelAll} disabled={!isAliveBackend || counts.active === 0} className="py-3 text-destructive font-bold">진행 중인 모든 작업 취소</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleCancelAll}
+                disabled={!isAliveBackend || counts.active === 0}
+                className="py-3 font-bold text-destructive"
+              >
+                진행 중인 모든 작업 취소
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleRetryAllFailed} className="py-3 font-bold">실패/취소된 모든 작업 재시도</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDeleteAllFailed} className="py-3 text-destructive font-bold">실패/취소된 모든 작업 삭제</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleRetryAllFailed}
+                className="py-3 font-bold"
+              >
+                실패/취소된 모든 작업 재시도
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleDeleteAllFailed}
+                className="py-3 font-bold text-destructive"
+              >
+                실패/취소된 모든 작업 삭제
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
-      <div className={cn("flex flex-col border-b border-line bg-panel shrink-0 overflow-y-auto max-h-[85dvh]", mobileTab === "status" ? "flex flex-1" : "hidden md:flex")}>
-        <div className="grid grid-cols-3 divide-x divide-y border-b md:flex md:items-stretch md:divide-y-0 shrink-0">
-          <StatCard label="대기" value={counts.pending} color="text-ink-2" faded={counts.pending === 0} icon={Clock} className="flex-col items-center text-center px-1 py-3 md:flex-row md:text-left md:px-5 md:py-4" />
-          <StatCard label="큐" value={counts.queued} color="text-warn" faded={counts.queued === 0} icon={Layers} className="flex-col items-center text-center px-1 py-3 md:flex-row md:text-left md:px-5 md:py-4" />
-          <StatCard label="진행" value={counts.running} color="text-info" faded={counts.running === 0} icon={Activity} className="flex-col items-center text-center px-1 py-3 md:flex-row md:text-left md:px-5 md:py-4" />
-          <StatCard label="완료" value={counts.done} color="text-ok" faded={counts.done === 0} icon={CheckCircle2} className="flex-col items-center text-center px-1 py-3 md:flex-row md:text-left md:px-5 md:py-4" />
-          <StatCard label="실패" value={counts.error} color="text-bad" faded={counts.error === 0} icon={AlertCircle} className="flex-col items-center text-center px-1 py-3 md:flex-row md:text-left md:px-5 md:py-4" />
-          <StatCard label="취소" value={counts.cancelled} faded={counts.cancelled === 0} icon={Ban} className="flex-col items-center text-center px-1 py-3 md:flex-row md:text-left md:px-5 md:py-4" />
+      <div
+        className={cn(
+          "flex max-h-[85dvh] shrink-0 flex-col overflow-y-auto border-b border-line bg-panel",
+          mobileTab === "status" ? "flex flex-1" : "hidden md:flex"
+        )}
+      >
+        <div className="grid shrink-0 grid-cols-3 divide-x divide-y border-b md:flex md:items-stretch md:divide-y-0">
+          <StatCard
+            label="대기"
+            value={counts.pending}
+            color="text-ink-2"
+            faded={counts.pending === 0}
+            icon={Clock}
+            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+          />
+          <StatCard
+            label="큐"
+            value={counts.queued}
+            color="text-warn"
+            faded={counts.queued === 0}
+            icon={Layers}
+            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+          />
+          <StatCard
+            label="진행"
+            value={counts.running}
+            color="text-info"
+            faded={counts.running === 0}
+            icon={Activity}
+            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+          />
+          <StatCard
+            label="완료"
+            value={counts.done}
+            color="text-ok"
+            faded={counts.done === 0}
+            icon={CheckCircle2}
+            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+          />
+          <StatCard
+            label="실패"
+            value={counts.error}
+            color="text-bad"
+            faded={counts.error === 0}
+            icon={AlertCircle}
+            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+          />
+          <StatCard
+            label="취소"
+            value={counts.cancelled}
+            faded={counts.cancelled === 0}
+            icon={Ban}
+            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+          />
         </div>
-        
-        <div className="p-4 space-y-4 md:p-3 md:space-y-2">
+
+        <div className="space-y-4 p-4 md:space-y-2 md:p-3">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-black uppercase">
               <span className="text-muted-foreground">세션 전체 진행률</span>
-              <span className="mono tabular-nums">{counts.done}/{sessionJobs.length} ({sessionJobs.length > 0 ? Math.round((counts.done / sessionJobs.length) * 100) : 0}%)</span>
+              <span className="mono tabular-nums">
+                {counts.done}/{sessionJobs.length} (
+                {sessionJobs.length > 0
+                  ? Math.round((counts.done / sessionJobs.length) * 100)
+                  : 0}
+                %)
+              </span>
             </div>
-            <Progress value={sessionJobs.length > 0 ? (counts.done / sessionJobs.length) * 100 : 0} className="h-2 w-full shadow-inner" />
+            <Progress
+              value={
+                sessionJobs.length > 0
+                  ? (counts.done / sessionJobs.length) * 100
+                  : 0
+              }
+              className="h-2 w-full shadow-inner"
+            />
           </div>
 
-          {sessionJobs.filter(j => j.status === "running").map(j => (
-            <div key={j.id} className="p-4 rounded-xl border border-info/20 bg-info/5 space-y-2 shadow-sm shrink-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-mono font-black text-[13px] text-info">{j.filename}</span>
-                {(() => {
-                  const rem = j.startedAt ? estimateRemaining(j.startedAt, j.progressPercent) : null
-                  return rem != null && <span className="shrink-0 font-black text-info/70 tabular-nums text-[11px]">예상 {formatETA(rem)}</span>
-                })()}
+          {sessionJobs
+            .filter((j) => j.status === "running")
+            .map((j) => (
+              <div
+                key={j.id}
+                className="shrink-0 space-y-2 rounded-xl border border-info/20 bg-info/5 p-4 shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-mono text-[13px] font-black text-info">
+                    {j.filename}
+                  </span>
+                  {(() => {
+                    const rem = j.startedAt
+                      ? estimateRemaining(j.startedAt, j.progressPercent)
+                      : null
+                    return (
+                      rem != null && (
+                        <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
+                          예상 {formatETA(rem)}
+                        </span>
+                      )
+                    )
+                  })()}
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
+                  <span className="truncate">
+                    {j.currentNodeName || "노드 처리 중..."}
+                  </span>
+                  <span className="mono">{Math.round(j.progressPercent)}%</span>
+                </div>
+                <Progress value={j.progressPercent} className="h-1.5 w-full" />
               </div>
-              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
-                <span className="truncate">{j.currentNodeName || "노드 처리 중..."}</span>
-                <span className="mono">{Math.round(j.progressPercent)}%</span>
-              </div>
-              <Progress value={j.progressPercent} className="h-1.5 w-full" />
+            ))}
+          {sessionJobs.filter((j) => j.status === "running").length === 0 && (
+            <div className="py-10 text-center text-sm font-bold text-balance text-muted-foreground/40">
+              현재 실행 중인 작업이 없습니다.
             </div>
-          ))}
-          {sessionJobs.filter(j => j.status === "running").length === 0 && <div className="py-10 text-center text-muted-foreground/40 font-bold text-sm text-balance">현재 실행 중인 작업이 없습니다.</div>}
+          )}
         </div>
       </div>
 
       {/* 3. List Content (Mobile list tab OR Desktop always) */}
-      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", mobileTab === "list" ? "flex flex-1" : "hidden md:flex")}>
-        <div className="flex flex-col gap-2 px-3 py-2 border-b bg-muted/10 md:flex-row md:items-center md:justify-between md:gap-3 md:px-4 shrink-0">
-          <Tabs value={filterTab} onValueChange={(v) => setFilterTab(v as FilterTab)} className="w-full md:w-auto">
-            <TabsList className="h-9 md:h-8 w-full justify-start gap-1 bg-muted/50 p-1 md:w-auto overflow-x-auto no-scrollbar">
-              <TabsTrigger value="all" className="flex-1 md:flex-none h-7 px-3 text-[11px] font-bold data-[state=active]:bg-background">전체 <span className="mono ml-1 opacity-50">{sessionJobs.length}</span></TabsTrigger>
-              <TabsTrigger value="active" className="flex-1 md:flex-none h-7 px-3 text-[11px] font-bold data-[state=active]:bg-background text-info">활성 <span className="mono ml-1 opacity-50">{counts.active}</span></TabsTrigger>
-              <TabsTrigger value="done" className="flex-1 md:flex-none h-7 px-3 text-[11px] font-bold data-[state=active]:bg-background text-ok">완료 <span className="mono ml-1 opacity-50">{counts.done}</span></TabsTrigger>
-              <TabsTrigger value="failed" className="flex-1 md:flex-none h-7 px-3 text-[11px] font-bold data-[state=active]:bg-background text-bad">실패 <span className="mono ml-1 opacity-50">{counts.error + counts.cancelled}</span></TabsTrigger>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-hidden",
+          mobileTab === "list" ? "flex flex-1" : "hidden md:flex"
+        )}
+      >
+        <div className="flex shrink-0 flex-col gap-2 border-b bg-muted/10 px-3 py-2 md:flex-row md:items-center md:justify-between md:gap-3 md:px-4">
+          <Tabs
+            value={filterTab}
+            onValueChange={(v) => setFilterTab(v as FilterTab)}
+            className="w-full md:w-auto"
+          >
+            <TabsList className="no-scrollbar h-9 w-full justify-start gap-1 overflow-x-auto bg-muted/50 p-1 md:h-8 md:w-auto">
+              <TabsTrigger
+                value="all"
+                className="h-7 flex-1 px-3 text-[11px] font-bold data-[state=active]:bg-background md:flex-none"
+              >
+                전체{" "}
+                <span className="mono ml-1 opacity-50">
+                  {sessionJobs.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="active"
+                className="h-7 flex-1 px-3 text-[11px] font-bold text-info data-[state=active]:bg-background md:flex-none"
+              >
+                활성{" "}
+                <span className="mono ml-1 opacity-50">{counts.active}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="done"
+                className="h-7 flex-1 px-3 text-[11px] font-bold text-ok data-[state=active]:bg-background md:flex-none"
+              >
+                완료 <span className="mono ml-1 opacity-50">{counts.done}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="failed"
+                className="h-7 flex-1 px-3 text-[11px] font-bold text-bad data-[state=active]:bg-background md:flex-none"
+              >
+                실패{" "}
+                <span className="mono ml-1 opacity-50">
+                  {counts.error + counts.cancelled}
+                </span>
+              </TabsTrigger>
             </TabsList>
           </Tabs>
 
           <div className="flex flex-wrap items-center gap-2">
             {filterTab === "failed" && (
-              <div className="flex items-center gap-1.5 border-r border-line pr-2 shrink-0">
-                <Button size="sm" variant="ghost" onClick={selectAllFailed} className="h-8 px-2 text-[11px] font-bold">전체</Button>
-                <Button size="sm" variant="ghost" onClick={deselectAll} className="h-8 px-2 text-[11px] font-bold">해제</Button>
-                {selectedForDelete.size > 0 && <Button size="sm" variant="destructive" onClick={handleDeleteSelected} className="h-8 px-2 text-[11px] font-bold shadow-md">삭제({selectedForDelete.size})</Button>}
+              <div className="flex shrink-0 items-center gap-1.5 border-r border-line pr-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={selectAllFailed}
+                  className="h-8 px-2 text-[11px] font-bold"
+                >
+                  전체
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={deselectAll}
+                  className="h-8 px-2 text-[11px] font-bold"
+                >
+                  해제
+                </Button>
+                {selectedForDelete.size > 0 && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleDeleteSelected}
+                    className="h-8 px-2 text-[11px] font-bold shadow-md"
+                  >
+                    삭제({selectedForDelete.size})
+                  </Button>
+                )}
               </div>
             )}
             <div className="flex items-center gap-1">
-              <DatePicker value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined} onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")} placeholder="시작" className="h-8 w-24 text-[11px] shadow-none border-line/50" />
-              <span className="text-muted-foreground opacity-30 text-[10px]">~</span>
-              <DatePicker value={dateTo ? new Date(dateTo + "T12:00:00") : undefined} onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")} placeholder="종료" className="h-8 w-24 text-[11px] shadow-none border-line/50" />
-              {hasDateFilter && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground" onClick={() => { setDateFrom(""); setDateTo(""); }}><X className="h-4 w-4" /></Button>}
+              <DatePicker
+                value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
+                onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
+                placeholder="시작"
+                className="h-8 w-24 border-line/50 text-[11px] shadow-none"
+              />
+              <span className="text-[10px] text-muted-foreground opacity-30">
+                ~
+              </span>
+              <DatePicker
+                value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
+                onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
+                placeholder="종료"
+                className="h-8 w-24 border-line/50 text-[11px] shadow-none"
+              />
+              {hasDateFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground"
+                  onClick={() => {
+                    setDateFrom("")
+                    setDateTo("")
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-            <div className="hidden xs:flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-8 px-2 text-[11px] font-bold text-muted-foreground" onClick={() => setQuickDate("1h")}>1h</Button>
-              <Button variant="ghost" size="sm" className="h-8 px-2 text-[11px] font-bold text-muted-foreground" onClick={() => setQuickDate("today")}>오늘</Button>
+            <div className="xs:flex hidden items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-[11px] font-bold text-muted-foreground"
+                onClick={() => setQuickDate("1h")}
+              >
+                1h
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-[11px] font-bold text-muted-foreground"
+                onClick={() => setQuickDate("today")}
+              >
+                오늘
+              </Button>
             </div>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border shadow-inner mx-2 mb-2 bg-panel">
+        <div className="mx-2 mb-2 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-panel shadow-inner">
           <Table className="text-xs">
-            <TableHeader className="sticky top-0 z-10 bg-panel/95 backdrop-blur shadow-sm">
+            <TableHeader className="sticky top-0 z-10 bg-panel/95 shadow-sm backdrop-blur">
               <TableRow className="hover:bg-transparent">
                 {filterTab === "failed" && <TableHead className="w-8 px-2" />}
-                <SortableHead label="상태" sortKey="status" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHead label="파일명" sortKey="filename" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHead label="생성" sortKey="createdAt" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHead label="소요" sortKey="duration" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableHead
+                  label="상태"
+                  sortKey="status"
+                  current={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHead
+                  label="파일명"
+                  sortKey="filename"
+                  current={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHead
+                  label="생성"
+                  sortKey="createdAt"
+                  current={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHead
+                  label="소요"
+                  sortKey="duration"
+                  current={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
                 <TableHead className="w-12 px-2" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {pagedJobs.map((j) => {
-                const isActive = j.status === "pending" || j.status === "queued" || j.status === "running"
-                const isFailed = j.status === "error" || j.status === "cancelled"
+                const isActive =
+                  j.status === "pending" ||
+                  j.status === "queued" ||
+                  j.status === "running"
+                const isFailed =
+                  j.status === "error" || j.status === "cancelled"
                 const dur = jobDuration(j)
-                const previewHashes = fetchedImages.get(j.id) ?? []
+                // preview hashes available via fetchedImages.get(j.id)
                 const row = (
-                  <TableRow key={j.id} className="cursor-pointer group/row" onClick={() => openDetail(j.id)}>
-                    {filterTab === "failed" && <TableCell onClick={(e) => e.stopPropagation()} className="py-4 px-2"><Checkbox checked={selectedForDelete.has(j.id)} onCheckedChange={() => toggleSelectForDelete(j.id)} /></TableCell>}
-                    <TableCell className="py-4 px-2 text-center"><StatusPill status={j.status} /></TableCell>
-                    <TableCell className="py-4 px-2">
-                      <div className="flex max-w-[120px] xs:max-w-40 md:max-w-52 items-center gap-2 truncate">
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: stringToColor(j.filename) }} />
-                        <span className="truncate text-[13px] md:text-[11px] font-bold text-foreground">{j.filename}</span>
+                  <TableRow
+                    key={j.id}
+                    className="group/row cursor-pointer"
+                    onClick={() => openDetail(j.id)}
+                  >
+                    {filterTab === "failed" && (
+                      <TableCell
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-4"
+                      >
+                        <Checkbox
+                          checked={selectedForDelete.has(j.id)}
+                          onCheckedChange={() => toggleSelectForDelete(j.id)}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="px-2 py-4 text-center">
+                      <StatusPill status={j.status} />
+                    </TableCell>
+                    <TableCell className="px-2 py-4">
+                      <div className="xs:max-w-40 flex max-w-[120px] items-center gap-2 truncate md:max-w-52">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: stringToColor(j.filename) }}
+                        />
+                        <span className="truncate text-[13px] font-bold text-foreground md:text-[11px]">
+                          {j.filename}
+                        </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-[10px] text-muted-foreground tabular-nums">{timeAgo(j.createdAt)}</TableCell>
-                    <TableCell className="w-16 text-[10px] tabular-nums text-muted-foreground">{dur != null ? formatDuration(dur) : "—"}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()} className="px-2">
+                    <TableCell className="text-[10px] text-muted-foreground tabular-nums">
+                      {timeAgo(j.createdAt)}
+                    </TableCell>
+                    <TableCell className="w-16 text-[10px] text-muted-foreground tabular-nums">
+                      {dur != null ? formatDuration(dur) : "—"}
+                    </TableCell>
+                    <TableCell
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-2"
+                    >
                       <div className="flex justify-end gap-1">
-                        {isActive ? <Button size="icon-xs" variant="ghost" className="text-muted-foreground hover:text-destructive h-9 w-9" onClick={(e) => handleCancel(e, j.id)}><X className="h-5 w-5" /></Button> : isFailed ? (
+                        {isActive ? (
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => handleCancel(e, j.id)}
+                          >
+                            <X className="h-5 w-5" />
+                          </Button>
+                        ) : isFailed ? (
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button size="icon-xs" variant="ghost" className="h-9 w-9"><MoreVertical className="h-5 w-5" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40 p-1">
-                              <DropdownMenuItem onClick={(e) => handleRetry(e, j.id)} className="py-3 font-bold"><RefreshCcw className="mr-2 h-4 w-4" /> 재시도</DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => handleDeleteOne(e, j.id)} className="py-3 text-destructive font-bold"><Trash2 className="mr-2 h-4 w-4" /> 삭제</DropdownMenuItem>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="icon-xs"
+                                variant="ghost"
+                                className="h-9 w-9"
+                              >
+                                <MoreVertical className="h-5 w-5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-40 p-1"
+                            >
+                              <DropdownMenuItem
+                                onClick={(e) => handleRetry(e, j.id)}
+                                className="py-3 font-bold"
+                              >
+                                <RefreshCcw className="mr-2 h-4 w-4" /> 재시도
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => handleDeleteOne(e, j.id)}
+                                className="py-3 font-bold text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> 삭제
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         ) : null}
@@ -1030,71 +1285,305 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   </TableRow>
                 )
                 if (j.status === "done") {
-                  return <HoverCard key={j.id} openDelay={400} closeDelay={100} onOpenChange={(open) => { if (open) fetchJobImages(j.id) }}><HoverCardTrigger asChild>{row}</HoverCardTrigger><HoverCardContent side="left" align="start" className="hidden md:block w-auto p-2">{fetchedImages.get(j.id) && fetchedImages.get(j.id)!.length > 0 ? <div className="flex gap-1">{fetchedImages.get(j.id)!.slice(0, 6).map((h, i) => <img key={h} src={`${backendUrl}/saved-images/${h}`} alt={`Preview ${i + 1}`} loading="lazy" decoding="async" className="h-16 w-16 rounded border object-cover" />)}</div> : <p className="text-xs text-muted-foreground">로드 중…</p>}</HoverCardContent></HoverCard>
+                  return (
+                    <HoverCard
+                      key={j.id}
+                      openDelay={400}
+                      closeDelay={100}
+                      onOpenChange={(open) => {
+                        if (open) fetchJobImages(j.id)
+                      }}
+                    >
+                      <HoverCardTrigger asChild>{row}</HoverCardTrigger>
+                      <HoverCardContent
+                        side="left"
+                        align="start"
+                        className="hidden w-auto p-2 md:block"
+                      >
+                        {fetchedImages.get(j.id) &&
+                        fetchedImages.get(j.id)!.length > 0 ? (
+                          <div className="flex gap-1">
+                            {fetchedImages
+                              .get(j.id)!
+                              .slice(0, 6)
+                              .map((h, i) => (
+                                <img
+                                  key={h}
+                                  src={`${backendUrl}/saved-images/${h}`}
+                                  alt={`Preview ${i + 1}`}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="h-16 w-16 rounded border object-cover"
+                                />
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            로드 중…
+                          </p>
+                        )}
+                      </HoverCardContent>
+                    </HoverCard>
+                  )
                 }
                 return row
               })}
-              {pagedJobs.length === 0 && <TableRow className="hover:bg-transparent"><TableCell colSpan={6} className="h-80 p-0"><Empty className="border-0 bg-transparent shadow-none"><EmptyMedia variant="icon"><ClipboardList className="size-10 opacity-20" /></EmptyMedia><EmptyHeader><EmptyTitle className="text-base font-black">표시할 작업이 없습니다</EmptyTitle><EmptyDescription className="text-[13px]">필터 조건을 변경하거나 새로운 작업을 시작해보세요.</EmptyDescription></EmptyHeader></Empty></TableCell></TableRow>}
+              {pagedJobs.length === 0 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="h-80 p-0">
+                    <Empty className="border-0 bg-transparent shadow-none">
+                      <EmptyMedia variant="icon">
+                        <ClipboardList className="size-10 opacity-20" />
+                      </EmptyMedia>
+                      <EmptyHeader>
+                        <EmptyTitle className="text-base font-black">
+                          표시할 작업이 없습니다
+                        </EmptyTitle>
+                        <EmptyDescription className="text-[13px]">
+                          필터 조건을 변경하거나 새로운 작업을 시작해보세요.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
 
         {sortedJobs.length > PAGE_SIZE && (
-          <div className="flex flex-col items-center gap-2 pb-4 shrink-0">
+          <div className="flex shrink-0 flex-col items-center gap-2 pb-4">
             <Pagination className="text-xs">
               <PaginationContent className="gap-1">
-                <PaginationItem><PaginationPrevious onClick={() => page > 1 && setPage(page - 1)} className={cn("h-9 w-9 p-0 rounded-lg", page <= 1 && "pointer-events-none opacity-20")} /></PaginationItem>
-                <div className="flex items-center px-4 font-black text-sm">{page} / {totalPages}</div>
-                <PaginationItem><PaginationNext onClick={() => page < totalPages && setPage(page + 1)} className={cn("h-9 w-9 p-0 rounded-lg", page >= totalPages && "pointer-events-none opacity-20")} /></PaginationItem>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => page > 1 && setPage(page - 1)}
+                    className={cn(
+                      "h-9 w-9 rounded-lg p-0",
+                      page <= 1 && "pointer-events-none opacity-20"
+                    )}
+                  />
+                </PaginationItem>
+                <div className="flex items-center px-4 text-sm font-black">
+                  {page} / {totalPages}
+                </div>
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => page < totalPages && setPage(page + 1)}
+                    className={cn(
+                      "h-9 w-9 rounded-lg p-0",
+                      page >= totalPages && "pointer-events-none opacity-20"
+                    )}
+                  />
+                </PaginationItem>
               </PaginationContent>
             </Pagination>
           </div>
         )}
       </div>
 
-      <Sheet open={selectedJob !== null} onOpenChange={(open) => { if (!open) setSelectedJobId(null) }}>
-        <SheetContent className="flex w-full sm:min-w-105 flex-col gap-4 overflow-y-auto">
-          <SheetHeader><SheetTitle>작업 상세</SheetTitle></SheetHeader>
+      <Sheet
+        open={selectedJob !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedJobId(null)
+        }}
+      >
+        <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto sm:min-w-105">
+          <SheetHeader>
+            <SheetTitle>작업 상세</SheetTitle>
+          </SheetHeader>
           {selectedJob && (
             <div className="flex flex-col gap-4">
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2"><StatusPill status={selectedJob.status} /><span className="font-mono text-xs text-muted-foreground">{selectedJob.id.slice(0, 8)}…</span></div>
-                <p className="font-mono text-sm font-semibold">{selectedJob.filename}</p>
-                <div className="relative"><p className="line-clamp-6 pr-8 text-[13px] leading-relaxed text-muted-foreground font-mono">{selectedJob.prompt}</p>{selectedJob.prompt && <ClipButton text={selectedJob.prompt} />}</div>
-                {selectedJob.error && <div className="relative"><p className="rounded-lg bg-destructive/10 px-3 py-2 pr-8 text-sm text-destructive font-bold border border-destructive/20">{selectedJob.error}</p><ClipButton text={selectedJob.error} /></div>}
+                <div className="flex items-center gap-2">
+                  <StatusPill status={selectedJob.status} />
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {selectedJob.id.slice(0, 8)}…
+                  </span>
+                </div>
+                <p className="font-mono text-sm font-semibold">
+                  {selectedJob.filename}
+                </p>
+                <div className="relative">
+                  <p className="line-clamp-6 pr-8 font-mono text-[13px] leading-relaxed text-muted-foreground">
+                    {selectedJob.prompt}
+                  </p>
+                  {selectedJob.prompt && (
+                    <ClipButton text={selectedJob.prompt} />
+                  )}
+                </div>
+                {selectedJob.error && (
+                  <div className="relative">
+                    <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 pr-8 text-sm font-bold text-destructive">
+                      {selectedJob.error}
+                    </p>
+                    <ClipButton text={selectedJob.error} />
+                  </div>
+                )}
               </div>
-              <div className="space-y-1.5 rounded-xl border p-4 text-[13px] bg-muted/10">
-                <TimingRow label="생성" value={new Date(selectedJob.createdAt * 1000).toLocaleString()} />
-                {selectedJob.startedAt && <TimingRow label="시작" value={new Date(selectedJob.startedAt * 1000).toLocaleString()} />}
-                {selectedJob.finishedAt && <TimingRow label="완료" value={new Date(selectedJob.finishedAt * 1000).toLocaleString()} />}
-                {jobDuration(selectedJob) != null && <TimingRow label="소요" value={formatDuration(jobDuration(selectedJob)!)} />}
+              <div className="space-y-1.5 rounded-xl border bg-muted/10 p-4 text-[13px]">
+                <TimingRow
+                  label="생성"
+                  value={new Date(
+                    selectedJob.createdAt * 1000
+                  ).toLocaleString()}
+                />
+                {selectedJob.startedAt && (
+                  <TimingRow
+                    label="시작"
+                    value={new Date(
+                      selectedJob.startedAt * 1000
+                    ).toLocaleString()}
+                  />
+                )}
+                {selectedJob.finishedAt && (
+                  <TimingRow
+                    label="완료"
+                    value={new Date(
+                      selectedJob.finishedAt * 1000
+                    ).toLocaleString()}
+                  />
+                )}
+                {jobDuration(selectedJob) != null && (
+                  <TimingRow
+                    label="소요"
+                    value={formatDuration(jobDuration(selectedJob)!)}
+                  />
+                )}
               </div>
               <div className="flex gap-2">
-                {(selectedJob.status === "pending" || selectedJob.status === "queued" || selectedJob.status === "running") && <Button size="lg" variant="destructive" className="flex-1 h-12 rounded-xl font-bold" onClick={(e) => { handleCancel(e, selectedJob.id); setSelectedJobId(null); }}>취소</Button>}
-                {(selectedJob.status === "error" || selectedJob.status === "cancelled") && (<><Button size="lg" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={(e) => { handleRetry(e, selectedJob.id); setSelectedJobId(null); }}>재시도</Button><Button size="lg" variant="destructive" className="flex-1 h-12 rounded-xl font-bold" onClick={(e) => { handleDeleteOne(e, selectedJob.id); setSelectedJobId(null); }}>삭제</Button></>)}
+                {(selectedJob.status === "pending" ||
+                  selectedJob.status === "queued" ||
+                  selectedJob.status === "running") && (
+                  <Button
+                    size="lg"
+                    variant="destructive"
+                    className="h-12 flex-1 rounded-xl font-bold"
+                    onClick={(e) => {
+                      handleCancel(e, selectedJob.id)
+                      setSelectedJobId(null)
+                    }}
+                  >
+                    취소
+                  </Button>
+                )}
+                {(selectedJob.status === "error" ||
+                  selectedJob.status === "cancelled") && (
+                  <>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="h-12 flex-1 rounded-xl font-bold"
+                      onClick={(e) => {
+                        handleRetry(e, selectedJob.id)
+                        setSelectedJobId(null)
+                      }}
+                    >
+                      재시도
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="destructive"
+                      className="h-12 flex-1 rounded-xl font-bold"
+                      onClick={(e) => {
+                        handleDeleteOne(e, selectedJob.id)
+                        setSelectedJobId(null)
+                      }}
+                    >
+                      삭제
+                    </Button>
+                  </>
+                )}
               </div>
-              {fetchedImages.get(selectedJob.id) && fetchedImages.get(selectedJob.id)!.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-black uppercase tracking-widest text-muted-foreground">생성 이미지 ({fetchedImages.get(selectedJob.id)!.length})</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {fetchedImages.get(selectedJob.id)!.map((h, i) => {
-                      const url = `${backendUrl}/saved-images/${h}`
-                      return <button key={h} onClick={() => { setLightboxUrls(fetchedImages.get(selectedJob.id)!.map(hh => `${backendUrl}/saved-images/${hh}`)); setLightboxIndex(i); }} className="block w-full overflow-hidden rounded-lg border shadow-sm"><img src={url} alt={`Generated ${i}`} loading="lazy" className="h-auto w-full object-cover transition-opacity hover:opacity-80" /></button>
-                    })}
+              {fetchedImages.get(selectedJob.id) &&
+                fetchedImages.get(selectedJob.id)!.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-black tracking-widest text-muted-foreground uppercase">
+                      생성 이미지 ({fetchedImages.get(selectedJob.id)!.length})
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {fetchedImages.get(selectedJob.id)!.map((h, i) => {
+                        const url = `${backendUrl}/saved-images/${h}`
+                        return (
+                          <button
+                            key={h}
+                            onClick={() => {
+                              setLightboxUrls(
+                                fetchedImages
+                                  .get(selectedJob.id)!
+                                  .map(
+                                    (hh) => `${backendUrl}/saved-images/${hh}`
+                                  )
+                              )
+                              setLightboxIndex(i)
+                            }}
+                            className="block w-full overflow-hidden rounded-lg border shadow-sm"
+                          >
+                            <img
+                              src={url}
+                              alt={`Generated ${i}`}
+                              loading="lazy"
+                              className="h-auto w-full object-cover transition-opacity hover:opacity-80"
+                            />
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
         </SheetContent>
       </Sheet>
 
       {lightboxUrls && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setLightboxUrls(null)}>
-          <button className="absolute top-6 right-6 rounded-full bg-white/10 p-3 text-white hover:bg-white/20" onClick={() => setLightboxUrls(null)}><X className="h-6 w-6" /></button>
-          {lightboxUrls.length > 1 && (<><button className="absolute top-1/2 left-6 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.max(0, i - 1)); }} disabled={lightboxIndex === 0}><ChevronDown className="h-6 w-6 rotate-90" /></button><button className="absolute top-1/2 right-6 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.min(lightboxUrls.length - 1, i + 1)); }} disabled={lightboxIndex === lightboxUrls.length - 1}><ChevronDown className="h-6 w-6 -rotate-90" /></button></>)}
-          <img src={lightboxUrls[lightboxIndex]!} alt="Full view" className="max-h-[85vh] max-w-[95vw] rounded-lg object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />
-          {lightboxUrls.length > 1 && <p className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-5 py-1.5 text-sm font-black text-white">{lightboxIndex + 1} / {lightboxUrls.length}</p>}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightboxUrls(null)}
+        >
+          <button
+            className="absolute top-6 right-6 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+            onClick={() => setLightboxUrls(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          {lightboxUrls.length > 1 && (
+            <>
+              <button
+                className="absolute top-1/2 left-6 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setLightboxIndex((i) => Math.max(0, i - 1))
+                }}
+                disabled={lightboxIndex === 0}
+              >
+                <ChevronDown className="h-6 w-6 rotate-90" />
+              </button>
+              <button
+                className="absolute top-1/2 right-6 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setLightboxIndex((i) =>
+                    Math.min(lightboxUrls.length - 1, i + 1)
+                  )
+                }}
+                disabled={lightboxIndex === lightboxUrls.length - 1}
+              >
+                <ChevronDown className="h-6 w-6 -rotate-90" />
+              </button>
+            </>
+          )}
+          <img
+            src={lightboxUrls[lightboxIndex]!}
+            alt="Full view"
+            className="max-h-[85vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {lightboxUrls.length > 1 && (
+            <p className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-5 py-1.5 text-sm font-black text-white">
+              {lightboxIndex + 1} / {lightboxUrls.length}
+            </p>
+          )}
         </div>
       )}
     </div>

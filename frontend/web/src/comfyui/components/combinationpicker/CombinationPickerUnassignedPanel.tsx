@@ -55,7 +55,8 @@ export function CombinationPickerUnassignedPanel({
         <div className="flex items-center gap-2">
           <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
           <span className="text-sm font-bold text-amber-800">
-            미할당 이미지: {unassignedGroups.size}개 파일 ({unassignedTotalCount}
+            미할당 이미지: {unassignedGroups.size}개 파일 (
+            {unassignedTotalCount}
             장)
           </span>
         </div>

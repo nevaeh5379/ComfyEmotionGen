@@ -25,19 +25,21 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "min-w-0 flex-1 border-r border-line px-3 py-3 md:px-5 md:py-4 last:border-r-0 transition-all duration-200 hover:bg-muted/50 group/stat",
+        "group/stat min-w-0 flex-1 border-r border-line px-3 py-3 transition-all duration-200 last:border-r-0 hover:bg-muted/50 md:px-5 md:py-4",
         faded && "opacity-30",
         className
       )}
     >
-      <div className="flex items-center gap-1.5 md:gap-2.5 text-[9px] md:text-[10px] font-extrabold tracking-widest text-muted-foreground uppercase opacity-80 group-hover/stat:opacity-100 transition-opacity">
-        {Icon && <Icon className="inline-block h-3 w-3 md:h-4 md:w-4 shrink-0 text-muted-foreground/80" />}
+      <div className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-muted-foreground uppercase opacity-80 transition-opacity group-hover/stat:opacity-100 md:gap-2.5 md:text-[10px]">
+        {Icon && (
+          <Icon className="inline-block h-3 w-3 shrink-0 text-muted-foreground/80 md:h-4 md:w-4" />
+        )}
         <span className="truncate">{label}</span>
       </div>
-      <div className="mt-1 md:mt-2 flex items-baseline gap-1 md:gap-2">
+      <div className="mt-1 flex items-baseline gap-1 md:mt-2 md:gap-2">
         <div
           className={cn(
-            "mono text-xl md:text-3xl leading-none font-black tabular-nums tracking-tighter",
+            "mono text-xl leading-none font-black tracking-tighter tabular-nums md:text-3xl",
             color
           )}
         >

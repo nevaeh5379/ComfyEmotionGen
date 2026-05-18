@@ -429,7 +429,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         filenameFilter.trim() ||
         tagFilter.trim() ||
         metadataFilter.trim() ||
-        hideRejected
+        effectiveHideRejected
       ),
     [filenameFilter, tagFilter, metadataFilter, effectiveHideRejected]
   )

@@ -81,8 +81,10 @@ export function CombinationPickerDetailView({
 }: DetailViewProps) {
   const { backendUrl, enableHover, data } = useCurationContext()
   const { setStatus, imagesByFilename, renderItems } = data
-  
-  const selectedItem = renderItems.find(ri => ri.filename === selectedFilename)
+
+  const selectedItem = renderItems.find(
+    (ri) => ri.filename === selectedFilename
+  )
   const selectedImages = imagesByFilename.get(selectedFilename) ?? []
 
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null)
@@ -91,16 +93,22 @@ export function CombinationPickerDetailView({
     if (viewMode !== "grid") return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return
 
       if (e.key === "ArrowRight" || e.key === "l") {
-        setFocusedIdx(prev => prev === null ? 0 : Math.min(prev + 1, visibleImages.length - 1))
+        setFocusedIdx((prev) =>
+          prev === null ? 0 : Math.min(prev + 1, visibleImages.length - 1)
+        )
       } else if (e.key === "ArrowLeft" || e.key === "h") {
-        setFocusedIdx(prev => prev === null ? 0 : Math.max(prev - 1, 0))
+        setFocusedIdx((prev) => (prev === null ? 0 : Math.max(prev - 1, 0)))
       } else if (e.key === "Enter" || e.key === " ") {
         if (focusedIdx !== null && visibleImages[focusedIdx]) {
-            e.preventDefault()
-            onSelectImage(selectedFilename, visibleImages[focusedIdx].hash)
+          e.preventDefault()
+          onSelectImage(selectedFilename, visibleImages[focusedIdx].hash)
         }
       }
     }
@@ -120,7 +128,7 @@ export function CombinationPickerDetailView({
     <div className="flex min-h-[700px] min-w-0 flex-1 flex-col pb-20 md:pb-0">
       {/* 상세 헤더 (모바일 2단 / 데스크탑 1단) */}
       <div className="flex-none border-b bg-muted/10 p-2 md:py-1.5">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:flex-nowrap md:gap-3">
+        <div className="flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center md:gap-3">
           {/* 컨트롤 영역 (모바일: 첫 줄 / 데스크탑: 좌측) */}
           <div className="flex items-center justify-between md:justify-start md:gap-2">
             <div className="flex items-center gap-1.5">
@@ -132,37 +140,37 @@ export function CombinationPickerDetailView({
               >
                 <ArrowLeftIcon className="h-5 w-5 md:h-3 md:w-3" />
               </Button>
-            <div className="flex items-center bg-muted/60 rounded-lg p-0.5 border border-line shadow-inner">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 md:h-6 md:w-6 p-0 hover:bg-background/80 active:bg-background"
-                onClick={() => onNavigate("prev")}
-                title="이전 조합 (K)"
-              >
-                <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
-              </Button>
-              {onOpenList && (
+              <div className="flex items-center rounded-lg border border-line bg-muted/60 p-0.5 shadow-inner">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 md:hidden border-x border-line/50 rounded-none hover:bg-background/80 active:bg-background"
-                  onClick={onOpenList}
-                  title="조합 목록 보기"
+                  className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
+                  onClick={() => onNavigate("prev")}
+                  title="이전 조합 (K)"
                 >
-                  <LayoutListIcon className="h-4.5 w-4.5 text-primary" />
+                  <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
                 </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 md:h-6 md:w-6 p-0 hover:bg-background/80 active:bg-background"
-                onClick={() => onNavigate("next")}
-                title="다음 조합 (J)"
-              >
-                <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
-              </Button>
-            </div>
+                {onOpenList && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 rounded-none border-x border-line/50 p-0 hover:bg-background/80 active:bg-background md:hidden"
+                    onClick={onOpenList}
+                    title="조합 목록 보기"
+                  >
+                    <LayoutListIcon className="h-4.5 w-4.5 text-primary" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
+                  onClick={() => onNavigate("next")}
+                  title="다음 조합 (J)"
+                >
+                  <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
+                </Button>
+              </div>
             </div>
 
             {/* 작업 버튼들 (모바일: 첫 줄 우측 / 데스크탑: 우측 끝으로 이동됨) */}
@@ -211,28 +219,34 @@ export function CombinationPickerDetailView({
               <LoadingButton
                 size="sm"
                 className="h-9 w-9"
-                onClick={() => selectedFilename && onRegenerate(selectedFilename)}
+                onClick={() =>
+                  selectedFilename && onRegenerate(selectedFilename)
+                }
                 isLoading={regenActionIsLoading}
                 icon={RefreshCwIcon}
               ></LoadingButton>
             </div>
           </div>
-          
+
           {/* 정보 영역 (모바일: 둘째 줄 / 데스크탑: 중앙) */}
-          <div className="flex flex-1 items-center gap-2 min-w-0 overflow-hidden md:gap-3">
-            <span className="truncate font-mono text-[13px] md:text-[11px] font-black text-foreground">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden md:gap-3">
+            <span className="truncate font-mono text-[13px] font-black text-foreground md:text-[11px]">
               {selectedFilename}
             </span>
-            <div className="flex-1 overflow-x-auto no-scrollbar">
+            <div className="no-scrollbar flex-1 overflow-x-auto">
               <MetaTags meta={selectedItem?.meta || {}} variant="compact" />
             </div>
           </div>
 
           {/* 데스크탑 전용 우측 버튼 영역 */}
-          <div className="hidden md:flex items-center gap-1.5 ml-auto">
+          <div className="ml-auto hidden items-center gap-1.5 md:flex">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 w-7 md:h-6 md:w-6 p-0 px-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0 px-4 md:h-6 md:w-6"
+                >
                   <Settings2Icon className="h-2.5 w-2.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -270,7 +284,7 @@ export function CombinationPickerDetailView({
             </DropdownMenu>
             <LoadingButton
               size="sm"
-              className="h-7 w-7 md:h-6 md:w-6 p-0 px-4"
+              className="h-7 w-7 p-0 px-4 md:h-6 md:w-6"
               onClick={() => selectedFilename && onRegenerate(selectedFilename)}
               isLoading={regenActionIsLoading}
               icon={RefreshCwIcon}
@@ -337,7 +351,7 @@ export function CombinationPickerDetailView({
                               )}
                             </button>
                             {idx < 9 && (
-                              <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded bg-black/40 text-[11px] font-bold text-white backdrop-blur-sm opacity-100 md:opacity-0 md:group-hover:opacity-100">
+                              <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded bg-black/40 text-[11px] font-bold text-white opacity-100 backdrop-blur-sm md:opacity-0 md:group-hover:opacity-100">
                                 {idx + 1}
                               </span>
                             )}
@@ -355,7 +369,7 @@ export function CombinationPickerDetailView({
                         </HoverCardTrigger>
                         {enableHover && (
                           <HoverCardContent
-                            className="hidden md:block w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md"
+                            className="hidden w-80 bg-card/95 p-4 font-mono text-[10px] break-all whitespace-pre-wrap backdrop-blur-md md:block"
                             side="right"
                           >
                             <div className="mb-2 border-b pb-2 font-black tracking-widest text-primary uppercase">

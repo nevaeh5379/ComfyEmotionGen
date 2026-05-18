@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { curationApi } from "../../hooks/useSavedImages"
 import { hasApproved } from "../../types/Message"
 import type { SavedImage } from "../../types/Message"
@@ -55,10 +55,6 @@ export function useCombinationData({
       setLoading(false)
     }
   }, [backendUrl, activeTemplate])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
 
   const imagesByFilename = useMemo(() => {
     const map = new Map<string, SavedImage[]>()

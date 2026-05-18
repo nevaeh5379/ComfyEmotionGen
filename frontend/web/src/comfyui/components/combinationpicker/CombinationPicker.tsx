@@ -1,5 +1,5 @@
-import { memo, useMemo, useState } from "react"
-import { CurationProvider } from "./CurationContext"
+import { memo, useEffect, useMemo, useState } from "react"
+import { CurationProvider } from "./CurationContext.tsx"
 import { useCombinationData } from "./useCombinationData"
 import { useCombinationSelection } from "./useCombinationSelection"
 import { CombinationPickerContent } from "./CombinationPickerContent"
@@ -33,7 +33,16 @@ export const CombinationPicker = memo(function CombinationPicker({
   )
 
   const data = useCombinationData({ backendUrl, activeTemplate })
-  const selection = useCombinationSelection(data.filteredRenderItems.map(i => i.filename))
+
+  // Auto-fetch when backend URL or active template changes
+  useEffect(() => {
+    data.fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendUrl, activeTemplate])
+
+  const selection = useCombinationSelection(
+    data.filteredRenderItems.map((i) => i.filename)
+  )
 
   return (
     <CurationProvider
@@ -46,7 +55,7 @@ export const CombinationPicker = memo(function CombinationPicker({
       data={data}
       selection={selection}
     >
-      <CombinationPickerContent 
+      <CombinationPickerContent
         selectedTemplateId={selectedTemplateId}
         setSelectedTemplateId={setSelectedTemplateId}
         activeTemplate={activeTemplate}

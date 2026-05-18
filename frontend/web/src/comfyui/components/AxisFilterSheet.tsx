@@ -47,7 +47,7 @@ export const AxisFilterSheet = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:min-w-[65vw] flex flex-col gap-4">
+      <SheetContent className="flex w-full flex-col gap-4 sm:min-w-[65vw]">
         <SheetHeader className="px-1">
           <SheetTitle>축 필터</SheetTitle>
           <SheetDescription className="text-xs">
@@ -57,8 +57,8 @@ export const AxisFilterSheet = ({
               : ""}
           </SheetDescription>
         </SheetHeader>
-        <div className="flex flex-1 flex-col gap-4 overflow-hidden md:flex-row md:h-[65vh]">
-          <div className="flex flex-col gap-2 h-1/2 md:h-full md:w-[35%]">
+        <div className="flex flex-1 flex-col gap-4 overflow-hidden md:h-[65vh] md:flex-row">
+          <div className="flex h-1/2 flex-col gap-2 md:h-full md:w-[35%]">
             <div className="flex flex-wrap items-center justify-end gap-1">
               <Button
                 variant="ghost"

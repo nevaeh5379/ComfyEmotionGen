@@ -42,7 +42,9 @@ export function CegTemplatePanel({
       <div className="flex items-center justify-between border-b border-line bg-muted/40 px-4 py-2">
         <div className="flex items-center gap-2.5">
           <FileCode2 className="h-4 w-4 text-primary opacity-70" />
-          <span className="text-[13px] font-bold tracking-tight">CEG 템플릿</span>
+          <span className="text-[13px] font-bold tracking-tight">
+            CEG 템플릿
+          </span>
         </div>
         <div className="flex items-center gap-1">
           {previewCount > 0 && (
@@ -58,7 +60,7 @@ export function CegTemplatePanel({
           )}
         </div>
       </div>
-      <div className="flex-1 min-h-0 relative">
+      <div className="relative min-h-0 flex-1">
         <CodeEditor
           language="ceg"
           placeholder="CEG 템플릿 입력 칸"
@@ -70,7 +72,7 @@ export function CegTemplatePanel({
         />
       </div>
       <div className="flex items-center justify-between border-t border-line bg-muted/30 px-3 py-2">
-        <div className="w-full rounded-md border border-line bg-background/50 shadow-xs focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+        <div className="w-full rounded-md border border-line bg-background/50 shadow-xs transition-all focus-within:ring-1 focus-within:ring-primary/20">
           <SaveInputBar
             key={templateResetKey}
             onSave={onSaveTemplate}

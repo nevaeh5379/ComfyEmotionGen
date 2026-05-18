@@ -148,14 +148,14 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
         }}
         onKeyDown={handleKeyDown}
         ref={inputRef}
-        className="h-9 md:h-7 border-0 bg-transparent shadow-none focus-visible:ring-0 text-sm"
+        className="h-9 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 md:h-7"
       />
       <Button
         variant="default"
         size="sm"
         disabled={!canSave}
         onClick={handleSave}
-        className="h-8 md:h-6 shrink-0 bg-foreground px-4 md:px-3 text-[12px] md:text-[11px] font-bold text-background hover:bg-foreground/90 rounded-full md:rounded-md"
+        className="h-8 shrink-0 rounded-full bg-foreground px-4 text-[12px] font-bold text-background hover:bg-foreground/90 md:h-6 md:rounded-md md:px-3 md:text-[11px]"
         title={
           hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
         }
@@ -212,7 +212,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                   >
                     {item.name}
                   </button>
-                  
+
                   <span className="text-xs text-muted-foreground">
                     {new Date(item.savedAt).toLocaleDateString()}
                   </span>
@@ -267,7 +267,7 @@ export function SavedItemsList<T extends SaveableItem>({
             className={`flex items-center gap-2 rounded px-1.5 py-1 md:py-0.5 ${isActive ? "bg-primary/10" : ""}`}
           >
             <button
-              className={`min-w-0 flex-1 truncate text-left text-sm py-2 md:py-1 hover:underline ${isActive ? "font-semibold text-primary" : ""}`}
+              className={`min-w-0 flex-1 truncate py-2 text-left text-sm hover:underline md:py-1 ${isActive ? "font-semibold text-primary" : ""}`}
               onClick={() => onLoad(item)}
               title="불러오기"
             >

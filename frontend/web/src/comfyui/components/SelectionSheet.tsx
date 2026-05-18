@@ -53,7 +53,7 @@ export const SelectionSheet = ({
   onRunSelected,
 }: SelectionSheetProps) => (
   <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent className="flex w-full sm:min-w-[35vw] flex-col gap-4">
+    <SheetContent className="flex w-full flex-col gap-4 sm:min-w-[35vw]">
       <SheetHeader className="px-1">
         <SheetTitle>선택 실행</SheetTitle>
         <SheetDescription className="text-xs font-medium text-muted-foreground">
@@ -61,7 +61,7 @@ export const SelectionSheet = ({
         </SheetDescription>
       </SheetHeader>
       <div className="flex flex-wrap items-center gap-2 px-1">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-[200px] flex-1">
           <Input
             type="search"
             placeholder="filename/prompt 검색..."
@@ -71,15 +71,25 @@ export const SelectionSheet = ({
           />
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={checkAllItems} className="h-8 text-xs font-bold">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={checkAllItems}
+            className="h-8 text-xs font-bold"
+          >
             전체 선택
           </Button>
-          <Button variant="ghost" size="sm" onClick={uncheckAllItems} className="h-8 text-xs font-bold">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={uncheckAllItems}
+            className="h-8 text-xs font-bold"
+          >
             전체 해제
           </Button>
         </div>
       </div>
-      <ScrollArea className="flex-1 min-h-0 rounded-md border shadow-inner">
+      <ScrollArea className="min-h-0 flex-1 rounded-md border shadow-inner">
         <Table className="text-xs">
           <TableHeader className="sticky top-0 z-10 bg-panel/95 backdrop-blur-sm">
             <TableRow>
@@ -94,19 +104,25 @@ export const SelectionSheet = ({
               return (
                 <TableRow
                   key={`sel-${key}-${index}`}
-                  className={cn("cursor-pointer transition-opacity", !uncheckedItems.has(key) ? "" : "opacity-40")}
+                  className={cn(
+                    "cursor-pointer transition-opacity",
+                    !uncheckedItems.has(key) ? "" : "opacity-40"
+                  )}
                   onClick={() => toggleItemCheck(key)}
                 >
-                  <TableCell onClick={(e) => e.stopPropagation()} className="px-2 py-3">
+                  <TableCell
+                    onClick={(e) => e.stopPropagation()}
+                    className="px-2 py-3"
+                  >
                     <Checkbox
                       checked={!uncheckedItems.has(key)}
                       onCheckedChange={() => toggleItemCheck(key)}
                     />
                   </TableCell>
-                  <TableCell className="font-mono text-[11px] font-bold px-2">
+                  <TableCell className="px-2 font-mono text-[11px] font-bold">
                     {item.filename}
                   </TableCell>
-                  <TableCell className="px-2 text-muted-foreground line-clamp-1">
+                  <TableCell className="line-clamp-1 px-2 text-muted-foreground">
                     {item.prompt}
                   </TableCell>
                 </TableRow>
@@ -126,13 +142,13 @@ export const SelectionSheet = ({
         </Table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      <div className="flex justify-end pt-2 border-t mt-auto px-1">
+      <div className="mt-auto flex justify-end border-t px-1 pt-2">
         <Button
           variant="default"
           size="lg"
           onClick={onRunSelected}
           disabled={!canRun || selectedCount === 0}
-          className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm font-black"
+          className="h-11 w-full text-base font-black sm:h-10 sm:w-auto sm:text-sm"
         >
           {selectedCount}개 작업 실행하기
         </Button>

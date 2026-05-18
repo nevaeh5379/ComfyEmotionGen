@@ -22,7 +22,11 @@ import {
   CombinationContextMenu,
   type RenderItem,
 } from "./CombinationPickerComponents"
-import { StatusIcon, MetaTags, ImageWithSkeleton } from "./CombinationPickerHelpers"
+import {
+  StatusIcon,
+  MetaTags,
+  ImageWithSkeleton,
+} from "./CombinationPickerHelpers"
 import { useCurationContext } from "./CurationContext"
 
 /* ─── Magnifier ─── */
@@ -95,25 +99,30 @@ export function TournamentView({
     [...images].sort(() => Math.random() - 0.5)
   )
   const [nextRound, setNextRound] = useState<SavedImage[]>([])
-  const [history, setHistory] = useState<{ matches: SavedImage[], nextRound: SavedImage[] }[]>([])
+  const [history, setHistory] = useState<
+    { matches: SavedImage[]; nextRound: SavedImage[] }[]
+  >([])
 
-  const handlePick = useCallback((winner: SavedImage) => {
-    setHistory(prev => [...prev, { matches, nextRound }])
-    const newNext = [...nextRound, winner]
-    const remaining = matches.slice(2)
+  const handlePick = useCallback(
+    (winner: SavedImage) => {
+      setHistory((prev) => [...prev, { matches, nextRound }])
+      const newNext = [...nextRound, winner]
+      const remaining = matches.slice(2)
 
-    if (remaining.length === 0) {
-      setMatches(newNext.sort(() => Math.random() - 0.5))
-      setNextRound([])
-    } else if (remaining.length === 1) {
-      // Bye round for the last image
-      setMatches([...newNext, remaining[0]!].sort(() => Math.random() - 0.5))
-      setNextRound([])
-    } else {
-      setNextRound(newNext)
-      setMatches(remaining)
-    }
-  }, [matches, nextRound])
+      if (remaining.length === 0) {
+        setMatches(newNext.sort(() => Math.random() - 0.5))
+        setNextRound([])
+      } else if (remaining.length === 1) {
+        // Bye round for the last image
+        setMatches([...newNext, remaining[0]!].sort(() => Math.random() - 0.5))
+        setNextRound([])
+      } else {
+        setNextRound(newNext)
+        setMatches(remaining)
+      }
+    },
+    [matches, nextRound]
+  )
 
   const handleUndo = useCallback(() => {
     if (history.length === 0) return
@@ -121,12 +130,16 @@ export function TournamentView({
     if (!last) return
     setMatches(last.matches)
     setNextRound(last.nextRound)
-    setHistory(prev => prev.slice(0, -1))
+    setHistory((prev) => prev.slice(0, -1))
   }, [history])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return
       if (matches.length < 2) return
 
       if (e.key === "ArrowLeft" || e.key === "a" || e.key === "h") {
@@ -162,19 +175,15 @@ export function TournamentView({
           alt="Winner"
         />
         <div className="mt-8 flex gap-4">
-            <Button
-                variant="outline"
-                size="lg"
-                onClick={handleUndo}
-            >
-                취소 (Undo)
-            </Button>
-            <Button
-                className="px-8 py-6 text-lg font-bold"
-                onClick={() => onComplete(winner.hash)}
-            >
-                이 이미지 선택 완료
-            </Button>
+          <Button variant="outline" size="lg" onClick={handleUndo}>
+            취소 (Undo)
+          </Button>
+          <Button
+            className="px-8 py-6 text-lg font-bold"
+            onClick={() => onComplete(winner.hash)}
+          >
+            이 이미지 선택 완료
+          </Button>
         </div>
       </div>
     )
@@ -196,10 +205,17 @@ export function TournamentView({
           라운드 매치: {currentMatchNum} / {totalMatchesThisRound}
         </span>
         <div className="mt-2 flex gap-2">
-            <Button variant="ghost" size="xs" onClick={handleUndo} disabled={history.length === 0}>
-                Z: 되돌리기
-            </Button>
-            <span className="text-[10px] text-muted-foreground">A/D 또는 방향키로 선택</span>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+          >
+            Z: 되돌리기
+          </Button>
+          <span className="text-[10px] text-muted-foreground">
+            A/D 또는 방향키로 선택
+          </span>
         </div>
       </div>
       <div className="flex w-full flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-6">
@@ -207,7 +223,7 @@ export function TournamentView({
           <button
             key={img.hash}
             onClick={() => handlePick(img)}
-            className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 focus:outline-none transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20"
+            className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none"
           >
             <img
               src={`${backendUrl}/saved-images/${img.hash}`}
@@ -344,7 +360,12 @@ export function GalleryView({
                     <LongPressWrapper
                       onLongPress={() => onLongPress(item.filename)}
                       onClick={(e) => {
-                        if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                        if (
+                          selectionMode ||
+                          e.shiftKey ||
+                          e.ctrlKey ||
+                          e.metaKey
+                        ) {
                           toggleSelect(item.filename, e)
                         } else {
                           onSelect(item.filename)
@@ -475,7 +496,12 @@ export function TableView({
                   <LongPressWrapper
                     onLongPress={() => onLongPress(item.filename)}
                     onClick={(e) => {
-                      if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                      if (
+                        selectionMode ||
+                        e.shiftKey ||
+                        e.ctrlKey ||
+                        e.metaKey
+                      ) {
                         toggleSelect(item.filename, e)
                       } else {
                         onSelect(item.filename)

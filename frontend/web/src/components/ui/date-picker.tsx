@@ -4,7 +4,11 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 interface DatePickerProps {
   value: Date | undefined
@@ -13,7 +17,12 @@ interface DatePickerProps {
   className?: string
 }
 
-export function DatePicker({ value, onChange, placeholder = "날짜 선택", className }: DatePickerProps) {
+export function DatePicker({
+  value,
+  onChange,
+  placeholder = "날짜 선택",
+  className,
+}: DatePickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -30,11 +39,7 @@ export function DatePicker({ value, onChange, placeholder = "날짜 선택", cla
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={onChange}
-        />
+        <Calendar mode="single" selected={value} onSelect={onChange} />
       </PopoverContent>
     </Popover>
   )

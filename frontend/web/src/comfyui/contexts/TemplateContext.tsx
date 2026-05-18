@@ -1,6 +1,9 @@
 import { createContext, useContext, useState } from "react"
 import { useLocalStorage } from "../hooks/useLocalStorage"
-import { useSavedTemplates, type SavedTemplate } from "../hooks/useSavedTemplates"
+import {
+  useSavedTemplates,
+  type SavedTemplate,
+} from "../hooks/useSavedTemplates"
 
 // ---------------------------------------------------------------------------
 // Types

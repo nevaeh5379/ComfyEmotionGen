@@ -56,6 +56,17 @@ export function useJobRunner({
         const data = (await res.json()) as RenderItemsResponse
         setFakeJobQueue(data.items)
         setUncheckedItems(new Set())
+        // Discover axes from new data (add new keys/values, preserve existing toggles)
+        setAxisValueFilter((prev) => {
+          const next = { ...prev }
+          data.items.forEach((item) => {
+            Object.entries(item.meta).forEach(([key, value]) => {
+              if (!next[key]) next[key] = {}
+              if (next[key]![value] === undefined) next[key]![value] = true
+            })
+          })
+          return next
+        })
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return
         setParserError(err instanceof Error ? err.message : String(err))
@@ -66,21 +77,6 @@ export function useJobRunner({
       controller.abort()
     }
   }, [cegTemplate, isAliveBackend, backendUrl])
-
-  // 파서 결과에서 축 값 자동 감지 (새 값만 추가, 기존 설정 유지)
-  useEffect(() => {
-    if (fakeJobQueue.length === 0) return
-    setAxisValueFilter((prev) => {
-      const next = { ...prev }
-      fakeJobQueue.forEach((item) => {
-        Object.entries(item.meta).forEach(([key, value]) => {
-          if (!next[key]) next[key] = {}
-          if (next[key]![value] === undefined) next[key]![value] = true
-        })
-      })
-      return next
-    })
-  }, [fakeJobQueue])
 
   const callParser = async (): Promise<RenderItemsResponse | undefined> => {
     try {

@@ -56,7 +56,10 @@ export function CollapseSection({
             )}
           </AccordionPrimitive.Trigger>
           {actions && (
-            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="flex items-center"
+              onClick={(e) => e.stopPropagation()}
+            >
               {actions}
             </div>
           )}

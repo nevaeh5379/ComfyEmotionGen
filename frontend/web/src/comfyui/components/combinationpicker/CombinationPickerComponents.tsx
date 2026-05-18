@@ -312,7 +312,9 @@ export function RegenerateDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">
-                  {selectedWorkflowId ? "워크플로우 해제" : "워크플로우 직접 선택"}
+                  {selectedWorkflowId
+                    ? "워크플로우 해제"
+                    : "워크플로우 직접 선택"}
                 </SelectItem>
                 {savedWorkflows.length > 0 && (
                   <>

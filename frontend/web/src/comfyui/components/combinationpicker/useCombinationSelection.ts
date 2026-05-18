@@ -15,7 +15,11 @@ export function useCombinationSelection(visibleFilenames: string[]) {
       setSelectedFilenames((prev) => {
         const next = new Set(prev)
 
-        if (isShift && lastSelected && visibleFilenames.includes(lastSelected)) {
+        if (
+          isShift &&
+          lastSelected &&
+          visibleFilenames.includes(lastSelected)
+        ) {
           const startIdx = visibleFilenames.indexOf(lastSelected)
           const endIdx = visibleFilenames.indexOf(filename)
           const range = visibleFilenames.slice(
@@ -35,12 +39,11 @@ export function useCombinationSelection(visibleFilenames: string[]) {
             next.delete(filename)
           } else {
             if (!selectionMode) {
-                // If not in selection mode, just start it
-                next.add(filename)
+              // If not in selection mode, just start it
+              next.add(filename)
             } else {
-                // If in selection mode but no modifiers, clear and select this one?
-                // Actually, standard behavior is usually toggle in selection mode.
-                next.has(filename) ? next.delete(filename) : next.add(filename)
+              // In selection mode: toggle this item
+              next.add(filename)
             }
           }
         }

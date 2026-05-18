@@ -13,10 +13,7 @@ function Tabs({
     <TabsPrimitive.Root
       data-slot="tabs"
       data-orientation={orientation}
-      className={cn(
-        "group/tabs flex data-horizontal:flex-col",
-        className
-      )}
+      className={cn("group/tabs flex data-horizontal:flex-col", className)}
       {...props}
     />
   )

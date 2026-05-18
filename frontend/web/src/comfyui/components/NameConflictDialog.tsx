@@ -8,7 +8,10 @@ import {
 } from "@/components/ui/dialog"
 
 interface NameConflictDialogProps {
-  pendingSave: { name: string; type: "template" | "workflow" | "nodeMapping" } | null
+  pendingSave: {
+    name: string
+    type: "template" | "workflow" | "nodeMapping"
+  } | null
   onClose: () => void
   newName: string
   onSaveNew: () => void

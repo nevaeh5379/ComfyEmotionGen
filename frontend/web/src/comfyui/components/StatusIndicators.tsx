@@ -116,12 +116,18 @@ export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
     <StatusHoverCard
       dotColor={dot}
       pingColor={ping}
-      title={backendAlive ? (
-        <div className="flex items-center gap-1.5">
-          <span className="md:inline hidden">ComfyUI 워커</span>
-          <span className="mono">{aliveCount}/{total}</span>
-        </div>
-      ) : "—"}
+      title={
+        backendAlive ? (
+          <div className="flex items-center gap-1.5">
+            <span className="hidden md:inline">ComfyUI 워커</span>
+            <span className="mono">
+              {aliveCount}/{total}
+            </span>
+          </div>
+        ) : (
+          "—"
+        )
+      }
       hoverAlign="end"
       hoverWidth="w-72"
     >

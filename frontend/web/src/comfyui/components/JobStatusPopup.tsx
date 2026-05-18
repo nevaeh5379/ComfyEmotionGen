@@ -125,7 +125,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 
     return (
       <div
-        className="fixed left-4 right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg transition-opacity hover:opacity-90 sm:left-auto sm:right-4 sm:w-auto"
+        className="fixed right-4 bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg transition-opacity hover:opacity-90 sm:right-4 sm:left-auto sm:w-auto"
         role="button"
         tabIndex={0}
         onClick={() => setExpanded(true)}
@@ -150,7 +150,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
             {formatETA(etaRemaining)}
           </span>
         )}
-        <span className="text-[10px] text-muted-foreground ml-auto sm:ml-0">
+        <span className="ml-auto text-[10px] text-muted-foreground sm:ml-0">
           {doneCount}/{allSessionCount} ({overallPercent}%)
         </span>
         <Minimize2 className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -161,7 +161,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   // ── expanded panel ─────────────────────────────────────────────────────
 
   return (
-    <div className="fixed left-4 right-4 bottom-4 z-50 rounded-lg border bg-card shadow-xl sm:left-auto sm:right-4 sm:w-80">
+    <div className="fixed right-4 bottom-4 left-4 z-50 rounded-lg border bg-card shadow-xl sm:right-4 sm:left-auto sm:w-80">
       {/* ── header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between border-b px-3 py-2">
         <div className="flex items-center gap-2">
