@@ -1,7 +1,13 @@
-import { Dices } from "lucide-react"
+import { Dices, Plus, Trash2, Wand2 } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   InputGroup,
@@ -24,6 +30,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { CollapseSection } from "@/components/ceg/CollapseSection"
 import { SaveInputBar } from "./SavedItemsManager"
 import type {
@@ -140,39 +151,48 @@ export const NodeMappingSection = ({
         nodeMappings.length > 0 ? `${nodeMappings.length}개 매핑` : undefined
       }
     >
-      <div className="space-y-2 px-3.5 pb-3">
-        <div className="flex flex-col gap-0.5">
-          {showWarnings && !hasPromptMapping && (
-            <span className="text-xs text-yellow-600">
-              ⚠ 프롬프트 주입 매핑이 설정되지 않았습니다.
-            </span>
-          )}
-          {showWarnings && !hasFilenameMapping && (
-            <span className="text-xs text-yellow-600">
-              ⚠ 파일명 주입 매핑이 설정되지 않았습니다.
-            </span>
-          )}
-        </div>
+      <div className="pb-3">
+        {/* ── 경고 ────────────────────────────── */}
+        {showWarnings && (
+          <div className="flex flex-col gap-1 px-3.5 pb-2">
+            {!hasPromptMapping && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-yellow-600">
+                <span>⚠</span> 프롬프트 주입 매핑이 설정되지 않았습니다.
+              </span>
+            )}
+            {!hasFilenameMapping && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-yellow-600">
+                <span>⚠</span> 파일명 주입 매핑이 설정되지 않았습니다.
+              </span>
+            )}
+          </div>
+        )}
+
         {/* ── 매핑 테이블 ──────────────────────── */}
         {(nodeMappings.length > 0 || availableNodeOptions.length > 0) && (
-          <div>
+          <div className="border-y border-line">
             {nodeMappings.length > 0 && (
-              <div className="-mx-3.5 overflow-x-auto">
-                <Table className="min-w-[500px] text-xs">
+              <div className="overflow-x-auto">
+                <Table className="min-w-[480px] text-xs">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-28">노드</TableHead>
-                      <TableHead className="w-20">소스</TableHead>
-                      <TableHead>값</TableHead>
-                      <TableHead className="w-16 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-1.5 text-[11px]"
-                          onClick={handleAutoMap}
-                        >
-                          자동
-                        </Button>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="h-7 w-28 px-2 text-[10px]">노드</TableHead>
+                      <TableHead className="h-7 w-20 px-1 text-[10px]">소스</TableHead>
+                      <TableHead className="h-7 px-1 text-[10px]">값</TableHead>
+                      <TableHead className="h-7 w-14 px-1 text-right">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={handleAutoMap}
+                            >
+                              <Wand2 className="size-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left">자동 매핑</TooltipContent>
+                        </Tooltip>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -191,15 +211,15 @@ export const NodeMappingSection = ({
                       const upload = imageUploads[`${m.nodeId}.${m.inputKey}`]
                       return (
                         <TableRow key={m.id}>
-                          <TableCell className="px-2 py-3">
-                            <div className="text-[11px] font-bold">
+                          <TableCell className="px-2 py-2">
+                            <div className="text-[11px] font-medium leading-tight">
                               {node?._meta?.title || "Untitled"}
                             </div>
-                            <div className="font-mono text-[10px] text-muted-foreground opacity-70">
+                            <div className="font-mono text-[10px] text-muted-foreground/60">
                               #{m.nodeId} · {m.inputKey}
                             </div>
                           </TableCell>
-                          <TableCell className="px-1 py-3">
+                          <TableCell className="px-1 py-2">
                             <Select
                               value={m.sourceType}
                               onValueChange={(val) =>
@@ -208,7 +228,7 @@ export const NodeMappingSection = ({
                                 })
                               }
                             >
-                              <SelectTrigger className="h-9 w-20 text-[11px] font-medium md:h-7 md:w-24">
+                              <SelectTrigger className="h-7 w-20 text-[11px] font-medium md:w-24">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -224,9 +244,9 @@ export const NodeMappingSection = ({
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell className="px-1 py-3">
+                          <TableCell className="px-1 py-2">
                             {m.sourceType === "seed" && (
-                              <InputGroup className="h-9 w-28 md:h-7 md:w-32">
+                              <InputGroup className="h-7 w-32">
                                 <InputGroupInput
                                   type="number"
                                   value={m.seedValue ?? 0}
@@ -241,32 +261,34 @@ export const NodeMappingSection = ({
                                   className="text-[11px]"
                                 />
                                 <InputGroupAddon align="inline-end">
-                                  <InputGroupButton
-                                    onClick={() =>
-                                      updateMapping(m.id, {
-                                        seedRandom: !m.seedRandom,
-                                      })
-                                    }
-                                    title={
-                                      m.seedRandom
-                                        ? "랜덤 (클릭하여 고정)"
-                                        : "고정 (클릭하여 랜덤)"
-                                    }
-                                    className={
-                                      m.seedRandom
-                                        ? "text-foreground"
-                                        : "text-muted-foreground"
-                                    }
-                                    size="icon-xs"
-                                  >
-                                    <Dices className="size-4" />
-                                  </InputGroupButton>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <InputGroupButton
+                                        onClick={() =>
+                                          updateMapping(m.id, {
+                                            seedRandom: !m.seedRandom,
+                                          })
+                                        }
+                                        className={
+                                          m.seedRandom
+                                            ? "text-foreground"
+                                            : "text-muted-foreground"
+                                        }
+                                        size="icon-xs"
+                                      >
+                                        <Dices className="size-3.5" />
+                                      </InputGroupButton>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {m.seedRandom ? "랜덤 — 클릭하여 고정" : "고정 — 클릭하여 랜덤"}
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </InputGroupAddon>
                               </InputGroup>
                             )}
                             {m.sourceType === "image" && (
                               <div className="flex items-center gap-2">
-                                <label className="inline-flex h-9 cursor-pointer items-center rounded-lg border border-line bg-panel px-3 text-[11px] font-bold hover:bg-accent active:bg-accent/80 md:h-7">
+                                <label className="inline-flex h-7 cursor-pointer items-center rounded-md border border-line bg-panel px-2.5 text-[11px] font-medium hover:bg-accent active:bg-accent/80">
                                   파일 선택
                                   <input
                                     type="file"
@@ -285,12 +307,12 @@ export const NodeMappingSection = ({
                                 </label>
                                 {upload?.uploading && (
                                   <span className="animate-pulse text-[10px] text-muted-foreground">
-                                    ...
+                                    업로드 중...
                                   </span>
                                 )}
                                 {upload?.uploadedName && (
-                                  <span className="text-[10px] font-bold text-green-600">
-                                    OK
+                                  <span className="text-[10px] font-medium text-green-600">
+                                    완료
                                   </span>
                                 )}
                               </div>
@@ -303,7 +325,7 @@ export const NodeMappingSection = ({
                                     updateMapping(m.id, { fixedValue: val })
                                   }
                                 >
-                                  <SelectTrigger className="h-9 w-24 text-[11px] md:h-7 md:w-28">
+                                  <SelectTrigger className="h-7 w-28 text-[11px]">
                                     <SelectValue placeholder="선택..." />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -322,24 +344,29 @@ export const NodeMappingSection = ({
                                       fixedValue: e.target.value,
                                     })
                                   }
-                                  className="h-9 w-24 text-[11px] md:h-7 md:w-28"
+                                  className="h-7 w-28 text-[11px]"
                                   placeholder="값 입력"
                                 />
                               ))}
                           </TableCell>
-                          <TableCell className="px-1 py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive active:bg-destructive/10"
-                              onClick={() =>
-                                setNodeMappings((prev) =>
-                                  prev.filter((x) => x.id !== m.id)
-                                )
-                              }
-                            >
-                              ×
-                            </Button>
+                          <TableCell className="px-1 py-2 text-right">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground/50 hover:text-destructive"
+                                  onClick={() =>
+                                    setNodeMappings((prev) =>
+                                      prev.filter((x) => x.id !== m.id)
+                                    )
+                                  }
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">매핑 삭제</TooltipContent>
+                            </Tooltip>
                           </TableCell>
                         </TableRow>
                       )
@@ -350,48 +377,57 @@ export const NodeMappingSection = ({
             )}
 
             {availableNodeOptions.length > 0 && (
-              <div className="border-t border-line">
-                <Select
-                  value=""
-                  onValueChange={(val) => {
-                    const index = Number(val)
-                    const opt = availableNodeOptions[index]
-                    if (!opt) return
-                    const sourceType: MappingSourceType = opt.isLoadImage
-                      ? "image"
-                      : opt.isNumeric
-                        ? "seed"
-                        : "fixed"
-                    setNodeMappings((prev) => [
-                      ...prev,
-                      {
-                        id: crypto.randomUUID(),
-                        nodeId: opt.nodeId,
-                        inputKey: opt.inputKey,
-                        sourceType,
-                        ...(sourceType === "seed"
-                          ? { seedValue: 0, seedRandom: true }
-                          : {}),
-                      },
-                    ])
-                  }}
-                >
-                  <SelectTrigger className="h-7 w-full border-0 bg-transparent text-xs shadow-none focus:ring-0">
-                    <SelectValue placeholder="+ 매핑 추가..." />
-                  </SelectTrigger>
-                  <SelectContent>
+              <div className={nodeMappings.length > 0 ? "border-t border-line" : undefined}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-full justify-start gap-1.5 rounded-none px-3 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Plus className="size-3 shrink-0" />
+                      매핑 추가...
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
                     {availableNodeOptions.map((opt, i) => (
-                      <SelectItem key={i} value={String(i)}>
-                        [{opt.nodeId}] {opt.title} · {opt.inputKey}
-                      </SelectItem>
+                      <DropdownMenuItem
+                        key={i}
+                        className="gap-2 text-[11px]"
+                        onSelect={() => {
+                          const sourceType: MappingSourceType = opt.isLoadImage
+                            ? "image"
+                            : opt.isNumeric
+                              ? "seed"
+                              : "fixed"
+                          setNodeMappings((prev) => [
+                            ...prev,
+                            {
+                              id: crypto.randomUUID(),
+                              nodeId: opt.nodeId,
+                              inputKey: opt.inputKey,
+                              sourceType,
+                              ...(sourceType === "seed"
+                                ? { seedValue: 0, seedRandom: true }
+                                : {}),
+                            },
+                          ])
+                        }}
+                      >
+                        <span className="font-mono text-muted-foreground">[{opt.nodeId}]</span>
+                        <span>{opt.title}</span>
+                        <span className="ml-auto font-mono text-[10px] text-muted-foreground/60">{opt.inputKey}</span>
+                      </DropdownMenuItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
         )}
-        <div className="flex items-center justify-end border-t border-line px-3 py-1.5">
+
+        {/* ── 저장 바 ──────────────────────────── */}
+        <div className="flex items-center justify-end px-3.5 pt-2">
           {activeWorkflowId ? (
             <SaveInputBar
               key={nodeMappingResetKey}
