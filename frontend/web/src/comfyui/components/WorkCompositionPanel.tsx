@@ -403,7 +403,7 @@ export function WorkCompositionPanel({
         </Tabs>
 
         {/* Mobile Fixed Bottom Bar */}
-        <div className="fixed bottom-[44px] left-0 right-0 z-30 flex items-center justify-between gap-3 border-t border-line bg-panel/95 backdrop-blur px-4 py-2.5 md:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between gap-3 border-t border-line bg-panel/95 backdrop-blur px-4 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
           <div className="flex h-11 items-center overflow-hidden rounded-xl border border-line bg-background shadow-sm flex-1 max-w-[140px]">
             <Button
               variant="ghost"

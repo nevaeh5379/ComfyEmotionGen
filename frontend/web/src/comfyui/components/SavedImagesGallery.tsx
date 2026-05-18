@@ -407,76 +407,73 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     <div className="flex flex-col">
       {/* ── Sticky Toolbar Header ── */}
       <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-panel px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
-          <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <Tabs
-              value={statusFilter}
-              onValueChange={(v) =>
-                setStatusFilter(v as CurationStatus | "all")
-              }
-              className="w-full sm:w-auto"
+        {/* Row 1: Status filter tabs */}
+        <Tabs
+          value={statusFilter}
+          onValueChange={(v) =>
+            setStatusFilter(v as CurationStatus | "all")
+          }
+        >
+          <TabsList className="w-full justify-start overflow-x-auto no-scrollbar">
+            {(
+              ["all", "pending", "approved", "rejected", "trashed"] as const
+            ).map((s) => (
+              <TabsTrigger key={s} value={s} className="shrink-0 px-2 sm:px-3 text-[11px] sm:text-xs">
+                {STATUS_LABEL[s]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {/* Row 2: Action controls */}
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={groupMode ? "default" : "outline"}
+              onClick={() => setGroupMode(!groupMode)}
+              className="h-8 text-[11px] font-bold"
             >
-              <TabsList className="w-full sm:w-auto justify-start overflow-x-auto no-scrollbar">
-                {(
-                  ["all", "pending", "approved", "rejected", "trashed"] as const
-                ).map((s) => (
-                  <TabsTrigger key={s} value={s} className="shrink-0 px-2 sm:px-3 text-[11px] sm:text-xs">
-                    {STATUS_LABEL[s]}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+              {groupMode ? "그리드" : "그룹"}
+            </Button>
 
-            <div className="hidden h-4 w-px bg-line sm:block" />
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant={groupMode ? "default" : "outline"}
-                onClick={() => setGroupMode(!groupMode)}
-                className="h-8 text-[11px] font-bold"
+            <ToggleGroup
+              type="single"
+              value={galleryViewMode}
+              onValueChange={(v) =>
+                v && setGalleryViewMode(v as GalleryViewMode)
+              }
+              variant="outline"
+              spacing={0}
+              className="h-8"
+            >
+              <ToggleGroupItem
+                value="grid"
+                className="h-7 px-2 text-[10px] font-bold"
               >
-                {groupMode ? "그리드" : "그룹"}
-              </Button>
-
-              <ToggleGroup
-                type="single"
-                value={galleryViewMode}
-                onValueChange={(v) =>
-                  v && setGalleryViewMode(v as GalleryViewMode)
-                }
-                variant="outline"
-                spacing={0}
-                className="h-8"
-              >
-                <ToggleGroupItem
-                  value="grid"
-                  className="h-7 px-2 text-[10px] font-bold"
-                >
-                  <Maximize2Icon className="mr-1 h-3 w-3" />
-                  <span className="hidden xs:inline">그리드</span>
-                </ToggleGroupItem>
-                <HoverCard openDelay={200}>
-                  <HoverCardTrigger asChild>
-                    <ToggleGroupItem
-                      value="compare"
-                      className="h-7 px-2 text-[10px] font-bold"
-                    >
-                      <ColumnsIcon className="mr-1 h-3 w-3" />
-                      <span className="hidden xs:inline">비교</span>
-                    </ToggleGroupItem>
-                  </HoverCardTrigger>
-                  {pinnedHashes.length === 0 && (
-                    <HoverCardContent
-                      side="bottom"
-                      className="w-auto px-3 py-2 text-[11px] font-bold"
-                    >
-                      이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
-                    </HoverCardContent>
-                  )}
-                </HoverCard>
-              </ToggleGroup>
-            </div>
+                <Maximize2Icon className="mr-1 h-3 w-3" />
+                <span className="hidden xs:inline">그리드</span>
+              </ToggleGroupItem>
+              <HoverCard openDelay={200}>
+                <HoverCardTrigger asChild>
+                  <ToggleGroupItem
+                    value="compare"
+                    className="h-7 px-2 text-[10px] font-bold"
+                  >
+                    <ColumnsIcon className="mr-1 h-3 w-3" />
+                    <span className="hidden xs:inline">비교</span>
+                  </ToggleGroupItem>
+                </HoverCardTrigger>
+                {pinnedHashes.length === 0 && (
+                  <HoverCardContent
+                    side="bottom"
+                    className="w-auto px-3 py-2 text-[11px] font-bold"
+                  >
+                    이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
+                  </HoverCardContent>
+                )}
+              </HoverCard>
+            </ToggleGroup>
 
             <div className="hidden h-4 w-px bg-line sm:block" />
 
@@ -497,7 +494,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 rounded-md border bg-background p-0.5 sm:p-1">
               <Select
                 value={duplicateStrategy}
@@ -533,7 +530,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   새로고침
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={handleEmptyTrash}
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                 >
