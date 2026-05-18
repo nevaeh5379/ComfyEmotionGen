@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Tabs } from "@/components/ui/tabs"
+import { CompositionTabsList } from "./comfyui/components/CompositionTabsList"
+import { WorkCompositionToolbar } from "./comfyui/components/WorkCompositionToolbar"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -582,23 +585,24 @@ function AppContent(props: AppContentProps) {
             </div>
             {/* Mobile composition tabs (jobs only) */}
             {props.activeTab === "jobs" && (
-              <div className="flex items-center gap-0.5 md:hidden">
-                {[
-                  { id: "ceg" as const, label: "템플릿" },
-                  { id: "workflow" as const, label: "워크플로우" },
-                ].map((tab) => (
-                  <Button
-                    key={tab.id}
-                    variant={
-                      props.compositionTab === tab.id ? "secondary" : "ghost"
-                    }
-                    size="sm"
-                    className="h-8 rounded-full px-2.5 text-[11px] font-bold"
-                    onClick={() => props.setCompositionTab(tab.id)}
-                  >
-                    {tab.label}
-                  </Button>
-                ))}
+              <div className="flex flex-1 items-center justify-between gap-2 overflow-x-auto no-scrollbar md:hidden">
+                <Tabs
+                  value={props.compositionTab}
+                  onValueChange={(v) => props.setCompositionTab(v as "ceg" | "workflow")}
+                >
+                  <CompositionTabsList />
+                </Tabs>
+                <WorkCompositionToolbar
+                  repeatCount={repeatCount}
+                  setRepeatCount={setRepeatCount}
+                  handleRun={handleRun}
+                  canRun={canRun}
+                  estimatedRunCount={estimatedRunCount}
+                  onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                  hasActiveFilter={hasActiveFilter}
+                  onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+                  onGraphOpen={() => props.setIsGraphOpen(true)}
+                />
               </div>
             )}
             {/* Gallery toolbar (merged into nav) */}

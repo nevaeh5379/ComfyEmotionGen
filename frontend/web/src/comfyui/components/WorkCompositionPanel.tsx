@@ -1,22 +1,14 @@
 import {
-  MinusIcon,
-  PlusIcon,
   Code2,
-  EllipsisVertical,
   Copy,
   Download,
   Settings,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { CompositionTabsList } from "./CompositionTabsList"
+import { WorkCompositionToolbar } from "./WorkCompositionToolbar"
 import CodeEditor from "@/components/CodeEditor"
 
 import { CegTemplatePanel } from "./CegTemplatePanel"
@@ -81,93 +73,22 @@ export function WorkCompositionPanel({
         <Tabs
           value={compositionTab}
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex min-h-0 flex-1 flex-col "
         >
           <div className="flex shrink-0 items-center justify-between px-1 border-b">
-            <TabsList variant="line">
-              <TabsTrigger
-                value="ceg"
-                
-              >
-                템플릿
-              </TabsTrigger>
-              <TabsTrigger
-                value="workflow"
-               
-              >
-                워크플로우
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Desktop Only Controls (at top) */}
-            <div className="hidden items-center gap-2 md:flex">
-              <div className="flex h-8 items-center overflow-hidden rounded-[4px] border border-line bg-panel shadow-xs">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-full w-7 rounded-none hover:bg-accent"
-                  onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
-                >
-                  <MinusIcon className="h-3 w-3" />
-                </Button>
-                <input
-                  type="number"
-                  className="mono h-full w-9 [appearance:textfield] border-x border-line bg-transparent text-center text-[11px] font-bold text-foreground outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  min={1}
-                  value={repeatCount}
-                  onChange={(e) =>
-                    setRepeatCount(Math.max(1, Number(e.target.value) || 1))
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-full w-7 rounded-none hover:bg-accent"
-                  onClick={() => setRepeatCount((c) => c + 1)}
-                >
-                  <PlusIcon className="h-3 w-3" />
-                </Button>
-              </div>
-              <Button
-                variant="default"
-                size="sm"
-                className=""
-                onClick={handleRun}
-                disabled={!canRun}
-              >
-                실행
-                {estimatedRunCount !== null
-                  ? ` (${estimatedRunCount}${repeatCount > 1 ? `×${repeatCount}` : ""})`
-                  : ""}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground"
-                  >
-                    <EllipsisVertical className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={onSelectionOpen}
-                    disabled={!canRun}
-                  >
-                    선택 실행
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onAxisFilterOpen}>
-                    축 필터
-                    {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onGraphOpen}>
-                    그래프 보기
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <CompositionTabsList className="hidden md:inline-flex"/>
+            <WorkCompositionToolbar
+              repeatCount={repeatCount}
+              setRepeatCount={setRepeatCount}
+              handleRun={handleRun}
+              canRun={canRun}
+              estimatedRunCount={estimatedRunCount}
+              onSelectionOpen={onSelectionOpen}
+              hasActiveFilter={hasActiveFilter}
+              onAxisFilterOpen={onAxisFilterOpen}
+              onGraphOpen={onGraphOpen}
+              className="hidden md:flex"
+            />
           </div>
 
           <TabsContent
@@ -407,85 +328,6 @@ export function WorkCompositionPanel({
               />
             )}
           </TabsContent>
-        </Tabs>
-
-        {/* Mobile Bottom Bar */}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-panel px-4 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
-          <div className="flex h-11 flex-2 items-center overflow-hidden rounded-xl border border-line bg-background shadow-sm">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-full w-9 rounded-none hover:bg-accent active:bg-accent/80"
-              onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
-            >
-              <MinusIcon className="h-5 w-5" />
-            </Button>
-            <input
-              type="number"
-              className="mono h-full min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-base font-black text-foreground outline-none"
-              min={1}
-              value={repeatCount}
-              onChange={(e) =>
-                setRepeatCount(Math.max(1, Number(e.target.value) || 1))
-              }
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-full w-9 rounded-none hover:bg-accent active:bg-accent/80"
-              onClick={() => setRepeatCount((c) => c + 1)}
-            >
-              <PlusIcon className="h-5 w-5" />
-            </Button>
-          </div>
-
-          <Button
-            variant="default"
-            size="lg"
-            className="h-11 flex-3 rounded-xl bg-foreground text-base font-black text-background shadow-lg transition-all active:scale-95"
-            onClick={handleRun}
-            disabled={!canRun}
-          >
-            작업 실행
-            {estimatedRunCount !== null ? ` (${estimatedRunCount})` : ""}
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 shrink-0 rounded-xl border-line"
-              >
-                <EllipsisVertical className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 p-2">
-              <DropdownMenuItem
-                onClick={onSelectionOpen}
-                disabled={!canRun}
-                className="py-3 font-bold"
-              >
-                선택 실행
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onAxisFilterOpen}
-                className="py-3 font-bold"
-              >
-                축 필터 적용
-                {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onGraphOpen}
-                className="py-3 font-bold"
-              >
-                그래프 뷰어
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </>
+        </Tabs></div></>
   )
 }
