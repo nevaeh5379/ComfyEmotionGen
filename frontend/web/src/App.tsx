@@ -435,7 +435,7 @@ function AppContent(props: AppContentProps) {
     >
       <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
         <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
-          <div className="flex items-center gap-2 overflow-hidden md:gap-4">
+          <div className="flex items-center overflow-hidden md:gap-4">
             {/* Mobile hamburger (left side) */}
             <Sheet>
               <SheetTrigger asChild>

@@ -83,7 +83,7 @@ export function WorkCompositionPanel({
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-line bg-panel/50 px-3 py-1.5 md:py-2">
+          <div className="flex shrink-0 items-center justify-between">
             <TabsList className="hidden h-8 gap-0.5 bg-transparent p-0 md:flex md:h-7">
               <TabsTrigger
                 value="ceg"
@@ -112,7 +112,7 @@ export function WorkCompositionPanel({
                 </Button>
                 <input
                   type="number"
-                  className="mono h-full w-9 [appearance:textfield] border-x border-line bg-transparent text-center text-[11px] font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="mono h-full w-9 [appearance:textfield] border-x border-line bg-transparent text-center text-[11px] font-bold text-foreground outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   min={1}
                   value={repeatCount}
                   onChange={(e) =>
@@ -224,17 +224,64 @@ export function WorkCompositionPanel({
             className="mt-0 flex min-h-0 flex-1 flex-col data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
           >
             {/* Workflow Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5">
-              <div className="flex items-center gap-2">
-                <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium">워크플로우</span>
-                {workflow.parsedWorkflow?.success && (
-                  <span className="mono text-[10px] text-muted-foreground">
-                    {Object.keys(workflow.parsedWorkflow.data).length} Nodes
-                  </span>
-                )}
+            <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-1.5">
+              <Code2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1 rounded-md border border-line bg-background/50 shadow-xs transition-all focus-within:ring-1 focus-within:ring-primary/20">
+                <SaveInputBar
+                  key={workflow.workflowResetKey}
+                  onSave={(name) => {
+                    const trimmed = name.trim()
+                    if (
+                      workflow.savedWorkflows.some((w) => w.name === trimmed)
+                    ) {
+                      workflow.onPendingSave(trimmed, "workflow")
+                      return false
+                    }
+                    const w = workflow.saveWorkflow(
+                      trimmed,
+                      workflow.workflowJson
+                    )
+                    workflow.setActiveWorkflowId(w.id)
+                    return true
+                  }}
+                  placeholder={
+                    workflow.activeWorkflow?.name ?? "워크플로우 이름"
+                  }
+                  saveDisabled={!workflow.workflowJson.trim()}
+                  activeName={workflow.activeWorkflow?.name}
+                  items={workflow.savedWorkflows}
+                  onLoad={(w) => {
+                    nodeMapping.setActiveNodeMappingPresetId(null)
+                    workflow.loadWorkflowItem(
+                      w,
+                      () => nodeMapping.setNodeMappings([]),
+                      (m, presetId) => {
+                        nodeMapping.setNodeMappings(m)
+                        nodeMapping.setActiveNodeMappingPresetId(presetId)
+                      }
+                    )
+                  }}
+                  onDelete={(id) => {
+                    if (workflow.activeWorkflowId === id)
+                      workflow.setActiveWorkflowId(null)
+                    workflow.deleteWorkflow(id)
+                  }}
+                  activeItemId={workflow.activeWorkflowId ?? undefined}
+                  onUpdate={() => {
+                    if (workflow.activeWorkflow)
+                      workflow.saveWorkflow(
+                        workflow.activeWorkflow.name,
+                        workflow.workflowJson
+                      )
+                  }}
+                />
               </div>
-              <div className="flex items-center gap-1">
+              {workflow.parsedWorkflow?.success && (
+                <span className="mono shrink-0 text-[10px] text-muted-foreground">
+                  {Object.keys(workflow.parsedWorkflow.data).length} Nodes
+                </span>
+              )}
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -289,56 +336,7 @@ export function WorkCompositionPanel({
                 className="h-full min-h-0 w-full flex-1"
               />
 
-              <div className="flex shrink-0 items-center justify-end border-t border-line px-3 py-1.5">
-                <SaveInputBar
-                  key={workflow.workflowResetKey}
-                  onSave={(name) => {
-                    const trimmed = name.trim()
-                    if (
-                      workflow.savedWorkflows.some((w) => w.name === trimmed)
-                    ) {
-                      workflow.onPendingSave(trimmed, "workflow")
-                      return false
-                    }
-                    const w = workflow.saveWorkflow(
-                      trimmed,
-                      workflow.workflowJson
-                    )
-                    workflow.setActiveWorkflowId(w.id)
-                    return true
-                  }}
-                  placeholder={
-                    workflow.activeWorkflow?.name ?? "워크플로우 이름"
-                  }
-                  saveDisabled={!workflow.workflowJson.trim()}
-                  activeName={workflow.activeWorkflow?.name}
-                  items={workflow.savedWorkflows}
-                  onLoad={(w) => {
-                    nodeMapping.setActiveNodeMappingPresetId(null)
-                    workflow.loadWorkflowItem(
-                      w,
-                      () => nodeMapping.setNodeMappings([]),
-                      (m, presetId) => {
-                        nodeMapping.setNodeMappings(m)
-                        nodeMapping.setActiveNodeMappingPresetId(presetId)
-                      }
-                    )
-                  }}
-                  onDelete={(id) => {
-                    if (workflow.activeWorkflowId === id)
-                      workflow.setActiveWorkflowId(null)
-                    workflow.deleteWorkflow(id)
-                  }}
-                  activeItemId={workflow.activeWorkflowId ?? undefined}
-                  onUpdate={() => {
-                    if (workflow.activeWorkflow)
-                      workflow.saveWorkflow(
-                        workflow.activeWorkflow.name,
-                        workflow.workflowJson
-                      )
-                  }}
-                />
-              </div>
+
             </div>
 
             {workflow.parsedWorkflow && !workflow.parsedWorkflow.success && (
@@ -415,18 +413,18 @@ export function WorkCompositionPanel({
 
         {/* Mobile Bottom Bar */}
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-panel px-4 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
-          <div className="flex h-11 max-w-[140px] flex-1 items-center overflow-hidden rounded-xl border border-line bg-background shadow-sm">
+          <div className="flex h-11 flex-2 items-center overflow-hidden rounded-xl border border-line bg-background shadow-sm">
             <Button
               variant="ghost"
               size="icon"
-              className="h-full w-12 rounded-none hover:bg-accent active:bg-accent/80"
+              className="h-full w-9 rounded-none hover:bg-accent active:bg-accent/80"
               onClick={() => setRepeatCount((c) => Math.max(1, c - 1))}
             >
               <MinusIcon className="h-5 w-5" />
             </Button>
             <input
               type="number"
-              className="mono h-full min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-base font-black outline-none"
+              className="mono h-full min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-base font-black text-foreground outline-none"
               min={1}
               value={repeatCount}
               onChange={(e) =>
@@ -436,7 +434,7 @@ export function WorkCompositionPanel({
             <Button
               variant="ghost"
               size="icon"
-              className="h-full w-12 rounded-none hover:bg-accent active:bg-accent/80"
+              className="h-full w-9 rounded-none hover:bg-accent active:bg-accent/80"
               onClick={() => setRepeatCount((c) => c + 1)}
             >
               <PlusIcon className="h-5 w-5" />
@@ -446,7 +444,7 @@ export function WorkCompositionPanel({
           <Button
             variant="default"
             size="lg"
-            className="h-11 flex-[2] rounded-xl bg-foreground text-base font-black text-background shadow-lg transition-all active:scale-95"
+            className="h-11 flex-3 rounded-xl bg-foreground text-base font-black text-background shadow-lg transition-all active:scale-95"
             onClick={handleRun}
             disabled={!canRun}
           >
