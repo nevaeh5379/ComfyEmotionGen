@@ -39,6 +39,10 @@ export interface WorkCompositionPanelProps {
   canRun: boolean
   previewCount: number
 
+  // Composition tab
+  compositionTab: "ceg" | "workflow"
+  setCompositionTab: (tab: "ceg" | "workflow") => void
+
   // UI Callbacks
   onPreviewOpen: () => void
   onAxisFilterOpen: () => void
@@ -58,6 +62,8 @@ export function WorkCompositionPanel({
   estimatedRunCount,
   canRun,
   previewCount,
+  compositionTab,
+  setCompositionTab,
   onPreviewOpen,
   onAxisFilterOpen,
   onSelectionOpen,
@@ -72,9 +78,13 @@ export function WorkCompositionPanel({
   return (
     <>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <Tabs defaultValue="ceg" className="flex min-h-0 flex-1 flex-col">
+        <Tabs
+          value={compositionTab}
+          onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <div className="flex shrink-0 items-center justify-between border-b border-line bg-panel/50 px-3 py-1.5 md:py-2">
-            <TabsList className="h-8 gap-0.5 bg-transparent p-0 md:h-7">
+            <TabsList className="hidden h-8 gap-0.5 bg-transparent p-0 md:flex md:h-7">
               <TabsTrigger
                 value="ceg"
                 className="h-8 rounded-[5px] px-3 py-0.5 text-[12px] font-bold data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none md:h-7 md:px-2.5 md:text-[11px]"

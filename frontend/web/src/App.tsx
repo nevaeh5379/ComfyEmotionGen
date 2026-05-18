@@ -46,7 +46,15 @@ import {
   Image as ImageIcon,
   Layers,
   Settings,
+  Menu,
+  XIcon,
 } from "lucide-react"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
@@ -94,6 +102,9 @@ export function App() {
 
   // UI state
   const [activeTab, setActiveTab] = useState<TabId>("jobs")
+  const [compositionTab, setCompositionTab] = useState<"ceg" | "workflow">(
+    "ceg"
+  )
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
@@ -126,6 +137,8 @@ export function App() {
             paused={paused}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            compositionTab={compositionTab}
+            setCompositionTab={setCompositionTab}
             isSheetOpen={isSheetOpen}
             setIsSheetOpen={setIsSheetOpen}
             isGraphOpen={isGraphOpen}
@@ -168,6 +181,8 @@ interface AppContentProps {
   paused: boolean
   activeTab: TabId
   setActiveTab: (t: TabId) => void
+  compositionTab: "ceg" | "workflow"
+  setCompositionTab: (t: "ceg" | "workflow") => void
   isSheetOpen: boolean
   setIsSheetOpen: (v: boolean) => void
   isGraphOpen: boolean
@@ -376,8 +391,9 @@ function AppContent(props: AppContentProps) {
               <span className="hidden md:inline">ComfyEmotionGen</span>
               <span className="inline md:hidden">CEG</span>
             </span>
-            <div className="h-4 w-px shrink-0 bg-line/60" />
-            <div className="no-scrollbar flex items-center gap-1 overflow-x-auto px-1 pb-1">
+            <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
+            {/* Desktop tabs */}
+            <div className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex">
               {NAV_TABS.map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -406,6 +422,133 @@ function AppContent(props: AppContentProps) {
                 )
               })}
             </div>
+            {/* Mobile composition tabs (jobs only) */}
+            {props.activeTab === "jobs" && (
+              <div className="flex items-center gap-0.5 md:hidden">
+                {[
+                  { id: "ceg" as const, label: "템플릿" },
+                  { id: "workflow" as const, label: "워크플로우" },
+                ].map((tab) => (
+                  <Button
+                    key={tab.id}
+                    variant={
+                      props.compositionTab === tab.id ? "secondary" : "ghost"
+                    }
+                    size="sm"
+                    className="h-8 rounded-full px-2.5 text-[11px] font-bold"
+                    onClick={() => props.setCompositionTab(tab.id)}
+                  >
+                    {tab.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {/* Mobile hamburger */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 md:hidden"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="left"
+                showCloseButton={false}
+                className="w-[300px] sm:w-[320px]"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-line px-5 py-4">
+                  <span className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[15px] font-black tracking-tighter text-transparent">
+                    ComfyEmotionGen
+                  </span>
+                  <SheetClose asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <XIcon className="h-4 w-4" />
+                    </Button>
+                  </SheetClose>
+                </div>
+
+                {/* Navigation */}
+                <div className="flex flex-col gap-1 px-3 py-3">
+                  {NAV_TABS.map((tab) => {
+                    const Icon = tab.icon
+                    const isActive = props.activeTab === tab.id
+                    return (
+                      <div key={tab.id}>
+                        <SheetClose asChild>
+                          <button
+                            className={`group flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-bold transition-all ${
+                              isActive
+                                ? "bg-accent text-accent-foreground"
+                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                            }`}
+                            onClick={() => {
+                              props.setActiveTab(tab.id)
+                              if (tab.id === "jobs") setMobileJobTab("editor")
+                            }}
+                          >
+                            <Icon
+                              className={`h-[17px] w-[17px] ${isActive ? "opacity-100" : "opacity-50"}`}
+                            />
+                            <span>{tab.label}</span>
+                            {isActive && (
+                              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-foreground" />
+                            )}
+                          </button>
+                        </SheetClose>
+                        {tab.id === "jobs" && (
+                          <div className="mt-0.5 ml-4 border-l border-line pl-3">
+                            {[
+                              { id: "editor" as const, label: "에디터" },
+                              { id: "status" as const, label: "현황" },
+                              {
+                                id: "list" as const,
+                                label: `기록 (${props.jobs.length})`,
+                              },
+                            ].map((sub) => (
+                              <SheetClose asChild key={sub.id}>
+                                <button
+                                  className={`flex h-9 w-full items-center rounded-md px-3 text-left text-[12px] font-semibold transition-all ${
+                                    mobileJobTab === sub.id
+                                      ? "bg-accent/80 text-accent-foreground"
+                                      : "text-muted-foreground/70 hover:text-foreground"
+                                  }`}
+                                  onClick={() => {
+                                    props.setActiveTab("jobs")
+                                    setMobileJobTab(sub.id)
+                                  }}
+                                >
+                                  {sub.label}
+                                </button>
+                              </SheetClose>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Footer */}
+                <div className="mt-auto border-t border-line px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <ServerStatus
+                      name="백엔드"
+                      isConnected={props.isAliveBackend && props.backendAlive}
+                      okHint="백엔드와 연결되어 있습니다."
+                      failHint="백엔드 서버 상태를 확인해주세요."
+                    />
+                    <WorkerStatus
+                      workers={props.workers}
+                      backendAlive={props.isAliveBackend}
+                    />
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
           <div className="ml-1 flex shrink-0 items-center gap-2">
             <div className="hidden md:block">
@@ -464,34 +607,6 @@ function AppContent(props: AppContentProps) {
         )}
         {props.activeTab === "jobs" && (
           <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Mobile Job Sub-tabs (Unified 3-way toggle) */}
-            <div className="flex shrink-0 items-center gap-1 border-b border-line bg-panel/50 p-1 md:hidden">
-              <Button
-                variant={mobileJobTab === "editor" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-9 flex-1 rounded-lg text-[11px] font-black"
-                onClick={() => setMobileJobTab("editor")}
-              >
-                에디터
-              </Button>
-              <Button
-                variant={mobileJobTab === "status" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-9 flex-1 rounded-lg text-[11px] font-black"
-                onClick={() => setMobileJobTab("status")}
-              >
-                현황
-              </Button>
-              <Button
-                variant={mobileJobTab === "list" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-9 flex-1 rounded-lg text-[11px] font-black"
-                onClick={() => setMobileJobTab("list")}
-              >
-                기록 ({props.jobs.length})
-              </Button>
-            </div>
-
             {/* Desktop: Resizable, Mobile: Single Panel */}
             <div className="hidden md:contents">
               <ResizablePanelGroup
@@ -510,6 +625,8 @@ function AppContent(props: AppContentProps) {
                     estimatedRunCount={estimatedRunCount}
                     canRun={canRun}
                     previewCount={fakeJobQueue.length}
+                    compositionTab={props.compositionTab}
+                    setCompositionTab={props.setCompositionTab}
                     onPreviewOpen={() => props.setIsSheetOpen(true)}
                     onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
                     onSelectionOpen={() => props.setIsSelectionOpen(true)}
@@ -544,6 +661,8 @@ function AppContent(props: AppContentProps) {
                     estimatedRunCount={estimatedRunCount}
                     canRun={canRun}
                     previewCount={fakeJobQueue.length}
+                    compositionTab={props.compositionTab}
+                    setCompositionTab={props.setCompositionTab}
                     onPreviewOpen={() => props.setIsSheetOpen(true)}
                     onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
                     onSelectionOpen={() => props.setIsSelectionOpen(true)}

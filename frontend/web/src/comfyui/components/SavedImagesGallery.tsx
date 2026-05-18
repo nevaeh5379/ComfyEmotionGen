@@ -23,8 +23,6 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   PinIcon,
   PinOffIcon,
-  ColumnsIcon,
-  Maximize2Icon,
   CheckSquareIcon,
   SquareIcon,
   XIcon,
@@ -35,22 +33,8 @@ import {
   FilterIcon,
   MoreVertical,
   RefreshCwIcon,
+  DownloadIcon,
 } from "lucide-react"
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -58,7 +42,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import {
   Pagination,
   PaginationContent,
@@ -406,85 +399,70 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   return (
     <div className="flex flex-col">
       {/* ── Sticky Toolbar Header ── */}
-      <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-panel px-4 py-3">
-        {/* Row 1: Status filter tabs */}
-        <Tabs
-          value={statusFilter}
-          onValueChange={(v) =>
-            setStatusFilter(v as CurationStatus | "all")
-          }
-        >
-          <TabsList className="w-full justify-start overflow-x-auto no-scrollbar">
-            {(
-              ["all", "pending", "approved", "rejected", "trashed"] as const
-            ).map((s) => (
-              <TabsTrigger key={s} value={s} className="shrink-0 px-2 sm:px-3 text-[11px] sm:text-xs">
-                {STATUS_LABEL[s]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        {/* Row 2: Action controls */}
-        <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-panel px-4 py-2">
+        {/* Single row: 4 consolidated items */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Status filter + View mode */}
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={groupMode ? "default" : "outline"}
-              onClick={() => setGroupMode(!groupMode)}
-              className="h-8 text-[11px] font-bold"
-            >
-              {groupMode ? "그리드" : "그룹"}
-            </Button>
-
-            <ToggleGroup
-              type="single"
-              value={galleryViewMode}
-              onValueChange={(v) =>
-                v && setGalleryViewMode(v as GalleryViewMode)
-              }
-              variant="outline"
-              spacing={0}
-              className="h-8"
-            >
-              <ToggleGroupItem
-                value="grid"
-                className="h-7 px-2 text-[10px] font-bold"
-              >
-                <Maximize2Icon className="mr-1 h-3 w-3" />
-                <span className="hidden xs:inline">그리드</span>
-              </ToggleGroupItem>
-              <HoverCard openDelay={200}>
-                <HoverCardTrigger asChild>
-                  <ToggleGroupItem
-                    value="compare"
-                    className="h-7 px-2 text-[10px] font-bold"
+            {/* 1. Status filter dropdown */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 w-[80px] border-line bg-background px-2 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(
+                  ["all", "pending", "approved", "rejected", "trashed"] as const
+                ).map((s) => (
+                  <SelectItem
+                    key={s}
+                    value={s}
+                    className="text-[12px] font-bold"
                   >
-                    <ColumnsIcon className="mr-1 h-3 w-3" />
-                    <span className="hidden xs:inline">비교</span>
-                  </ToggleGroupItem>
-                </HoverCardTrigger>
-                {pinnedHashes.length === 0 && (
-                  <HoverCardContent
-                    side="bottom"
-                    className="w-auto px-3 py-2 text-[11px] font-bold"
-                  >
-                    이미지를 우클릭 → "비교에 추가"로 이미지를 먼저 고정하세요
-                  </HoverCardContent>
-                )}
-              </HoverCard>
-            </ToggleGroup>
+                    {STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            <div className="hidden h-4 w-px bg-line sm:block" />
+            {/* 2. View mode dropdown (group toggle + grid/compare) */}
+            <Select
+              value={groupMode ? "group" : galleryViewMode}
+              onValueChange={(v) => {
+                if (v === "group") {
+                  setGroupMode(true)
+                } else {
+                  setGroupMode(false)
+                  setGalleryViewMode(v as GalleryViewMode)
+                }
+              }}
+            >
+              <SelectTrigger className="h-8 w-[70px] border-line bg-background px-2 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="group" className="text-[12px] font-bold">
+                  그룹
+                </SelectItem>
+                <SelectItem value="grid" className="text-[12px] font-bold">
+                  그리드
+                </SelectItem>
+                <SelectItem value="compare" className="text-[12px] font-bold">
+                  비교
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
+          {/* Right: Filter + More actions */}
+          <div className="flex items-center gap-2">
+            {/* 3. Filter button */}
             <Button
               size="sm"
               variant={showFilters ? "secondary" : "outline"}
               onClick={() => setShowFilters(!showFilters)}
-              className="relative h-8 gap-1.5 font-bold text-[11px]"
+              className="relative h-8 w-8 p-0"
             >
-              <FilterIcon className="h-3.5 w-3.5" />
-              필터
+              <FilterIcon className="h-4 w-4" />
               {hasAnyFilter && (
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
@@ -492,39 +470,39 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 </span>
               )}
             </Button>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 rounded-md border bg-background p-0.5 sm:p-1">
-              <Select
-                value={duplicateStrategy}
-                onValueChange={(v) =>
-                  setDuplicateStrategy(v as "hash" | "number")
-                }
-              >
-                <SelectTrigger className="h-7 w-16 sm:w-20 border-0 bg-transparent px-1 sm:px-2 text-[10px] font-bold shadow-none focus:ring-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hash">HASH</SelectItem>
-                  <SelectItem value="number">NUM</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                className="h-7 px-2 sm:px-3 text-[10px] font-black"
-                onClick={handleExport}
-              >
-                내보내기
-              </Button>
-            </div>
+            {/* 4. More actions dropdown (export, strategy, reload, trash) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="h-8 w-8 p-0">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuLabel className="text-[11px] font-bold">
+                  내보내기
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    setDuplicateStrategy("hash")
+                    await handleExport()
+                  }}
+                  className="text-[12px] font-bold"
+                >
+                  <DownloadIcon className="mr-2 h-3.5 w-3.5" />
+                  HASH 기반
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    setDuplicateStrategy("number")
+                    await handleExport()
+                  }}
+                  className="text-[12px] font-bold"
+                >
+                  <DownloadIcon className="mr-2 h-3.5 w-3.5" />
+                  NUM 기반
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={reload}>
                   <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
                   새로고침
@@ -964,13 +942,15 @@ function ImageGrid({
             <ContextMenuTrigger>
               <div
                 className={`flex h-full flex-col gap-2 rounded-lg border bg-card p-2.5 transition-all hover:shadow-md ${
-                  isSelected ? "bg-primary/5 ring-2 ring-primary shadow-lg scale-[1.02]" : ""
+                  isSelected
+                    ? "scale-[1.02] bg-primary/5 shadow-lg ring-2 ring-primary"
+                    : ""
                 }`}
               >
                 <div className="relative">
                   <button
                     type="button"
-                    className="block w-full overflow-hidden rounded-md group"
+                    className="group block w-full overflow-hidden rounded-md"
                     onClick={() => {
                       if (isSelected || selectionMode) {
                         onToggleSelect?.(img.hash)
@@ -987,9 +967,9 @@ function ImageGrid({
                     />
                   </button>
 
-                  {/* 선택 체크박스 - 항상 표시 */}
+                  {/* 선택 체크박스 - 왼쪽 위 */}
                   <div
-                    className="absolute top-2 left-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-black/40 backdrop-blur-sm shadow-sm transition-colors hover:bg-black/60"
+                    className="absolute top-2 left-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60"
                     onClick={(e) => {
                       e.stopPropagation()
                       onToggleSelect?.(img.hash)
@@ -1003,11 +983,31 @@ function ImageGrid({
                       <SquareIcon className="h-5 w-5 text-white/60 drop-shadow-sm" />
                     )}
                   </div>
+
+                  {/* 휴지통 버튼 - 오른쪽 위 */}
+                  <button
+                    type="button"
+                    className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 ${
+                      img.status === "trashed"
+                        ? "text-red-400"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setStatus(
+                        img.hash,
+                        img.status === "trashed" ? "pending" : "trashed"
+                      )
+                    }}
+                    title={img.status === "trashed" ? "복원" : "휴지통"}
+                  >
+                    <Trash2Icon className="h-4 w-4" />
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-1.5 px-0.5">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${STATUS_TINT[img.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${STATUS_TINT[img.status]}`}
                   >
                     {STATUS_LABEL[img.status]}
                   </span>
@@ -1020,18 +1020,18 @@ function ImageGrid({
                     {img.tags.map((t) => (
                       <span
                         key={t}
-                        className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/80 border border-line/20"
+                        className="rounded border border-line/20 bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/80"
                       >
                         #{t}
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="mt-auto flex items-center justify-between gap-1.5 pt-2 border-t border-line/40">
+                <div className="mt-auto flex items-center justify-between gap-1.5 border-t border-line/40 pt-2">
                   <Button
                     size="sm"
                     variant={img.status === "approved" ? "default" : "outline"}
-                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "approved" ? "bg-green-600 hover:bg-green-700" : "text-green-600 hover:bg-green-50 hover:text-green-700 hover:border-green-300"}`}
+                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "approved" ? "bg-green-600 hover:bg-green-700" : "text-green-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700"}`}
                     onClick={() => setStatus(img.hash, "approved")}
                   >
                     <CheckIcon className="h-3.5 w-3.5" strokeWidth={3} />
@@ -1039,26 +1039,14 @@ function ImageGrid({
                   </Button>
                   <Button
                     size="sm"
-                    variant={img.status === "rejected" ? "secondary" : "outline"}
-                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "rejected" ? "bg-red-100 text-red-700" : "text-red-500 hover:bg-red-50 hover:text-red-700 hover:border-red-300"}`}
+                    variant={
+                      img.status === "rejected" ? "secondary" : "outline"
+                    }
+                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "rejected" ? "bg-red-100 text-red-700" : "text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-700"}`}
                     onClick={() => setStatus(img.hash, "rejected")}
                   >
                     <XIcon className="h-3.5 w-3.5" strokeWidth={3} />
                     탈락
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={`h-8 w-8 p-0 shrink-0 ${img.status === "trashed" ? "text-destructive bg-destructive/10" : "text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"}`}
-                    onClick={() =>
-                      setStatus(
-                        img.hash,
-                        img.status === "trashed" ? "pending" : "trashed"
-                      )
-                    }
-                    title="휴지통"
-                  >
-                    <Trash2Icon className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
