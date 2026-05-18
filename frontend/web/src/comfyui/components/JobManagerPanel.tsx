@@ -66,12 +66,14 @@ import {
   EmptyTitle,
   EmptyMedia,
 } from "@/components/ui/empty"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 import type { JobStatus, JobView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
 import { cn } from "@/lib/utils"
+import { useConfirm } from "../contexts/ConfirmContext"
 
 function stringToColor(str: string): string {
   let hash = 0
@@ -342,6 +344,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   mobileTab = "list",
 }: Props) {
   useRenderLog("JobManagerPanel")
+  const confirm = useConfirm()
 
   // ── session state ───────────────────────────────────────────────────────────
   const [markers, setMarkersRaw] = useState<SessionMarker[]>(initMarkers)
@@ -598,7 +601,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   }
 
   const handleCancelAll = async () => {
-    if (!window.confirm("진행 중인 모든 작업을 취소하시겠습니까?")) return
+    if (
+      !(await confirm({
+        title: "작업 취소",
+        description: "진행 중인 모든 작업을 취소하시겠습니까?",
+        variant: "destructive",
+        confirmText: "모두 취소",
+      }))
+    )
+      return
     try {
       await fetch(`${backendUrl}/jobs/cancel-all`, { method: "POST" })
     } catch {
@@ -640,7 +651,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
-    if (!window.confirm("이 작업을 영구 삭제하시겠습니까?")) return
+    if (
+      !(await confirm({
+        title: "작업 삭제",
+        description: "이 작업을 영구 삭제하시겠습니까?",
+        variant: "destructive",
+        confirmText: "삭제",
+      }))
+    )
+      return
     try {
       await fetch(`${backendUrl}/jobs/delete`, {
         method: "POST",
@@ -658,9 +677,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     )
     if (failed.length === 0) return
     if (
-      !window.confirm(
-        `실패/취소된 작업 ${failed.length}개를 모두 영구 삭제하시겠습니까?`
-      )
+      !(await confirm({
+        title: "실패 작업 삭제",
+        description: `실패/취소된 작업 ${failed.length}개를 모두 영구 삭제하시겠습니까?`,
+        variant: "destructive",
+        confirmText: "모두 삭제",
+      }))
     )
       return
     try {
@@ -677,9 +699,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const handleDeleteSelected = async () => {
     if (selectedForDelete.size === 0) return
     if (
-      !window.confirm(
-        `선택한 ${selectedForDelete.size}개 작업을 영구 삭제하시겠습니까?`
-      )
+      !(await confirm({
+        title: "선택 삭제",
+        description: `선택한 ${selectedForDelete.size}개 작업을 영구 삭제하시겠습니까?`,
+        variant: "destructive",
+        confirmText: "삭제",
+      }))
     )
       return
     try {
@@ -818,44 +843,46 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     + 새 세션
                   </Button>
                 </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {sortedMarkers.map((m) => {
-                    const count = sessionJobCounts.get(m.id) ?? 0
-                    const isSelected = m.id === selectedId
-                    const isActive = m.id === activeState.activeSessionId
-                    return (
-                      <div
-                        key={m.id}
-                        className={cn(
-                          "p-1",
-                          isSelected && "rounded-md bg-muted"
-                        )}
-                      >
-                        <Button
-                          variant="ghost"
-                          className="h-9 w-full justify-start gap-2 px-2 text-sm"
-                          onClick={() => {
-                            setSelectedId(m.id)
-                            setSessionPickerOpen(false)
-                          }}
+                <ScrollArea className="max-h-80">
+                  <div className="p-1">
+                    {sortedMarkers.map((m) => {
+                      const count = sessionJobCounts.get(m.id) ?? 0
+                      const isSelected = m.id === selectedId
+                      const isActive = m.id === activeState.activeSessionId
+                      return (
+                        <div
+                          key={m.id}
+                          className={cn(
+                            "p-1",
+                            isSelected && "rounded-md bg-muted"
+                          )}
                         >
-                          <span
-                            className={cn(
-                              "h-1.5 w-1.5 rounded-full",
-                              isActive ? "bg-ok" : "bg-muted-foreground/30"
-                            )}
-                          />
-                          <span className="flex-1 truncate text-left font-medium">
-                            {m.label}
-                          </span>
-                          <span className="mono text-[10px] opacity-40">
-                            {count}
-                          </span>
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
+                          <Button
+                            variant="ghost"
+                            className="h-9 w-full justify-start gap-2 px-2 text-sm"
+                            onClick={() => {
+                              setSelectedId(m.id)
+                              setSessionPickerOpen(false)
+                            }}
+                          >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                isActive ? "bg-ok" : "bg-muted-foreground/30"
+                              )}
+                            />
+                            <span className="flex-1 truncate text-left font-medium">
+                              {m.label}
+                            </span>
+                            <span className="mono text-[10px] opacity-40">
+                              {count}
+                            </span>
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </ScrollArea>
               </div>
             </>
           )}
@@ -904,124 +931,126 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       </div>
 
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
-      <div
+      <ScrollArea
         className={cn(
-          "flex max-h-[85dvh] shrink-0 flex-col overflow-y-auto border-b border-line bg-panel",
-          mobileTab === "status" ? "flex flex-1" : "hidden md:flex"
+          "max-h-[85dvh] shrink-0 border-b border-line bg-panel",
+          mobileTab === "status" ? "flex-1" : "hidden md:block"
         )}
       >
-        <div className="grid shrink-0 grid-cols-3 divide-x divide-y border-b md:flex md:items-stretch md:divide-y-0">
-          <StatCard
-            label="대기"
-            value={counts.pending}
-            color="text-ink-2"
-            faded={counts.pending === 0}
-            icon={Clock}
-            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
-          />
-          <StatCard
-            label="큐"
-            value={counts.queued}
-            color="text-warn"
-            faded={counts.queued === 0}
-            icon={Layers}
-            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
-          />
-          <StatCard
-            label="진행"
-            value={counts.running}
-            color="text-info"
-            faded={counts.running === 0}
-            icon={Activity}
-            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
-          />
-          <StatCard
-            label="완료"
-            value={counts.done}
-            color="text-ok"
-            faded={counts.done === 0}
-            icon={CheckCircle2}
-            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
-          />
-          <StatCard
-            label="실패"
-            value={counts.error}
-            color="text-bad"
-            faded={counts.error === 0}
-            icon={AlertCircle}
-            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
-          />
-          <StatCard
-            label="취소"
-            value={counts.cancelled}
-            faded={counts.cancelled === 0}
-            icon={Ban}
-            className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
-          />
-        </div>
-
-        <div className="space-y-4 p-4 md:space-y-2 md:p-3">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-black uppercase">
-              <span className="text-muted-foreground">세션 전체 진행률</span>
-              <span className="mono tabular-nums">
-                {counts.done}/{sessionJobs.length} (
-                {sessionJobs.length > 0
-                  ? Math.round((counts.done / sessionJobs.length) * 100)
-                  : 0}
-                %)
-              </span>
-            </div>
-            <Progress
-              value={
-                sessionJobs.length > 0
-                  ? (counts.done / sessionJobs.length) * 100
-                  : 0
-              }
-              className="h-2 w-full shadow-inner"
+        <div className="flex flex-col">
+          <div className="grid shrink-0 grid-cols-3 divide-x divide-y border-b md:flex md:items-stretch md:divide-y-0">
+            <StatCard
+              label="대기"
+              value={counts.pending}
+              color="text-ink-2"
+              faded={counts.pending === 0}
+              icon={Clock}
+              className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+            />
+            <StatCard
+              label="큐"
+              value={counts.queued}
+              color="text-warn"
+              faded={counts.queued === 0}
+              icon={Layers}
+              className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+            />
+            <StatCard
+              label="진행"
+              value={counts.running}
+              color="text-info"
+              faded={counts.running === 0}
+              icon={Activity}
+              className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+            />
+            <StatCard
+              label="완료"
+              value={counts.done}
+              color="text-ok"
+              faded={counts.done === 0}
+              icon={CheckCircle2}
+              className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+            />
+            <StatCard
+              label="실패"
+              value={counts.error}
+              color="text-bad"
+              faded={counts.error === 0}
+              icon={AlertCircle}
+              className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
+            />
+            <StatCard
+              label="취소"
+              value={counts.cancelled}
+              faded={counts.cancelled === 0}
+              icon={Ban}
+              className="flex-col items-center px-1 py-3 text-center md:flex-row md:px-5 md:py-4 md:text-left"
             />
           </div>
 
-          {sessionJobs
-            .filter((j) => j.status === "running")
-            .map((j) => (
-              <div
-                key={j.id}
-                className="shrink-0 space-y-2 rounded-xl border border-info/20 bg-info/5 p-4 shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-[13px] font-black text-info">
-                    {j.filename}
-                  </span>
-                  {(() => {
-                    const rem = j.startedAt
-                      ? estimateRemaining(j.startedAt, j.progressPercent)
-                      : null
-                    return (
-                      rem != null && (
-                        <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
-                          예상 {formatETA(rem)}
-                        </span>
-                      )
-                    )
-                  })()}
-                </div>
-                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
-                  <span className="truncate">
-                    {j.currentNodeName || "노드 처리 중..."}
-                  </span>
-                  <span className="mono">{Math.round(j.progressPercent)}%</span>
-                </div>
-                <Progress value={j.progressPercent} className="h-1.5 w-full" />
+          <div className="space-y-4 p-4 md:space-y-2 md:p-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] font-black uppercase">
+                <span className="text-muted-foreground">세션 전체 진행률</span>
+                <span className="mono tabular-nums">
+                  {counts.done}/{sessionJobs.length} (
+                  {sessionJobs.length > 0
+                    ? Math.round((counts.done / sessionJobs.length) * 100)
+                    : 0}
+                  %)
+                </span>
               </div>
-            ))}
-          {sessionJobs.filter((j) => j.status === "running").length === 0 && (
-            <div className="py-10 text-center text-sm font-bold text-balance text-muted-foreground/40">
-              현재 실행 중인 작업이 없습니다.
+              <Progress
+                value={
+                  sessionJobs.length > 0
+                    ? (counts.done / sessionJobs.length) * 100
+                    : 0
+                }
+                className="h-2 w-full shadow-inner"
+              />
             </div>
-          )}
+
+            {sessionJobs
+              .filter((j) => j.status === "running")
+              .map((j) => (
+                <div
+                  key={j.id}
+                  className="shrink-0 space-y-2 rounded-xl border border-info/20 bg-info/5 p-4 shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-[13px] font-black text-info">
+                      {j.filename}
+                    </span>
+                    {(() => {
+                      const rem = j.startedAt
+                        ? estimateRemaining(j.startedAt, j.progressPercent)
+                        : null
+                      return (
+                        rem != null && (
+                          <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
+                            예상 {formatETA(rem)}
+                          </span>
+                        )
+                      )
+                    })()}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
+                    <span className="truncate">
+                      {j.currentNodeName || "노드 처리 중..."}
+                    </span>
+                    <span className="mono">{Math.round(j.progressPercent)}%</span>
+                  </div>
+                  <Progress value={j.progressPercent} className="h-1.5 w-full" />
+                </div>
+              ))}
+            {sessionJobs.filter((j) => j.status === "running").length === 0 && (
+              <div className="py-10 text-center text-sm font-bold text-balance text-muted-foreground/40">
+                현재 실행 중인 작업이 없습니다.
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </ScrollArea>
 
       {/* 3. List Content (Mobile list tab OR Desktop always) */}
       <div
@@ -1153,7 +1182,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           </div>
         </div>
 
-        <div className="mx-2 mb-2 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-panel shadow-inner">
+        <ScrollArea className="mx-2 mb-2 flex-1 rounded-lg border bg-panel shadow-inner">
           <Table className="text-xs">
             <TableHeader className="sticky top-0 z-10 bg-panel/95 shadow-sm backdrop-blur">
               <TableRow className="hover:bg-transparent">
@@ -1349,7 +1378,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               )}
             </TableBody>
           </Table>
-        </div>
+        </ScrollArea>
 
         {sortedJobs.length > PAGE_SIZE && (
           <div className="flex shrink-0 flex-col items-center gap-2 pb-4">

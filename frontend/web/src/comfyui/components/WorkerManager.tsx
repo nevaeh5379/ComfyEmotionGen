@@ -4,6 +4,7 @@ import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 
 import type { WorkerView } from "../types/Message"
 
@@ -39,8 +40,11 @@ export function WorkerManager({ backendUrl, workers }: Props) {
         throw new Error(body.detail ?? `HTTP ${res.status}`)
       }
       setNewUrl("")
+      toast.success("워커가 추가되었습니다.")
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg)
+      toast.error(`추가 실패: ${msg}`)
     } finally {
       setBusy(false)
     }
@@ -67,8 +71,11 @@ export function WorkerManager({ backendUrl, workers }: Props) {
         return
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      toast.success("워커가 삭제되었습니다.")
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg)
+      toast.error(`삭제 실패: ${msg}`)
     } finally {
       setBusy(false)
     }
@@ -82,8 +89,11 @@ export function WorkerManager({ backendUrl, workers }: Props) {
       const res = await sendDelete(conflict.workerId, true)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setConflict(null)
+      toast.success("작업 취소 및 워커 삭제가 완료되었습니다.")
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg)
+      toast.error(`강제 삭제 실패: ${msg}`)
     } finally {
       setBusy(false)
     }

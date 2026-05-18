@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { EllipsisVertical, MinusIcon, Play, PlusIcon } from "lucide-react"
+import { EllipsisVertical, Play } from "lucide-react"
 
 interface WorkCompositionToolbarProps {
   repeatCount: number

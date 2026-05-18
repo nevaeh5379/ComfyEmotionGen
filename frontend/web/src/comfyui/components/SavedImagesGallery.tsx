@@ -75,6 +75,8 @@ import {
 import type { CurationStatus, SavedImage } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
+import { useConfirm } from "../contexts/ConfirmContext"
+import { toast } from "sonner"
 
 type GalleryViewMode = "grid" | "compare"
 
@@ -146,6 +148,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   toolbarState,
 }: Props) {
   useRenderLog("SavedImagesGallery")
+  const confirm = useConfirm()
   const [statusFilter, setStatusFilterState] = useState<CurationStatus | "all">(
     "pending"
   )
@@ -382,13 +385,22 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   )
 
   const handleEmptyTrash = async () => {
-    if (!confirm("휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?")) return
+    if (
+      !(await confirm({
+        title: "휴지통 비우기",
+        description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",
+        variant: "destructive",
+        confirmText: "영구 삭제",
+      }))
+    )
+      return
     try {
       const n = await curationApi.emptyTrash(backendUrl)
-      alert(`${n}개 영구 삭제됨`)
+      toast.success(`${n}개 영구 삭제됨`)
       reload()
     } catch (err) {
       console.error(err)
+      toast.error("삭제 실패")
     }
   }
 

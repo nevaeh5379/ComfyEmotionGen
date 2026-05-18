@@ -4,6 +4,7 @@ import { Minimize2, Play, Pause, Trash2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { JobView } from "../types/Message"
+import { useConfirm } from "../contexts/ConfirmContext"
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -50,6 +51,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [, setTick] = useState(0)
+  const confirm = useConfirm()
 
   // ── active jobs ────────────────────────────────────────────────────────
 
@@ -101,13 +103,21 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   }, [backendUrl, paused])
 
   const handleCancelAll = useCallback(async () => {
-    if (!window.confirm("진행 중인 모든 작업을 취소하시겠습니까?")) return
+    if (
+      !(await confirm({
+        title: "작업 취소",
+        description: "진행 중인 모든 작업을 취소하시겠습니까?",
+        variant: "destructive",
+        confirmText: "모두 취소",
+      }))
+    )
+      return
     try {
       await fetch(`${backendUrl}/jobs/cancel-all`, { method: "POST" })
     } catch {
       // ignore
     }
-  }, [backendUrl])
+  }, [backendUrl, confirm])
 
   // ── no active jobs → don't render ──────────────────────────────────────
 
