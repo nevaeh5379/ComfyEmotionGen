@@ -75,7 +75,7 @@ export function WorkCompositionPanel({
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
           className="flex min-h-0 flex-1 flex-col "
         >
-          <div className="flex shrink-0 items-center justify-between px-1 border-b">
+          <div className="py-2 px-3 flex shrink-0 items-center justify-between border-b">
             <CompositionTabsList className="hidden md:inline-flex"/>
             <WorkCompositionToolbar
               repeatCount={repeatCount}

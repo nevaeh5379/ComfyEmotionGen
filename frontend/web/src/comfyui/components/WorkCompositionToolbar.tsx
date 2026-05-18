@@ -37,7 +37,7 @@ export function WorkCompositionToolbar({
   className,
 }: WorkCompositionToolbarProps) {
   return (
-    <div className={`flex items-center gap-2 ${className || ""}`}>
+    <div className={` ${className || ""}`}>
     
         
         
@@ -48,8 +48,7 @@ export function WorkCompositionToolbar({
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            size="sm"
-            className="h-8 w-6 p-0 text-muted-foreground"
+            className="w-6 p-0 text-muted-foreground"
           >
           <EllipsisVertical />
           </Button>
@@ -78,13 +77,11 @@ export function WorkCompositionToolbar({
         </DropdownMenuContent>
       </DropdownMenu>
         <Button
-        variant="default"
-        size="sm"
-        className="w-12"
+        variant="outline"
         onClick={handleRun}
         disabled={!canRun}
       >
-        <Play />
+        <Play /> <p>실행</p>
     
       </Button>
       </ButtonGroup>
