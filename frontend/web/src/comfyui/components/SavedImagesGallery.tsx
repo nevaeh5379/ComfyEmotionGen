@@ -1038,7 +1038,6 @@ function ImageGrid({
                   >
                     <Trash2Icon className="h-4 w-4" />
                   </button>
-
                 </div>
 
                 {/* 태그 (데스크톱만) */}

@@ -335,8 +335,6 @@ export function WorkCompositionPanel({
                 bareWrapper
                 className="h-full min-h-0 w-full flex-1"
               />
-
-
             </div>
 
             {workflow.parsedWorkflow && !workflow.parsedWorkflow.success && (
