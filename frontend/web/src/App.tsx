@@ -563,7 +563,7 @@ function AppContent(props: AppContentProps) {
                     }`}
                   >
                     <Icon
-                      className={`h-4 w-4 ${props.activeTab === tab.id ? "animate-pulse" : "opacity-70"}`}
+                      className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
                     />
                     <span
                       className={
@@ -684,10 +684,7 @@ function AppContent(props: AppContentProps) {
                 >
                   <FilterIcon className="h-3.5 w-3.5" />
                   {galleryHasAnyFilter && (
-                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary"></span>
-                    </span>
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary"></span>
                   )}
                 </Button>
 
@@ -747,7 +744,7 @@ function AppContent(props: AppContentProps) {
         {/* Collapsible Filters (gallery only) */}
         {props.activeTab === "gallery" && galleryShowFilters && (
           <div className="border-t border-line/60 bg-panel/80 px-3 py-2 md:px-4 md:py-2.5">
-            <div className="flex animate-in flex-col gap-3 duration-200 fade-in slide-in-from-top-1 md:flex-row md:items-center">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
               <div className="flex flex-col gap-2 md:flex-row md:items-center">
                 <span className="text-[11px] font-bold text-muted-foreground uppercase">
                   검색

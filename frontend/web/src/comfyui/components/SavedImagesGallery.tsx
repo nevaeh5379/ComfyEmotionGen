@@ -1,14 +1,13 @@
 /**
- * 영속 저장된 이미지 큐레이션 갤러리.
+ * 영속 저장된 이미지 갤러리 뷰어.
  *
  * 기능:
- *  - 상태 필터 (pending/approved/rejected/trashed/all)
+ *  - 상태 필터 (pending/approved/rejected/trashed/all) — 읽기 전용 뷰
  *  - filename 필터, 태그 필터, 메타데이터 필터
- *  - 그리드/그룹 모드 토글
- *  - 통과(approved)/탈락(rejected)/휴지통(trashed) 액션
- *  - 선택 모드 + 일괄 작업 (approve/reject/trash)
+ *  - 그리드/그룹/비교 모드 토글
+ *  - 휴지통(trashed) 액션
+ *  - 선택 모드 + 일괄 휴지통
  *  - 핀 고정 비교 뷰
- *  - 토너먼트 뷰 (이상형 월드컵)
  *  - 리젝 숨기기
  *  - 노트 + 태그 인라인 편집
  *  - 데이터셋 익스포트 (zip 다운로드) + duplicateStrategy
@@ -27,7 +26,6 @@ import {
   SquareIcon,
   XIcon,
   Trash2Icon,
-  CheckIcon,
   CopyIcon,
   EyeIcon,
   FilterIcon,
@@ -643,25 +641,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               <div className="flex items-center gap-1">
                 <Button
                   size="sm"
-                  className="h-8 gap-1.5 bg-green-600 text-[10px] font-bold hover:bg-green-700"
-                  onClick={() => handleBulkAction("approved")}
-                  disabled={bulkActionLoading}
-                >
-                  <CheckIcon className="h-3.5 w-3.5" />
-                  일괄 통과
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5 border-red-300 text-[10px] font-bold text-red-700 hover:bg-red-50"
-                  onClick={() => handleBulkAction("rejected")}
-                  disabled={bulkActionLoading}
-                >
-                  <XIcon className="h-3.5 w-3.5" />
-                  일괄 탈락
-                </Button>
-                <Button
-                  size="sm"
                   variant="outline"
                   className="h-8 gap-1.5 text-[10px] font-bold"
                   onClick={() => handleBulkAction("trashed")}
@@ -1060,37 +1039,6 @@ function ImageGrid({
                     <Trash2Icon className="h-4 w-4" />
                   </button>
 
-                  {/* 통과/탈락 버튼 - 이미지 하단 오버레이 */}
-                  <div className="absolute right-2 bottom-2 left-2 flex rounded-md bg-black/50 backdrop-blur-sm">
-                    <button
-                      type="button"
-                      className={`flex flex-1 items-center justify-center rounded-l-md py-2 transition-colors ${
-                        img.status === "approved"
-                          ? "bg-green-600 text-white"
-                          : "bg-white/10 text-white/80 hover:bg-green-600 hover:text-white"
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setStatus(img.hash, "approved")
-                      }}
-                    >
-                      <CheckIcon className="h-5 w-5" strokeWidth={3} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`flex flex-1 items-center justify-center rounded-r-md border-l py-2 transition-colors ${
-                        img.status === "rejected"
-                          ? "border-red-600 bg-red-600 text-white"
-                          : "border-white/20 bg-white/10 text-white/80 hover:bg-red-600 hover:text-white"
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setStatus(img.hash, "rejected")
-                      }}
-                    >
-                      <XIcon className="h-5 w-5" strokeWidth={3} />
-                    </button>
-                  </div>
                 </div>
 
                 {/* 태그 (데스크톱만) */}
@@ -1126,20 +1074,6 @@ function ImageGrid({
                 )}
               </ContextMenuItem>
               <ContextMenuSeparator />
-              <ContextMenuItem
-                onClick={() => setStatus(img.hash, "approved")}
-                className="gap-2 font-bold text-green-700"
-              >
-                <CheckIcon className="h-3.5 w-3.5" />
-                통과
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => setStatus(img.hash, "rejected")}
-                className="gap-2 font-bold text-red-700"
-              >
-                <XIcon className="h-3.5 w-3.5" />
-                탈락
-              </ContextMenuItem>
               <ContextMenuItem
                 onClick={() =>
                   setStatus(

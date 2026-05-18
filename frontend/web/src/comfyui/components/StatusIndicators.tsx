@@ -11,7 +11,6 @@ import type { WorkerView } from "../types/Message"
 // ---------------------------------------------------------------------------
 interface StatusHoverCardProps {
   dotColor: string
-  pingColor: string
   title: React.ReactNode
   hoverAlign?: "start" | "center" | "end"
   hoverWidth?: string
@@ -20,7 +19,6 @@ interface StatusHoverCardProps {
 
 const StatusHoverCard = ({
   dotColor,
-  pingColor,
   title,
   hoverAlign = "start",
   hoverWidth = "w-56",
@@ -32,10 +30,7 @@ const StatusHoverCard = ({
         <Item className="flex items-center gap-1.5 border-none bg-transparent p-1">
           <span className="relative flex h-2.5 w-2.5">
             <span
-              className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${dotColor}`}
-            />
-            <span
-              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${pingColor}`}
+              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${dotColor}`}
             />
           </span>
           <ItemContent>
@@ -72,10 +67,9 @@ export const ServerStatus = ({
   failHint,
 }: ServerStatusProps) => {
   const color = isConnected ? "bg-green-500" : "bg-red-500"
-  const ping = isConnected ? "bg-green-400" : "bg-red-400"
 
   return (
-    <StatusHoverCard dotColor={color} pingColor={ping} title={name}>
+    <StatusHoverCard dotColor={color} title={name}>
       <div className="flex flex-col gap-1">
         <p className="text-sm font-bold">
           {isConnected ? "✅ 연결 성공" : "❌ 연결 안됨"}
@@ -106,16 +100,9 @@ export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
     : someAlive
       ? "bg-yellow-500"
       : "bg-red-500"
-  const ping = allAlive
-    ? "bg-green-400"
-    : someAlive
-      ? "bg-yellow-400"
-      : "bg-red-400"
-
   return (
     <StatusHoverCard
       dotColor={dot}
-      pingColor={ping}
       title={
         backendAlive ? (
           <div className="flex items-center gap-1.5">
