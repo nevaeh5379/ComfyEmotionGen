@@ -83,17 +83,17 @@ export function WorkCompositionPanel({
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex shrink-0 items-center justify-between">
-            <TabsList className="hidden h-8 gap-0.5 bg-transparent p-0 md:flex md:h-7">
+          <div className="flex shrink-0 items-center justify-between px-1 border-b">
+            <TabsList variant="line">
               <TabsTrigger
                 value="ceg"
-                className="h-8 rounded-[5px] px-3 py-0.5 text-[12px] font-bold data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none md:h-7 md:px-2.5 md:text-[11px]"
+                
               >
                 템플릿
               </TabsTrigger>
               <TabsTrigger
                 value="workflow"
-                className="h-8 rounded-[5px] px-3 py-0.5 text-[12px] font-bold data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none md:h-7 md:px-2.5 md:text-[11px]"
+               
               >
                 워크플로우
               </TabsTrigger>
@@ -131,7 +131,7 @@ export function WorkCompositionPanel({
               <Button
                 variant="default"
                 size="sm"
-                className="h-8 bg-foreground px-3 text-[11px] font-bold text-background shadow-md transition-all hover:bg-foreground/90 active:scale-95"
+                className=""
                 onClick={handleRun}
                 disabled={!canRun}
               >
