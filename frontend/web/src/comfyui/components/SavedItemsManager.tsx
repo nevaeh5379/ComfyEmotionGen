@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Trash2Icon } from "lucide-react"
+import { ButtonGroup } from "@/components/ui/button-group"
 
 export interface SaveableItem {
   id: string
@@ -130,7 +131,8 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   }
 
   const inner = (
-    <div className="flex w-full items-center gap-2">
+    <div>
+      <ButtonGroup className="w-full">
       <Input
         placeholder={placeholder}
         value={name}
@@ -148,20 +150,19 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
         }}
         onKeyDown={handleKeyDown}
         ref={inputRef}
-        className="h-9 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 md:h-7"
       />
       <Button
-        variant="default"
-        size="sm"
+        variant="outline"
         disabled={!canSave}
         onClick={handleSave}
-        className="h-8 shrink-0 rounded-full bg-foreground px-4 text-[12px] font-bold text-background hover:bg-foreground/90 md:h-6 md:rounded-md md:px-3 md:text-[11px]"
         title={
           hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
         }
       >
         저장
       </Button>
+
+      </ButtonGroup>
     </div>
   )
 

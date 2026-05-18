@@ -226,7 +226,7 @@ export function WorkCompositionPanel({
             {/* Workflow Header */}
             <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-1.5">
               <Code2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1 rounded-md border border-line bg-background/50 shadow-xs transition-all focus-within:ring-1 focus-within:ring-primary/20">
+              <div className="min-w-0 flex-1">
                 <SaveInputBar
                   key={workflow.workflowResetKey}
                   onSave={(name) => {

@@ -41,7 +41,7 @@ export function CegTemplatePanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-line bg-muted/40 px-3 py-1.5">
         <FileCode2 className="h-3.5 w-3.5 shrink-0 text-primary opacity-70" />
-        <div className="min-w-0 flex-1 rounded-md border border-line bg-background/50 shadow-xs transition-all focus-within:ring-1 focus-within:ring-primary/20">
+        <div className="min-w-0 flex-1">
           <SaveInputBar
             key={templateResetKey}
             onSave={onSaveTemplate}
