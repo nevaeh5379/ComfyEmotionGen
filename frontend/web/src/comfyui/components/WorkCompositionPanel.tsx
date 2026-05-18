@@ -1,9 +1,4 @@
-import {
-  Code2,
-  Copy,
-  Download,
-  Settings,
-} from "lucide-react"
+import { Code2, Copy, Download, Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
@@ -73,10 +68,10 @@ export function WorkCompositionPanel({
         <Tabs
           value={compositionTab}
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
-          className="flex min-h-0 flex-1 flex-col "
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="py-2 px-3 flex shrink-0 items-center justify-between border-b">
-            <CompositionTabsList className="hidden md:inline-flex"/>
+          <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
+            <CompositionTabsList className="hidden md:inline-flex" />
             <WorkCompositionToolbar
               repeatCount={repeatCount}
               setRepeatCount={setRepeatCount}
@@ -328,6 +323,8 @@ export function WorkCompositionPanel({
               />
             )}
           </TabsContent>
-        </Tabs></div></>
+        </Tabs>
+      </div>
+    </>
   )
 }

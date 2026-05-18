@@ -151,7 +151,7 @@ export const NodeMappingSection = ({
         nodeMappings.length > 0 ? `${nodeMappings.length}개 매핑` : undefined
       }
     >
-      <div className="py-2 border-t">
+      <div className="border-t py-2">
         {/* ── 경고 ────────────────────────────── */}
         {showWarnings && (
           <div className="px-3.5 pb-3">
@@ -172,25 +172,24 @@ export const NodeMappingSection = ({
           </div>
         )}
         <div className="mx-3.5 pb-2">
-         {activeWorkflowId ? (
-                <SaveInputBar
-                  key={nodeMappingResetKey}
-                  onSave={onSaveNodeMapping}
-                  placeholder="노드 매핑 이름"
-                  saveDisabled={nodeMappings.length === 0}
-                  activeName={activeMappingName}
-                  items={savedNodeMappings}
-                  onLoad={onLoadNodeMapping}
-                  onDelete={onDeleteNodeMapping}
-                  activeItemId={activeNodeMappingPresetId ?? undefined}
-                  onUpdate={onUpdateNodeMapping}
-                />
-              ) : (
-                <p className="rounded-md border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">
-                  워크플로우를 저장하거나 불러온 뒤 매핑을 저장할 수 있습니다.
-                </p>
-              )}
-
+          {activeWorkflowId ? (
+            <SaveInputBar
+              key={nodeMappingResetKey}
+              onSave={onSaveNodeMapping}
+              placeholder="노드 매핑 이름"
+              saveDisabled={nodeMappings.length === 0}
+              activeName={activeMappingName}
+              items={savedNodeMappings}
+              onLoad={onLoadNodeMapping}
+              onDelete={onDeleteNodeMapping}
+              activeItemId={activeNodeMappingPresetId ?? undefined}
+              onUpdate={onUpdateNodeMapping}
+            />
+          ) : (
+            <p className="rounded-md border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+              워크플로우를 저장하거나 불러온 뒤 매핑을 저장할 수 있습니다.
+            </p>
+          )}
         </div>
 
         {/* ── 매핑 테이블 ──────────────────────── */}
@@ -477,7 +476,6 @@ export const NodeMappingSection = ({
                 </DropdownMenu>
               </div>
             )}
-             
           </div>
         )}
 

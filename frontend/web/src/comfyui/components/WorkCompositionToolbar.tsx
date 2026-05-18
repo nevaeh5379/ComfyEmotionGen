@@ -38,52 +38,39 @@ export function WorkCompositionToolbar({
 }: WorkCompositionToolbarProps) {
   return (
     <div className={` ${className || ""}`}>
-    
-        
-        
- 
       <ButtonGroup>
-      
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className="w-6 p-0 text-muted-foreground"
-          >
-          <EllipsisVertical />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onSelectionOpen} disabled={!canRun}>
-            선택 실행
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onAxisFilterOpen}>
-            축 필터
-            {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onGraphOpen}>그래프 보기</DropdownMenuItem>
-<DropdownMenuLabel>배치 수</DropdownMenuLabel>
-<Input
-          type="number"
-         
-          min={1}
-          value={repeatCount}
-          onChange={(e) =>
-            setRepeatCount(Math.max(1, Number(e.target.value) || 1))
-          }
-        />
-
-        </DropdownMenuContent>
-      </DropdownMenu>
-        <Button
-        variant="outline"
-        onClick={handleRun}
-        disabled={!canRun}
-      >
-        <Play /> <p>실행</p>
-    
-      </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-6 p-0 text-muted-foreground">
+              <EllipsisVertical />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onSelectionOpen} disabled={!canRun}>
+              선택 실행
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onAxisFilterOpen}>
+              축 필터
+              {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onGraphOpen}>
+              그래프 보기
+            </DropdownMenuItem>
+            <DropdownMenuLabel>배치 수</DropdownMenuLabel>
+            <Input
+              type="number"
+              min={1}
+              value={repeatCount}
+              onChange={(e) =>
+                setRepeatCount(Math.max(1, Number(e.target.value) || 1))
+              }
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="outline" onClick={handleRun} disabled={!canRun}>
+          <Play /> <p>실행</p>
+        </Button>
       </ButtonGroup>
     </div>
   )

@@ -133,35 +133,34 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   const inner = (
     <div>
       <ButtonGroup className="w-full">
-      <Input
-        placeholder={placeholder}
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value)
-          setFocusedIndex(-1)
-        }}
-        onFocus={() => {
-          if (hasItems) setOpen(true)
-        }}
-        onBlur={() => {
-          if (!document.hasFocus()) return
-          setOpen(false)
-          setFocusedIndex(-1)
-        }}
-        onKeyDown={handleKeyDown}
-        ref={inputRef}
-      />
-      <Button
-        variant="outline"
-        disabled={!canSave}
-        onClick={handleSave}
-        title={
-          hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
-        }
-      >
-        저장
-      </Button>
-
+        <Input
+          placeholder={placeholder}
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            setFocusedIndex(-1)
+          }}
+          onFocus={() => {
+            if (hasItems) setOpen(true)
+          }}
+          onBlur={() => {
+            if (!document.hasFocus()) return
+            setOpen(false)
+            setFocusedIndex(-1)
+          }}
+          onKeyDown={handleKeyDown}
+          ref={inputRef}
+        />
+        <Button
+          variant="outline"
+          disabled={!canSave}
+          onClick={handleSave}
+          title={
+            hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
+          }
+        >
+          저장
+        </Button>
       </ButtonGroup>
     </div>
   )

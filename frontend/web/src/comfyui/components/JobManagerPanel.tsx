@@ -1038,9 +1038,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     <span className="truncate">
                       {j.currentNodeName || "노드 처리 중..."}
                     </span>
-                    <span className="mono">{Math.round(j.progressPercent)}%</span>
+                    <span className="mono">
+                      {Math.round(j.progressPercent)}%
+                    </span>
                   </div>
-                  <Progress value={j.progressPercent} className="h-1.5 w-full" />
+                  <Progress
+                    value={j.progressPercent}
+                    className="h-1.5 w-full"
+                  />
                 </div>
               ))}
             {sessionJobs.filter((j) => j.status === "running").length === 0 && (

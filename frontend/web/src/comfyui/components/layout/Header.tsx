@@ -62,7 +62,7 @@ interface HeaderProps {
   setMobileJobTab: (v: "editor" | "status" | "list") => void
   compositionTab: "ceg" | "workflow"
   setCompositionTab: (v: "ceg" | "workflow") => void
-  
+
   // Job specific
   repeatCount: number
   setRepeatCount: (v: number | ((c: number) => number)) => void
@@ -108,11 +108,7 @@ export function Header(props: HeaderProps) {
           {/* Mobile hamburger (left side) */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 md:hidden"
-              >
+              <Button variant="ghost" size="icon" className="h-9 w-9 md:hidden">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -149,7 +145,8 @@ export function Header(props: HeaderProps) {
                           }`}
                           onClick={() => {
                             props.setActiveTab(tab.id)
-                            if (tab.id === "jobs") props.setMobileJobTab("editor")
+                            if (tab.id === "jobs")
+                              props.setMobileJobTab("editor")
                           }}
                         >
                           <Icon
@@ -247,10 +244,12 @@ export function Header(props: HeaderProps) {
           </div>
           {/* Mobile composition tabs (jobs only) */}
           {props.activeTab === "jobs" && (
-            <div className="flex flex-1 items-center justify-between gap-2 overflow-x-auto no-scrollbar md:hidden">
+            <div className="no-scrollbar flex flex-1 items-center justify-between gap-2 overflow-x-auto md:hidden">
               <Tabs
                 value={props.compositionTab}
-                onValueChange={(v) => props.setCompositionTab(v as "ceg" | "workflow")}
+                onValueChange={(v) =>
+                  props.setCompositionTab(v as "ceg" | "workflow")
+                }
               >
                 <CompositionTabsList />
               </Tabs>
@@ -274,9 +273,7 @@ export function Header(props: HeaderProps) {
               <Select
                 value={props.galleryStatusFilter}
                 onValueChange={(v: string) => {
-                  props.setGalleryStatusFilter(
-                    v as CurationStatus | "all"
-                  )
+                  props.setGalleryStatusFilter(v as CurationStatus | "all")
                 }}
               >
                 <SelectTrigger className="h-7 w-[70px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
@@ -332,10 +329,7 @@ export function Header(props: HeaderProps) {
                   <SelectItem value="grid" className="text-[12px] font-bold">
                     그리드
                   </SelectItem>
-                  <SelectItem
-                    value="compare"
-                    className="text-[12px] font-bold"
-                  >
+                  <SelectItem value="compare" className="text-[12px] font-bold">
                     비교
                   </SelectItem>
                 </SelectContent>
@@ -344,7 +338,9 @@ export function Header(props: HeaderProps) {
               <Button
                 size="sm"
                 variant={props.galleryShowFilters ? "secondary" : "outline"}
-                onClick={() => props.setGalleryShowFilters(!props.galleryShowFilters)}
+                onClick={() =>
+                  props.setGalleryShowFilters(!props.galleryShowFilters)
+                }
                 className="relative h-7 w-7 p-0"
               >
                 <FilterIcon className="h-3.5 w-3.5" />
@@ -399,7 +395,9 @@ export function Header(props: HeaderProps) {
               <Select
                 value={props.curationSelectedTemplateId || "__current__"}
                 onValueChange={(v) =>
-                  props.setCurationSelectedTemplateId(v === "__current__" ? "" : v)
+                  props.setCurationSelectedTemplateId(
+                    v === "__current__" ? "" : v
+                  )
                 }
               >
                 <SelectTrigger className="h-7 w-[130px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
@@ -454,7 +452,9 @@ export function Header(props: HeaderProps) {
                   type="search"
                   placeholder="파일명 필터"
                   value={props.galleryFilenameFilter}
-                  onChange={(e) => props.setGalleryFilenameFilter(e.target.value)}
+                  onChange={(e) =>
+                    props.setGalleryFilenameFilter(e.target.value)
+                  }
                 />
                 <Input
                   className="h-7 w-full text-xs"
@@ -468,7 +468,9 @@ export function Header(props: HeaderProps) {
                   type="search"
                   placeholder="메타데이터/prompt 검색"
                   value={props.galleryMetadataFilter}
-                  onChange={(e) => props.setGalleryMetadataFilter(e.target.value)}
+                  onChange={(e) =>
+                    props.setGalleryMetadataFilter(e.target.value)
+                  }
                 />
               </div>
             </div>
@@ -480,7 +482,9 @@ export function Header(props: HeaderProps) {
                 <Checkbox
                   id="gallery-hide-rejected"
                   checked={props.galleryHideRejected}
-                  onCheckedChange={(v) => props.setGalleryHideRejected(v === true)}
+                  onCheckedChange={(v) =>
+                    props.setGalleryHideRejected(v === true)
+                  }
                 />
                 <Label
                   htmlFor="gallery-hide-rejected"

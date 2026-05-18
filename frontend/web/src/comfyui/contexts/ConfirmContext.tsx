@@ -30,10 +30,16 @@ export const useConfirm = () => {
   return ctx.confirm
 }
 
-export const ConfirmProvider = ({ children }: { children: React.ReactNode }) => {
+export const ConfirmProvider = ({
+  children,
+}: {
+  children: React.ReactNode
+}) => {
   const [isOpen, setIsOpen] = useState(false)
   const [options, setOptions] = useState<ConfirmOptions>({})
-  const [resolveRef, setResolveRef] = useState<((value: boolean) => void) | null>(null)
+  const [resolveRef, setResolveRef] = useState<
+    ((value: boolean) => void) | null
+  >(null)
 
   const confirm = useCallback((opts: ConfirmOptions) => {
     setOptions(opts)
