@@ -932,7 +932,7 @@ function ImageGrid({
 }: GridProps) {
   if (items.length === 0) return null
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
       {items.map((img) => {
         const isSelected = selectedHashes.has(img.hash)
         const isPinned = pinnedHashes.includes(img.hash)
@@ -941,7 +941,7 @@ function ImageGrid({
           <ContextMenu key={img.hash}>
             <ContextMenuTrigger>
               <div
-                className={`flex h-full flex-col gap-2 rounded-lg border bg-card p-2.5 transition-all hover:shadow-md ${
+                className={`m-1 flex flex-col break-inside-avoid rounded-lg border bg-card transition-all hover:shadow-md ${
                   isSelected
                     ? "scale-[1.02] bg-primary/5 shadow-lg ring-2 ring-primary"
                     : ""
@@ -950,7 +950,7 @@ function ImageGrid({
                 <div className="relative">
                   <button
                     type="button"
-                    className="group block w-full overflow-hidden rounded-md"
+                    className="group block h-full w-full overflow-hidden rounded-md"
                     onClick={() => {
                       if (isSelected || selectionMode) {
                         onToggleSelect?.(img.hash)
@@ -963,11 +963,11 @@ function ImageGrid({
                       src={`${backendUrl}/saved-images/${img.hash}`}
                       alt={img.originalFilename}
                       loading={imageLazyLoad ? "lazy" : "eager"}
-                      className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
+                      className="w-full object-cover transition-transform group-hover:scale-105"
                     />
                   </button>
 
-                  {/* 선택 체크박스 - 왼쪽 위 */}
+                  {/* 체크박스 - 왼쪽 위 (모바일/데스크톱 모두) */}
                   <div
                     className="absolute top-2 left-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60"
                     onClick={(e) => {
@@ -984,10 +984,17 @@ function ImageGrid({
                     )}
                   </div>
 
-                  {/* 휴지통 버튼 - 오른쪽 위 */}
+                  {/* 상태 라벨 - 왼쪽 위 (데스크톱만) */}
+                  <span
+                    className={`absolute top-2 left-10 hidden rounded-full px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm backdrop-blur-sm md:inline ${STATUS_TINT[img.status]}`}
+                  >
+                    {STATUS_LABEL[img.status]}
+                  </span>
+
+                  {/* 휴지통 버튼 - 오른쪽 위 (데스크톱만) */}
                   <button
                     type="button"
-                    className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 ${
+                    className={`absolute top-2 right-2 hidden h-7 w-7 items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 md:flex ${
                       img.status === "trashed"
                         ? "text-red-400"
                         : "text-white/60 hover:text-white"
@@ -1003,20 +1010,43 @@ function ImageGrid({
                   >
                     <Trash2Icon className="h-4 w-4" />
                   </button>
+
+                  {/* 통과/탈락 버튼 - 이미지 하단 오버레이 */}
+                  <div className="absolute right-2 bottom-2 left-2 flex rounded-md bg-black/50 backdrop-blur-sm">
+                    <button
+                      type="button"
+                      className={`flex flex-1 items-center justify-center rounded-l-md py-2 transition-colors ${
+                        img.status === "approved"
+                          ? "bg-green-600 text-white"
+                          : "bg-white/10 text-white/80 hover:bg-green-600 hover:text-white"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setStatus(img.hash, "approved")
+                      }}
+                    >
+                      <CheckIcon className="h-5 w-5" strokeWidth={3} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex flex-1 items-center justify-center rounded-r-md border-l py-2 transition-colors ${
+                        img.status === "rejected"
+                          ? "border-red-600 bg-red-600 text-white"
+                          : "border-white/20 bg-white/10 text-white/80 hover:bg-red-600 hover:text-white"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setStatus(img.hash, "rejected")
+                      }}
+                    >
+                      <XIcon className="h-5 w-5" strokeWidth={3} />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 px-0.5">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${STATUS_TINT[img.status]}`}
-                  >
-                    {STATUS_LABEL[img.status]}
-                  </span>
-                  <span className="truncate font-mono text-[11px] font-semibold text-muted-foreground">
-                    {img.originalFilename}
-                  </span>
-                </div>
+                {/* 태그 (데스크톱만) */}
                 {img.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 px-0.5">
+                  <div className="hidden flex-wrap gap-1 px-0.5 md:flex">
                     {img.tags.map((t) => (
                       <span
                         key={t}
@@ -1027,28 +1057,6 @@ function ImageGrid({
                     ))}
                   </div>
                 )}
-                <div className="mt-auto flex items-center justify-between gap-1.5 border-t border-line/40 pt-2">
-                  <Button
-                    size="sm"
-                    variant={img.status === "approved" ? "default" : "outline"}
-                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "approved" ? "bg-green-600 hover:bg-green-700" : "text-green-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700"}`}
-                    onClick={() => setStatus(img.hash, "approved")}
-                  >
-                    <CheckIcon className="h-3.5 w-3.5" strokeWidth={3} />
-                    통과
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      img.status === "rejected" ? "secondary" : "outline"
-                    }
-                    className={`h-8 flex-1 gap-1 text-[11px] font-bold ${img.status === "rejected" ? "bg-red-100 text-red-700" : "text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-700"}`}
-                    onClick={() => setStatus(img.hash, "rejected")}
-                  >
-                    <XIcon className="h-3.5 w-3.5" strokeWidth={3} />
-                    탈락
-                  </Button>
-                </div>
               </div>
             </ContextMenuTrigger>
             <ContextMenuContent className="w-48">
