@@ -61,6 +61,9 @@
   --color-bad-bg: var(--bad-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
+  --animate-shimmer: shimmer 2.5s infinite linear;
+  --animate-pulse-slow: pulse-slow 3s infinite ease-in-out;
+  --animate-glow-pulse: glow-pulse 2s infinite ease-in-out;
 }
 
 :root {
@@ -317,3 +320,33 @@
 .token.entity {
   cursor: help;
 }
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px var(--glow-color, oklch(0.55 0.15 250 / 0.1));
+  }
+  50% {
+    box-shadow: 0 0 16px var(--glow-color, oklch(0.55 0.15 250 / 0.4));
+  }
+}
+

@@ -750,7 +750,20 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
         {/* 모바일 사이드바 시트 */}
         <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-          <SheetContent side="left" className="flex w-[85vw] flex-col p-0">
+          <SheetContent
+            side="left"
+            className="flex w-[85vw] flex-col p-0"
+            onPointerDownOutside={(e) => {
+              if (previewHash !== null) {
+                e.preventDefault()
+              }
+            }}
+            onInteractOutside={(e) => {
+              if (previewHash !== null) {
+                e.preventDefault()
+              }
+            }}
+          >
             <SheetHeader className="shrink-0 border-b p-4">
               <SheetTitle>조합 목록</SheetTitle>
             </SheetHeader>
@@ -763,15 +776,15 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 }}
               />
             </div>
+
+            {/* 이미지 미리보기 팝업 */}
+            <ImageViewer
+              src={`${backendUrl}/saved-images/${previewHash}`}
+              isOpen={previewHash !== null}
+              onClose={() => setPreviewHash(null)}
+            />
           </SheetContent>
         </Sheet>
-
-        {/* 이미지 미리보기 팝업 */}
-        <ImageViewer
-          src={`${backendUrl}/saved-images/${previewHash}`}
-          isOpen={previewHash !== null}
-          onClose={() => setPreviewHash(null)}
-        />
 
         <RegenerateDialog
           open={regenDialogState.open}

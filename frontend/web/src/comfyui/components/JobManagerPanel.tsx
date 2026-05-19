@@ -5,7 +5,6 @@ import {
   ArrowUpDown,
   Check,
   ChevronDown,
-  ChevronUp,
   Copy,
   Trash2,
   X,
@@ -67,6 +66,8 @@ import {
   EmptyMedia,
 } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import type { JobStatus, JobView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
@@ -74,6 +75,7 @@ import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
 import { cn } from "@/lib/utils"
 import { useConfirm } from "../contexts/ConfirmContext"
+import { ImageViewer } from "./ImageViewer"
 
 function stringToColor(str: string): string {
   let hash = 0
@@ -293,14 +295,6 @@ function SortableHead({
   )
 }
 
-function TimingRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4">
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="text-right tabular-nums">{value}</span>
-    </div>
-  )
-}
 
 function ClipButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -806,86 +800,87 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       {/* 1. Global Controls (Always visible) */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-panel px-3 py-1.5">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-panel/60 backdrop-blur-md px-4 py-2">
         <div className="relative">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 gap-1.5 px-2 text-[11px] font-bold"
-            onClick={() => setSessionPickerOpen((o) => !o)}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-            <span className="max-w-40 truncate">{sessionButtonLabel}</span>
-            {sessionPickerOpen ? (
-              <ChevronUp className="h-3 w-3 shrink-0" />
-            ) : (
-              <ChevronDown className="h-3 w-3 shrink-0" />
-            )}
-          </Button>
-
-          {sessionPickerOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setSessionPickerOpen(false)}
-              />
-              <div className="absolute top-full left-0 z-20 mt-1 w-72 rounded-lg border bg-popover p-1 shadow-xl">
-                <div className="mb-1 flex items-center justify-between border-b px-3 py-2">
-                  <span className="text-[10px] font-black text-muted-foreground uppercase">
-                    세션 선택
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] font-black text-blue-600"
-                    onClick={createNewSession}
-                  >
-                    + 새 세션
-                  </Button>
-                </div>
-                <ScrollArea className="max-h-80">
-                  <div className="p-1">
-                    {sortedMarkers.map((m) => {
-                      const count = sessionJobCounts.get(m.id) ?? 0
-                      const isSelected = m.id === selectedId
-                      const isActive = m.id === activeState.activeSessionId
-                      return (
-                        <div
-                          key={m.id}
-                          className={cn(
-                            "p-1",
-                            isSelected && "rounded-md bg-muted"
-                          )}
-                        >
-                          <Button
-                            variant="ghost"
-                            className="h-9 w-full justify-start gap-2 px-2 text-sm"
-                            onClick={() => {
-                              setSelectedId(m.id)
-                              setSessionPickerOpen(false)
-                            }}
-                          >
-                            <span
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full",
-                                isActive ? "bg-ok" : "bg-muted-foreground/30"
-                              )}
-                            />
-                            <span className="flex-1 truncate text-left font-medium">
-                              {m.label}
-                            </span>
-                            <span className="mono text-[10px] opacity-40">
-                              {count}
-                            </span>
-                          </Button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
+          <Popover open={sessionPickerOpen} onOpenChange={setSessionPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5 rounded-lg px-2.5 text-[11px] font-black transition-all hover:bg-muted/70 active:scale-95"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ok opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-ok"></span>
+                </span>
+                <span className="max-w-40 truncate tracking-wide">{sessionButtonLabel}</span>
+                <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200 text-muted-foreground", sessionPickerOpen && "rotate-180")} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-76 rounded-xl border border-line-strong/60 bg-popover/85 p-1 shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-line px-3 py-2.5">
+                <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                  세션 히스토리
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 rounded-md px-2 text-[10px] font-extrabold text-info hover:bg-info-bg/30"
+                  onClick={createNewSession}
+                >
+                  + 새 세션 생성
+                </Button>
               </div>
-            </>
-          )}
+              <ScrollArea className="max-h-80 pr-1.5">
+                <div className="space-y-0.5 p-1">
+                  {sortedMarkers.map((m) => {
+                    const count = sessionJobCounts.get(m.id) ?? 0
+                    const isSelected = m.id === selectedId
+                    const isActive = m.id === activeState.activeSessionId
+                    return (
+                      <div
+                        key={m.id}
+                        className={cn(
+                          "group/session-item rounded-lg p-0.5 transition-colors",
+                          isSelected ? "bg-muted/65" : "hover:bg-muted/30"
+                        )}
+                      >
+                        <Button
+                          variant="ghost"
+                          className="h-9 w-full justify-start gap-2.5 px-2.5 text-xs"
+                          onClick={() => {
+                            setSelectedId(m.id)
+                            setSessionPickerOpen(false)
+                          }}
+                        >
+                          <span
+                            className={cn(
+                              "h-2 w-2 rounded-full transition-all duration-300",
+                              isActive 
+                                ? "bg-ok shadow-[0_0_8px_rgba(var(--ok),0.5)] animate-pulse" 
+                                : "bg-muted-foreground/30 group-hover/session-item:bg-muted-foreground/50"
+                            )}
+                          />
+                          <span className={cn(
+                            "flex-1 truncate text-left font-semibold tracking-tight transition-colors",
+                            isSelected ? "text-foreground font-bold" : "text-muted-foreground group-hover/session-item:text-foreground"
+                          )}>
+                            {m.label}
+                          </span>
+                          <span className={cn(
+                            "mono text-[10px] font-black rounded px-1.5 py-0.5 bg-muted/60 transition-colors",
+                            isSelected ? "bg-background text-foreground" : "text-muted-foreground group-hover/session-item:bg-muted/80"
+                          )}>
+                            {count}
+                          </span>
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -989,7 +984,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           </div>
 
           <div className="space-y-4 p-4 md:space-y-2 md:p-3">
-            <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[11px] font-black uppercase">
                 <span className="text-muted-foreground">세션 전체 진행률</span>
                 <span className="mono tabular-nums">
@@ -1006,7 +1000,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     ? (counts.done / sessionJobs.length) * 100
                     : 0
                 }
-                className="h-2 w-full shadow-inner"
+                className="h-2 w-full shadow-inner [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-ok [&>[data-slot=progress-indicator]]:via-ok/60 [&>[data-slot=progress-indicator]]:to-ok [&>[data-slot=progress-indicator]]:bg-[length:200%_auto] [&>[data-slot=progress-indicator]]:animate-shimmer"
               />
             </div>
 
@@ -1044,7 +1038,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   </div>
                   <Progress
                     value={j.progressPercent}
-                    className="h-1.5 w-full"
+                    className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-info [&>[data-slot=progress-indicator]]:via-primary [&>[data-slot=progress-indicator]]:to-info [&>[data-slot=progress-indicator]]:bg-[length:200%_auto] [&>[data-slot=progress-indicator]]:animate-shimmer"
                   />
                 </div>
               ))}
@@ -1054,7 +1048,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               </div>
             )}
           </div>
-        </div>
       </ScrollArea>
 
       {/* 3. List Content (Mobile list tab OR Desktop always) */}
@@ -1232,11 +1225,23 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 const isFailed =
                   j.status === "error" || j.status === "cancelled"
                 const dur = jobDuration(j)
+
+                // Status border accent color
+                const statusColorMap: Record<string, string> = {
+                  done: "bg-ok",
+                  error: "bg-bad",
+                  cancelled: "bg-muted-foreground/30",
+                  running: "bg-info shadow-[0_0_8px_rgba(var(--info),0.8)] animate-pulse",
+                  queued: "bg-warn",
+                  pending: "bg-ink-2",
+                }
+                const accentColor = statusColorMap[j.status] || "bg-muted-foreground/30"
+
                 // preview hashes available via fetchedImages.get(j.id)
                 const row = (
                   <TableRow
                     key={j.id}
-                    className="group/row cursor-pointer"
+                    className="group/row relative cursor-pointer hover:bg-muted/30 transition-all duration-300 hover:shadow-sm"
                     onClick={() => openDetail(j.id)}
                   >
                     {filterTab === "failed" && (
@@ -1251,15 +1256,17 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       </TableCell>
                     )}
                     <TableCell className="px-2 py-4 text-center">
+                      {/* Visual left accent bar that stretches on hover */}
+                      <div className={cn("absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-md transition-transform duration-300 origin-center scale-y-60 group-hover/row:scale-y-100", accentColor)} />
                       <StatusPill status={j.status} />
                     </TableCell>
                     <TableCell className="px-2 py-4">
                       <div className="xs:max-w-40 flex max-w-[120px] items-center gap-2 truncate md:max-w-52">
                         <span
-                          className="h-2 w-2 shrink-0 rounded-full"
+                          className="h-2 w-2 shrink-0 rounded-full transition-transform duration-300 group-hover/row:scale-125"
                           style={{ backgroundColor: stringToColor(j.filename) }}
                         />
-                        <span className="truncate text-[13px] font-bold text-foreground md:text-[11px]">
+                        <span className="truncate text-[13px] font-bold text-foreground md:text-[11px] transition-colors group-hover/row:text-info">
                           {j.filename}
                         </span>
                       </div>
@@ -1332,11 +1339,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       <HoverCardContent
                         side="left"
                         align="start"
-                        className="hidden w-auto p-2 md:block"
+                        className="hidden w-auto rounded-xl border border-line-strong/60 bg-popover/90 p-2.5 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 md:block"
                       >
                         {fetchedImages.get(j.id) &&
                         fetchedImages.get(j.id)!.length > 0 ? (
-                          <div className="flex gap-1">
+                          <div className="flex gap-1.5">
                             {fetchedImages
                               .get(j.id)!
                               .slice(0, 6)
@@ -1347,14 +1354,16 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                                   alt={`Preview ${i + 1}`}
                                   loading="lazy"
                                   decoding="async"
-                                  className="h-16 w-16 rounded border object-cover"
+                                  className="h-16 w-16 rounded-lg border border-line object-cover transition-transform duration-300 hover:scale-105 hover:shadow-md"
                                 />
                               ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-muted-foreground">
-                            로드 중…
-                          </p>
+                          <div className="flex gap-1.5">
+                            <Skeleton className="h-16 w-16 rounded-lg" />
+                            <Skeleton className="h-16 w-16 rounded-lg" />
+                            <Skeleton className="h-16 w-16 rounded-lg" />
+                          </div>
                         )}
                       </HoverCardContent>
                     </HoverCard>
@@ -1422,67 +1431,142 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           if (!open) setSelectedJobId(null)
         }}
       >
-        <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto sm:min-w-105">
+        <SheetContent
+          className="flex w-full flex-col gap-4 overflow-y-auto sm:min-w-105"
+          onPointerDownOutside={(e) => {
+            if (lightboxUrls !== null) {
+              e.preventDefault()
+            }
+          }}
+          onInteractOutside={(e) => {
+            if (lightboxUrls !== null) {
+              e.preventDefault()
+            }
+          }}
+        >
           <SheetHeader>
-            <SheetTitle>작업 상세</SheetTitle>
+            <SheetTitle className="text-lg font-black tracking-tight">작업 상세</SheetTitle>
           </SheetHeader>
           {selectedJob && (
-            <div className="flex flex-col gap-4">
-              <div className="space-y-1.5">
+            <div className="flex flex-col gap-5 mt-2">
+              <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <StatusPill status={selectedJob.status} />
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {selectedJob.id.slice(0, 8)}…
+                  <span className="mono rounded bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
+                    ID: {selectedJob.id.slice(0, 8)}…
                   </span>
                 </div>
-                <p className="font-mono text-sm font-semibold">
-                  {selectedJob.filename}
+                <p className="font-mono text-sm font-black text-foreground">
+                  📄 {selectedJob.filename}
                 </p>
-                <div className="relative">
-                  <p className="line-clamp-6 pr-8 font-mono text-[13px] leading-relaxed text-muted-foreground">
-                    {selectedJob.prompt}
-                  </p>
-                  {selectedJob.prompt && (
+                
+                {/* Clean, premium prompt box */}
+                {selectedJob.prompt && (
+                  <div className="relative rounded-lg border bg-muted/40 p-3 group/prompt">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[10px] font-black tracking-wider text-muted-foreground uppercase">
+                        프롬프트
+                      </span>
+                    </div>
+                    <ScrollArea className="h-32">
+                      <p className="pr-6 font-mono text-xs leading-relaxed text-foreground select-all whitespace-pre-wrap break-all">
+                        {selectedJob.prompt}
+                      </p>
+                    </ScrollArea>
                     <ClipButton text={selectedJob.prompt} />
-                  )}
-                </div>
+                  </div>
+                )}
+
                 {selectedJob.error && (
-                  <div className="relative">
-                    <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 pr-8 text-sm font-bold text-destructive">
+                  <div className="relative rounded-lg border border-destructive/20 bg-destructive/10 p-3 shadow-inner">
+                    <div className="flex items-center gap-1.5 text-destructive mb-1 text-[11px] font-black tracking-widest uppercase">
+                      <AlertCircle className="h-4 w-4" /> 에러 로그
+                    </div>
+                    <p className="font-mono text-xs text-destructive/90 pr-8 leading-relaxed whitespace-pre-wrap break-all">
                       {selectedJob.error}
                     </p>
                     <ClipButton text={selectedJob.error} />
                   </div>
                 )}
               </div>
-              <div className="space-y-1.5 rounded-xl border bg-muted/10 p-4 text-[13px]">
-                <TimingRow
-                  label="생성"
-                  value={new Date(
-                    selectedJob.createdAt * 1000
-                  ).toLocaleString()}
-                />
-                {selectedJob.startedAt && (
-                  <TimingRow
-                    label="시작"
-                    value={new Date(
-                      selectedJob.startedAt * 1000
-                    ).toLocaleString()}
-                  />
-                )}
-                {selectedJob.finishedAt && (
-                  <TimingRow
-                    label="완료"
-                    value={new Date(
-                      selectedJob.finishedAt * 1000
-                    ).toLocaleString()}
-                  />
-                )}
+
+              {/* Visual Timeline Stepper */}
+              <div className="space-y-3 rounded-2xl border bg-muted/10 p-4">
+                <h4 className="text-[10px] font-black tracking-widest text-muted-foreground uppercase pb-1.5 border-b">
+                  진행 타임라인
+                </h4>
+                <div className="flex flex-col gap-4 mt-2">
+                  {/* 1. 생성 */}
+                  <div className="relative flex gap-3 pl-6">
+                    {/* Vertical line indicator */}
+                    <div className={cn("absolute left-2.25 top-2.5 bottom-[-16px] w-0.5 bg-line-strong/60", selectedJob.startedAt && "bg-info/60")} />
+                    <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-ink-2 ring-4 ring-ink-2/15" />
+                    <div className="flex-1 flex justify-between items-baseline gap-2">
+                      <span className="text-xs font-bold text-foreground">작업 생성됨</span>
+                      <span className="mono text-[10px] text-muted-foreground tabular-nums">
+                        {new Date(selectedJob.createdAt * 1000).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 2. 시작 */}
+                  {selectedJob.startedAt ? (
+                    <div className="relative flex gap-3 pl-6">
+                      <div className={cn("absolute left-2.25 top-2.5 bottom-[-16px] w-0.5 bg-line-strong/60", selectedJob.finishedAt && "bg-ok/60")} />
+                      <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-info ring-4 ring-info/15 animate-pulse" />
+                      <div className="flex-1 flex justify-between items-baseline gap-2">
+                        <span className="text-xs font-bold text-foreground">렌더링 시작</span>
+                        <span className="mono text-[10px] text-muted-foreground tabular-nums">
+                          {new Date(selectedJob.startedAt * 1000).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative flex gap-3 pl-6 opacity-35">
+                      <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
+                      <div className="flex-1 flex justify-between items-baseline gap-2">
+                        <span className="text-xs font-bold text-muted-foreground">렌더링 대기 중</span>
+                        <span className="mono text-[10px] text-muted-foreground/80">—</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. 완료 / 실패 */}
+                  {selectedJob.finishedAt ? (
+                    <div className="relative flex gap-3 pl-6">
+                      <div className={cn(
+                        "absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full ring-4",
+                        selectedJob.status === "error" || selectedJob.status === "cancelled" 
+                          ? "bg-bad ring-bad/15" 
+                          : "bg-ok ring-ok/15"
+                      )} />
+                      <div className="flex-1 flex justify-between items-baseline gap-2">
+                        <span className="text-xs font-bold text-foreground">
+                          {selectedJob.status === "error" ? "렌더링 실패" : selectedJob.status === "cancelled" ? "렌더링 취소" : "렌더링 완료"}
+                        </span>
+                        <span className="mono text-[10px] text-muted-foreground tabular-nums">
+                          {new Date(selectedJob.finishedAt * 1000).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative flex gap-3 pl-6 opacity-35">
+                      <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
+                      <div className="flex-1 flex justify-between items-baseline gap-2">
+                        <span className="text-xs font-bold text-muted-foreground">렌더링 완료 대기</span>
+                        <span className="mono text-[10px] text-muted-foreground/80">—</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
                 {jobDuration(selectedJob) != null && (
-                  <TimingRow
-                    label="소요"
-                    value={formatDuration(jobDuration(selectedJob)!)}
-                  />
+                  <div className="mt-3.5 pt-3.5 border-t border-line/60 flex justify-between items-center text-xs">
+                    <span className="font-extrabold text-muted-foreground">총 소요 시간</span>
+                    <span className="mono font-black text-foreground bg-muted rounded px-2 py-0.5 tabular-nums">
+                      {formatDuration(jobDuration(selectedJob)!)}
+                    </span>
+                  </div>
                 )}
               </div>
               <div className="flex gap-2">
@@ -1567,59 +1651,69 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 )}
             </div>
           )}
+          {lightboxUrls && (
+            <ImageViewer
+              src={lightboxUrls[lightboxIndex]!}
+              isOpen={lightboxUrls !== null}
+              onClose={() => setLightboxUrls(null)}
+            >
+              {lightboxUrls.length > 1 && (
+                <div className="flex flex-col items-center gap-3 w-full">
+                  {/* Prev / Next navigation */}
+                  <div className="flex items-center justify-center gap-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
+                      onClick={() => setLightboxIndex((i) => Math.max(0, i - 1))}
+                      disabled={lightboxIndex === 0}
+                    >
+                      <ChevronDown className="h-4 w-4 rotate-90" />
+                    </Button>
+                    <span className="font-mono text-[11px] font-bold text-white/60">
+                      {lightboxIndex + 1} / {lightboxUrls.length}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
+                      onClick={() =>
+                        setLightboxIndex((i) =>
+                          Math.min(lightboxUrls.length - 1, i + 1)
+                        )
+                      }
+                      disabled={lightboxIndex === lightboxUrls.length - 1}
+                    >
+                      <ChevronDown className="h-4 w-4 -rotate-90" />
+                    </Button>
+                  </div>
+
+                  {/* Bottom Thumbnails Strip */}
+                  <div className="flex gap-2 p-1.5 rounded-xl border border-white/5 bg-white/5 backdrop-blur-md overflow-x-auto max-w-[90vw] no-scrollbar">
+                    {lightboxUrls.map((url, i) => {
+                      const isSelected = i === lightboxIndex
+                      return (
+                        <button
+                          key={url}
+                          className={cn(
+                            "h-12 w-12 rounded-lg overflow-hidden border-2 transition-all duration-300 relative scale-95 cursor-pointer",
+                            isSelected
+                              ? "border-info ring-2 ring-info/30 scale-100 shadow-md"
+                              : "border-transparent opacity-50 hover:opacity-100 hover:scale-98"
+                          )}
+                          onClick={() => setLightboxIndex(i)}
+                        >
+                          <img src={url} alt={`Thumbnail ${i}`} className="h-full w-full object-cover" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </ImageViewer>
+          )}
         </SheetContent>
       </Sheet>
-
-      {lightboxUrls && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightboxUrls(null)}
-        >
-          <button
-            className="absolute top-6 right-6 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-            onClick={() => setLightboxUrls(null)}
-          >
-            <X className="h-6 w-6" />
-          </button>
-          {lightboxUrls.length > 1 && (
-            <>
-              <button
-                className="absolute top-1/2 left-6 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setLightboxIndex((i) => Math.max(0, i - 1))
-                }}
-                disabled={lightboxIndex === 0}
-              >
-                <ChevronDown className="h-6 w-6 rotate-90" />
-              </button>
-              <button
-                className="absolute top-1/2 right-6 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setLightboxIndex((i) =>
-                    Math.min(lightboxUrls.length - 1, i + 1)
-                  )
-                }}
-                disabled={lightboxIndex === lightboxUrls.length - 1}
-              >
-                <ChevronDown className="h-6 w-6 -rotate-90" />
-              </button>
-            </>
-          )}
-          <img
-            src={lightboxUrls[lightboxIndex]!}
-            alt="Full view"
-            className="max-h-[85vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-          {lightboxUrls.length > 1 && (
-            <p className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-5 py-1.5 text-sm font-black text-white">
-              {lightboxIndex + 1} / {lightboxUrls.length}
-            </p>
-          )}
-        </div>
-      )}
     </div>
   )
 })

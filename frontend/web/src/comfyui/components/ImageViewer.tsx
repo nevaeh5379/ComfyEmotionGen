@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { XIcon } from "lucide-react"
 
 /* ------------------------------------------------------------------ */
@@ -486,9 +487,9 @@ export function ImageViewer({
         }
       : undefined
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm pointer-events-auto"
       onClick={() => {
         if (suppressCloseRef.current) {
           suppressCloseRef.current = false
@@ -686,6 +687,7 @@ export function ImageViewer({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
