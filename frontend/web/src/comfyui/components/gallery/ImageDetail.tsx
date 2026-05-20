@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ImageOff } from "lucide-react"
+import { Download, ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,9 +11,16 @@ export interface DetailProps {
   image: SavedImage
   onClose: () => void
   onChanged: () => void
+  singleDownloadMode?: "newtab" | "direct"
 }
 
-export function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailProps) {
+export function ImageDetail({
+  backendUrl,
+  image,
+  onClose,
+  onChanged,
+  singleDownloadMode = "newtab",
+}: DetailProps) {
   const [note, setNote] = useState(image.note)
   const [newTag, setNewTag] = useState("")
   const [tags, setTags] = useState<string[]>(image.tags)
@@ -59,8 +66,32 @@ export function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailPro
             size="sm"
             variant="ghost"
             className="ml-auto"
-            onClick={onClose}
+            onClick={async () => {
+              const url = `${backendUrl}/saved-images/${image.hash}`
+              if (singleDownloadMode === "direct") {
+                try {
+                  const response = await fetch(url)
+                  const blob = await response.blob()
+                  const blobUrl = URL.createObjectURL(blob)
+                  const a = document.createElement("a")
+                  a.href = blobUrl
+                  a.download = image.originalFilename || image.hash
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(blobUrl)
+                } catch {
+                  window.open(url, "_blank")
+                }
+              } else {
+                window.open(url, "_blank")
+              }
+            }}
+            title="다운로드"
           >
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onClose}>
             닫기
           </Button>
         </div>

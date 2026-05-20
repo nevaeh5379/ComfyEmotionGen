@@ -21,6 +21,13 @@ export interface TemplateContextValue {
   setTemplateResetKey: (key: number | ((prev: number) => number)) => void
   /** Called when a name conflict needs App-level resolution */
   onPendingSave: (name: string, type: "template") => void
+  /** Called when updating a saved item; shows diff if content changed */
+  onPendingUpdate?: (
+    name: string,
+    type: "template",
+    oldContent: string,
+    newContent: string
+  ) => boolean | null
 }
 
 // ---------------------------------------------------------------------------
@@ -43,11 +50,18 @@ export function useTemplateContext(): TemplateContextValue {
 
 interface TemplateProviderProps {
   onPendingSave: (name: string, type: "template") => void
+  onPendingUpdate?: (
+    name: string,
+    type: "template",
+    oldContent: string,
+    newContent: string
+  ) => boolean | null
   children: React.ReactNode
 }
 
 export function TemplateProvider({
   onPendingSave,
+  onPendingUpdate,
   children,
 }: TemplateProviderProps): React.JSX.Element {
   const [cegTemplate, setCegTemplate] = useLocalStorage("cegTemplate", "")
@@ -74,6 +88,7 @@ export function TemplateProvider({
         templateResetKey,
         setTemplateResetKey,
         onPendingSave,
+        ...(onPendingUpdate ? { onPendingUpdate } : {}),
       }}
     >
       {children}

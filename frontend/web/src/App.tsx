@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   ResizableHandle,
@@ -8,6 +8,8 @@ import {
 
 import { useBackend } from "./comfyui/hooks/useBackend"
 import { SavedImagesGallery } from "./comfyui/components/SavedImagesGallery"
+import { curationApi } from "./comfyui/hooks/useSavedImages"
+import { useGlobalShortcuts } from "./comfyui/hooks/useGlobalShortcuts"
 import { CombinationPicker } from "./comfyui/components/combinationpicker/CombinationPicker"
 import { WorkflowGraphViewer } from "./comfyui/components/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
@@ -22,6 +24,7 @@ import { AxisFilterSheet } from "./comfyui/components/AxisFilterSheet"
 import { SelectionSheet } from "./comfyui/components/SelectionSheet"
 import { NameConflictDialog } from "./comfyui/components/NameConflictDialog"
 import { PresetSelectionDialog } from "./comfyui/components/PresetSelectionDialog"
+import { VersionDiffDialog } from "./comfyui/components/VersionDiffDialog"
 import { WorkCompositionPanel } from "./comfyui/components/WorkCompositionPanel"
 import { useTemplateContext } from "./comfyui/contexts/TemplateContext"
 import { useWorkflowContext } from "./comfyui/contexts/WorkflowContext"
@@ -78,6 +81,25 @@ export function App() {
     setPendingSave({ name, type })
   }
 
+  const [pendingDiff, setPendingDiff] = useState<{
+    name: string
+    type: "template" | "workflow"
+    oldContent: string
+    newContent: string
+  } | null>(null)
+
+  const handlePendingUpdate = (
+    name: string,
+    type: "template" | "workflow",
+    oldContent: string,
+    newContent: string
+  ) => {
+    // If content is identical, no diff needed
+    if (oldContent === newContent) return null
+    setPendingDiff({ name, type, oldContent, newContent })
+    return true // Show diff
+  }
+
   // Backend URL (remains at App level — used by many components)
   const [storedBackendUrl, setStoredBackendUrl] = useLocalStorage(
     STORAGE_KEYS.backendUrl,
@@ -109,15 +131,21 @@ export function App() {
 
   // ── Wrap everything in context providers ──
   return (
-    <TemplateProvider onPendingSave={handlePendingSave}>
+    <TemplateProvider
+      onPendingSave={handlePendingSave}
+      onPendingUpdate={handlePendingUpdate}
+    >
       <WorkflowProvider
         onPendingSave={handlePendingSave}
+        onPendingUpdate={handlePendingUpdate}
         onPendingPresetSelection={setPendingPresetSelection}
       >
         <NodeMappingProvider workers={workers}>
           <AppContent
             pendingSave={pendingSave}
             setPendingSave={setPendingSave}
+            pendingDiff={pendingDiff}
+            setPendingDiff={setPendingDiff}
             pendingPresetSelection={pendingPresetSelection}
             setPendingPresetSelection={setPendingPresetSelection}
             backendUrl={backendUrl}
@@ -162,6 +190,20 @@ interface AppContentProps {
   setPendingSave: (
     v: { name: string; type: "template" | "workflow" | "nodeMapping" } | null
   ) => void
+  pendingDiff: {
+    name: string
+    type: "template" | "workflow"
+    oldContent: string
+    newContent: string
+  } | null
+  setPendingDiff: (
+    v: {
+      name: string
+      type: "template" | "workflow"
+      oldContent: string
+      newContent: string
+    } | null
+  ) => void
   pendingPresetSelection: SavedWorkflow | null
   setPendingPresetSelection: (w: SavedWorkflow | null) => void
   backendUrl: string
@@ -201,7 +243,9 @@ function AppContent(props: AppContentProps) {
   const confirm = useConfirm()
 
   // ── session state (lifted) ──────────────────────────────────────────
-  const [markers, setMarkersRaw] = useState<SessionMarkerRaw[]>(() => initMarkers())
+  const [markers, setMarkersRaw] = useState<SessionMarkerRaw[]>(() =>
+    initMarkers()
+  )
 
   const persistMarkers = (ms: SessionMarkerRaw[]) => {
     saveMarkers(ms)
@@ -244,7 +288,8 @@ function AppContent(props: AppContentProps) {
     () =>
       props.jobs.filter(
         (j) =>
-          jobSessionId(j.createdAt, sortedMarkers, activeState) === selectedSessionId
+          jobSessionId(j.createdAt, sortedMarkers, activeState) ===
+          selectedSessionId
       ),
     [props.jobs, sortedMarkers, activeState, selectedSessionId]
   )
@@ -271,6 +316,35 @@ function AppContent(props: AppContentProps) {
     return c
   }, [sessionJobs])
 
+  // ── Job completion notification ──
+  const prevActiveCount = useRef<number | null>(null)
+  useEffect(() => {
+    const current = sessionCounts.active
+    if (
+      prevActiveCount.current !== null &&
+      prevActiveCount.current > 0 &&
+      current === 0
+    ) {
+      const totalJobs = sessionJobs.length
+      if (totalJobs > 0) {
+        const doneCount = sessionCounts.done
+        const errorCount = sessionCounts.error + sessionCounts.cancelled
+        if (errorCount > 0) {
+          toast.info(`배치 완료! (${doneCount} 완료, ${errorCount} 실패/취소)`)
+        } else {
+          toast.success(`모든 작업이 완료되었습니다! (${doneCount}개)`)
+        }
+      }
+    }
+    prevActiveCount.current = current
+  }, [
+    sessionCounts.active,
+    sessionCounts.done,
+    sessionCounts.error,
+    sessionCounts.cancelled,
+    sessionJobs.length,
+  ])
+
   const createNewSession = () => {
     const nonEmpty = markers.filter(
       (m) => (sessionJobCounts.get(m.id) ?? 0) > 0
@@ -294,9 +368,12 @@ function AppContent(props: AppContentProps) {
 
   const handleTogglePause = async () => {
     try {
-      await fetch(`${props.backendUrl}${props.paused ? API.jobs.resume : API.jobs.pause}`, {
-        method: "POST",
-      })
+      await fetch(
+        `${props.backendUrl}${props.paused ? API.jobs.resume : API.jobs.pause}`,
+        {
+          method: "POST",
+        }
+      )
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
@@ -313,7 +390,9 @@ function AppContent(props: AppContentProps) {
     )
       return
     try {
-      await fetch(`${props.backendUrl}${API.jobs.cancelAll}`, { method: "POST" })
+      await fetch(`${props.backendUrl}${API.jobs.cancelAll}`, {
+        method: "POST",
+      })
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
@@ -325,7 +404,9 @@ function AppContent(props: AppContentProps) {
     )
     for (const j of failed) {
       try {
-        await fetch(`${props.backendUrl}${API.jobs.retry(j.id)}`, { method: "POST" })
+        await fetch(`${props.backendUrl}${API.jobs.retry(j.id)}`, {
+          method: "POST",
+        })
       } catch {
         toast.error(`작업 재시도에 실패했습니다: ${j.id.slice(0, 8)}`)
       }
@@ -408,9 +489,77 @@ function AppContent(props: AppContentProps) {
   }, [gallerySearchTags])
 
   const galleryHasAnyFilter = !!(
-    gallerySearchTags.length > 0 ||
-    galleryHideRejected
+    gallerySearchTags.length > 0 || galleryHideRejected
   )
+
+  // ── Gallery action handlers (for Header dropdown + keyboard shortcuts) ──
+  const galleryReloadRef = useRef<(() => void) | null>(null)
+
+  const handleGalleryExport = useCallback(async () => {
+    try {
+      await curationApi.exportDataset(props.backendUrl, {
+        ...(props.settings.galleryExportScope === "approved"
+          ? { status: "approved" }
+          : {}),
+        duplicateStrategy: props.settings.galleryExportStrategy,
+      })
+      toast.success("내보내기가 완료되었습니다.")
+    } catch {
+      toast.error("내보내기 요청에 실패했습니다.")
+    }
+  }, [
+    props.backendUrl,
+    props.settings.galleryExportScope,
+    props.settings.galleryExportStrategy,
+  ])
+
+  const handleGalleryEmptyTrash = useCallback(async () => {
+    if (
+      !(await confirm({
+        title: "휴지통 비우기",
+        description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",
+        variant: "destructive",
+        confirmText: "영구 삭제",
+      }))
+    )
+      return
+    try {
+      const n = await curationApi.emptyTrash(props.backendUrl)
+      toast.success(`${n}개 영구 삭제됨`)
+      galleryReloadRef.current?.()
+    } catch {
+      toast.error("휴지통 비우기에 실패했습니다.")
+    }
+  }, [props.backendUrl, confirm])
+
+  const handleGalleryRefresh = useCallback(() => {
+    galleryReloadRef.current?.()
+  }, [])
+
+  // ── Quick save handler (Ctrl+S shortcut) ──
+  const handleQuickSave = useCallback(() => {
+    if (props.compositionTab === "ceg") {
+      // Save template
+      if (template.activeTemplateId) {
+        const active = template.savedTemplates.find(
+          (t) => t.id === template.activeTemplateId
+        )
+        if (active) {
+          template.saveTemplate(active.name, template.cegTemplate)
+          template.setTemplateResetKey((k) => k + 1)
+        }
+      }
+    } else {
+      // Save workflow
+      if (workflow.activeWorkflow) {
+        workflow.saveWorkflow(
+          workflow.activeWorkflow.name,
+          workflow.workflowJson
+        )
+        workflow.setWorkflowResetKey((k) => k + 1)
+      }
+    }
+  }, [props.compositionTab, template, workflow])
 
   // ── Curation toolbar state (lifted for nav bar rendering) ──
   const [curationSelectedTemplateId, setCurationSelectedTemplateId] =
@@ -519,6 +668,16 @@ function AppContent(props: AppContentProps) {
 
   const canRun =
     Boolean(workflow.workflowJson) && props.isAliveBackend && props.backendAlive
+
+  // ── Global keyboard shortcuts ──
+  useGlobalShortcuts({
+    activeTab: props.activeTab,
+    mobileJobTab,
+    canRun,
+    handleRun,
+    handleSave: handleQuickSave,
+    handleGalleryRefresh,
+  })
 
   // ── Name conflict helpers ──
   const nextFreeName = (name: string, items: { name: string }[]): string => {
@@ -631,13 +790,17 @@ function AppContent(props: AppContentProps) {
         curationSelectedTemplateId={curationSelectedTemplateId}
         setCurationSelectedTemplateId={setCurationSelectedTemplateId}
         savedTemplates={template.savedTemplates}
-        
+        onGalleryExport={handleGalleryExport}
+        onGalleryRefresh={handleGalleryRefresh}
+        onGalleryEmptyTrash={handleGalleryEmptyTrash}
         // Session / Job controls props (lifted)
         sessionMarkers={markers}
         sessionJobCounts={sessionJobCounts}
         sortedMarkers={sortedMarkers}
         selectedSessionId={selectedSessionId}
-        activeSessionState={activeState ? { activeSessionId: activeState.activeSessionId } : null}
+        activeSessionState={
+          activeState ? { activeSessionId: activeState.activeSessionId } : null
+        }
         sessionPickerOpen={sessionPickerOpen}
         onSessionPickerOpenChange={setSessionPickerOpen}
         onSelectSession={setSelectedSessionId}
@@ -662,11 +825,15 @@ function AppContent(props: AppContentProps) {
               enableHover={props.settings.enableHover}
               imagePageSize={props.settings.imagePageSize}
               imageLazyLoad={props.settings.imageLazyLoad}
+              singleDownloadMode={props.settings.singleDownloadMode}
               filenameFilter={galleryFilenameFilter}
               tagFilter={galleryTagFilter}
               metadataFilter={galleryMetadataFilter}
               generalFilters={galleryGeneralFilters}
               onTokensExtracted={setGalleryCandidates}
+              onReloadReady={(reload) => {
+                galleryReloadRef.current = reload
+              }}
               toolbarState={{
                 statusFilter: galleryStatusFilter,
                 setStatusFilter: setGalleryStatusFilter,
@@ -684,9 +851,9 @@ function AppContent(props: AppContentProps) {
                   setGallerySearchInput("")
                   setGalleryHideRejected(false)
                 },
-                reload: () => {},
-                handleExport: () => {},
-                handleEmptyTrash: () => {},
+                reload: handleGalleryRefresh,
+                handleExport: handleGalleryExport,
+                handleEmptyTrash: handleGalleryEmptyTrash,
               }}
             />
           </div>
@@ -813,7 +980,7 @@ function AppContent(props: AppContentProps) {
                 </div>
               )}
               {(mobileJobTab === "status" || mobileJobTab === "list") && (
-                <div className="flex flex-1 flex-col min-h-0 bg-panel">
+                <div className="flex min-h-0 flex-1 flex-col bg-panel">
                   <JobManagerPanel
                     jobs={props.jobs}
                     paused={props.paused}
@@ -842,21 +1009,24 @@ function AppContent(props: AppContentProps) {
               )}
 
               {/* Premium Segmented Bottom bar for Mobile Tab Switcher */}
-              <div className="shrink-0 border-t border-line/60 bg-panel/85 backdrop-blur-md px-3 py-2">
-                <div className="flex p-0.5 bg-muted/60 rounded-xl">
+              <div className="shrink-0 border-t border-line/60 bg-panel/85 px-3 py-2 backdrop-blur-md">
+                <div className="flex rounded-xl bg-muted/60 p-0.5">
                   {[
                     { id: "editor" as const, label: "에디터" },
                     { id: "status" as const, label: "현황" },
-                    { id: "list" as const, label: `기록 (${props.jobs.length})` },
+                    {
+                      id: "list" as const,
+                      label: `기록 (${props.jobs.length})`,
+                    },
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setMobileJobTab(tab.id)}
                       className={cn(
-                        "flex-1 py-1.5 text-xs font-black rounded-lg transition-all duration-200 cursor-pointer text-center",
+                        "flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-black transition-all duration-200",
                         mobileJobTab === tab.id
-                          ? "bg-background text-foreground shadow-xs scale-100"
-                          : "text-muted-foreground hover:text-foreground scale-98"
+                          ? "scale-100 bg-background text-foreground shadow-xs"
+                          : "scale-98 text-muted-foreground hover:text-foreground"
                       )}
                     >
                       {tab.label}
@@ -953,6 +1123,34 @@ function AppContent(props: AppContentProps) {
           nodeMapping.setActiveNodeMappingPresetId(null)
           props.setPendingPresetSelection(null)
         }}
+      />
+
+      <VersionDiffDialog
+        open={props.pendingDiff !== null}
+        onClose={() => props.setPendingDiff(null)}
+        onConfirm={() => {
+          if (!props.pendingDiff) return
+          if (props.pendingDiff.type === "template") {
+            template.saveTemplate(
+              props.pendingDiff.name,
+              props.pendingDiff.newContent
+            )
+            template.setTemplateResetKey((k) => k + 1)
+          } else {
+            const w = workflow.saveWorkflow(
+              props.pendingDiff.name,
+              props.pendingDiff.newContent
+            )
+            workflow.setActiveWorkflowId(w.id)
+            workflow.setWorkflowResetKey((k) => k + 1)
+          }
+          toast.success(
+            `'${props.pendingDiff.name}' 업데이트가 완료되었습니다.`
+          )
+        }}
+        oldContent={props.pendingDiff?.oldContent ?? ""}
+        newContent={props.pendingDiff?.newContent ?? ""}
+        itemName={props.pendingDiff?.name ?? ""}
       />
     </div>
   )

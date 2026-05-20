@@ -184,6 +184,75 @@ export function SettingsPanel({
               }
             />
           </SettingRow>
+          <Separator />
+          <SettingRow
+            label="내보내기 범위"
+            description="갤러리 내보내기 시 다운로드할 이미지 범위를 선택합니다."
+          >
+            <Select
+              value={settings.galleryExportScope}
+              onValueChange={(v) =>
+                updateSetting(
+                  "galleryExportScope",
+                  v as AppSettings["galleryExportScope"]
+                )
+              }
+            >
+              <SelectTrigger className="h-8 w-44 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="approved">통과된 이미지만</SelectItem>
+                <SelectItem value="all">전체 이미지</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <Separator />
+          <SettingRow
+            label="내보내기 중복 처리"
+            description="동일 파일명 이미지 내보내기 시 중복 처리 방식을 선택합니다."
+          >
+            <Select
+              value={settings.galleryExportStrategy}
+              onValueChange={(v) =>
+                updateSetting(
+                  "galleryExportStrategy",
+                  v as AppSettings["galleryExportStrategy"]
+                )
+              }
+            >
+              <SelectTrigger className="h-8 w-44 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hash">HASH 기반 (해시로 고유명)</SelectItem>
+                <SelectItem value="number">NUM 기반 (숫자 순번)</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <Separator />
+          <SettingRow
+            label="단일 이미지 다운로드"
+            description="이미지를 클릭했을 때 다운로드 방식을 선택합니다."
+          >
+            <Select
+              value={settings.singleDownloadMode}
+              onValueChange={(v) =>
+                updateSetting(
+                  "singleDownloadMode",
+                  v as AppSettings["singleDownloadMode"]
+                )
+              }
+            >
+              <SelectTrigger className="h-8 w-44 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newtab">새탭에서 열기</SelectItem>
+                <SelectItem value="direct">바로 다운로드</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
         </Section>
 
         {/* UI 기능 */}
@@ -202,14 +271,16 @@ export function SettingsPanel({
         {/* 키보드 단축키 */}
         <Section title="키보드 단축키">
           <div className="space-y-0">
-            {([
-              ["D", "다크/라이트 모드 전환"],
-              ["ESC", "이미지 뷰어 닫기"],
-              ["Shift + 드래그", "이미지 뷰어에서 영역 확대"],
-              ["좌클릭", "이미지 뷰어에서 확대"],
-              ["우클릭", "이미지 뷰어에서 축소"],
-              ["스크롤 휠", "이미지 뷰어에서 줌 인/아웃"],
-            ] as const).map(([key, desc]) => (
+            {(
+              [
+                ["D", "다크/라이트 모드 전환"],
+                ["ESC", "이미지 뷰어 닫기"],
+                ["Shift + 드래그", "이미지 뷰어에서 영역 확대"],
+                ["좌클릭", "이미지 뷰어에서 확대"],
+                ["우클릭", "이미지 뷰어에서 축소"],
+                ["스크롤 휠", "이미지 뷰어에서 줌 인/아웃"],
+              ] as const
+            ).map(([key, desc]) => (
               <div
                 key={key}
                 className="flex items-center justify-between gap-4 py-2.5"

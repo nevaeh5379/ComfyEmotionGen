@@ -33,6 +33,13 @@ export interface WorkflowContextValue {
   setWorkflowResetKey: (key: number | ((prev: number) => number)) => void
   /** Called when a name conflict needs App-level resolution */
   onPendingSave: (name: string, type: "workflow") => void
+  /** Called when updating a saved item; shows diff if content changed */
+  onPendingUpdate?: (
+    name: string,
+    type: "workflow",
+    oldContent: string,
+    newContent: string
+  ) => boolean | null
   /** Called when a workflow has multiple mapping presets */
   onPendingPresetSelection: (w: SavedWorkflow) => void
   /** Load a workflow item — coordinates with node mappings */
@@ -72,16 +79,26 @@ export function useWorkflowContext(): WorkflowContextValue {
 
 interface WorkflowProviderProps {
   onPendingSave: (name: string, type: "workflow") => void
+  onPendingUpdate?: (
+    name: string,
+    type: "workflow",
+    oldContent: string,
+    newContent: string
+  ) => boolean | null
   onPendingPresetSelection: (w: SavedWorkflow) => void
   children: React.ReactNode
 }
 
 export function WorkflowProvider({
   onPendingSave,
+  onPendingUpdate,
   onPendingPresetSelection,
   children,
 }: WorkflowProviderProps): React.JSX.Element {
-  const [workflowJson, setWorkflowJson] = useLocalStorage(STORAGE_KEYS.workflow, "")
+  const [workflowJson, setWorkflowJson] = useLocalStorage(
+    STORAGE_KEYS.workflow,
+    ""
+  )
   const [activeWorkflowId, setActiveWorkflowId] = useLocalStorage<
     string | null
   >(STORAGE_KEYS.activeWorkflowId, null)
@@ -144,6 +161,7 @@ export function WorkflowProvider({
         workflowResetKey,
         setWorkflowResetKey,
         onPendingSave,
+        ...(onPendingUpdate ? { onPendingUpdate } : {}),
         onPendingPresetSelection,
         loadWorkflowItem,
         saveMappingPreset,

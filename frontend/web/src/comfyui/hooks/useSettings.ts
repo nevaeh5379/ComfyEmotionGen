@@ -9,6 +9,12 @@ export interface AppSettings {
   imageLazyLoad: boolean
   autoApplyReject: boolean
   enableHover: boolean
+  /** 갤러리 내보내기 범위: approved(통과된 이미지만) | all(전체 이미지) */
+  galleryExportScope: "approved" | "all"
+  /** 갤러리 내보내기 중복 처리: hash(해시 기반) | number(숫자 기반) */
+  galleryExportStrategy: "hash" | "number"
+  /** 단일 이미지 다운로드 방식: newtab(새탭 열기) | direct(바로 다운로드) */
+  singleDownloadMode: "newtab" | "direct"
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -16,6 +22,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   imageLazyLoad: true,
   autoApplyReject: true,
   enableHover: true,
+  galleryExportScope: "approved",
+  galleryExportStrategy: "hash",
+  singleDownloadMode: "newtab",
 }
 
 const load = (): AppSettings => {

@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useCallback, useMemo, useRef } from "react"
 import CodeMirror from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { StreamLanguage, type StringStream } from "@codemirror/language"
@@ -17,6 +17,8 @@ interface CodeEditorProps {
   maxHeight?: string
   /** When true, skips the outer wrapper border/background so it can be placed inside an InputGroup */
   bareWrapper?: boolean
+  /** Called when a file is dropped or opened via file input */
+  onFileOpen?: (content: string, name: string) => void
 }
 
 const cegKeywords = /^(?:include|AND)\b/i
@@ -78,7 +80,39 @@ const CodeEditor = ({
   minHeight = "8rem",
   maxHeight,
   bareWrapper = false,
+  onFileOpen,
 }: CodeEditorProps) => {
+  const dropZoneRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFile = useCallback((file: File) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result
+      if (typeof content === "string" && onFileOpen) {
+        onFileOpen(content, file.name)
+      }
+    }
+    reader.readAsText(file)
+  }, [onFileOpen])
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const file = e.dataTransfer.files[0]
+    if (file) handleFile(file)
+  }, [handleFile])
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+    e.target.value = ""
+  }, [handleFile])
   const { theme } = useTheme()
   const resolvedTheme =
     theme === "system"
@@ -94,8 +128,11 @@ const CodeEditor = ({
 
   return (
     <div
+      ref={dropZoneRef}
       className={`flex h-full min-h-0 flex-col overflow-hidden ${bareWrapper ? "" : "rounded-md border bg-muted/50"} ${className}`}
       style={maxHeight ? { minHeight, maxHeight } : { minHeight }}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
     >
       <CodeMirror
         value={value}
@@ -115,6 +152,15 @@ const CodeEditor = ({
         style={{ height: "100%", minHeight, maxHeight }}
         className="h-full min-h-0"
       />
+      {onFileOpen && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,.txt"
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
+      )}
     </div>
   )
 }

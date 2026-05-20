@@ -25,7 +25,6 @@ import {
   FilterIcon,
   MoreVertical,
   RefreshCwIcon,
-  DownloadIcon,
   Trash2Icon,
 } from "lucide-react"
 import {
@@ -39,7 +38,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
@@ -102,7 +100,6 @@ const STATUS_LABEL: Record<CurationStatus | "all", string> = {
   trashed: "휴지통",
 }
 
-
 export interface GalleryToolbarState {
   statusFilter: CurationStatus | "all"
   setStatusFilter: (v: CurationStatus | "all") => void
@@ -131,7 +128,13 @@ interface Props {
   tagFilter?: string
   metadataFilter?: string
   generalFilters?: string[]
-  onTokensExtracted?: (tokens: { value: string; type: "filename" | "tag" | "metadata" }[]) => void
+  onTokensExtracted?: (
+    tokens: { value: string; type: "filename" | "tag" | "metadata" }[]
+  ) => void
+  /** Callback to register the gallery's reload function for external triggers (Header dropdown, keyboard shortcuts) */
+  onReloadReady?: (reload: () => void) => void
+  /** 단일 이미지 다운로드 방식 */
+  singleDownloadMode?: "newtab" | "direct"
 }
 
 const DEFAULT_PAGE_SIZE = 48
@@ -148,6 +151,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   metadataFilter,
   generalFilters,
   onTokensExtracted,
+  onReloadReady,
+  singleDownloadMode,
 }: Props) {
   useRenderLog("SavedImagesGallery")
   const confirm = useConfirm()
@@ -161,9 +166,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [selected, setSelected] = useState<SavedImage | null>(null)
   const [page, setPage] = useState(1)
   const [hideRejected, setHideRejected] = useState(false)
-  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">(
-    "hash"
-  )
+
   const [groupPage, setGroupPage] = useState(1)
 
   // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
@@ -206,10 +209,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     useState<GalleryViewMode>("grid")
   const [showFilters, setShowFilters] = useState(false)
 
-  const effectiveFilenameFilter = filenameFilter !== undefined ? filenameFilter : localFilenameFilter
-  const effectiveTagFilter = tagFilter !== undefined ? tagFilter : localTagFilter
-  const effectiveMetadataFilter = metadataFilter !== undefined ? metadataFilter : localMetadataFilter
-  const effectiveGeneralFilters = generalFilters !== undefined ? generalFilters : []
+  const effectiveFilenameFilter =
+    filenameFilter !== undefined ? filenameFilter : localFilenameFilter
+  const effectiveTagFilter =
+    tagFilter !== undefined ? tagFilter : localTagFilter
+  const effectiveMetadataFilter =
+    metadataFilter !== undefined ? metadataFilter : localMetadataFilter
+  const effectiveGeneralFilters =
+    generalFilters !== undefined ? generalFilters : []
 
   // When toolbarState is provided (from App.tsx nav bar), use those values
   const effectiveStatusFilter = toolbarState
@@ -243,6 +250,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     groupPage,
     groupPageSize: GROUP_PAGE_SIZE,
   })
+
+  // Register reload function for external triggers (Header dropdown, keyboard shortcuts)
+  useEffect(() => {
+    onReloadReady?.(reload)
+  }, [onReloadReady, reload])
 
   const totalPages = Math.max(1, Math.ceil(total / imagePageSize))
   const pageList = useMemo(
@@ -285,9 +297,15 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     return metadataFilteredImages.filter((img) => {
       return effectiveGeneralFilters.every((term) => {
         const lowerTerm = term.toLowerCase()
-        const inFilename = img.originalFilename ? img.originalFilename.toLowerCase().includes(lowerTerm) : false
-        const inTags = img.tags ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm)) : false
-        const inPrompt = img.prompt ? img.prompt.toLowerCase().includes(lowerTerm) : false
+        const inFilename = img.originalFilename
+          ? img.originalFilename.toLowerCase().includes(lowerTerm)
+          : false
+        const inTags = img.tags
+          ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm))
+          : false
+        const inPrompt = img.prompt
+          ? img.prompt.toLowerCase().includes(lowerTerm)
+          : false
         return inFilename || inTags || inPrompt
       })
     })
@@ -318,9 +336,15 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         items = items.filter((img) => {
           return effectiveGeneralFilters.every((term) => {
             const lowerTerm = term.toLowerCase()
-            const inFilename = img.originalFilename ? img.originalFilename.toLowerCase().includes(lowerTerm) : false
-            const inTags = img.tags ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm)) : false
-            const inPrompt = img.prompt ? img.prompt.toLowerCase().includes(lowerTerm) : false
+            const inFilename = img.originalFilename
+              ? img.originalFilename.toLowerCase().includes(lowerTerm)
+              : false
+            const inTags = img.tags
+              ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm))
+              : false
+            const inPrompt = img.prompt
+              ? img.prompt.toLowerCase().includes(lowerTerm)
+              : false
             return inFilename || inTags || inPrompt
           })
         })
@@ -478,17 +502,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }
 
-  const handleExport = async () => {
-    try {
-      await curationApi.exportDataset(backendUrl, {
-        status: "approved",
-        duplicateStrategy,
-      })
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
   // 재생성 다이얼로그 상태
   const [regenTarget, setRegenTarget] = useState<string | null>(null)
   const [regenCount, setRegenCount] = useState("4")
@@ -529,7 +542,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         effectiveMetadataFilter.trim() ||
         effectiveHideRejected
       ),
-    [effectiveFilenameFilter, effectiveTagFilter, effectiveMetadataFilter, effectiveHideRejected]
+    [
+      effectiveFilenameFilter,
+      effectiveTagFilter,
+      effectiveMetadataFilter,
+      effectiveHideRejected,
+    ]
   )
 
   return (
@@ -614,38 +632,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 )}
               </Button>
 
-              {/* 4. More actions dropdown (export, strategy, reload, trash) */}
+              {/* More actions dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="outline" className="h-8 w-8 p-0">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[180px]">
-                  <DropdownMenuLabel className="text-[11px] font-bold">
-                    내보내기
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      setDuplicateStrategy("hash")
-                      await handleExport()
-                    }}
-                    className="text-[12px] font-bold"
-                  >
-                    <DownloadIcon className="mr-2 h-3.5 w-3.5" />
-                    HASH 기반
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      setDuplicateStrategy("number")
-                      await handleExport()
-                    }}
-                    className="text-[12px] font-bold"
-                  >
-                    <DownloadIcon className="mr-2 h-3.5 w-3.5" />
-                    NUM 기반
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                <DropdownMenuContent align="end" className="w-[160px]">
                   <DropdownMenuItem onClick={reload}>
                     <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
                     새로고침
@@ -780,7 +774,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         {loading && (
           <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="m-1 break-inside-avoid overflow-hidden rounded-lg border bg-card">
+              <div
+                key={i}
+                className="m-1 break-inside-avoid overflow-hidden rounded-lg border bg-card"
+              >
                 <Skeleton
                   className="w-full"
                   style={{ height: `${140 + ((i * 47) % 120)}px` }}
@@ -951,17 +948,21 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           (effectiveGalleryViewMode === "compare" &&
             pinnedHashes.length === 0) ? (
           <>
-            {effectiveGalleryViewMode === "compare" && pinnedHashes.length === 0 && (
-              <div className="mx-auto mb-4 flex max-w-lg items-center gap-3 rounded-xl border border-info/20 bg-info-bg px-4 py-3 text-sm">
-                <PinIcon className="h-5 w-5 shrink-0 text-info" />
-                <div>
-                  <p className="font-bold text-foreground">비교할 이미지를 핀 고정하세요</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    이미지를 우클릭하여 "비교에 추가"를 선택하면 핀 고정된 이미지들이 나란히 표시됩니다.
-                  </p>
+            {effectiveGalleryViewMode === "compare" &&
+              pinnedHashes.length === 0 && (
+                <div className="mx-auto mb-4 flex max-w-lg items-center gap-3 rounded-xl border border-info/20 bg-info-bg px-4 py-3 text-sm">
+                  <PinIcon className="h-5 w-5 shrink-0 text-info" />
+                  <div>
+                    <p className="font-bold text-foreground">
+                      비교할 이미지를 핀 고정하세요
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      이미지를 우클릭하여 "비교에 추가"를 선택하면 핀 고정된
+                      이미지들이 나란히 표시됩니다.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             <ImageGrid
               items={visibleImages}
               backendUrl={backendUrl}
@@ -1050,12 +1051,18 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             image={selected}
             onClose={() => setSelected(null)}
             onChanged={reload}
+            {...(singleDownloadMode && { singleDownloadMode })}
           />
         )}
       </div>
 
       {/* 재생성 수량 입력 다이얼로그 */}
-      <Dialog open={regenTarget !== null} onOpenChange={(open) => { if (!open) setRegenTarget(null) }}>
+      <Dialog
+        open={regenTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRegenTarget(null)
+        }}
+      >
         <DialogContent className="sm:max-w-[340px]">
           <DialogHeader>
             <DialogTitle>추가 생성</DialogTitle>
@@ -1069,7 +1076,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             max={100}
             value={regenCount}
             onChange={(e) => setRegenCount(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleRegenConfirm() }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleRegenConfirm()
+            }}
             className="text-center text-lg font-bold"
             autoFocus
           />
@@ -1077,9 +1086,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             <Button variant="outline" onClick={() => setRegenTarget(null)}>
               취소
             </Button>
-            <Button onClick={handleRegenConfirm}>
-              생성
-            </Button>
+            <Button onClick={handleRegenConfirm}>생성</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

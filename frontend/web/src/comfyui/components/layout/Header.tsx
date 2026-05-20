@@ -29,7 +29,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
@@ -40,9 +39,12 @@ import { CompositionTabsList } from "../CompositionTabsList"
 import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
 import type { WorkerView, CurationStatus } from "../../types/Message"
-import { SessionPopover, type SessionMarker, type ActiveStateInfo } from "../JobManagerSections"
+import {
+  SessionPopover,
+  type SessionMarker,
+  type ActiveStateInfo,
+} from "../JobManagerSections"
 import { TagInputSearch } from "../TagInputSearch"
-
 
 export const NAV_TABS = [
   { id: "jobs", label: "작업", icon: ClipboardList },
@@ -94,6 +96,11 @@ interface HeaderProps {
   galleryHideRejected: boolean
   setGalleryHideRejected: (v: boolean) => void
   setGalleryDuplicateStrategy: (v: "hash" | "number") => void
+
+  // Gallery action callbacks
+  onGalleryExport?: () => void
+  onGalleryRefresh?: () => void
+  onGalleryEmptyTrash?: () => void
 
   // Curation specific
   curationSelectedTemplateId: string
@@ -231,7 +238,11 @@ export function Header(props: HeaderProps) {
           </span>
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
           {/* Desktop tabs */}
-          <div className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex" role="tablist" aria-label="메인 탭 네비게이션">
+          <div
+            className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex"
+            role="tablist"
+            aria-label="메인 탭 네비게이션"
+          >
             {NAV_TABS.map((tab) => {
               const Icon = tab.icon
               return (
@@ -289,7 +300,8 @@ export function Header(props: HeaderProps) {
           )}
           {/* Mobile Session/Pause/Actions toolbar (jobs status or list only) */}
           {props.activeTab === "jobs" &&
-            (props.mobileJobTab === "status" || props.mobileJobTab === "list") &&
+            (props.mobileJobTab === "status" ||
+              props.mobileJobTab === "list") &&
             props.sessionMarkers && (
               <div className="flex flex-1 items-center justify-end gap-1.5 md:hidden">
                 <div className="relative">
@@ -323,7 +335,10 @@ export function Header(props: HeaderProps) {
                   <DropdownMenuContent align="end" className="w-56 p-2">
                     <DropdownMenuItem
                       onClick={props.onCancelAll}
-                      disabled={!props.isAliveBackend || (props.activeJobsCount ?? 0) === 0}
+                      disabled={
+                        !props.isAliveBackend ||
+                        (props.activeJobsCount ?? 0) === 0
+                      }
                       className="py-3 font-bold text-destructive"
                     >
                       진행 중인 모든 작업 취소
@@ -355,7 +370,7 @@ export function Header(props: HeaderProps) {
                   props.setGalleryStatusFilter(v as CurationStatus | "all")
                 }}
               >
-                <SelectTrigger className="!h-7 !py-1 w-[82px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className="!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -398,7 +413,7 @@ export function Header(props: HeaderProps) {
                   }
                 }}
               >
-                <SelectTrigger className="!h-7 !py-1 w-[78px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className="!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -428,37 +443,31 @@ export function Header(props: HeaderProps) {
                 )}
               </Button>
 
+              <Button
+                size="sm"
+                variant="outline"
+                className="!h-7 !w-7 p-0"
+                title="갤러리 내보내기"
+                onClick={() => props.onGalleryExport?.()}
+              >
+                <DownloadIcon className="h-3.5 w-3.5" />
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="outline" className="!h-7 !w-7 p-0">
                     <MoreVertical className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[180px]">
-                  <DropdownMenuLabel className="text-[11px] font-bold">
-                    내보내기
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem
-                    onClick={() => props.setGalleryDuplicateStrategy("hash")}
-                    className="text-[12px] font-bold"
-                  >
-                    <DownloadIcon className="mr-2 h-3.5 w-3.5" />
-                    HASH 기반
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => props.setGalleryDuplicateStrategy("number")}
-                    className="text-[12px] font-bold"
-                  >
-                    <DownloadIcon className="mr-2 h-3.5 w-3.5" />
-                    NUM 기반
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuContent align="end" className="w-[160px]">
+                  <DropdownMenuItem onClick={() => props.onGalleryRefresh?.()}>
                     <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
                     새로고침
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                  <DropdownMenuItem
+                    onClick={() => props.onGalleryEmptyTrash?.()}
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  >
                     <Trash2Icon className="mr-2 h-3.5 w-3.5" />
                     휴지통 비우기
                   </DropdownMenuItem>
@@ -479,7 +488,7 @@ export function Header(props: HeaderProps) {
                   )
                 }
               >
-                <SelectTrigger className="!h-7 !py-1 w-[130px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
+                <SelectTrigger className="!h-7 w-[130px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -505,7 +514,7 @@ export function Header(props: HeaderProps) {
         </div>
         <div className="ml-1 hidden shrink-0 items-center gap-2 md:flex">
           {props.activeTab === "jobs" && props.sessionMarkers && (
-            <div className="flex items-center gap-1.5 border-r border-line/65 pr-3 mr-1">
+            <div className="mr-1 flex items-center gap-1.5 border-r border-line/65 pr-3">
               <div className="relative">
                 <SessionPopover
                   markers={props.sessionMarkers}
@@ -537,7 +546,10 @@ export function Header(props: HeaderProps) {
                 <DropdownMenuContent align="end" className="w-56 p-2">
                   <DropdownMenuItem
                     onClick={props.onCancelAll}
-                    disabled={!props.isAliveBackend || (props.activeJobsCount ?? 0) === 0}
+                    disabled={
+                      !props.isAliveBackend ||
+                      (props.activeJobsCount ?? 0) === 0
+                    }
                     className="py-3 font-bold text-destructive"
                   >
                     진행 중인 모든 작업 취소
@@ -577,22 +589,27 @@ export function Header(props: HeaderProps) {
         <div className="border-t border-line/60 bg-panel/80 px-3 py-2 md:px-4 md:py-2.5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase shrink-0">
+              <span className="shrink-0 text-[11px] font-bold text-muted-foreground uppercase">
                 검색
               </span>
-              <div className="flex-1 max-w-lg">
+              <div className="max-w-lg flex-1">
                 <TagInputSearch
                   value={props.gallerySearchInput}
                   tags={props.gallerySearchTags}
                   candidates={props.galleryCandidates.filter((c) => {
-                    const valClean = props.gallerySearchInput.replace(/^[@#$]/, "").toLowerCase()
+                    const valClean = props.gallerySearchInput
+                      .replace(/^[@#$]/, "")
+                      .toLowerCase()
                     return c.value.toLowerCase().includes(valClean)
                   })}
                   placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
                   onValueChange={props.setGallerySearchInput}
                   onAddTag={(tag) => {
                     if (!props.gallerySearchTags.includes(tag)) {
-                      props.setGallerySearchTags([...props.gallerySearchTags, tag])
+                      props.setGallerySearchTags([
+                        ...props.gallerySearchTags,
+                        tag,
+                      ])
                     }
                     props.setGallerySearchInput("")
                   }}
@@ -606,9 +623,9 @@ export function Header(props: HeaderProps) {
               </div>
             </div>
 
-            <div className="hidden h-4 w-px bg-line md:block shrink-0" />
+            <div className="hidden h-4 w-px shrink-0 bg-line md:block" />
 
-            <div className="flex items-center justify-between border-t border-line/40 pt-2 md:border-0 md:pt-0 shrink-0 gap-4">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line/40 pt-2 md:border-0 md:pt-0">
               <div className="flex cursor-pointer items-center gap-2">
                 <Checkbox
                   id="gallery-hide-rejected"

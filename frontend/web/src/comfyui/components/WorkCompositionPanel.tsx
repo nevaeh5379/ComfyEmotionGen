@@ -1,4 +1,6 @@
-import { Code2, Copy, Download, Settings } from "lucide-react"
+import { Code2, Copy, Download, FolderOpen, Settings } from "lucide-react"
+import { useCallback } from "react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
@@ -62,6 +64,29 @@ export function WorkCompositionPanel({
   const workflow = useWorkflowContext()
   const nodeMapping = useNodeMappingContext()
 
+  // ── File open handler (drag-and-drop / file input) ──
+  const handleWorkflowFileOpen = useCallback(
+    (content: string, fileName: string) => {
+      try {
+        // Validate JSON
+        const parsed = JSON.parse(content)
+        if (
+          typeof parsed !== "object" ||
+          parsed === null ||
+          Array.isArray(parsed)
+        ) {
+          toast.error("유효한 워크플로우 JSON 파일이 아닙니다.")
+          return
+        }
+        workflow.setWorkflowJson(JSON.stringify(parsed, null, 2))
+        toast.success(`'${fileName}' 워크플로우를 불러왔습니다.`)
+      } catch {
+        toast.error("JSON 파싱에 실패했습니다.")
+      }
+    },
+    [workflow]
+  )
+
   return (
     <>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -70,7 +95,7 @@ export function WorkCompositionPanel({
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="hidden md:inline-flex flex shrink-0 items-center justify-between border-b px-3 py-2">
+          <div className="flex hidden shrink-0 items-center justify-between border-b px-3 py-2 md:inline-flex">
             <CompositionTabsList className="hidden md:inline-flex" />
             <WorkCompositionToolbar
               repeatCount={repeatCount}
@@ -125,11 +150,24 @@ export function WorkCompositionPanel({
                   (t) => t.id === template.activeTemplateId
                 )
                   ? () => {
-                    const active = template.savedTemplates.find(
-                      (t) => t.id === template.activeTemplateId
-                    )!
-                    template.saveTemplate(active.name, template.cegTemplate)
-                  }
+                      const active = template.savedTemplates.find(
+                        (t) => t.id === template.activeTemplateId
+                      )!
+                      // Check if content changed and show diff
+                      if (
+                        active.template !== template.cegTemplate &&
+                        template.onPendingUpdate
+                      ) {
+                        template.onPendingUpdate(
+                          active.name,
+                          "template",
+                          active.template,
+                          template.cegTemplate
+                        )
+                      } else {
+                        template.saveTemplate(active.name, template.cegTemplate)
+                      }
+                    }
                   : undefined
               }
             />
@@ -184,11 +222,25 @@ export function WorkCompositionPanel({
                   }}
                   activeItemId={workflow.activeWorkflowId ?? undefined}
                   onUpdate={() => {
-                    if (workflow.activeWorkflow)
+                    if (!workflow.activeWorkflow) return
+                    // Check if content changed and show diff
+                    if (
+                      workflow.activeWorkflow.workflow !==
+                        workflow.workflowJson &&
+                      workflow.onPendingUpdate
+                    ) {
+                      workflow.onPendingUpdate(
+                        workflow.activeWorkflow.name,
+                        "workflow",
+                        workflow.activeWorkflow.workflow,
+                        workflow.workflowJson
+                      )
+                    } else {
                       workflow.saveWorkflow(
                         workflow.activeWorkflow.name,
                         workflow.workflowJson
                       )
+                    }
                   }}
                 />
               </div>
@@ -198,6 +250,31 @@ export function WorkCompositionPanel({
                 </span>
               )}
               <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground"
+                  title="파일 열기"
+                  onClick={() => {
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.accept = ".json,.txt"
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = (ev) => {
+                          const content = ev.target?.result as string
+                          handleWorkflowFileOpen(content, file.name)
+                        }
+                        reader.readAsText(file)
+                      }
+                    }
+                    input.click()
+                  }}
+                >
+                  <FolderOpen className="h-3.5 w-3.5" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -244,9 +321,10 @@ export function WorkCompositionPanel({
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <CodeEditor
                 language="json"
-                placeholder="워크플로우 JSON 입력"
+                placeholder="워크플로우 JSON 입력 (드래그 앤 드롭 지원)"
                 value={workflow.workflowJson}
                 onChange={workflow.setWorkflowJson}
+                onFileOpen={handleWorkflowFileOpen}
                 minHeight="80px"
                 bareWrapper
                 className="h-full min-h-0 w-full flex-1"
@@ -319,7 +397,7 @@ export function WorkCompositionPanel({
                       nodeMapping.nodeMappings
                     )
                 }}
-                onPendingNameConflict={() => { }}
+                onPendingNameConflict={() => {}}
               />
             )}
           </TabsContent>
