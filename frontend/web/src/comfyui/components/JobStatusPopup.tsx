@@ -3,6 +3,7 @@ import { Minimize2, Play, Pause, Trash2, ExternalLink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { toast } from "sonner"
 import type { JobView } from "../types/Message"
 import { useConfirm } from "../contexts/ConfirmContext"
 
@@ -98,7 +99,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
         method: "POST",
       })
     } catch {
-      // ignore
+      toast.error("일시중지/재개 요청에 실패했습니다.")
     }
   }, [backendUrl, paused])
 
@@ -115,7 +116,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     try {
       await fetch(`${backendUrl}/jobs/cancel-all`, { method: "POST" })
     } catch {
-      // ignore
+      toast.error("전체 취소 요청에 실패했습니다.")
     }
   }, [backendUrl, confirm])
 

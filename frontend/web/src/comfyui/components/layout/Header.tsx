@@ -231,7 +231,7 @@ export function Header(props: HeaderProps) {
           </span>
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
           {/* Desktop tabs */}
-          <div className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex">
+          <div className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex" role="tablist" aria-label="메인 탭 네비게이션">
             {NAV_TABS.map((tab) => {
               const Icon = tab.icon
               return (
@@ -239,6 +239,9 @@ export function Header(props: HeaderProps) {
                   key={tab.id}
                   variant="ghost"
                   size="sm"
+                  role="tab"
+                  aria-selected={props.activeTab === tab.id}
+                  aria-label={tab.label}
                   onClick={() => props.setActiveTab(tab.id)}
                   className={`h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
                     props.activeTab === tab.id

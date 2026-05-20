@@ -13,6 +13,7 @@ import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import type { AppSettings } from "../hooks/useSettings"
 import { WorkerManager } from "./WorkerManager"
 import type { WorkerView } from "../types/Message"
+import { FRONTEND_VERSION, COMMIT } from "@/version"
 
 interface Props {
   settings: AppSettings
@@ -74,6 +75,24 @@ export function SettingsPanel({
   return (
     <ScrollArea className="h-full">
       <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
+        {/* 페이지 헤더 */}
+        <div className="flex items-end justify-between border-b border-line pb-4">
+          <div>
+            <h1 className="text-xl font-black tracking-tight">설정</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              ComfyEmotionGen 앱 환경 설정
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground/60">
+            <span className="mono">v{FRONTEND_VERSION}</span>
+            {COMMIT && (
+              <span className="mono rounded bg-muted px-1.5 py-0.5">
+                {COMMIT.slice(0, 7)}
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* 서버 설정 */}
         <Section title="서버 설정">
           <div className="space-y-1">
@@ -178,6 +197,30 @@ export function SettingsPanel({
               onCheckedChange={(v) => updateSetting("enableHover", v === true)}
             />
           </SettingRow>
+        </Section>
+
+        {/* 키보드 단축키 */}
+        <Section title="키보드 단축키">
+          <div className="space-y-0">
+            {([
+              ["D", "다크/라이트 모드 전환"],
+              ["ESC", "이미지 뷰어 닫기"],
+              ["Shift + 드래그", "이미지 뷰어에서 영역 확대"],
+              ["좌클릭", "이미지 뷰어에서 확대"],
+              ["우클릭", "이미지 뷰어에서 축소"],
+              ["스크롤 휠", "이미지 뷰어에서 줌 인/아웃"],
+            ] as const).map(([key, desc]) => (
+              <div
+                key={key}
+                className="flex items-center justify-between gap-4 py-2.5"
+              >
+                <span className="text-sm text-muted-foreground">{desc}</span>
+                <kbd className="shrink-0 rounded-md border bg-muted px-2 py-1 font-mono text-[11px] font-bold text-muted-foreground">
+                  {key}
+                </kbd>
+              </div>
+            ))}
+          </div>
         </Section>
       </div>
     </ScrollArea>

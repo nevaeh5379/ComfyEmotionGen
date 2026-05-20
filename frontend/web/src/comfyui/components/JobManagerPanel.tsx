@@ -36,6 +36,7 @@ import { ImageViewer } from "./ImageViewer"
 import { API, HEADERS } from "@/lib/api"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { JOB_PAGE_SIZE, COPIED_RESET_DELAY_MS, TICK_INTERVAL_MS, MS_PER_SECOND, SECONDS_PER_HOUR } from "@/lib/constants"
+import { toast } from "sonner"
 
 // Extracted components
 import {
@@ -387,7 +388,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     try {
       await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, { method: "DELETE" })
     } catch {
-      /* ignore */
+      toast.error("작업 취소 요청에 실패했습니다.")
     }
   }
 
@@ -398,7 +399,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     try {
       await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, { method: "POST" })
     } catch {
-      /* ignore */
+      toast.error("작업 재시도 요청에 실패했습니다.")
     }
   }
 
@@ -422,7 +423,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         body: JSON.stringify({ job_ids: [jobId] }),
       })
     } catch {
-      /* ignore */
+      toast.error("작업 삭제 요청에 실패했습니다.")
     }
   }
 
@@ -446,7 +447,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         body: JSON.stringify({ job_ids: [...selectedForDelete] }),
       })
     } catch {
-      /* ignore */
+      toast.error("선택 삭제 요청에 실패했습니다.")
     }
     setSelectedForDelete(new Set())
   }

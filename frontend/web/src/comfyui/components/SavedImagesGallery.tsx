@@ -18,6 +18,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import {
   PinIcon,
@@ -72,6 +73,14 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import type { CurationStatus, SavedImage } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
@@ -415,15 +424,29 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }
 
+  // 재생성 다이얼로그 상태
+  const [regenTarget, setRegenTarget] = useState<string | null>(null)
+  const [regenCount, setRegenCount] = useState("4")
+
   const handleRegenerate = async (filename: string) => {
-    const raw = prompt(`'${filename}' 그룹에 몇 장을 추가 생성할까요?`, "4")
-    if (!raw) return
-    const count = Number(raw)
-    if (!Number.isFinite(count) || count < 1) return
+    setRegenTarget(filename)
+    setRegenCount("4")
+  }
+
+  const handleRegenConfirm = async () => {
+    if (!regenTarget) return
+    const count = Number(regenCount)
+    if (!Number.isFinite(count) || count < 1) {
+      toast.error("유효한 숫자를 입력해주세요.")
+      return
+    }
+    setRegenTarget(null)
     try {
-      await curationApi.regenerate(backendUrl, filename, count, "random")
+      await curationApi.regenerate(backendUrl, regenTarget, count, "random")
+      toast.success(`'${regenTarget}' 그룹에 ${count}장 생성 요청 완료`)
     } catch (err) {
       console.error(err)
+      toast.error("재생성 요청에 실패했습니다.")
     }
   }
 
@@ -689,6 +712,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           </div>
         )}
 
+        {loading && (
+          <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="m-1 break-inside-avoid overflow-hidden rounded-lg border bg-card">
+                <Skeleton
+                  className="w-full"
+                  style={{ height: `${140 + ((i * 47) % 120)}px` }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         {!loading &&
           ((!effectiveGroupMode && visibleImages.length === 0) ||
             (effectiveGroupMode && visibleGroups.length === 0)) && (
@@ -849,19 +885,32 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         ) : effectiveGalleryViewMode === "grid" ||
           (effectiveGalleryViewMode === "compare" &&
             pinnedHashes.length === 0) ? (
-          <ImageGrid
-            items={visibleImages}
-            backendUrl={backendUrl}
-            setStatus={setStatus}
-            onOpen={setSelected}
-            selectionMode={selectionMode}
-            selectedHashes={selectedHashes}
-            onToggleSelect={toggleSelectHash}
-            onLongPress={handleLongPress}
-            togglePin={togglePin}
-            pinnedHashes={pinnedHashes}
-            imageLazyLoad={imageLazyLoad}
-          />
+          <>
+            {effectiveGalleryViewMode === "compare" && pinnedHashes.length === 0 && (
+              <div className="mx-auto mb-4 flex max-w-lg items-center gap-3 rounded-xl border border-info/20 bg-info-bg px-4 py-3 text-sm">
+                <PinIcon className="h-5 w-5 shrink-0 text-info" />
+                <div>
+                  <p className="font-bold text-foreground">비교할 이미지를 핀 고정하세요</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    이미지를 우클릭하여 "비교에 추가"를 선택하면 핀 고정된 이미지들이 나란히 표시됩니다.
+                  </p>
+                </div>
+              </div>
+            )}
+            <ImageGrid
+              items={visibleImages}
+              backendUrl={backendUrl}
+              setStatus={setStatus}
+              onOpen={setSelected}
+              selectionMode={selectionMode}
+              selectedHashes={selectedHashes}
+              onToggleSelect={toggleSelectHash}
+              onLongPress={handleLongPress}
+              togglePin={togglePin}
+              pinnedHashes={pinnedHashes}
+              imageLazyLoad={imageLazyLoad}
+            />
+          </>
         ) : null}
 
         {!effectiveGroupMode &&
@@ -939,6 +988,36 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           />
         )}
       </div>
+
+      {/* 재생성 수량 입력 다이얼로그 */}
+      <Dialog open={regenTarget !== null} onOpenChange={(open) => { if (!open) setRegenTarget(null) }}>
+        <DialogContent className="sm:max-w-[340px]">
+          <DialogHeader>
+            <DialogTitle>추가 생성</DialogTitle>
+            <DialogDescription>
+              '{regenTarget}' 그룹에 몇 장을 추가 생성할까요?
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="number"
+            min={1}
+            max={100}
+            value={regenCount}
+            onChange={(e) => setRegenCount(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleRegenConfirm() }}
+            className="text-center text-lg font-bold"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenTarget(null)}>
+              취소
+            </Button>
+            <Button onClick={handleRegenConfirm}>
+              생성
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 })

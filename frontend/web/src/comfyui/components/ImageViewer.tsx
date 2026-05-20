@@ -435,6 +435,10 @@ export function ImageViewer({
   /* track Shift key globally */
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose()
+        return
+      }
       if (e.key === "Shift") {
         shiftHeldRef.current = true
         setShiftHeld(true)
@@ -452,7 +456,7 @@ export function ImageViewer({
       window.removeEventListener("keydown", down)
       window.removeEventListener("keyup", up)
     }
-  }, [])
+  }, [onClose])
 
   useEffect(() => {
     if (dragging) {

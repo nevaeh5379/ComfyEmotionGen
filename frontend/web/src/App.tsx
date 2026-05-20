@@ -47,6 +47,7 @@ import { Header, type TabId } from "./comfyui/components/layout/Header"
 import { cn } from "@/lib/utils"
 import { useConfirm } from "./comfyui/contexts/ConfirmContext"
 import type { JobStatus } from "./comfyui/types/Message"
+import { toast } from "sonner"
 import {
   type SessionMarkerRaw,
   type ActiveStateRaw,
@@ -297,7 +298,7 @@ function AppContent(props: AppContentProps) {
         method: "POST",
       })
     } catch {
-      /* ignore */
+      toast.error("일시중지/재개 요청에 실패했습니다.")
     }
   }
 
@@ -314,7 +315,7 @@ function AppContent(props: AppContentProps) {
     try {
       await fetch(`${props.backendUrl}${API.jobs.cancelAll}`, { method: "POST" })
     } catch {
-      /* ignore */
+      toast.error("전체 취소 요청에 실패했습니다.")
     }
   }
 
@@ -326,7 +327,7 @@ function AppContent(props: AppContentProps) {
       try {
         await fetch(`${props.backendUrl}${API.jobs.retry(j.id)}`, { method: "POST" })
       } catch {
-        /* ignore */
+        toast.error(`작업 재시도에 실패했습니다: ${j.id.slice(0, 8)}`)
       }
     }
   }
@@ -352,7 +353,7 @@ function AppContent(props: AppContentProps) {
         body: JSON.stringify({ job_ids: failed.map((j) => j.id) }),
       })
     } catch {
-      /* ignore */
+      toast.error("실패 작업 삭제 요청에 실패했습니다.")
     }
   }
 
