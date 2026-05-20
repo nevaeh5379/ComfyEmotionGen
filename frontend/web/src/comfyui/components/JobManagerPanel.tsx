@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { format } from "date-fns"
-import { X, Calendar, ArrowUp, ArrowDown, ChevronDown } from "lucide-react"
+import { X, Calendar, ArrowUp, ArrowDown, ChevronDown, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 
@@ -137,6 +137,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const [dateFrom, setDateFromState] = useState("")
   const [dateTo, setDateToState] = useState("")
+  const [searchTags, setSearchTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState("")
+  const [showFilters, setShowFilters] = useState(false)
 
   // ── pagination state ────────────────────────────────────────────────
   const [desiredPage, setPage] = useState(1)
@@ -203,8 +206,46 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     })
   }, [tabFiltered, dateFrom, dateTo])
 
+  // Precompute searchable text per job (avoids rebuilding haystacks on every filter toggle)
+  const jobSearchText = useMemo(() => {
+    return new Map(sessionJobs.map((j) => [
+      j.id,
+      [j.filename, j.prompt, j.error ?? "", ...(j.meta ? Object.values(j.meta) : [])].join(" ").toLowerCase(),
+    ]))
+  }, [sessionJobs])
+
+  // Cached token set from all session jobs (only recomputes when job list changes)
+  const cachedTokens = useMemo(() => {
+    return new Set(
+      [...jobSearchText.values()]
+        .join(" ")
+        .split(/\s+/)
+        .map((t) => t.replace(/^[^\w가-힣]+|[^\w가-힣]+$/g, ""))
+        .filter((t) => t.length >= 2)
+    )
+  }, [jobSearchText])
+
+  const searchFiltered = useMemo(() => {
+    if (searchTags.length === 0) return dateFiltered
+    return dateFiltered.filter((j) => {
+      const text = jobSearchText.get(j.id) ?? ""
+      return searchTags.some((tag) => text.includes(tag.toLowerCase()))
+    })
+  }, [dateFiltered, searchTags, jobSearchText])
+
+  const autocompleteCandidates = useMemo(() => {
+    const trimmed = tagInput.trim()
+    if (trimmed.length < 1) return []
+    const query = trimmed.toLowerCase()
+    return [...cachedTokens]
+      .filter(
+        (t) => t.includes(query) && t !== query && !searchTags.includes(t)
+      )
+      .slice(0, 6)
+  }, [tagInput, cachedTokens, searchTags])
+
   const sortedJobs = useMemo(() => {
-    const arr = [...dateFiltered]
+    const arr = [...searchFiltered]
     const dir = sortDir === "asc" ? 1 : -1
     arr.sort((a, b) => {
       switch (sortKey) {
@@ -224,7 +265,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       }
     })
     return arr
-  }, [dateFiltered, sortKey, sortDir])
+  }, [searchFiltered, sortKey, sortDir])
 
   // ── pagination computed ─────────────────────────────────────────────
 
@@ -241,6 +282,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     ? (jobs.find((j) => j.id === selectedJobId) ?? null)
     : null
   const hasDateFilter = dateFrom !== "" || dateTo !== ""
+  const hasAnyFilter = searchTags.length > 0 || dateFrom !== "" || dateTo !== ""
 
   const runningJobs = useMemo(
     () => sessionJobs.filter((j) => j.status === "running"),
@@ -356,7 +398,118 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const deselectAll = () => setSelectedForDelete(new Set())
 
-  // ── image fetch ─────────────────────────────────────────────────────
+  const addSearchTag = (tag: string) => {
+    const trimmed = tag.trim()
+    if (!trimmed) return
+    setSearchTags((prev) => {
+      if (prev.includes(trimmed)) return prev
+      return [...prev, trimmed]
+    })
+    setPage(1)
+    setSelectedForDelete(new Set())
+    setTagInput("")
+  }
+
+ const clearAllFilters = () => {
+    setSearchTags([])
+    setTagInput("")
+    setDateFromState("")
+    setDateToState("")
+    setPage(1)
+    setSelectedForDelete(new Set())
+  }
+
+  // ── extracted tag input with autocomplete ────────────────────────────
+
+ function TagInputSearch({
+    value,
+    tags,
+    candidates,
+    ref: refProp,
+    placeholder,
+    onValueChange,
+    onAddTag,
+    onRemoveTag,
+    size = "sm",
+  }: {
+    value: string
+    tags: string[]
+    candidates: string[]
+    ref?: React.RefObject<HTMLInputElement>
+    placeholder: string
+    onValueChange: (v: string) => void
+    onAddTag: (tag: string) => void
+    onRemoveTag: (tag: string) => void
+    size?: "sm" | "md"
+  }) {
+    const idxRef = useRef(0)
+
+    const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault()
+        const idx = idxRef.current
+        if (candidates.length > 0 && idx >= 0) {
+          onAddTag(candidates[idx]!)
+        } else {
+          onAddTag(value.trim())
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault()
+        idxRef.current = Math.min(idxRef.current + 1, Math.max(candidates.length - 1, 0))
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        idxRef.current = Math.max(idxRef.current - 1, 0)
+      } else if (e.key === "Backspace" && !value && tags.length > 0) {
+        onRemoveTag(tags[tags.length - 1]!)
+      }
+    }, [candidates, tags, value])
+
+    const active = size === "sm" ? idxRef.current : idxRef.current
+
+    return (
+      <div className="relative flex flex-wrap items-center gap-1.5 p-1.5 border rounded-md bg-background min-h-[34px]">
+        {tags.map((tag) => (
+          <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">
+            {tag}
+            <button type="button" onClick={() => onRemoveTag(tag)} className="inline-flex items-center justify-center rounded-full p-0.5 hover:bg-primary/20">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={refProp}
+          type="text"
+          value={value}
+          onChange={(e) => { onValueChange(e.target.value); idxRef.current = 0 }}
+          onKeyDown={onKeyDown}
+          placeholder={tags.length === 0 ? placeholder : ""}
+          className={cn(
+            "flex-1 min-w-[60px] bg-transparent outline-none placeholder:text-muted-foreground/50",
+            size === "sm"
+              ? "text-[11px] h-6"
+              : "text-xs h-7"
+          )}
+        />
+        {candidates.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-line bg-popover shadow-lg py-1">
+            {candidates.map((cand, idx) => (
+              <button
+                key={cand}
+                type="button"
+                onClick={() => onAddTag(cand)}
+                className={cn(
+                  "flex w-full items-center px-3 py-1.5 text-[11px] text-left",
+                  idx === active ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                )}
+              >
+                <span className="truncate">{cand}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const fetchingRef = useRef<Set<string>>(new Set())
 
@@ -587,6 +740,55 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <ArrowDown className="h-3.5 w-3.5 text-foreground" />
             )}
           </Button>
+
+          {/* 5. Filter Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="relative h-8 w-8 p-0 border-line bg-background shadow-none shrink-0"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                {hasAnyFilter && (
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3 border border-line bg-popover/90 backdrop-blur-md rounded-xl shadow-2xl" align="end">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b pb-1.5">
+                  <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                    고급 필터
+                  </span>
+                  {hasAnyFilter && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-1.5 text-[10px] font-bold text-bad hover:bg-bad/10 rounded"
+                      onClick={clearAllFilters}
+                    >
+                      필터 초기화
+                    </Button>
+                  )}
+                </div>
+
+                <TagInputSearch
+                  value={tagInput}
+                  tags={searchTags}
+                  candidates={autocompleteCandidates}
+                  placeholder="검색어 입력 후 엔터"
+                  size="sm"
+                  onValueChange={setTagInput}
+                  onAddTag={addSearchTag}
+                  onRemoveTag={(tag) => setSearchTags((prev) => prev.filter((t) => t !== tag))}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Unified 1-Line Toolbar (Desktop viewport) */}
@@ -661,8 +863,50 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 24h
               </Button>
             </div>
+
+            <Button
+              size="sm"
+              variant={showFilters ? "secondary" : "outline"}
+              onClick={() => setShowFilters(!showFilters)}
+              className="relative hidden md:inline-flex h-8 w-8 p-0 border-line bg-background shadow-none shrink-0"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {hasAnyFilter && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+                </span>
+              )}
+            </Button>
           </div>
         </div>
+
+        {/* Desktop filter panel */}
+        {showFilters && (
+          <div className="hidden md:flex animate-in fade-in slide-in-from-top-1 duration-200 shrink-0 items-start gap-3 border-b bg-muted/10 px-4 py-2">
+            <TagInputSearch
+              value={tagInput}
+              tags={searchTags}
+              candidates={autocompleteCandidates}
+              placeholder="파일명, 프롬프트, 에러 검색..."
+              size="md"
+              onValueChange={setTagInput}
+              onAddTag={addSearchTag}
+              onRemoveTag={(tag) => setSearchTags((prev) => prev.filter((t) => t !== tag))}
+            />
+            {hasAnyFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs font-bold text-muted-foreground hover:bg-muted shrink-0"
+                onClick={clearAllFilters}
+              >
+                <X className="mr-1 h-3 w-3" />
+                필터 초기화
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Failed tab: delete selection controls */}
         {filterTab === "failed" && (

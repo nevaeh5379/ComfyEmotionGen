@@ -31,6 +31,7 @@ export interface JobView {
   finishedAt: number | null
   retryCount: number
   executionDurationMs: number | null
+  meta?: Record<string, string>
 }
 
 export interface WorkerView {
