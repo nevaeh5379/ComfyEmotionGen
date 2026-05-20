@@ -738,12 +738,24 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
       <ScrollArea
         className={cn(
-          "max-h-[85dvh] shrink-0 border-b border-line bg-panel",
-          mobileTab === "status" ? "flex-1" : "hidden md:block"
+          "shrink-0 border-b border-line bg-panel",
+          mobileTab === "status"
+            ? "flex-1 max-h-none h-full"
+            : "max-h-[85dvh] hidden md:block"
         )}
       >
-        <JobStatBar counts={counts} sessionJobs={sessionJobs} />
-        <RunningJobsBanner jobs={runningJobs} />
+        <div className={cn(mobileTab === "status" ? "p-3 space-y-5" : "")}>
+          <JobStatBar counts={counts} sessionJobs={sessionJobs} />
+          {mobileTab === "status" && (
+            <div className="mt-4 px-1 space-y-3">
+              <h3 className="text-xs font-black tracking-widest text-muted-foreground uppercase pb-1.5 border-b">
+                실행 중인 작업
+              </h3>
+              <RunningJobsBanner jobs={runningJobs} />
+            </div>
+          )}
+          {mobileTab !== "status" && <RunningJobsBanner jobs={runningJobs} />}
+        </div>
       </ScrollArea>
 
       {/* 3. List Content */}
@@ -764,43 +776,72 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         />
 
         {/* Always-visible date filter */}
-        <div className="flex shrink-0 items-center gap-1.5 border-b bg-muted/5 px-3 py-2 md:gap-3 md:px-4">
-          <DatePicker
-            value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
-            onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
-            placeholder="시작"
-            className="h-8 w-24 border-line/50 text-[11px] shadow-none"
-          />
-          <span className="text-[10px] text-muted-foreground opacity-30">~</span>
-          <DatePicker
-            value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
-            onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
-            placeholder="종료"
-            className="h-8 w-24 border-line/50 text-[11px] shadow-none"
-          />
-          {hasDateFilter && (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b bg-muted/5 px-3 py-2 md:gap-3 md:px-4">
+          <div className="flex items-center gap-1.5">
+            <DatePicker
+              value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
+              onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
+              placeholder="시작"
+              className="h-8 w-24 border-line/50 text-[11px] shadow-none"
+            />
+            <span className="text-[10px] text-muted-foreground opacity-30">~</span>
+            <DatePicker
+              value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
+              onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
+              placeholder="종료"
+              className="h-8 w-24 border-line/50 text-[11px] shadow-none"
+            />
+            {hasDateFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted"
+                onClick={() => { setDateFrom(""); setDateTo("") }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 ml-auto shrink-0">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground"
-              onClick={() => { setDateFrom(""); setDateTo("") }}
+              className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 hover:bg-muted"
+              onClick={() => setQuickDate("1h")}
             >
-              <X className="h-4 w-4" />
+              1h
             </Button>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 hover:bg-muted"
+              onClick={() => setQuickDate("today")}
+            >
+              오늘
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 hover:bg-muted"
+              onClick={() => setQuickDate("24h")}
+            >
+              24h
+            </Button>
+          </div>
         </div>
 
         {/* Failed tab: delete selection controls */}
         {filterTab === "failed" && (
           <div className="flex shrink-0 items-center gap-1.5 border-b bg-muted/5 px-3 py-2 md:gap-3 md:px-4">
-            <div className="flex shrink-0 items-center gap-1.5 border-r border-line pr-2">
+            <div className="flex shrink-0 items-center gap-1.5">
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={selectAllFailed}
                 className="h-8 px-2 text-[11px] font-bold"
               >
-                전체
+                전체 선택
               </Button>
               <Button
                 size="sm"
@@ -808,7 +849,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 onClick={deselectAll}
                 className="h-8 px-2 text-[11px] font-bold"
               >
-                해제
+                선택 해제
               </Button>
               {selectedForDelete.size > 0 && (
                 <Button
@@ -820,24 +861,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   삭제({selectedForDelete.size})
                 </Button>
               )}
-            </div>
-            <div className="xs:flex hidden items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-[11px] font-bold text-muted-foreground"
-                onClick={() => setQuickDate("1h")}
-              >
-                1h
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-[11px] font-bold text-muted-foreground"
-                onClick={() => setQuickDate("today")}
-              >
-                오늘
-              </Button>
             </div>
           </div>
         )}

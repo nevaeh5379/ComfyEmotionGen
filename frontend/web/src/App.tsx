@@ -38,6 +38,7 @@ import {
 } from "./lib/runtime"
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 import { Header, type TabId } from "./comfyui/components/layout/Header"
+import { cn } from "@/lib/utils"
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
@@ -571,7 +572,7 @@ function AppContent(props: AppContentProps) {
                 </div>
               )}
               {(mobileJobTab === "status" || mobileJobTab === "list") && (
-                <div className="flex-1 overflow-y-auto bg-panel">
+                <div className="flex flex-1 flex-col min-h-0 bg-panel">
                   <JobManagerPanel
                     jobs={props.jobs}
                     paused={props.paused}
@@ -581,6 +582,30 @@ function AppContent(props: AppContentProps) {
                   />
                 </div>
               )}
+
+              {/* Premium Segmented Bottom bar for Mobile Tab Switcher */}
+              <div className="shrink-0 border-t border-line/60 bg-panel/85 backdrop-blur-md px-3 py-2">
+                <div className="flex p-0.5 bg-muted/60 rounded-xl">
+                  {[
+                    { id: "editor" as const, label: "에디터" },
+                    { id: "status" as const, label: "현황" },
+                    { id: "list" as const, label: `기록 (${props.jobs.length})` },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setMobileJobTab(tab.id)}
+                      className={cn(
+                        "flex-1 py-1.5 text-xs font-black rounded-lg transition-all duration-200 cursor-pointer text-center",
+                        mobileJobTab === tab.id
+                          ? "bg-background text-foreground shadow-xs scale-100"
+                          : "text-muted-foreground hover:text-foreground scale-98"
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}

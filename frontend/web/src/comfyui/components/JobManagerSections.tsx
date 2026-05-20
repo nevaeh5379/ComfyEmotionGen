@@ -10,7 +10,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Ban,
+  ChevronRight,
 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -517,80 +525,220 @@ export const JobTableSection = memo(function JobTableSection({
   fetchJobImages,
   showPagination,
 }: JobTableProps) {
+  const mobileSortLabel = {
+    createdAt: "최근 생성순",
+    filename: "파일명순",
+    status: "상태순",
+    duration: "소요시간순",
+  }[sortKey] || "정렬"
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <ScrollArea className="mx-2 mb-2 flex-1 rounded-lg border bg-panel shadow-inner">
-        <Table className="text-xs">
-          <TableHeader className="sticky top-0 z-10 bg-panel/95 shadow-sm backdrop-blur">
-            <TableRow className="hover:bg-transparent">
-              {filterTab === "failed" && selectedForDelete.size > 0 ? (
-                <TableHead className="w-8 px-2">
-                  <Checkbox
-                    checked={selectedForDelete.size > 0}
-                    onCheckedChange={(checked) => {
-                      if (checked) return // handled by parent
-                    }}
-                  />
-                </TableHead>
-              ) : null}
-              <TableHead className="px-2">
-                <button onClick={() => onSort("status")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
-                  상태
-                  {sortKey === "status" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
-                </button>
-              </TableHead>
-              <TableHead className="px-2">
-                <button onClick={() => onSort("filename")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
-                  파일명
-                  {sortKey === "filename" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
-                </button>
-              </TableHead>
-              <TableHead className="px-2">
-                <button onClick={() => onSort("createdAt")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
-                  생성
-                  {sortKey === "createdAt" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
-                </button>
-              </TableHead>
-              <TableHead className="px-2">
-                <button onClick={() => onSort("duration")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
-                  소요
-                  {sortKey === "duration" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
-                </button>
-              </TableHead>
-              <TableHead className="w-12 px-2" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pagedJobs.map((j) => (
-              <JobRow
-                key={j.id}
-                job={j}
-                selectedForDelete={selectedForDelete}
-                onToggleSelect={onToggleSelect}
-                backendUrl={backendUrl}
-                fetchedImages={fetchedImages}
-                fetchJobImages={fetchJobImages}
-              />
-            ))}
-            {pagedJobs.length === 0 && (
+      {/* Desktop Table View */}
+      <div className="hidden md:flex flex-col min-h-0 flex-1">
+        <ScrollArea className="mx-2 mb-2 flex-1 rounded-lg border bg-panel shadow-inner">
+          <Table className="text-xs">
+            <TableHeader className="sticky top-0 z-10 bg-panel/95 shadow-sm backdrop-blur">
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="h-80 p-0">
-                  <Empty className="border-0 bg-transparent shadow-none">
-                    <EmptyMedia variant="icon">
-                      {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
-                      <div className="size-10 opacity-20" />
-                    </EmptyMedia>
-                    <EmptyHeader>
-                      <EmptyTitle className="text-base font-black">표시할 작업이 없습니다</EmptyTitle>
-                      <EmptyDescription className="text-[13px]">필터 조건을 변경하거나 새로운 작업을 시작해보세요.</EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </TableCell>
+                {filterTab === "failed" && selectedForDelete.size > 0 ? (
+                  <TableHead className="w-8 px-2">
+                    <Checkbox
+                      checked={selectedForDelete.size > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) return // handled by parent
+                      }}
+                    />
+                  </TableHead>
+                ) : null}
+                <TableHead className="px-2">
+                  <button onClick={() => onSort("status")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
+                    상태
+                    {sortKey === "status" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
+                  </button>
+                </TableHead>
+                <TableHead className="px-2">
+                  <button onClick={() => onSort("filename")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
+                    파일명
+                    {sortKey === "filename" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
+                  </button>
+                </TableHead>
+                <TableHead className="px-2">
+                  <button onClick={() => onSort("createdAt")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
+                    생성
+                    {sortKey === "createdAt" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
+                  </button>
+                </TableHead>
+                <TableHead className="px-2">
+                  <button onClick={() => onSort("duration")} className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground">
+                    소요
+                    {sortKey === "duration" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />) : <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />}
+                  </button>
+                </TableHead>
+                <TableHead className="w-12 px-2" />
               </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagedJobs.map((j) => (
+                <JobRow
+                  key={j.id}
+                  job={j}
+                  selectedForDelete={selectedForDelete}
+                  onToggleSelect={onToggleSelect}
+                  backendUrl={backendUrl}
+                  fetchedImages={fetchedImages}
+                  fetchJobImages={fetchJobImages}
+                />
+              ))}
+              {pagedJobs.length === 0 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="h-80 p-0">
+                    <Empty className="border-0 bg-transparent shadow-none">
+                      <EmptyMedia variant="icon">
+                        {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
+                        <div className="size-10 opacity-20" />
+                      </EmptyMedia>
+                      <EmptyHeader>
+                        <EmptyTitle className="text-base font-black">표시할 작업이 없습니다</EmptyTitle>
+                        <EmptyDescription className="text-[13px]">필터 조건을 변경하거나 새로운 작업을 시작해보세요.</EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </div>
+
+      {/* Mobile Card List View */}
+      <div className="md:hidden flex flex-col min-h-0 flex-1">
+        {/* Mobile sort header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/5 shrink-0">
+          <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">작업 정렬</span>
+          <div className="flex items-center gap-1.5">
+            <Select value={sortKey} onValueChange={(k) => onSort(k)}>
+              <SelectTrigger className="h-7 w-28 border-line bg-background text-[11px] font-black px-2 shadow-none focus:ring-0">
+                <SelectValue placeholder={mobileSortLabel} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="createdAt" className="text-[11px] font-bold">최근 생성순</SelectItem>
+                <SelectItem value="filename" className="text-[11px] font-bold">파일명순</SelectItem>
+                <SelectItem value="status" className="text-[11px] font-bold">상태순</SelectItem>
+                <SelectItem value="duration" className="text-[11px] font-bold">소요시간순</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onSort(sortKey)}
+              className="h-7 w-7 p-0 hover:bg-muted"
+            >
+              {sortDir === "asc" ? (
+                <ArrowUp className="h-3.5 w-3.5 text-foreground" />
+              ) : (
+                <ArrowDown className="h-3.5 w-3.5 text-foreground" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile card list */}
+        <ScrollArea className="mx-2 mb-2 flex-1 rounded-lg bg-panel">
+          <div className="py-2 space-y-2">
+            {pagedJobs.map((job) => {
+              const dur = jobDuration(job)
+              const statusColorMap: Record<string, string> = {
+                done: "bg-ok",
+                error: "bg-bad",
+                cancelled: "bg-muted-foreground/30",
+                running: "bg-info shadow-[0_0_8px_rgba(var(--info),0.8)] animate-pulse",
+                queued: "bg-warn",
+                pending: "bg-ink-2",
+              }
+              const accentColor = statusColorMap[job.status] || "bg-muted-foreground/30"
+
+              // String-to-color hash for filename dot indicator
+              let hash = 0
+              for (let i = 0; i < job.filename.length; i++) {
+                hash = job.filename.charCodeAt(i) + ((hash << 5) - hash)
+              }
+              const c = (hash & 0x00ffffff).toString(16).toUpperCase()
+              const dotColor = "#" + "00000".substring(0, 6 - c.length) + c
+
+              return (
+                <div
+                  key={job.id}
+                  onClick={() => fetchJobImages(job.id)}
+                  className="relative flex items-center justify-between p-3.5 bg-card rounded-xl border border-line hover:bg-muted/10 transition-colors shadow-xs cursor-pointer active:bg-muted/20"
+                >
+                  {/* Left accent color indicator */}
+                  <div className={cn("absolute left-0 top-2.5 bottom-2.5 w-[3.5px] rounded-r-md", accentColor)} />
+                  
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1 pl-1.5">
+                    {selectedForDelete.size > 0 && (
+                      <div onClick={(e) => e.stopPropagation()} className="flex items-center mr-1">
+                        <Checkbox
+                          checked={selectedForDelete.has(job.id)}
+                          onCheckedChange={() => onToggleSelect(job.id)}
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      {/* Filename and dot */}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: dotColor }}
+                        />
+                        <span className="truncate text-xs font-black text-foreground">
+                          {job.filename}
+                        </span>
+                      </div>
+
+                      {/* Status, Date, Duration */}
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground font-black tracking-tight uppercase">
+                        <StatusPill status={job.status} className="scale-85 origin-left animate-none" />
+                        <span className="opacity-40">•</span>
+                        <span>{timeAgo(job.createdAt)}</span>
+                        {dur != null && (
+                          <>
+                            <span className="opacity-40">•</span>
+                            <span className="font-mono bg-muted/80 px-1 rounded text-foreground/80 scale-95">
+                              {formatDuration(dur)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right side indicator */}
+                  <div className="flex items-center gap-1 shrink-0 text-muted-foreground/30 pl-2">
+                    {job.status === "running" && (
+                      <span className="text-[9px] text-info font-black uppercase tracking-wider animate-pulse mr-1">
+                        Running
+                      </span>
+                    )}
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+              )
+            })}
+
+            {pagedJobs.length === 0 && (
+              <div className="py-24 text-center">
+                <Empty className="border-0 bg-transparent shadow-none">
+                  <EmptyHeader>
+                    <EmptyTitle className="text-base font-black">표시할 작업이 없습니다</EmptyTitle>
+                    <EmptyDescription className="text-[12px]">필터 조건을 변경하거나 새로운 작업을 시작해보세요.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </div>
             )}
-          </TableBody>
-        </Table>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+      </div>
 
       {showPagination && (
         <div className="flex shrink-0 flex-col items-center gap-2 pb-4">
