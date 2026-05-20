@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  ChevronDown,
+  ChevronUp,
   PinIcon,
   XIcon,
   FilterIcon,
@@ -168,6 +170,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [hideRejected, setHideRejected] = useState(false)
 
   const [groupPage, setGroupPage] = useState(1)
+
+  // 그룹 접기/펴기 상태
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const toggleGroupCollapse = (name: string) =>
+    setCollapsedGroups(prev => prev.has(name) ? new Set([...prev].filter(a => a !== name)) : new Set([...prev, name]))
+  const collapseAll = () => setCollapsedGroups(new Set(groups.map(g => g.filename)))
+  const expandAll = () => setCollapsedGroups(new Set())
 
   // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
   const setStatusFilter = (v: CurationStatus | "all") => {
@@ -847,11 +856,34 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         {/* 그룹 모드 */}
         {effectiveGroupMode ? (
           <div className="flex flex-col gap-4">
+            {/* 모두 접기/펴기 컨트롤 */}
+            {visibleGroups.length > 0 && (
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
+                  onClick={collapsedGroups.size === visibleGroups.length ? expandAll : collapseAll}
+                >
+                  {collapsedGroups.size === visibleGroups.length ? "모두 펴기" : "모두 접기"}
+                </Button>
+              </div>
+            )}
             {visibleGroups.map(({ name, items }) => {
               const groupMeta = groups.find((g) => g.filename === name)
+              const isCollapsed = collapsedGroups.has(name)
               return (
                 <div key={name} className="rounded-md border p-3">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
+                    {/* Collapse toggle */}
+                    <button
+                      type="button"
+                      onClick={() => toggleGroupCollapse(name)}
+                      className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-transform hover:bg-muted/50 ${isCollapsed && "rotate-180"}`}
+                      aria-label={isCollapsed ? "펴기" : "접기"}
+                    >
+                      {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </button>
                     <span className="font-mono text-sm font-semibold">
                       {name}
                     </span>
@@ -861,17 +893,20 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       {groupMeta?.rejectedCount ?? 0} · 휴지통{" "}
                       {groupMeta?.trashedCount ?? 0}
                     </span>
-                    <div className="ml-auto">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleRegenerate(name)}
-                      >
-                        재생성
-                      </Button>
-                    </div>
+                    {!isCollapsed && (
+                      <div className="ml-auto">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRegenerate(name)}
+                        >
+                          재생성
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  <ImageGrid
+                  {!isCollapsed && (
+                    <ImageGrid
                     items={items}
                     backendUrl={backendUrl}
                     setStatus={setStatus}
@@ -883,7 +918,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     togglePin={togglePin}
                     pinnedHashes={pinnedHashes}
                     imageLazyLoad={imageLazyLoad}
-                  />
+                    />
+                  )}
                 </div>
               )
             })}
