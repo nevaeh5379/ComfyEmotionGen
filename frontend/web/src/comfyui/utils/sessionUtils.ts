@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { MS_PER_SECOND } from "@/lib/constants"
+import { fetchSetting, saveSetting } from "@/lib/serverStorage"
 
 export interface SessionMarkerRaw {
   id: string
@@ -15,7 +16,72 @@ export interface ActiveStateRaw {
 const SESSIONS_KEY = STORAGE_KEYS.sessions
 const ACTIVE_STATE_KEY = STORAGE_KEYS.activeState
 
-export function loadMarkers(): SessionMarkerRaw[] {
+// 캐시 (마운트 후 한 번 로드)
+let _markersCache: SessionMarkerRaw[] | null = null
+let _activeStateCache: ActiveStateRaw | null = null
+
+/** 서버에서 세션 마커 로드 (실패 시 localStorage 폴백) */
+export async function loadMarkersFromServer(): Promise<SessionMarkerRaw[]> {
+  try {
+    const raw = await fetchSetting(SESSIONS_KEY)
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as SessionMarkerRaw[]
+      if (Array.isArray(parsed)) {
+        _markersCache = parsed
+        return parsed
+      }
+    }
+  } catch {
+    // ignore
+  }
+  // localStorage 폴백
+  return loadMarkersLocal()
+}
+
+/** 서버에서 액티브 상태 로드 (실패 시 localStorage 폴백) */
+export async function loadActiveStateFromServer(): Promise<ActiveStateRaw | null> {
+  try {
+    const raw = await fetchSetting(ACTIVE_STATE_KEY)
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as ActiveStateRaw
+      _activeStateCache = parsed
+      return parsed
+    }
+  } catch {
+    // ignore
+  }
+  // localStorage 폴백
+  return loadActiveStateLocal()
+}
+
+/** 로컬 세션 마커 저장 (localStorage 캐시 + 서버 비동기) */
+export function saveMarkers(ms: SessionMarkerRaw[]): void {
+  _markersCache = ms
+  const serialized = JSON.stringify(ms)
+  try {
+    localStorage.setItem(SESSIONS_KEY, serialized)
+  } catch {
+    // ignore quota errors
+  }
+  // 서버 비동기 저장
+  saveSetting(SESSIONS_KEY, serialized).catch(() => {})
+}
+
+/** 로컬 액티브 상태 저장 (localStorage 캐시 + 서버 비동기) */
+export function saveActiveState(state: ActiveStateRaw): void {
+  _activeStateCache = state
+  const serialized = JSON.stringify(state)
+  try {
+    localStorage.setItem(ACTIVE_STATE_KEY, serialized)
+  } catch {
+    // ignore quota errors
+  }
+  // 서버 비동기 저장
+  saveSetting(ACTIVE_STATE_KEY, serialized).catch(() => {})
+}
+
+/** localStorage 에서만 읽기 (동기) */
+export function loadMarkersLocal(): SessionMarkerRaw[] {
   try {
     return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]")
   } catch {
@@ -23,11 +89,8 @@ export function loadMarkers(): SessionMarkerRaw[] {
   }
 }
 
-export function saveMarkers(ms: SessionMarkerRaw[]): void {
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(ms))
-}
-
-export function loadActiveState(): ActiveStateRaw | null {
+/** localStorage 에서만 읽기 (동기) */
+export function loadActiveStateLocal(): ActiveStateRaw | null {
   try {
     const raw = localStorage.getItem(ACTIVE_STATE_KEY)
     if (!raw) return null
@@ -37,8 +100,22 @@ export function loadActiveState(): ActiveStateRaw | null {
   }
 }
 
-export function saveActiveState(state: ActiveStateRaw): void {
-  localStorage.setItem(ACTIVE_STATE_KEY, JSON.stringify(state))
+/** 호환성용: 캐시가 있으면 반환, 없으면 localStorage */
+export function loadMarkers(): SessionMarkerRaw[] {
+  if (_markersCache !== null) return _markersCache
+  return loadMarkersLocal()
+}
+
+/** 호환성용: 캐시가 있으면 반환, 없으면 localStorage */
+export function loadActiveState(): ActiveStateRaw | null {
+  if (_activeStateCache !== null) return _activeStateCache
+  return loadActiveStateLocal()
+}
+
+/** 캐시 초기화 (데이터 새로고침용) */
+export function clearSessionCache(): void {
+  _markersCache = null
+  _activeStateCache = null
 }
 
 export function genId(): string {

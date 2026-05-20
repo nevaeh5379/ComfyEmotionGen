@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
+import { fetchSetting, saveSetting } from "@/lib/serverStorage"
 
 type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
@@ -77,6 +78,24 @@ function isEditableTarget(target: EventTarget | null) {
   return false
 }
 
+const persistTheme = (key: string, value: Theme) => {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // ignore quota errors
+  }
+  saveSetting(key, value).catch(() => {})
+}
+
+const loadThemeFromServer = async (
+  key: string
+): Promise<Theme | null> => {
+  const raw = await fetchSetting(key)
+  if (raw === null) return null
+  if (isTheme(raw)) return raw
+  return null
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
@@ -93,9 +112,24 @@ export function ThemeProvider({
     return defaultTheme
   })
 
+  // 서버에서 테마 로드 (마운트 시 한 번)
+  const loadedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (loadedRef.current) return
+    loadedRef.current = true
+    let aborted = false
+    loadThemeFromServer(storageKey).then((serverTheme) => {
+      if (aborted || !serverTheme) return
+      setThemeState(serverTheme)
+    })
+    return () => {
+      aborted = true
+    }
+  }, [storageKey])
+
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
-      localStorage.setItem(storageKey, nextTheme)
+      persistTheme(storageKey, nextTheme)
       setThemeState(nextTheme)
     },
     [storageKey]
@@ -167,7 +201,7 @@ export function ThemeProvider({
                 ? "light"
                 : "dark"
 
-        localStorage.setItem(storageKey, nextTheme)
+        persistTheme(storageKey, nextTheme)
         return nextTheme
       })
     }

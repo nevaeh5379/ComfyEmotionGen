@@ -1,9 +1,10 @@
 import { createContext, useContext, useState } from "react"
-import { useLocalStorage } from "../hooks/useLocalStorage"
+import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
   useSavedTemplates,
   type SavedTemplate,
 } from "../hooks/useSavedTemplates"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,10 +65,13 @@ export function TemplateProvider({
   onPendingUpdate,
   children,
 }: TemplateProviderProps): React.JSX.Element {
-  const [cegTemplate, setCegTemplate] = useLocalStorage("cegTemplate", "")
-  const [activeTemplateId, setActiveTemplateId] = useLocalStorage<
+  const [cegTemplate, setCegTemplate] = useSyncedStorage(
+    STORAGE_KEYS.cegTemplate,
+    ""
+  )
+  const [activeTemplateId, setActiveTemplateId] = useSyncedStorage<
     string | null
-  >("activeTemplateId", null)
+  >(STORAGE_KEYS.activeTemplateId, null)
   const [templateResetKey, setTemplateResetKey] = useState(0)
   const {
     templates: savedTemplates,

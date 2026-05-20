@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
-import { useLocalStorage } from "../hooks/useLocalStorage"
+import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import type { NodeMapping } from "@/lib/workflow"
 import { buildAutoMappings } from "@/lib/workflowUtils"
 import type { ObjectInfo } from "../types/renderTypes"
@@ -93,12 +93,12 @@ export function NodeMappingProvider({
     deleteMappingPreset,
   } = useWorkflowContext()
 
-  const [nodeMappings, setNodeMappings] = useLocalStorage<NodeMapping[]>(
+  const [nodeMappings, setNodeMappings] = useSyncedStorage<NodeMapping[]>(
     STORAGE_KEYS.nodeMappings,
     []
   )
   const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] =
-    useLocalStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
+    useSyncedStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
   const [nodeMappingResetKey, setNodeMappingResetKey] = useState(0)
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
   const [imageUploads, setImageUploads] = useState<

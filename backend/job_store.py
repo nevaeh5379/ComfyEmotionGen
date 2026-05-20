@@ -456,6 +456,22 @@ class JobStore:
         row = await cursor.fetchone()
         return row["value"] if row is not None else None
 
+    async def delete_setting(self, key: str) -> bool:
+        """설정 삭제. 삭제했으면 True, 없으면 False."""
+        assert self._conn is not None
+        cursor = await self._conn.execute(
+            "DELETE FROM settings WHERE key = ?", (key,)
+        )
+        await self._conn.commit()
+        return cursor.rowcount > 0
+
+    async def list_settings(self) -> dict[str, str]:
+        """모든 설정을 {key: value} 딕셔너리로 반환."""
+        assert self._conn is not None
+        cursor = await self._conn.execute("SELECT key, value FROM settings")
+        rows = await cursor.fetchall()
+        return {row["key"]: row["value"] for row in rows}
+
     # ---------- workers (persistent ComfyUI URL list) ----------
 
     async def list_worker_urls(self) -> list[str]:

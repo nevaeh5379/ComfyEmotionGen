@@ -785,6 +785,41 @@ class BatchCompleteRequest(BaseModel):
     total: int = 0
 
 
+class SettingValueRequest(BaseModel):
+    value: str
+
+
+# ====== App Settings (client-side localStorage → server storage) ======
+
+@app.get("/app-settings")
+async def app_settings_list():
+    """모든 클라이언트 설정 반환."""
+    return await job_manager._store.list_settings()
+
+
+@app.get("/app-settings/{key}")
+async def app_settings_get(key: str):
+    """단일 설정 조회."""
+    v = await job_manager._store.get_setting(key)
+    if v is None:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    return {"key": key, "value": v}
+
+
+@app.put("/app-settings/{key}")
+async def app_settings_set(key: str, req: SettingValueRequest):
+    """설정 저장."""
+    await job_manager._store.save_setting(key, req.value)
+    return {"ok": True}
+
+
+@app.delete("/app-settings/{key}")
+async def app_settings_delete(key: str):
+    """설정 삭제."""
+    await job_manager._store.delete_setting(key)
+    return {"ok": True}
+
+
 @app.get("/webhooks")
 async def webhooks_list():
     return {"configs": webhook_service.list_configs()}

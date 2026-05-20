@@ -19,6 +19,8 @@ import { SettingsPanel } from "./comfyui/components/SettingsPanel"
 import { StatisticsPanel } from "./comfyui/components/StatisticsPanel"
 import { useSettings } from "./comfyui/hooks/useSettings"
 import { useLocalStorage } from "./comfyui/hooks/useLocalStorage"
+import { useSyncedStorage } from "./comfyui/hooks/useSyncedStorage"
+import { useOfflineSync } from "./comfyui/hooks/useOfflineSync"
 import { useJobRunner } from "./comfyui/hooks/useJobRunner"
 
 import { ParserPreviewDialog } from "./comfyui/components/ParserPreviewDialog"
@@ -63,6 +65,8 @@ import {
   genId,
   jobSessionId,
   makeSessionLabel,
+  loadMarkersFromServer,
+  loadActiveStateFromServer,
 } from "./comfyui/utils/sessionUtils"
 
 // ---------------------------------------------------------------------------
@@ -70,6 +74,7 @@ import {
 // ---------------------------------------------------------------------------
 export function App() {
   useRenderLog("App")
+  useOfflineSync()
 
   const [pendingSave, setPendingSave] = useState<{
     name: string
@@ -245,8 +250,9 @@ function AppContent(props: AppContentProps) {
   const confirm = useConfirm()
 
   // ── session state (lifted) ──────────────────────────────────────────
+  const initialMarkers = useMemo(() => initMarkers(), [])
   const [markers, setMarkersRaw] = useState<SessionMarkerRaw[]>(() =>
-    initMarkers()
+    initialMarkers
   )
 
   const persistMarkers = (ms: SessionMarkerRaw[]) => {
@@ -255,7 +261,7 @@ function AppContent(props: AppContentProps) {
   }
 
   const [activeState, setActiveStateRaw] = useState<ActiveStateRaw>(() =>
-    initActiveState(initMarkers())
+    initActiveState(initialMarkers)
   )
 
   const persistActiveState = (as: ActiveStateRaw) => {
@@ -272,8 +278,28 @@ function AppContent(props: AppContentProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string>(
     () =>
       activeState?.activeSessionId ??
-      initMarkers().sort((a, b) => b.startAt - a.startAt)[0]!.id
+      initialMarkers.sort((a, b) => b.startAt - a.startAt)[0]!.id
   )
+
+  // 서버에서 세션 데이터 로드 (마운트 시)
+  useEffect(() => {
+    let aborted = false
+    Promise.all([loadMarkersFromServer(), loadActiveStateFromServer()]).then(
+      ([serverMarkers, serverActiveState]) => {
+        if (aborted) return
+        if (serverMarkers.length > 0) {
+          setMarkersRaw(serverMarkers)
+        }
+        if (serverActiveState) {
+          setActiveStateRaw(serverActiveState)
+          setSelectedSessionId(serverActiveState.activeSessionId)
+        }
+      }
+    )
+    return () => {
+      aborted = true
+    }
+  }, [])
 
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
 
@@ -579,8 +605,8 @@ function AppContent(props: AppContentProps) {
   }, [props.compositionTab, template, workflow])
 
   // ── Curation toolbar state (lifted for nav bar rendering) ──
-  const [curationSelectedAxis, setCurationSelectedAxis] = useLocalStorage(
-    "comfy.curation.selectedAxis",
+  const [curationSelectedAxis, setCurationSelectedAxis] = useSyncedStorage(
+    STORAGE_KEYS.curationSelectedAxis,
     DEFAULT_AXIS
   )
 

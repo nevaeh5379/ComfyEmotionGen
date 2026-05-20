@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState } from "react"
-import { useLocalStorage } from "../hooks/useLocalStorage"
+import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
   useSavedWorkflows,
   type SavedWorkflow,
@@ -95,11 +95,11 @@ export function WorkflowProvider({
   onPendingPresetSelection,
   children,
 }: WorkflowProviderProps): React.JSX.Element {
-  const [workflowJson, setWorkflowJson] = useLocalStorage(
+  const [workflowJson, setWorkflowJson] = useSyncedStorage(
     STORAGE_KEYS.workflow,
     ""
   )
-  const [activeWorkflowId, setActiveWorkflowId] = useLocalStorage<
+  const [activeWorkflowId, setActiveWorkflowId] = useSyncedStorage<
     string | null
   >(STORAGE_KEYS.activeWorkflowId, null)
   const [workflowResetKey, setWorkflowResetKey] = useState(0)

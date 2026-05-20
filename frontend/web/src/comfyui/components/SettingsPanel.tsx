@@ -21,6 +21,7 @@ import type { WorkerView } from "../types/Message"
 import { BUNDLE_VERSION, COMMIT, IS_LOCAL_DEV } from "@/version"
 import { useUpdateCheck } from "@/comfyui/hooks/useUpdateCheck"
 import { useTemplateContext } from "@/comfyui/contexts/TemplateContext"
+import { saveSetting } from "@/lib/serverStorage"
 import type { SavedTemplate } from "@/comfyui/hooks/useSavedTemplates"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { toast } from "sonner"
@@ -396,10 +397,7 @@ export function SettingsPanel({
                       )
                       const existing = loadTemplates()
                       const merged = [...existing, ...newTemplates]
-                      localStorage.setItem(
-                        STORAGE_KEYS.savedTemplates,
-                        JSON.stringify(merged)
-                      )
+                      persistTemplates(merged)
                       toast.success(
                         `${newTemplates.length}개의 템플트를 가져왔습니다.`
                       )
@@ -456,4 +454,15 @@ function loadTemplates(): SavedTemplate[] {
   } catch {
     return []
   }
+}
+
+function persistTemplates(templates: SavedTemplate[]): void {
+  const serialized = JSON.stringify(templates)
+  try {
+    localStorage.setItem(STORAGE_KEYS.savedTemplates, serialized)
+  } catch {
+    // ignore quota errors
+  }
+  // 서버 비동기 저장
+  saveSetting(STORAGE_KEYS.savedTemplates, serialized).catch(() => {})
 }

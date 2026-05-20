@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react"
-
+import { useCallback, useMemo } from "react"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { useSyncedStorage } from "./useSyncedStorage"
 
 const SETTINGS_KEY = STORAGE_KEYS.appSettings
 
@@ -30,29 +30,26 @@ const DEFAULT_SETTINGS: AppSettings = {
   updateChannel: "auto",
 }
 
-const load = (): AppSettings => {
-  try {
-    const stored = localStorage.getItem(SETTINGS_KEY)
-    return stored
-      ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
-      : DEFAULT_SETTINGS
-  } catch {
-    return DEFAULT_SETTINGS
-  }
-}
-
 export const useSettings = () => {
-  const [settings, setSettings] = useState<AppSettings>(load)
+  const [raw, setRaw] = useSyncedStorage<AppSettings>(
+    SETTINGS_KEY,
+    DEFAULT_SETTINGS
+  )
 
-  useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
-  }, [settings])
+  // 서버/캐시 데이터가 DEFAULT_SETTINGS 에 없는 키를 포함할 수 있으므로 병합
+  const settings = useMemo(
+    () => ({ ...DEFAULT_SETTINGS, ...raw }),
+    [raw]
+  )
 
   const updateSetting = useCallback(
     <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-      setSettings((prev) => ({ ...prev, [key]: value }))
+      setRaw((current) => {
+        const merged = { ...DEFAULT_SETTINGS, ...current }
+        return { ...merged, [key]: value }
+      })
     },
-    []
+    [setRaw]
   )
 
   return { settings, updateSetting }

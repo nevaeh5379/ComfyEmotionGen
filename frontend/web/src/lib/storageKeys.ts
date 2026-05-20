@@ -14,4 +14,7 @@ export const STORAGE_KEYS = {
   savedTemplates: "savedTemplates",
   sessions: "ceg_sessions",
   activeState: "ceg_active_state",
+  cegTemplate: "cegTemplate",
+  activeTemplateId: "activeTemplateId",
+  curationSelectedAxis: "comfy.curation.selectedAxis",
 } as const
