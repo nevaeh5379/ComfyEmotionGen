@@ -20,7 +20,10 @@ import { cn } from "@/lib/utils"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -36,12 +39,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LoadingButton } from "./CombinationPickerComponents"
 import { useCurationContext } from "./CurationContext"
+import {
+  CURRENT_TEMPLATE_ID,
+  FREE_GROUP_LABELS,
+  encodeAxis,
+  type FreeGroupBy,
+} from "./freeCurationGroupers"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
 interface ToolbarProps {
-  selectedTemplateId: string
-  setSelectedTemplateId: (id: string) => void
+  selectedAxis: string
+  setSelectedAxis: (axis: string) => void
   hideTopSection?: boolean
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
@@ -72,8 +81,8 @@ interface ToolbarProps {
 }
 
 export function CombinationPickerToolbar({
-  selectedTemplateId,
-  setSelectedTemplateId,
+  selectedAxis,
+  setSelectedAxis,
   viewMode,
   onViewModeChange,
   selectedFilename,
@@ -149,27 +158,54 @@ export function CombinationPickerToolbar({
     >
       {/* 메인 툴바: 1 줄 (모바일에서는 줄바꿈 허용) */}
       <div className="flex flex-wrap items-center gap-2 border-b bg-muted/5 px-4 py-2 md:gap-3">
-        {/* 템플릿 선택 (hideTopSection일 때 숨김) */}
+        {/* 분류 축 선택 (hideTopSection일 때 숨김) */}
         {!hideTopSection && (
           <>
-            <Select
-              value={selectedTemplateId || "__current__"}
-              onValueChange={(v) =>
-                setSelectedTemplateId(v === "__current__" ? "" : v)
-              }
-            >
-              <SelectTrigger className="h-8 w-full border-0 bg-transparent text-[12px] font-bold shadow-none focus:ring-0 sm:w-48 sm:text-[13px]">
+            <Select value={selectedAxis} onValueChange={setSelectedAxis}>
+              <SelectTrigger className="h-8 w-full border-0 bg-transparent text-[12px] font-bold shadow-none focus:ring-0 sm:w-56 sm:text-[13px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__current__">
-                  현재 편집 중인 템플릿
-                </SelectItem>
-                {savedTemplates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] text-muted-foreground">
+                    템플릿
+                  </SelectLabel>
+                  <SelectItem
+                    value={encodeAxis({
+                      kind: "template",
+                      templateId: CURRENT_TEMPLATE_ID,
+                    })}
+                  >
+                    현재 편집 중인 템플릿
                   </SelectItem>
-                ))}
+                  {savedTemplates.map((t) => (
+                    <SelectItem
+                      key={t.id}
+                      value={encodeAxis({
+                        kind: "template",
+                        templateId: t.id,
+                      })}
+                    >
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] text-muted-foreground">
+                    기타 분류
+                  </SelectLabel>
+                  {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
+                    (mode) => (
+                      <SelectItem
+                        key={mode}
+                        value={encodeAxis({ kind: "free", mode })}
+                      >
+                        {FREE_GROUP_LABELS[mode]}
+                      </SelectItem>
+                    )
+                  )}
+                </SelectGroup>
               </SelectContent>
             </Select>
 

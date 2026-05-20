@@ -39,20 +39,25 @@ import type {
   CurationToolbarState,
   CurationViewMode,
 } from "./CurationToolbarTypes"
+import type { FreeGroupBy } from "./freeCurationGroupers"
 
 type ViewMode = CurationViewMode
 
 interface CombinationPickerContentProps {
-  selectedTemplateId: string
-  setSelectedTemplateId: (id: string) => void
+  selectedAxis: string
+  setSelectedAxis: (axis: string) => void
   activeTemplate: string
+  isFreeMode: boolean
+  freeGroupMode: FreeGroupBy | null
   toolbarState?: CurationToolbarState
 }
 
 export const CombinationPickerContent = memo(function CombinationPickerContent({
-  selectedTemplateId,
-  setSelectedTemplateId,
+  selectedAxis,
+  setSelectedAxis,
   activeTemplate,
+  isFreeMode,
+  freeGroupMode,
   toolbarState,
 }: CombinationPickerContentProps) {
   useRenderLog("CombinationPickerContent")
@@ -344,9 +349,13 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     duplicateStrategy,
   ])
 
-  const handleContextMenuRegenerate = useCallback((filename: string) => {
-    setRegenDialogState({ open: true, filenames: [filename] })
-  }, [])
+  const handleContextMenuRegenerate = useCallback(
+    (filename: string) => {
+      if (isFreeMode && freeGroupMode !== "filename") return
+      setRegenDialogState({ open: true, filenames: [filename] })
+    },
+    [isFreeMode, freeGroupMode]
+  )
 
   const performRegenerate = useCallback(
     async (count: number, template: string, workflow?: string) => {
@@ -440,11 +449,12 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // 선택된 항목들 일괄 재생성
   const handleBulkRegenerate = useCallback(() => {
     if (selectedFilenames.size === 0) return
+    if (isFreeMode && freeGroupMode !== "filename") return
     setRegenDialogState({
       open: true,
       filenames: Array.from(selectedFilenames),
     })
-  }, [selectedFilenames])
+  }, [selectedFilenames, isFreeMode, freeGroupMode])
 
   const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -570,17 +580,22 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           </EmptyMedia>
           <EmptyHeader>
             <EmptyTitle className="text-xl font-black tracking-tight">
-              렌더링된 조합이 없습니다
+              {isFreeMode
+                ? "분류할 이미지가 없습니다"
+                : "렌더링된 조합이 없습니다"}
             </EmptyTitle>
             <EmptyDescription className="text-base">
-              '작업' 탭에서 템플릿을 작성하고 실행하면 생성된 이미지들의 조합이
-              여기에 표시됩니다.
+              {isFreeMode
+                ? "저장된 이미지가 없거나 현재 그룹화 기준으로 분류할 수 없습니다. 다른 그룹화 기준을 선택하거나 작업을 먼저 실행해 보세요."
+                : "'작업' 탭에서 템플릿을 작성하고 실행하면 생성된 이미지들의 조합이 여기에 표시됩니다."}
             </EmptyDescription>
           </EmptyHeader>
-          <p className="mt-2 text-xs text-muted-foreground/60 italic">
-            Tip: 템플릿의 &#123;&#123;axis&#125;&#125;와
-            &#123;&#123;combine&#125;&#125; 문법을 확인해주세요.
-          </p>
+          {!isFreeMode && (
+            <p className="mt-2 text-xs text-muted-foreground/60 italic">
+              Tip: 템플릿의 &#123;&#123;axis&#125;&#125;와
+              &#123;&#123;combine&#125;&#125; 문법을 확인해주세요.
+            </p>
+          )}
         </Empty>
       </div>
     )
@@ -589,8 +604,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     <div className="flex flex-col">
       {/* ── Toolbar ── */}
       <CombinationPickerToolbar
-        selectedTemplateId={selectedTemplateId}
-        setSelectedTemplateId={setSelectedTemplateId}
+        selectedAxis={selectedAxis}
+        setSelectedAxis={setSelectedAxis}
         hideTopSection={toolbarState?.hideTopSection ?? false}
         viewMode={viewMode}
         onViewModeChange={handleTabChange}
@@ -622,7 +637,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       {/* ── Scrollable Content ── */}
       <div className="flex-1 px-4">
         {/* 미할당 이미지 관리 패널 */}
-        {showUnassignedPanel && (
+        {showUnassignedPanel && !isFreeMode && (
           <CombinationPickerUnassignedPanel
             filteredUnassignedGroups={filteredUnassignedGroups}
             templateAffiliationCache={templateAffiliationCache}

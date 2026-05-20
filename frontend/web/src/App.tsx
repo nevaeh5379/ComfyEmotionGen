@@ -11,6 +11,7 @@ import { SavedImagesGallery } from "./comfyui/components/SavedImagesGallery"
 import { curationApi } from "./comfyui/hooks/useSavedImages"
 import { useGlobalShortcuts } from "./comfyui/hooks/useGlobalShortcuts"
 import { CombinationPicker } from "./comfyui/components/combinationpicker/CombinationPicker"
+import { DEFAULT_AXIS } from "./comfyui/components/combinationpicker/freeCurationGroupers"
 import { WorkflowGraphViewer } from "./comfyui/components/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
@@ -574,8 +575,10 @@ function AppContent(props: AppContentProps) {
   }, [props.compositionTab, template, workflow])
 
   // ── Curation toolbar state (lifted for nav bar rendering) ──
-  const [curationSelectedTemplateId, setCurationSelectedTemplateId] =
-    useState("")
+  const [curationSelectedAxis, setCurationSelectedAxis] = useLocalStorage(
+    "comfy.curation.selectedAxis",
+    DEFAULT_AXIS
+  )
 
   // ── Job Runner (consumes context values) ──
   const {
@@ -799,8 +802,8 @@ function AppContent(props: AppContentProps) {
         galleryHideRejected={galleryHideRejected}
         setGalleryHideRejected={setGalleryHideRejected}
         setGalleryDuplicateStrategy={setGalleryDuplicateStrategy}
-        curationSelectedTemplateId={curationSelectedTemplateId}
-        setCurationSelectedTemplateId={setCurationSelectedTemplateId}
+        curationSelectedAxis={curationSelectedAxis}
+        setCurationSelectedAxis={setCurationSelectedAxis}
         savedTemplates={template.savedTemplates}
         onGalleryExport={handleGalleryExport}
         onGalleryRefresh={handleGalleryRefresh}
@@ -885,8 +888,8 @@ function AppContent(props: AppContentProps) {
               autoApplyReject={props.settings.autoApplyReject}
               savedWorkflows={workflow.savedWorkflows}
               toolbarState={{
-                selectedTemplateId: curationSelectedTemplateId,
-                setSelectedTemplateId: setCurationSelectedTemplateId,
+                selectedAxis: curationSelectedAxis,
+                setSelectedAxis: setCurationSelectedAxis,
                 viewMode: "gallery" as const,
                 setViewMode: () => {},
                 hideTopSection: true,

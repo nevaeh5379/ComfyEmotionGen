@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { CurationProvider } from "./CurationContext.tsx"
 import { useCombinationData } from "./useCombinationData"
 import { useCombinationSelection } from "./useCombinationSelection"
@@ -6,6 +6,11 @@ import { CombinationPickerContent } from "./CombinationPickerContent"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 import type { CurationToolbarState } from "./CurationToolbarTypes"
+import {
+  CURRENT_TEMPLATE_ID,
+  DEFAULT_AXIS,
+  decodeAxis,
+} from "./freeCurationGroupers"
 
 interface Props {
   backendUrl: string
@@ -26,24 +31,33 @@ export const CombinationPicker = memo(function CombinationPicker({
   autoApplyReject = true,
   toolbarState,
 }: Props) {
-  const selectedTemplateId = toolbarState?.selectedTemplateId ?? ""
-  const setSelectedTemplateId =
-    toolbarState?.setSelectedTemplateId ?? (() => {})
+  const [internalAxis, setInternalAxis] = useState<string>(DEFAULT_AXIS)
+  const selectedAxis = toolbarState?.selectedAxis ?? internalAxis
+  const setSelectedAxis = toolbarState?.setSelectedAxis ?? setInternalAxis
 
-  const activeTemplate = useMemo(
-    () =>
-      savedTemplates.find((t) => t.id === selectedTemplateId)?.template ??
-      cegTemplate,
-    [savedTemplates, selectedTemplateId, cegTemplate]
-  )
+  const axisValue = useMemo(() => decodeAxis(selectedAxis), [selectedAxis])
+  const isFreeMode = axisValue.kind === "free"
+  const freeGroupMode = axisValue.kind === "free" ? axisValue.mode : null
 
-  const data = useCombinationData({ backendUrl, activeTemplate })
+  const activeTemplate = useMemo(() => {
+    if (axisValue.kind === "free") return ""
+    if (axisValue.templateId === CURRENT_TEMPLATE_ID) return cegTemplate
+    return (
+      savedTemplates.find((t) => t.id === axisValue.templateId)?.template ??
+      cegTemplate
+    )
+  }, [axisValue, cegTemplate, savedTemplates])
 
-  // Auto-fetch when backend URL or active template changes
+  const data = useCombinationData({
+    backendUrl,
+    activeTemplate,
+    freeGroupMode,
+  })
+
   useEffect(() => {
     data.fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backendUrl, activeTemplate])
+  }, [backendUrl, activeTemplate, freeGroupMode])
 
   const selection = useCombinationSelection(
     data.filteredRenderItems.map((i) => i.filename)
@@ -61,9 +75,11 @@ export const CombinationPicker = memo(function CombinationPicker({
       selection={selection}
     >
       <CombinationPickerContent
-        selectedTemplateId={selectedTemplateId}
-        setSelectedTemplateId={setSelectedTemplateId}
+        selectedAxis={selectedAxis}
+        setSelectedAxis={setSelectedAxis}
         activeTemplate={activeTemplate}
+        isFreeMode={isFreeMode}
+        freeGroupMode={freeGroupMode}
         {...(toolbarState && { toolbarState })}
       />
     </CurationProvider>

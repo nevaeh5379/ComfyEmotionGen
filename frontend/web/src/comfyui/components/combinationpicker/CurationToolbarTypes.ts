@@ -6,8 +6,8 @@ export type CurationViewMode =
   | "tournament"
 
 export interface CurationToolbarState {
-  selectedTemplateId: string
-  setSelectedTemplateId: (id: string) => void
+  selectedAxis: string
+  setSelectedAxis: (axis: string) => void
   viewMode: CurationViewMode
   setViewMode: (v: CurationViewMode) => void
   hideTopSection: boolean

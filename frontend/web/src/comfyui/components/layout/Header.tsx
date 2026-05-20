@@ -22,7 +22,10 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -46,6 +49,12 @@ import {
   type ActiveStateInfo,
 } from "../JobManagerSections"
 import { TagInputSearch } from "../TagInputSearch"
+import {
+  CURRENT_TEMPLATE_ID,
+  FREE_GROUP_LABELS,
+  encodeAxis,
+  type FreeGroupBy,
+} from "../combinationpicker/freeCurationGroupers"
 
 export const NAV_TABS = [
   { id: "jobs", label: "작업", icon: ClipboardList },
@@ -105,8 +114,8 @@ interface HeaderProps {
   onGalleryEmptyTrash?: () => void
 
   // Curation specific
-  curationSelectedTemplateId: string
-  setCurationSelectedTemplateId: (v: string) => void
+  curationSelectedAxis: string
+  setCurationSelectedAxis: (v: string) => void
   savedTemplates: { id: string; name: string }[]
 
   // Session / Job controls props (lifted)
@@ -481,34 +490,58 @@ export function Header(props: HeaderProps) {
           {props.activeTab === "curation" && (
             <div className="flex items-center gap-1.5">
               <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-              {/* Template selector */}
+              {/* Classification axis selector (template + free axes unified) */}
               <Select
-                value={props.curationSelectedTemplateId || "__current__"}
-                onValueChange={(v) =>
-                  props.setCurationSelectedTemplateId(
-                    v === "__current__" ? "" : v
-                  )
-                }
+                value={props.curationSelectedAxis}
+                onValueChange={(v) => props.setCurationSelectedAxis(v)}
               >
-                <SelectTrigger className="!h-7 w-[130px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
+                <SelectTrigger className="!h-7 w-[150px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem
-                    value="__current__"
-                    className="text-[12px] font-bold"
-                  >
-                    현재 편집 중인 템플릿
-                  </SelectItem>
-                  {props.savedTemplates.map((t) => (
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] text-muted-foreground">
+                      템플릿
+                    </SelectLabel>
                     <SelectItem
-                      key={t.id}
-                      value={t.id}
+                      value={encodeAxis({
+                        kind: "template",
+                        templateId: CURRENT_TEMPLATE_ID,
+                      })}
                       className="text-[12px] font-bold"
                     >
-                      {t.name}
+                      현재 편집 중인 템플릿
                     </SelectItem>
-                  ))}
+                    {props.savedTemplates.map((t) => (
+                      <SelectItem
+                        key={t.id}
+                        value={encodeAxis({
+                          kind: "template",
+                          templateId: t.id,
+                        })}
+                        className="text-[12px] font-bold"
+                      >
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectSeparator />
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] text-muted-foreground">
+                      기타 분류
+                    </SelectLabel>
+                    {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
+                      (mode) => (
+                        <SelectItem
+                          key={mode}
+                          value={encodeAxis({ kind: "free", mode })}
+                          className="text-[12px] font-bold"
+                        >
+                          {FREE_GROUP_LABELS[mode]}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>

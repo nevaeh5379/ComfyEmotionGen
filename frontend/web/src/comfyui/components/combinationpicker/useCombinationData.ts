@@ -3,15 +3,22 @@ import { curationApi } from "../../hooks/useSavedImages"
 import { hasApproved } from "../../types/Message"
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
+import {
+  groupSavedImagesAsRenderItems,
+  buildImagesByGroupKey,
+  type FreeGroupBy,
+} from "./freeCurationGroupers"
 
 interface UseCombinationDataProps {
   backendUrl: string
   activeTemplate: string
+  freeGroupMode: FreeGroupBy | null
 }
 
 export function useCombinationData({
   backendUrl,
   activeTemplate,
+  freeGroupMode,
 }: UseCombinationDataProps) {
   const [renderItems, setRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])
@@ -26,6 +33,25 @@ export function useCombinationData({
   const [metadataFilter, setMetadataFilter] = useState("")
 
   const fetchData = useCallback(async () => {
+    if (freeGroupMode !== null) {
+      setLoading(true)
+      setError(null)
+      try {
+        const imagesRes = await fetch(`${backendUrl}/saved-images?limit=5000`)
+        if (!imagesRes.ok)
+          throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
+        const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
+        setAllImages(imagesData.items)
+        setRenderItems(
+          groupSavedImagesAsRenderItems(imagesData.items, freeGroupMode)
+        )
+      } catch (err) {
+        setError((err as Error).message)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
     if (!activeTemplate.trim()) {
       setError("CEG 템플릿을 먼저 작성해주세요.")
       setRenderItems([])
@@ -54,9 +80,12 @@ export function useCombinationData({
     } finally {
       setLoading(false)
     }
-  }, [backendUrl, activeTemplate])
+  }, [backendUrl, activeTemplate, freeGroupMode])
 
   const imagesByFilename = useMemo(() => {
+    if (freeGroupMode !== null) {
+      return buildImagesByGroupKey(allImages, freeGroupMode)
+    }
     const map = new Map<string, SavedImage[]>()
     for (const img of allImages) {
       if (img.status === "trashed") continue
@@ -64,7 +93,7 @@ export function useCombinationData({
       map.get(img.originalFilename)!.push(img)
     }
     return map
-  }, [allImages])
+  }, [allImages, freeGroupMode])
 
   const doneCount = useMemo(
     () =>
@@ -108,6 +137,7 @@ export function useCombinationData({
   ])
 
   const unassignedGroups = useMemo(() => {
+    if (freeGroupMode !== null) return new Map<string, SavedImage[]>()
     const renderFilenames = new Set(renderItems.map((ri) => ri.filename))
     const map = new Map<string, SavedImage[]>()
     for (const img of allImages) {
@@ -118,7 +148,7 @@ export function useCombinationData({
       }
     }
     return map
-  }, [allImages, renderItems])
+  }, [allImages, renderItems, freeGroupMode])
 
   const unassignedTotalCount = useMemo(
     () =>
@@ -148,11 +178,10 @@ export function useCombinationData({
       const images = imagesByFilename.get(filename) ?? []
       const targets = images.filter(filter)
       if (targets.length === 0) return
+      const targetHashes = new Set(targets.map((img) => img.hash))
       setAllImages((prev) =>
         prev.map((img) =>
-          img.originalFilename === filename && filter(img)
-            ? { ...img, status }
-            : img
+          targetHashes.has(img.hash) ? { ...img, status } : img
         )
       )
       await Promise.all(
@@ -167,11 +196,13 @@ export function useCombinationData({
   const approveImage = useCallback(
     async (filename: string, selectedHash: string) => {
       const imgs = imagesByFilename.get(filename) ?? []
+      const groupHashes = new Set(
+        imgs.filter((img) => img.status !== "trashed").map((img) => img.hash)
+      )
 
       setAllImages((prev) =>
         prev.map((img) => {
-          if (img.originalFilename !== filename || img.status === "trashed")
-            return img
+          if (!groupHashes.has(img.hash) || img.status === "trashed") return img
           return {
             ...img,
             status: img.hash === selectedHash ? "approved" : "rejected",
