@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/sheet"
 import { curationApi } from "../../hooks/useSavedImages"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
+import { downloadImagesAsZip, getImageFilename } from "../../utils/downloadImages"
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import { RegenerateDialog } from "./CombinationPickerComponents"
@@ -115,6 +116,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   const bulkRegenAction = useAsyncAction(4000)
+  const bulkDownloadAction = useAsyncAction(8000)
 
   // 재생성 다이얼로그 관련 상태
   const [regenDialogState, setRegenDialogState] = useState<{
@@ -456,6 +458,34 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     })
   }, [selectedFilenames, isFreeMode, freeGroupMode])
 
+  const handleBulkDownload = useCallback(async () => {
+    if (bulkDownloadAction.isLoading || selectedFilenames.size === 0) return
+    await bulkDownloadAction.execute(
+      async () => {
+        const downloads: Array<{ url: string; filename: string }> = []
+        for (const filename of selectedFilenames) {
+          const imgs = imagesByFilename.get(filename) ?? []
+          for (const img of imgs) {
+            if (img.status === "rejected" || img.status === "trashed") continue
+            downloads.push({
+              url: `${backendUrl}/saved-images/${img.hash}`,
+              filename: `${filename}/${getImageFilename(img)}`,
+            })
+          }
+        }
+        await downloadImagesAsZip(downloads, "curation-images.zip")
+        return downloads.length
+      },
+      (count) => `${count}장 다운로드 완료`,
+      "다운로드 실패"
+    )
+  }, [
+    backendUrl,
+    selectedFilenames,
+    imagesByFilename,
+    bulkDownloadAction,
+  ])
+
   const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
     e.stopPropagation()
     setPinnedHashes((prev) =>
@@ -624,6 +654,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         setShowUnassignedPanel={setShowUnassignedPanel}
         handleBulkRegenerate={handleBulkRegenerate}
         bulkRegenActionMessage={bulkRegenAction.message}
+        handleBulkDownload={handleBulkDownload}
+        bulkDownloadIsLoading={bulkDownloadAction.isLoading}
+        bulkDownloadMessage={bulkDownloadAction.message}
         handleExport={toolbarState?.onExport ?? handleExport}
         exportActionIsLoading={
           toolbarState?.exportIsLoading ?? exportAction.isLoading

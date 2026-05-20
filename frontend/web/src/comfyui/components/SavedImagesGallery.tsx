@@ -24,6 +24,7 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
+  DownloadIcon,
   PinIcon,
   XIcon,
   FilterIcon,
@@ -71,7 +72,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import type { CurationStatus, SavedImage } from "../types/Message"
+import { STATUS_LABEL } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
+import { downloadImagesAsZip, getImageFilename } from "../utils/downloadImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
 import { useConfirm } from "../contexts/ConfirmContext"
 import { toast } from "sonner"
@@ -95,14 +98,6 @@ function buildPageList(current: number, totalPages: number): (number | "…")[] 
     if (i < sorted.length - 1 && sorted[i + 1]! - sorted[i]! > 1) out.push("…")
   }
   return out
-}
-
-const STATUS_LABEL: Record<CurationStatus | "all", string> = {
-  all: "전체",
-  pending: "대기",
-  approved: "통과",
-  rejected: "탈락",
-  trashed: "휴지통",
 }
 
 export interface GalleryToolbarState {
@@ -220,6 +215,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(
     null
   )
+  const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false)
 
   // 핀 고정 + 뷰 모드
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
@@ -536,6 +532,34 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     [backendUrl, selectedHashes, bulkActionLoading, exitSelectionMode, reload]
   )
 
+  // Build combined image lookup from all available sources
+  const imageLookup = useMemo(() => {
+    const map = new Map<string, SavedImage>()
+    for (const img of images) map.set(img.hash, img)
+    for (const [, imgs] of groupImagesMap) {
+      for (const img of imgs) map.set(img.hash, img)
+    }
+    return map
+  }, [images, groupImagesMap])
+
+  const handleBulkDownload = useCallback(async () => {
+    if (selectedHashes.size === 0) return
+    setBulkDownloadLoading(true)
+    try {
+      const downloads: Array<{ url: string; filename: string }> = []
+      for (const hash of selectedHashes) {
+        const img = imageLookup.get(hash)
+        const filename = img
+          ? getImageFilename(img)
+          : `${hash}.png`
+        downloads.push({ url: `${backendUrl}/saved-images/${hash}`, filename })
+      }
+      await downloadImagesAsZip(downloads, "gallery-images.zip")
+    } finally {
+      setBulkDownloadLoading(false)
+    }
+  }, [backendUrl, selectedHashes, imageLookup])
+
   const handleEmptyTrash = async () => {
     if (
       !(await confirm({
@@ -834,40 +858,53 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             </div>
           )}
 
-          {/* 선택 모드 액션 바 */}
-          {selectionMode && (
-            <div className="mt-2 flex items-center gap-3 rounded-lg border bg-blue-50/30 px-4 py-2.5">
-              <span className="text-sm font-bold text-blue-700">
-                {selectedHashes.size}개 이미지 선택됨
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5 text-[10px] font-bold"
-                  onClick={() => handleBulkAction("trashed")}
-                  disabled={bulkActionLoading}
-                >
-                  <Trash2Icon className="h-3.5 w-3.5" />
-                  일괄 휴지통
-                </Button>
-              </div>
+        </div>
+      )}
+
+      {/* 선택 모드 액션 바 */}
+      {selectionMode && (
+        <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-blue-50/30 px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-blue-700">
+              {selectedHashes.size}개 이미지 선택됨
+            </span>
+            <div className="flex items-center gap-1">
               <Button
-                variant="ghost"
                 size="sm"
-                className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
-                onClick={exitSelectionMode}
+                variant="outline"
+                className="h-8 gap-1.5 text-[10px] font-bold"
+                onClick={() => handleBulkAction("trashed")}
+                disabled={bulkActionLoading}
               >
-                <XIcon className="h-3.5 w-3.5" />
-                선택 종료
+                <Trash2Icon className="h-3.5 w-3.5" />
+                일괄 휴지통
               </Button>
-              {bulkActionMessage && (
-                <span className="text-xs font-bold text-blue-600">
-                  {bulkActionMessage}
-                </span>
-              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[10px] font-bold"
+                onClick={handleBulkDownload}
+                disabled={bulkDownloadLoading}
+              >
+                <DownloadIcon className="h-3.5 w-3.5" />
+                일괄 다운로드
+              </Button>
             </div>
-          )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
+              onClick={exitSelectionMode}
+            >
+              <XIcon className="h-3.5 w-3.5" />
+              선택 종료
+            </Button>
+            {bulkActionMessage && (
+              <span className="text-xs font-bold text-blue-600">
+                {bulkActionMessage}
+              </span>
+            )}
+          </div>
         </div>
       )}
 

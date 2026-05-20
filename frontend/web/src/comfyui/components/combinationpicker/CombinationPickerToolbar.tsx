@@ -74,6 +74,10 @@ interface ToolbarProps {
   handleBulkRegenerate: () => void
   bulkRegenActionMessage: string | null
 
+  handleBulkDownload: () => void
+  bulkDownloadIsLoading: boolean
+  bulkDownloadMessage: string | null
+
   handleExport: () => void
   exportActionIsLoading: boolean
   exportActionMessage: string | null
@@ -101,6 +105,9 @@ export function CombinationPickerToolbar({
   setShowUnassignedPanel,
   handleBulkRegenerate,
   bulkRegenActionMessage,
+  handleBulkDownload,
+  bulkDownloadIsLoading,
+  bulkDownloadMessage,
   handleExport,
   exportActionIsLoading,
   exportActionMessage,
@@ -448,6 +455,15 @@ export function CombinationPickerToolbar({
                 재생성
               </Button>
               <Button
+                size="sm"
+                className="h-6 px-1.5 text-[9px] font-bold"
+                onClick={handleBulkDownload}
+                disabled={selectedFilenames.size === 0 || bulkDownloadIsLoading}
+              >
+                <DownloadIcon className="h-2.5 w-2.5" />
+                다운로드
+              </Button>
+              <Button
                 variant="ghost"
                 size="sm"
                 className="h-6 px-1 text-[9px] font-bold text-muted-foreground"
@@ -463,7 +479,8 @@ export function CombinationPickerToolbar({
       {/* 메시지 영역 (툴바 아래 고정 높이 방지 위해 절대 위치 지양) */}
       {(exportActionMessage ||
         regenActionMessage ||
-        bulkRegenActionMessage) && (
+        bulkRegenActionMessage ||
+        bulkDownloadMessage) && (
         <div className="border-b bg-muted/10 px-4 py-1 text-center">
           {exportActionMessage && (
             <span className="text-[10px] font-bold text-green-600">
@@ -478,6 +495,11 @@ export function CombinationPickerToolbar({
           {bulkRegenActionMessage && (
             <span className="text-[10px] font-bold text-blue-600">
               {bulkRegenActionMessage}
+            </span>
+          )}
+          {bulkDownloadMessage && (
+            <span className="text-[10px] font-bold text-green-600">
+              {bulkDownloadMessage}
             </span>
           )}
         </div>
