@@ -261,7 +261,7 @@ export const NodeMappingSection = ({
                                 })
                               }
                             >
-                              <SelectTrigger className="h-7 w-[84px] bg-background text-[11px] font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground md:w-24">
+                              <SelectTrigger className="!h-7 !py-1 w-[84px] bg-background text-[11px] font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground md:w-24">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -363,7 +363,7 @@ export const NodeMappingSection = ({
                                     updateMapping(m.id, { fixedValue: val })
                                   }
                                 >
-                                  <SelectTrigger className="h-7 w-32 bg-background text-[11px] shadow-sm">
+                                  <SelectTrigger className="!h-7 !py-1 w-32 bg-background text-[11px] shadow-sm">
                                     <SelectValue placeholder="선택..." />
                                   </SelectTrigger>
                                   <SelectContent>

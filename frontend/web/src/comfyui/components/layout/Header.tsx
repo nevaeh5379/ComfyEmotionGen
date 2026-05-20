@@ -352,7 +352,7 @@ export function Header(props: HeaderProps) {
                   props.setGalleryStatusFilter(v as CurationStatus | "all")
                 }}
               >
-                <SelectTrigger className="h-7 w-[70px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className="!h-7 !py-1 w-[82px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -395,7 +395,7 @@ export function Header(props: HeaderProps) {
                   }
                 }}
               >
-                <SelectTrigger className="h-7 w-[60px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className="!h-7 !py-1 w-[78px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -417,7 +417,7 @@ export function Header(props: HeaderProps) {
                 onClick={() =>
                   props.setGalleryShowFilters(!props.galleryShowFilters)
                 }
-                className="relative h-7 w-7 p-0"
+                className="relative !h-7 !w-7 p-0"
               >
                 <FilterIcon className="h-3.5 w-3.5" />
                 {props.galleryHasAnyFilter && (
@@ -427,7 +427,7 @@ export function Header(props: HeaderProps) {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-7 w-7 p-0">
+                  <Button size="sm" variant="outline" className="!h-7 !w-7 p-0">
                     <MoreVertical className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -476,7 +476,7 @@ export function Header(props: HeaderProps) {
                   )
                 }
               >
-                <SelectTrigger className="h-7 w-[130px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
+                <SelectTrigger className="!h-7 !py-1 w-[130px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
