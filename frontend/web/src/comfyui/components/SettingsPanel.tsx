@@ -18,7 +18,8 @@ import type { AppSettings } from "../hooks/useSettings"
 import { WorkerManager } from "./WorkerManager"
 import { WebhookSettingsPanel } from "./WebhookSettingsPanel"
 import type { WorkerView } from "../types/Message"
-import { FRONTEND_VERSION, COMMIT } from "@/version"
+import { BUNDLE_VERSION, COMMIT, IS_LOCAL_DEV } from "@/version"
+import { useUpdateCheck } from "@/comfyui/hooks/useUpdateCheck"
 import { useTemplateContext } from "@/comfyui/contexts/TemplateContext"
 import type { SavedTemplate } from "@/comfyui/hooks/useSavedTemplates"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
@@ -82,6 +83,7 @@ export function SettingsPanel({
   workers,
 }: Props) {
   const template = useTemplateContext()
+  const update = useUpdateCheck(settings.updateChannel)
 
   return (
     <ScrollArea className="h-full">
@@ -95,11 +97,27 @@ export function SettingsPanel({
             </p>
           </div>
           <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground/60">
-            <span className="mono">v{FRONTEND_VERSION}</span>
-            {COMMIT && (
-              <span className="mono rounded bg-muted px-1.5 py-0.5">
-                {COMMIT.slice(0, 7)}
-              </span>
+            {IS_LOCAL_DEV ? (
+              <span className="mono">{COMMIT || "dev"}</span>
+            ) : (
+              <>
+                <span className="mono">{BUNDLE_VERSION}</span>
+                {COMMIT && !BUNDLE_VERSION.includes(COMMIT) && (
+                  <span className="mono rounded bg-muted px-1.5 py-0.5">
+                    {COMMIT.slice(0, 7)}
+                  </span>
+                )}
+                {update && (
+                  <a
+                    href={update.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded bg-primary/10 px-1.5 py-0.5 text-primary hover:bg-primary/20"
+                  >
+                    ↑ {update.tag}
+                  </a>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -263,6 +281,39 @@ export function SettingsPanel({
               <SelectContent>
                 <SelectItem value="newtab">새탭에서 열기</SelectItem>
                 <SelectItem value="direct">바로 다운로드</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </Section>
+
+        {/* 업데이트 */}
+        <Section title="업데이트">
+          <SettingRow
+            label="업데이트 채널"
+            description={
+              IS_LOCAL_DEV
+                ? "로컬 개발 환경에서는 자동 업데이트가 비활성화됩니다."
+                : "새 버전을 확인할 채널입니다. dev는 가장 최신 빌드, stable은 검증된 릴리즈입니다."
+            }
+          >
+            <Select
+              value={settings.updateChannel}
+              onValueChange={(v) =>
+                updateSetting(
+                  "updateChannel",
+                  v as AppSettings["updateChannel"]
+                )
+              }
+              disabled={IS_LOCAL_DEV}
+            >
+              <SelectTrigger className="h-8 w-36 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">자동 감지</SelectItem>
+                <SelectItem value="stable">Stable</SelectItem>
+                <SelectItem value="beta">Beta</SelectItem>
+                <SelectItem value="dev">Dev</SelectItem>
               </SelectContent>
             </Select>
           </SettingRow>

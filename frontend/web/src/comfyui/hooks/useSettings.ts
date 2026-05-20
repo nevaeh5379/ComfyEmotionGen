@@ -15,6 +15,8 @@ export interface AppSettings {
   galleryExportStrategy: "hash" | "number"
   /** 단일 이미지 다운로드 방식: newtab(새탭 열기) | direct(바로 다운로드) */
   singleDownloadMode: "newtab" | "direct"
+  /** 업데이트 채널: auto(빌드 채널 자동 감지) | dev | beta | stable */
+  updateChannel: "auto" | "dev" | "beta" | "stable"
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -25,6 +27,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   galleryExportScope: "approved",
   galleryExportStrategy: "hash",
   singleDownloadMode: "newtab",
+  updateChannel: "auto",
 }
 
 const load = (): AppSettings => {
