@@ -70,21 +70,20 @@ export function WorkCompositionPanel({
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
-            <CompositionTabsList className="hidden md:inline-flex" />
-            <WorkCompositionToolbar
-              repeatCount={repeatCount}
-              setRepeatCount={setRepeatCount}
-              handleRun={handleRun}
-              canRun={canRun}
-              estimatedRunCount={estimatedRunCount}
-              onSelectionOpen={onSelectionOpen}
-              hasActiveFilter={hasActiveFilter}
-              onAxisFilterOpen={onAxisFilterOpen}
-              onGraphOpen={onGraphOpen}
-              className="hidden md:flex"
-            />
-          </div>
+
+          <CompositionTabsList className="hidden md:inline-flex" />
+          <WorkCompositionToolbar
+            repeatCount={repeatCount}
+            setRepeatCount={setRepeatCount}
+            handleRun={handleRun}
+            canRun={canRun}
+            estimatedRunCount={estimatedRunCount}
+            onSelectionOpen={onSelectionOpen}
+            hasActiveFilter={hasActiveFilter}
+            onAxisFilterOpen={onAxisFilterOpen}
+            onGraphOpen={onGraphOpen}
+            className="hidden md:flex"
+          />
 
           <TabsContent
             value="ceg"
@@ -125,11 +124,11 @@ export function WorkCompositionPanel({
                   (t) => t.id === template.activeTemplateId
                 )
                   ? () => {
-                      const active = template.savedTemplates.find(
-                        (t) => t.id === template.activeTemplateId
-                      )!
-                      template.saveTemplate(active.name, template.cegTemplate)
-                    }
+                    const active = template.savedTemplates.find(
+                      (t) => t.id === template.activeTemplateId
+                    )!
+                    template.saveTemplate(active.name, template.cegTemplate)
+                  }
                   : undefined
               }
             />
@@ -319,7 +318,7 @@ export function WorkCompositionPanel({
                       nodeMapping.nodeMappings
                     )
                 }}
-                onPendingNameConflict={() => {}}
+                onPendingNameConflict={() => { }}
               />
             )}
           </TabsContent>
