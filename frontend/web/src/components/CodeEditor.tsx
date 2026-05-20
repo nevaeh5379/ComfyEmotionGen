@@ -85,34 +85,43 @@ const CodeEditor = ({
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFile = useCallback((file: File) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const content = e.target?.result
-      if (typeof content === "string" && onFileOpen) {
-        onFileOpen(content, file.name)
+  const handleFile = useCallback(
+    (file: File) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const content = e.target?.result
+        if (typeof content === "string" && onFileOpen) {
+          onFileOpen(content, file.name)
+        }
       }
-    }
-    reader.readAsText(file)
-  }, [onFileOpen])
+      reader.readAsText(file)
+    },
+    [onFileOpen]
+  )
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }, [handleFile])
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const file = e.dataTransfer.files[0]
+      if (file) handleFile(file)
+    },
+    [handleFile]
+  )
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
   }, [])
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) handleFile(file)
-    e.target.value = ""
-  }, [handleFile])
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (file) handleFile(file)
+      e.target.value = ""
+    },
+    [handleFile]
+  )
   const { theme } = useTheme()
   const resolvedTheme =
     theme === "system"

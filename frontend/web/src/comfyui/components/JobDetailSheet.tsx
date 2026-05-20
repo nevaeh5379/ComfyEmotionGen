@@ -92,10 +92,12 @@ export function JobDetailSheet({
         }}
       >
         <SheetHeader>
-          <SheetTitle className="text-lg font-black tracking-tight">작업 상세</SheetTitle>
+          <SheetTitle className="text-lg font-black tracking-tight">
+            작업 상세
+          </SheetTitle>
         </SheetHeader>
         {job && (
-          <div className="flex flex-col gap-5 mt-2">
+          <div className="mt-2 flex flex-col gap-5">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <StatusPill status={job.status} />
@@ -108,14 +110,14 @@ export function JobDetailSheet({
               </p>
 
               {job.prompt && (
-                <div className="relative rounded-lg border bg-muted/40 p-3 group/prompt">
+                <div className="group/prompt relative rounded-lg border bg-muted/40 p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-[10px] font-black tracking-wider text-muted-foreground uppercase">
                       프롬프트
                     </span>
                   </div>
                   <ScrollArea className="h-32">
-                    <p className="pr-6 font-mono text-xs leading-relaxed text-foreground select-all whitespace-pre-wrap break-all">
+                    <p className="pr-6 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-foreground select-all">
                       {job.prompt}
                     </p>
                   </ScrollArea>
@@ -125,10 +127,10 @@ export function JobDetailSheet({
 
               {job.error && (
                 <div className="relative rounded-lg border border-destructive/20 bg-destructive/10 p-3 shadow-inner">
-                  <div className="flex items-center gap-1.5 text-destructive mb-1 text-[11px] font-black tracking-widest uppercase">
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-black tracking-widest text-destructive uppercase">
                     <AlertCircle className="h-4 w-4" /> 에러 로그
                   </div>
-                  <p className="font-mono text-xs text-destructive/90 pr-8 leading-relaxed whitespace-pre-wrap break-all">
+                  <p className="pr-8 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-destructive/90">
                     {job.error}
                   </p>
                   <ClipButton text={job.error} />
@@ -138,15 +140,22 @@ export function JobDetailSheet({
 
             {/* Visual Timeline */}
             <div className="space-y-3 rounded-2xl border bg-muted/10 p-4">
-              <h4 className="text-[10px] font-black tracking-widest text-muted-foreground uppercase pb-1.5 border-b">
+              <h4 className="border-b pb-1.5 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
                 진행 타임라인
               </h4>
-              <div className="flex flex-col gap-4 mt-2">
+              <div className="mt-2 flex flex-col gap-4">
                 <div className="relative flex gap-3 pl-6">
-                  <div className={cn("absolute left-2.25 top-2.5 bottom-[-16px] w-0.5 bg-line-strong/60", job.startedAt && "bg-info/60")} />
-                  <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-ink-2 ring-4 ring-ink-2/15" />
-                  <div className="flex-1 flex justify-between items-baseline gap-2">
-                    <span className="text-xs font-bold text-foreground">작업 생성됨</span>
+                  <div
+                    className={cn(
+                      "absolute top-2.5 bottom-[-16px] left-2.25 w-0.5 bg-line-strong/60",
+                      job.startedAt && "bg-info/60"
+                    )}
+                  />
+                  <div className="absolute top-1.5 left-1 h-2.5 w-2.5 rounded-full bg-ink-2 ring-4 ring-ink-2/15" />
+                  <div className="flex flex-1 items-baseline justify-between gap-2">
+                    <span className="text-xs font-bold text-foreground">
+                      작업 생성됨
+                    </span>
                     <span className="mono text-[10px] text-muted-foreground tabular-nums">
                       {new Date(job.createdAt * MS_PER_SECOND).toLocaleString()}
                     </span>
@@ -155,57 +164,84 @@ export function JobDetailSheet({
 
                 {job.startedAt ? (
                   <div className="relative flex gap-3 pl-6">
-                    <div className={cn("absolute left-2.25 top-2.5 bottom-[-16px] w-0.5 bg-line-strong/60", job.finishedAt && "bg-ok/60")} />
-                    <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-info ring-4 ring-info/15 animate-pulse" />
-                    <div className="flex-1 flex justify-between items-baseline gap-2">
-                      <span className="text-xs font-bold text-foreground">렌더링 시작</span>
+                    <div
+                      className={cn(
+                        "absolute top-2.5 bottom-[-16px] left-2.25 w-0.5 bg-line-strong/60",
+                        job.finishedAt && "bg-ok/60"
+                      )}
+                    />
+                    <div className="absolute top-1.5 left-1 h-2.5 w-2.5 animate-pulse rounded-full bg-info ring-4 ring-info/15" />
+                    <div className="flex flex-1 items-baseline justify-between gap-2">
+                      <span className="text-xs font-bold text-foreground">
+                        렌더링 시작
+                      </span>
                       <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                        {new Date(job.startedAt * MS_PER_SECOND).toLocaleString()}
+                        {new Date(
+                          job.startedAt * MS_PER_SECOND
+                        ).toLocaleString()}
                       </span>
                     </div>
                   </div>
                 ) : (
                   <div className="relative flex gap-3 pl-6 opacity-35">
-                    <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
-                    <div className="flex-1 flex justify-between items-baseline gap-2">
-                      <span className="text-xs font-bold text-muted-foreground">렌더링 대기 중</span>
-                      <span className="mono text-[10px] text-muted-foreground/80">—</span>
+                    <div className="absolute top-1.5 left-1 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
+                    <div className="flex flex-1 items-baseline justify-between gap-2">
+                      <span className="text-xs font-bold text-muted-foreground">
+                        렌더링 대기 중
+                      </span>
+                      <span className="mono text-[10px] text-muted-foreground/80">
+                        —
+                      </span>
                     </div>
                   </div>
                 )}
 
                 {job.finishedAt ? (
                   <div className="relative flex gap-3 pl-6">
-                    <div className={cn(
-                      "absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full ring-4",
-                      job.status === "error" || job.status === "cancelled"
-                        ? "bg-bad ring-bad/15"
-                        : "bg-ok ring-ok/15"
-                    )} />
-                    <div className="flex-1 flex justify-between items-baseline gap-2">
+                    <div
+                      className={cn(
+                        "absolute top-1.5 left-1 h-2.5 w-2.5 rounded-full ring-4",
+                        job.status === "error" || job.status === "cancelled"
+                          ? "bg-bad ring-bad/15"
+                          : "bg-ok ring-ok/15"
+                      )}
+                    />
+                    <div className="flex flex-1 items-baseline justify-between gap-2">
                       <span className="text-xs font-bold text-foreground">
-                        {job.status === "error" ? "렌더링 실패" : job.status === "cancelled" ? "렌더링 취소" : "렌더링 완료"}
+                        {job.status === "error"
+                          ? "렌더링 실패"
+                          : job.status === "cancelled"
+                            ? "렌더링 취소"
+                            : "렌더링 완료"}
                       </span>
                       <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                        {new Date(job.finishedAt * MS_PER_SECOND).toLocaleString()}
+                        {new Date(
+                          job.finishedAt * MS_PER_SECOND
+                        ).toLocaleString()}
                       </span>
                     </div>
                   </div>
                 ) : (
                   <div className="relative flex gap-3 pl-6 opacity-35">
-                    <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
-                    <div className="flex-1 flex justify-between items-baseline gap-2">
-                      <span className="text-xs font-bold text-muted-foreground">렌더링 완료 대기</span>
-                      <span className="mono text-[10px] text-muted-foreground/80">—</span>
+                    <div className="absolute top-1.5 left-1 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
+                    <div className="flex flex-1 items-baseline justify-between gap-2">
+                      <span className="text-xs font-bold text-muted-foreground">
+                        렌더링 완료 대기
+                      </span>
+                      <span className="mono text-[10px] text-muted-foreground/80">
+                        —
+                      </span>
                     </div>
                   </div>
                 )}
               </div>
 
               {jobDuration(job) != null && (
-                <div className="mt-3.5 pt-3.5 border-t border-line/60 flex justify-between items-center text-xs">
-                  <span className="font-extrabold text-muted-foreground">총 소요 시간</span>
-                  <span className="mono font-black text-foreground bg-muted rounded px-2 py-0.5 tabular-nums">
+                <div className="mt-3.5 flex items-center justify-between border-t border-line/60 pt-3.5 text-xs">
+                  <span className="font-extrabold text-muted-foreground">
+                    총 소요 시간
+                  </span>
+                  <span className="mono rounded bg-muted px-2 py-0.5 font-black text-foreground tabular-nums">
                     {formatDuration(jobDuration(job)!)}
                   </span>
                 </div>
@@ -217,18 +253,18 @@ export function JobDetailSheet({
               {(job.status === "pending" ||
                 job.status === "queued" ||
                 job.status === "running") && (
-                  <Button
-                    size="lg"
-                    variant="destructive"
-                    className="h-12 flex-1 rounded-xl font-bold"
-                    onClick={(e) => {
-                      onCancel(e, job.id)
-                      onClose()
-                    }}
-                  >
-                    취소
-                  </Button>
-                )}
+                <Button
+                  size="lg"
+                  variant="destructive"
+                  className="h-12 flex-1 rounded-xl font-bold"
+                  onClick={(e) => {
+                    onCancel(e, job.id)
+                    onClose()
+                  }}
+                >
+                  취소
+                </Button>
+              )}
               {(job.status === "error" || job.status === "cancelled") && (
                 <>
                   <Button
@@ -272,9 +308,9 @@ export function JobDetailSheet({
                           key={h}
                           onClick={() => {
                             setLightboxUrls(
-                              fetchedImages.get(job.id)!.map(
-                                (hh) => `${backendUrl}/saved-images/${hh}`
-                              )
+                              fetchedImages
+                                .get(job.id)!
+                                .map((hh) => `${backendUrl}/saved-images/${hh}`)
                             )
                             setLightboxIndex(i)
                           }}
@@ -302,7 +338,7 @@ export function JobDetailSheet({
             onClose={() => setLightboxUrls(null)}
           >
             {lightboxUrls.length > 1 && (
-              <div className="flex flex-col items-center gap-3 w-full">
+              <div className="flex w-full flex-col items-center gap-3">
                 <div className="flex items-center justify-center gap-4">
                   <Button
                     size="sm"
@@ -331,21 +367,25 @@ export function JobDetailSheet({
                   </Button>
                 </div>
 
-                <div className="flex gap-2 p-1.5 rounded-xl border border-white/5 bg-white/5 backdrop-blur-md overflow-x-auto max-w-[90vw] no-scrollbar">
+                <div className="no-scrollbar flex max-w-[90vw] gap-2 overflow-x-auto rounded-xl border border-white/5 bg-white/5 p-1.5 backdrop-blur-md">
                   {lightboxUrls.map((url, i) => {
                     const isSelected = i === lightboxIndex
                     return (
                       <button
                         key={url}
                         className={cn(
-                          "h-12 w-12 rounded-lg overflow-hidden border-2 transition-all duration-300 relative scale-95 cursor-pointer",
+                          "relative h-12 w-12 scale-95 cursor-pointer overflow-hidden rounded-lg border-2 transition-all duration-300",
                           isSelected
-                            ? "border-info ring-2 ring-info/30 scale-100 shadow-md"
-                            : "border-transparent opacity-50 hover:opacity-100 hover:scale-98"
+                            ? "scale-100 border-info shadow-md ring-2 ring-info/30"
+                            : "border-transparent opacity-50 hover:scale-98 hover:opacity-100"
                         )}
                         onClick={() => setLightboxIndex(i)}
                       >
-                        <img src={url} alt={`Thumbnail ${i}`} className="h-full w-full object-cover" />
+                        <img
+                          src={url}
+                          alt={`Thumbnail ${i}`}
+                          className="h-full w-full object-cover"
+                        />
                       </button>
                     )
                   })}

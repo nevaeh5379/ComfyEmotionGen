@@ -23,7 +23,12 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty"
-import { STATUS_LABEL, STATUS_TINT, type CurationStatus, type SavedImage } from "../../types/Message"
+import {
+  STATUS_LABEL,
+  STATUS_TINT,
+  type CurationStatus,
+  type SavedImage,
+} from "../../types/Message"
 
 export interface GridProps {
   items: SavedImage[]
@@ -62,7 +67,9 @@ export function ImageGrid({
             <ImageOff className="size-6" />
           </EmptyMedia>
           <EmptyTitle>이미지가 없습니다</EmptyTitle>
-          <EmptyDescription>해당 조건에 맞는 이미지를 찾을 수 없습니다.</EmptyDescription>
+          <EmptyDescription>
+            해당 조건에 맞는 이미지를 찾을 수 없습니다.
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -106,7 +113,9 @@ export function ImageGrid({
                         alt={img.originalFilename}
                         loading={imageLazyLoad ? "lazy" : "eager"}
                         className="w-full object-cover transition-transform group-hover:scale-105"
-                        onError={() => setBrokenHashes((prev) => new Set(prev).add(img.hash))}
+                        onError={() =>
+                          setBrokenHashes((prev) => new Set(prev).add(img.hash))
+                        }
                       />
                     )}
                   </button>

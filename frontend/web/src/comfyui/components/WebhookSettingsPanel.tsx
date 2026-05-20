@@ -1,13 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import {
-  Bell,
-  BellOff,
-  Plus,
-  Trash2,
-  Send,
-  Eye,
-  EyeOff,
-} from "lucide-react"
+import { Bell, BellOff, Plus, Trash2, Send, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -247,16 +239,11 @@ function WebhookCard({
     <div
       className={`rounded-lg border ${
         config.enabled ? "border-line" : "border-line/50 opacity-60"
-      } p-3 space-y-2`}
+      } space-y-2 p-3`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() =>
-              onToggleEnabled(config)
-            }
-            className="shrink-0"
-          >
+          <button onClick={() => onToggleEnabled(config)} className="shrink-0">
             {config.enabled ? (
               <Bell className="h-4 w-4 text-ok" />
             ) : (
@@ -265,7 +252,7 @@ function WebhookCard({
           </button>
           <div>
             <p className="text-sm font-semibold">{config.name}</p>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            <p className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               {CHANNEL_LABELS[config.channel_type]}
             </p>
           </div>
@@ -288,9 +275,7 @@ function WebhookCard({
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
-            onClick={() =>
-              setEditingId(isEditing ? null : config.id)
-            }
+            onClick={() => setEditingId(isEditing ? null : config.id)}
           >
             {isEditing ? (
               <EyeOff className="h-3.5 w-3.5" />
@@ -311,10 +296,8 @@ function WebhookCard({
 
       {/* URL (masked) */}
       <div className="flex items-center gap-1.5">
-        <code className="flex-1 truncate text-[10px] font-mono text-muted-foreground">
-          {showUrl
-            ? config.url
-            : config.url.replace(/\/[^/]*$/, "/••••••••")}
+        <code className="flex-1 truncate font-mono text-[10px] text-muted-foreground">
+          {showUrl ? config.url : config.url.replace(/\/[^/]*$/, "/••••••••")}
         </code>
         <Button
           variant="ghost"
@@ -334,15 +317,11 @@ function WebhookCard({
       {isEditing && (
         <div className="space-y-2 border-t border-line pt-2">
           <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+            <p className="mb-1.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               알림 이벤트
             </p>
             <div className="space-y-1">
-              {[
-                "job_done",
-                "job_error",
-                "batch_completed",
-              ].map((event) => (
+              {["job_done", "job_error", "batch_completed"].map((event) => (
                 <div key={event} className="flex items-center gap-2">
                   <Checkbox
                     id={`evt-${config.id}-${event}`}
@@ -415,31 +394,29 @@ function WebhookForm({
   isSubmitting,
 }: WebhookFormProps) {
   return (
-    <div className="rounded-lg border border-line p-3 space-y-3">
+    <div className="space-y-3 rounded-lg border border-line p-3">
       <div>
-        <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
           이름
         </Label>
         <Input
           placeholder="예) 메인 디스코드 채널"
           value={config.name}
           onChange={(e) => onUpdate("name", e.target.value)}
-          className="h-8 mt-1 text-sm"
+          className="mt-1 h-8 text-sm"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+          <Label className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
             채널 타입
           </Label>
           <Select
             value={config.channel_type}
-            onValueChange={(v) =>
-              onUpdate("channel_type", v as ChannelType)
-            }
+            onValueChange={(v) => onUpdate("channel_type", v as ChannelType)}
           >
-            <SelectTrigger className="h-8 mt-1 text-xs">
+            <SelectTrigger className="mt-1 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -450,7 +427,7 @@ function WebhookForm({
           </Select>
         </div>
         <div>
-          <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+          <Label className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
             활성화
           </Label>
           <div className="mt-2">
@@ -463,27 +440,23 @@ function WebhookForm({
       </div>
 
       <div>
-        <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
           URL
         </Label>
         <Input
           placeholder={CHANNEL_PLACEHOLDERS[config.channel_type]}
           value={config.url}
           onChange={(e) => onUpdate("url", e.target.value)}
-          className="h-8 mt-1 text-sm"
+          className="mt-1 h-8 text-sm"
         />
       </div>
 
       <div>
-        <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
           알림 이벤트
         </Label>
         <div className="mt-1.5 space-y-1">
-          {[
-            "job_done",
-            "job_error",
-            "batch_completed",
-          ].map((event) => (
+          {["job_done", "job_error", "batch_completed"].map((event) => (
             <div key={event} className="flex items-center gap-2">
               <Checkbox
                 id={`new-evt-${event}`}

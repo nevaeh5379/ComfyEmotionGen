@@ -7,8 +7,15 @@ function safeSetItem(key: string, value: string): boolean {
     localStorage.setItem(key, value)
     return true
   } catch (e: unknown) {
-    if (typeof e === "object" && e !== null && "name" in e && e.name === STORAGE_QUOTA_ERROR) {
-      console.warn(`localStorage quota exceeded for key "${key}". Storage not updated.`)
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "name" in e &&
+      e.name === STORAGE_QUOTA_ERROR
+    ) {
+      console.warn(
+        `localStorage quota exceeded for key "${key}". Storage not updated.`
+      )
       return false
     }
     throw e

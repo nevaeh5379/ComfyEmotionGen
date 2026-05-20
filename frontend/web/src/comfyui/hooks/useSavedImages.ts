@@ -327,10 +327,9 @@ export const curationApi = {
     hash: string,
     tag: string
   ): Promise<void> {
-    const res = await fetch(
-      `${backendUrl}${API.savedImages.tag(hash, tag)}`,
-      { method: "DELETE" }
-    )
+    const res = await fetch(`${backendUrl}${API.savedImages.tag(hash, tag)}`, {
+      method: "DELETE",
+    })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
   },
   async restore(backendUrl: string, hash: string): Promise<void> {
@@ -340,7 +339,9 @@ export const curationApi = {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
   },
   async emptyTrash(backendUrl: string): Promise<number> {
-    const res = await fetch(`${backendUrl}${API.trash.empty}`, { method: "POST" })
+    const res = await fetch(`${backendUrl}${API.trash.empty}`, {
+      method: "POST",
+    })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as { deleted: number }
     return data.deleted

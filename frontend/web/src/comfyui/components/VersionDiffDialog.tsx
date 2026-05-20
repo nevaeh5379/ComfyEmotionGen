@@ -39,7 +39,7 @@ function computeDiff(oldText: string, newText: string): DiffLine[] {
         // Try to find the matching line within a window
         const windowSize = 5
         let found = -1
-        for (let w = 0; w < windowSize && (newIdx + w) < newLines.length; w++) {
+        for (let w = 0; w < windowSize && newIdx + w < newLines.length; w++) {
           if (newLines[newIdx + w] === oldLines[oldIdx]) {
             found = w
             break
@@ -88,9 +88,17 @@ export function VersionDiffDialog({
   const diff = computeDiff(oldContent, newContent)
 
   // Collapse consecutive unchanged lines
-  const collapsed: { type: DiffLine["type"]; content: string; count: number }[] = []
+  const collapsed: {
+    type: DiffLine["type"]
+    content: string
+    count: number
+  }[] = []
   for (const line of diff) {
-    if (line.type === "unchanged" && collapsed.length > 0 && collapsed[collapsed.length - 1]!.type === "unchanged") {
+    if (
+      line.type === "unchanged" &&
+      collapsed.length > 0 &&
+      collapsed[collapsed.length - 1]!.type === "unchanged"
+    ) {
       collapsed[collapsed.length - 1]!.count++
     } else {
       collapsed.push({ type: line.type, content: line.content, count: 1 })
@@ -101,7 +109,7 @@ export function VersionDiffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="max-h-[80vh] max-w-2xl">
         <DialogHeader>
           <DialogTitle>'{itemName}' 업데이트</DialogTitle>
           <DialogDescription>
@@ -111,7 +119,10 @@ export function VersionDiffDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-auto rounded-md border bg-muted/30 font-mono text-xs" style={{ maxHeight: "50vh" }}>
+        <div
+          className="overflow-auto rounded-md border bg-muted/30 font-mono text-xs"
+          style={{ maxHeight: "50vh" }}
+        >
           <table className="w-full">
             <tbody>
               {collapsed.map((block, i) => {
@@ -119,8 +130,10 @@ export function VersionDiffDialog({
                   if (block.count <= 3) {
                     return Array.from({ length: block.count }).map((_, j) => (
                       <tr key={`u-${i}-${j}`} className="text-muted-foreground">
-                        <td className="select-none px-2 py-0.5 text-right">{" "}</td>
-                        <td className="px-2 py-0.5 whitespace-pre-wrap break-all">
+                        <td className="px-2 py-0.5 text-right select-none">
+                          {" "}
+                        </td>
+                        <td className="px-2 py-0.5 break-all whitespace-pre-wrap">
                           {block.content}
                         </td>
                       </tr>
@@ -128,7 +141,9 @@ export function VersionDiffDialog({
                   } else {
                     return (
                       <tr key={`u-${i}`} className="text-muted-foreground/50">
-                        <td className="select-none px-2 py-0.5 text-right">{" "}</td>
+                        <td className="px-2 py-0.5 text-right select-none">
+                          {" "}
+                        </td>
                         <td className="px-2 py-0.5 italic">
                           {"…"} {block.count} lines unchanged {"…"}
                         </td>
@@ -145,10 +160,10 @@ export function VersionDiffDialog({
                         : "bg-red-500/10 text-red-600 dark:text-red-400"
                     }
                   >
-                    <td className="select-none px-2 py-0.5 text-right font-bold">
+                    <td className="px-2 py-0.5 text-right font-bold select-none">
                       {block.type === "added" ? "+" : "-"}
                     </td>
-                    <td className="px-2 py-0.5 whitespace-pre-wrap break-all">
+                    <td className="px-2 py-0.5 break-all whitespace-pre-wrap">
                       {block.content}
                     </td>
                   </tr>
@@ -162,10 +177,12 @@ export function VersionDiffDialog({
           <Button variant="outline" onClick={onClose}>
             취소
           </Button>
-          <Button onClick={() => {
-            onConfirm()
-            onClose()
-          }}>
+          <Button
+            onClick={() => {
+              onConfirm()
+              onClose()
+            }}
+          >
             업데이트 적용
           </Button>
         </DialogFooter>

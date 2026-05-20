@@ -48,7 +48,8 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.backendUrl && e.newValue) setStoredUrl(e.newValue)
+      if (e.key === STORAGE_KEYS.backendUrl && e.newValue)
+        setStoredUrl(e.newValue)
     }
     window.addEventListener("storage", onStorage)
     return () => window.removeEventListener("storage", onStorage)

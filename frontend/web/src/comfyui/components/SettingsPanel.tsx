@@ -1,6 +1,10 @@
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Download, Upload } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+
 import { Switch } from "@/components/ui/switch"
+
 import {
   Select,
   SelectContent,
@@ -15,6 +19,10 @@ import { WorkerManager } from "./WorkerManager"
 import { WebhookSettingsPanel } from "./WebhookSettingsPanel"
 import type { WorkerView } from "../types/Message"
 import { FRONTEND_VERSION, COMMIT } from "@/version"
+import { useTemplateContext } from "@/comfyui/contexts/TemplateContext"
+import type { SavedTemplate } from "@/comfyui/hooks/useSavedTemplates"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { toast } from "sonner"
 
 interface Props {
   settings: AppSettings
@@ -73,6 +81,8 @@ export function SettingsPanel({
   onBackendUrlChange,
   workers,
 }: Props) {
+  const template = useTemplateContext()
+
   return (
     <ScrollArea className="h-full">
       <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
@@ -109,7 +119,9 @@ export function SettingsPanel({
                 type="url"
                 placeholder={DEFAULT_BACKEND_URL}
                 value={backendUrl}
-                onChange={(e) => onBackendUrlChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onBackendUrlChange(e.target.value)
+                }
                 disabled={IS_PACKAGE_MODE}
                 className="h-8 w-72 text-sm"
               />
@@ -274,6 +286,87 @@ export function SettingsPanel({
           <WebhookSettingsPanel backendUrl={backendUrl} />
         </Section>
 
+        {/* 데이터 관리 */}
+        <Section title="데이터 관리">
+          <div className="flex flex-wrap gap-3 py-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={template.savedTemplates.length === 0}
+              onClick={() => {
+                const data = template.savedTemplates.map((t) => ({
+                  name: t.name,
+                  template: t.template,
+                  savedAt: t.savedAt,
+                }))
+                const blob = new Blob([JSON.stringify(data, null, 2)], {
+                  type: "application/json",
+                })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement("a")
+                a.href = url
+                a.download = `templates_${new Date().toISOString().slice(0, 10)}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+            >
+              <Download className="mr-2 h-3.5 w-3.5" />
+              전체 템플트 내보내기 (JSON)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const input = document.createElement("input")
+                input.type = "file"
+                input.accept = ".json"
+                input.onchange = () => {
+                  const target = input.files?.[0]
+                  if (!target) return
+                  const reader = new FileReader()
+                  reader.onload = () => {
+                    try {
+                      const imported = JSON.parse(reader.result as string)
+                      if (!Array.isArray(imported)) {
+                        toast.error("유효한 템플트 파일이 아닙니다.")
+                        return
+                      }
+                      const now = Date.now()
+                      const newTemplates: SavedTemplate[] = imported.map(
+                        (item: unknown) => {
+                          const p = item as Record<string, unknown>
+                          return {
+                            id: `${now + Math.random().toString(36).slice(2, 7)}`,
+                            name: (p.name as string) || "미명 템플트",
+                            template: (p.template as string) || "",
+                            savedAt: (p.savedAt as number) || now,
+                          }
+                        }
+                      )
+                      const existing = loadTemplates()
+                      const merged = [...existing, ...newTemplates]
+                      localStorage.setItem(
+                        STORAGE_KEYS.savedTemplates,
+                        JSON.stringify(merged)
+                      )
+                      toast.success(
+                        `${newTemplates.length}개의 템플트를 가져왔습니다.`
+                      )
+                    } catch {
+                      toast.error("파일을 읽는 중 오류가 발생했습니다.")
+                    }
+                  }
+                  reader.readAsText(target)
+                }
+                input.click()
+              }}
+            >
+              <Upload className="mr-2 h-3.5 w-3.5" />
+              템플트 가져오기 (JSON)
+            </Button>
+          </div>
+        </Section>
+
         {/* 키보드 단축키 */}
         <Section title="키보드 단축키">
           <div className="space-y-0">
@@ -302,4 +395,14 @@ export function SettingsPanel({
       </div>
     </ScrollArea>
   )
+}
+
+function loadTemplates(): SavedTemplate[] {
+  try {
+    return JSON.parse(
+      localStorage.getItem(STORAGE_KEYS.savedTemplates) ?? "[]"
+    ) as SavedTemplate[]
+  } catch {
+    return []
+  }
 }

@@ -1,4 +1,4 @@
-import { FileCode2, Eye } from "lucide-react"
+import { Download, FileCode2, Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import CodeEditor from "@/components/CodeEditor"
@@ -18,6 +18,7 @@ interface CegTemplatePanelProps {
   onLoadTemplate: (template: SavedTemplate) => void
   onDeleteTemplate: (id: string) => void
   onUpdateTemplate: (() => void) | undefined
+  onDownloadSingle?: () => void
 }
 
 export function CegTemplatePanel({
@@ -32,6 +33,7 @@ export function CegTemplatePanel({
   onLoadTemplate,
   onDeleteTemplate,
   onUpdateTemplate,
+  onDownloadSingle,
 }: CegTemplatePanelProps) {
   const activeName = activeTemplateId
     ? savedTemplates.find((t) => t.id === activeTemplateId)?.name
@@ -66,6 +68,17 @@ export function CegTemplatePanel({
               title="미리보기"
             >
               <Eye className="h-4 w-4" />
+            </Button>
+          )}
+          {activeTemplateId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2.5 text-xs text-muted-foreground hover:bg-background/80 hover:text-foreground"
+              onClick={onDownloadSingle}
+              title="템플릿 다운로드"
+            >
+              <Download className="h-4 w-4" />
             </Button>
           )}
         </div>

@@ -197,7 +197,9 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
     .filter((j) => j.status === "done" && j.executionDurationMs != null)
     .map((j) => j.executionDurationMs!)
   const avgDuration = doneDurations.length
-    ? Math.round(doneDurations.reduce((a, b) => a + b, 0) / doneDurations.length)
+    ? Math.round(
+        doneDurations.reduce((a, b) => a + b, 0) / doneDurations.length
+      )
     : null
 
   const stats: StatItem[] = [
@@ -257,7 +259,12 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
 
     const filterPredicate = (j: JobView) => {
       const ts = j.createdAt * 1000
-      return ts >= cutoff.getTime() && (j.status === "done" || j.status === "error" || j.status === "cancelled")
+      return (
+        ts >= cutoff.getTime() &&
+        (j.status === "done" ||
+          j.status === "error" ||
+          j.status === "cancelled")
+      )
     }
 
     const filtered = jobs.filter(filterPredicate)
@@ -270,7 +277,12 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
       for (let h = 0; h < 24; h++) {
         const key = `${h}`
         buckets.set(key, {
-          pending: 0, queued: 0, running: 0, done: 0, error: 0, cancelled: 0,
+          pending: 0,
+          queued: 0,
+          running: 0,
+          done: 0,
+          error: 0,
+          cancelled: 0,
         })
       }
       for (const j of filtered) {
@@ -291,7 +303,12 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
       const label = format(new Date(j.createdAt * 1000), "MM/dd")
       if (!dailyMap.has(label)) {
         dailyMap.set(label, {
-          pending: 0, queued: 0, running: 0, done: 0, error: 0, cancelled: 0,
+          pending: 0,
+          queued: 0,
+          running: 0,
+          done: 0,
+          error: 0,
+          cancelled: 0,
         })
       }
       const bucket = dailyMap.get(label)!
@@ -305,7 +322,12 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
   // ── Pie chart data ─────────────────────────────────────────────────
   const pieData = useMemo(() => {
     const counts: Record<JobStatus, number> = {
-      pending: 0, queued: 0, running: 0, done: 0, error: 0, cancelled: 0,
+      pending: 0,
+      queued: 0,
+      running: 0,
+      done: 0,
+      error: 0,
+      cancelled: 0,
     }
     for (const j of jobs) {
       counts[j.status]++
@@ -376,7 +398,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
       </div>
 
       {/* Metric cards */}
-      <div className="flex overflow-hidden rounded-lg border border-line bg-panel shadow-sm group/stat">
+      <div className="group/stat flex overflow-hidden rounded-lg border border-line bg-panel shadow-sm">
         {stats.map((s) => (
           <MetricCard key={s.label} {...s} />
         ))}
@@ -388,15 +410,17 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
         <div className="md:col-span-2">
           <div className="rounded-lg border border-line bg-panel p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+              <h3 className="text-[11px] font-black tracking-widest text-muted-foreground uppercase">
                 완료/실패 작업 수 (시간별 / 일별)
               </h3>
               <div className="flex rounded-md bg-muted/50 p-0.5">
-                {([
-                  { id: "today" as const, label: "오늘" },
-                  { id: "week" as const, label: "7일" },
-                  { id: "all" as const, label: "전체" },
-                ] as const).map((r) => (
+                {(
+                  [
+                    { id: "today" as const, label: "오늘" },
+                    { id: "week" as const, label: "7일" },
+                    { id: "all" as const, label: "전체" },
+                  ] as const
+                ).map((r) => (
                   <button
                     key={r.id}
                     onClick={() => setChartRange(r.id)}
@@ -413,23 +437,50 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={barChartData} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+              <BarChart
+                data={barChartData}
+                margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+              >
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 10, fill: "currentColor", fontFamily: "Inter, sans-serif" }}
+                  tick={{
+                    fontSize: 10,
+                    fill: "currentColor",
+                    fontFamily: "Inter, sans-serif",
+                  }}
                   stroke="var(--line)"
                   height={24}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: "currentColor", fontFamily: "Inter, sans-serif" }}
+                  tick={{
+                    fontSize: 10,
+                    fill: "currentColor",
+                    fontFamily: "Inter, sans-serif",
+                  }}
                   stroke="var(--line)"
                   allowDecimals={false}
                   width={24}
                 />
                 <Tooltip content={<BarTooltip />} />
-                <Bar dataKey="done" stackId="stack" fill={STATUS_COLORS.done} radius={[0, 0, 0, 0]} name="완료" />
-                <Bar dataKey="error" stackId="stack" fill={STATUS_COLORS.error} name="실패" />
-                <Bar dataKey="cancelled" stackId="stack" fill={STATUS_COLORS.cancelled} name="취소" />
+                <Bar
+                  dataKey="done"
+                  stackId="stack"
+                  fill={STATUS_COLORS.done}
+                  radius={[0, 0, 0, 0]}
+                  name="완료"
+                />
+                <Bar
+                  dataKey="error"
+                  stackId="stack"
+                  fill={STATUS_COLORS.error}
+                  name="실패"
+                />
+                <Bar
+                  dataKey="cancelled"
+                  stackId="stack"
+                  fill={STATUS_COLORS.cancelled}
+                  name="취소"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -438,7 +489,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
         {/* Donut chart (1/3 width on desktop) */}
         <div>
           <div className="rounded-lg border border-line bg-panel p-4 shadow-sm">
-            <h3 className="mb-3 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+            <h3 className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground uppercase">
               상태 분포
             </h3>
             <ResponsiveContainer width="100%" height={200}>
@@ -463,8 +514,14 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
             {/* Legend */}
             <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">
               {pieData.map((d) => (
-                <div key={d.name} className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground">
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
+                <div
+                  key={d.name}
+                  className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground"
+                >
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: d.color }}
+                  />
                   {d.name} ({d.value})
                 </div>
               ))}
@@ -476,7 +533,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
       {/* Worker performance table */}
       <div className="rounded-lg border border-line bg-panel shadow-sm">
         <div className="border-b border-line px-4 py-3">
-          <h3 className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+          <h3 className="text-[11px] font-black tracking-widest text-muted-foreground uppercase">
             워커별 성능
           </h3>
         </div>
@@ -507,16 +564,28 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
                 </TableCell>
                 <TableCell className="text-center text-[10px]">
                   {!ws.alive ? (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-black text-muted-foreground">offline</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-black text-muted-foreground">
+                      offline
+                    </span>
                   ) : ws.busy ? (
-                    <span className="rounded bg-info-bg/30 px-1.5 py-0.5 text-[9px] font-black text-info">busy</span>
+                    <span className="rounded bg-info-bg/30 px-1.5 py-0.5 text-[9px] font-black text-info">
+                      busy
+                    </span>
                   ) : (
-                    <span className="rounded bg-ok-bg/30 px-1.5 py-0.5 text-[9px] font-black text-ok">idle</span>
+                    <span className="rounded bg-ok-bg/30 px-1.5 py-0.5 text-[9px] font-black text-ok">
+                      idle
+                    </span>
                   )}
                 </TableCell>
-                <TableCell className="text-center mono text-xs font-bold tabular-nums">{ws.total}</TableCell>
-                <TableCell className="text-center mono text-xs font-bold tabular-nums text-ok">{ws.done}</TableCell>
-                <TableCell className="text-center mono text-xs font-bold tabular-nums">{ws.avgDuration}</TableCell>
+                <TableCell className="mono text-center text-xs font-bold tabular-nums">
+                  {ws.total}
+                </TableCell>
+                <TableCell className="mono text-center text-xs font-bold text-ok tabular-nums">
+                  {ws.done}
+                </TableCell>
+                <TableCell className="mono text-center text-xs font-bold tabular-nums">
+                  {ws.avgDuration}
+                </TableCell>
                 <TableCell className="text-center">
                   {ws.successRate != null ? (
                     <span
@@ -532,7 +601,9 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
                       {ws.successRate}%
                     </span>
                   ) : (
-                    <span className="text-[10px] text-muted-foreground">N/A</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      N/A
+                    </span>
                   )}
                 </TableCell>
               </TableRow>

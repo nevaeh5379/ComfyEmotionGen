@@ -20,13 +20,16 @@ export const API = {
     root: "/saved-images",
     detail: (hash: string) => `/saved-images/${hash}`,
     tags: (hash: string) => `/saved-images/${hash}/tags`,
-    tag: (hash: string, tag: string) => `/saved-images/${hash}/tags/${encodeURIComponent(tag)}`,
+    tag: (hash: string, tag: string) =>
+      `/saved-images/${hash}/tags/${encodeURIComponent(tag)}`,
     restore: (hash: string) => `/saved-images/${hash}/restore`,
   },
   assetGroups: {
     root: "/asset-groups",
-    detail: (filename: string) => `/asset-groups/${encodeURIComponent(filename)}`,
-    regenerate: (filename: string) => `/asset-groups/${encodeURIComponent(filename)}/regenerate`,
+    detail: (filename: string) =>
+      `/asset-groups/${encodeURIComponent(filename)}`,
+    regenerate: (filename: string) =>
+      `/asset-groups/${encodeURIComponent(filename)}/regenerate`,
   },
   trash: {
     empty: "/trash/empty",

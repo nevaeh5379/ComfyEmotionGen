@@ -24,8 +24,14 @@ export function StatCard({
 }: StatCardProps) {
   // Determine dynamic highlight colors based on theme color tokens
   const themeStyles = (() => {
-    if (faded) return { bg: "", border: "", glow: "", iconColor: "text-muted-foreground/60" }
-    
+    if (faded)
+      return {
+        bg: "",
+        border: "",
+        glow: "",
+        iconColor: "text-muted-foreground/60",
+      }
+
     switch (color) {
       case "text-ok":
         return {
@@ -113,4 +119,3 @@ export function StatCard({
     </div>
   )
 }
-

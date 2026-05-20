@@ -640,7 +640,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             <SelectTrigger className="h-8 w-[92px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent position="popper" className="w-[110px] max-h-60 overflow-y-auto" align="start" sideOffset={4}>
+            <SelectContent
+              position="popper"
+              className="max-h-60 w-[110px] overflow-y-auto"
+              align="start"
+              sideOffset={4}
+            >
               <SelectItem value="all" className="text-[11px] font-bold">
                 <span className="flex items-center gap-1.5">
                   <List className="h-3.5 w-3.5" />
@@ -788,7 +793,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             <SelectTrigger className="h-8 w-[96px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
-            <SelectContent position="popper" className="w-[120px] max-h-60 overflow-y-auto" align="end" sideOffset={4}>
+            <SelectContent
+              position="popper"
+              className="max-h-60 w-[120px] overflow-y-auto"
+              align="end"
+              sideOffset={4}
+            >
               <SelectItem value="createdAt" className="text-[11px] font-bold">
                 최근 생성순
               </SelectItem>

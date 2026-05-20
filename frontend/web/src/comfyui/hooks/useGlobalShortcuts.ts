@@ -73,5 +73,12 @@ export function useGlobalShortcuts({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [activeTab, mobileJobTab, canRun, handleRun, handleSave, handleGalleryRefresh])
+  }, [
+    activeTab,
+    mobileJobTab,
+    canRun,
+    handleRun,
+    handleSave,
+    handleGalleryRefresh,
+  ])
 }

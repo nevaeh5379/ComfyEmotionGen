@@ -69,7 +69,9 @@ export function ImageViewer({
   const [lensZoom, setLensZoom] = useState(LENS_ZOOM)
   const [lensShape, setLensShape] = useState<"circle" | "square">("circle")
   const [showLensSettings, setShowLensSettings] = useState(false)
-  const [imgStatus, setImgStatus] = useState<"loading" | "loaded" | "error">("loading")
+  const [imgStatus, setImgStatus] = useState<"loading" | "loaded" | "error">(
+    "loading"
+  )
 
   const [winSize, setWinSize] = useState({
     w: window.innerWidth,
@@ -501,7 +503,7 @@ export function ImageViewer({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm pointer-events-auto"
+      className="pointer-events-auto fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm"
       onClick={() => {
         if (suppressCloseRef.current) {
           suppressCloseRef.current = false
@@ -578,7 +580,9 @@ export function ImageViewer({
                 ) : (
                   <>
                     <ImageOff className="h-10 w-10" />
-                    <span className="text-sm font-medium">이미지를 불러올 수 없습니다</span>
+                    <span className="text-sm font-medium">
+                      이미지를 불러올 수 없습니다
+                    </span>
                   </>
                 )}
               </div>
@@ -604,7 +608,8 @@ export function ImageViewer({
                 backgroundPosition: `${lensBgPos.x}px ${lensBgPos.y}px`,
                 backgroundSize: `${imgNatural.w * lensZoom}px ${imgNatural.h * lensZoom}px`,
                 backgroundRepeat: "no-repeat",
-                borderRadius: lensShape === "circle" ? "50%" : "var(--radius-sm)",
+                borderRadius:
+                  lensShape === "circle" ? "50%" : "var(--radius-sm)",
               }}
             />
           )}
@@ -668,7 +673,9 @@ export function ImageViewer({
                       }
                       className="h-1 w-20 accent-info"
                     />
-                    <label htmlFor="lens-size" className="sr-only">돋보기 크기</label>
+                    <label htmlFor="lens-size" className="sr-only">
+                      돋보기 크기
+                    </label>
                     <span className="w-6 text-right">{lensSize}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -685,7 +692,9 @@ export function ImageViewer({
                       }
                       className="h-1 w-20 accent-info"
                     />
-                    <label htmlFor="lens-zoom" className="sr-only">돋보기 확대 배율</label>
+                    <label htmlFor="lens-zoom" className="sr-only">
+                      돋보기 확대 배율
+                    </label>
                     <span className="w-6 text-right">{lensZoom}x</span>
                   </div>
                   <div className="flex items-center gap-2">

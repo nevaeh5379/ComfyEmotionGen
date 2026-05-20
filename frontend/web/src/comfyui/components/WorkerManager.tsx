@@ -52,7 +52,9 @@ export function WorkerManager({ backendUrl, workers }: Props) {
 
   const sendDelete = async (workerId: string, force: boolean) => {
     const qs = force ? "?force=true" : ""
-    return fetch(`${backendUrl}${API.workers.detail(workerId)}${qs}`, { method: "DELETE" })
+    return fetch(`${backendUrl}${API.workers.detail(workerId)}${qs}`, {
+      method: "DELETE",
+    })
   }
 
   const handleDelete = async (workerId: string) => {

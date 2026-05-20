@@ -457,7 +457,7 @@ export function CombinationPickerToolbar({
               withExpand(setStatusFilter, v as "all" | "done" | "pending")
             }
           >
-            <SelectTrigger className="h-9 w-full text-sm font-bold md:!h-7 md:!py-1 md:w-28 md:text-[10px]">
+            <SelectTrigger className="h-9 w-full text-sm font-bold md:!h-7 md:w-28 md:!py-1 md:text-[10px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

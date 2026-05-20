@@ -87,6 +87,21 @@ export function WorkCompositionPanel({
     [workflow]
   )
 
+  // ── Handle download active template as .ceg file ──
+  const handleDownloadTemplate = useCallback(() => {
+    const active = template.savedTemplates.find(
+      (t) => t.id === template.activeTemplateId
+    )
+    if (!active || !active.template.trim()) return
+    const blob = new Blob([active.template], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${active.name}.ceg`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [template])
+
   return (
     <>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -170,6 +185,7 @@ export function WorkCompositionPanel({
                     }
                   : undefined
               }
+              onDownloadSingle={handleDownloadTemplate}
             />
           </TabsContent>
 
