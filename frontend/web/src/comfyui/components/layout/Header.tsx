@@ -35,13 +35,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Tabs } from "@/components/ui/tabs"
 import { CompositionTabsList } from "../CompositionTabsList"
 import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
 import type { WorkerView, CurationStatus } from "../../types/Message"
 import { SessionPopover, type SessionMarker, type ActiveStateInfo } from "../JobManagerSections"
+import { TagInputSearch } from "../TagInputSearch"
+
 
 export const NAV_TABS = [
   { id: "jobs", label: "작업", icon: ClipboardList },
@@ -85,12 +86,11 @@ interface HeaderProps {
   galleryShowFilters: boolean
   setGalleryShowFilters: (v: boolean) => void
   galleryHasAnyFilter: boolean
-  galleryFilenameFilter: string
-  setGalleryFilenameFilter: (v: string) => void
-  galleryTagFilter: string
-  setGalleryTagFilter: (v: string) => void
-  galleryMetadataFilter: string
-  setGalleryMetadataFilter: (v: string) => void
+  gallerySearchTags: string[]
+  setGallerySearchTags: (tags: string[]) => void
+  gallerySearchInput: string
+  setGallerySearchInput: (v: string) => void
+  galleryCandidates: { value: string; type: "filename" | "tag" | "metadata" }[]
   galleryHideRejected: boolean
   setGalleryHideRejected: (v: boolean) => void
   setGalleryDuplicateStrategy: (v: "hash" | "number") => void
@@ -576,42 +576,39 @@ export function Header(props: HeaderProps) {
       {props.activeTab === "gallery" && props.galleryShowFilters && (
         <div className="border-t border-line/60 bg-panel/80 px-3 py-2 md:px-4 md:py-2.5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase">
+            <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase shrink-0">
                 검색
               </span>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:items-center">
-                <Input
-                  className="h-7 w-full text-xs"
-                  type="search"
-                  placeholder="파일명 필터"
-                  value={props.galleryFilenameFilter}
-                  onChange={(e) =>
-                    props.setGalleryFilenameFilter(e.target.value)
-                  }
-                />
-                <Input
-                  className="h-7 w-full text-xs"
-                  type="search"
-                  placeholder="태그 필터"
-                  value={props.galleryTagFilter}
-                  onChange={(e) => props.setGalleryTagFilter(e.target.value)}
-                />
-                <Input
-                  className="h-7 w-full text-xs"
-                  type="search"
-                  placeholder="메타데이터/prompt 검색"
-                  value={props.galleryMetadataFilter}
-                  onChange={(e) =>
-                    props.setGalleryMetadataFilter(e.target.value)
-                  }
+              <div className="flex-1 max-w-lg">
+                <TagInputSearch
+                  value={props.gallerySearchInput}
+                  tags={props.gallerySearchTags}
+                  candidates={props.galleryCandidates.filter((c) => {
+                    const valClean = props.gallerySearchInput.replace(/^[@#$]/, "").toLowerCase()
+                    return c.value.toLowerCase().includes(valClean)
+                  })}
+                  placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
+                  onValueChange={props.setGallerySearchInput}
+                  onAddTag={(tag) => {
+                    if (!props.gallerySearchTags.includes(tag)) {
+                      props.setGallerySearchTags([...props.gallerySearchTags, tag])
+                    }
+                    props.setGallerySearchInput("")
+                  }}
+                  onRemoveTag={(tag) => {
+                    props.setGallerySearchTags(
+                      props.gallerySearchTags.filter((t) => t !== tag)
+                    )
+                  }}
+                  size="sm"
                 />
               </div>
             </div>
 
-            <div className="hidden h-4 w-px bg-line md:block" />
+            <div className="hidden h-4 w-px bg-line md:block shrink-0" />
 
-            <div className="flex items-center justify-between border-t border-line/40 pt-2 md:border-0 md:pt-0">
+            <div className="flex items-center justify-between border-t border-line/40 pt-2 md:border-0 md:pt-0 shrink-0 gap-4">
               <div className="flex cursor-pointer items-center gap-2">
                 <Checkbox
                   id="gallery-hide-rejected"
@@ -633,9 +630,8 @@ export function Header(props: HeaderProps) {
                 size="sm"
                 className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
                 onClick={() => {
-                  props.setGalleryFilenameFilter("")
-                  props.setGalleryTagFilter("")
-                  props.setGalleryMetadataFilter("")
+                  props.setGallerySearchTags([])
+                  props.setGallerySearchInput("")
                   props.setGalleryHideRejected(false)
                 }}
               >

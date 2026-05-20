@@ -127,6 +127,11 @@ interface Props {
   imagePageSize?: 24 | 48 | 96
   imageLazyLoad?: boolean
   toolbarState?: GalleryToolbarState
+  filenameFilter?: string
+  tagFilter?: string
+  metadataFilter?: string
+  generalFilters?: string[]
+  onTokensExtracted?: (tokens: { value: string; type: "filename" | "tag" | "metadata" }[]) => void
 }
 
 const DEFAULT_PAGE_SIZE = 48
@@ -138,15 +143,20 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   imagePageSize = DEFAULT_PAGE_SIZE,
   imageLazyLoad = true,
   toolbarState,
+  filenameFilter,
+  tagFilter,
+  metadataFilter,
+  generalFilters,
+  onTokensExtracted,
 }: Props) {
   useRenderLog("SavedImagesGallery")
   const confirm = useConfirm()
   const [statusFilter, setStatusFilterState] = useState<CurationStatus | "all">(
     "pending"
   )
-  const [filenameFilter, setFilenameFilterState] = useState("")
-  const [tagFilter, setTagFilterState] = useState("")
-  const [metadataFilter, setMetadataFilterState] = useState("")
+  const [localFilenameFilter, setFilenameFilterState] = useState("")
+  const [localTagFilter, setTagFilterState] = useState("")
+  const [localMetadataFilter, setMetadataFilterState] = useState("")
   const [groupMode, setGroupModeState] = useState(false)
   const [selected, setSelected] = useState<SavedImage | null>(null)
   const [page, setPage] = useState(1)
@@ -195,6 +205,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [galleryViewMode, setGalleryViewMode] =
     useState<GalleryViewMode>("grid")
   const [showFilters, setShowFilters] = useState(false)
+
+  const effectiveFilenameFilter = filenameFilter !== undefined ? filenameFilter : localFilenameFilter
+  const effectiveTagFilter = tagFilter !== undefined ? tagFilter : localTagFilter
+  const effectiveMetadataFilter = metadataFilter !== undefined ? metadataFilter : localMetadataFilter
+  const effectiveGeneralFilters = generalFilters !== undefined ? generalFilters : []
 
   // When toolbarState is provided (from App.tsx nav bar), use those values
   const effectiveStatusFilter = toolbarState
@@ -256,34 +271,59 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
   const metadataFilteredImages = useMemo(() => {
-    if (!metadataFilter.trim()) return images
-    const lowerFilter = metadataFilter.toLowerCase().trim()
+    if (!effectiveMetadataFilter.trim()) return images
+    const lowerFilter = effectiveMetadataFilter.toLowerCase().trim()
     return images.filter((img) => {
       const prompt = img.prompt.toLowerCase()
       return prompt.includes(lowerFilter)
     })
-  }, [images, metadataFilter])
+  }, [images, effectiveMetadataFilter])
+
+  // 일반 검색어(OR) 필터링 추가
+  const finalFilteredImages = useMemo(() => {
+    if (effectiveGeneralFilters.length === 0) return metadataFilteredImages
+    return metadataFilteredImages.filter((img) => {
+      return effectiveGeneralFilters.every((term) => {
+        const lowerTerm = term.toLowerCase()
+        const inFilename = img.originalFilename ? img.originalFilename.toLowerCase().includes(lowerTerm) : false
+        const inTags = img.tags ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm)) : false
+        const inPrompt = img.prompt ? img.prompt.toLowerCase().includes(lowerTerm) : false
+        return inFilename || inTags || inPrompt
+      })
+    })
+  }, [metadataFilteredImages, effectiveGeneralFilters])
 
   // 리젝 숨기기 적용
   const visibleImages = useMemo(
     () =>
-      metadataFilteredImages.filter(
+      finalFilteredImages.filter(
         (img) => !effectiveHideRejected || img.status !== "rejected"
       ),
-    [metadataFilteredImages, effectiveHideRejected]
+    [finalFilteredImages, effectiveHideRejected]
   )
 
   // 그룹 모드: groups + groupImagesMap 기반 visible 데이터
   const visibleGroups = useMemo(() => {
     if (!effectiveGroupMode) return []
-    const lowerMeta = metadataFilter.trim().toLowerCase() || null
+    const lowerMeta = effectiveMetadataFilter.trim().toLowerCase() || null
     const result: { name: string; items: SavedImage[] }[] = []
     for (const g of groups) {
       let items = groupImagesMap.get(g.filename) ?? []
-      if (metadataFilter.trim() && lowerMeta) {
+      if (effectiveMetadataFilter.trim() && lowerMeta) {
         items = items.filter((img) =>
           img.prompt.toLowerCase().includes(lowerMeta)
         )
+      }
+      if (effectiveGeneralFilters.length > 0) {
+        items = items.filter((img) => {
+          return effectiveGeneralFilters.every((term) => {
+            const lowerTerm = term.toLowerCase()
+            const inFilename = img.originalFilename ? img.originalFilename.toLowerCase().includes(lowerTerm) : false
+            const inTags = img.tags ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm)) : false
+            const inPrompt = img.prompt ? img.prompt.toLowerCase().includes(lowerTerm) : false
+            return inFilename || inTags || inPrompt
+          })
+        })
       }
       if (effectiveHideRejected) {
         items = items.filter((img) => img.status !== "rejected")
@@ -297,9 +337,51 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     effectiveGroupMode,
     groups,
     groupImagesMap,
-    metadataFilter,
+    effectiveMetadataFilter,
+    effectiveGeneralFilters,
     effectiveHideRejected,
   ])
+
+  // 갤러리 이미지 토큰 실시간 추출 후 상위 컴포넌트 전달
+  useEffect(() => {
+    if (!onTokensExtracted || images.length === 0) return
+
+    const tokenMap = new Map<string, "filename" | "tag" | "metadata">()
+
+    images.forEach((img) => {
+      // 1. 파일명 추가
+      if (img.originalFilename) {
+        tokenMap.set(img.originalFilename, "filename")
+      }
+
+      // 2. 태그 추가
+      if (img.tags && Array.isArray(img.tags)) {
+        img.tags.forEach((tag) => {
+          if (tag.trim()) tokenMap.set(tag.trim(), "tag")
+        })
+      }
+
+      // 3. 프롬프트 단어들 추가 (특수문자 제외)
+      if (img.prompt) {
+        const words = img.prompt
+          .replace(/[\(\):,\.\-\_\"\'\+\*\?\/\|\{\}\[\]]/g, " ")
+          .split(/\s+/)
+        words.forEach((word) => {
+          const cleaned = word.trim()
+          if (cleaned.length >= 3) {
+            tokenMap.set(cleaned, "metadata")
+          }
+        })
+      }
+    })
+
+    const extracted = Array.from(tokenMap.entries()).map(([value, type]) => ({
+      value,
+      type,
+    }))
+
+    onTokensExtracted(extracted.slice(0, 150))
+  }, [images, onTokensExtracted])
 
   const setStatus = async (hash: string, status: CurationStatus) => {
     try {
@@ -442,12 +524,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const hasAnyFilter = useMemo(
     () =>
       !!(
-        filenameFilter.trim() ||
-        tagFilter.trim() ||
-        metadataFilter.trim() ||
+        effectiveFilenameFilter.trim() ||
+        effectiveTagFilter.trim() ||
+        effectiveMetadataFilter.trim() ||
         effectiveHideRejected
       ),
-    [filenameFilter, tagFilter, metadataFilter, effectiveHideRejected]
+    [effectiveFilenameFilter, effectiveTagFilter, effectiveMetadataFilter, effectiveHideRejected]
   )
 
   return (

@@ -1,7 +1,18 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { format } from "date-fns"
-import { X, Calendar, ArrowUp, ArrowDown, ChevronDown, Filter, Search, Tag } from "lucide-react"
+import {
+  X,
+  Calendar,
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
+  Filter,
+  List,
+  Activity,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 
@@ -26,7 +37,12 @@ import { useRenderLog } from "@/lib/renderLogger"
 import { cn } from "@/lib/utils"
 import { useConfirm } from "../contexts/ConfirmContext"
 import { API, HEADERS } from "@/lib/api"
-import { JOB_PAGE_SIZE, TICK_INTERVAL_MS, MS_PER_SECOND, SECONDS_PER_HOUR } from "@/lib/constants"
+import {
+  JOB_PAGE_SIZE,
+  TICK_INTERVAL_MS,
+  MS_PER_SECOND,
+  SECONDS_PER_HOUR,
+} from "@/lib/constants"
 import { toast } from "sonner"
 
 // Extracted components
@@ -36,12 +52,10 @@ import {
   JobTableSection,
 } from "./JobManagerSections"
 import { JobDetailSheet } from "./JobDetailSheet"
+import { TagInputSearch } from "./TagInputSearch"
 
 // Session utilities (extracted to sessionUtils.ts)
-export type {
-  SessionMarkerRaw,
-  ActiveStateRaw,
-} from "../utils/sessionUtils"
+export type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
 export {
   loadMarkers,
   saveMarkers,
@@ -93,207 +107,6 @@ function dateToEpochEnd(s: string): number {
 }
 
 // ── tag input with autocomplete ──────────────────────────────────────
-
-interface TagInputSearchProps {
-  value: string
-  tags: string[]
-  candidates: { value: string; type: "filename" | "prompt" | "error" }[]
-  ref?: React.RefObject<HTMLInputElement>
-  placeholder: string
-  onValueChange: (v: string) => void
-  onAddTag: (tag: string) => void
-  onRemoveTag: (tag: string) => void
-  size?: "sm" | "md"
-}
-
-export const TagInputSearch = memo(function TagInputSearch({
-  value,
-  tags,
-  candidates,
-  ref: refProp,
-  placeholder,
-  onValueChange,
-  onAddTag,
-  onRemoveTag,
-  size = "sm",
-}: TagInputSearchProps) {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // Reset active index when candidates list changes
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [candidates])
-
-  // Open dropdown when value exists and candidates exist
-  useEffect(() => {
-    if (value && candidates.length > 0) {
-      setIsOpen(true)
-    } else {
-      setIsOpen(false)
-    }
-  }, [value, candidates])
-
-  // Handle click outside to close the dropdown
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [])
-
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        if (isOpen && candidates.length > 0 && activeIndex >= 0 && activeIndex < candidates.length) {
-          const cand = candidates[activeIndex]!
-          const prefix = cand.type === "filename" ? "@" : cand.type === "prompt" ? "#" : "$"
-          onAddTag(prefix + cand.value)
-          setIsOpen(false)
-        } else {
-          const trimmed = value.trim()
-          if (trimmed) {
-            onAddTag(trimmed)
-            setIsOpen(false)
-          }
-        }
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault()
-        if (!isOpen) {
-          setIsOpen(true)
-        } else {
-          setActiveIndex((prev) => (candidates.length > 0 ? (prev + 1) % candidates.length : 0))
-        }
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        if (!isOpen) {
-          setIsOpen(true)
-        } else {
-          setActiveIndex((prev) => (candidates.length > 0 ? (prev - 1 + candidates.length) % candidates.length : 0))
-        }
-      } else if (e.key === "Escape") {
-        e.preventDefault()
-        setIsOpen(false)
-      } else if (e.key === "Backspace" && !value && tags.length > 0) {
-        onRemoveTag(tags[tags.length - 1]!)
-      }
-    },
-    [candidates, tags, value, activeIndex, isOpen, onAddTag, onRemoveTag]
-  )
-
-  // Highlight matching characters by making them bold
-  const renderHighlight = (text: string, query: string) => {
-    const cleanQuery = query.replace(/^[@#$]/, "").toLowerCase()
-    if (!cleanQuery) return <span>{text}</span>
-    const index = text.toLowerCase().indexOf(cleanQuery)
-    if (index === -1) return <span>{text}</span>
-
-    const before = text.substring(0, index)
-    const match = text.substring(index, index + cleanQuery.length)
-    const after = text.substring(index + cleanQuery.length)
-
-    return (
-      <span>
-        {before}
-        <strong className="font-semibold text-primary">{match}</strong>
-        {after}
-      </span>
-    )
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "relative flex flex-wrap items-center gap-1.5 p-1.5 border border-line rounded-md bg-background min-h-[34px] transition-all",
-        size === "sm" ? "px-2 py-1" : "px-3 py-1.5"
-      )}
-    >
-      {/* Icon Prefix */}
-      <Search className="h-3.5 w-3.5 text-muted-foreground/45 shrink-0" />
-
-      {/* Render Tags */}
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="inline-flex items-center gap-1 rounded bg-primary/5 text-primary border border-primary/10 px-1.5 py-0.5 text-[10px] font-medium transition-all hover:bg-primary/10"
-        >
-          {tag}
-          <button
-            type="button"
-            onClick={() => onRemoveTag(tag)}
-            className="inline-flex items-center justify-center rounded p-0.5 hover:bg-primary/20 text-primary/70 hover:text-primary transition-colors"
-          >
-            <X className="h-2.5 w-2.5" />
-          </button>
-        </span>
-      ))}
-
-      {/* Text Input */}
-      <input
-        ref={refProp}
-        type="text"
-        value={value}
-        onFocus={() => {
-          if (value && candidates.length > 0) setIsOpen(true)
-        }}
-        onChange={(e) => {
-          onValueChange(e.target.value)
-        }}
-        onKeyDown={onKeyDown}
-        placeholder={tags.length === 0 ? placeholder : ""}
-        className={cn(
-          "flex-1 min-w-[80px] bg-transparent outline-none border-none p-0 focus:ring-0 placeholder:text-muted-foreground/40",
-          size === "sm" ? "text-[11px] h-6" : "text-xs h-7"
-        )}
-      />
-
-      {/* Candidates Dropdown */}
-      {isOpen && candidates.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-line bg-popover shadow-md py-1 animate-in fade-in slide-in-from-top-1 duration-100">
-          {candidates.map((cand, idx) => (
-            <button
-              key={cand.value}
-              type="button"
-              onMouseEnter={() => setActiveIndex(idx)}
-              onClick={() => {
-                const prefix = cand.type === "filename" ? "@" : cand.type === "prompt" ? "#" : "$"
-                onAddTag(prefix + cand.value)
-                setIsOpen(false)
-              }}
-              className={cn(
-                "flex w-full items-center justify-between px-3 py-1.5 text-[11px] text-left transition-colors",
-                idx === activeIndex ? "bg-muted text-primary" : "text-muted-foreground hover:bg-muted/50"
-              )}
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Tag className="h-3 w-3 text-muted-foreground/35 shrink-0" />
-                <span className="truncate">{renderHighlight(cand.value, value)}</span>
-              </div>
-              <span
-                className={cn(
-                  "px-1 py-0.5 rounded text-[8px] font-medium tracking-wide shrink-0 border",
-                  cand.type === "filename" && "bg-info/5 border-info/20 text-info",
-                  cand.type === "prompt" && "bg-ok/5 border-ok/20 text-ok",
-                  cand.type === "error" && "bg-bad/5 border-bad/20 text-bad"
-                )}
-              >
-                {cand.type === "filename" ? "파일명" : cand.type === "prompt" ? "프롬프트" : "에러"}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-})
 
 // ── main component ────────────────────────────────────────────────────
 
@@ -419,7 +232,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       if (!str) return []
       return str
         .split(/[\s_\-.,()]+/g)
-        .map((t) => t.trim().toLowerCase().replace(/^[^\w가-힣]+|[^\w가-힣]+$/g, ""))
+        .map((t) =>
+          t
+            .trim()
+            .toLowerCase()
+            .replace(/^[^\w가-힣]+|[^\w가-힣]+$/g, "")
+        )
         .filter((t) => t.length >= 2)
     }
 
@@ -458,8 +276,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           const filename = j.filename.toLowerCase()
           const prompt = (j.prompt ?? "").toLowerCase()
           const error = (j.error ?? "").toLowerCase()
-          const meta = j.meta ? Object.values(j.meta).join(" ").toLowerCase() : ""
-          return filename.includes(lowerTag) || prompt.includes(lowerTag) || error.includes(lowerTag) || meta.includes(lowerTag)
+          const meta = j.meta
+            ? Object.values(j.meta).join(" ").toLowerCase()
+            : ""
+          return (
+            filename.includes(lowerTag) ||
+            prompt.includes(lowerTag) ||
+            error.includes(lowerTag) ||
+            meta.includes(lowerTag)
+          )
         }
       })
     })
@@ -484,30 +309,60 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
 
     // 1. Filenames matching query
-    const matchedFilenames = (filterType === "all" || filterType === "filename")
-      ? [...cachedTokens.filenames]
-          .filter((t) => query === "" ? !searchTags.includes(`@${t}`) : (t.includes(query) && t !== query && !searchTags.includes(`@${t}`) && !searchTags.includes(t)))
-          .slice(0, 5)
-          .map((t) => ({ value: t, type: "filename" as const }))
-      : []
+    const matchedFilenames =
+      filterType === "all" || filterType === "filename"
+        ? [...cachedTokens.filenames]
+            .filter((t) =>
+              query === ""
+                ? !searchTags.includes(`@${t}`)
+                : t.includes(query) &&
+                  t !== query &&
+                  !searchTags.includes(`@${t}`) &&
+                  !searchTags.includes(t)
+            )
+            .slice(0, 5)
+            .map((t) => ({ value: t, type: "filename" as const }))
+        : []
 
     // 2. Prompts matching query (and not already in filenames)
-    const matchedPrompts = (filterType === "all" || filterType === "prompt")
-      ? [...cachedTokens.prompts]
-          .filter((t) => query === "" ? !searchTags.includes(`#${t}`) : (t.includes(query) && t !== query && !searchTags.includes(`#${t}`) && !searchTags.includes(t) && !matchedFilenames.some((f) => f.value === t)))
-          .slice(0, 5)
-          .map((t) => ({ value: t, type: "prompt" as const }))
-      : []
+    const matchedPrompts =
+      filterType === "all" || filterType === "prompt"
+        ? [...cachedTokens.prompts]
+            .filter((t) =>
+              query === ""
+                ? !searchTags.includes(`#${t}`)
+                : t.includes(query) &&
+                  t !== query &&
+                  !searchTags.includes(`#${t}`) &&
+                  !searchTags.includes(t) &&
+                  !matchedFilenames.some((f) => f.value === t)
+            )
+            .slice(0, 5)
+            .map((t) => ({ value: t, type: "prompt" as const }))
+        : []
 
     // 3. Errors matching query
-    const matchedErrors = (filterType === "all" || filterType === "error")
-      ? [...cachedTokens.errors]
-          .filter((t) => query === "" ? !searchTags.includes(`$${t}`) : (t.includes(query) && t !== query && !searchTags.includes(`$${t}`) && !searchTags.includes(t) && !matchedFilenames.some((f) => f.value === t) && !matchedPrompts.some((p) => p.value === t)))
-          .slice(0, 3)
-          .map((t) => ({ value: t, type: "error" as const }))
-      : []
+    const matchedErrors =
+      filterType === "all" || filterType === "error"
+        ? [...cachedTokens.errors]
+            .filter((t) =>
+              query === ""
+                ? !searchTags.includes(`$${t}`)
+                : t.includes(query) &&
+                  t !== query &&
+                  !searchTags.includes(`$${t}`) &&
+                  !searchTags.includes(t) &&
+                  !matchedFilenames.some((f) => f.value === t) &&
+                  !matchedPrompts.some((p) => p.value === t)
+            )
+            .slice(0, 3)
+            .map((t) => ({ value: t, type: "error" as const }))
+        : []
 
-    return [...matchedFilenames, ...matchedPrompts, ...matchedErrors].slice(0, 6)
+    return [...matchedFilenames, ...matchedPrompts, ...matchedErrors].slice(
+      0,
+      6
+    )
   }, [tagInput, cachedTokens, searchTags])
 
   const sortedJobs = useMemo(() => {
@@ -563,8 +418,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     return () => clearInterval(id)
   }, [runningJobs])
 
-
-
   // ── api ─────────────────────────────────────────────────────────────
 
   const toggleSort = (key: SortKey) => {
@@ -578,13 +431,13 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const handleCancel = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
-      await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, { method: "DELETE" })
+      await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, {
+        method: "DELETE",
+      })
     } catch {
       toast.error("작업 취소 요청에 실패했습니다.")
     }
   }
-
-
 
   const handleRetry = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
@@ -594,8 +447,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       toast.error("작업 재시도 요청에 실패했습니다.")
     }
   }
-
-
 
   const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
@@ -618,8 +469,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       toast.error("작업 삭제 요청에 실패했습니다.")
     }
   }
-
-
 
   const handleDeleteSelected = async () => {
     if (selectedForDelete.size === 0) return
@@ -676,7 +525,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     setTagInput("")
   }
 
- const clearAllFilters = () => {
+  const clearAllFilters = () => {
     setSearchTags([])
     setTagInput("")
     setDateFromState("")
@@ -740,7 +589,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         break
       }
       case "24h": {
-        const d = new Date(now.getTime() - 24 * SECONDS_PER_HOUR * MS_PER_SECOND)
+        const d = new Date(
+          now.getTime() - 24 * SECONDS_PER_HOUR * MS_PER_SECOND
+        )
         setDateFrom(d.toISOString().slice(0, 10))
         break
       }
@@ -749,21 +600,20 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
-
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
       <ScrollArea
         className={cn(
           "shrink-0 border-b border-line bg-panel",
           mobileTab === "status"
-            ? "flex-1 max-h-none h-full"
-            : "max-h-[85dvh] hidden md:block"
+            ? "h-full max-h-none flex-1"
+            : "hidden max-h-[85dvh] md:block"
         )}
       >
-        <div className={cn(mobileTab === "status" ? "p-3 space-y-5" : "")}>
+        <div className={cn(mobileTab === "status" ? "space-y-5 p-3" : "")}>
           <JobStatBar counts={counts} sessionJobs={sessionJobs} />
           {mobileTab === "status" && (
-            <div className="mt-4 px-1 space-y-3">
-              <h3 className="text-xs font-black tracking-widest text-muted-foreground uppercase pb-1.5 border-b">
+            <div className="mt-4 space-y-3 px-1">
+              <h3 className="border-b pb-1.5 text-xs font-black tracking-widest text-muted-foreground uppercase">
                 실행 중인 작업
               </h3>
               <RunningJobsBanner jobs={runningJobs} />
@@ -781,24 +631,48 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         )}
       >
         {/* Unified 1-Line Toolbar (Mobile viewport) */}
-        <div className="flex md:hidden shrink-0 items-center justify-between border-b bg-muted/10 px-2.5 py-1.5 gap-1">
+        <div className="flex shrink-0 items-center justify-between gap-1 border-b bg-muted/10 px-2.5 py-1.5 md:hidden">
           {/* 1. Status Filter Select */}
-          <Select value={filterTab} onValueChange={(v) => setFilterTab(v as FilterTab)}>
-            <SelectTrigger className="h-8 w-[92px] border-line bg-background text-[11px] font-black px-1.5 shadow-none focus:ring-0">
+          <Select
+            value={filterTab}
+            onValueChange={(v) => setFilterTab(v as FilterTab)}
+          >
+            <SelectTrigger className="h-8 w-[92px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-[11px] font-bold">
-                전체 ({sessionJobs.length})
+                <span className="flex items-center gap-1.5">
+                  <List className="h-3.5 w-3.5" />
+                  전체 ({sessionJobs.length})
+                </span>
               </SelectItem>
-              <SelectItem value="active" className="text-[11px] font-bold text-info">
-                활성 ({counts.active})
+              <SelectItem
+                value="active"
+                className="text-[11px] font-bold text-info"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5" />
+                  활성 ({counts.active})
+                </span>
               </SelectItem>
-              <SelectItem value="done" className="text-[11px] font-bold text-ok">
-                완료 ({counts.done})
+              <SelectItem
+                value="done"
+                className="text-[11px] font-bold text-ok"
+              >
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  완료 ({counts.done})
+                </span>
               </SelectItem>
-              <SelectItem value="failed" className="text-[11px] font-bold text-bad">
-                실패 ({counts.error + counts.cancelled})
+              <SelectItem
+                value="failed"
+                className="text-[11px] font-bold text-bad"
+              >
+                <span className="flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  실패 ({counts.error + counts.cancelled})
+                </span>
               </SelectItem>
             </SelectContent>
           </Select>
@@ -810,22 +684,30 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-8 w-[82px] px-1.5 text-[11px] font-black border-line bg-background shadow-none flex items-center justify-between gap-1",
-                  hasDateFilter && "border-ok/30 text-ok bg-ok/5"
+                  "flex h-8 w-[82px] items-center justify-between gap-1 border-line bg-background px-1.5 text-[11px] font-black shadow-none",
+                  hasDateFilter && "border-ok/30 bg-ok/5 text-ok"
                 )}
               >
-                <div className="flex items-center gap-1 min-w-0">
-                  <Calendar className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground", hasDateFilter && "text-ok")} />
+                <div className="flex min-w-0 items-center gap-1">
+                  <Calendar
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 text-muted-foreground",
+                      hasDateFilter && "text-ok"
+                    )}
+                  />
                   <span className="truncate">기간</span>
                 </div>
                 {hasDateFilter ? (
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok animate-pulse" />
+                  <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-ok" />
                 ) : (
                   <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-3 border border-line bg-popover/90 backdrop-blur-md rounded-xl shadow-2xl" align="center">
+            <PopoverContent
+              className="w-64 rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md"
+              align="center"
+            >
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b pb-1.5">
                   <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
@@ -835,7 +717,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 px-1.5 text-[10px] font-bold text-bad hover:bg-bad/10 rounded"
+                      className="h-5 rounded px-1.5 text-[10px] font-bold text-bad hover:bg-bad/10"
                       onClick={() => {
                         setDateFrom("")
                         setDateTo("")
@@ -847,24 +729,32 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <DatePicker
-                    value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
-                    onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
+                    value={
+                      dateFrom ? new Date(dateFrom + "T12:00:00") : undefined
+                    }
+                    onChange={(d) =>
+                      setDateFrom(d ? format(d, "yyyy-MM-dd") : "")
+                    }
                     placeholder="시작일"
-                    className="h-8 flex-1 border-line/50 text-[11px] shadow-none bg-background"
+                    className="h-8 flex-1 border-line/50 bg-background text-[11px] shadow-none"
                   />
-                  <span className="text-[10px] text-muted-foreground opacity-30">~</span>
+                  <span className="text-[10px] text-muted-foreground opacity-30">
+                    ~
+                  </span>
                   <DatePicker
                     value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
-                    onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
+                    onChange={(d) =>
+                      setDateTo(d ? format(d, "yyyy-MM-dd") : "")
+                    }
                     placeholder="종료일"
-                    className="h-8 flex-1 border-line/50 text-[11px] shadow-none bg-background"
+                    className="h-8 flex-1 border-line/50 bg-background text-[11px] shadow-none"
                   />
                 </div>
-                <div className="flex items-center gap-1 justify-end pt-1">
+                <div className="flex items-center justify-end gap-1 pt-1">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 flex-1 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                    className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
                     onClick={() => setQuickDate("1h")}
                   >
                     1h
@@ -872,7 +762,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 flex-1 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                    className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
                     onClick={() => setQuickDate("today")}
                   >
                     오늘
@@ -880,7 +770,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 flex-1 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                    className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
                     onClick={() => setQuickDate("24h")}
                   >
                     24h
@@ -891,15 +781,26 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           </Popover>
 
           {/* 3. Sort Key Select */}
-          <Select value={sortKey} onValueChange={(k) => toggleSort(k as SortKey)}>
-            <SelectTrigger className="h-8 w-[96px] border-line bg-background text-[11px] font-black px-1.5 shadow-none focus:ring-0">
+          <Select
+            value={sortKey}
+            onValueChange={(k) => toggleSort(k as SortKey)}
+          >
+            <SelectTrigger className="h-8 w-[96px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="createdAt" className="text-[11px] font-bold">최근 생성순</SelectItem>
-              <SelectItem value="filename" className="text-[11px] font-bold">파일명순</SelectItem>
-              <SelectItem value="status" className="text-[11px] font-bold">상태순</SelectItem>
-              <SelectItem value="duration" className="text-[11px] font-bold">소요시간순</SelectItem>
+              <SelectItem value="createdAt" className="text-[11px] font-bold">
+                최근 생성순
+              </SelectItem>
+              <SelectItem value="filename" className="text-[11px] font-bold">
+                파일명순
+              </SelectItem>
+              <SelectItem value="status" className="text-[11px] font-bold">
+                상태순
+              </SelectItem>
+              <SelectItem value="duration" className="text-[11px] font-bold">
+                소요시간순
+              </SelectItem>
             </SelectContent>
           </Select>
 
@@ -908,7 +809,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             size="sm"
             variant="outline"
             onClick={() => toggleSort(sortKey)}
-            className="h-8 w-8 p-0 border-line bg-background shadow-none hover:bg-muted shrink-0"
+            className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
           >
             {sortDir === "asc" ? (
               <ArrowUp className="h-3.5 w-3.5 text-foreground" />
@@ -923,7 +824,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <Button
                 variant="outline"
                 size="sm"
-                className="relative h-8 w-8 p-0 border-line bg-background shadow-none shrink-0"
+                className="relative h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none"
               >
                 <Filter className="h-3.5 w-3.5" />
                 {hasAnyFilter && (
@@ -934,7 +835,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 p-3 border border-line bg-popover/90 backdrop-blur-md rounded-xl shadow-2xl" align="end">
+            <PopoverContent
+              className="w-72 rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md"
+              align="end"
+            >
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b pb-1.5">
                   <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
@@ -944,7 +848,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 px-1.5 text-[10px] font-bold text-bad hover:bg-bad/10 rounded"
+                      className="h-5 rounded px-1.5 text-[10px] font-bold text-bad hover:bg-bad/10"
                       onClick={clearAllFilters}
                     >
                       필터 초기화
@@ -960,7 +864,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   size="sm"
                   onValueChange={setTagInput}
                   onAddTag={addSearchTag}
-                  onRemoveTag={(tag) => setSearchTags((prev) => prev.filter((t) => t !== tag))}
+                  onRemoveTag={(tag) =>
+                    setSearchTags((prev) => prev.filter((t) => t !== tag))
+                  }
                 />
               </div>
             </PopoverContent>
@@ -968,56 +874,88 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         </div>
 
         {/* Unified 1-Line Toolbar (Desktop viewport) */}
-        <div className="hidden md:flex shrink-0 items-center justify-between border-b bg-muted/10 px-4 py-2 gap-3">
-          <Tabs value={filterTab} onValueChange={(v) => setFilterTab(v as FilterTab)} className="shrink-0">
-            <TabsList className="h-8 bg-muted/50 p-1 gap-1">
-              <TabsTrigger value="all" className="h-6 px-3 text-[11px] font-bold">
-                전체 <span className="mono ml-1 opacity-50">{sessionJobs.length}</span>
+        <div className="hidden shrink-0 items-center justify-between gap-3 border-b bg-muted/10 px-4 py-2 md:flex">
+          <Tabs
+            value={filterTab}
+            onValueChange={(v) => setFilterTab(v as FilterTab)}
+            className="shrink-0"
+          >
+            <TabsList className="h-8 gap-1 bg-muted/50 p-1">
+              <TabsTrigger
+                value="all"
+                className="h-6 px-3 text-[11px] font-bold"
+              >
+                <List className="mr-1 h-3.5 w-3.5" />
+                전체{" "}
+                <span className="mono ml-1 opacity-50">
+                  {sessionJobs.length}
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="active" className="h-6 px-3 text-[11px] font-bold text-info">
-                활성 <span className="mono ml-1 opacity-50">{counts.active}</span>
+              <TabsTrigger
+                value="active"
+                className="h-6 px-3 text-[11px] font-bold text-info"
+              >
+                <Activity className="mr-1 h-3.5 w-3.5" />
+                활성{" "}
+                <span className="mono ml-1 opacity-50">{counts.active}</span>
               </TabsTrigger>
-              <TabsTrigger value="done" className="h-6 px-3 text-[11px] font-bold text-ok">
+              <TabsTrigger
+                value="done"
+                className="h-6 px-3 text-[11px] font-bold text-ok"
+              >
+                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                 완료 <span className="mono ml-1 opacity-50">{counts.done}</span>
               </TabsTrigger>
-              <TabsTrigger value="failed" className="h-6 px-3 text-[11px] font-bold text-bad">
-                실패 <span className="mono ml-1 opacity-50">{counts.error + counts.cancelled}</span>
+              <TabsTrigger
+                value="failed"
+                className="h-6 px-3 text-[11px] font-bold text-bad"
+              >
+                <AlertCircle className="mr-1 h-3.5 w-3.5" />
+                실패{" "}
+                <span className="mono ml-1 opacity-50">
+                  {counts.error + counts.cancelled}
+                </span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="ml-auto flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <DatePicker
                 value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
                 onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
                 placeholder="시작"
-                className="h-8 w-24 border-line/50 text-[11px] shadow-none bg-background"
+                className="h-8 w-24 border-line/50 bg-background text-[11px] shadow-none"
               />
-              <span className="text-[10px] text-muted-foreground opacity-30">~</span>
+              <span className="text-[10px] text-muted-foreground opacity-30">
+                ~
+              </span>
               <DatePicker
                 value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
                 onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
                 placeholder="종료"
-                className="h-8 w-24 border-line/50 text-[11px] shadow-none bg-background"
+                className="h-8 w-24 border-line/50 bg-background text-[11px] shadow-none"
               />
               {hasDateFilter && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted"
-                  onClick={() => { setDateFrom(""); setDateTo("") }}
+                  onClick={() => {
+                    setDateFrom("")
+                    setDateTo("")
+                  }}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               )}
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-1">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
                 onClick={() => setQuickDate("1h")}
               >
                 1h
@@ -1025,7 +963,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
                 onClick={() => setQuickDate("today")}
               >
                 오늘
@@ -1033,7 +971,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
                 onClick={() => setQuickDate("24h")}
               >
                 24h
@@ -1044,7 +982,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               size="sm"
               variant={showFilters ? "secondary" : "outline"}
               onClick={() => setShowFilters(!showFilters)}
-              className="relative hidden md:inline-flex h-8 w-8 p-0 border-line bg-background shadow-none shrink-0"
+              className="relative hidden h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none md:inline-flex"
             >
               <Filter className="h-3.5 w-3.5" />
               {hasAnyFilter && (
@@ -1059,7 +997,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
         {/* Desktop filter panel */}
         {showFilters && (
-          <div className="hidden md:flex animate-in fade-in slide-in-from-top-1 duration-200 shrink-0 items-start gap-3 border-b bg-muted/10 px-4 py-2">
+          <div className="hidden shrink-0 animate-in items-start gap-3 border-b bg-muted/10 px-4 py-2 duration-200 fade-in slide-in-from-top-1 md:flex">
             <TagInputSearch
               value={tagInput}
               tags={searchTags}
@@ -1068,13 +1006,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               size="md"
               onValueChange={setTagInput}
               onAddTag={addSearchTag}
-              onRemoveTag={(tag) => setSearchTags((prev) => prev.filter((t) => t !== tag))}
+              onRemoveTag={(tag) =>
+                setSearchTags((prev) => prev.filter((t) => t !== tag))
+              }
             />
             {hasAnyFilter && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs font-bold text-muted-foreground hover:bg-muted shrink-0"
+                className="h-7 shrink-0 px-2 text-xs font-bold text-muted-foreground hover:bg-muted"
                 onClick={clearAllFilters}
               >
                 <X className="mr-1 h-3 w-3" />
@@ -1127,7 +1067,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           pagedJobs={pagedJobs}
           totalPages={totalPages}
           page={page}
-          onPageChange={(p) => { setPage(p); setSelectedForDelete(new Set()) }}
+          onPageChange={(p) => {
+            setPage(p)
+            setSelectedForDelete(new Set())
+          }}
           selectedForDelete={selectedForDelete}
           onToggleSelect={toggleSelectForDelete}
           backendUrl={backendUrl}

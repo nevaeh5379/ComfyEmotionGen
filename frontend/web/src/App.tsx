@@ -371,17 +371,44 @@ function AppContent(props: AppContentProps) {
   const [galleryGroupMode, setGalleryGroupMode] = useState(false)
   const [galleryShowFilters, setGalleryShowFilters] = useState(false)
   const [galleryHideRejected, setGalleryHideRejected] = useState(false)
-  const [galleryFilenameFilter, setGalleryFilenameFilter] = useState("")
-  const [galleryTagFilter, setGalleryTagFilter] = useState("")
-  const [galleryMetadataFilter, setGalleryMetadataFilter] = useState("")
+  const [gallerySearchTags, setGallerySearchTags] = useState<string[]>([])
+  const [gallerySearchInput, setGallerySearchInput] = useState("")
+  const [galleryCandidates, setGalleryCandidates] = useState<
+    { value: string; type: "filename" | "tag" | "metadata" }[]
+  >([])
   const [_galleryDuplicateStrategy, setGalleryDuplicateStrategy] = useState<
     "hash" | "number"
   >("hash")
 
+  const galleryFilenameFilter = useMemo(() => {
+    return gallerySearchTags
+      .filter((t) => t.startsWith("@"))
+      .map((t) => t.slice(1))
+      .join(" ")
+  }, [gallerySearchTags])
+
+  const galleryTagFilter = useMemo(() => {
+    return gallerySearchTags
+      .filter((t) => t.startsWith("#"))
+      .map((t) => t.slice(1))
+      .join(" ")
+  }, [gallerySearchTags])
+
+  const galleryMetadataFilter = useMemo(() => {
+    return gallerySearchTags
+      .filter((t) => t.startsWith("$"))
+      .map((t) => t.slice(1))
+      .join(" ")
+  }, [gallerySearchTags])
+
+  const galleryGeneralFilters = useMemo(() => {
+    return gallerySearchTags.filter(
+      (t) => !t.startsWith("@") && !t.startsWith("#") && !t.startsWith("$")
+    )
+  }, [gallerySearchTags])
+
   const galleryHasAnyFilter = !!(
-    galleryFilenameFilter.trim() ||
-    galleryTagFilter.trim() ||
-    galleryMetadataFilter.trim() ||
+    gallerySearchTags.length > 0 ||
     galleryHideRejected
   )
 
@@ -593,12 +620,11 @@ function AppContent(props: AppContentProps) {
         galleryShowFilters={galleryShowFilters}
         setGalleryShowFilters={setGalleryShowFilters}
         galleryHasAnyFilter={galleryHasAnyFilter}
-        galleryFilenameFilter={galleryFilenameFilter}
-        setGalleryFilenameFilter={setGalleryFilenameFilter}
-        galleryTagFilter={galleryTagFilter}
-        setGalleryTagFilter={setGalleryTagFilter}
-        galleryMetadataFilter={galleryMetadataFilter}
-        setGalleryMetadataFilter={setGalleryMetadataFilter}
+        gallerySearchTags={gallerySearchTags}
+        setGallerySearchTags={setGallerySearchTags}
+        gallerySearchInput={gallerySearchInput}
+        setGallerySearchInput={setGallerySearchInput}
+        galleryCandidates={galleryCandidates}
         galleryHideRejected={galleryHideRejected}
         setGalleryHideRejected={setGalleryHideRejected}
         setGalleryDuplicateStrategy={setGalleryDuplicateStrategy}
@@ -636,6 +662,11 @@ function AppContent(props: AppContentProps) {
               enableHover={props.settings.enableHover}
               imagePageSize={props.settings.imagePageSize}
               imageLazyLoad={props.settings.imageLazyLoad}
+              filenameFilter={galleryFilenameFilter}
+              tagFilter={galleryTagFilter}
+              metadataFilter={galleryMetadataFilter}
+              generalFilters={galleryGeneralFilters}
+              onTokensExtracted={setGalleryCandidates}
               toolbarState={{
                 statusFilter: galleryStatusFilter,
                 setStatusFilter: setGalleryStatusFilter,
@@ -649,9 +680,8 @@ function AppContent(props: AppContentProps) {
                 hideRejected: galleryHideRejected,
                 setHideRejected: setGalleryHideRejected,
                 clearAllFilters: () => {
-                  setGalleryFilenameFilter("")
-                  setGalleryTagFilter("")
-                  setGalleryMetadataFilter("")
+                  setGallerySearchTags([])
+                  setGallerySearchInput("")
                   setGalleryHideRejected(false)
                 },
                 reload: () => {},
