@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { curationApi } from "../../hooks/useSavedImages"
+import { useWorkflowContext } from "../../contexts/WorkflowContext"
+import { useTemplateContext } from "../../contexts/TemplateContext"
 import { STATUS_LABEL, STATUS_TINT, type SavedImage } from "../../types/Message"
+
+function defaultName(filename: string) {
+  return filename.replace(/\.[^/.]+$/, "")
+}
 
 export interface DetailProps {
   backendUrl: string
@@ -26,6 +32,14 @@ export function ImageDetail({
   const [tags, setTags] = useState<string[]>(image.tags)
   const [imgError, setImgError] = useState(false)
 
+  const [workflowName, setWorkflowName] = useState(defaultName(image.originalFilename))
+  const [templateName, setTemplateName] = useState(defaultName(image.originalFilename))
+  const [workflowSaved, setWorkflowSaved] = useState(false)
+  const [templateSaved, setTemplateSaved] = useState(false)
+
+  const { saveWorkflow } = useWorkflowContext()
+  const { saveTemplate } = useTemplateContext()
+
   const saveNote = async () => {
     await curationApi.patchNote(backendUrl, image.hash, note)
     onChanged()
@@ -42,6 +56,20 @@ export function ImageDetail({
     await curationApi.removeTag(backendUrl, image.hash, tag)
     setTags((prev) => prev.filter((x) => x !== tag))
     onChanged()
+  }
+
+  const handleSaveWorkflow = () => {
+    if (!image.workflow || !workflowName.trim()) return
+    saveWorkflow(workflowName.trim(), JSON.stringify(image.workflow))
+    setWorkflowSaved(true)
+    setTimeout(() => setWorkflowSaved(false), 2000)
+  }
+
+  const handleSaveTemplate = () => {
+    if (!image.cegTemplate || !templateName.trim()) return
+    saveTemplate(templateName.trim(), image.cegTemplate)
+    setTemplateSaved(true)
+    setTimeout(() => setTemplateSaved(false), 2000)
   }
 
   return (
@@ -119,6 +147,64 @@ export function ImageDetail({
             {image.workerId ?? "—"}
           </div>
         </div>
+        {(image.workflow || image.cegTemplate) && (
+          <div className="space-y-2 rounded-md border p-3">
+            {image.workflow && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold">워크플로우 저장</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    className="h-8 flex-1"
+                    placeholder="워크플로우 이름"
+                    value={workflowName}
+                    onChange={(e) => setWorkflowName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveWorkflow()
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveWorkflow}
+                    disabled={!workflowName.trim()}
+                  >
+                    저장
+                  </Button>
+                </div>
+                {workflowSaved && (
+                  <p className="text-xs text-green-600">저장되었습니다</p>
+                )}
+              </div>
+            )}
+            {image.cegTemplate && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold">템플릿 저장</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    className="h-8 flex-1"
+                    placeholder="템플릿 이름"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveTemplate()
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveTemplate}
+                    disabled={!templateName.trim()}
+                  >
+                    저장
+                  </Button>
+                </div>
+                {templateSaved && (
+                  <p className="text-xs text-green-600">저장되었습니다</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <div className="space-y-1">
           <label className="text-xs font-semibold">노트</label>
           <Textarea

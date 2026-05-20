@@ -337,7 +337,7 @@ export function WorkCompositionPanel({
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <CodeEditor
                 language="json"
-                placeholder="워크플로우 JSON 입력 (드래그 앤 드롭 지원)"
+                placeholder="워크플로우 JSON 입력"
                 value={workflow.workflowJson}
                 onChange={workflow.setWorkflowJson}
                 onFileOpen={handleWorkflowFileOpen}
