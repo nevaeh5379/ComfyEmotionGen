@@ -224,7 +224,7 @@ function WorkflowGraphViewer({
         <div
           ref={containerRefCallback}
           className="min-h-0 flex-1 overflow-hidden rounded-md border"
-          style={{ background: "#1d1d1d" }}
+          style={{ background: "var(--graph-canvas)" }}
         >
           <canvas ref={canvasRef} style={{ display: "block" }} />
         </div>

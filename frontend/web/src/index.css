@@ -61,6 +61,7 @@
   --color-bad-bg: var(--bad-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
+  --color-graph-canvas: var(--graph-canvas);
   --animate-shimmer: shimmer 2.5s infinite linear;
   --animate-pulse-slow: pulse-slow 3s infinite ease-in-out;
   --animate-glow-pulse: glow-pulse 2s infinite ease-in-out;
@@ -115,6 +116,8 @@
   --bad-bg: oklch(0.55 0.2 25 / 0.12);
   --info: oklch(0.55 0.15 250);
   --info-bg: oklch(0.55 0.15 250 / 0.12);
+
+  --graph-canvas: oklch(0.114 0 0);
 }
 
 .dark {
@@ -165,6 +168,8 @@
   --bad-bg: oklch(0.6 0.2 25 / 0.15);
   --info: oklch(0.6 0.15 250);
   --info-bg: oklch(0.6 0.15 250 / 0.15);
+
+  --graph-canvas: oklch(0.08 0 0);
 }
 
 @layer base {

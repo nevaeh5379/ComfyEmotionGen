@@ -604,7 +604,7 @@ export function ImageViewer({
                 backgroundPosition: `${lensBgPos.x}px ${lensBgPos.y}px`,
                 backgroundSize: `${imgNatural.w * lensZoom}px ${imgNatural.h * lensZoom}px`,
                 backgroundRepeat: "no-repeat",
-                borderRadius: lensShape === "circle" ? "50%" : "4px",
+                borderRadius: lensShape === "circle" ? "50%" : "var(--radius-sm)",
               }}
             />
           )}
