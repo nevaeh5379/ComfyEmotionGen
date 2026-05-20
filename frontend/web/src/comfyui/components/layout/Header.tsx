@@ -242,8 +242,8 @@ export function Header(props: HeaderProps) {
               )
             })}
           </div>
-          {/* Mobile composition tabs (jobs only) */}
-          {props.activeTab === "jobs" && (
+          {/* Mobile composition tabs (jobs editor only) */}
+          {props.activeTab === "jobs" && props.mobileJobTab === "editor" && (
             <div className="no-scrollbar flex flex-1 items-center justify-between gap-2 overflow-x-auto md:hidden">
               <Tabs
                 value={props.compositionTab}
