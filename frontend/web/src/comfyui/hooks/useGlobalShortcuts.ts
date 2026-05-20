@@ -14,9 +14,10 @@
 
 import { useEffect } from "react"
 import { toast } from "sonner"
+import type { TabId } from "../components/layout/Header"
 
 interface UseGlobalShortcutsOptions {
-  activeTab: "jobs" | "gallery" | "curation" | "settings"
+  activeTab: TabId
   mobileJobTab?: "editor" | "status" | "list"
   canRun: boolean
   handleRun: () => void

@@ -15,6 +15,7 @@ import { WorkflowGraphViewer } from "./comfyui/components/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
 import { SettingsPanel } from "./comfyui/components/SettingsPanel"
+import { StatisticsPanel } from "./comfyui/components/StatisticsPanel"
 import { useSettings } from "./comfyui/hooks/useSettings"
 import { useLocalStorage } from "./comfyui/hooks/useLocalStorage"
 import { useJobRunner } from "./comfyui/hooks/useJobRunner"
@@ -818,6 +819,11 @@ function AppContent(props: AppContentProps) {
           props.activeTab === "jobs" ? "overflow-hidden" : ""
         }`}
       >
+        {props.activeTab === "stats" && (
+          <div className="flex flex-1 flex-col overflow-y-auto p-4 md:p-6">
+            <StatisticsPanel jobs={props.jobs} workers={props.workers} />
+          </div>
+        )}
         {props.activeTab === "gallery" && (
           <div className="flex flex-col bg-background">
             <SavedImagesGallery
