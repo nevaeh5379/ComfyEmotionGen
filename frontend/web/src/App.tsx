@@ -39,6 +39,20 @@ import {
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 import { Header, type TabId } from "./comfyui/components/layout/Header"
 import { cn } from "@/lib/utils"
+import { useConfirm } from "./comfyui/contexts/ConfirmContext"
+import type { JobStatus } from "./comfyui/types/Message"
+import {
+  type SessionMarkerRaw,
+  type ActiveStateRaw,
+  initMarkers,
+  initActiveState,
+  saveMarkers,
+  saveActiveState,
+  genId,
+  jobSessionId,
+  makeSessionLabel,
+} from "./comfyui/components/JobManagerPanel"
+
 
 const HEALTH_CHECK_INTERVAL_MS = 5000
 
@@ -179,6 +193,165 @@ function AppContent(props: AppContentProps) {
   const template = useTemplateContext()
   const workflow = useWorkflowContext()
   const nodeMapping = useNodeMappingContext()
+
+  const confirm = useConfirm()
+
+  // ── session state (lifted) ──────────────────────────────────────────
+  const [markers, setMarkersRaw] = useState<SessionMarkerRaw[]>(() => initMarkers())
+
+  const persistMarkers = (ms: SessionMarkerRaw[]) => {
+    saveMarkers(ms)
+    setMarkersRaw(ms)
+  }
+
+  const [activeState, setActiveStateRaw] = useState<ActiveStateRaw>(() =>
+    initActiveState(initMarkers())
+  )
+
+  const persistActiveState = (as: ActiveStateRaw) => {
+    saveActiveState(as)
+    setActiveStateRaw(as)
+  }
+
+  const sortedMarkers = useMemo(
+    () => [...markers].sort((a, b) => b.startAt - a.startAt),
+    [markers]
+  )
+
+  // Default: newest marker
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(
+    () =>
+      activeState?.activeSessionId ??
+      initMarkers().sort((a, b) => b.startAt - a.startAt)[0]!.id
+  )
+
+  const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
+
+  const sessionJobCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const j of props.jobs) {
+      const sid = jobSessionId(j.createdAt, sortedMarkers, activeState)
+      map.set(sid, (map.get(sid) ?? 0) + 1)
+    }
+    return map
+  }, [props.jobs, sortedMarkers, activeState])
+
+  const sessionJobs = useMemo(
+    () =>
+      props.jobs.filter(
+        (j) =>
+          jobSessionId(j.createdAt, sortedMarkers, activeState) === selectedSessionId
+      ),
+    [props.jobs, sortedMarkers, activeState, selectedSessionId]
+  )
+
+  const sessionCounts = useMemo(() => {
+    const c: Record<JobStatus | "active", number> = {
+      pending: 0,
+      queued: 0,
+      running: 0,
+      done: 0,
+      error: 0,
+      cancelled: 0,
+      active: 0,
+    }
+    for (const j of sessionJobs) {
+      c[j.status]++
+      if (
+        j.status === "pending" ||
+        j.status === "queued" ||
+        j.status === "running"
+      )
+        c.active++
+    }
+    return c
+  }, [sessionJobs])
+
+  const createNewSession = () => {
+    const nonEmpty = markers.filter(
+      (m) => (sessionJobCounts.get(m.id) ?? 0) > 0
+    )
+    if (nonEmpty.length < markers.length) {
+      persistMarkers(nonEmpty)
+    }
+    const newMarker: SessionMarkerRaw = {
+      id: genId(),
+      startAt: Date.now(),
+      label: makeSessionLabel(nonEmpty.length + 1),
+    }
+    persistMarkers([...nonEmpty, newMarker])
+    persistActiveState({
+      activeSessionId: newMarker.id,
+      activatedAt: Date.now(),
+    })
+    setSelectedSessionId(newMarker.id)
+    setSessionPickerOpen(false)
+  }
+
+  const handleTogglePause = async () => {
+    try {
+      await fetch(`${props.backendUrl}/jobs/${props.paused ? "resume" : "pause"}`, {
+        method: "POST",
+      })
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleCancelAll = async () => {
+    if (
+      !(await confirm({
+        title: "작업 취소",
+        description: "진행 중인 모든 작업을 취소하시겠습니까?",
+        variant: "destructive",
+        confirmText: "모두 취소",
+      }))
+    )
+      return
+    try {
+      await fetch(`${props.backendUrl}/jobs/cancel-all`, { method: "POST" })
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleRetryAllFailed = async () => {
+    const failed = sessionJobs.filter(
+      (j) => j.status === "error" || j.status === "cancelled"
+    )
+    for (const j of failed) {
+      try {
+        await fetch(`${props.backendUrl}/jobs/${j.id}/retry`, { method: "POST" })
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  const handleDeleteAllFailed = async () => {
+    const failed = sessionJobs.filter(
+      (j) => j.status === "error" || j.status === "cancelled"
+    )
+    if (failed.length === 0) return
+    if (
+      !(await confirm({
+        title: "실패 작업 삭제",
+        description: `실패/취소된 작업 ${failed.length}개를 모두 영구 삭제하시겠습니까?`,
+        variant: "destructive",
+        confirmText: "모두 삭제",
+      }))
+    )
+      return
+    try {
+      await fetch(`${props.backendUrl}/jobs/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_ids: failed.map((j) => j.id) }),
+      })
+    } catch {
+      /* ignore */
+    }
+  }
 
   const [mobileJobTab, setMobileJobTab] = useState<
     "editor" | "status" | "list"
@@ -428,6 +601,23 @@ function AppContent(props: AppContentProps) {
         curationSelectedTemplateId={curationSelectedTemplateId}
         setCurationSelectedTemplateId={setCurationSelectedTemplateId}
         savedTemplates={template.savedTemplates}
+        
+        // Session / Job controls props (lifted)
+        sessionMarkers={markers}
+        sessionJobCounts={sessionJobCounts}
+        sortedMarkers={sortedMarkers}
+        selectedSessionId={selectedSessionId}
+        activeSessionState={activeState ? { activeSessionId: activeState.activeSessionId } : null}
+        sessionPickerOpen={sessionPickerOpen}
+        onSessionPickerOpenChange={setSessionPickerOpen}
+        onSelectSession={setSelectedSessionId}
+        onCreateNewSession={createNewSession}
+        paused={props.paused}
+        onTogglePause={handleTogglePause}
+        onCancelAll={handleCancelAll}
+        onRetryAllFailed={handleRetryAllFailed}
+        onDeleteAllFailed={handleDeleteAllFailed}
+        activeJobsCount={sessionCounts.active}
       />
 
       <main
@@ -545,6 +735,23 @@ function AppContent(props: AppContentProps) {
                       paused={props.paused}
                       backendUrl={props.backendUrl}
                       isAliveBackend={props.isAliveBackend}
+                      selectedId={selectedSessionId}
+                      setSelectedId={setSelectedSessionId}
+                      markers={markers}
+                      setMarkersRaw={setMarkersRaw}
+                      activeState={activeState}
+                      setActiveStateRaw={setActiveStateRaw}
+                      sessionPickerOpen={sessionPickerOpen}
+                      setSessionPickerOpen={setSessionPickerOpen}
+                      createNewSession={createNewSession}
+                      sessionJobCounts={sessionJobCounts}
+                      sortedMarkers={sortedMarkers}
+                      counts={sessionCounts}
+                      sessionJobs={sessionJobs}
+                      handleTogglePause={handleTogglePause}
+                      handleCancelAll={handleCancelAll}
+                      handleRetryAllFailed={handleRetryAllFailed}
+                      handleDeleteAllFailed={handleDeleteAllFailed}
                     />
                   </div>
                 </ResizablePanel>
@@ -579,6 +786,23 @@ function AppContent(props: AppContentProps) {
                     backendUrl={props.backendUrl}
                     isAliveBackend={props.isAliveBackend}
                     mobileTab={mobileJobTab}
+                    selectedId={selectedSessionId}
+                    setSelectedId={setSelectedSessionId}
+                    markers={markers}
+                    setMarkersRaw={setMarkersRaw}
+                    activeState={activeState}
+                    setActiveStateRaw={setActiveStateRaw}
+                    sessionPickerOpen={sessionPickerOpen}
+                    setSessionPickerOpen={setSessionPickerOpen}
+                    createNewSession={createNewSession}
+                    sessionJobCounts={sessionJobCounts}
+                    sortedMarkers={sortedMarkers}
+                    counts={sessionCounts}
+                    sessionJobs={sessionJobs}
+                    handleTogglePause={handleTogglePause}
+                    handleCancelAll={handleCancelAll}
+                    handleRetryAllFailed={handleRetryAllFailed}
+                    handleDeleteAllFailed={handleDeleteAllFailed}
                   />
                 </div>
               )}

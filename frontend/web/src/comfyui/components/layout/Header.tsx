@@ -41,6 +41,7 @@ import { CompositionTabsList } from "../CompositionTabsList"
 import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
 import type { WorkerView, CurationStatus } from "../../types/Message"
+import { SessionPopover, type SessionMarker, type ActiveStateInfo } from "../JobManagerSections"
 
 export const NAV_TABS = [
   { id: "jobs", label: "작업", icon: ClipboardList },
@@ -98,6 +99,23 @@ interface HeaderProps {
   curationSelectedTemplateId: string
   setCurationSelectedTemplateId: (v: string) => void
   savedTemplates: { id: string; name: string }[]
+
+  // Session / Job controls props (lifted)
+  sessionMarkers?: SessionMarker[]
+  sessionJobCounts?: Map<string, number>
+  sortedMarkers?: SessionMarker[]
+  selectedSessionId?: string
+  activeSessionState?: ActiveStateInfo | null
+  sessionPickerOpen?: boolean
+  onSessionPickerOpenChange?: (open: boolean) => void
+  onSelectSession?: (id: string) => void
+  onCreateNewSession?: () => void
+  paused?: boolean
+  onTogglePause?: () => void
+  onCancelAll?: () => void
+  onRetryAllFailed?: () => void
+  onDeleteAllFailed?: () => void
+  activeJobsCount?: number
 }
 
 export function Header(props: HeaderProps) {
@@ -266,6 +284,64 @@ export function Header(props: HeaderProps) {
               />
             </div>
           )}
+          {/* Mobile Session/Pause/Actions toolbar (jobs status or list only) */}
+          {props.activeTab === "jobs" &&
+            (props.mobileJobTab === "status" || props.mobileJobTab === "list") &&
+            props.sessionMarkers && (
+              <div className="flex flex-1 items-center justify-end gap-1.5 md:hidden">
+                <div className="relative">
+                  <SessionPopover
+                    markers={props.sessionMarkers}
+                    sessionJobCounts={props.sessionJobCounts || new Map()}
+                    sortedMarkers={props.sortedMarkers || []}
+                    selectedId={props.selectedSessionId || ""}
+                    activeState={props.activeSessionState || null}
+                    isOpen={props.sessionPickerOpen || false}
+                    onOpenChange={props.onSessionPickerOpenChange || (() => {})}
+                    onSelectSession={props.onSelectSession || (() => {})}
+                    onCreateNew={props.onCreateNewSession || (() => {})}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant={props.paused ? "default" : "outline"}
+                  className="h-8 px-2 text-[10px] font-bold"
+                  onClick={props.onTogglePause}
+                  disabled={!props.isAliveBackend}
+                >
+                  {props.paused ? "재개" : "일시중지"}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 p-2">
+                    <DropdownMenuItem
+                      onClick={props.onCancelAll}
+                      disabled={!props.isAliveBackend || (props.activeJobsCount ?? 0) === 0}
+                      className="py-3 font-bold text-destructive"
+                    >
+                      진행 중인 모든 작업 취소
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={props.onRetryAllFailed}
+                      className="py-3 font-bold"
+                    >
+                      실패/취소된 모든 작업 재시도
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={props.onDeleteAllFailed}
+                      className="py-3 font-bold text-destructive"
+                    >
+                      실패/취소된 모든 작업 삭제
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           {/* Gallery toolbar (merged into nav) */}
           {props.activeTab === "gallery" && (
             <div className="flex items-center gap-1.5">
@@ -425,6 +501,61 @@ export function Header(props: HeaderProps) {
           )}
         </div>
         <div className="ml-1 hidden shrink-0 items-center gap-2 md:flex">
+          {props.activeTab === "jobs" && props.sessionMarkers && (
+            <div className="flex items-center gap-1.5 border-r border-line/65 pr-3 mr-1">
+              <div className="relative">
+                <SessionPopover
+                  markers={props.sessionMarkers}
+                  sessionJobCounts={props.sessionJobCounts || new Map()}
+                  sortedMarkers={props.sortedMarkers || []}
+                  selectedId={props.selectedSessionId || ""}
+                  activeState={props.activeSessionState || null}
+                  isOpen={props.sessionPickerOpen || false}
+                  onOpenChange={props.onSessionPickerOpenChange || (() => {})}
+                  onSelectSession={props.onSelectSession || (() => {})}
+                  onCreateNew={props.onCreateNewSession || (() => {})}
+                />
+              </div>
+              <Button
+                size="sm"
+                variant={props.paused ? "default" : "outline"}
+                className="h-8 px-3 text-[11px] font-bold"
+                onClick={props.onTogglePause}
+                disabled={!props.isAliveBackend}
+              >
+                {props.paused ? "재개" : "일시중지"}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-2">
+                  <DropdownMenuItem
+                    onClick={props.onCancelAll}
+                    disabled={!props.isAliveBackend || (props.activeJobsCount ?? 0) === 0}
+                    className="py-3 font-bold text-destructive"
+                  >
+                    진행 중인 모든 작업 취소
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={props.onRetryAllFailed}
+                    className="py-3 font-bold"
+                  >
+                    실패/취소된 모든 작업 재시도
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={props.onDeleteAllFailed}
+                    className="py-3 font-bold text-destructive"
+                  >
+                    실패/취소된 모든 작업 삭제
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
           <ServerStatus
             name="백엔드"
             isConnected={props.isAliveBackend && props.backendAlive}

@@ -1,23 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { format } from "date-fns"
-import {
-  Check,
-  ChevronDown,
-  Copy,
-  MoreVertical,
-  X,
-  AlertCircle,
-} from "lucide-react"
+import { Check, Copy, X, AlertCircle, ChevronDown, Calendar, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+
 import {
   Sheet,
   SheetContent,
@@ -25,6 +12,20 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import type { JobStatus, JobView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
@@ -35,24 +36,20 @@ import { ImageViewer } from "./ImageViewer"
 
 // Extracted components
 import {
-  SessionPopover,
   JobStatBar,
   RunningJobsBanner,
-  JobListToolbar,
   JobTableSection,
-  type SessionMarker,
-  type ActiveStateInfo,
 } from "./JobManagerSections"
 
 // ── session storage ───────────────────────────────────────────────────
 
-interface SessionMarkerRaw {
+export interface SessionMarkerRaw {
   id: string
   startAt: number // ms epoch; 0 = beginning of time (catches all prior jobs)
   label: string
 }
 
-interface ActiveStateRaw {
+export interface ActiveStateRaw {
   activeSessionId: string
   activatedAt: number // ms epoch; jobs created on/after this time go to activeSessionId
 }
@@ -61,7 +58,7 @@ const SESSIONS_KEY = "ceg_sessions"
 const ACTIVE_STATE_KEY = "ceg_active_state"
 const PAGE_SIZE = 50
 
-function loadMarkers(): SessionMarkerRaw[] {
+export function loadMarkers(): SessionMarkerRaw[] {
   try {
     return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]")
   } catch {
@@ -69,11 +66,11 @@ function loadMarkers(): SessionMarkerRaw[] {
   }
 }
 
-function saveMarkers(ms: SessionMarkerRaw[]): void {
+export function saveMarkers(ms: SessionMarkerRaw[]): void {
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(ms))
 }
 
-function loadActiveState(): ActiveStateRaw | null {
+export function loadActiveState(): ActiveStateRaw | null {
   try {
     const raw = localStorage.getItem(ACTIVE_STATE_KEY)
     if (!raw) return null
@@ -83,15 +80,15 @@ function loadActiveState(): ActiveStateRaw | null {
   }
 }
 
-function saveActiveState(state: ActiveStateRaw): void {
+export function saveActiveState(state: ActiveStateRaw): void {
   localStorage.setItem(ACTIVE_STATE_KEY, JSON.stringify(state))
 }
 
-function genId(): string {
+export function genId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 }
 
-function initMarkers(): SessionMarkerRaw[] {
+export function initMarkers(): SessionMarkerRaw[] {
   const stored = loadMarkers()
   if (stored.length > 0) return stored
   const init: SessionMarkerRaw = { id: genId(), startAt: 0, label: "세션 1" }
@@ -99,7 +96,7 @@ function initMarkers(): SessionMarkerRaw[] {
   return [init]
 }
 
-function initActiveState(markers: SessionMarkerRaw[]): ActiveStateRaw {
+export function initActiveState(markers: SessionMarkerRaw[]): ActiveStateRaw {
   const stored = loadActiveState()
   if (stored) return stored
   // Default: newest marker is active, activated at its startAt
@@ -110,7 +107,7 @@ function initActiveState(markers: SessionMarkerRaw[]): ActiveStateRaw {
 
 // A job belongs to the active session if createdAt >= activatedAt.
 // Otherwise, it belongs to the newest marker whose startAt <= job.createdAt * 1000.
-function jobSessionId(
+export function jobSessionId(
   createdAtSec: number,
   sortedDesc: SessionMarkerRaw[],
   activeState: ActiveStateRaw | null
@@ -125,7 +122,7 @@ function jobSessionId(
   return sortedDesc[sortedDesc.length - 1]?.id ?? ""
 }
 
-function makeSessionLabel(count: number): string {
+export function makeSessionLabel(count: number): string {
   const d = new Date()
   const mm = String(d.getMonth() + 1).padStart(2, "0")
   const dd = String(d.getDate()).padStart(2, "0")
@@ -211,48 +208,36 @@ interface Props {
   backendUrl: string
   isAliveBackend: boolean
   mobileTab?: "status" | "list"
+
+  // Lifted session state & handler props
+  selectedId: string
+  setSelectedId: (id: string) => void
+  markers: SessionMarkerRaw[]
+  setMarkersRaw: (ms: SessionMarkerRaw[]) => void
+  activeState: ActiveStateRaw | null
+  setActiveStateRaw: (as: ActiveStateRaw) => void
+  sessionPickerOpen: boolean
+  setSessionPickerOpen: (open: boolean) => void
+  createNewSession: () => void
+  sessionJobCounts: Map<string, number>
+  sortedMarkers: SessionMarkerRaw[]
+  counts: Record<JobStatus | "active", number>
+  sessionJobs: JobView[]
+  handleTogglePause: () => void
+  handleCancelAll: () => void
+  handleRetryAllFailed: () => void
+  handleDeleteAllFailed: () => void
 }
 
 export const JobManagerPanel = memo(function JobManagerPanel({
   jobs,
-  paused,
   backendUrl,
-  isAliveBackend,
   mobileTab = "list",
+  counts,
+  sessionJobs,
 }: Props) {
   useRenderLog("JobManagerPanel")
   const confirm = useConfirm()
-
-  // ── session state ───────────────────────────────────────────────────
-  const [markers, setMarkersRaw] = useState<SessionMarkerRaw[]>(initMarkers)
-
-  const persistMarkers = (ms: SessionMarkerRaw[]) => {
-    saveMarkers(ms)
-    setMarkersRaw(ms)
-  }
-
-  const [activeState, setActiveStateRaw] = useState<ActiveStateRaw>(() =>
-    initActiveState(initMarkers())
-  )
-
-  const persistActiveState = (as: ActiveStateRaw) => {
-    saveActiveState(as)
-    setActiveStateRaw(as)
-  }
-
-  const sortedMarkers = useMemo(
-    () => [...markers].sort((a, b) => b.startAt - a.startAt),
-    [markers]
-  )
-
-  // Default: newest marker
-  const [selectedId, setSelectedId] = useState<string>(
-    () =>
-      activeState?.activeSessionId ??
-      initMarkers().sort((a, b) => b.startAt - a.startAt)[0]!.id
-  )
-
-  const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
 
   // ── filter / sort / date-range state ────────────────────────────────
   const [filterTab, setFilterTabState] = useState<FilterTab>("all")
@@ -296,50 +281,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   // ── lightbox state ──────────────────────────────────────────────────
   const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState(0)
-
-  // ── session computations ────────────────────────────────────────────
-
-  const sessionJobCounts = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const j of jobs) {
-      const sid = jobSessionId(j.createdAt, sortedMarkers, activeState)
-      map.set(sid, (map.get(sid) ?? 0) + 1)
-    }
-    return map
-  }, [jobs, sortedMarkers, activeState])
-
-  const sessionJobs = useMemo(
-    () =>
-      jobs.filter(
-        (j) =>
-          jobSessionId(j.createdAt, sortedMarkers, activeState) === selectedId
-      ),
-    [jobs, sortedMarkers, activeState, selectedId]
-  )
-
-  // ── status counts ───────────────────────────────────────────────────
-
-  const counts = useMemo(() => {
-    const c: Record<JobStatus | "active", number> = {
-      pending: 0,
-      queued: 0,
-      running: 0,
-      done: 0,
-      error: 0,
-      cancelled: 0,
-      active: 0,
-    }
-    for (const j of sessionJobs) {
-      c[j.status]++
-      if (
-        j.status === "pending" ||
-        j.status === "queued" ||
-        j.status === "running"
-      )
-        c.active++
-    }
-    return c
-  }, [sessionJobs])
 
   // ── filter pipeline ─────────────────────────────────────────────────
 
@@ -426,28 +367,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     return () => clearInterval(id)
   }, [runningJobs])
 
-  // ── session actions ─────────────────────────────────────────────────
 
-  const createNewSession = () => {
-    const nonEmpty = markers.filter(
-      (m) => (sessionJobCounts.get(m.id) ?? 0) > 0
-    )
-    if (nonEmpty.length < markers.length) {
-      persistMarkers(nonEmpty)
-    }
-    const newMarker: SessionMarkerRaw = {
-      id: genId(),
-      startAt: Date.now(),
-      label: makeSessionLabel(nonEmpty.length + 1),
-    }
-    persistMarkers([...nonEmpty, newMarker])
-    persistActiveState({
-      activeSessionId: newMarker.id,
-      activatedAt: Date.now(),
-    })
-    setSelectedId(newMarker.id)
-    setSessionPickerOpen(false)
-  }
 
   // ── api ─────────────────────────────────────────────────────────────
 
@@ -468,32 +388,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleCancelAll = async () => {
-    if (
-      !(await confirm({
-        title: "작업 취소",
-        description: "진행 중인 모든 작업을 취소하시겠습니까?",
-        variant: "destructive",
-        confirmText: "모두 취소",
-      }))
-    )
-      return
-    try {
-      await fetch(`${backendUrl}/jobs/cancel-all`, { method: "POST" })
-    } catch {
-      /* ignore */
-    }
-  }
 
-  const handleTogglePause = async () => {
-    try {
-      await fetch(`${backendUrl}/jobs/${paused ? "resume" : "pause"}`, {
-        method: "POST",
-      })
-    } catch {
-      /* ignore */
-    }
-  }
 
   const handleRetry = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
@@ -504,18 +399,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleRetryAllFailed = async () => {
-    const failed = sessionJobs.filter(
-      (j) => j.status === "error" || j.status === "cancelled"
-    )
-    for (const j of failed) {
-      try {
-        await fetch(`${backendUrl}/jobs/${j.id}/retry`, { method: "POST" })
-      } catch {
-        /* ignore */
-      }
-    }
-  }
+
 
   const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
@@ -539,30 +423,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleDeleteAllFailed = async () => {
-    const failed = sessionJobs.filter(
-      (j) => j.status === "error" || j.status === "cancelled"
-    )
-    if (failed.length === 0) return
-    if (
-      !(await confirm({
-        title: "실패 작업 삭제",
-        description: `실패/취소된 작업 ${failed.length}개를 모두 영구 삭제하시겠습니까?`,
-        variant: "destructive",
-        confirmText: "모두 삭제",
-      }))
-    )
-      return
-    try {
-      await fetch(`${backendUrl}/jobs/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_ids: failed.map((j) => j.id) }),
-      })
-    } catch {
-      /* ignore */
-    }
-  }
+
 
   const handleDeleteSelected = async () => {
     if (selectedForDelete.size === 0) return
@@ -669,71 +530,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  // Convert internal types to extracted component types
-  const sessionMarkers: SessionMarker[] = markers
-  const activeStateInfo: ActiveStateInfo | null = activeState
-    ? { activeSessionId: activeState.activeSessionId }
-    : null
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
-      {/* 1. Global Controls */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-panel/60 backdrop-blur-md px-4 py-2">
-        <div className="relative">
-          <SessionPopover
-            markers={sessionMarkers}
-            sessionJobCounts={sessionJobCounts}
-            sortedMarkers={sortedMarkers}
-            selectedId={selectedId}
-            activeState={activeStateInfo}
-            isOpen={sessionPickerOpen}
-            onOpenChange={setSessionPickerOpen}
-            onSelectSession={setSelectedId}
-            onCreateNew={createNewSession}
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            variant={paused ? "default" : "outline"}
-            className="h-8 px-3 text-[11px] font-bold"
-            onClick={handleTogglePause}
-            disabled={!isAliveBackend}
-          >
-            {paused ? "재개" : "일시중지"}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 p-2">
-              <DropdownMenuItem
-                onClick={handleCancelAll}
-                disabled={!isAliveBackend || counts.active === 0}
-                className="py-3 font-bold text-destructive"
-              >
-                진행 중인 모든 작업 취소
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleRetryAllFailed}
-                className="py-3 font-bold"
-              >
-                실패/취소된 모든 작업 재시도
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleDeleteAllFailed}
-                className="py-3 font-bold text-destructive"
-              >
-                실패/취소된 모든 작업 삭제
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
 
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
       <ScrollArea
@@ -765,69 +563,216 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           mobileTab === "list" ? "flex flex-1" : "hidden md:flex"
         )}
       >
-        {/* Filter tabs */}
-        <JobListToolbar
-          filterTab={filterTab}
-          onFilterTabChange={(v) => setFilterTab(v as FilterTab)}
-          sessionJobCount={sessionJobs.length}
-          activeCount={counts.active}
-          doneCount={counts.done}
-          failedCount={counts.error + counts.cancelled}
-        />
+        {/* Unified 1-Line Toolbar (Mobile viewport) */}
+        <div className="flex md:hidden shrink-0 items-center justify-between border-b bg-muted/10 px-2.5 py-1.5 gap-1">
+          {/* 1. Status Filter Select */}
+          <Select value={filterTab} onValueChange={(v) => setFilterTab(v as FilterTab)}>
+            <SelectTrigger className="h-8 w-[92px] border-line bg-background text-[11px] font-black px-1.5 shadow-none focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-[11px] font-bold">
+                전체 ({sessionJobs.length})
+              </SelectItem>
+              <SelectItem value="active" className="text-[11px] font-bold text-info">
+                활성 ({counts.active})
+              </SelectItem>
+              <SelectItem value="done" className="text-[11px] font-bold text-ok">
+                완료 ({counts.done})
+              </SelectItem>
+              <SelectItem value="failed" className="text-[11px] font-bold text-bad">
+                실패 ({counts.error + counts.cancelled})
+              </SelectItem>
+            </SelectContent>
+          </Select>
 
-        {/* Always-visible date filter */}
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b bg-muted/5 px-3 py-2 md:gap-3 md:px-4">
-          <div className="flex items-center gap-1.5">
-            <DatePicker
-              value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
-              onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
-              placeholder="시작"
-              className="h-8 w-24 border-line/50 text-[11px] shadow-none"
-            />
-            <span className="text-[10px] text-muted-foreground opacity-30">~</span>
-            <DatePicker
-              value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
-              onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
-              placeholder="종료"
-              className="h-8 w-24 border-line/50 text-[11px] shadow-none"
-            />
-            {hasDateFilter && (
+          {/* 2. Date Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted"
-                onClick={() => { setDateFrom(""); setDateTo("") }}
+                className={cn(
+                  "h-8 w-[82px] px-1.5 text-[11px] font-black border-line bg-background shadow-none flex items-center justify-between gap-1",
+                  hasDateFilter && "border-ok/30 text-ok bg-ok/5"
+                )}
               >
-                <X className="h-4 w-4" />
+                <div className="flex items-center gap-1 min-w-0">
+                  <Calendar className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground", hasDateFilter && "text-ok")} />
+                  <span className="truncate">기간</span>
+                </div>
+                {hasDateFilter ? (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok animate-pulse" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                )}
               </Button>
-            )}
-          </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3 border border-line bg-popover/90 backdrop-blur-md rounded-xl shadow-2xl" align="center">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b pb-1.5">
+                  <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                    기간 필터
+                  </span>
+                  {hasDateFilter && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-1.5 text-[10px] font-bold text-bad hover:bg-bad/10 rounded"
+                      onClick={() => {
+                        setDateFrom("")
+                        setDateTo("")
+                      }}
+                    >
+                      필터 초기화
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <DatePicker
+                    value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
+                    onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
+                    placeholder="시작일"
+                    className="h-8 flex-1 border-line/50 text-[11px] shadow-none bg-background"
+                  />
+                  <span className="text-[10px] text-muted-foreground opacity-30">~</span>
+                  <DatePicker
+                    value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
+                    onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
+                    placeholder="종료일"
+                    className="h-8 flex-1 border-line/50 text-[11px] shadow-none bg-background"
+                  />
+                </div>
+                <div className="flex items-center gap-1 justify-end pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 flex-1 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                    onClick={() => setQuickDate("1h")}
+                  >
+                    1h
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 flex-1 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                    onClick={() => setQuickDate("today")}
+                  >
+                    오늘
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 flex-1 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                    onClick={() => setQuickDate("24h")}
+                  >
+                    24h
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
-          <div className="flex items-center gap-1 ml-auto shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 hover:bg-muted"
-              onClick={() => setQuickDate("1h")}
-            >
-              1h
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 hover:bg-muted"
-              onClick={() => setQuickDate("today")}
-            >
-              오늘
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 hover:bg-muted"
-              onClick={() => setQuickDate("24h")}
-            >
-              24h
-            </Button>
+          {/* 3. Sort Key Select */}
+          <Select value={sortKey} onValueChange={(k) => toggleSort(k as SortKey)}>
+            <SelectTrigger className="h-8 w-[96px] border-line bg-background text-[11px] font-black px-1.5 shadow-none focus:ring-0">
+              <SelectValue placeholder="정렬" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="createdAt" className="text-[11px] font-bold">최근 생성순</SelectItem>
+              <SelectItem value="filename" className="text-[11px] font-bold">파일명순</SelectItem>
+              <SelectItem value="status" className="text-[11px] font-bold">상태순</SelectItem>
+              <SelectItem value="duration" className="text-[11px] font-bold">소요시간순</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* 4. Sort Direction Toggle */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => toggleSort(sortKey)}
+            className="h-8 w-8 p-0 border-line bg-background shadow-none hover:bg-muted shrink-0"
+          >
+            {sortDir === "asc" ? (
+              <ArrowUp className="h-3.5 w-3.5 text-foreground" />
+            ) : (
+              <ArrowDown className="h-3.5 w-3.5 text-foreground" />
+            )}
+          </Button>
+        </div>
+
+        {/* Unified 1-Line Toolbar (Desktop viewport) */}
+        <div className="hidden md:flex shrink-0 items-center justify-between border-b bg-muted/10 px-4 py-2 gap-3">
+          <Tabs value={filterTab} onValueChange={(v) => setFilterTab(v as FilterTab)} className="shrink-0">
+            <TabsList className="h-8 bg-muted/50 p-1 gap-1">
+              <TabsTrigger value="all" className="h-6 px-3 text-[11px] font-bold">
+                전체 <span className="mono ml-1 opacity-50">{sessionJobs.length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="active" className="h-6 px-3 text-[11px] font-bold text-info">
+                활성 <span className="mono ml-1 opacity-50">{counts.active}</span>
+              </TabsTrigger>
+              <TabsTrigger value="done" className="h-6 px-3 text-[11px] font-bold text-ok">
+                완료 <span className="mono ml-1 opacity-50">{counts.done}</span>
+              </TabsTrigger>
+              <TabsTrigger value="failed" className="h-6 px-3 text-[11px] font-bold text-bad">
+                실패 <span className="mono ml-1 opacity-50">{counts.error + counts.cancelled}</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-1.5">
+              <DatePicker
+                value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
+                onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
+                placeholder="시작"
+                className="h-8 w-24 border-line/50 text-[11px] shadow-none bg-background"
+              />
+              <span className="text-[10px] text-muted-foreground opacity-30">~</span>
+              <DatePicker
+                value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
+                onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
+                placeholder="종료"
+                className="h-8 w-24 border-line/50 text-[11px] shadow-none bg-background"
+              />
+              {hasDateFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted"
+                  onClick={() => { setDateFrom(""); setDateTo("") }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                onClick={() => setQuickDate("1h")}
+              >
+                1h
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                onClick={() => setQuickDate("today")}
+              >
+                오늘
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[10px] font-bold text-muted-foreground border-line/50 bg-background hover:bg-muted"
+                onClick={() => setQuickDate("24h")}
+              >
+                24h
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1034,45 +979,45 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 {(selectedJob.status === "pending" ||
                   selectedJob.status === "queued" ||
                   selectedJob.status === "running") && (
-                  <Button
-                    size="lg"
-                    variant="destructive"
-                    className="h-12 flex-1 rounded-xl font-bold"
-                    onClick={(e) => {
-                      handleCancel(e, selectedJob.id)
-                      setSelectedJobId(null)
-                    }}
-                  >
-                    취소
-                  </Button>
-                )}
-                {(selectedJob.status === "error" ||
-                  selectedJob.status === "cancelled") && (
-                  <>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="h-12 flex-1 rounded-xl font-bold"
-                      onClick={(e) => {
-                        handleRetry(e, selectedJob.id)
-                        setSelectedJobId(null)
-                      }}
-                    >
-                      재시도
-                    </Button>
                     <Button
                       size="lg"
                       variant="destructive"
                       className="h-12 flex-1 rounded-xl font-bold"
                       onClick={(e) => {
-                        handleDeleteOne(e, selectedJob.id)
+                        handleCancel(e, selectedJob.id)
                         setSelectedJobId(null)
                       }}
                     >
-                      삭제
+                      취소
                     </Button>
-                  </>
-                )}
+                  )}
+                {(selectedJob.status === "error" ||
+                  selectedJob.status === "cancelled") && (
+                    <>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="h-12 flex-1 rounded-xl font-bold"
+                        onClick={(e) => {
+                          handleRetry(e, selectedJob.id)
+                          setSelectedJobId(null)
+                        }}
+                      >
+                        재시도
+                      </Button>
+                      <Button
+                        size="lg"
+                        variant="destructive"
+                        className="h-12 flex-1 rounded-xl font-bold"
+                        onClick={(e) => {
+                          handleDeleteOne(e, selectedJob.id)
+                          setSelectedJobId(null)
+                        }}
+                      >
+                        삭제
+                      </Button>
+                    </>
+                  )}
               </div>
 
               {/* Generated images */}

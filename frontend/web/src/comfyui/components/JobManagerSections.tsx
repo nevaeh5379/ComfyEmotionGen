@@ -12,13 +12,7 @@ import {
   Ban,
   ChevronRight,
 } from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -43,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -87,14 +81,6 @@ export interface JobStatBarProps {
   sessionJobs: JobView[]
 }
 
-export interface JobListToolbarProps {
-  filterTab: string
-  onFilterTabChange: (v: string) => void
-  sessionJobCount: number
-  activeCount: number
-  doneCount: number
-  failedCount: number
-}
 
 export interface JobTableProps {
   filterTab: string
@@ -379,35 +365,6 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   )
 })
 
-export const JobListToolbar = memo(function JobListToolbar({
-  filterTab,
-  onFilterTabChange,
-  sessionJobCount,
-  activeCount,
-  doneCount,
-  failedCount,
-}: JobListToolbarProps) {
-  return (
-    <div className="flex shrink-0 flex-col gap-2 border-b bg-muted/10 px-3 py-2 md:flex-row md:items-center md:justify-between md:gap-3 md:px-4">
-      <Tabs value={filterTab} onValueChange={onFilterTabChange} className="w-full md:w-auto">
-        <TabsList className="no-scrollbar h-9 w-full justify-start gap-1 overflow-x-auto bg-muted/50 p-1 md:h-8 md:w-auto">
-          <TabsTrigger value="all" className="h-7 flex-1 px-3 text-[11px] font-bold data-[state=active]:bg-background md:flex-none">
-            전체 <span className="mono ml-1 opacity-50">{sessionJobCount}</span>
-          </TabsTrigger>
-          <TabsTrigger value="active" className="h-7 flex-1 px-3 text-[11px] font-bold text-info data-[state=active]:bg-background md:flex-none">
-            활성 <span className="mono ml-1 opacity-50">{activeCount}</span>
-          </TabsTrigger>
-          <TabsTrigger value="done" className="h-7 flex-1 px-3 text-[11px] font-bold text-ok data-[state=active]:bg-background md:flex-none">
-            완료 <span className="mono ml-1 opacity-50">{doneCount}</span>
-          </TabsTrigger>
-          <TabsTrigger value="failed" className="h-7 flex-1 px-3 text-[11px] font-bold text-bad data-[state=active]:bg-background md:flex-none">
-            실패 <span className="mono ml-1 opacity-50">{failedCount}</span>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-    </div>
-  )
-})
 
 export const JobRow = memo(function JobRow({
   job,
@@ -525,12 +482,7 @@ export const JobTableSection = memo(function JobTableSection({
   fetchJobImages,
   showPagination,
 }: JobTableProps) {
-  const mobileSortLabel = {
-    createdAt: "최근 생성순",
-    filename: "파일명순",
-    status: "상태순",
-    duration: "소요시간순",
-  }[sortKey] || "정렬"
+
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -612,36 +564,6 @@ export const JobTableSection = memo(function JobTableSection({
 
       {/* Mobile Card List View */}
       <div className="md:hidden flex flex-col min-h-0 flex-1">
-        {/* Mobile sort header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/5 shrink-0">
-          <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">작업 정렬</span>
-          <div className="flex items-center gap-1.5">
-            <Select value={sortKey} onValueChange={(k) => onSort(k)}>
-              <SelectTrigger className="h-7 w-28 border-line bg-background text-[11px] font-black px-2 shadow-none focus:ring-0">
-                <SelectValue placeholder={mobileSortLabel} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="createdAt" className="text-[11px] font-bold">최근 생성순</SelectItem>
-                <SelectItem value="filename" className="text-[11px] font-bold">파일명순</SelectItem>
-                <SelectItem value="status" className="text-[11px] font-bold">상태순</SelectItem>
-                <SelectItem value="duration" className="text-[11px] font-bold">소요시간순</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onSort(sortKey)}
-              className="h-7 w-7 p-0 hover:bg-muted"
-            >
-              {sortDir === "asc" ? (
-                <ArrowUp className="h-3.5 w-3.5 text-foreground" />
-              ) : (
-                <ArrowDown className="h-3.5 w-3.5 text-foreground" />
-              )}
-            </Button>
-          </div>
-        </div>
-
         {/* Mobile card list */}
         <ScrollArea className="mx-2 mb-2 flex-1 rounded-lg bg-panel">
           <div className="py-2 space-y-2">
