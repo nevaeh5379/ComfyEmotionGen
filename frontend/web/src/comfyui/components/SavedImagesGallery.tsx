@@ -19,20 +19,14 @@ import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
 import {
   PinIcon,
-  PinOffIcon,
-  CheckSquareIcon,
-  SquareIcon,
   XIcon,
-  Trash2Icon,
-  CopyIcon,
-  EyeIcon,
   FilterIcon,
   MoreVertical,
   RefreshCwIcon,
   DownloadIcon,
+  Trash2Icon,
 } from "lucide-react"
 import {
   Select,
@@ -67,13 +61,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu"
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -86,6 +73,8 @@ import { curationApi, useSavedImages } from "../hooks/useSavedImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
 import { useConfirm } from "../contexts/ConfirmContext"
 import { toast } from "sonner"
+import { ImageGrid } from "./gallery/ImageGrid"
+import { ImageDetail } from "./gallery/ImageDetail"
 
 type GalleryViewMode = "grid" | "compare"
 
@@ -113,12 +102,6 @@ const STATUS_LABEL: Record<CurationStatus | "all", string> = {
   trashed: "휴지통",
 }
 
-const STATUS_TINT: Record<CurationStatus, string> = {
-  pending: "bg-slate-200 text-slate-800",
-  approved: "bg-green-200 text-green-900",
-  rejected: "bg-red-200 text-red-900",
-  trashed: "bg-zinc-300 text-zinc-700",
-}
 
 export interface GalleryToolbarState {
   statusFilter: CurationStatus | "all"
@@ -1021,303 +1004,3 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     </div>
   )
 })
-
-interface GridProps {
-  items: SavedImage[]
-  backendUrl: string
-  setStatus: (hash: string, status: CurationStatus) => void
-  onOpen: (img: SavedImage) => void
-  selectionMode?: boolean
-  selectedHashes?: Set<string>
-  onToggleSelect?: (hash: string) => void
-  onLongPress?: (hash: string) => void
-  togglePin?: (hash: string) => void
-  pinnedHashes?: string[]
-  imageLazyLoad?: boolean
-}
-
-function ImageGrid({
-  items,
-  backendUrl,
-  setStatus,
-  onOpen,
-  selectionMode = false,
-  selectedHashes = new Set(),
-  onToggleSelect,
-  // onLongPress,
-  togglePin,
-  pinnedHashes = [],
-  imageLazyLoad = true,
-}: GridProps) {
-  if (items.length === 0) return null
-  return (
-    <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
-      {items.map((img) => {
-        const isSelected = selectedHashes.has(img.hash)
-        const isPinned = pinnedHashes.includes(img.hash)
-
-        return (
-          <ContextMenu key={img.hash}>
-            <ContextMenuTrigger>
-              <div
-                className={`m-1 flex break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md ${
-                  isSelected
-                    ? "scale-[1.02] bg-primary/5 shadow-lg ring-2 ring-primary"
-                    : ""
-                }`}
-              >
-                <div className="relative">
-                  <button
-                    type="button"
-                    className="group block h-full w-full overflow-hidden rounded-md"
-                    onClick={() => {
-                      if (isSelected || selectionMode) {
-                        onToggleSelect?.(img.hash)
-                      } else {
-                        onOpen(img)
-                      }
-                    }}
-                  >
-                    <img
-                      src={`${backendUrl}/saved-images/${img.hash}`}
-                      alt={img.originalFilename}
-                      loading={imageLazyLoad ? "lazy" : "eager"}
-                      className="w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                  </button>
-
-                  {/* 체크박스 - 왼쪽 위 (모바일/데스크톱 모두) */}
-                  <div
-                    className="absolute top-2 left-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onToggleSelect?.(img.hash)
-                    }}
-                  >
-                    {isSelected ? (
-                      <CheckSquareIcon className="h-5 w-5 text-blue-400 drop-shadow-sm" />
-                    ) : isPinned ? (
-                      <PinIcon className="h-4 w-4 text-amber-400 drop-shadow-sm" />
-                    ) : (
-                      <SquareIcon className="h-5 w-5 text-white/60 drop-shadow-sm" />
-                    )}
-                  </div>
-
-                  {/* 상태 라벨 - 왼쪽 위 (데스크톱만) */}
-                  <span
-                    className={`absolute top-2 left-10 hidden rounded-full px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm backdrop-blur-sm md:inline ${STATUS_TINT[img.status]}`}
-                  >
-                    {STATUS_LABEL[img.status]}
-                  </span>
-
-                  {/* 휴지통 버튼 - 오른쪽 위 (데스크톱만) */}
-                  <button
-                    type="button"
-                    className={`absolute top-2 right-2 hidden h-7 w-7 items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 md:flex ${
-                      img.status === "trashed"
-                        ? "text-red-400"
-                        : "text-white/60 hover:text-white"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setStatus(
-                        img.hash,
-                        img.status === "trashed" ? "pending" : "trashed"
-                      )
-                    }}
-                    title={img.status === "trashed" ? "복원" : "휴지통"}
-                  >
-                    <Trash2Icon className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* 태그 (데스크톱만) */}
-                {img.tags.length > 0 && (
-                  <div className="hidden flex-wrap gap-1 px-0.5 md:flex">
-                    {img.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded border border-line/20 bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/80"
-                      >
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="w-48">
-              <ContextMenuItem
-                onClick={() => togglePin?.(img.hash)}
-                className="gap-2 font-bold"
-              >
-                {isPinned ? (
-                  <>
-                    <PinOffIcon className="h-3.5 w-3.5" />
-                    비교에서 제거
-                  </>
-                ) : (
-                  <>
-                    <PinIcon className="h-3.5 w-3.5" />
-                    비교에 추가
-                  </>
-                )}
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onClick={() =>
-                  setStatus(
-                    img.hash,
-                    img.status === "trashed" ? "pending" : "trashed"
-                  )
-                }
-                className="gap-2 font-bold"
-              >
-                <Trash2Icon className="h-3.5 w-3.5" />
-                {img.status === "trashed" ? "복원" : "휴지통"}
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onClick={() => onOpen(img)}
-                className="gap-2 font-bold"
-              >
-                <EyeIcon className="h-3.5 w-3.5" />
-                상세 보기
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => {
-                  const url = `${backendUrl}/saved-images/${img.hash}`
-                  navigator.clipboard.writeText(url).catch(() => {})
-                }}
-                className="gap-2 font-bold"
-              >
-                <CopyIcon className="h-3.5 w-3.5" />
-                이미지 URL 복사
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-        )
-      })}
-    </div>
-  )
-}
-
-interface DetailProps {
-  backendUrl: string
-  image: SavedImage
-  onClose: () => void
-  onChanged: () => void
-}
-
-function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailProps) {
-  const [note, setNote] = useState(image.note)
-  const [newTag, setNewTag] = useState("")
-  const [tags, setTags] = useState<string[]>(image.tags)
-
-  const saveNote = async () => {
-    await curationApi.patchNote(backendUrl, image.hash, note)
-    onChanged()
-  }
-  const addTag = async () => {
-    const t = newTag.trim()
-    if (!t) return
-    await curationApi.addTags(backendUrl, image.hash, [t])
-    setNewTag("")
-    setTags((prev) => (prev.includes(t) ? prev : [...prev, t]))
-    onChanged()
-  }
-  const removeTag = async (tag: string) => {
-    await curationApi.removeTag(backendUrl, image.hash, tag)
-    setTags((prev) => prev.filter((x) => x !== tag))
-    onChanged()
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-lg bg-background p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className={`rounded px-1.5 py-0.5 text-xs ${STATUS_TINT[image.status]}`}
-          >
-            {STATUS_LABEL[image.status]}
-          </span>
-          <h3 className="truncate font-mono text-sm">
-            {image.originalFilename}
-          </h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto"
-            onClick={onClose}
-          >
-            닫기
-          </Button>
-        </div>
-        <img
-          src={`${backendUrl}/saved-images/${image.hash}`}
-          alt={image.originalFilename}
-          className="max-h-[60vh] w-full object-contain"
-        />
-        <div className="space-y-1 text-xs">
-          <div className="font-mono text-muted-foreground">
-            hash: {image.hash}
-          </div>
-          <div>
-            <span className="font-semibold">prompt:</span> {image.prompt}
-          </div>
-          <div className="text-muted-foreground">
-            {(image.sizeBytes / 1024).toFixed(1)} KB · worker{" "}
-            {image.workerId ?? "—"}
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-semibold">노트</label>
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={3}
-          />
-          <Button size="sm" variant="outline" onClick={saveNote}>
-            노트 저장
-          </Button>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-semibold">태그</label>
-          <div className="flex flex-wrap gap-1">
-            {tags.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-destructive/20"
-                onClick={() => removeTag(t)}
-                title="클릭하여 제거"
-              >
-                #{t} ×
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              className="h-8 w-48"
-              placeholder="새 태그"
-              value={newTag}
-              onChange={(e) => setNewTag(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addTag()
-              }}
-            />
-            <Button size="sm" variant="outline" onClick={addTag}>
-              추가
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}

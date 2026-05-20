@@ -58,7 +58,7 @@ import {
   genId,
   jobSessionId,
   makeSessionLabel,
-} from "./comfyui/components/JobManagerPanel"
+} from "./comfyui/utils/sessionUtils"
 
 // ---------------------------------------------------------------------------
 // App

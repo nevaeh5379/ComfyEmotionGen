@@ -1,16 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { format } from "date-fns"
-import { Check, Copy, X, AlertCircle, ChevronDown, Calendar, ArrowUp, ArrowDown } from "lucide-react"
+import { X, Calendar, ArrowUp, ArrowDown, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import {
@@ -29,13 +23,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import type { JobStatus, JobView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
-import { StatusPill } from "@/components/ceg/StatusPill"
 import { cn } from "@/lib/utils"
 import { useConfirm } from "../contexts/ConfirmContext"
-import { ImageViewer } from "./ImageViewer"
 import { API, HEADERS } from "@/lib/api"
-import { STORAGE_KEYS } from "@/lib/storageKeys"
-import { JOB_PAGE_SIZE, COPIED_RESET_DELAY_MS, TICK_INTERVAL_MS, MS_PER_SECOND, SECONDS_PER_HOUR } from "@/lib/constants"
+import { JOB_PAGE_SIZE, TICK_INTERVAL_MS, MS_PER_SECOND, SECONDS_PER_HOUR } from "@/lib/constants"
 import { toast } from "sonner"
 
 // Extracted components
@@ -44,96 +35,27 @@ import {
   RunningJobsBanner,
   JobTableSection,
 } from "./JobManagerSections"
+import { JobDetailSheet } from "./JobDetailSheet"
 
-// ── session storage ───────────────────────────────────────────────────
+// Session utilities (extracted to sessionUtils.ts)
+export type {
+  SessionMarkerRaw,
+  ActiveStateRaw,
+} from "../utils/sessionUtils"
+export {
+  loadMarkers,
+  saveMarkers,
+  loadActiveState,
+  saveActiveState,
+  genId,
+  initMarkers,
+  initActiveState,
+  jobSessionId,
+  makeSessionLabel,
+} from "../utils/sessionUtils"
+import type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
 
-export interface SessionMarkerRaw {
-  id: string
-  startAt: number // ms epoch; 0 = beginning of time (catches all prior jobs)
-  label: string
-}
-
-export interface ActiveStateRaw {
-  activeSessionId: string
-  activatedAt: number // ms epoch; jobs created on/after this time go to activeSessionId
-}
-
-const SESSIONS_KEY = STORAGE_KEYS.sessions
-const ACTIVE_STATE_KEY = STORAGE_KEYS.activeState
 const PAGE_SIZE = JOB_PAGE_SIZE
-
-export function loadMarkers(): SessionMarkerRaw[] {
-  try {
-    return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]")
-  } catch {
-    return []
-  }
-}
-
-export function saveMarkers(ms: SessionMarkerRaw[]): void {
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(ms))
-}
-
-export function loadActiveState(): ActiveStateRaw | null {
-  try {
-    const raw = localStorage.getItem(ACTIVE_STATE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as ActiveStateRaw
-  } catch {
-    return null
-  }
-}
-
-export function saveActiveState(state: ActiveStateRaw): void {
-  localStorage.setItem(ACTIVE_STATE_KEY, JSON.stringify(state))
-}
-
-export function genId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-}
-
-export function initMarkers(): SessionMarkerRaw[] {
-  const stored = loadMarkers()
-  if (stored.length > 0) return stored
-  const init: SessionMarkerRaw = { id: genId(), startAt: 0, label: "세션 1" }
-  saveMarkers([init])
-  return [init]
-}
-
-export function initActiveState(markers: SessionMarkerRaw[]): ActiveStateRaw {
-  const stored = loadActiveState()
-  if (stored) return stored
-  // Default: newest marker is active, activated at its startAt
-  const sorted = [...markers].sort((a, b) => b.startAt - a.startAt)
-  const newest = sorted[0]!
-  return { activeSessionId: newest.id, activatedAt: newest.startAt }
-}
-
-// A job belongs to the active session if createdAt >= activatedAt.
-// Otherwise, it belongs to the newest marker whose startAt <= job.createdAt * 1000.
-export function jobSessionId(
-  createdAtSec: number,
-  sortedDesc: SessionMarkerRaw[],
-  activeState: ActiveStateRaw | null
-): string {
-  const t = createdAtSec * MS_PER_SECOND
-  if (activeState && t >= activeState.activatedAt) {
-    return activeState.activeSessionId
-  }
-  for (const m of sortedDesc) {
-    if (t >= m.startAt) return m.id
-  }
-  return sortedDesc[sortedDesc.length - 1]?.id ?? ""
-}
-
-export function makeSessionLabel(count: number): string {
-  const d = new Date()
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const dd = String(d.getDate()).padStart(2, "0")
-  const hh = String(d.getHours()).padStart(2, "0")
-  const mi = String(d.getMinutes()).padStart(2, "0")
-  return `세션 ${count} · ${mm}/${dd} ${hh}:${mi}`
-}
 
 // ── other types & constants ───────────────────────────────────────────
 
@@ -152,14 +74,6 @@ type FilterTab = "all" | "active" | "done" | "failed"
 
 // ── pure helpers ──────────────────────────────────────────────────────
 
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  const m = Math.floor(ms / 60_000)
-  const s = Math.round((ms % 60_000) / 1000)
-  return `${m}m ${s}s`
-}
-
 function jobDuration(job: JobView): number | null {
   if (job.executionDurationMs != null) return job.executionDurationMs
   if (job.startedAt != null && job.finishedAt != null)
@@ -176,32 +90,6 @@ function dateToEpochEnd(s: string): number {
   const d = new Date(s)
   d.setHours(23, 59, 59, 999)
   return d.getTime() / 1000
-}
-
-// ── sub-components (local) ────────────────────────────────────────────
-
-function ClipButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), COPIED_RESET_DELAY_MS)
-    })
-  }
-  return (
-    <button
-      className="absolute top-2 right-2 rounded p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-      onClick={handleCopy}
-      title="복사"
-    >
-      {copied ? (
-        <Check className="h-3.5 w-3.5 text-green-600" />
-      ) : (
-        <Copy className="h-3.5 w-3.5" />
-      )}
-    </button>
-  )
 }
 
 // ── main component ────────────────────────────────────────────────────
@@ -281,10 +169,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     new Map()
   )
   const [, setTick] = useState(0)
-
-  // ── lightbox state ──────────────────────────────────────────────────
-  const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null)
-  const [lightboxIndex, setLightboxIndex] = useState(0)
 
   // ── filter pipeline ─────────────────────────────────────────────────
 
@@ -833,299 +717,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         />
       </div>
 
-      {/* Detail Sheet */}
-      <Sheet
-        open={selectedJob !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedJobId(null)
-        }}
-      >
-        <SheetContent
-          className="flex w-full flex-col gap-4 overflow-y-auto sm:min-w-105"
-          onPointerDownOutside={(e) => {
-            if (lightboxUrls !== null) {
-              e.preventDefault()
-            }
-          }}
-          onInteractOutside={(e) => {
-            if (lightboxUrls !== null) {
-              e.preventDefault()
-            }
-          }}
-        >
-          <SheetHeader>
-            <SheetTitle className="text-lg font-black tracking-tight">작업 상세</SheetTitle>
-          </SheetHeader>
-          {selectedJob && (
-            <div className="flex flex-col gap-5 mt-2">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <StatusPill status={selectedJob.status} />
-                  <span className="mono rounded bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
-                    ID: {selectedJob.id.slice(0, 8)}…
-                  </span>
-                </div>
-                <p className="font-mono text-sm font-black text-foreground">
-                  📄 {selectedJob.filename}
-                </p>
-
-                {/* Prompt box */}
-                {selectedJob.prompt && (
-                  <div className="relative rounded-lg border bg-muted/40 p-3 group/prompt">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-[10px] font-black tracking-wider text-muted-foreground uppercase">
-                        프롬프트
-                      </span>
-                    </div>
-                    <ScrollArea className="h-32">
-                      <p className="pr-6 font-mono text-xs leading-relaxed text-foreground select-all whitespace-pre-wrap break-all">
-                        {selectedJob.prompt}
-                      </p>
-                    </ScrollArea>
-                    <ClipButton text={selectedJob.prompt} />
-                  </div>
-                )}
-
-                {selectedJob.error && (
-                  <div className="relative rounded-lg border border-destructive/20 bg-destructive/10 p-3 shadow-inner">
-                    <div className="flex items-center gap-1.5 text-destructive mb-1 text-[11px] font-black tracking-widest uppercase">
-                      <AlertCircle className="h-4 w-4" /> 에러 로그
-                    </div>
-                    <p className="font-mono text-xs text-destructive/90 pr-8 leading-relaxed whitespace-pre-wrap break-all">
-                      {selectedJob.error}
-                    </p>
-                    <ClipButton text={selectedJob.error} />
-                  </div>
-                )}
-              </div>
-
-              {/* Visual Timeline */}
-              <div className="space-y-3 rounded-2xl border bg-muted/10 p-4">
-                <h4 className="text-[10px] font-black tracking-widest text-muted-foreground uppercase pb-1.5 border-b">
-                  진행 타임라인
-                </h4>
-                <div className="flex flex-col gap-4 mt-2">
-                  {/* 1. 생성 */}
-                  <div className="relative flex gap-3 pl-6">
-                    <div className={cn("absolute left-2.25 top-2.5 bottom-[-16px] w-0.5 bg-line-strong/60", selectedJob.startedAt && "bg-info/60")} />
-                    <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-ink-2 ring-4 ring-ink-2/15" />
-                    <div className="flex-1 flex justify-between items-baseline gap-2">
-                      <span className="text-xs font-bold text-foreground">작업 생성됨</span>
-                      <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                        {new Date(selectedJob.createdAt * MS_PER_SECOND).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 2. 시작 */}
-                  {selectedJob.startedAt ? (
-                    <div className="relative flex gap-3 pl-6">
-                      <div className={cn("absolute left-2.25 top-2.5 bottom-[-16px] w-0.5 bg-line-strong/60", selectedJob.finishedAt && "bg-ok/60")} />
-                      <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-info ring-4 ring-info/15 animate-pulse" />
-                      <div className="flex-1 flex justify-between items-baseline gap-2">
-                        <span className="text-xs font-bold text-foreground">렌더링 시작</span>
-                        <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                          {new Date(selectedJob.startedAt * MS_PER_SECOND).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative flex gap-3 pl-6 opacity-35">
-                      <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
-                      <div className="flex-1 flex justify-between items-baseline gap-2">
-                        <span className="text-xs font-bold text-muted-foreground">렌더링 대기 중</span>
-                        <span className="mono text-[10px] text-muted-foreground/80">—</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3. 완료 / 실패 */}
-                  {selectedJob.finishedAt ? (
-                    <div className="relative flex gap-3 pl-6">
-                      <div className={cn(
-                        "absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full ring-4",
-                        selectedJob.status === "error" || selectedJob.status === "cancelled"
-                          ? "bg-bad ring-bad/15"
-                          : "bg-ok ring-ok/15"
-                      )} />
-                      <div className="flex-1 flex justify-between items-baseline gap-2">
-                        <span className="text-xs font-bold text-foreground">
-                          {selectedJob.status === "error" ? "렌더링 실패" : selectedJob.status === "cancelled" ? "렌더링 취소" : "렌더링 완료"}
-                        </span>
-                        <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                          {new Date(selectedJob.finishedAt * MS_PER_SECOND).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative flex gap-3 pl-6 opacity-35">
-                      <div className="absolute left-1 top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground/30 ring-4 ring-muted/15" />
-                      <div className="flex-1 flex justify-between items-baseline gap-2">
-                        <span className="text-xs font-bold text-muted-foreground">렌더링 완료 대기</span>
-                        <span className="mono text-[10px] text-muted-foreground/80">—</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {jobDuration(selectedJob) != null && (
-                  <div className="mt-3.5 pt-3.5 border-t border-line/60 flex justify-between items-center text-xs">
-                    <span className="font-extrabold text-muted-foreground">총 소요 시간</span>
-                    <span className="mono font-black text-foreground bg-muted rounded px-2 py-0.5 tabular-nums">
-                      {formatDuration(jobDuration(selectedJob)!)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex gap-2">
-                {(selectedJob.status === "pending" ||
-                  selectedJob.status === "queued" ||
-                  selectedJob.status === "running") && (
-                    <Button
-                      size="lg"
-                      variant="destructive"
-                      className="h-12 flex-1 rounded-xl font-bold"
-                      onClick={(e) => {
-                        handleCancel(e, selectedJob.id)
-                        setSelectedJobId(null)
-                      }}
-                    >
-                      취소
-                    </Button>
-                  )}
-                {(selectedJob.status === "error" ||
-                  selectedJob.status === "cancelled") && (
-                    <>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="h-12 flex-1 rounded-xl font-bold"
-                        onClick={(e) => {
-                          handleRetry(e, selectedJob.id)
-                          setSelectedJobId(null)
-                        }}
-                      >
-                        재시도
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant="destructive"
-                        className="h-12 flex-1 rounded-xl font-bold"
-                        onClick={(e) => {
-                          handleDeleteOne(e, selectedJob.id)
-                          setSelectedJobId(null)
-                        }}
-                      >
-                        삭제
-                      </Button>
-                    </>
-                  )}
-              </div>
-
-              {/* Generated images */}
-              {fetchedImages.get(selectedJob.id) &&
-                fetchedImages.get(selectedJob.id)!.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-black tracking-widest text-muted-foreground uppercase">
-                      생성 이미지 ({fetchedImages.get(selectedJob.id)!.length})
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {fetchedImages.get(selectedJob.id)!.map((h, i) => {
-                        const url = `${backendUrl}/saved-images/${h}`
-                        return (
-                          <button
-                            key={h}
-                            onClick={() => {
-                              setLightboxUrls(
-                                fetchedImages
-                                  .get(selectedJob.id)!
-                                  .map(
-                                    (hh) => `${backendUrl}/saved-images/${hh}`
-                                  )
-                              )
-                              setLightboxIndex(i)
-                            }}
-                            className="block w-full overflow-hidden rounded-lg border shadow-sm"
-                          >
-                            <img
-                              src={url}
-                              alt={`Generated ${i}`}
-                              loading="lazy"
-                              className="h-auto w-full object-cover transition-opacity hover:opacity-80"
-                            />
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-            </div>
-          )}
-
-          {/* Lightbox */}
-          {lightboxUrls && (
-            <ImageViewer
-              src={lightboxUrls[lightboxIndex]!}
-              isOpen={lightboxUrls !== null}
-              onClose={() => setLightboxUrls(null)}
-            >
-              {lightboxUrls.length > 1 && (
-                <div className="flex flex-col items-center gap-3 w-full">
-                  <div className="flex items-center justify-center gap-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
-                      onClick={() => setLightboxIndex((i) => Math.max(0, i - 1))}
-                      disabled={lightboxIndex === 0}
-                    >
-                      <ChevronDown className="h-4 w-4 rotate-90" />
-                    </Button>
-                    <span className="font-mono text-[11px] font-bold text-white/60">
-                      {lightboxIndex + 1} / {lightboxUrls.length}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
-                      onClick={() =>
-                        setLightboxIndex((i) =>
-                          Math.min(lightboxUrls.length - 1, i + 1)
-                        )
-                      }
-                      disabled={lightboxIndex === lightboxUrls.length - 1}
-                    >
-                      <ChevronDown className="h-4 w-4 -rotate-90" />
-                    </Button>
-                  </div>
-
-                  <div className="flex gap-2 p-1.5 rounded-xl border border-white/5 bg-white/5 backdrop-blur-md overflow-x-auto max-w-[90vw] no-scrollbar">
-                    {lightboxUrls.map((url, i) => {
-                      const isSelected = i === lightboxIndex
-                      return (
-                        <button
-                          key={url}
-                          className={cn(
-                            "h-12 w-12 rounded-lg overflow-hidden border-2 transition-all duration-300 relative scale-95 cursor-pointer",
-                            isSelected
-                              ? "border-info ring-2 ring-info/30 scale-100 shadow-md"
-                              : "border-transparent opacity-50 hover:opacity-100 hover:scale-98"
-                          )}
-                          onClick={() => setLightboxIndex(i)}
-                        >
-                          <img src={url} alt={`Thumbnail ${i}`} className="h-full w-full object-cover" />
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </ImageViewer>
-          )}
-        </SheetContent>
-      </Sheet>
+      <JobDetailSheet
+        job={selectedJob}
+        backendUrl={backendUrl}
+        fetchedImages={fetchedImages}
+        onClose={() => setSelectedJobId(null)}
+        onCancel={handleCancel}
+        onRetry={handleRetry}
+        onDelete={handleDeleteOne}
+      />
     </div>
   )
 })
