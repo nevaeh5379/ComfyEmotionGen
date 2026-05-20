@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { format } from "date-fns"
-import { X, Calendar, ArrowUp, ArrowDown, ChevronDown, Filter } from "lucide-react"
+import { X, Calendar, ArrowUp, ArrowDown, ChevronDown, Filter, Search, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 
@@ -91,6 +91,209 @@ function dateToEpochEnd(s: string): number {
   d.setHours(23, 59, 59, 999)
   return d.getTime() / 1000
 }
+
+// ── tag input with autocomplete ──────────────────────────────────────
+
+interface TagInputSearchProps {
+  value: string
+  tags: string[]
+  candidates: { value: string; type: "filename" | "prompt" | "error" }[]
+  ref?: React.RefObject<HTMLInputElement>
+  placeholder: string
+  onValueChange: (v: string) => void
+  onAddTag: (tag: string) => void
+  onRemoveTag: (tag: string) => void
+  size?: "sm" | "md"
+}
+
+export const TagInputSearch = memo(function TagInputSearch({
+  value,
+  tags,
+  candidates,
+  ref: refProp,
+  placeholder,
+  onValueChange,
+  onAddTag,
+  onRemoveTag,
+  size = "sm",
+}: TagInputSearchProps) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Reset active index when candidates list changes
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [candidates])
+
+  // Open dropdown when value exists and candidates exist
+  useEffect(() => {
+    if (value && candidates.length > 0) {
+      setIsOpen(true)
+    } else {
+      setIsOpen(false)
+    }
+  }, [value, candidates])
+
+  // Handle click outside to close the dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault()
+        if (isOpen && candidates.length > 0 && activeIndex >= 0 && activeIndex < candidates.length) {
+          const cand = candidates[activeIndex]!
+          const prefix = cand.type === "filename" ? "@" : cand.type === "prompt" ? "#" : "$"
+          onAddTag(prefix + cand.value)
+          setIsOpen(false)
+        } else {
+          const trimmed = value.trim()
+          if (trimmed) {
+            onAddTag(trimmed)
+            setIsOpen(false)
+          }
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault()
+        if (!isOpen) {
+          setIsOpen(true)
+        } else {
+          setActiveIndex((prev) => (candidates.length > 0 ? (prev + 1) % candidates.length : 0))
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        if (!isOpen) {
+          setIsOpen(true)
+        } else {
+          setActiveIndex((prev) => (candidates.length > 0 ? (prev - 1 + candidates.length) % candidates.length : 0))
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault()
+        setIsOpen(false)
+      } else if (e.key === "Backspace" && !value && tags.length > 0) {
+        onRemoveTag(tags[tags.length - 1]!)
+      }
+    },
+    [candidates, tags, value, activeIndex, isOpen, onAddTag, onRemoveTag]
+  )
+
+  // Highlight matching characters by making them bold
+  const renderHighlight = (text: string, query: string) => {
+    const cleanQuery = query.replace(/^[@#$]/, "").toLowerCase()
+    if (!cleanQuery) return <span>{text}</span>
+    const index = text.toLowerCase().indexOf(cleanQuery)
+    if (index === -1) return <span>{text}</span>
+
+    const before = text.substring(0, index)
+    const match = text.substring(index, index + cleanQuery.length)
+    const after = text.substring(index + cleanQuery.length)
+
+    return (
+      <span>
+        {before}
+        <strong className="font-semibold text-primary">{match}</strong>
+        {after}
+      </span>
+    )
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        "relative flex flex-wrap items-center gap-1.5 p-1.5 border border-line rounded-md bg-background min-h-[34px] transition-all",
+        size === "sm" ? "px-2 py-1" : "px-3 py-1.5"
+      )}
+    >
+      {/* Icon Prefix */}
+      <Search className="h-3.5 w-3.5 text-muted-foreground/45 shrink-0" />
+
+      {/* Render Tags */}
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 rounded bg-primary/5 text-primary border border-primary/10 px-1.5 py-0.5 text-[10px] font-medium transition-all hover:bg-primary/10"
+        >
+          {tag}
+          <button
+            type="button"
+            onClick={() => onRemoveTag(tag)}
+            className="inline-flex items-center justify-center rounded p-0.5 hover:bg-primary/20 text-primary/70 hover:text-primary transition-colors"
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      ))}
+
+      {/* Text Input */}
+      <input
+        ref={refProp}
+        type="text"
+        value={value}
+        onFocus={() => {
+          if (value && candidates.length > 0) setIsOpen(true)
+        }}
+        onChange={(e) => {
+          onValueChange(e.target.value)
+        }}
+        onKeyDown={onKeyDown}
+        placeholder={tags.length === 0 ? placeholder : ""}
+        className={cn(
+          "flex-1 min-w-[80px] bg-transparent outline-none border-none p-0 focus:ring-0 placeholder:text-muted-foreground/40",
+          size === "sm" ? "text-[11px] h-6" : "text-xs h-7"
+        )}
+      />
+
+      {/* Candidates Dropdown */}
+      {isOpen && candidates.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-line bg-popover shadow-md py-1 animate-in fade-in slide-in-from-top-1 duration-100">
+          {candidates.map((cand, idx) => (
+            <button
+              key={cand.value}
+              type="button"
+              onMouseEnter={() => setActiveIndex(idx)}
+              onClick={() => {
+                const prefix = cand.type === "filename" ? "@" : cand.type === "prompt" ? "#" : "$"
+                onAddTag(prefix + cand.value)
+                setIsOpen(false)
+              }}
+              className={cn(
+                "flex w-full items-center justify-between px-3 py-1.5 text-[11px] text-left transition-colors",
+                idx === activeIndex ? "bg-muted text-primary" : "text-muted-foreground hover:bg-muted/50"
+              )}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Tag className="h-3 w-3 text-muted-foreground/35 shrink-0" />
+                <span className="truncate">{renderHighlight(cand.value, value)}</span>
+              </div>
+              <span
+                className={cn(
+                  "px-1 py-0.5 rounded text-[8px] font-medium tracking-wide shrink-0 border",
+                  cand.type === "filename" && "bg-info/5 border-info/20 text-info",
+                  cand.type === "prompt" && "bg-ok/5 border-ok/20 text-ok",
+                  cand.type === "error" && "bg-bad/5 border-bad/20 text-bad"
+                )}
+              >
+                {cand.type === "filename" ? "파일명" : cand.type === "prompt" ? "프롬프트" : "에러"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+})
 
 // ── main component ────────────────────────────────────────────────────
 
@@ -206,42 +409,105 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     })
   }, [tabFiltered, dateFrom, dateTo])
 
-  // Precompute searchable text per job (avoids rebuilding haystacks on every filter toggle)
-  const jobSearchText = useMemo(() => {
-    return new Map(sessionJobs.map((j) => [
-      j.id,
-      [j.filename, j.prompt, j.error ?? "", ...(j.meta ? Object.values(j.meta) : [])].join(" ").toLowerCase(),
-    ]))
-  }, [sessionJobs])
-
-  // Cached token set from all session jobs (only recomputes when job list changes)
+  // Cached token sets from all session jobs categorized by source (only recomputes when job list changes)
   const cachedTokens = useMemo(() => {
-    return new Set(
-      [...jobSearchText.values()]
-        .join(" ")
-        .split(/\s+/)
-        .map((t) => t.replace(/^[^\w가-힣]+|[^\w가-힣]+$/g, ""))
+    const filenames = new Set<string>()
+    const prompts = new Set<string>()
+    const errors = new Set<string>()
+
+    const tokenize = (str: string) => {
+      if (!str) return []
+      return str
+        .split(/[\s_\-.,()]+/g)
+        .map((t) => t.trim().toLowerCase().replace(/^[^\w가-힣]+|[^\w가-힣]+$/g, ""))
         .filter((t) => t.length >= 2)
-    )
-  }, [jobSearchText])
+    }
+
+    sessionJobs.forEach((j) => {
+      tokenize(j.filename).forEach((t) => filenames.add(t))
+      if (j.prompt) {
+        tokenize(j.prompt).forEach((t) => prompts.add(t))
+      }
+      if (j.error) {
+        tokenize(j.error).forEach((t) => errors.add(t))
+      }
+    })
+
+    return { filenames, prompts, errors }
+  }, [sessionJobs])
 
   const searchFiltered = useMemo(() => {
     if (searchTags.length === 0) return dateFiltered
     return dateFiltered.filter((j) => {
-      const text = jobSearchText.get(j.id) ?? ""
-      return searchTags.some((tag) => text.includes(tag.toLowerCase()))
+      return searchTags.some((tag) => {
+        const lowerTag = tag.toLowerCase()
+        if (lowerTag.startsWith("@")) {
+          // File name targeting search
+          const query = lowerTag.slice(1)
+          return j.filename.toLowerCase().includes(query)
+        } else if (lowerTag.startsWith("#")) {
+          // Prompt targeting search
+          const query = lowerTag.slice(1)
+          return (j.prompt ?? "").toLowerCase().includes(query)
+        } else if (lowerTag.startsWith("$")) {
+          // Error targeting search
+          const query = lowerTag.slice(1)
+          return (j.error ?? "").toLowerCase().includes(query)
+        } else {
+          // Full fields integration search
+          const filename = j.filename.toLowerCase()
+          const prompt = (j.prompt ?? "").toLowerCase()
+          const error = (j.error ?? "").toLowerCase()
+          const meta = j.meta ? Object.values(j.meta).join(" ").toLowerCase() : ""
+          return filename.includes(lowerTag) || prompt.includes(lowerTag) || error.includes(lowerTag) || meta.includes(lowerTag)
+        }
+      })
     })
-  }, [dateFiltered, searchTags, jobSearchText])
+  }, [dateFiltered, searchTags])
 
   const autocompleteCandidates = useMemo(() => {
     const trimmed = tagInput.trim()
     if (trimmed.length < 1) return []
-    const query = trimmed.toLowerCase()
-    return [...cachedTokens]
-      .filter(
-        (t) => t.includes(query) && t !== query && !searchTags.includes(t)
-      )
-      .slice(0, 6)
+
+    let query = trimmed.toLowerCase()
+    let filterType: "filename" | "prompt" | "error" | "all" = "all"
+
+    if (query.startsWith("@")) {
+      filterType = "filename"
+      query = query.slice(1)
+    } else if (query.startsWith("#")) {
+      filterType = "prompt"
+      query = query.slice(1)
+    } else if (query.startsWith("$")) {
+      filterType = "error"
+      query = query.slice(1)
+    }
+
+    // 1. Filenames matching query
+    const matchedFilenames = (filterType === "all" || filterType === "filename")
+      ? [...cachedTokens.filenames]
+          .filter((t) => query === "" ? !searchTags.includes(`@${t}`) : (t.includes(query) && t !== query && !searchTags.includes(`@${t}`) && !searchTags.includes(t)))
+          .slice(0, 5)
+          .map((t) => ({ value: t, type: "filename" as const }))
+      : []
+
+    // 2. Prompts matching query (and not already in filenames)
+    const matchedPrompts = (filterType === "all" || filterType === "prompt")
+      ? [...cachedTokens.prompts]
+          .filter((t) => query === "" ? !searchTags.includes(`#${t}`) : (t.includes(query) && t !== query && !searchTags.includes(`#${t}`) && !searchTags.includes(t) && !matchedFilenames.some((f) => f.value === t)))
+          .slice(0, 5)
+          .map((t) => ({ value: t, type: "prompt" as const }))
+      : []
+
+    // 3. Errors matching query
+    const matchedErrors = (filterType === "all" || filterType === "error")
+      ? [...cachedTokens.errors]
+          .filter((t) => query === "" ? !searchTags.includes(`$${t}`) : (t.includes(query) && t !== query && !searchTags.includes(`$${t}`) && !searchTags.includes(t) && !matchedFilenames.some((f) => f.value === t) && !matchedPrompts.some((p) => p.value === t)))
+          .slice(0, 3)
+          .map((t) => ({ value: t, type: "error" as const }))
+      : []
+
+    return [...matchedFilenames, ...matchedPrompts, ...matchedErrors].slice(0, 6)
   }, [tagInput, cachedTokens, searchTags])
 
   const sortedJobs = useMemo(() => {
@@ -420,96 +686,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   }
 
   // ── extracted tag input with autocomplete ────────────────────────────
-
- function TagInputSearch({
-    value,
-    tags,
-    candidates,
-    ref: refProp,
-    placeholder,
-    onValueChange,
-    onAddTag,
-    onRemoveTag,
-    size = "sm",
-  }: {
-    value: string
-    tags: string[]
-    candidates: string[]
-    ref?: React.RefObject<HTMLInputElement>
-    placeholder: string
-    onValueChange: (v: string) => void
-    onAddTag: (tag: string) => void
-    onRemoveTag: (tag: string) => void
-    size?: "sm" | "md"
-  }) {
-    const idxRef = useRef(0)
-
-    const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        const idx = idxRef.current
-        if (candidates.length > 0 && idx >= 0) {
-          onAddTag(candidates[idx]!)
-        } else {
-          onAddTag(value.trim())
-        }
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault()
-        idxRef.current = Math.min(idxRef.current + 1, Math.max(candidates.length - 1, 0))
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        idxRef.current = Math.max(idxRef.current - 1, 0)
-      } else if (e.key === "Backspace" && !value && tags.length > 0) {
-        onRemoveTag(tags[tags.length - 1]!)
-      }
-    }, [candidates, tags, value])
-
-    const active = size === "sm" ? idxRef.current : idxRef.current
-
-    return (
-      <div className="relative flex flex-wrap items-center gap-1.5 p-1.5 border rounded-md bg-background min-h-[34px]">
-        {tags.map((tag) => (
-          <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">
-            {tag}
-            <button type="button" onClick={() => onRemoveTag(tag)} className="inline-flex items-center justify-center rounded-full p-0.5 hover:bg-primary/20">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
-        <input
-          ref={refProp}
-          type="text"
-          value={value}
-          onChange={(e) => { onValueChange(e.target.value); idxRef.current = 0 }}
-          onKeyDown={onKeyDown}
-          placeholder={tags.length === 0 ? placeholder : ""}
-          className={cn(
-            "flex-1 min-w-[60px] bg-transparent outline-none placeholder:text-muted-foreground/50",
-            size === "sm"
-              ? "text-[11px] h-6"
-              : "text-xs h-7"
-          )}
-        />
-        {candidates.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-line bg-popover shadow-lg py-1">
-            {candidates.map((cand, idx) => (
-              <button
-                key={cand}
-                type="button"
-                onClick={() => onAddTag(cand)}
-                className={cn(
-                  "flex w-full items-center px-3 py-1.5 text-[11px] text-left",
-                  idx === active ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                )}
-              >
-                <span className="truncate">{cand}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
 
   const fetchingRef = useRef<Set<string>>(new Set())
 
