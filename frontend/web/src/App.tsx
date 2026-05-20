@@ -335,6 +335,16 @@ function AppContent(props: AppContentProps) {
         } else {
           toast.success(`모든 작업이 완료되었습니다! (${doneCount}개)`)
         }
+        // Send batch complete webhook notification
+        fetch(`${props.backendUrl}${API.webhooks.batchComplete}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            done: doneCount,
+            error: errorCount,
+            total: totalJobs,
+          }),
+        }).catch(() => {})
       }
     }
     prevActiveCount.current = current
@@ -344,6 +354,7 @@ function AppContent(props: AppContentProps) {
     sessionCounts.error,
     sessionCounts.cancelled,
     sessionJobs.length,
+    props.backendUrl,
   ])
 
   const createNewSession = () => {

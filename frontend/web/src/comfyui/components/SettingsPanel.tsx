@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import type { AppSettings } from "../hooks/useSettings"
 import { WorkerManager } from "./WorkerManager"
+import { WebhookSettingsPanel } from "./WebhookSettingsPanel"
 import type { WorkerView } from "../types/Message"
 import { FRONTEND_VERSION, COMMIT } from "@/version"
 
@@ -266,6 +267,11 @@ export function SettingsPanel({
               onCheckedChange={(v) => updateSetting("enableHover", v === true)}
             />
           </SettingRow>
+        </Section>
+
+        {/* 알림 설정 */}
+        <Section title="알림 설정">
+          <WebhookSettingsPanel backendUrl={backendUrl} />
         </Section>
 
         {/* 키보드 단축키 */}

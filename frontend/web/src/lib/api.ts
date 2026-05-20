@@ -36,6 +36,12 @@ export const API = {
     root: "/workers",
     detail: (id: string) => `/workers/${id}`,
   },
+  webhooks: {
+    root: "/webhooks",
+    detail: (id: string) => `/webhooks/${id}`,
+    test: (id: string) => `/webhooks/${id}/test`,
+    batchComplete: "/webhooks/batch-complete",
+  },
   ws: {
     events: "/ws/events",
   },

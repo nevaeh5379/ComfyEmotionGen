@@ -196,6 +196,15 @@ class JobStore:
             """
         )
 
+        await self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+
         await self._conn.commit()
 
     async def _migrate_add_column(
@@ -416,16 +425,36 @@ class JobStore:
         )
         rows = await cursor.fetchall()
         return [
-            {
+           {
                 "id": row["id"],
                 "jobId": row["job_id"],
-                "workerId": row["worker_id"],
                 "eventType": row["event_type"],
                 "timestamp": row["timestamp"],
-                "payload": json.loads(row["payload_json"]),
+                "workerId": row["worker_id"],
+                "details": json.loads(row["details"]),
             }
             for row in rows
         ]
+
+    # ---------- settings ----------
+
+    async def save_setting(self, key: str, value: str) -> None:
+        """키-값 설정 저장 (INSERT OR REPLACE)."""
+        assert self._conn is not None
+        await self._conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (key, value),
+        )
+        await self._conn.commit()
+
+    async def get_setting(self, key: str) -> Optional[str]:
+        """키에 해당하는 설정 값 반환 (없으면 None)."""
+        assert self._conn is not None
+        cursor = await self._conn.execute(
+            "SELECT value FROM settings WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        return row["value"] if row is not None else None
 
     # ---------- workers (persistent ComfyUI URL list) ----------
 

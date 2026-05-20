@@ -38,6 +38,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import logging
@@ -58,6 +59,7 @@ from prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
 from worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
 from jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR
 from job_store import JobStore
+from webhook import WebhookService, WEBHOOK_EVENTS
 from _version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,7 @@ logger = logging.getLogger(__name__)
 
 worker_pool: WorkerPool
 job_manager: JobManager
+webhook_service: WebhookService
 ws_clients: set[WebSocket] = set()
 
 
@@ -201,12 +204,14 @@ async def _resolve_initial_worker_urls(store: JobStore) -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global worker_pool, job_manager
+    global worker_pool, job_manager, webhook_service
     store = JobStore()
     await store.open()
     initial_urls = await _resolve_initial_worker_urls(store)
     worker_pool = WorkerPool(urls=initial_urls)
     job_manager = JobManager(worker_pool, store=store)
+    webhook_service = WebhookService(store)
+    await webhook_service.load()
 
     async def broadcast(event: dict[str, Any]) -> None:
         dead: list[WebSocket] = []
@@ -217,6 +222,20 @@ async def lifespan(app: FastAPI):
                 dead.append(ws)
         for ws in dead:
             ws_clients.discard(ws)
+
+        # Webhook notification (fire-and-forget)
+        etype = event.get("type", "")
+        if etype == "job.updated":
+            job = event.get("job", {})
+            status = job.get("status", "")
+            if status == "done":
+                asyncio.create_task(
+                    webhook_service.notify("job_done", job=job)
+                )
+            elif status in ("error", "cancelled"):
+                asyncio.create_task(
+                    webhook_service.notify("job_error", job=job)
+                )
 
     job_manager.subscribe(broadcast)
     await job_manager.start()
@@ -734,6 +753,130 @@ async def export_dataset(body: ExportRequest):
     return StreamingResponse(
         buf, media_type="application/zip", headers=headers
     )
+
+
+# ====== WebSocket ======
+
+
+# ====== 웹훅 ======
+
+
+class WebhookCreateRequest(BaseModel):
+    name: str
+    channel_type: Literal["discord", "telegram", "generic"]
+    url: str
+    events: list[str] = WEBHOOK_EVENTS
+    enabled: bool = True
+    include_image: bool = False
+
+
+class WebhookUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    channel_type: Optional[Literal["discord", "telegram", "generic"]] = None
+    url: Optional[str] = None
+    events: Optional[list[str]] = None
+    enabled: Optional[bool] = None
+    include_image: Optional[bool] = None
+
+
+class BatchCompleteRequest(BaseModel):
+    done: int = 0
+    error: int = 0
+    total: int = 0
+
+
+@app.get("/webhooks")
+async def webhooks_list():
+    return {"configs": webhook_service.list_configs()}
+
+
+@app.post("/webhooks")
+async def webhooks_create(req: WebhookCreateRequest):
+    cfg = await webhook_service.add_config(
+        name=req.name,
+        channel_type=req.channel_type,
+        url=req.url,
+        events=req.events,
+        enabled=req.enabled,
+        include_image=req.include_image,
+    )
+    return {"config": {
+        "id": cfg.id,
+        "name": cfg.name,
+        "channel_type": cfg.channel_type,
+        "url": cfg.url,
+        "events": cfg.events,
+        "enabled": cfg.enabled,
+        "include_image": cfg.include_image,
+    }}
+
+
+@app.put("/webhooks/{config_id}")
+async def webhooks_update(config_id: str, req: WebhookUpdateRequest):
+    cfg = await webhook_service.update_config(
+        config_id,
+        name=req.name,
+        channel_type=req.channel_type,
+        url=req.url,
+        events=req.events,
+        enabled=req.enabled,
+        include_image=req.include_image,
+    )
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="webhook not found")
+    return {"config": {
+        "id": cfg.id,
+        "name": cfg.name,
+        "channel_type": cfg.channel_type,
+        "url": cfg.url,
+        "events": cfg.events,
+        "enabled": cfg.enabled,
+        "include_image": cfg.include_image,
+    }}
+
+
+@app.delete("/webhooks/{config_id}")
+async def webhooks_delete(config_id: str):
+    ok = await webhook_service.delete_config(config_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="webhook not found")
+    return {"ok": True}
+
+
+@app.post("/webhooks/{config_id}/test")
+async def webhooks_test(config_id: str):
+    """테스트 알림 전송."""
+    found = False
+    for cfg in webhook_service._configs:
+        if cfg.id == config_id:
+            found = True
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="webhook not found")
+    await webhook_service.notify(
+        "job_done",
+        job={
+            "filename": "webhook_test",
+            "prompt": "This is a test notification.",
+            "executionDurationMs": 0,
+            "savedImageHashes": [],
+        },
+    )
+    return {"ok": True}
+
+
+@app.post("/webhooks/batch-complete")
+async def webhooks_batch_complete(req: BatchCompleteRequest):
+    """배치 완료 알림 전송."""
+    await webhook_service.notify(
+        "batch_completed",
+        batch_info={
+            "done": req.done,
+            "error": req.error,
+            "total": req.total,
+        },
+    )
+    return {"ok": True}
 
 
 # ====== WebSocket ======
