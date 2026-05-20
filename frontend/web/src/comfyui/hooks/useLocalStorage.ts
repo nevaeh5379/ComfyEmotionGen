@@ -1,5 +1,20 @@
 import { useEffect, useState } from "react"
 
+const STORAGE_QUOTA_ERROR = "QuotaExceededError"
+
+function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value)
+    return true
+  } catch (e: unknown) {
+    if (typeof e === "object" && e !== null && "name" in e && e.name === STORAGE_QUOTA_ERROR) {
+      console.warn(`localStorage quota exceeded for key "${key}". Storage not updated.`)
+      return false
+    }
+    throw e
+  }
+}
+
 export function useLocalStorage<T>(key: string, defaultValue: T) {
   const isStringDefault = typeof defaultValue === "string"
 
@@ -16,9 +31,10 @@ export function useLocalStorage<T>(key: string, defaultValue: T) {
 
   useEffect(() => {
     if (isStringDefault) {
-      localStorage.setItem(key, value as string)
+      safeSetItem(key, value as string)
     } else {
-      localStorage.setItem(key, JSON.stringify(value))
+      const serialized = JSON.stringify(value)
+      safeSetItem(key, serialized)
     }
   }, [key, value, isStringDefault])
 
