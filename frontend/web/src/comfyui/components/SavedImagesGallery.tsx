@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   ChevronUp,
   PinIcon,
@@ -77,6 +79,7 @@ import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
 
 type GalleryViewMode = "grid" | "compare"
+type GallerySortKey = "createdAt" | "filename" | "sizeBytes"
 
 /** 1..totalPages를 ellipsis와 함께 압축. 현재 페이지 ±1 표시. */
 function buildPageList(current: number, totalPages: number): (number | "…")[] {
@@ -114,6 +117,10 @@ export interface GalleryToolbarState {
   hasAnyFilter: boolean
   hideRejected: boolean
   setHideRejected: (v: boolean) => void
+  sortKey: GallerySortKey
+  setSortKey: (k: GallerySortKey) => void
+  sortDir: "asc" | "desc"
+  setSortDir: (d: "asc" | "desc") => void
   clearAllFilters: () => void
   reload: () => void
   handleExport: () => void
@@ -168,6 +175,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [selected, setSelected] = useState<SavedImage | null>(null)
   const [page, setPage] = useState(1)
   const [hideRejected, setHideRejected] = useState(false)
+  const [sortKey, setSortKeyLocal] = useState<GallerySortKey>("createdAt")
+  const [sortDir, setSortDirLocal] = useState<"asc" | "desc">("desc")
 
   const [groupPage, setGroupPage] = useState(1)
 
@@ -238,6 +247,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const effectiveGalleryViewMode = toolbarState
     ? toolbarState.galleryViewMode
     : galleryViewMode
+  const effectiveSortKey = toolbarState ? toolbarState.sortKey : sortKey
+  const effectiveSortDir = toolbarState ? toolbarState.sortDir : sortDir
 
   const {
     images,
@@ -320,14 +331,29 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     })
   }, [metadataFilteredImages, effectiveGeneralFilters])
 
-  // 리젝 숨기기 적용
-  const visibleImages = useMemo(
-    () =>
-      finalFilteredImages.filter(
-        (img) => !effectiveHideRejected || img.status !== "rejected"
-      ),
-    [finalFilteredImages, effectiveHideRejected]
-  )
+  // 리젝 숨기기 + 정렬 적용
+  const visibleImages = useMemo(() => {
+    const filtered = finalFilteredImages.filter(
+      (img) => !effectiveHideRejected || img.status !== "rejected"
+    )
+    const dir = effectiveSortDir === "asc" ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      switch (effectiveSortKey) {
+        case "filename":
+          return (
+            dir *
+            (a.originalFilename || a.comfyFilename).localeCompare(
+              b.originalFilename || b.comfyFilename
+            )
+          )
+        case "sizeBytes":
+          return dir * (a.sizeBytes - b.sizeBytes)
+        case "createdAt":
+        default:
+          return dir * (a.createdAt - b.createdAt)
+      }
+    })
+  }, [finalFilteredImages, effectiveHideRejected, effectiveSortKey, effectiveSortDir])
 
   // 그룹 모드: groups + groupImagesMap 기반 visible 데이터
   const visibleGroups = useMemo(() => {
@@ -362,6 +388,23 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         items = items.filter((img) => img.status !== "rejected")
       }
       if (items.length > 0) {
+        const dir = effectiveSortDir === "asc" ? 1 : -1
+        items.sort((a, b) => {
+          switch (effectiveSortKey) {
+            case "filename":
+              return (
+                dir *
+                (a.originalFilename || a.comfyFilename).localeCompare(
+                  b.originalFilename || b.comfyFilename
+                )
+              )
+            case "sizeBytes":
+              return dir * (a.sizeBytes - b.sizeBytes)
+            case "createdAt":
+            default:
+              return dir * (a.createdAt - b.createdAt)
+          }
+        })
         result.push({ name: g.filename, items })
       }
     }
@@ -373,6 +416,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     effectiveMetadataFilter,
     effectiveGeneralFilters,
     effectiveHideRejected,
+    effectiveSortKey,
+    effectiveSortDir,
   ])
 
   // 갤러리 이미지 토큰 실시간 추출 후 상위 컴포넌트 전달
@@ -543,6 +588,27 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     )
   }, [])
 
+  const toggleSort = useCallback(
+    (key: GallerySortKey) => {
+      if (toolbarState) {
+        if (toolbarState.sortKey === key) {
+          toolbarState.setSortDir(toolbarState.sortDir === "asc" ? "desc" : "asc")
+        } else {
+          toolbarState.setSortKey(key)
+          toolbarState.setSortDir("asc")
+        }
+      } else {
+        if (sortKey === key) {
+          setSortDirLocal((d) => (d === "asc" ? "desc" : "asc"))
+        } else {
+          setSortKeyLocal(key)
+          setSortDirLocal("asc")
+        }
+      }
+    },
+    [toolbarState, sortKey]
+  )
+
   const hasAnyFilter = useMemo(
     () =>
       !!(
@@ -621,6 +687,39 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   </SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* 3. Sort: key select + direction toggle */}
+              <Select
+                value={sortKey}
+                onValueChange={(k) => toggleSort(k as GallerySortKey)}
+              >
+                <SelectTrigger className="h-8 w-[72px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt" className="text-[12px] font-bold">
+                    날짜순
+                  </SelectItem>
+                  <SelectItem value="filename" className="text-[12px] font-bold">
+                    파일명순
+                  </SelectItem>
+                  <SelectItem value="sizeBytes" className="text-[12px] font-bold">
+                    크기순
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toggleSort(sortKey)}
+                className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
+              >
+                {sortDir === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowDown className="h-3.5 w-3.5" />
+                )}
+              </Button>
             </div>
 
             {/* Right: Filter + More actions */}

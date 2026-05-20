@@ -1,4 +1,6 @@
 import {
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   ClipboardList,
   Image as ImageIcon,
@@ -106,6 +108,10 @@ interface HeaderProps {
   galleryCandidates: { value: string; type: "filename" | "tag" | "metadata" }[]
   galleryHideRejected: boolean
   setGalleryHideRejected: (v: boolean) => void
+  gallerySortKey: "createdAt" | "filename" | "sizeBytes"
+  setGallerySortKey: (k: "createdAt" | "filename" | "sizeBytes") => void
+  gallerySortDir: "asc" | "desc"
+  setGallerySortDir: (d: "asc" | "desc") => void
   setGalleryDuplicateStrategy: (v: "hash" | "number") => void
 
   // Gallery action callbacks
@@ -137,6 +143,17 @@ interface HeaderProps {
 }
 
 export function Header(props: HeaderProps) {
+  const toggleSort = (
+    key: "createdAt" | "filename" | "sizeBytes"
+  ) => {
+    if (props.gallerySortKey === key) {
+      props.setGallerySortDir(props.gallerySortDir === "asc" ? "desc" : "asc")
+    } else {
+      props.setGallerySortKey(key)
+      props.setGallerySortDir("asc")
+    }
+  }
+
   return (
     <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
       <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
@@ -439,6 +456,43 @@ export function Header(props: HeaderProps) {
                   </SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select
+                value={props.gallerySortKey}
+                onValueChange={(k) =>
+                  toggleSort(k as "createdAt" | "filename" | "sizeBytes")
+                }
+              >
+                <SelectTrigger className="!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt" className="text-[12px] font-bold">
+                    날짜순
+                  </SelectItem>
+                  <SelectItem value="filename" className="text-[12px] font-bold">
+                    파일명순
+                  </SelectItem>
+                  <SelectItem value="sizeBytes" className="text-[12px] font-bold">
+                    크기순
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  toggleSort(props.gallerySortKey)
+                }
+                className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
+              >
+                {props.gallerySortDir === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowDown className="h-3.5 w-3.5" />
+                )}
+              </Button>
 
               <Button
                 size="sm"

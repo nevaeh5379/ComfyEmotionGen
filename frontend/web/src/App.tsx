@@ -473,6 +473,10 @@ function AppContent(props: AppContentProps) {
   const [_galleryDuplicateStrategy, setGalleryDuplicateStrategy] = useState<
     "hash" | "number"
   >("hash")
+  const [gallerySortKey, setGallerySortKey] = useState<
+    "createdAt" | "filename" | "sizeBytes"
+  >("createdAt")
+  const [gallerySortDir, setGallerySortDir] = useState<"asc" | "desc">("desc")
 
   const galleryFilenameFilter = useMemo(() => {
     return gallerySearchTags
@@ -802,6 +806,10 @@ function AppContent(props: AppContentProps) {
         galleryHideRejected={galleryHideRejected}
         setGalleryHideRejected={setGalleryHideRejected}
         setGalleryDuplicateStrategy={setGalleryDuplicateStrategy}
+        gallerySortKey={gallerySortKey}
+        setGallerySortKey={setGallerySortKey}
+        gallerySortDir={gallerySortDir}
+        setGallerySortDir={setGallerySortDir}
         curationSelectedAxis={curationSelectedAxis}
         setCurationSelectedAxis={setCurationSelectedAxis}
         savedTemplates={template.savedTemplates}
@@ -866,6 +874,10 @@ function AppContent(props: AppContentProps) {
                 hasAnyFilter: galleryHasAnyFilter,
                 hideRejected: galleryHideRejected,
                 setHideRejected: setGalleryHideRejected,
+                sortKey: gallerySortKey,
+                setSortKey: setGallerySortKey,
+                sortDir: gallerySortDir,
+                setSortDir: setGallerySortDir,
                 clearAllFilters: () => {
                   setGallerySearchTags([])
                   setGallerySearchInput("")
