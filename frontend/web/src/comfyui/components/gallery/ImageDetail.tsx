@@ -1,24 +1,10 @@
 import { useState } from "react"
+import { ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { curationApi } from "../../hooks/useSavedImages"
-import type { CurationStatus, SavedImage } from "../../types/Message"
-
-const STATUS_LABEL: Record<CurationStatus | "all", string> = {
-  all: "전체",
-  pending: "대기",
-  approved: "통과",
-  rejected: "탈락",
-  trashed: "휴지통",
-}
-
-const STATUS_TINT: Record<CurationStatus, string> = {
-  pending: "bg-slate-200 text-slate-800",
-  approved: "bg-green-200 text-green-900",
-  rejected: "bg-red-200 text-red-900",
-  trashed: "bg-zinc-300 text-zinc-700",
-}
+import { STATUS_LABEL, STATUS_TINT, type SavedImage } from "../../types/Message"
 
 export interface DetailProps {
   backendUrl: string
@@ -31,6 +17,7 @@ export function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailPro
   const [note, setNote] = useState(image.note)
   const [newTag, setNewTag] = useState("")
   const [tags, setTags] = useState<string[]>(image.tags)
+  const [imgError, setImgError] = useState(false)
 
   const saveNote = async () => {
     await curationApi.patchNote(backendUrl, image.hash, note)
@@ -77,11 +64,18 @@ export function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailPro
             닫기
           </Button>
         </div>
-        <img
-          src={`${backendUrl}/saved-images/${image.hash}`}
-          alt={image.originalFilename}
-          className="max-h-[60vh] w-full object-contain"
-        />
+        {imgError ? (
+          <div className="flex h-64 w-full items-center justify-center bg-muted text-muted-foreground">
+            <ImageOff className="h-10 w-10" />
+          </div>
+        ) : (
+          <img
+            src={`${backendUrl}/saved-images/${image.hash}`}
+            alt={image.originalFilename}
+            className="max-h-[60vh] w-full object-contain"
+            onError={() => setImgError(true)}
+          />
+        )}
         <div className="space-y-1 text-xs">
           <div className="font-mono text-muted-foreground">
             hash: {image.hash}
@@ -114,6 +108,7 @@ export function ImageDetail({ backendUrl, image, onClose, onChanged }: DetailPro
                 type="button"
                 className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-destructive/20"
                 onClick={() => removeTag(t)}
+                aria-label={`${t} 태그 제거`}
                 title="클릭하여 제거"
               >
                 #{t} ×

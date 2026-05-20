@@ -43,6 +43,21 @@ export interface WorkerView {
 
 export type CurationStatus = "pending" | "approved" | "rejected" | "trashed"
 
+export const STATUS_LABEL: Record<CurationStatus | "all", string> = {
+  all: "전체",
+  pending: "대기",
+  approved: "통과",
+  rejected: "탈락",
+  trashed: "휴지통",
+}
+
+export const STATUS_TINT: Record<CurationStatus, string> = {
+  pending: "bg-info-bg text-info",
+  approved: "bg-ok-bg text-ok",
+  rejected: "bg-bad-bg text-bad",
+  trashed: "bg-panel-2 text-ink-2",
+}
+
 export interface SavedImage {
   hash: string
   jobId: string

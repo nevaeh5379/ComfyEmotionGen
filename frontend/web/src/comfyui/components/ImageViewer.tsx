@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { XIcon } from "lucide-react"
+import { XIcon, Loader2Icon, ImageOff } from "lucide-react"
 
 /* ------------------------------------------------------------------ */
 /*  ImageViewer – reusable full-screen image popup with:               */
@@ -26,6 +26,7 @@ interface ImageViewerProps {
   src: string
   isOpen: boolean
   onClose: () => void
+  alt?: string
   children?: React.ReactNode
 }
 
@@ -33,6 +34,7 @@ export function ImageViewer({
   src,
   isOpen,
   onClose,
+  alt,
   children,
 }: ImageViewerProps) {
   /* ---- 1. Refs & State ---- */
@@ -67,6 +69,7 @@ export function ImageViewer({
   const [lensZoom, setLensZoom] = useState(LENS_ZOOM)
   const [lensShape, setLensShape] = useState<"circle" | "square">("circle")
   const [showLensSettings, setShowLensSettings] = useState(false)
+  const [imgStatus, setImgStatus] = useState<"loading" | "loaded" | "error">("loading")
 
   const [winSize, setWinSize] = useState({
     w: window.innerWidth,
@@ -412,6 +415,11 @@ export function ImageViewer({
     }
   }, [isOpen])
 
+  /* reset image status when src changes */
+  useEffect(() => {
+    setImgStatus("loading")
+  }, [src])
+
   /* reset on close */
   useEffect(() => {
     if (!isOpen) {
@@ -508,8 +516,9 @@ export function ImageViewer({
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-red-600"
+          className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-bad"
           onClick={onClose}
+          aria-label="닫기"
         >
           <XIcon className="h-5 w-5" />
         </button>
@@ -542,12 +551,13 @@ export function ImageViewer({
           <div className="flex h-full w-full items-center justify-center">
             <img
               src={src}
-              alt=""
+              alt={alt ?? "확대 이미지"}
               className="max-h-full max-w-full select-none"
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: "center center",
                 transition: dragging ? "none" : "transform 0.15s ease-out",
+                opacity: imgStatus === "loaded" ? 1 : 0,
               }}
               draggable={false}
               onDragStart={(e) => e.preventDefault()}
@@ -557,13 +567,27 @@ export function ImageViewer({
                   w: img.naturalWidth,
                   h: img.naturalHeight,
                 })
+                setImgStatus("loaded")
               }}
+              onError={() => setImgStatus("error")}
             />
+            {imgStatus !== "loaded" && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/40 text-white/70">
+                {imgStatus === "loading" ? (
+                  <Loader2Icon className="h-8 w-8 animate-spin" />
+                ) : (
+                  <>
+                    <ImageOff className="h-10 w-10" />
+                    <span className="text-sm font-medium">이미지를 불러올 수 없습니다</span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {selRect && (
             <div
-              className="pointer-events-none absolute border-2 border-blue-400 bg-blue-400/20"
+              className="pointer-events-none absolute border-2 border-info bg-info/20"
               style={selRect}
             />
           )}
@@ -598,11 +622,12 @@ export function ImageViewer({
               {!showLensSettings && (
                 <div className="flex gap-2">
                   <button
-                    className={`flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-bold backdrop-blur-sm transition-colors ${
+                    className={`flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-xs font-bold backdrop-blur-sm transition-colors ${
                       lensEnabled
-                        ? "text-blue-400 hover:text-blue-300"
+                        ? "text-info hover:text-info/80"
                         : "text-white/40 hover:text-white/60"
                     }`}
+                    aria-label={lensEnabled ? "돋보기 끄기" : "돋보기 켜기"}
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -612,7 +637,8 @@ export function ImageViewer({
                     {lensEnabled ? "🔍 렌즈 ON" : "🔍 렌즈 OFF"}
                   </button>
                   <button
-                    className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-bold text-white/60 backdrop-blur-sm hover:text-white/90"
+                    className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-xs font-bold text-white/60 backdrop-blur-sm hover:text-white/90"
+                    aria-label="돋보기 설정"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -625,13 +651,14 @@ export function ImageViewer({
               )}
               {showLensSettings && (
                 <div
-                  className="flex flex-col gap-2 rounded bg-black/70 px-3 py-2 text-[10px] font-bold text-white/80 backdrop-blur-sm"
+                  className="flex flex-col gap-2 rounded bg-black/70 px-3 py-2 text-xs font-bold text-white/80 backdrop-blur-sm"
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center gap-2">
                     <span className="w-8">크기</span>
                     <input
+                      id="lens-size"
                       type="range"
                       min={80}
                       max={300}
@@ -639,13 +666,15 @@ export function ImageViewer({
                       onChange={(e) =>
                         setLensSizeAndRef(Number(e.target.value))
                       }
-                      className="h-1 w-20 accent-blue-400"
+                      className="h-1 w-20 accent-info"
                     />
+                    <label htmlFor="lens-size" className="sr-only">돋보기 크기</label>
                     <span className="w-6 text-right">{lensSize}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-8">확대</span>
                     <input
+                      id="lens-zoom"
                       type="range"
                       min={1.5}
                       max={5}
@@ -654,27 +683,31 @@ export function ImageViewer({
                       onChange={(e) =>
                         setLensZoomAndRef(Number(e.target.value))
                       }
-                      className="h-1 w-20 accent-blue-400"
+                      className="h-1 w-20 accent-info"
                     />
+                    <label htmlFor="lens-zoom" className="sr-only">돋보기 확대 배율</label>
                     <span className="w-6 text-right">{lensZoom}x</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-8">모양</span>
                     <button
-                      className={`rounded px-2 py-0.5 ${lensShape === "circle" ? "bg-blue-500 text-white" : "bg-white/10 text-white/50"}`}
+                      className={`rounded px-2 py-0.5 ${lensShape === "circle" ? "bg-info text-white" : "bg-white/10 text-white/50"}`}
+                      aria-label="원형 렌즈"
                       onClick={() => setLensShape("circle")}
                     >
                       ⭕
                     </button>
                     <button
-                      className={`rounded px-2 py-0.5 ${lensShape === "square" ? "bg-blue-500 text-white" : "bg-white/10 text-white/50"}`}
+                      className={`rounded px-2 py-0.5 ${lensShape === "square" ? "bg-info text-white" : "bg-white/10 text-white/50"}`}
+                      aria-label="사각형 렌즈"
                       onClick={() => setLensShape("square")}
                     >
                       ⬜
                     </button>
                   </div>
                   <button
-                    className="self-end text-[9px] text-white/40 hover:text-white/80"
+                    className="self-end text-xs text-white/40 hover:text-white/80"
+                    aria-label="설정 닫기"
                     onClick={() => setShowLensSettings(false)}
                   >
                     닫기

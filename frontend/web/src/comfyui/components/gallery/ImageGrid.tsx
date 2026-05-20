@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   PinIcon,
   PinOffIcon,
@@ -6,6 +7,7 @@ import {
   Trash2Icon,
   CopyIcon,
   EyeIcon,
+  ImageOff,
 } from "lucide-react"
 import {
   ContextMenu,
@@ -14,22 +16,14 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import type { CurationStatus, SavedImage } from "../../types/Message"
-
-const STATUS_LABEL: Record<CurationStatus | "all", string> = {
-  all: "전체",
-  pending: "대기",
-  approved: "통과",
-  rejected: "탈락",
-  trashed: "휴지통",
-}
-
-const STATUS_TINT: Record<CurationStatus, string> = {
-  pending: "bg-slate-200 text-slate-800",
-  approved: "bg-green-200 text-green-900",
-  rejected: "bg-red-200 text-red-900",
-  trashed: "bg-zinc-300 text-zinc-700",
-}
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty"
+import { STATUS_LABEL, STATUS_TINT, type CurationStatus, type SavedImage } from "../../types/Message"
 
 export interface GridProps {
   items: SavedImage[]
@@ -58,7 +52,21 @@ export function ImageGrid({
   pinnedHashes = [],
   imageLazyLoad = true,
 }: GridProps) {
-  if (items.length === 0) return null
+  const [brokenHashes, setBrokenHashes] = useState<Set<string>>(new Set())
+
+  if (items.length === 0) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ImageOff className="size-6" />
+          </EmptyMedia>
+          <EmptyTitle>이미지가 없습니다</EmptyTitle>
+          <EmptyDescription>해당 조건에 맞는 이미지를 찾을 수 없습니다.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
   return (
     <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
       {items.map((img) => {
@@ -79,6 +87,7 @@ export function ImageGrid({
                   <button
                     type="button"
                     className="group block h-full w-full overflow-hidden rounded-md"
+                    aria-label={`${img.originalFilename} 상세 보기`}
                     onClick={() => {
                       if (isSelected || selectionMode) {
                         onToggleSelect?.(img.hash)
@@ -87,34 +96,43 @@ export function ImageGrid({
                       }
                     }}
                   >
-                    <img
-                      src={`${backendUrl}/saved-images/${img.hash}`}
-                      alt={img.originalFilename}
-                      loading={imageLazyLoad ? "lazy" : "eager"}
-                      className="w-full object-cover transition-transform group-hover:scale-105"
-                    />
+                    {brokenHashes.has(img.hash) ? (
+                      <div className="flex aspect-square w-full items-center justify-center bg-muted text-muted-foreground">
+                        <ImageOff className="h-8 w-8" />
+                      </div>
+                    ) : (
+                      <img
+                        src={`${backendUrl}/saved-images/${img.hash}`}
+                        alt={img.originalFilename}
+                        loading={imageLazyLoad ? "lazy" : "eager"}
+                        className="w-full object-cover transition-transform group-hover:scale-105"
+                        onError={() => setBrokenHashes((prev) => new Set(prev).add(img.hash))}
+                      />
+                    )}
                   </button>
 
                   {/* 체크박스 - 왼쪽 위 */}
-                  <div
+                  <button
+                    type="button"
                     className="absolute top-2 left-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60"
+                    aria-label={isSelected ? "선택 해제" : "선택"}
                     onClick={(e) => {
                       e.stopPropagation()
                       onToggleSelect?.(img.hash)
                     }}
                   >
                     {isSelected ? (
-                      <CheckSquareIcon className="h-5 w-5 text-blue-400 drop-shadow-sm" />
+                      <CheckSquareIcon className="h-5 w-5 text-info drop-shadow-sm" />
                     ) : isPinned ? (
-                      <PinIcon className="h-4 w-4 text-amber-400 drop-shadow-sm" />
+                      <PinIcon className="h-4 w-4 text-warn drop-shadow-sm" />
                     ) : (
                       <SquareIcon className="h-5 w-5 text-white/60 drop-shadow-sm" />
                     )}
-                  </div>
+                  </button>
 
                   {/* 상태 라벨 - 왼쪽 위 (데스크톱만) */}
                   <span
-                    className={`absolute top-2 left-10 hidden rounded-full px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm backdrop-blur-sm md:inline ${STATUS_TINT[img.status]}`}
+                    className={`absolute top-2 left-10 hidden rounded-full px-1.5 py-0.5 text-xs font-bold tracking-wider uppercase shadow-sm backdrop-blur-sm md:inline ${STATUS_TINT[img.status]}`}
                   >
                     {STATUS_LABEL[img.status]}
                   </span>
@@ -124,7 +142,7 @@ export function ImageGrid({
                     type="button"
                     className={`absolute top-2 right-2 hidden h-7 w-7 items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 md:flex ${
                       img.status === "trashed"
-                        ? "text-red-400"
+                        ? "text-bad"
                         : "text-white/60 hover:text-white"
                     }`}
                     onClick={(e) => {
@@ -134,6 +152,7 @@ export function ImageGrid({
                         img.status === "trashed" ? "pending" : "trashed"
                       )
                     }}
+                    aria-label={img.status === "trashed" ? "복원" : "휴지통"}
                     title={img.status === "trashed" ? "복원" : "휴지통"}
                   >
                     <Trash2Icon className="h-4 w-4" />
@@ -146,7 +165,7 @@ export function ImageGrid({
                     {img.tags.map((t) => (
                       <span
                         key={t}
-                        className="rounded border border-line/20 bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/80"
+                        className="rounded border border-line/20 bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground/80"
                       >
                         #{t}
                       </span>
