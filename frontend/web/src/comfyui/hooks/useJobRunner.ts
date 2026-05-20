@@ -5,6 +5,8 @@ import {
   buildWorkflowForItem,
   itemKey,
 } from "../../lib/workflowUtils"
+import { API, HEADERS } from "@/lib/api"
+import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 
 interface ImageUploadState {
@@ -39,16 +41,16 @@ export function useJobRunner({
   const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
   const [repeatCount, setRepeatCount] = useState(1)
 
-  // CEG 템플릿 변경 시 자동 파싱 (600ms debounce)
+  // CEG 템플릿 변경 시 자동 파싱 (debounce)
   useEffect(() => {
     if (!isAliveBackend || !cegTemplate.trim()) return
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       setParserError(null)
       try {
-        const res = await fetch(`${backendUrl}/render`, {
+        const res = await fetch(`${backendUrl}${API.render}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: HEADERS.json,
           body: JSON.stringify({ template: cegTemplate }),
           signal: controller.signal,
         })
@@ -71,7 +73,7 @@ export function useJobRunner({
         if (err instanceof Error && err.name === "AbortError") return
         setParserError(err instanceof Error ? err.message : String(err))
       }
-    }, 600)
+    }, CEG_TEMPLATE_DEBOUNCE_MS)
     return () => {
       clearTimeout(timer)
       controller.abort()
@@ -80,9 +82,9 @@ export function useJobRunner({
 
   const callParser = async (): Promise<RenderItemsResponse | undefined> => {
     try {
-      const response = await fetch(`${backendUrl}/render`, {
+      const response = await fetch(`${backendUrl}${API.render}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: HEADERS.json,
         body: JSON.stringify({ template: cegTemplate || "" }),
       })
       if (!response.ok) {
@@ -122,9 +124,9 @@ export function useJobRunner({
       cegTemplate: cegTemplate,
     }))
     try {
-      const res = await fetch(`${backendUrl}/jobs`, {
+      const res = await fetch(`${backendUrl}${API.jobs.root}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: HEADERS.json,
         body: JSON.stringify({ items }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

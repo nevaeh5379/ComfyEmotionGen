@@ -9,6 +9,7 @@ import {
   type NodeMapping,
   type ComfyWorkflow,
 } from "@/lib/workflow"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,10 +81,10 @@ export function WorkflowProvider({
   onPendingPresetSelection,
   children,
 }: WorkflowProviderProps): React.JSX.Element {
-  const [workflowJson, setWorkflowJson] = useLocalStorage("workflow", "")
+  const [workflowJson, setWorkflowJson] = useLocalStorage(STORAGE_KEYS.workflow, "")
   const [activeWorkflowId, setActiveWorkflowId] = useLocalStorage<
     string | null
-  >("activeWorkflowId", null)
+  >(STORAGE_KEYS.activeWorkflowId, null)
   const [workflowResetKey, setWorkflowResetKey] = useState(0)
   const {
     workflows: savedWorkflows,

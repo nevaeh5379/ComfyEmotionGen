@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react"
 
-const SETTINGS_KEY = "appSettings"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
+
+const SETTINGS_KEY = STORAGE_KEYS.appSettings
 
 export interface AppSettings {
   imagePageSize: 24 | 48 | 96

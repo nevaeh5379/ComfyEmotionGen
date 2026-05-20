@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { type NodeMapping } from "../../lib/workflow"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 export interface SavedNodeMappingPreset {
   id: string
@@ -16,7 +17,7 @@ export interface SavedWorkflow {
   savedAt: number
 }
 
-const STORAGE_KEY = "saved_workflows"
+const STORAGE_KEY = STORAGE_KEYS.savedWorkflows
 
 function load(): SavedWorkflow[] {
   try {

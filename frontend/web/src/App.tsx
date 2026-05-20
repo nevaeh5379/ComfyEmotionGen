@@ -36,6 +36,12 @@ import {
   IS_PACKAGE_MODE,
   PACKAGE_BACKEND_URL,
 } from "./lib/runtime"
+import { API, HEADERS } from "./lib/api"
+import { STORAGE_KEYS } from "./lib/storageKeys"
+import {
+  HEALTH_CHECK_INTERVAL_MS,
+  NAME_CONFLICT_START_NUMBER,
+} from "./lib/constants"
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 import { Header, type TabId } from "./comfyui/components/layout/Header"
 import { cn } from "@/lib/utils"
@@ -52,9 +58,6 @@ import {
   jobSessionId,
   makeSessionLabel,
 } from "./comfyui/components/JobManagerPanel"
-
-
-const HEALTH_CHECK_INTERVAL_MS = 5000
 
 // ---------------------------------------------------------------------------
 // App
@@ -76,7 +79,7 @@ export function App() {
 
   // Backend URL (remains at App level — used by many components)
   const [storedBackendUrl, setStoredBackendUrl] = useLocalStorage(
-    "backendUrl",
+    STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL
   )
   const backendUrl = IS_PACKAGE_MODE
@@ -290,7 +293,7 @@ function AppContent(props: AppContentProps) {
 
   const handleTogglePause = async () => {
     try {
-      await fetch(`${props.backendUrl}/jobs/${props.paused ? "resume" : "pause"}`, {
+      await fetch(`${props.backendUrl}${props.paused ? API.jobs.resume : API.jobs.pause}`, {
         method: "POST",
       })
     } catch {
@@ -309,7 +312,7 @@ function AppContent(props: AppContentProps) {
     )
       return
     try {
-      await fetch(`${props.backendUrl}/jobs/cancel-all`, { method: "POST" })
+      await fetch(`${props.backendUrl}${API.jobs.cancelAll}`, { method: "POST" })
     } catch {
       /* ignore */
     }
@@ -321,7 +324,7 @@ function AppContent(props: AppContentProps) {
     )
     for (const j of failed) {
       try {
-        await fetch(`${props.backendUrl}/jobs/${j.id}/retry`, { method: "POST" })
+        await fetch(`${props.backendUrl}${API.jobs.retry(j.id)}`, { method: "POST" })
       } catch {
         /* ignore */
       }
@@ -343,9 +346,9 @@ function AppContent(props: AppContentProps) {
     )
       return
     try {
-      await fetch(`${props.backendUrl}/jobs/delete`, {
+      await fetch(`${props.backendUrl}${API.jobs.delete}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: HEADERS.json,
         body: JSON.stringify({ job_ids: failed.map((j) => j.id) }),
       })
     } catch {
@@ -452,7 +455,7 @@ function AppContent(props: AppContentProps) {
     let cancelled = false
     const checkHealth = async () => {
       try {
-        const response = await fetch(`${props.backendUrl}/health`)
+        const response = await fetch(`${props.backendUrl}${API.health}`)
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
         return data["backend"] === "ok"
@@ -477,7 +480,7 @@ function AppContent(props: AppContentProps) {
   // ── Object info fetch ──
   useEffect(() => {
     if (!props.isAliveBackend) return
-    fetch(`${props.backendUrl}/object_info`)
+    fetch(`${props.backendUrl}${API.objectInfo}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) nodeMapping.setObjectInfo(data)
@@ -492,7 +495,7 @@ function AppContent(props: AppContentProps) {
   // ── Name conflict helpers ──
   const nextFreeName = (name: string, items: { name: string }[]): string => {
     if (!items.some((x) => x.name === name)) return name
-    let n = 2
+    let n = NAME_CONFLICT_START_NUMBER
     while (items.some((x) => x.name === `${name} (${n})`)) n++
     return `${name} (${n})`
   }

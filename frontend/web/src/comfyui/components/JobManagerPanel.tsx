@@ -33,6 +33,9 @@ import { StatusPill } from "@/components/ceg/StatusPill"
 import { cn } from "@/lib/utils"
 import { useConfirm } from "../contexts/ConfirmContext"
 import { ImageViewer } from "./ImageViewer"
+import { API, HEADERS } from "@/lib/api"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { JOB_PAGE_SIZE, COPIED_RESET_DELAY_MS, TICK_INTERVAL_MS, MS_PER_SECOND, SECONDS_PER_HOUR } from "@/lib/constants"
 
 // Extracted components
 import {
@@ -54,9 +57,9 @@ export interface ActiveStateRaw {
   activatedAt: number // ms epoch; jobs created on/after this time go to activeSessionId
 }
 
-const SESSIONS_KEY = "ceg_sessions"
-const ACTIVE_STATE_KEY = "ceg_active_state"
-const PAGE_SIZE = 50
+const SESSIONS_KEY = STORAGE_KEYS.sessions
+const ACTIVE_STATE_KEY = STORAGE_KEYS.activeState
+const PAGE_SIZE = JOB_PAGE_SIZE
 
 export function loadMarkers(): SessionMarkerRaw[] {
   try {
@@ -112,7 +115,7 @@ export function jobSessionId(
   sortedDesc: SessionMarkerRaw[],
   activeState: ActiveStateRaw | null
 ): string {
-  const t = createdAtSec * 1000
+  const t = createdAtSec * MS_PER_SECOND
   if (activeState && t >= activeState.activatedAt) {
     return activeState.activeSessionId
   }
@@ -159,7 +162,7 @@ function formatDuration(ms: number): string {
 function jobDuration(job: JobView): number | null {
   if (job.executionDurationMs != null) return job.executionDurationMs
   if (job.startedAt != null && job.finishedAt != null)
-    return (job.finishedAt - job.startedAt) * 1000
+    return (job.finishedAt - job.startedAt) * MS_PER_SECOND
   return null
 }
 
@@ -182,7 +185,7 @@ function ClipButton({ text }: { text: string }) {
     e.stopPropagation()
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      setTimeout(() => setCopied(false), COPIED_RESET_DELAY_MS)
     })
   }
   return (
@@ -363,7 +366,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   useEffect(() => {
     if (!runningJobs.length) return
-    const id = setInterval(() => setTick((t) => t + 1), 1000)
+    const id = setInterval(() => setTick((t) => t + 1), TICK_INTERVAL_MS)
     return () => clearInterval(id)
   }, [runningJobs])
 
@@ -382,7 +385,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const handleCancel = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
-      await fetch(`${backendUrl}/jobs/${jobId}`, { method: "DELETE" })
+      await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, { method: "DELETE" })
     } catch {
       /* ignore */
     }
@@ -393,7 +396,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const handleRetry = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
-      await fetch(`${backendUrl}/jobs/${jobId}/retry`, { method: "POST" })
+      await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, { method: "POST" })
     } catch {
       /* ignore */
     }
@@ -413,9 +416,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     )
       return
     try {
-      await fetch(`${backendUrl}/jobs/delete`, {
+      await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: HEADERS.json,
         body: JSON.stringify({ job_ids: [jobId] }),
       })
     } catch {
@@ -437,9 +440,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     )
       return
     try {
-      await fetch(`${backendUrl}/jobs/delete`, {
+      await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: HEADERS.json,
         body: JSON.stringify({ job_ids: [...selectedForDelete] }),
       })
     } catch {
@@ -477,7 +480,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       if (fetchedImages.has(jobId) || fetchingRef.current.has(jobId)) return
       fetchingRef.current.add(jobId)
       try {
-        const res = await fetch(`${backendUrl}/jobs/${jobId}/saved-images`)
+        const res = await fetch(`${backendUrl}${API.jobs.savedImages(jobId)}`)
         if (res.ok) {
           const data = await res.json()
           const hashes: string[] = (data.items ?? []).map(
@@ -514,7 +517,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     setDateTo(toStr)
     switch (label) {
       case "1h": {
-        const d = new Date(now.getTime() - 3600_000)
+        const d = new Date(now.getTime() - SECONDS_PER_HOUR * MS_PER_SECOND)
         setDateFrom(d.toISOString().slice(0, 10))
         break
       }
@@ -523,7 +526,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         break
       }
       case "24h": {
-        const d = new Date(now.getTime() - 86_400_000)
+        const d = new Date(now.getTime() - 24 * SECONDS_PER_HOUR * MS_PER_SECOND)
         setDateFrom(d.toISOString().slice(0, 10))
         break
       }
@@ -908,7 +911,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     <div className="flex-1 flex justify-between items-baseline gap-2">
                       <span className="text-xs font-bold text-foreground">작업 생성됨</span>
                       <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                        {new Date(selectedJob.createdAt * 1000).toLocaleString()}
+                        {new Date(selectedJob.createdAt * MS_PER_SECOND).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -921,7 +924,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       <div className="flex-1 flex justify-between items-baseline gap-2">
                         <span className="text-xs font-bold text-foreground">렌더링 시작</span>
                         <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                          {new Date(selectedJob.startedAt * 1000).toLocaleString()}
+                          {new Date(selectedJob.startedAt * MS_PER_SECOND).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -949,7 +952,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                           {selectedJob.status === "error" ? "렌더링 실패" : selectedJob.status === "cancelled" ? "렌더링 취소" : "렌더링 완료"}
                         </span>
                         <span className="mono text-[10px] text-muted-foreground tabular-nums">
-                          {new Date(selectedJob.finishedAt * 1000).toLocaleString()}
+                          {new Date(selectedJob.finishedAt * MS_PER_SECOND).toLocaleString()}
                         </span>
                       </div>
                     </div>

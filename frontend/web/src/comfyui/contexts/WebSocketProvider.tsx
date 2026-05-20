@@ -15,11 +15,11 @@ import {
   IS_PACKAGE_MODE,
   PACKAGE_BACKEND_URL,
 } from "../../lib/runtime"
+import { STORAGE_KEYS } from "../../lib/storageKeys"
+import { WS_INITIAL_BACKOFF_MS, WS_MAX_BACKOFF_MS } from "../../lib/constants"
+import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
-
-const INITIAL_BACKOFF_MS = 1000
-const MAX_BACKOFF_MS = 30_000
 
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
@@ -33,7 +33,7 @@ interface ProviderProps {
 const readStoredBackendUrl = (): string => {
   // 패키지 모드: 런처 주입 URL 강제. localStorage 무시 (포트가 매 실행마다 바뀜).
   if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL as string
-  return localStorage.getItem("backendUrl") || DEFAULT_BACKEND_URL
+  return localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
 }
 
 export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
@@ -48,7 +48,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "backendUrl" && e.newValue) setStoredUrl(e.newValue)
+      if (e.key === STORAGE_KEYS.backendUrl && e.newValue) setStoredUrl(e.newValue)
     }
     window.addEventListener("storage", onStorage)
     return () => window.removeEventListener("storage", onStorage)
@@ -101,9 +101,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
     "WS 연결",
     () => {
       shouldReconnectRef.current = true
-      let backoff = INITIAL_BACKOFF_MS
+      let backoff = WS_INITIAL_BACKOFF_MS
 
-      const wsUrl = `${httpToWs(url)}/ws/events`
+      const wsUrl = `${httpToWs(url)}${API.ws.events}`
 
       const connect = () => {
         console.info("[backend] connecting", wsUrl)
@@ -112,7 +112,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
         socket.onopen = () => {
           setIsConnected(true)
-          backoff = INITIAL_BACKOFF_MS
+          backoff = WS_INITIAL_BACKOFF_MS
           console.info("[backend] connected")
         }
 
@@ -141,7 +141,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
             reconnectTimerRef.current = null
             connect()
           }, backoff)
-          backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
+          backoff = Math.min(backoff * 2, WS_MAX_BACKOFF_MS)
         }
       }
 

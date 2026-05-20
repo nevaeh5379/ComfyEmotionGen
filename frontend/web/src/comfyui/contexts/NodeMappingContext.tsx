@@ -7,6 +7,7 @@ import type {
   SavedNodeMappingPreset,
   SavedWorkflow,
 } from "../hooks/useSavedWorkflows"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { useWorkflowContext } from "./WorkflowContext"
 
 // ---------------------------------------------------------------------------
@@ -93,11 +94,11 @@ export function NodeMappingProvider({
   } = useWorkflowContext()
 
   const [nodeMappings, setNodeMappings] = useLocalStorage<NodeMapping[]>(
-    "nodeMappings",
+    STORAGE_KEYS.nodeMappings,
     []
   )
   const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] =
-    useLocalStorage<string | null>("activeNodeMappingPresetId", null)
+    useLocalStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
   const [nodeMappingResetKey, setNodeMappingResetKey] = useState(0)
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
   const [imageUploads, setImageUploads] = useState<

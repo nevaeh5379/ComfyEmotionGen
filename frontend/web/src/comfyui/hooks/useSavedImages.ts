@@ -8,17 +8,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useEffectLog } from "@/lib/renderLogger"
+import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
+import { API, HEADERS, DEFAULT_DOWNLOAD_FILENAME } from "@/lib/api"
+import { DEFAULT_SEED_STRATEGY } from "@/lib/constants"
+import { WS_RECONNECT_DELAY_MS } from "@/lib/constants"
 import type {
   AssetGroup,
   BackendEvent,
   CurationStatus,
   SavedImage,
 } from "../types/Message"
-
-const globalConfigUrl = (
-  window as Window & { COMFY_EMOTION_GEN_BACKEND_URL?: string }
-).COMFY_EMOTION_GEN_BACKEND_URL
-const DEFAULT_BACKEND_URL = globalConfigUrl || "http://localhost:8000"
 
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
@@ -99,7 +98,7 @@ export const useSavedImages = (
       if (status && status !== "all") params.set("status", status)
       if (filename) params.set("filename", filename)
       if (tag) params.set("tag", tag)
-      const res = await fetch(`${urlToUse}/saved-images?${params}`, {
+      const res = await fetch(`${urlToUse}${API.savedImages.root}?${params}`, {
         signal: ac.signal,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -132,7 +131,7 @@ export const useSavedImages = (
         offset: String(offset),
         sort: "latest",
       })
-      const res = await fetch(`${urlToUse}/asset-groups?${params}`, {
+      const res = await fetch(`${urlToUse}${API.assetGroups.root}?${params}`, {
         signal: ac.signal,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -174,7 +173,7 @@ export const useSavedImages = (
       const fetches = filenames.map(async (fn) => {
         try {
           const res = await fetch(
-            `${urlToUse}/asset-groups/${encodeURIComponent(fn)}${statusParam}`
+            `${urlToUse}${API.assetGroups.detail(fn)}${statusParam}`
           )
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
           const data = (await res.json()) as {
@@ -247,7 +246,7 @@ export const useSavedImages = (
       }
       socket.onclose = () => {
         if (cancelled) return
-        setTimeout(connect, 2000)
+        setTimeout(connect, WS_RECONNECT_DELAY_MS)
       }
     }
     connect()
@@ -292,9 +291,9 @@ export const curationApi = {
     hash: string,
     status: CurationStatus
   ): Promise<void> {
-    const res = await fetch(`${backendUrl}/saved-images/${hash}`, {
+    const res = await fetch(`${backendUrl}${API.savedImages.detail(hash)}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: HEADERS.json,
       body: JSON.stringify({ status }),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -304,9 +303,9 @@ export const curationApi = {
     hash: string,
     note: string
   ): Promise<void> {
-    const res = await fetch(`${backendUrl}/saved-images/${hash}`, {
+    const res = await fetch(`${backendUrl}${API.savedImages.detail(hash)}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: HEADERS.json,
       body: JSON.stringify({ note }),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -316,9 +315,9 @@ export const curationApi = {
     hash: string,
     tags: string[]
   ): Promise<void> {
-    const res = await fetch(`${backendUrl}/saved-images/${hash}/tags`, {
+    const res = await fetch(`${backendUrl}${API.savedImages.tags(hash)}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: HEADERS.json,
       body: JSON.stringify({ tags }),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -329,19 +328,19 @@ export const curationApi = {
     tag: string
   ): Promise<void> {
     const res = await fetch(
-      `${backendUrl}/saved-images/${hash}/tags/${encodeURIComponent(tag)}`,
+      `${backendUrl}${API.savedImages.tag(hash, tag)}`,
       { method: "DELETE" }
     )
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
   },
   async restore(backendUrl: string, hash: string): Promise<void> {
-    const res = await fetch(`${backendUrl}/saved-images/${hash}/restore`, {
+    const res = await fetch(`${backendUrl}${API.savedImages.restore(hash)}`, {
       method: "POST",
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
   },
   async emptyTrash(backendUrl: string): Promise<number> {
-    const res = await fetch(`${backendUrl}/trash/empty`, { method: "POST" })
+    const res = await fetch(`${backendUrl}${API.trash.empty}`, { method: "POST" })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as { deleted: number }
     return data.deleted
@@ -350,15 +349,15 @@ export const curationApi = {
     backendUrl: string,
     filename: string,
     count: number,
-    seedStrategy: "random" | "increment" = "random",
+    seedStrategy: "random" | "increment" = DEFAULT_SEED_STRATEGY,
     template?: string,
     workflow?: string
   ): Promise<string[]> {
     const res = await fetch(
-      `${backendUrl}/asset-groups/${encodeURIComponent(filename)}/regenerate`,
+      `${backendUrl}${API.assetGroups.regenerate(filename)}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: HEADERS.json,
         body: JSON.stringify({ count, seedStrategy, template, workflow }),
       }
     )
@@ -375,9 +374,9 @@ export const curationApi = {
       duplicateStrategy?: "hash" | "number"
     }
   ): Promise<void> {
-    const res = await fetch(`${backendUrl}/export`, {
+    const res = await fetch(`${backendUrl}${API.export}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: HEADERS.json,
       body: JSON.stringify(body),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -385,7 +384,7 @@ export const curationApi = {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = "dataset.zip"
+    a.download = DEFAULT_DOWNLOAD_FILENAME
     document.body.appendChild(a)
     a.click()
     a.remove()

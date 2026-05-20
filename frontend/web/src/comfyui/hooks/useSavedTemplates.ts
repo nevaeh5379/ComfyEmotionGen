@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 export interface SavedTemplate {
   id: string
@@ -7,7 +8,7 @@ export interface SavedTemplate {
   savedAt: number
 }
 
-const STORAGE_KEY = "ceg_saved_templates"
+const STORAGE_KEY = STORAGE_KEYS.savedTemplates
 
 function load(): SavedTemplate[] {
   try {

@@ -5,7 +5,7 @@ import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-
+import { API, HEADERS, HTTP_STATUS, DEFAULT_WORKER_URL } from "@/lib/api"
 import type { WorkerView } from "../types/Message"
 
 interface Props {
@@ -30,9 +30,9 @@ export function WorkerManager({ backendUrl, workers }: Props) {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`${backendUrl}/workers`, {
+      const res = await fetch(`${backendUrl}${API.workers.root}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: HEADERS.json,
         body: JSON.stringify({ url }),
       })
       if (!res.ok) {
@@ -52,7 +52,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
 
   const sendDelete = async (workerId: string, force: boolean) => {
     const qs = force ? "?force=true" : ""
-    return fetch(`${backendUrl}/workers/${workerId}${qs}`, { method: "DELETE" })
+    return fetch(`${backendUrl}${API.workers.detail(workerId)}${qs}`, { method: "DELETE" })
   }
 
   const handleDelete = async (workerId: string) => {
@@ -61,7 +61,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
     setError(null)
     try {
       const res = await sendDelete(workerId, false)
-      if (res.status === 409) {
+      if (res.status === HTTP_STATUS.conflict) {
         const body = await res.json().catch(() => ({}))
         const detail = body.detail ?? {}
         setConflict({
@@ -145,7 +145,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
       <div className="flex gap-2">
         <Input
           type="url"
-          placeholder="http://localhost:8188"
+          placeholder={DEFAULT_WORKER_URL}
           value={newUrl}
           onChange={(e) => setNewUrl(e.target.value)}
           onKeyDown={(e) => {
