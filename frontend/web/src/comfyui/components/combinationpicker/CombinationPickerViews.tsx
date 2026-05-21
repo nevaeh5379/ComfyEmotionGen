@@ -89,9 +89,11 @@ export function Magnifier({
 export function TournamentView({
   images,
   onComplete,
+  thumbnailSize = 180,
 }: {
   images: SavedImage[]
   onComplete: (winnerHash: string) => void
+  thumbnailSize?: number
 }) {
   const { backendUrl } = useCurationContext()
   const [matches, setMatches] = useState<SavedImage[]>(() =>
@@ -217,12 +219,13 @@ export function TournamentView({
           </span>
         </div>
       </div>
-      <div className="flex w-full flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-6">
+      <div className="flex w-full flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-6 justify-center">
         {[left, right].map((img, idx) => (
           <button
             key={img.hash}
             onClick={() => handlePick(img)}
-            className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none"
+            className="group relative w-full flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none"
+            style={{ maxWidth: `${thumbnailSize * 2.2}px` }}
           >
             {/* Blurred Background to eliminate empty margins */}
             <img
@@ -500,12 +503,17 @@ export function GalleryView({
   onLongPress: (filename: string) => void
   onRegenerate?: (filename: string) => void
 }) {
-  const { backendUrl, enableHover, data, selection } = useCurationContext()
+  const { backendUrl, enableHover, data, selection, thumbnailSize } = useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
   const { selectionMode, selectedFilenames, toggleSelect } = selection
 
   return (
-    <div className="grid grid-cols-2 gap-4 items-start sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div
+      className="grid gap-4 items-start"
+      style={{
+        gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
+      }}
+    >
       {items.map((item: RenderItem) => {
         const imgs = imagesByFilename.get(item.filename) ?? []
         const isSelected = selectedFilenames.has(item.filename)

@@ -505,6 +505,12 @@ function AppContent(props: AppContentProps) {
   >("createdAt")
   const [gallerySortDir, setGallerySortDir] = useState<"asc" | "desc">("desc")
 
+  const [galleryThumbnailSize, setGalleryThumbnailSize] = useSyncedStorage<number>(
+    STORAGE_KEYS.galleryThumbnailSize,
+    180
+  )
+
+
   const galleryFilenameFilter = useMemo(() => {
     return gallerySearchTags
       .filter((t) => t.startsWith("@"))
@@ -843,7 +849,10 @@ function AppContent(props: AppContentProps) {
         setGallerySortKey={setGallerySortKey}
         gallerySortDir={gallerySortDir}
         setGallerySortDir={setGallerySortDir}
+        galleryThumbnailSize={galleryThumbnailSize}
+        setGalleryThumbnailSize={setGalleryThumbnailSize}
         curationSelectedAxis={curationSelectedAxis}
+
         setCurationSelectedAxis={setCurationSelectedAxis}
         savedTemplates={template.savedTemplates}
         onGalleryExport={handleGalleryExport}
@@ -911,6 +920,8 @@ function AppContent(props: AppContentProps) {
                 setSortKey: setGallerySortKey,
                 sortDir: gallerySortDir,
                 setSortDir: setGallerySortDir,
+                thumbnailSize: galleryThumbnailSize,
+                setThumbnailSize: setGalleryThumbnailSize,
                 clearAllFilters: () => {
                   setGallerySearchTags([])
                   setGallerySearchInput("")

@@ -69,6 +69,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     autoApplyReject,
     data,
     selection,
+    thumbnailSize,
   } = useCurationContext()
 
   const {
@@ -798,6 +799,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                       handleSelectImage(selectedFilename, hash)
                       setViewMode("grid")
                     }}
+                    thumbnailSize={thumbnailSize}
                   />
                 </div>
               )}

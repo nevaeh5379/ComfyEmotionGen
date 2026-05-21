@@ -11,6 +11,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  LayoutGrid,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
@@ -107,6 +108,9 @@ interface HeaderProps {
   gallerySortDir: "asc" | "desc"
   setGallerySortDir: (d: "asc" | "desc") => void
   setGalleryDuplicateStrategy: (v: "hash" | "number") => void
+  galleryThumbnailSize: number
+  setGalleryThumbnailSize: (v: number) => void
+
 
   // Gallery action callbacks
   onGalleryExport?: () => void
@@ -498,7 +502,33 @@ export function Header(props: HeaderProps) {
                 <TooltipContent>정렬 방향</TooltipContent>
               </Tooltip>
 
+              {(props.galleryGroupMode || props.galleryViewMode === "grid") && (
+                <div className="hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 md:flex shadow-xs h-7">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center text-muted-foreground">
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs font-bold">크기 조절</TooltipContent>
+                  </Tooltip>
+                  <input
+                    type="range"
+                    min="120"
+                    max="320"
+                    step="10"
+                    value={props.galleryThumbnailSize}
+                    onChange={(e) => props.setGalleryThumbnailSize(Number(e.target.value))}
+                    className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
+                  />
+                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-6 text-right tabular-nums">
+                    {props.galleryThumbnailSize}px
+                  </span>
+                </div>
+              )}
+
               <Tooltip>
+
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"

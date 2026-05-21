@@ -11,6 +11,8 @@ export interface CurationContextValue {
   savedWorkflows: SavedWorkflow[]
   enableHover: boolean
   autoApplyReject: boolean
+  thumbnailSize: number
+  setThumbnailSize: (v: number) => void
 
   // Data
   data: ReturnType<typeof useCombinationData>

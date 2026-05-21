@@ -17,4 +17,6 @@ export const STORAGE_KEYS = {
   cegTemplate: "cegTemplate",
   activeTemplateId: "activeTemplateId",
   curationSelectedAxis: "comfy.curation.selectedAxis",
+  curationThumbnailSize: "comfy.curation.thumbnailSize",
+  galleryThumbnailSize: "comfy.gallery.thumbnailSize",
 } as const

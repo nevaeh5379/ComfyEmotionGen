@@ -49,6 +49,7 @@ export interface GridProps {
   imageLazyLoad?: boolean
   focusedHash?: string | null
   onFocus?: (hash: string | null) => void
+  thumbnailSize?: number
 }
 
 export function ImageGrid({
@@ -65,6 +66,7 @@ export function ImageGrid({
   imageLazyLoad = true,
   focusedHash = null,
   onFocus,
+  thumbnailSize,
 }: GridProps) {
   const [brokenHashes, setBrokenHashes] = useState<Set<string>>(new Set())
 
@@ -84,7 +86,12 @@ export function ImageGrid({
     )
   }
   return (
-    <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
+    <div
+      className="grid gap-3 sm:gap-4 items-start"
+      style={{
+        gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize ?? 180}px, 1fr))`,
+      }}
+    >
       {items.map((img) => {
         const isSelected = selectedHashes.has(img.hash)
         const isPinned = pinnedHashes.includes(img.hash)

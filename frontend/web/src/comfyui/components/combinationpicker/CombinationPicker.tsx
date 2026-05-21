@@ -6,6 +6,8 @@ import { CombinationPickerContent } from "./CombinationPickerContent"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 import type { CurationToolbarState } from "./CurationToolbarTypes"
+import { useSyncedStorage } from "../../hooks/useSyncedStorage"
+import { STORAGE_KEYS } from "../../../lib/storageKeys"
 import {
   CURRENT_TEMPLATE_ID,
   DEFAULT_AXIS,
@@ -34,6 +36,11 @@ export const CombinationPicker = memo(function CombinationPicker({
   const [internalAxis, setInternalAxis] = useState<string>(DEFAULT_AXIS)
   const selectedAxis = toolbarState?.selectedAxis ?? internalAxis
   const setSelectedAxis = toolbarState?.setSelectedAxis ?? setInternalAxis
+
+  const [thumbnailSize, setThumbnailSize] = useSyncedStorage<number>(
+    STORAGE_KEYS.curationThumbnailSize,
+    180
+  )
 
   const axisValue = useMemo(() => decodeAxis(selectedAxis), [selectedAxis])
   const isFreeMode = axisValue.kind === "free"
@@ -71,6 +78,8 @@ export const CombinationPicker = memo(function CombinationPicker({
       savedWorkflows={savedWorkflows}
       enableHover={enableHover}
       autoApplyReject={autoApplyReject}
+      thumbnailSize={thumbnailSize}
+      setThumbnailSize={setThumbnailSize}
       data={data}
       selection={selection}
     >

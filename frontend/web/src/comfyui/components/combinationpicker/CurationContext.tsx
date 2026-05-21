@@ -9,6 +9,8 @@ interface CurationProviderProps {
   savedWorkflows: CurationContextValue["savedWorkflows"]
   enableHover?: boolean
   autoApplyReject?: boolean
+  thumbnailSize: number
+  setThumbnailSize: (v: number) => void
   data: CurationContextValue["data"]
   selection: CurationContextValue["selection"]
 }
@@ -21,6 +23,8 @@ export function CurationProvider({
   savedWorkflows,
   enableHover = true,
   autoApplyReject = true,
+  thumbnailSize,
+  setThumbnailSize,
   data,
   selection,
 }: CurationProviderProps) {
@@ -32,6 +36,8 @@ export function CurationProvider({
       savedWorkflows,
       enableHover,
       autoApplyReject,
+      thumbnailSize,
+      setThumbnailSize,
       data,
       selection,
     }),
@@ -42,6 +48,8 @@ export function CurationProvider({
       savedWorkflows,
       enableHover,
       autoApplyReject,
+      thumbnailSize,
+      setThumbnailSize,
       data,
       selection,
     ]

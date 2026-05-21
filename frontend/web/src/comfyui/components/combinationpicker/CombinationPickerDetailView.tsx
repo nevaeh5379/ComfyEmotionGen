@@ -81,7 +81,7 @@ export function CombinationPickerDetailView({
   onNavigate,
   onOpenList,
 }: DetailViewProps) {
-  const { backendUrl, enableHover, data } = useCurationContext()
+  const { backendUrl, enableHover, data, thumbnailSize } = useCurationContext()
   const { setStatus, imagesByFilename, renderItems } = data
 
   const selectedItem = renderItems.find(
@@ -130,14 +130,6 @@ export function CombinationPickerDetailView({
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [viewMode, visibleImages, focusedIdx, onSelectImage, selectedFilename])
-
-  const colClass =
-    visibleImages.length <= 2
-      ? "grid-cols-1 sm:grid-cols-2"
-      : visibleImages.length <= 6
-        ? "grid-cols-2 sm:grid-cols-3"
-        : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-
   return (
     <div
       className={`flex min-w-0 flex-col pb-20 md:pb-0 ${
@@ -356,7 +348,12 @@ export function CombinationPickerDetailView({
             </Button>
           </div>
         ) : viewMode === "grid" ? (
-          <div className={`grid gap-3 sm:gap-4 ${colClass}`}>
+          <div
+            className="grid gap-3 sm:gap-4"
+            style={{
+              gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
+            }}
+          >
             {visibleImages.map((img, idx) => {
               const isSelected = img.hash === selectedApprovedHash
               const isRejected = img.status === "rejected"

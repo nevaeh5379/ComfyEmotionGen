@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronUp,
   DownloadIcon,
+  LayoutGrid,
   PinIcon,
   RotateCcwIcon,
   XCircleIcon,
@@ -35,6 +36,7 @@ import {
   RefreshCwIcon,
   Trash2Icon,
 } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Select,
   SelectContent,
@@ -124,6 +126,8 @@ export interface GalleryToolbarState {
   reload: () => void
   handleExport: () => void
   handleEmptyTrash: () => void
+  thumbnailSize?: number
+  setThumbnailSize?: (v: number) => void
 }
 
 interface Props {
@@ -227,6 +231,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [galleryViewMode, setGalleryViewMode] =
     useState<GalleryViewMode>("grid")
   const [showFilters, setShowFilters] = useState(false)
+
+  // 썸네일 크기 조절 (로컬 상태 폴백)
+  const [localThumbnailSize, setLocalThumbnailSize] = useState<number>(180)
+  const thumbnailSize = toolbarState?.thumbnailSize ?? localThumbnailSize
+  const setThumbnailSize = toolbarState?.setThumbnailSize ?? setLocalThumbnailSize
 
   const effectiveFilenameFilter =
     filenameFilter !== undefined ? filenameFilter : localFilenameFilter
@@ -952,6 +961,32 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <ArrowDown className="h-3.5 w-3.5" />
                 )}
               </Button>
+
+              {/* 썸네일 크기 조절 슬라이더 */}
+              {(effectiveGroupMode || effectiveGalleryViewMode === "grid") && (
+                <div className="hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 md:flex shadow-xs h-8">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center text-muted-foreground">
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs font-bold">크기 조절</TooltipContent>
+                  </Tooltip>
+                  <input
+                    type="range"
+                    min="120"
+                    max="320"
+                    step="10"
+                    value={thumbnailSize}
+                    onChange={(e) => setThumbnailSize(Number(e.target.value))}
+                    className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
+                  />
+                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-6 text-right tabular-nums">
+                    {thumbnailSize}px
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Right: Filter + More actions */}
@@ -1309,6 +1344,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       imageLazyLoad={imageLazyLoad}
                       focusedHash={focusedHash}
                       onFocus={setFocusedHash}
+                      thumbnailSize={thumbnailSize}
                     />
                   )}
                 </div>
@@ -1404,6 +1440,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               imageLazyLoad={imageLazyLoad}
               focusedHash={focusedHash}
               onFocus={setFocusedHash}
+              thumbnailSize={thumbnailSize}
             />
           </>
         ) : null}
