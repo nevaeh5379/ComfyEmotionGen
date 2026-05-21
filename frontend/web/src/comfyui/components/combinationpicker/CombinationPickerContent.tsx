@@ -111,7 +111,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const setViewMode = toolbarState?.hideTopSection
     ? setInternalViewMode
     : (toolbarState?.setViewMode ?? setInternalViewMode)
-  const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
+  const [compareImageKeys, setCompareImageKeys] = useState<Set<string>>(new Set())
+  const compareImageCount = compareImageKeys.size
   const [previewHash, setPreviewHash] = useState<string | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
@@ -486,11 +487,17 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     bulkDownloadAction,
   ])
 
-  const togglePin = useCallback((hash: string, e: React.MouseEvent) => {
+  const toggleCompareImage = useCallback((key: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    setPinnedHashes((prev) =>
-      prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]
-    )
+    setCompareImageKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
   }, [])
 
   // ── Keyboard Handler ──
@@ -641,6 +648,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         viewMode={viewMode}
         onViewModeChange={handleTabChange}
         selectedFilename={selectedFilename}
+        compareImageCount={compareImageCount}
         filtersExpanded={filtersExpanded}
         setFiltersExpanded={setFiltersExpanded}
         hideRejected={hideRejected}
@@ -765,14 +773,14 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 selectedFilename={selectedFilename}
                 visibleImages={visibleImages}
                 selectedApprovedHash={selectedApprovedHash ?? null}
-                pinnedHashes={pinnedHashes}
+                compareImageKeys={compareImageKeys}
                 viewMode={viewMode}
                 onBack={() => {
                   setSelectedFilename(null)
                   setViewMode("gallery")
                 }}
                 onSetPreviewHash={setPreviewHash}
-                onTogglePin={togglePin}
+                onToggleCompareImage={toggleCompareImage}
                 onSelectImage={handleSelectImage}
                 onRegenerate={handleContextMenuRegenerate}
                 regenActionIsLoading={regenAction.isLoading}

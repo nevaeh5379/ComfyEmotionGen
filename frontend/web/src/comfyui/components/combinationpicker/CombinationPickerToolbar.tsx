@@ -55,6 +55,7 @@ interface ToolbarProps {
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
   selectedFilename: string | null
+  compareImageCount: number
 
   filtersExpanded: boolean
   setFiltersExpanded: (v: boolean) => void
@@ -90,6 +91,7 @@ export function CombinationPickerToolbar({
   viewMode,
   onViewModeChange,
   selectedFilename,
+  compareImageCount,
   hideTopSection,
   filtersExpanded,
   setFiltersExpanded,
@@ -252,7 +254,7 @@ export function CombinationPickerToolbar({
             <SelectItem
               value="compare"
               className="flex items-center gap-2 text-[12px] font-bold"
-              disabled={!selectedFilename}
+              disabled={compareImageCount < 2}
             >
               <ColumnsIcon className="mr-2 h-3.5 w-3.5" />
               비교
@@ -298,7 +300,7 @@ export function CombinationPickerToolbar({
             <TabsTrigger
               value="compare"
               className="flex-1 gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background sm:flex-none"
-              disabled={!selectedFilename}
+              disabled={compareImageCount < 2}
             >
               <ColumnsIcon className="h-3.5 w-3.5" />
             </TabsTrigger>

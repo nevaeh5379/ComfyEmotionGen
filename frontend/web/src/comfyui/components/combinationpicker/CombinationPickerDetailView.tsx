@@ -5,8 +5,7 @@ import {
   Settings2Icon,
   CheckIcon,
   XIcon,
-  PinIcon,
-  PinOffIcon,
+  ColumnsIcon,
   ChevronUpIcon,
   ChevronDownIcon,
   LayoutListIcon,
@@ -23,6 +22,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import {
@@ -36,7 +36,7 @@ import { MetaTags, ImageWithSkeleton } from "./CombinationPickerHelpers"
 import { Magnifier } from "./CombinationPickerViews"
 import { hasApproved } from "../../types/Message"
 import { useCurationContext } from "./CurationContext"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
@@ -44,13 +44,13 @@ interface DetailViewProps {
   selectedFilename: string
   visibleImages: SavedImage[]
   selectedApprovedHash: string | null
-  pinnedHashes: string[]
+  compareImageKeys: Set<string>
   viewMode: ViewMode
 
   // Callbacks
   onBack: () => void
   onSetPreviewHash: (hash: string | null) => void
-  onTogglePin: (hash: string, e: React.MouseEvent) => void
+  onToggleCompareImage: (key: string, e: React.MouseEvent) => void
   onSelectImage: (filename: string, hash: string) => void
   onRegenerate: (filename: string) => void
   regenActionIsLoading: boolean
@@ -65,11 +65,11 @@ export function CombinationPickerDetailView({
   selectedFilename,
   visibleImages,
   selectedApprovedHash,
-  pinnedHashes,
+  compareImageKeys,
   viewMode,
   onBack,
   onSetPreviewHash,
-  onTogglePin,
+  onToggleCompareImage,
   onSelectImage,
   onRegenerate,
   regenActionIsLoading,
@@ -88,6 +88,18 @@ export function CombinationPickerDetailView({
   const selectedImages = imagesByFilename.get(selectedFilename) ?? []
 
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null)
+
+  const compareImages = useMemo(() => {
+    const result: { filename: string; hash: string }[] = []
+    for (const key of compareImageKeys) {
+      const idx = key.lastIndexOf("::")
+      if (idx === -1) continue
+      const filename = key.slice(0, idx)
+      const hash = key.slice(idx + 2)
+      result.push({ filename, hash })
+    }
+    return result
+  }, [compareImageKeys])
 
   useEffect(() => {
     if (viewMode !== "grid") return
@@ -317,22 +329,40 @@ export function CombinationPickerDetailView({
             {visibleImages.map((img, idx) => {
               const isSelected = img.hash === selectedApprovedHash
               const isRejected = img.status === "rejected"
-              const isPinned = pinnedHashes.includes(img.hash)
+              const isPinned = compareImageKeys.has(`${selectedFilename}::${img.hash}`)
               const isFocused = focusedIdx === idx
 
               return (
                 <ContextMenu key={img.hash}>
                   <div className="flex flex-col gap-2">
-                    <ContextMenuTrigger asChild>
+                    <ContextMenuTrigger className="block">
                       <HoverCard
                         openDelay={enableHover ? 400 : 99999}
                         closeDelay={100}
                       >
                         <HoverCardTrigger asChild>
-                          <button
-                            onClick={() => onSetPreviewHash(img.hash)}
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              if (isSelected) {
+                                onCancelApproval()
+                              } else {
+                                onSelectImage(selectedFilename, img.hash)
+                              }
+                            }}
                             onFocus={() => setFocusedIdx(idx)}
-                            className={`group relative overflow-hidden rounded-xl transition-all ${
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault()
+                                if (isSelected) {
+                                  onCancelApproval()
+                                } else {
+                                  onSelectImage(selectedFilename, img.hash)
+                                }
+                              }
+                            }}
+                            className={`group relative cursor-pointer overflow-hidden rounded-xl transition-all ${
                               isSelected
                                 ? "scale-[0.98] shadow-lg ring-4 ring-green-500"
                                 : isRejected
@@ -346,14 +376,10 @@ export function CombinationPickerDetailView({
                             />
                             <button
                               type="button"
-                              onClick={(e) => onTogglePin(img.hash, e)}
+                              onClick={(e) => onToggleCompareImage(`${selectedFilename}::${img.hash}`, e)}
                               className={`absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors md:h-7 md:w-7 ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
                             >
-                              {isPinned ? (
-                                <PinIcon className="h-5 w-5 md:h-4 md:w-4" />
-                              ) : (
-                                <PinOffIcon className="h-5 w-5 md:h-4 md:w-4" />
-                              )}
+                              <ColumnsIcon className={`h-5 w-5 md:h-4 md:w-4 ${isPinned ? "" : "opacity-50"}`} />
                             </button>
                             {idx < 9 && (
                               <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded bg-black/40 text-[11px] font-bold text-white opacity-100 backdrop-blur-sm md:opacity-0 md:group-hover:opacity-100">
@@ -370,7 +396,7 @@ export function CombinationPickerDetailView({
                                 </div>
                               </div>
                             )}
-                          </button>
+                          </div>
                         </HoverCardTrigger>
                         {enableHover && (
                           <HoverCardContent
@@ -386,37 +412,13 @@ export function CombinationPickerDetailView({
                       </HoverCard>
                     </ContextMenuTrigger>
 
-                    {/* 선택하기 버튼 (모바일에서 크게) */}
-                    <div className="px-0.5">
-                      {!isSelected && !isRejected && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={`h-10 w-full gap-1.5 border-green-300 text-xs font-bold text-green-600 active:bg-green-100 md:h-7 md:text-[10px] ${isFocused ? "bg-green-50 ring-2 ring-green-500" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onSelectImage(selectedFilename, img.hash)
-                          }}
-                        >
-                          <CheckIcon className="h-4 w-4 md:h-3 md:w-3" />
-                          선택
-                        </Button>
-                      )}
-                      {isSelected && (
-                        <div className="flex h-10 items-center justify-center rounded-lg bg-green-100 text-xs font-bold text-green-700 md:h-7 md:text-[10px]">
-                          <CheckIcon className="mr-1.5 h-4 w-4 md:h-3 md:w-3" />
-                          선택됨
-                        </div>
-                      )}
-                      {isRejected && (
-                        <div className="flex h-10 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground md:h-7 md:text-[10px]">
-                          <XIcon className="mr-1.5 h-4 w-4 md:h-3 md:w-3" />
-                          리젝됨
-                        </div>
-                      )}
-                    </div>
+
                   </div>
                   <ContextMenuContent className="w-44">
+                    <ContextMenuItem onClick={() => onSetPreviewHash(img.hash)}>
+                      <Maximize2Icon className="h-4 w-4" /> 이미지 보기
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
                     {isSelected ? (
                       <ContextMenuItem onClick={onCancelApproval}>
                         <XIcon className="h-4 w-4" /> 선택 취소
@@ -428,11 +430,21 @@ export function CombinationPickerDetailView({
                         <RefreshCwIcon className="h-4 w-4" /> 리젝 취소
                       </ContextMenuItem>
                     ) : (
-                      <ContextMenuItem
-                        onClick={() => setStatus(img.hash, "rejected")}
-                      >
-                        <XIcon className="h-4 w-4" /> 리젝
-                      </ContextMenuItem>
+                      <>
+                        <ContextMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectImage(selectedFilename, img.hash)
+                          }}
+                        >
+                          <CheckIcon className="h-4 w-4" /> 선택
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() => setStatus(img.hash, "rejected")}
+                        >
+                          <XIcon className="h-4 w-4" /> 리젝
+                        </ContextMenuItem>
+                      </>
                     )}
                   </ContextMenuContent>
                 </ContextMenu>
@@ -440,25 +452,33 @@ export function CombinationPickerDetailView({
             })}
           </div>
         ) : viewMode === "compare" ? (
-          <div
-            className={`grid gap-4 ${pinnedHashes.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"}`}
-          >
-            {pinnedHashes.map((hash) => (
-              <div
-                key={hash}
-                className="relative flex min-h-[300px] overflow-hidden rounded-xl border bg-black/5 shadow-inner"
-              >
-                <button
-                  type="button"
-                  onClick={(e) => onTogglePin(hash, e)}
-                  className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+          compareImages.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center space-y-4 text-muted-foreground">
+              <ColumnsIcon className="h-10 w-10 opacity-20" />
+              <p className="text-sm font-bold">비교할 이미지를 선택해주세요</p>
+              <p className="text-xs text-muted-foreground/60">그리드 뷰에서 이미지 위의 비교 버튼을 눌러 추가할 수 있습니다</p>
+            </div>
+          ) : (
+            <div
+              className={`grid gap-4 ${compareImages.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"}`}
+            >
+              {compareImages.map(({ filename, hash }) => (
+                <div
+                  key={hash}
+                  className="relative flex min-h-[300px] overflow-hidden rounded-xl border bg-black/5 shadow-inner"
                 >
-                  <PinIcon className="h-5 w-5" />
-                </button>
-                <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
-              </div>
-            ))}
-          </div>
+                  <button
+                    type="button"
+                    onClick={(e) => onToggleCompareImage(`${filename}::${hash}`, e)}
+                    className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
+                  >
+                    <ColumnsIcon className="h-5 w-5" />
+                  </button>
+                  <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                </div>
+              ))}
+            </div>
+          )
         ) : null}
       </div>
     </div>
