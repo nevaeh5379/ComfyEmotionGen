@@ -73,6 +73,17 @@ webhook_service: WebhookService
 ws_clients: set[WebSocket] = set()
 
 
+async def broadcast(event: dict[str, Any]) -> None:
+    dead: list[WebSocket] = []
+    for ws in list(ws_clients):
+        try:
+            await ws.send_json(event)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        ws_clients.discard(ws)
+
+
 # ====== Pydantic 모델 ======
 
 
@@ -213,16 +224,8 @@ async def lifespan(app: FastAPI):
     webhook_service = WebhookService(store)
     await webhook_service.load()
 
-    async def broadcast(event: dict[str, Any]) -> None:
-        dead: list[WebSocket] = []
-        for ws in list(ws_clients):
-            try:
-                await ws.send_json(event)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            ws_clients.discard(ws)
-
+    async def broadcast_with_webhook(event: dict[str, Any]) -> None:
+        await broadcast(event)
         # Webhook notification (fire-and-forget)
         etype = event.get("type", "")
         if etype == "job.updated":
@@ -237,7 +240,7 @@ async def lifespan(app: FastAPI):
                     webhook_service.notify("job_error", job=job)
                 )
 
-    job_manager.subscribe(broadcast)
+    job_manager.subscribe(broadcast_with_webhook)
     await job_manager.start()
     logger.info(
         "worker pool started: %s",
@@ -810,6 +813,7 @@ async def app_settings_get(key: str):
 async def app_settings_set(key: str, req: SettingValueRequest):
     """설정 저장."""
     await job_manager._store.save_setting(key, req.value)
+    await broadcast({"type": "settings.updated", "key": key, "value": req.value})
     return {"ok": True}
 
 
@@ -817,6 +821,7 @@ async def app_settings_set(key: str, req: SettingValueRequest):
 async def app_settings_delete(key: str):
     """설정 삭제."""
     await job_manager._store.delete_setting(key)
+    await broadcast({"type": "settings.updated", "key": key, "value": None})
     return {"ok": True}
 
 

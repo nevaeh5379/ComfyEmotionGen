@@ -1,22 +1,23 @@
 /**
  * 서버 동기화 스토리지 훅.
  *
- * 데이터를 서버(/app-settings)에 저장하고, 서버 연결 실패 시 localStorage 캐시로 폴백한다.
- * useLocalStorage 와 동일한 [value, setValue] 인터페이스를 제공한다.
- *
  * 동작:
- *   - 마운트: 서버에서 로드 → 실패 시 localStorage → 둘 다 없으면 defaultValue
- *   - setValue: 로컬 상태 즉시 업데이트 + localStorage 캐시 + 서버 비동기 저장
+ *   - 마운트: localStorage 캐시에서 즉시 읽기
+ *   - WS 연결/재연결: WebSocketProvider가 fetchAllSettings 후 populateSettingsCache 호출
+ *     → __ceg_settings_ready 이벤트 → 마운트된 모든 인스턴스가 최신 값으로 갱신
+ *   - 다른 기기 변경: 서버가 settings.updated 브로드캐스트 → WebSocketProvider가
+ *     applySettingUpdate 호출 → __ceg_settings_updated 이벤트 → 해당 키 인스턴스 갱신
+ *   - setValue: 로컬 상태 즉시 업데이트 + localStorage 캐시 + 서버 비동기 PUT
  *   - 서버 저장 실패: pendingSyncQueue 에 enqueue → useOfflineSync 가 재시도
- *   - 다른 탭에서 변경 시 storage 이벤트로 동기화
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { saveSetting, deleteSetting } from "../../lib/serverStorage"
 import {
-  fetchSetting,
-  saveSetting,
-  deleteSetting,
-} from "../../lib/serverStorage"
+  SETTINGS_READY_EVENT,
+  SETTINGS_UPDATED_EVENT,
+  type SettingsUpdatedDetail,
+} from "../../lib/settingsCache"
 
 const SYNC_QUEUE_KEY = "__ceg_sync_queue"
 
@@ -78,16 +79,14 @@ export function clearSyncQueueFor(key: string): void {
 export function useSyncedStorage<T>(key: string, defaultValue: T) {
   const isStringDefault = typeof defaultValue === "string"
   const initializedRef = useRef(false)
-  // 마지막으로 저장한 값의 시계 추적 (중복 저장 방지)
   const lastSavedVersionRef = useRef(0)
   const effectVersionRef = useRef(0)
   // defaultValue를 ref로 안정화 — 호출자가 [] 등 리터럴을 넘겨도 재생성 방지
   const defaultValueRef = useRef(defaultValue)
-  // 서버에서 로드된 값 설정 시 save effect 스킵 플래그
+  // 서버/WS에서 수신한 값 적용 시 save effect 스킵 플래그
   const skipNextSaveRef = useRef(false)
 
   const [value, setValue] = useState<T>(() => {
-    // 초기 렌더에서는 localStorage 캐시만 읽음 (서버는 useEffect 에서 비동기 로드)
     try {
       const stored = localStorage.getItem(key)
       if (stored === null) return defaultValue
@@ -115,44 +114,34 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
         return defaultValueRef.current
       }
     },
-    [isStringDefault] // defaultValue 제거 — ref로 참조하므로 deps 불필요
+    [isStringDefault]
   )
 
-  // 서버에서 데이터 로드
+  // WS 연결/재연결 시 전체 설정 로드 이벤트 처리
   useEffect(() => {
-    let aborted = false
-    const loadFromServer = async () => {
-      const raw = await fetchSetting(key)
-      if (aborted) return
-      if (raw !== null) {
-        // 서버 데이터가 있으면 사용 — save effect가 다시 PUT하지 않도록 플래그
-        skipNextSaveRef.current = true
-        const parsed = deserialize(raw)
-        setValue(parsed)
-        localStorage.setItem(key, raw)
-      }
-      // 서버 데이터가 없으면 localStorage 에 이미 있음 (초기 렌더에서 로드됨)
+    const onReady = (e: Event) => {
+      const all = (e as CustomEvent<Record<string, string>>).detail
+      const raw = all[key]
+      if (raw === undefined) return
+      skipNextSaveRef.current = true
+      setValue(deserialize(raw))
     }
-    loadFromServer()
-    return () => {
-      aborted = true
-    }
+    window.addEventListener(SETTINGS_READY_EVENT, onReady)
+    return () => window.removeEventListener(SETTINGS_READY_EVENT, onReady)
   }, [key, deserialize])
 
-  // 다른 탭에서 변경 시 동기화
+  // 다른 기기의 settings.updated 이벤트 처리
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === key && e.newValue !== null) {
-        try {
-          const parsed = deserialize(e.newValue)
-          setValue(parsed)
-        } catch {
-          // ignore parse errors
-        }
-      }
+    const onUpdated = (e: Event) => {
+      const { key: updatedKey, value: raw } = (
+        e as CustomEvent<SettingsUpdatedDetail>
+      ).detail
+      if (updatedKey !== key) return
+      skipNextSaveRef.current = true
+      setValue(raw === null ? defaultValueRef.current : deserialize(raw))
     }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
+    window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
+    return () => window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
   }, [key, deserialize])
 
   // 값 변경 시 localStorage 캐시 업데이트 + 서버 비동기 저장
@@ -161,7 +150,7 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       initializedRef.current = true
       return
     }
-    // 서버 로드로 인한 setValue는 서버에 다시 PUT하지 않음
+    // 서버/WS에서 수신한 값이면 다시 PUT하지 않음
     if (skipNextSaveRef.current) {
       skipNextSaveRef.current = false
       return
@@ -169,7 +158,6 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
     effectVersionRef.current++
     const currentVersion = effectVersionRef.current
 
-    // localStorage 캐시 즉시 업데이트
     try {
       const serialized = serialize(value)
       localStorage.setItem(key, serialized)
@@ -177,15 +165,12 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       // ignore quota errors
     }
 
-    // 이미 동일한 버전이 저장 중이면 스킵
     if (lastSavedVersionRef.current === currentVersion) return
 
     lastSavedVersionRef.current = currentVersion
     const serialized = serialize(value)
 
-    // 항상 최신 값 저장 (이전 저장과 병렬 실행 가능)
     saveSetting(key, serialized).then((ok) => {
-      // 현재 버전과 다르면 더 새로운 값이 저장됨 중이므로 무시
       if (lastSavedVersionRef.current !== currentVersion) return
       if (!ok) {
         enqueueSync(key, serialized)
@@ -193,7 +178,7 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
         clearSyncQueueFor(key)
       }
     })
-  }, [key, value, serialize, initializedRef])
+  }, [key, value, serialize])
 
   return [value, setValue] as const
 }

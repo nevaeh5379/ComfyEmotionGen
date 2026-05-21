@@ -128,3 +128,4 @@ export type BackendEvent =
     }
   | { type: "image.deleted"; hash: string }
   | { type: "job.deleted"; jobId: string }
+  | { type: "settings.updated"; key: string; value: string | null }

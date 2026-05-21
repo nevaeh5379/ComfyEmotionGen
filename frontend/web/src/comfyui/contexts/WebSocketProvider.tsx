@@ -20,6 +20,11 @@ import { WS_INITIAL_BACKOFF_MS, WS_MAX_BACKOFF_MS } from "../../lib/constants"
 import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
+import { fetchAllSettings } from "../../lib/serverStorage"
+import {
+  populateSettingsCache,
+  applySettingUpdate,
+} from "../../lib/settingsCache"
 
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
@@ -95,6 +100,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       case "job.deleted":
         setJobs((prev) => prev.filter((j) => j.id !== event.jobId))
         break
+      case "settings.updated":
+        applySettingUpdate(event.key, event.value)
+        break
     }
   }, [])
 
@@ -115,6 +123,10 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
           setIsConnected(true)
           backoff = WS_INITIAL_BACKOFF_MS
           console.info("[backend] connected")
+          // 연결/재연결 시 전체 설정 1회 로드 → 오프라인 중 변경분 반영
+          fetchAllSettings().then((all) => {
+            if (all) populateSettingsCache(all)
+          })
         }
 
         socket.onmessage = (e) => {
