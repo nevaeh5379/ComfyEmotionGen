@@ -29,6 +29,8 @@ interface SaveInputProps<T extends SaveableItem = SaveableItem> {
   onDelete?: (id: string) => void
   activeItemId?: string | undefined
   onUpdate?: (() => void) | undefined
+  /** 이름/활성 프리셋 없이도 저장 허용 (날짜 이름 자동 생성은 호출자가 처리) */
+  allowEmptySave?: boolean
 }
 
 /* ── shared props (with onLoad / onDelete) ─────────────── */
@@ -55,6 +57,8 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   onLoad,
   onDelete,
   activeItemId,
+  onUpdate,
+  allowEmptySave,
 }: SaveInputProps<T>) {
   const [name, setName] = useState("")
   const [open, setOpen] = useState(false)
@@ -63,7 +67,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   const inputRef = useRef<HTMLInputElement>(null)
   const hasItems = items !== undefined
   const hasActivePreset = !!activeName
-  const canSave = !saveDisabled && (name.trim() || hasActivePreset)
+  const canSave = !saveDisabled && (name.trim() || hasActivePreset || !!allowEmptySave)
 
   const filteredItems = hasItems
     ? (items ?? []).filter((item) => {
@@ -87,9 +91,12 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
 
   const handleSave = () => {
     const trimmed = name.trim()
-    const targetName = trimmed || activeName!
-    if (onSave(targetName)) {
-      if (trimmed) setName("")
+    if (!trimmed && hasActivePreset && onUpdate) {
+      onUpdate()
+    } else {
+      if (onSave(trimmed)) {
+        setName("")
+      }
     }
   }
 

@@ -176,7 +176,7 @@ export const NodeMappingSection = ({
             <SaveInputBar
               key={nodeMappingResetKey}
               onSave={onSaveNodeMapping}
-              placeholder="노드 매핑 이름"
+              placeholder={activeMappingName ?? "노드 매핑 이름"}
               saveDisabled={nodeMappings.length === 0}
               activeName={activeMappingName}
               items={savedNodeMappings}
@@ -184,6 +184,7 @@ export const NodeMappingSection = ({
               onDelete={onDeleteNodeMapping}
               activeItemId={activeNodeMappingPresetId ?? undefined}
               onUpdate={onUpdateNodeMapping}
+              allowEmptySave
             />
           ) : (
             <p className="rounded-md border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">

@@ -1,5 +1,6 @@
 import { Code2, Copy, Download, FolderOpen, Workflow } from "lucide-react"
 import { useCallback } from "react"
+import { format } from "date-fns"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -382,7 +383,8 @@ export function WorkCompositionPanel({
                 savedWorkflows={workflow.savedWorkflows}
                 pendingSaveType={null}
                 onSaveNodeMapping={(name) => {
-                  const trimmed = name.trim()
+                  const trimmed =
+                    name.trim() || format(new Date(), "yyyy-MM-dd HH:mm")
                   if (
                     nodeMapping.savedNodeMappings.some(
                       (m) => m.name === trimmed
@@ -390,12 +392,18 @@ export function WorkCompositionPanel({
                   ) {
                     return false
                   }
-                  if (workflow.activeWorkflowId)
-                    nodeMapping.saveMappingPreset(
+                  if (workflow.activeWorkflowId) {
+                    const updatedWorkflow = nodeMapping.saveMappingPreset(
                       workflow.activeWorkflowId,
                       trimmed,
                       nodeMapping.nodeMappings
                     )
+                    const newPreset = updatedWorkflow?.mappingPresets.find(
+                      (p) => p.name === trimmed
+                    )
+                    if (newPreset)
+                      nodeMapping.setActiveNodeMappingPresetId(newPreset.id)
+                  }
                   return true
                 }}
                 onLoadNodeMapping={(m) => {
