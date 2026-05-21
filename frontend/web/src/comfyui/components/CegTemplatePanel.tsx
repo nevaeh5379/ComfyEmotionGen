@@ -56,6 +56,7 @@ export function CegTemplatePanel({
             onDelete={onDeleteTemplate}
             activeItemId={activeTemplateId ?? undefined}
             onUpdate={onUpdateTemplate}
+            allowEmptySave
           />
         </div>
         <div className="flex shrink-0 items-center gap-1">

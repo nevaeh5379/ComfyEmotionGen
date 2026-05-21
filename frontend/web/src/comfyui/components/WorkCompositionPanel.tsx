@@ -149,7 +149,8 @@ export function WorkCompositionPanel({
               savedTemplates={template.savedTemplates}
               activeTemplateId={template.activeTemplateId}
               onSaveTemplate={(name) => {
-                const trimmed = name.trim()
+                const trimmed =
+                  name.trim() || format(new Date(), "yyyy-MM-dd HH:mm")
                 if (template.savedTemplates.some((t) => t.name === trimmed)) {
                   template.onPendingSave(trimmed, "template")
                   return false
