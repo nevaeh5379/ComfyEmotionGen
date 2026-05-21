@@ -83,6 +83,11 @@ export interface RunningJobsBannerProps {
 export interface JobStatBarProps {
   counts: Record<JobStatus | "active", number>
   sessionJobs: JobView[]
+  progressCalculation:
+    | "done"
+    | "doneOrCancelled"
+    | "doneOrFailed"
+    | "excludeFromDenominator"
 }
 
 export interface JobTableProps {
@@ -288,7 +293,36 @@ export const SessionPopover = memo(function SessionPopover({
 export const JobStatBar = memo(function JobStatBar({
   counts,
   sessionJobs,
+  progressCalculation,
 }: JobStatBarProps) {
+  const total = sessionJobs.length
+  const done = counts.done
+  const error = counts.error
+  const cancelled = counts.cancelled
+  let numerator: number
+  let denominator: number
+  switch (progressCalculation) {
+    case "doneOrCancelled":
+      numerator = done + cancelled
+      denominator = total
+      break
+    case "doneOrFailed":
+      numerator = done + error
+      denominator = total
+      break
+    case "excludeFromDenominator":
+      numerator = done
+      denominator = Math.max(0, total - error - cancelled)
+      break
+    default:
+      numerator = done
+      denominator = total
+  }
+  const progress =
+    denominator > 0
+      ? (numerator / denominator) * 100
+      : 0
+
   return (
     <div className="flex flex-col">
       <div className="grid shrink-0 grid-cols-3 divide-x divide-y border-b md:flex md:items-stretch md:divide-y-0">
@@ -345,19 +379,13 @@ export const JobStatBar = memo(function JobStatBar({
         <div className="flex items-center justify-between text-[11px] font-black uppercase">
           <span className="text-muted-foreground">세션 전체 진행률</span>
           <span className="mono tabular-nums">
-            {counts.done}/{sessionJobs.length} (
-            {sessionJobs.length > 0
-              ? Math.round((counts.done / sessionJobs.length) * 100)
-              : 0}
+            {numerator}/{denominator} (
+            {Math.round(progress)}
             % )
           </span>
         </div>
         <Progress
-          value={
-            sessionJobs.length > 0
-              ? (counts.done / sessionJobs.length) * 100
-              : 0
-          }
+          value={progress}
           className="h-2 w-full shadow-inner [&>[data-slot=progress-indicator]]:animate-shimmer [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-ok [&>[data-slot=progress-indicator]]:via-ok/60 [&>[data-slot=progress-indicator]]:to-ok [&>[data-slot=progress-indicator]]:bg-[length:200%_auto]"
         />
       </div>

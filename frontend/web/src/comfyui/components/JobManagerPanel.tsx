@@ -53,6 +53,7 @@ import {
 } from "./JobManagerSections"
 import { JobDetailSheet } from "./JobDetailSheet"
 import { TagInputSearch } from "./TagInputSearch"
+import { useSettings } from "../hooks/useSettings"
 
 // Session utilities (extracted to sessionUtils.ts)
 export type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
@@ -146,6 +147,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 }: Props) {
   useRenderLog("JobManagerPanel")
   const confirm = useConfirm()
+  const { settings } = useSettings()
 
   // ── filter / sort / date-range state ────────────────────────────────
   const [filterTab, setFilterTabState] = useState<FilterTab>("all")
@@ -610,7 +612,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         )}
       >
         <div className={cn(mobileTab === "status" ? "space-y-5 p-3" : "")}>
-          <JobStatBar counts={counts} sessionJobs={sessionJobs} />
+          <JobStatBar
+            counts={counts}
+            sessionJobs={sessionJobs}
+            progressCalculation={settings.progressCalculation}
+          />
           {mobileTab === "status" && (
             <div className="mt-4 space-y-3 px-1">
               <h3 className="border-b pb-1.5 text-xs font-black tracking-widest text-muted-foreground uppercase">

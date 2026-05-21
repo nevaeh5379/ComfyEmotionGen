@@ -320,6 +320,34 @@ export function SettingsPanel({
           </SettingRow>
         </Section>
 
+        {/* 진행률 표시 */}
+        <Section title="진행률 표시">
+          <SettingRow
+            label="진행률 계산 방식"
+            description="세션 전체 진행률 표시에 적용할 계산 방식을 선택합니다."
+          >
+            <Select
+              value={settings.progressCalculation}
+              onValueChange={(v) =>
+                updateSetting(
+                  "progressCalculation",
+                  v as AppSettings["progressCalculation"]
+                )
+              }
+            >
+              <SelectTrigger className="h-8 w-52 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="done">완료만 / 전체</SelectItem>
+                <SelectItem value="doneOrCancelled">완료 + 취소 / 전체</SelectItem>
+                <SelectItem value="doneOrFailed">완료 + 실패 / 전체</SelectItem>
+                <SelectItem value="excludeFromDenominator">완료 / (전체 - 실패 - 취소)</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </Section>
+
         {/* UI 기능 */}
         <Section title="UI 기능">
           <SettingRow

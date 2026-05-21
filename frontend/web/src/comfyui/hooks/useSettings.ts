@@ -17,6 +17,12 @@ export interface AppSettings {
   singleDownloadMode: "newtab" | "direct"
   /** 업데이트 채널: auto(빌드 채널 자동 감지) | dev | beta | stable */
   updateChannel: "auto" | "dev" | "beta" | "stable"
+  /** 세션 진행률 계산 방식 */
+  progressCalculation:
+    | "done"
+    | "doneOrCancelled"
+    | "doneOrFailed"
+    | "excludeFromDenominator"
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -28,6 +34,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   galleryExportStrategy: "hash",
   singleDownloadMode: "newtab",
   updateChannel: "auto",
+  progressCalculation: "done",
 }
 
 export const useSettings = () => {
