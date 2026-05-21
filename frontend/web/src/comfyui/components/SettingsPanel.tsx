@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import type { AppSettings } from "../hooks/useSettings"
 import { WorkerManager } from "./WorkerManager"
@@ -87,7 +86,7 @@ export function SettingsPanel({
   const update = useUpdateCheck(settings.updateChannel)
 
   return (
-    <ScrollArea className="h-full">
+    <div className="w-full">
       <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
         {/* 페이지 헤더 */}
         <div className="flex items-end justify-between border-b border-line pb-4">
@@ -470,7 +469,7 @@ export function SettingsPanel({
           </div>
         </Section>
       </div>
-    </ScrollArea>
+    </div>
   )
 }
 
