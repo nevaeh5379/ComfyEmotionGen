@@ -310,7 +310,7 @@ export function CombinationPickerDetailView({
       </div>
 
       {/* 이미지 뷰어 */}
-      <div className="relative p-2 md:py-1">
+      <div className="relative flex-1 overflow-y-auto p-2 md:py-1">
         {visibleImages.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center space-y-4 text-muted-foreground">
             <Maximize2Icon className="h-10 w-10 opacity-20" />
@@ -334,8 +334,7 @@ export function CombinationPickerDetailView({
 
               return (
                 <ContextMenu key={img.hash}>
-                  <div className="flex flex-col gap-2">
-                    <ContextMenuTrigger className="block">
+                  <ContextMenuTrigger className="block">
                       <HoverCard
                         openDelay={enableHover ? 400 : 99999}
                         closeDelay={100}
@@ -411,9 +410,6 @@ export function CombinationPickerDetailView({
                         )}
                       </HoverCard>
                     </ContextMenuTrigger>
-
-
-                  </div>
                   <ContextMenuContent className="w-44">
                     <ContextMenuItem onClick={() => onSetPreviewHash(img.hash)}>
                       <Maximize2Icon className="h-4 w-4" /> 이미지 보기
