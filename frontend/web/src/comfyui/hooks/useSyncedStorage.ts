@@ -27,7 +27,7 @@ interface PendingSyncItem {
   createdAt: number
 }
 
-function getSyncQueue(): PendingSyncItem[] {
+export function getSyncQueue(): PendingSyncItem[] {
   try {
     return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]")
   } catch {
@@ -123,12 +123,22 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       const all = (e as CustomEvent<Record<string, string>>).detail
       const raw = all[key]
       if (raw === undefined) return
+      // 로컬에 pending sync가 있으면 로컬 값이 더 최신 — 서버 값 무시
+      // populateSettingsCache가 이미 localStorage를 덮어썼을 수 있으므로 복원
+      if (getSyncQueue().some((item) => item.key === key)) {
+        try {
+          localStorage.setItem(key, serialize(value))
+        } catch {
+          // ignore quota errors
+        }
+        return
+      }
       skipNextSaveRef.current = true
       setValue(deserialize(raw))
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
     return () => window.removeEventListener(SETTINGS_READY_EVENT, onReady)
-  }, [key, deserialize])
+  }, [key, deserialize, serialize, value])
 
   // 다른 기기의 settings.updated 이벤트 처리
   useEffect(() => {
@@ -137,12 +147,21 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
         e as CustomEvent<SettingsUpdatedDetail>
       ).detail
       if (updatedKey !== key) return
+      // pending sync가 있으면 로컬 값 우선
+      if (getSyncQueue().some((item) => item.key === key)) {
+        try {
+          localStorage.setItem(key, serialize(value))
+        } catch {
+          // ignore quota errors
+        }
+        return
+      }
       skipNextSaveRef.current = true
       setValue(raw === null ? defaultValueRef.current : deserialize(raw))
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
     return () => window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
-  }, [key, deserialize])
+  }, [key, deserialize, serialize, value])
 
   // 값 변경 시 localStorage 캐시 업데이트 + 서버 비동기 저장
   useEffect(() => {

@@ -25,6 +25,7 @@ import {
   populateSettingsCache,
   applySettingUpdate,
 } from "../../lib/settingsCache"
+import { getSyncQueue } from "../hooks/useSyncedStorage"
 
 const httpToWs = (url: string): string =>
   url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
@@ -101,7 +102,8 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         setJobs((prev) => prev.filter((j) => j.id !== event.jobId))
         break
       case "settings.updated":
-        applySettingUpdate(event.key, event.value)
+        if (!getSyncQueue().some((i) => i.key === event.key))
+          applySettingUpdate(event.key, event.value)
         break
     }
   }, [])
@@ -125,7 +127,13 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
           console.info("[backend] connected")
           // 연결/재연결 시 전체 설정 1회 로드 → 오프라인 중 변경분 반영
           fetchAllSettings().then((all) => {
-            if (all) populateSettingsCache(all)
+            if (all) {
+              const pendingKeys = new Set(getSyncQueue().map((i) => i.key))
+              const filtered = Object.fromEntries(
+                Object.entries(all).filter(([k]) => !pendingKeys.has(k))
+              )
+              populateSettingsCache(filtered)
+            }
           })
         }
 
