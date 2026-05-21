@@ -13,8 +13,12 @@ import {
   RefreshCwIcon,
   DownloadIcon,
   Trash2Icon,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTheme } from "@/components/theme-provider"
 import {
   Sheet,
   SheetClose,
@@ -143,6 +147,8 @@ interface HeaderProps {
 }
 
 export function Header(props: HeaderProps) {
+  const { theme, setTheme } = useTheme()
+
   const toggleSort = (
     key: "createdAt" | "filename" | "sizeBytes"
   ) => {
@@ -660,6 +666,48 @@ export function Header(props: HeaderProps) {
               </DropdownMenu>
             </div>
           )}
+          <div className="flex items-center gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                >
+                  {theme === "light" ? (
+                    <Sun className="h-4 w-4" />
+                  ) : theme === "dark" ? (
+                    <Moon className="h-4 w-4" />
+                  ) : (
+                    <Monitor className="h-4 w-4" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setTheme("light")}
+                  className="gap-2"
+                >
+                  <Sun className="h-4 w-4" />
+                  라이트
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTheme("dark")}
+                  className="gap-2"
+                >
+                  <Moon className="h-4 w-4" />
+                  다크
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTheme("system")}
+                  className="gap-2"
+                >
+                  <Monitor className="h-4 w-4" />
+                  시스템
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <ServerStatus
             name="백엔드"
             isConnected={props.isAliveBackend && props.backendAlive}
