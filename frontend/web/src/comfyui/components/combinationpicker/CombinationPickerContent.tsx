@@ -692,7 +692,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
           {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출, 모바일에서는 숨김) */}
           {selectedFilename && (
-            <div className="hidden flex-none md:flex">
+            <div className="hidden flex-none md:flex py-4">
               <CombinationPickerSidebar
                 selectedFilename={selectedFilename}
                 setSelectedFilename={setSelectedFilename}
@@ -759,7 +759,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
               )}
             </div>
           ) : (
-            <>
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <CombinationPickerDetailView
                 selectedFilename={selectedFilename}
                 visibleImages={visibleImages}
@@ -782,7 +782,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 onOpenList={() => setIsMobileSidebarOpen(true)}
               />
               {viewMode === "tournament" && (
-                <div className="min-h-[700px]">
+                <div className="flex-1 overflow-hidden">
                   <TournamentView
                     images={visibleImages}
                     onComplete={(hash) => {
@@ -792,7 +792,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                   />
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 

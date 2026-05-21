@@ -66,11 +66,13 @@ export function ImageWithSkeleton({
   alt = "",
   className = "",
   aspectRatio = "aspect-square",
+  objectFit = "object-cover",
 }: {
   src: string
   alt?: string
   className?: string
   aspectRatio?: string
+  objectFit?: string
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -89,7 +91,7 @@ export function ImageWithSkeleton({
         <img
           src={src}
           alt={alt}
-          className={`h-full w-full object-cover transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"}`}
+          className={`h-full w-full ${objectFit} transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"}`}
           onLoad={() => setLoading(false)}
           onError={() => {
             setLoading(false)

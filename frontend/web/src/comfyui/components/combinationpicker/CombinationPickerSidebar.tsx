@@ -20,7 +20,6 @@ export function CombinationPickerSidebar({
       className="sticky flex w-64 flex-none flex-col self-start overflow-hidden rounded-lg border bg-card"
       style={
         {
-          top: "calc(45px + var(--toolbar-height, 60px))",
           maxHeight: "calc(100vh - 45px - var(--toolbar-height, 60px) - 20px)",
         } as React.CSSProperties
       }

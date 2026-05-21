@@ -125,7 +125,11 @@ export function CombinationPickerDetailView({
         : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
 
   return (
-    <div className="flex min-h-[700px] min-w-0 flex-1 flex-col pb-20 md:pb-0">
+    <div
+      className={`flex min-w-0 flex-col pb-20 md:pb-0 ${
+        viewMode === "tournament" ? "flex-none border-b" : "min-h-[700px] flex-1"
+      }`}
+    >
       {/* 상세 헤더 (모바일 2단 / 데스크탑 1단) */}
       <div className="flex-none border-b bg-muted/10 p-2 md:py-1.5">
         <div className="flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center md:gap-3">
@@ -338,6 +342,7 @@ export function CombinationPickerDetailView({
                           >
                             <ImageWithSkeleton
                               src={`${backendUrl}/saved-images/${img.hash}`}
+                              objectFit="object-contain"
                             />
                             <button
                               type="button"
