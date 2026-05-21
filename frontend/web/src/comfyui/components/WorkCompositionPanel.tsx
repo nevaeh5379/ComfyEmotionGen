@@ -17,6 +17,28 @@ import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeSaveCallback(
+  existingItems: { name: string }[],
+  onConflict: (name: string) => void,
+  doSave: (name: string) => { id: string },
+  setActiveId: (id: string) => void
+): (name: string) => boolean {
+  return (name) => {
+    const trimmed = name.trim() || format(new Date(), "yyyy-MM-dd HH:mm")
+    if (existingItems.some((item) => item.name === trimmed)) {
+      onConflict(trimmed)
+      return false
+    }
+    const saved = doSave(trimmed)
+    setActiveId(saved.id)
+    return true
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -148,20 +170,12 @@ export function WorkCompositionPanel({
               templateResetKey={template.templateResetKey}
               savedTemplates={template.savedTemplates}
               activeTemplateId={template.activeTemplateId}
-              onSaveTemplate={(name) => {
-                const trimmed =
-                  name.trim() || format(new Date(), "yyyy-MM-dd HH:mm")
-                if (template.savedTemplates.some((t) => t.name === trimmed)) {
-                  template.onPendingSave(trimmed, "template")
-                  return false
-                }
-                const saved = template.saveTemplate(
-                  trimmed,
-                  template.cegTemplate
-                )
-                template.setActiveTemplateId(saved.id)
-                return true
-              }}
+              onSaveTemplate={makeSaveCallback(
+                template.savedTemplates,
+                (name) => template.onPendingSave(name, "template"),
+                (name) => template.saveTemplate(name, template.cegTemplate),
+                template.setActiveTemplateId
+              )}
               onLoadTemplate={(t) => {
                 template.setCegTemplate(t.template)
                 template.setActiveTemplateId(t.id)
@@ -210,21 +224,13 @@ export function WorkCompositionPanel({
               <div className="min-w-0 flex-1">
                 <SaveInputBar
                   key={workflow.workflowResetKey}
-                  onSave={(name) => {
-                    const trimmed = name.trim()
-                    if (
-                      workflow.savedWorkflows.some((w) => w.name === trimmed)
-                    ) {
-                      workflow.onPendingSave(trimmed, "workflow")
-                      return false
-                    }
-                    const w = workflow.saveWorkflow(
-                      trimmed,
-                      workflow.workflowJson
-                    )
-                    workflow.setActiveWorkflowId(w.id)
-                    return true
-                  }}
+                  onSave={makeSaveCallback(
+                    workflow.savedWorkflows,
+                    (name) => workflow.onPendingSave(name, "workflow"),
+                    (name) => workflow.saveWorkflow(name, workflow.workflowJson),
+                    workflow.setActiveWorkflowId
+                  )}
+                  allowEmptySave
                   placeholder={
                     workflow.activeWorkflow?.name ?? "워크플로우 이름"
                   }
