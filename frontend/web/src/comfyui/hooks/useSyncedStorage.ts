@@ -81,6 +81,10 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
   // 마지막으로 저장한 값의 시계 추적 (중복 저장 방지)
   const lastSavedVersionRef = useRef(0)
   const effectVersionRef = useRef(0)
+  // defaultValue를 ref로 안정화 — 호출자가 [] 등 리터럴을 넘겨도 재생성 방지
+  const defaultValueRef = useRef(defaultValue)
+  // 서버에서 로드된 값 설정 시 save effect 스킵 플래그
+  const skipNextSaveRef = useRef(false)
 
   const [value, setValue] = useState<T>(() => {
     // 초기 렌더에서는 localStorage 캐시만 읽음 (서버는 useEffect 에서 비동기 로드)
@@ -108,10 +112,10 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       try {
         return JSON.parse(raw) as T
       } catch {
-        return defaultValue
+        return defaultValueRef.current
       }
     },
-    [isStringDefault, defaultValue]
+    [isStringDefault] // defaultValue 제거 — ref로 참조하므로 deps 불필요
   )
 
   // 서버에서 데이터 로드
@@ -121,7 +125,8 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       const raw = await fetchSetting(key)
       if (aborted) return
       if (raw !== null) {
-        // 서버 데이터가 있으면 사용
+        // 서버 데이터가 있으면 사용 — save effect가 다시 PUT하지 않도록 플래그
+        skipNextSaveRef.current = true
         const parsed = deserialize(raw)
         setValue(parsed)
         localStorage.setItem(key, raw)
@@ -154,6 +159,11 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true
+      return
+    }
+    // 서버 로드로 인한 setValue는 서버에 다시 PUT하지 않음
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false
       return
     }
     effectVersionRef.current++
