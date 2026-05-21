@@ -6,6 +6,7 @@
  */
 
 import { STORAGE_KEYS } from "../lib/storageKeys"
+import { toast } from "sonner"
 
 const readBackendUrl = (): string => {
   try {
@@ -21,9 +22,13 @@ const readBackendUrl = (): string => {
 export async function fetchAllSettings(): Promise<Record<string, string> | null> {
   try {
     const res = await fetch(`${readBackendUrl()}/app-settings`, { cache: "no-store" })
-    if (!res.ok) return null
+    if (!res.ok) {
+      toast.error(`설정 로드 실패: HTTP ${res.status}`)
+      return null
+    }
     return res.json() as unknown as Record<string, string>
   } catch {
+    toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
 }
@@ -36,10 +41,14 @@ export async function fetchSetting(key: string): Promise<string | null> {
       { cache: "no-store" }
     )
     if (res.status === 404) return null
-    if (!res.ok) return null
+    if (!res.ok) {
+      toast.error(`설정 로드 실패: HTTP ${res.status}`)
+      return null
+    }
     const data = (await res.json()) as { value: string }
     return data.value
   } catch {
+    toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
 }
@@ -55,8 +64,13 @@ export async function saveSetting(key: string, value: string): Promise<boolean> 
         body: JSON.stringify({ value }),
       }
     )
+    if (!res.ok) {
+      toast.error(`설정 저장 실패: HTTP ${res.status}`)
+      return false
+    }
     return res.ok
   } catch {
+    toast.error("설정 저장 실패: 서버에 연결할 수 없습니다.")
     return false
   }
 }
@@ -68,8 +82,13 @@ export async function deleteSetting(key: string): Promise<boolean> {
       `${readBackendUrl()}/app-settings/${encodeURIComponent(key)}`,
       { method: "DELETE" }
     )
+    if (!res.ok) {
+      toast.error(`설정 삭제 실패: HTTP ${res.status}`)
+      return false
+    }
     return res.ok
   } catch {
+    toast.error("설정 삭제 실패: 서버에 연결할 수 없습니다.")
     return false
   }
 }
