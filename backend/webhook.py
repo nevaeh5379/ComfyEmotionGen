@@ -42,8 +42,15 @@ def _new_config_id() -> str:
 class WebhookService:
     """웹훅 설정 관리 + 알림 전송."""
 
-    def __init__(self, store: Any) -> None:  # JobStore
+    def __init__(
+        self,
+        store: Any,
+        base_url: str = "",
+        images_dir: Optional[Path] = None,
+    ) -> None:  # JobStore
         self._store = store
+        self._base_url = base_url.rstrip("/") if base_url else ""
+        self._images_dir = images_dir
         self._configs: list[WebhookConfig] = []
 
     async def load(self) -> None:
@@ -256,14 +263,30 @@ class WebhookService:
             ],
         }
 
+        file_bytes: Optional[bytes] = None
+        attachment_name: Optional[str] = None
         if cfg.include_image and event == "job_done":
             image_hashes = job.get("savedImageHashes", [])
-            if image_hashes:
-                payload["embeds"][0]["image"] = {
-                    "url": f"/saved-images/{image_hashes[0]}"
-                }
+            if image_hashes and self._images_dir:
+                sha = image_hashes[0]
+                record = await self._store.get_saved_image(sha)
+                ext = record.get("extension") if record else ".png"
+                path = self._images_dir / f"{sha}{ext}"
+                if path.exists():
+                    file_bytes = path.read_bytes()
+                    attachment_name = f"{sha}{ext}"
+                    payload["embeds"][0]["image"] = {
+                        "url": f"attachment://{attachment_name}"
+                    }
 
-        await self._http_post(cfg.url, payload, timeout=10, is_json=True)
+        await self._http_post(
+            cfg.url,
+            payload,
+            timeout=10,
+            is_json=not file_bytes,
+            file_bytes=file_bytes,
+            filename=attachment_name,
+        )
 
     async def _discord_batch(
         self,
@@ -424,11 +447,46 @@ class WebhookService:
         payload: dict[str, Any],
         timeout: int = 10,
         is_json: bool = False,
+        file_bytes: Optional[bytes] = None,
+        filename: Optional[str] = None,
     ) -> None:
         async with aiohttp.ClientSession() as session:
-            kwargs = {
-                "timeout": aiohttp.ClientTimeout(total=timeout),
-            }
+            client_timeout = aiohttp.ClientTimeout(total=timeout)
+
+            if file_bytes and filename:
+                data = aiohttp.FormData()
+                data.add_field(
+                    "payload_json",
+                    json.dumps(payload),
+                    content_type="application/json",
+                )
+                content_type = "application/octet-stream"
+                if filename.endswith(".png"):
+                    content_type = "image/png"
+                elif filename.endswith((".jpg", ".jpeg")):
+                    content_type = "image/jpeg"
+                elif filename.endswith(".webp"):
+                    content_type = "image/webp"
+                data.add_field(
+                    "file",
+                    file_bytes,
+                    filename=filename,
+                    content_type=content_type,
+                )
+                async with session.post(
+                    url, data=data, timeout=client_timeout
+                ) as resp:
+                    if not resp.ok:
+                        body = await resp.text()
+                        logger.warning(
+                            "webhook HTTP %d: %s — %s",
+                            resp.status,
+                            url,
+                            body[:200],
+                        )
+                return
+
+            kwargs: dict[str, Any] = {"timeout": client_timeout}
             if is_json:
                 kwargs["json"] = payload
             else:

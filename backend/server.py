@@ -221,7 +221,10 @@ async def lifespan(app: FastAPI):
     initial_urls = await _resolve_initial_worker_urls(store)
     worker_pool = WorkerPool(urls=initial_urls)
     job_manager = JobManager(worker_pool, store=store)
-    webhook_service = WebhookService(store)
+    public_url = os.environ.get("CEG_PUBLIC_URL", "")
+    webhook_service = WebhookService(
+        store, base_url=public_url, images_dir=DEFAULT_IMAGES_DIR
+    )
     await webhook_service.load()
 
     async def broadcast_with_webhook(event: dict[str, Any]) -> None:
