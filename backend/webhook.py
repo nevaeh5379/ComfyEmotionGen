@@ -263,7 +263,7 @@ class WebhookService:
                     "url": f"/saved-images/{image_hashes[0]}"
                 }
 
-        await self._http_post(cfg.url, payload, timeout=10)
+        await self._http_post(cfg.url, payload, timeout=10, is_json=True)
 
     async def _discord_batch(
         self,
@@ -297,7 +297,7 @@ class WebhookService:
             ],
         }
 
-        await self._http_post(cfg.url, payload, timeout=10)
+        await self._http_post(cfg.url, payload, timeout=10, is_json=True)
 
     # ── Telegram ──
 
@@ -361,7 +361,7 @@ class WebhookService:
         else:
             url = f"https://api.telegram.org/bot{cfg.url}/sendMessage"
 
-        await self._http_post(url, params, timeout=10)
+        await self._http_post(url, params, timeout=10, is_json=True)
 
     async def _telegram_batch(
         self,
@@ -394,7 +394,7 @@ class WebhookService:
         else:
             url = f"https://api.telegram.org/bot{cfg.url}/sendMessage"
 
-        await self._http_post(url, params, timeout=10)
+        await self._http_post(url, params, timeout=10, is_json=True)
 
     # ── Generic ──
 

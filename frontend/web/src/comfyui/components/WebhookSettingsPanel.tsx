@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
 import { Bell, BellOff, Plus, Trash2, Send, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,29 +58,21 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<string | null>(null)
 
-  const newConfig = useMemo<WebhookConfig>(
-    () => ({
-      id: "",
-      name: "",
-      channel_type: "discord",
-      url: "",
-      events: [...allEvents],
-      enabled: true,
-      include_image: false,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  )
+  const [newConfig, setNewConfig] = useState<WebhookConfig>({
+    id: "",
+    name: "",
+    channel_type: "discord",
+    url: "",
+    events: [...allEvents],
+    enabled: true,
+    include_image: false,
+  })
 
   const updateNewConfig = useCallback(
     <K extends keyof WebhookConfig>(key: K, value: WebhookConfig[K]) => {
-      setIsAdding((prev) => {
-        if (prev === isAdding) return prev
-        return prev
-      })
-      Object.assign(newConfig, { [key]: value })
+      setNewConfig((prev) => ({ ...prev, [key]: value }))
     },
-    [newConfig, isAdding]
+    []
   )
 
   const handleAdd = async () => {
@@ -100,13 +92,14 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     if (ok) {
       toast.success("웹훅이 추가되었습니다.")
       setIsAdding(false)
-      Object.assign(newConfig, {
+      setNewConfig({
+        id: "",
         name: "",
+        channel_type: "discord",
         url: "",
         events: [...allEvents],
         enabled: true,
         include_image: false,
-        channel_type: "discord",
       })
     } else {
       toast.error("웹훅 추가에 실패했습니다.")
