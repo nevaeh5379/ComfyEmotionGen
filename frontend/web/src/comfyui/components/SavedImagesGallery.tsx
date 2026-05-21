@@ -952,7 +952,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       )}
 
       {/* ── Scrollable Content ── */}
-      <div className="flex-1 px-4">
+      <div className="flex-1 p-4">
         {error && (
           <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
             {error}
