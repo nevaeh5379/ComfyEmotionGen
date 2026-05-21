@@ -5,6 +5,10 @@ import {
   Loader2Icon,
   RefreshCwIcon,
   SquareIcon,
+  Clock,
+  Tag,
+  FileText,
+  Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -67,43 +71,182 @@ export function ImagePreviewHoverCard({
   images: SavedImage[]
   backendUrl: string
 }) {
+  const approvedCount = images.filter((img) => img.status === "approved").length
+  const rejectedCount = images.filter((img) => img.status === "rejected").length
+  const pendingCount = images.filter((img) => img.status === "pending").length
+  const trashedCount = images.filter((img) => img.status === "trashed").length
+
+  const allTags = Array.from(
+    new Set(images.flatMap((img) => img.tags || []))
+  ).filter(Boolean).slice(0, 4)
+
+  const sortedImages = useMemo(() => {
+    return [...images].sort((a, b) => b.createdAt - a.createdAt)
+  }, [images])
+
+  const latestImage = sortedImages[0]
+  const latestPrompt = latestImage?.prompt || ""
+  const latestNote = latestImage?.note || ""
+  const latestDate = latestImage?.createdAt
+    ? new Date(latestImage.createdAt).toLocaleString("ko-KR", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : ""
+
   return (
-    <HoverCardContent className="w-72 p-3" side="right" align="start">
-      <div className="mb-2 border-b pb-1.5 text-[10px] font-black tracking-widest text-primary uppercase">
-        {filename} ({images.length}장)
+    <HoverCardContent 
+      className="w-80 p-4 bg-popover/95 backdrop-blur-md border border-border/80 shadow-2xl rounded-xl transition-all duration-300 animate-in fade-in-50 zoom-in-95" 
+      side="right" 
+      align="start"
+    >
+      {/* Title & Info Header */}
+      <div className="flex flex-col gap-2 pb-3 mb-3 border-b border-border/40">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-xs font-black tracking-tight text-foreground truncate max-w-[200px] bg-muted px-2 py-0.5 rounded border border-border/50">
+            {filename}
+          </span>
+          <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase">
+            {images.length}장
+          </span>
+        </div>
+
+        {/* Curation Stat Pills */}
+        {images.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-0.5">
+            {approvedCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-ok bg-ok-bg border border-ok/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-ok animate-pulse" />
+                통과 {approvedCount}
+              </span>
+            )}
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-warn bg-warn-bg border border-warn/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-warn" />
+                대기 {pendingCount}
+              </span>
+            )}
+            {rejectedCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-bad bg-bad-bg border border-bad/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-bad" />
+                탈락 {rejectedCount}
+              </span>
+            )}
+            {trashedCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-muted-foreground bg-muted border border-border/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                휴지통 {trashedCount}
+              </span>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Grid of Images */}
       {images.length === 0 ? (
-        <p className="text-[10px] text-muted-foreground italic">이미지 없음</p>
+        <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+          <FolderIcon className="h-8 w-8 text-muted-foreground/30 mb-2 stroke-1" />
+          <p className="text-[10px] italic">저장된 이미지가 없습니다</p>
+        </div>
       ) : (
-        <div className="grid max-h-64 grid-cols-3 gap-1.5 overflow-y-auto">
-          {images.slice(0, 12).map((img) => (
-            <div
-              key={img.hash}
-              className="relative aspect-square overflow-hidden rounded-md bg-muted"
-            >
-              <img
-                src={`${backendUrl}/saved-images/${img.hash}`}
-                className="h-full w-full object-cover"
-                alt=""
-                loading="lazy"
-              />
-              {img.status === "approved" && (
-                <div className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded bg-green-500 text-white">
-                  <CheckIcon className="h-3 w-3" strokeWidth={3} />
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            {images.slice(0, 12).map((img) => (
+              <div
+                key={img.hash}
+                className="group relative aspect-square overflow-hidden rounded-lg bg-muted border border-border/40 hover:scale-105 hover:shadow-md hover:ring-2 hover:ring-primary/20 transition-all duration-200 cursor-pointer"
+              >
+                {/* Blurred Background to eliminate empty margins */}
+                <img
+                  src={`${backendUrl}/saved-images/${img.hash}`}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover blur-md opacity-35 scale-110 pointer-events-none select-none"
+                  loading="lazy"
+                />
+                <img
+                  src={`${backendUrl}/saved-images/${img.hash}`}
+                  className="relative z-10 h-full w-full object-contain"
+                  alt=""
+                  loading="lazy"
+                />
+                
+                {/* Status Overlays */}
+                {img.status === "approved" && (
+                  <div className="absolute top-1 right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-ok text-white shadow-md">
+                    <CheckIcon className="h-3 w-3 stroke-[3]" />
+                  </div>
+                )}
+                {img.status === "rejected" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[0.5px]">
+                    <span className="text-[8px] font-black tracking-widest text-white/90 bg-bad/80 px-1 rounded scale-90">
+                      탈락
+                    </span>
+                  </div>
+                )}
+                {img.status === "trashed" && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/75 backdrop-blur-[0.5px]">
+                    <Trash2 className="h-4.5 w-4.5 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {images.length > 12 && (
+              <div className="flex aspect-square items-center justify-center rounded-lg bg-muted hover:bg-muted/80 text-[11px] font-black text-muted-foreground border border-dashed border-border/60 transition-colors">
+                +{images.length - 12}
+              </div>
+            )}
+          </div>
+
+          {/* Expanded Prompt & Metadata Details */}
+          {(allTags.length > 0 || latestPrompt || latestNote || latestDate) && (
+            <div className="pt-3 border-t border-border/30 space-y-2.5">
+              {/* Tags Capsules */}
+              {allTags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {allTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-0.5 bg-muted/65 text-muted-foreground px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-tight border border-border/20"
+                    >
+                      <Tag className="h-2 w-2 stroke-[2.5]" />
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               )}
-              {img.status === "rejected" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <span className="text-[8px] font-bold text-white/80">
-                    REJ
-                  </span>
+
+              {/* Prompt Block */}
+              {latestPrompt && (
+                <div className="relative rounded-lg bg-muted/30 border border-border/20 p-2 text-left">
+                  <div className="flex items-center gap-1.5 mb-1 text-[8px] font-bold text-muted-foreground tracking-wider uppercase">
+                    <FileText className="h-2.5 w-2.5" />
+                    최근 프롬프트
+                  </div>
+                  <p className="font-mono text-[9px] leading-normal text-muted-foreground line-clamp-3 select-all">
+                    {latestPrompt}
+                  </p>
                 </div>
               )}
-            </div>
-          ))}
-          {images.length > 12 && (
-            <div className="flex aspect-square items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
-              +{images.length - 12}
+
+              {/* Note / Memo Block */}
+              {latestNote && (
+                <div className="border-l-2 border-warn/45 pl-2 py-0.5 text-left">
+                  <p className="text-[9px] text-foreground/80 italic font-medium leading-normal">
+                    💡 {latestNote}
+                  </p>
+                </div>
+              )}
+
+              {/* Latest update timestamp */}
+              {latestDate && (
+                <div className="flex items-center gap-1 text-[8.5px] text-muted-foreground/60 font-semibold justify-end">
+                  <Clock className="h-2.5 w-2.5" />
+                  <span>최근 저장: {latestDate}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

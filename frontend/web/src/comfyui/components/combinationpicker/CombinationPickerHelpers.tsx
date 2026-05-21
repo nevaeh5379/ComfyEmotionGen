@@ -67,12 +67,14 @@ export function ImageWithSkeleton({
   className = "",
   aspectRatio = "",
   objectFit = "object-cover",
+  showBlurredBg = objectFit === "object-contain",
 }: {
   src: string
   alt?: string
   className?: string
   aspectRatio?: string
   objectFit?: string
+  showBlurredBg?: boolean
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -88,17 +90,26 @@ export function ImageWithSkeleton({
           <span className="text-[8px] font-bold">LOAD ERROR</span>
         </div>
       ) : (
-        <img
-          src={src}
-          alt={alt}
-          className={`h-full w-full ${objectFit} transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"}`}
-          onLoad={() => setLoading(false)}
-          onError={() => {
-            setLoading(false)
-            setError(true)
-          }}
-          loading="lazy"
-        />
+        <>
+          {showBlurredBg && !loading && (
+            <img
+              src={src}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover blur-md opacity-35 scale-110 pointer-events-none select-none"
+            />
+          )}
+          <img
+            src={src}
+            alt={alt}
+            className={`h-full w-full ${objectFit} transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"} ${showBlurredBg ? "relative z-10" : ""}`}
+            onLoad={() => setLoading(false)}
+            onError={() => {
+              setLoading(false)
+              setError(true)
+            }}
+            loading="lazy"
+          />
+        </>
       )}
     </div>
   )

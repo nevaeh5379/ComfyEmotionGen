@@ -25,7 +25,6 @@ import {
 import {
   StatusIcon,
   MetaTags,
-  ImageWithSkeleton,
 } from "./CombinationPickerHelpers"
 import { useCurationContext } from "./CurationContext"
 
@@ -225,9 +224,15 @@ export function TournamentView({
             onClick={() => handlePick(img)}
             className="group relative flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none"
           >
+            {/* Blurred Background to eliminate empty margins */}
             <img
               src={`${backendUrl}/saved-images/${img.hash}`}
-              className="h-full w-full object-contain"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover blur-md opacity-35 scale-110 pointer-events-none select-none"
+            />
+            <img
+              src={`${backendUrl}/saved-images/${img.hash}`}
+              className="relative z-10 h-full w-full object-contain"
               alt=""
             />
             <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-4 text-center font-bold text-white opacity-100 md:opacity-0 md:group-hover:opacity-100">
@@ -323,6 +328,166 @@ export function LongPressWrapper({
   )
 }
 
+/* ─── GalleryGridItem ─── */
+function GalleryGridItem({
+  item,
+  imgs,
+  backendUrl,
+  enableHover,
+  selectionMode,
+  isSelected,
+  toggleSelect,
+  onSelect,
+  onOpen,
+  onLongPress,
+  onRegenerate,
+}: {
+  item: RenderItem
+  imgs: SavedImage[]
+  backendUrl: string
+  enableHover: boolean
+  selectionMode: boolean
+  isSelected: boolean
+  toggleSelect: (filename: string, e?: React.MouseEvent | React.KeyboardEvent) => void
+  onSelect: (filename: string) => void
+  onOpen: (filename: string) => void
+  onLongPress: (filename: string) => void
+  onRegenerate?: (filename: string) => void
+}) {
+  const approved = findApproved(imgs)
+  const preview = approved || imgs[0]
+  const isDone = hasApproved(imgs)
+  const [aspect, setAspect] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  return (
+    <ContextMenu key={item.filename}>
+      <ContextMenuTrigger asChild>
+        <div className="contents">
+          <HoverCard
+            openDelay={enableHover ? 500 : 99999}
+            closeDelay={100}
+          >
+            <HoverCardTrigger asChild>
+              <LongPressWrapper
+                onLongPress={() => onLongPress(item.filename)}
+                onClick={(e) => {
+                  if (
+                    selectionMode ||
+                    e.shiftKey ||
+                    e.ctrlKey ||
+                    e.metaKey
+                  ) {
+                    toggleSelect(item.filename, e)
+                  } else {
+                    onSelect(item.filename)
+                  }
+                }}
+                className={`group relative rounded-xl border bg-card p-1 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] ${isSelected ? "bg-blue-50/10 ring-2 ring-blue-500 border-blue-500/80 shadow-md shadow-blue-500/10" : "border-border/80 hover:border-primary/50"}`}
+              >
+                <div 
+                  className="relative overflow-hidden rounded-lg bg-muted"
+                  style={{ aspectRatio: aspect ?? 1 }}
+                >
+                  {preview ? (
+                    <>
+                      {loading && (
+                        <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center">
+                          <FolderIcon className="h-8 w-8 text-muted-foreground/15" />
+                        </div>
+                      )}
+                      <img
+                        src={`${backendUrl}/saved-images/${preview.hash}`}
+                        className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${loading ? "opacity-0" : "opacity-100"}`}
+                        alt=""
+                        onLoad={(e) => {
+                          setLoading(false)
+                          const img = e.currentTarget
+                          if (img.naturalWidth && img.naturalHeight) {
+                            setAspect(img.naturalWidth / img.naturalHeight)
+                          }
+                        }}
+                        loading="lazy"
+                      />
+                    </>
+                  ) : (
+                    <div className="flex aspect-square h-full w-full items-center justify-center">
+                      <FolderIcon className="h-10 w-10 text-muted-foreground/20" />
+                    </div>
+                  )}
+
+                  {/* 선택 모드 체크박스 */}
+                  {selectionMode && (
+                    <div className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded">
+                      {isSelected ? (
+                        <CheckSquareIcon className="h-6 w-6 text-blue-500 drop-shadow-sm" />
+                      ) : (
+                        <SquareIcon className="h-6 w-6 text-white/70 drop-shadow-sm" />
+                      )}
+                    </div>
+                  )}
+
+                  {!selectionMode && (
+                    <div className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded bg-black/45 text-white border border-white/10 backdrop-blur-md shadow-xs opacity-90 transition-transform group-hover:scale-105 duration-300">
+                      <FolderIcon className="h-3 w-3" />
+                    </div>
+                  )}
+
+                  {isDone && (
+                    <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-white shadow-md border border-white/20 transition-transform group-hover:scale-110 duration-300 z-20">
+                      <CheckIcon className="h-3.5 w-3.5 stroke-[3]" />
+                    </div>
+                  )}
+
+                  {/* 장수 배지 - 승인 아이콘이 있으면 왼쪽으로 이동하여 겹치지 않게 처리 */}
+                  <div className={`absolute top-2 rounded-sm bg-black/60 border border-white/5 px-1.5 py-0.5 text-[9px] font-extrabold text-white backdrop-blur-md shadow-xs z-10 transition-all duration-300 ${isDone ? "right-10" : "right-2"}`}>
+                    {imgs.length}장
+                  </div>
+
+                  {/* 파일명 & 태그 오버레이 */}
+                  <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-linear-to-t from-black/85 via-black/55 to-transparent pt-8 pb-2 px-2 text-center">
+                    <div className="truncate font-mono text-[10px] font-black text-white/95 tracking-tight">
+                      {item.filename}
+                    </div>
+                    {item.meta && Object.keys(item.meta).length > 0 && (
+                      <div className="flex justify-center gap-1 flex-wrap">
+                        {Object.values(item.meta).slice(0, 2).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="rounded bg-white/15 px-1 py-0.5 text-[8px] font-extrabold uppercase text-white/80 backdrop-blur-md border border-white/5 whitespace-nowrap"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </LongPressWrapper>
+            </HoverCardTrigger>
+            {enableHover && (
+              <ImagePreviewHoverCard
+                filename={item.filename}
+                images={imgs}
+                backendUrl={backendUrl}
+              />
+            )}
+          </HoverCard>
+        </div>
+      </ContextMenuTrigger>
+      <CombinationContextMenu
+        filename={item.filename}
+        isSelected={isSelected}
+        selectionMode={selectionMode}
+        onOpen={onOpen}
+        onToggleSelect={(f) => toggleSelect(f)}
+        onLongPress={onLongPress}
+        {...(onRegenerate && { onRegenerate })}
+      />
+    </ContextMenu>
+  )
+}
+
 /* ─── GalleryView ─── */
 export function GalleryView({
   onSelect,
@@ -340,108 +505,26 @@ export function GalleryView({
   const { selectionMode, selectedFilenames, toggleSelect } = selection
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-4 items-start sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {items.map((item: RenderItem) => {
         const imgs = imagesByFilename.get(item.filename) ?? []
-        const approved = findApproved(imgs)
-        const preview = approved || imgs[0]
-        const isDone = hasApproved(imgs)
         const isSelected = selectedFilenames.has(item.filename)
 
         return (
-          <ContextMenu key={item.filename}>
-            <ContextMenuTrigger asChild>
-              <div className="contents">
-                <HoverCard
-                  openDelay={enableHover ? 500 : 99999}
-                  closeDelay={100}
-                >
-                  <HoverCardTrigger asChild>
-                    <LongPressWrapper
-                      onLongPress={() => onLongPress(item.filename)}
-                      onClick={(e) => {
-                        if (
-                          selectionMode ||
-                          e.shiftKey ||
-                          e.ctrlKey ||
-                          e.metaKey
-                        ) {
-                          toggleSelect(item.filename, e)
-                        } else {
-                          onSelect(item.filename)
-                        }
-                      }}
-                      className={`group relative flex flex-col rounded-lg border bg-card hover:border-primary hover:shadow-md ${isSelected ? "bg-blue-50/30 ring-2 ring-blue-500" : ""}`}
-                    >
-                      <div className="relative overflow-hidden rounded-md bg-muted">
-                        {preview ? (
-                          <ImageWithSkeleton
-                            src={`${backendUrl}/saved-images/${preview.hash}`}
-                            aspectRatio=""
-                            objectFit="object-contain"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <FolderIcon className="h-10 w-10 text-muted-foreground/20" />
-                          </div>
-                        )}
-
-                        {/* 선택 모드 체크박스 */}
-                        {selectionMode && (
-                          <div className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded">
-                            {isSelected ? (
-                              <CheckSquareIcon className="h-6 w-6 text-blue-500 drop-shadow-sm" />
-                            ) : (
-                              <SquareIcon className="h-6 w-6 text-white/70 drop-shadow-sm" />
-                            )}
-                          </div>
-                        )}
-
-                        {!selectionMode && (
-                          <div className="absolute top-2 left-2 flex h-7 w-7 items-center justify-center rounded bg-black/60 text-white backdrop-blur-sm">
-                            <FolderIcon className="h-3.5 w-3.5" />
-                          </div>
-                        )}
-
-                        {isDone && (
-                          <div className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded bg-green-500 text-white shadow-sm">
-                            <CheckIcon className="h-4 w-4" strokeWidth={3} />
-                          </div>
-                        )}
-
-                        <div className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                          {imgs.length}장
-                        </div>
-                      </div>
-
-                      <div className="px-1 text-center">
-                        <div className="truncate font-mono text-[11px] font-bold">
-                          {item.filename}
-                        </div>
-                        <MetaTags meta={item.meta} variant="compact" max={2} />
-                      </div>
-                    </LongPressWrapper>
-                  </HoverCardTrigger>
-                  {enableHover && (
-                    <ImagePreviewHoverCard
-                      filename={item.filename}
-                      images={imgs}
-                      backendUrl={backendUrl}
-                    />
-                  )}
-                </HoverCard>
-              </div>
-            </ContextMenuTrigger>
-            <CombinationContextMenu
-              filename={item.filename}
-              isSelected={isSelected}
-              selectionMode={selectionMode}
-              onOpen={onOpen}
-              onToggleSelect={(f) => toggleSelect(f)}
-              onLongPress={onLongPress}
-              {...(onRegenerate && { onRegenerate })}
-            />
-          </ContextMenu>
+          <GalleryGridItem
+            key={item.filename}
+            item={item}
+            imgs={imgs}
+            backendUrl={backendUrl}
+            enableHover={enableHover}
+            selectionMode={selectionMode}
+            isSelected={isSelected}
+            toggleSelect={toggleSelect}
+            onSelect={onSelect}
+            onOpen={onOpen}
+            onLongPress={onLongPress}
+            {...(onRegenerate && { onRegenerate })}
+          />
         )
       })}
     </div>
