@@ -410,6 +410,12 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
         const rem = j.startedAt
           ? estimateRemaining(j.startedAt, j.progressPercent)
           : null
+        const overallPercent =
+          j.totalNodeCount > 0
+            ? ((j.completedNodeCount + j.progressPercent / 100) /
+                j.totalNodeCount) *
+              100
+            : null
         return (
           <div
             key={j.id}
@@ -429,12 +435,30 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
               <span className="truncate">
                 {j.currentNodeName || "노드 처리 중..."}
               </span>
-              <span className="mono">{Math.round(j.progressPercent)}%</span>
+              <span className="mono">
+                {Math.round(j.progressPercent)}%
+              </span>
             </div>
             <Progress
               value={j.progressPercent}
               className="h-1.5 w-full [&>[data-slot=progress-indicator]]:animate-shimmer [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-info [&>[data-slot=progress-indicator]]:via-primary [&>[data-slot=progress-indicator]]:to-info [&>[data-slot=progress-indicator]]:bg-[length:200%_auto]"
             />
+            {overallPercent != null && (
+              <>
+                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
+                  <span className="truncate">
+                    전체 노드 {j.completedNodeCount}/{j.totalNodeCount}
+                  </span>
+                  <span className="mono">
+                    {Math.round(overallPercent)}%
+                  </span>
+                </div>
+                <Progress
+                  value={overallPercent}
+                  className="h-1.5 w-full [&>[data-slot=progress-indicator]]:animate-shimmer [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-ok [&>[data-slot=progress-indicator]]:via-ok/60 [&>[data-slot=progress-indicator]]:to-ok [&>[data-slot=progress-indicator]]:bg-[length:200%_auto]"
+                />
+              </>
+            )}
           </div>
         )
       })}
