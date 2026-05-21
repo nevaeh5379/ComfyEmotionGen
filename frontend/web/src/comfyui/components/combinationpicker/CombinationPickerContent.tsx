@@ -825,16 +825,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
               />
             </div>
 
-            {/* 이미지 미리보기 팝업 */}
-            <ImageViewer
-              src={`${backendUrl}/saved-images/${previewHash}`}
-              isOpen={previewHash !== null}
-              onClose={() => setPreviewHash(null)}
-            />
-          </SheetContent>
+         </SheetContent>
         </Sheet>
 
-        <RegenerateDialog
+       <RegenerateDialog
           open={regenDialogState.open}
           onOpenChange={(open) =>
             setRegenDialogState((prev) => ({ ...prev, open }))
@@ -846,6 +840,13 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           savedWorkflows={savedWorkflows}
           onRegenerate={performRegenerate}
           isLoading={regenAction.isLoading}
+        />
+
+        {/* 이미지 미리보기 팝업 */}
+        <ImageViewer
+          src={`${backendUrl}/saved-images/${previewHash}`}
+          isOpen={previewHash !== null}
+          onClose={() => setPreviewHash(null)}
         />
       </div>
     </div>
