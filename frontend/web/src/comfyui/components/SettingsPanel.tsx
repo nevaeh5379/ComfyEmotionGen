@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Download, Upload } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import { Kbd } from "@/components/ui/kbd"
 
 import { Switch } from "@/components/ui/switch"
 
@@ -445,27 +446,75 @@ export function SettingsPanel({
 
         {/* 키보드 단축키 */}
         <Section title="키보드 단축키">
-          <div className="space-y-0">
-            {(
-              [
-                ["D", "다크/라이트 모드 전환"],
-                ["ESC", "이미지 뷰어 닫기"],
-                ["Shift + 드래그", "이미지 뷰어에서 영역 확대"],
-                ["좌클릭", "이미지 뷰어에서 확대"],
-                ["우클릭", "이미지 뷰어에서 축소"],
-                ["스크롤 휠", "이미지 뷰어에서 줌 인/아웃"],
-              ] as const
-            ).map(([key, desc]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between gap-4 py-2.5"
-              >
-                <span className="text-sm text-muted-foreground">{desc}</span>
-                <kbd className="shrink-0 rounded-md border bg-muted px-2 py-1 font-mono text-[11px] font-bold text-muted-foreground">
-                  {key}
-                </kbd>
+          <div className="space-y-6 pt-2">
+            <div>
+              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">전역 & 앱 탐색</h4>
+              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
+                {[
+                  ["Alt + 1..5", "탭 전환 (작업, 통계, 갤러리, 큐레이션, 설정)"],
+                  ["D", "다크/라이트 테마 토글"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
+                    <span className="text-muted-foreground">{desc}</span>
+                    <Kbd>{key}</Kbd>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div>
+              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">작업 관리</h4>
+              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
+                {[
+                  ["Ctrl + Enter", "작업 실행 (작업 탭)"],
+                  ["Ctrl + S", "템플릿/워크플로우 저장 (편집기)"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
+                    <span className="text-muted-foreground">{desc}</span>
+                    <Kbd>{key}</Kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">갤러리 탐색 & 조작</h4>
+              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
+                {[
+                  ["← / → / ↑ / ↓ (h/l/k/j)", "이미지 격자 포커스 이동"],
+                  ["Enter / Space", "상세 보기 열기 / 선택 토글"],
+                  ["1 / A", "선택된 이미지 통과 (Approved)"],
+                  ["2 / X", "선택된 이미지 탈락 (Rejected)"],
+                  ["3 / T", "선택된 이미지 휴지통 이동 / 대기 복원"],
+                  ["P", "비교 뷰 추가 / 제거 (Pin)"],
+                  ["Ctrl + Shift + R", "갤러리 새로고침"],
+                  ["ESC", "포커스 해제 / 상세 보기 닫기"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
+                    <span className="text-muted-foreground">{desc}</span>
+                    <Kbd>{key}</Kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">이미지 뷰어</h4>
+              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
+                {[
+                  ["Shift + 드래그", "뷰어에서 영역 지정 확대"],
+                  ["좌클릭", "이미지 확대"],
+                  ["우클릭", "이미지 축소"],
+                  ["스크롤 휠", "줌 인/아웃"],
+                  ["ESC", "뷰어 닫기"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
+                    <span className="text-muted-foreground">{desc}</span>
+                    <Kbd>{key}</Kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </Section>
       </div>

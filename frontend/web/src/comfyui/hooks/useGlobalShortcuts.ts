@@ -23,6 +23,7 @@ interface UseGlobalShortcutsOptions {
   handleRun: () => void
   handleSave: () => void
   handleGalleryRefresh: () => void
+  setActiveTab?: (tab: TabId) => void
 }
 
 export function useGlobalShortcuts({
@@ -32,11 +33,33 @@ export function useGlobalShortcuts({
   handleRun,
   handleSave,
   handleGalleryRefresh,
+  setActiveTab,
 }: UseGlobalShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.includes("Mac")
       const modifier = isMac ? e.metaKey : e.ctrlKey
+
+      // Ctrl + Shift + 1..5 or Alt + 1..5 → Switch tabs
+      const isSwitchTabModifier = (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) || (modifier && e.shiftKey)
+      if (isSwitchTabModifier && e.key >= "1" && e.key <= "5") {
+        e.preventDefault()
+        const tabIndex = parseInt(e.key) - 1
+        const tabs: TabId[] = ["jobs", "stats", "gallery", "curation", "settings"]
+        const targetTab = tabs[tabIndex]
+        if (targetTab && setActiveTab) {
+          setActiveTab(targetTab)
+          const tabNames: Record<TabId, string> = {
+            jobs: "작업",
+            stats: "통계",
+            gallery: "갤러리",
+            curation: "큐레이션",
+            settings: "설정",
+          }
+          toast.info(`'${tabNames[targetTab]}' 탭으로 이동했습니다.`)
+        }
+        return
+      }
 
       // Ctrl/Cmd + Enter → Run jobs (Jobs tab only)
       if (modifier && e.key === "Enter" && !e.shiftKey) {
@@ -80,5 +103,7 @@ export function useGlobalShortcuts({
     handleRun,
     handleSave,
     handleGalleryRefresh,
+    setActiveTab,
   ])
 }
+

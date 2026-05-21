@@ -725,6 +725,7 @@ function AppContent(props: AppContentProps) {
     handleRun,
     handleSave: handleQuickSave,
     handleGalleryRefresh,
+    setActiveTab: props.setActiveTab,
   })
 
   // ── Name conflict helpers ──

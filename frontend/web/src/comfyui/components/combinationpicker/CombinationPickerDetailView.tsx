@@ -11,6 +11,7 @@ import {
   LayoutListIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   DropdownMenu,
@@ -160,7 +161,10 @@ export function CombinationPickerDetailView({
                     <ArrowLeftIcon className="h-5 w-5 md:h-3 md:w-3" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>목록으로 돌아가기 (Esc)</TooltipContent>
+                <TooltipContent className="flex items-center gap-1.5 font-bold text-xs">
+                  <span>목록으로 돌아가기</span>
+                  <Kbd className="bg-white/20 border-white/10 text-white dark:bg-muted dark:text-muted-foreground dark:border-line">Esc</Kbd>
+                </TooltipContent>
               </Tooltip>
 
               <div className="flex items-center rounded-lg border border-line bg-muted/60 p-0.5 shadow-inner">
@@ -175,7 +179,10 @@ export function CombinationPickerDetailView({
                       <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>이전 조합 (K)</TooltipContent>
+                  <TooltipContent className="flex items-center gap-1.5 font-bold text-xs">
+                    <span>이전 조합</span>
+                    <Kbd className="bg-white/20 border-white/10 text-white dark:bg-muted dark:text-muted-foreground dark:border-line">K</Kbd>
+                  </TooltipContent>
                 </Tooltip>
 
                 {onOpenList && (
@@ -205,7 +212,10 @@ export function CombinationPickerDetailView({
                       <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>다음 조합 (J)</TooltipContent>
+                  <TooltipContent className="flex items-center gap-1.5 font-bold text-xs">
+                    <span>다음 조합</span>
+                    <Kbd className="bg-white/20 border-white/10 text-white dark:bg-muted dark:text-muted-foreground dark:border-line">J</Kbd>
+                  </TooltipContent>
                 </Tooltip>
               </div>
             </div>
@@ -402,9 +412,11 @@ export function CombinationPickerDetailView({
                               <ColumnsIcon className={`h-5 w-5 md:h-4 md:w-4 ${isPinned ? "" : "opacity-50"}`} />
                             </button>
                             {idx < 9 && (
-                              <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded bg-black/40 text-[11px] font-bold text-white opacity-100 backdrop-blur-sm md:opacity-0 md:group-hover:opacity-100">
-                                {idx + 1}
-                              </span>
+                              <div className="absolute top-2 left-2 opacity-100 backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                                <Kbd className="bg-black/60 border-white/20 text-white font-mono h-6 w-6 flex items-center justify-center select-none rounded text-[11px] font-black">
+                                  {idx + 1}
+                                </Kbd>
+                              </div>
                             )}
                             {isSelected && (
                               <div className="absolute inset-0 flex items-center justify-center bg-green-500/10">

@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { Search, X, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 
 export type CandidateType = "filename" | "prompt" | "error" | "tag" | "metadata"
 
@@ -172,9 +173,10 @@ export const TagInputSearch = memo(function TagInputSearch({
 
       {/* Render Tags */}
       {tags.map((tag) => (
-        <span
+        <Badge
           key={tag}
-          className="inline-flex items-center gap-1 rounded border border-primary/10 bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary transition-all hover:bg-primary/10"
+          variant="secondary"
+          className="h-auto border border-primary/10 bg-primary/5 text-primary hover:bg-primary/10"
         >
           {tag}
           <button
@@ -184,7 +186,7 @@ export const TagInputSearch = memo(function TagInputSearch({
           >
             <X className="h-2.5 w-2.5" />
           </button>
-        </span>
+        </Badge>
       ))}
 
       {/* Text Input */}

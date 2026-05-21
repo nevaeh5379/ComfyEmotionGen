@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { XIcon, Loader2Icon, ImageOff } from "lucide-react"
+import { XIcon, ImageOff } from "lucide-react"
+import { Spinner } from "@/components/ui/spinner"
 
 /* ------------------------------------------------------------------ */
 /*  ImageViewer – reusable full-screen image popup with:               */
@@ -580,7 +581,7 @@ export function ImageViewer({
             {imgStatus !== "loaded" && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/40 text-white/70">
                 {imgStatus === "loading" ? (
-                  <Loader2Icon className="h-8 w-8 animate-spin" />
+                  <Spinner className="h-8 w-8 text-white/70" />
                 ) : (
                   <>
                     <ImageOff className="h-10 w-10" />

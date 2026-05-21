@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Empty,
   EmptyDescription,
@@ -11,7 +12,6 @@ import {
 import {
   AlertTriangleIcon,
   LayersIcon,
-  Loader2Icon,
   SearchXIcon,
 } from "lucide-react"
 import {
@@ -570,7 +570,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     return (
       <div className="m-4 flex flex-1 items-center justify-center rounded-lg border border-dashed bg-muted/5 py-32">
         <div className="flex flex-col items-center gap-4 text-center">
-          <Loader2Icon className="h-10 w-10 animate-spin text-primary opacity-40" />
+          <Spinner className="h-10 w-10 text-primary opacity-40" />
           <div className="space-y-1">
             <p className="text-base font-bold text-foreground">
               데이터를 불러오는 중입니다

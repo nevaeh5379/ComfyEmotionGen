@@ -33,6 +33,7 @@ import {
   type CurationStatus,
   type SavedImage,
 } from "../../types/Message"
+import { Badge } from "@/components/ui/badge"
 
 export interface GridProps {
   items: SavedImage[]
@@ -46,6 +47,8 @@ export interface GridProps {
   togglePin?: (hash: string) => void
   pinnedHashes?: string[]
   imageLazyLoad?: boolean
+  focusedHash?: string | null
+  onFocus?: (hash: string | null) => void
 }
 
 export function ImageGrid({
@@ -60,6 +63,8 @@ export function ImageGrid({
   togglePin,
   pinnedHashes = [],
   imageLazyLoad = true,
+  focusedHash = null,
+  onFocus,
 }: GridProps) {
   const [brokenHashes, setBrokenHashes] = useState<Set<string>>(new Set())
 
@@ -83,14 +88,20 @@ export function ImageGrid({
       {items.map((img) => {
         const isSelected = selectedHashes.has(img.hash)
         const isPinned = pinnedHashes.includes(img.hash)
+        const isFocused = img.hash === focusedHash
 
         return (
           <ContextMenu key={img.hash}>
             <ContextMenuTrigger>
               <div
-                className={`m-1 flex break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md ${
+                onClick={() => onFocus?.(img.hash)}
+                className={`m-1 flex break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md cursor-pointer ${
                   isSelected
                     ? "scale-[1.02] bg-primary/5 shadow-lg ring-2 ring-primary"
+                    : ""
+                } ${
+                  isFocused
+                    ? "ring-4 ring-blue-500 ring-offset-1 scale-[1.01] shadow-xl dark:ring-blue-400 dark:ring-offset-background"
                     : ""
                 }`}
               >
@@ -144,11 +155,12 @@ export function ImageGrid({
                   </button>
 
                   {/* 상태 라벨 - 왼쪽 위 (데스크톱만) */}
-                  <span
-                    className={`absolute top-2 left-10 hidden rounded-full px-1.5 py-0.5 text-xs font-bold tracking-wider uppercase shadow-sm backdrop-blur-sm md:inline ${STATUS_TINT[img.status]}`}
+                  <Badge
+                    variant="default"
+                    className={`absolute top-2 left-10 hidden border-none text-[10px] font-black tracking-wider uppercase shadow-sm backdrop-blur-sm md:inline-flex ${STATUS_TINT[img.status]}`}
                   >
                     {STATUS_LABEL[img.status]}
-                  </span>
+                  </Badge>
 
                   {/* 휴지통 버튼 - 오른쪽 위 (데스크톱만) */}
                   <Tooltip>
@@ -182,12 +194,13 @@ export function ImageGrid({
                 {img.tags.length > 0 && (
                   <div className="hidden flex-wrap gap-1 px-0.5 md:flex">
                     {img.tags.map((t) => (
-                      <span
+                      <Badge
                         key={t}
-                        className="rounded border border-line/20 bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground/80"
+                        variant="outline"
+                        className="h-auto border border-line/20 bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground/85"
                       >
                         #{t}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 )}

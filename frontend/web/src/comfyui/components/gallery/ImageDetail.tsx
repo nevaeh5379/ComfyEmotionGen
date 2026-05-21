@@ -8,6 +8,8 @@ import { curationApi } from "../../hooks/useSavedImages"
 import { useWorkflowContext } from "../../contexts/WorkflowContext"
 import { useTemplateContext } from "../../contexts/TemplateContext"
 import { STATUS_LABEL, STATUS_TINT, type SavedImage } from "../../types/Message"
+import { Badge } from "@/components/ui/badge"
+
 
 function defaultName(filename: string) {
   return filename.replace(/\.[^/.]+$/, "")
@@ -83,11 +85,13 @@ export function ImageDetail({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2">
-          <span
-            className={`rounded px-1.5 py-0.5 text-xs ${STATUS_TINT[image.status]}`}
+          <Badge
+            variant="default"
+            className={`border-none px-1.5 py-0.5 text-[10px] font-black tracking-wider uppercase ${STATUS_TINT[image.status]}`}
           >
             {STATUS_LABEL[image.status]}
-          </span>
+          </Badge>
+
           <h3 className="truncate font-mono text-sm">
             {image.originalFilename}
           </h3>
@@ -227,18 +231,24 @@ export function ImageDetail({
             {tags.map((t) => (
               <Tooltip key={t}>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-destructive/20"
-                    onClick={() => removeTag(t)}
-                    aria-label={`${t} 태그 제거`}
+                  <Badge
+                    asChild
+                    variant="outline"
+                    className="h-auto border border-line/20 bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground hover:bg-destructive/20 hover:text-destructive hover:border-destructive/30 cursor-pointer"
                   >
-                    #{t} ×
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => removeTag(t)}
+                      aria-label={`${t} 태그 제거`}
+                    >
+                      #{t} ×
+                    </button>
+                  </Badge>
                 </TooltipTrigger>
                 <TooltipContent>태그 삭제</TooltipContent>
               </Tooltip>
             ))}
+
           </div>
           <div className="flex items-center gap-2">
             <Input

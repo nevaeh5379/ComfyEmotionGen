@@ -2,7 +2,6 @@ import {
   CheckIcon,
   CheckSquareIcon,
   FolderIcon,
-  Loader2Icon,
   RefreshCwIcon,
   SquareIcon,
   Clock,
@@ -11,6 +10,9 @@ import {
   Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+
+import { Spinner } from "@/components/ui/spinner"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -117,29 +119,42 @@ export function ImagePreviewHoverCard({
         {images.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-0.5">
             {approvedCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-ok bg-ok-bg border border-ok/20">
+              <Badge
+                variant="default"
+                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-ok bg-ok-bg border border-ok/20"
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-ok animate-pulse" />
                 통과 {approvedCount}
-              </span>
+              </Badge>
             )}
             {pendingCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-warn bg-warn-bg border border-warn/20">
+              <Badge
+                variant="default"
+                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-warn bg-warn-bg border border-warn/20"
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-warn" />
                 대기 {pendingCount}
-              </span>
+              </Badge>
             )}
             {rejectedCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-bad bg-bad-bg border border-bad/20">
+              <Badge
+                variant="default"
+                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-bad bg-bad-bg border border-bad/20"
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-bad" />
                 탈락 {rejectedCount}
-              </span>
+              </Badge>
             )}
             {trashedCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-muted-foreground bg-muted border border-border/30">
+              <Badge
+                variant="default"
+                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-muted-foreground bg-muted border border-border/30"
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                 휴지통 {trashedCount}
-              </span>
+              </Badge>
             )}
+
           </div>
         )}
       </div>
@@ -207,16 +222,18 @@ export function ImagePreviewHoverCard({
               {allTags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {allTags.map((tag) => (
-                    <span
+                    <Badge
                       key={tag}
-                      className="inline-flex items-center gap-0.5 bg-muted/65 text-muted-foreground px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-tight border border-border/20"
+                      variant="outline"
+                      className="h-auto items-center gap-0.5 bg-muted/65 text-muted-foreground px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-tight border border-border/20"
                     >
                       <Tag className="h-2 w-2 stroke-[2.5]" />
                       {tag}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               )}
+
 
               {/* Prompt Block */}
               {latestPrompt && (
@@ -319,7 +336,7 @@ export function LoadingButton({
 }: LoadingButtonProps) {
   return (
     <Button {...props} disabled={isLoading || disabled}>
-      {isLoading ? <Loader2Icon className="animate-spin" /> : <Icon />}
+      {isLoading ? <Spinner /> : <Icon />}
       {children}
     </Button>
   )
@@ -560,7 +577,7 @@ export function RegenerateDialog({
             취소
           </Button>
           <Button onClick={handleConfirm} disabled={canConfirm}>
-            {isLoading && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading && <Spinner className="mr-2 h-4 w-4" />}
             재생성 시작
           </Button>
         </DialogFooter>

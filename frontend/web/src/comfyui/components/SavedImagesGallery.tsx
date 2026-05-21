@@ -83,6 +83,7 @@ import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import { toast } from "sonner"
 import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
+import { Kbd } from "@/components/ui/kbd"
 
 type GalleryViewMode = "grid" | "compare"
 type GallerySortKey = "createdAt" | "filename" | "sizeBytes"
@@ -171,6 +172,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [localMetadataFilter, setMetadataFilterState] = useState("")
   const [groupMode, setGroupModeState] = useState(false)
   const [selected, setSelected] = useState<SavedImage | null>(null)
+  const [focusedHash, setFocusedHash] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [hideRejected, setHideRejected] = useState(false)
   const [sortKey, setSortKeyLocal] = useState<GallerySortKey>("createdAt")
@@ -427,6 +429,220 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     effectiveSortDir,
   ])
 
+  // 선택 모드 토글
+  const toggleSelectHash = useCallback((hash: string) => {
+    setSelectedHashes((prev) => {
+      const next = new Set(prev)
+      if (next.has(hash)) {
+        next.delete(hash)
+        if (next.size === 0) setSelectionMode(false)
+      } else {
+        next.add(hash)
+        setSelectionMode(true)
+      }
+      return next
+    })
+  }, [])
+
+  const togglePin = useCallback((hash: string) => {
+    setPinnedHashes((prev) =>
+      prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]
+    )
+  }, [])
+
+  // ── Keyboard Navigation Logic ──
+  const flatGroupImages = useMemo(() => {
+    if (!effectiveGroupMode) return []
+    const list: SavedImage[] = []
+    for (const group of visibleGroups) {
+      const isCollapsed = collapsedGroups.has(group.name)
+      if (!isCollapsed) {
+        list.push(...group.items)
+      }
+    }
+    return list
+  }, [effectiveGroupMode, visibleGroups, collapsedGroups])
+
+  const navImages = useMemo(() => {
+    return effectiveGroupMode ? flatGroupImages : visibleImages
+  }, [effectiveGroupMode, flatGroupImages, visibleImages])
+
+  useEffect(() => {
+    if (focusedHash && navImages.length > 0) {
+      const index = navImages.findIndex((img) => img.hash === focusedHash)
+      if (index === -1) {
+        // Auto focus the item at the same position or fallback to first
+        setFocusedHash(navImages[0]?.hash ?? null)
+      }
+    }
+  }, [navImages, focusedHash])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in editable element
+      const activeEl = document.activeElement
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          activeEl.getAttribute("contenteditable") === "true")
+      ) {
+        return
+      }
+
+      // Esc: close detail view or clear focus
+      if (e.key === "Escape") {
+        if (selected) {
+          setSelected(null)
+          e.preventDefault()
+        } else if (focusedHash) {
+          setFocusedHash(null)
+          e.preventDefault()
+        }
+        return
+      }
+
+      // If detail view is open, do not handle navigation
+      if (selected) return
+
+      const currentIndex = navImages.findIndex((img) => img.hash === focusedHash)
+
+      const focusIndex = (index: number) => {
+        if (index >= 0 && index < navImages.length) {
+          const nextImg = navImages[index]
+          if (nextImg) {
+            setFocusedHash(nextImg.hash)
+            // Gently scroll focused card into view if needed
+            setTimeout(() => {
+              const el = document.querySelector(`[class*="ring-blue-500"]`)
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+              }
+            }, 50)
+          }
+        }
+      }
+
+      // Arrow Left / h
+      if (e.key === "ArrowLeft" || e.key === "h") {
+        e.preventDefault()
+        if (currentIndex === -1) {
+          focusIndex(0)
+        } else {
+          focusIndex(currentIndex - 1)
+        }
+        return
+      }
+
+      // Arrow Right / l
+      if (e.key === "ArrowRight" || e.key === "l") {
+        e.preventDefault()
+        if (currentIndex === -1) {
+          focusIndex(0)
+        } else {
+          focusIndex(currentIndex + 1)
+        }
+        return
+      }
+
+      // Arrow Up / k
+      if (e.key === "ArrowUp" || e.key === "k") {
+        e.preventDefault()
+        if (currentIndex === -1) {
+          focusIndex(0)
+        } else {
+          focusIndex(Math.max(0, currentIndex - 4))
+        }
+        return
+      }
+
+      // Arrow Down / j
+      if (e.key === "ArrowDown" || e.key === "j") {
+        e.preventDefault()
+        if (currentIndex === -1) {
+          focusIndex(0)
+        } else {
+          focusIndex(Math.min(navImages.length - 1, currentIndex + 4))
+        }
+        return
+      }
+
+      // Enter / Space -> toggle select in selectionMode, otherwise open details
+      if (e.key === "Enter" || e.key === " ") {
+        if (focusedHash && currentIndex !== -1) {
+          e.preventDefault()
+          const img = navImages[currentIndex]
+          if (img) {
+            if (selectionMode) {
+              toggleSelectHash(img.hash)
+            } else {
+              setSelected(img)
+            }
+          }
+        }
+        return
+      }
+
+      // 1 / a -> approved
+      if (e.key === "1" || e.key === "a") {
+        if (focusedHash && currentIndex !== -1) {
+          e.preventDefault()
+          const img = navImages[currentIndex]
+          if (img) {
+            setStatus(img.hash, "approved")
+            toast.success("선택된 이미지를 통과시켰습니다.")
+          }
+        }
+        return
+      }
+
+      // 2 / x -> rejected
+      if (e.key === "2" || e.key === "x") {
+        if (focusedHash && currentIndex !== -1) {
+          e.preventDefault()
+          const img = navImages[currentIndex]
+          if (img) {
+            setStatus(img.hash, "rejected")
+            toast.success("선택된 이미지를 탈락시켰습니다.")
+          }
+        }
+        return
+      }
+
+      // 3 / t -> trashed / restore
+      if (e.key === "3" || e.key === "t") {
+        if (focusedHash && currentIndex !== -1) {
+          e.preventDefault()
+          const img = navImages[currentIndex]
+          if (img) {
+            const targetStatus = img.status === "trashed" ? "pending" : "trashed"
+            setStatus(img.hash, targetStatus)
+            toast.success(targetStatus === "trashed" ? "휴지통으로 이동했습니다." : "대기로 복원했습니다.")
+          }
+        }
+        return
+      }
+
+      // p -> pin toggle
+      if (e.key === "p") {
+        if (focusedHash && currentIndex !== -1) {
+          e.preventDefault()
+          const img = navImages[currentIndex]
+          if (img) {
+            togglePin(img.hash)
+            const isPinned = pinnedHashes.includes(img.hash)
+            toast.success(isPinned ? "비교에서 제거했습니다." : "비교에 추가했습니다.")
+          }
+        }
+        return
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [focusedHash, navImages, selectionMode, toggleSelectHash, togglePin, pinnedHashes, selected])
+
   // 갤러리 이미지 토큰 실시간 추출 후 상위 컴포넌트 전달
   useEffect(() => {
     if (!onTokensExtracted || images.length === 0) return
@@ -477,20 +693,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }
 
-  // 선택 모드 토글
-  const toggleSelectHash = useCallback((hash: string) => {
-    setSelectedHashes((prev) => {
-      const next = new Set(prev)
-      if (next.has(hash)) {
-        next.delete(hash)
-        if (next.size === 0) setSelectionMode(false)
-      } else {
-        next.add(hash)
-        setSelectionMode(true)
-      }
-      return next
-    })
-  }, [])
 
   const handleLongPress = useCallback(
     (hash: string) => {
@@ -617,11 +819,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }
 
-  const togglePin = useCallback((hash: string) => {
-    setPinnedHashes((prev) =>
-      prev.includes(hash) ? prev.filter((h) => h !== hash) : [...prev, hash]
-    )
-  }, [])
 
   const toggleSort = useCallback(
     (key: GallerySortKey) => {
@@ -888,7 +1085,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 disabled={bulkActionLoading}
               >
                 <CheckCircleIcon className="h-3.5 w-3.5" />
-                일괄 통과
+                <span>일괄 통과</span>
+                <div className="flex gap-0.5 ml-1">
+                  <Kbd className="bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">1</Kbd>
+                  <Kbd className="bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">A</Kbd>
+                </div>
               </Button>
               <Button
                 size="sm"
@@ -898,7 +1099,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 disabled={bulkActionLoading}
               >
                 <XCircleIcon className="h-3.5 w-3.5" />
-                일괄 탈락
+                <span>일괄 탈락</span>
+                <div className="flex gap-0.5 ml-1">
+                  <Kbd className="bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400">2</Kbd>
+                  <Kbd className="bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400">X</Kbd>
+                </div>
               </Button>
               <Button
                 size="sm"
@@ -908,7 +1113,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 disabled={bulkActionLoading}
               >
                 <RotateCcwIcon className="h-3.5 w-3.5" />
-                일괄 대기
+                <span>일괄 대기</span>
+                <div className="flex gap-0.5 ml-1">
+                  <Kbd className="bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-400">3</Kbd>
+                  <Kbd className="bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-400">T</Kbd>
+                </div>
               </Button>
             </div>
             <div className="flex items-center gap-1">
@@ -920,7 +1129,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 disabled={bulkActionLoading}
               >
                 <Trash2Icon className="h-3.5 w-3.5" />
-                일괄 휴지통
+                <span>일괄 휴지통</span>
               </Button>
               <Button
                 size="sm"
@@ -940,7 +1149,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               onClick={exitSelectionMode}
             >
               <XIcon className="h-3.5 w-3.5" />
-              선택 종료
+              <span>선택 종료</span>
+              <Kbd className="ml-1 bg-muted/40">Esc</Kbd>
             </Button>
             {bulkActionMessage && (
               <span className="text-xs font-bold text-blue-600">
@@ -1086,17 +1296,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   </div>
                   {!isCollapsed && (
                     <ImageGrid
-                    items={items}
-                    backendUrl={backendUrl}
-                    setStatus={setStatus}
-                    onOpen={setSelected}
-                    selectionMode={selectionMode}
-                    selectedHashes={selectedHashes}
-                    onToggleSelect={toggleSelectHash}
-                    onLongPress={handleLongPress}
-                    togglePin={togglePin}
-                    pinnedHashes={pinnedHashes}
-                    imageLazyLoad={imageLazyLoad}
+                      items={items}
+                      backendUrl={backendUrl}
+                      setStatus={setStatus}
+                      onOpen={setSelected}
+                      selectionMode={selectionMode}
+                      selectedHashes={selectedHashes}
+                      onToggleSelect={toggleSelectHash}
+                      onLongPress={handleLongPress}
+                      togglePin={togglePin}
+                      pinnedHashes={pinnedHashes}
+                      imageLazyLoad={imageLazyLoad}
+                      focusedHash={focusedHash}
+                      onFocus={setFocusedHash}
                     />
                   )}
                 </div>
@@ -1190,6 +1402,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               togglePin={togglePin}
               pinnedHashes={pinnedHashes}
               imageLazyLoad={imageLazyLoad}
+              focusedHash={focusedHash}
+              onFocus={setFocusedHash}
             />
           </>
         ) : null}
