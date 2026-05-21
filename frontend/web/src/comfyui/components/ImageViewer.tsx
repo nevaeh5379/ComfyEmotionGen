@@ -418,8 +418,12 @@ export function ImageViewer({
   }, [isOpen])
 
   /* reset image status when src changes */
+  const prevSrcRef = useRef(src)
   useEffect(() => {
-    setImgStatus("loading")
+    if (prevSrcRef.current !== src) {
+      setImgStatus("loading")
+      prevSrcRef.current = src
+    }
   }, [src])
 
   /* reset on close */

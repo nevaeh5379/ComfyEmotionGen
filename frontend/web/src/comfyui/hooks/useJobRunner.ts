@@ -4,6 +4,7 @@ import {
   applyAxisFilters,
   buildWorkflowForItem,
   itemKey,
+  randomSelect,
 } from "../../lib/workflowUtils"
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
@@ -152,12 +153,7 @@ export function useJobRunner({
 
   const handleRandomRun = async (count: number = 1) => {
     if (!workflowJson || !isAliveBackend || axisFilteredItems.length === 0) return
-    const pool = [...axisFilteredItems]
-    const selected: RenderItem[] = []
-    for (let i = 0; i < count && pool.length > 0; i++) {
-      const idx = Math.floor(Math.random() * pool.length)
-      selected.push(pool.splice(idx, 1)[0]!)
-    }
+    const selected = randomSelect(axisFilteredItems, count)
     await submitJobs(selected)
   }
 
@@ -204,10 +200,7 @@ export function useJobRunner({
     [fakeJobQueue, axisValueFilter]
   )
 
-  const axisFilteredItems = useMemo(
-    () => applyAxisFilters(fakeJobQueue, axisValueFilter),
-    [fakeJobQueue, axisValueFilter]
-  )
+  const axisFilteredItems = applyAxisFilters(fakeJobQueue, axisValueFilter)
 
   const axisExcludedItems = useMemo(() => {
     const includedSet = new Set(axisFilteredItems.map(itemKey))

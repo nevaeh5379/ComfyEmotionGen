@@ -126,14 +126,25 @@ function formatDuration(ms: number): string {
 // ---------------------------------------------------------------------------
 // Tooltip formatter for bar chart
 // ---------------------------------------------------------------------------
-const BarTooltip = ({ active, payload }: any) => {
+interface BarTooltipPayload {
+  label: string
+  [key: string]: number | string
+}
+
+const BarTooltip = ({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ dataKey: string; value: number; payload: BarTooltipPayload }>
+}) => {
   if (!active || !payload) return null
   const data = payload[0]?.payload
   if (!data) return null
 
   const lines: string[] = []
   for (const key of Object.keys(STATUS_COLORS)) {
-    const p = payload.find((p: any) => p.dataKey === key)
+    const p = payload.find((p) => p.dataKey === key)
     if (p && p.value > 0) {
       lines.push(`${STATUS_LABELS[key as JobStatus]}: ${p.value}`)
     }
@@ -154,7 +165,19 @@ const BarTooltip = ({ active, payload }: any) => {
 // ---------------------------------------------------------------------------
 // Tooltip formatter for pie chart
 // ---------------------------------------------------------------------------
-const PieTooltip = ({ active, payload }: any) => {
+interface PieTooltipPayload {
+  name: string
+  value: number
+  color: string
+}
+
+const PieTooltip = ({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ payload: PieTooltipPayload }>
+}) => {
   if (!active || !payload?.[0]) return null
   const d = payload[0].payload
   return (
@@ -176,69 +199,7 @@ interface StatisticsPanelProps {
 export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
   const total = jobs.length
 
-  // ── Empty state ────────────────────────────────────────────────────
-  if (total === 0) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-[13px] font-bold text-muted-foreground/60">
-          작업 데이터가 없습니다.
-        </p>
-      </div>
-    )
-  }
-
-  // ── Metric card data ───────────────────────────────────────────────
-  const doneCount = jobs.filter((j) => j.status === "done").length
-  const errorCount = jobs.filter(
-    (j) => j.status === "error" || j.status === "cancelled"
-  ).length
-  const retryJobs = jobs.filter((j) => j.retryCount > 0).length
-  const doneDurations = jobs
-    .filter((j) => j.status === "done" && j.executionDurationMs != null)
-    .map((j) => j.executionDurationMs!)
-  const avgDuration = doneDurations.length
-    ? Math.round(
-        doneDurations.reduce((a, b) => a + b, 0) / doneDurations.length
-      )
-    : null
-
-  const stats: StatItem[] = [
-    {
-      label: "총 작업 수",
-      value: String(total),
-      icon: ClipboardList,
-    },
-    {
-      label: "성공률",
-      value: `${Math.round((doneCount / total) * 100)}%`,
-      color: "text-ok",
-      icon: CheckCircle2,
-      faded: doneCount === 0,
-    },
-    {
-      label: "실패률",
-      value: `${Math.round((errorCount / total) * 100)}%`,
-      color: "text-bad",
-      icon: AlertCircle,
-      faded: errorCount === 0,
-    },
-    {
-      label: "평균 실행 시간",
-      value: avgDuration ? formatDuration(avgDuration) : "N/A",
-      color: "text-info",
-      icon: Activity,
-      faded: avgDuration == null,
-    },
-    {
-      label: "재시도율",
-      value: `${Math.round((retryJobs / total) * 100)}%`,
-      color: "text-warn",
-      icon: RotateCcw,
-      faded: retryJobs === 0,
-    },
-  ]
-
-  // ── Bar chart data (hourly / daily buckets) ────────────────────────
+  // ── Hooks must be called unconditionally ───────────────────────────
   const [chartRange, setChartRange] = useState<"today" | "week" | "all">(
     "today"
   )
@@ -384,6 +345,68 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
       })
       .sort((a, b) => b.done - a.done)
   }, [jobs, workers])
+
+  // ── Empty state ────────────────────────────────────────────────────
+  if (total === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-[13px] font-bold text-muted-foreground/60">
+          작업 데이터가 없습니다.
+        </p>
+      </div>
+    )
+  }
+
+  // ── Metric card data ───────────────────────────────────────────────
+  const doneCount = jobs.filter((j) => j.status === "done").length
+  const errorCount = jobs.filter(
+    (j) => j.status === "error" || j.status === "cancelled"
+  ).length
+  const retryJobs = jobs.filter((j) => j.retryCount > 0).length
+  const doneDurations = jobs
+    .filter((j) => j.status === "done" && j.executionDurationMs != null)
+    .map((j) => j.executionDurationMs!)
+  const avgDuration = doneDurations.length
+    ? Math.round(
+        doneDurations.reduce((a, b) => a + b, 0) / doneDurations.length
+      )
+    : null
+
+  const stats: StatItem[] = [
+    {
+      label: "총 작업 수",
+      value: String(total),
+      icon: ClipboardList,
+    },
+    {
+      label: "성공률",
+      value: `${Math.round((doneCount / total) * 100)}%`,
+      color: "text-ok",
+      icon: CheckCircle2,
+      faded: doneCount === 0,
+    },
+    {
+      label: "실패률",
+      value: `${Math.round((errorCount / total) * 100)}%`,
+      color: "text-bad",
+      icon: AlertCircle,
+      faded: errorCount === 0,
+    },
+    {
+      label: "평균 실행 시간",
+      value: avgDuration ? formatDuration(avgDuration) : "N/A",
+      color: "text-info",
+      icon: Activity,
+      faded: avgDuration == null,
+    },
+    {
+      label: "재시도율",
+      value: `${Math.round((retryJobs / total) * 100)}%`,
+      color: "text-warn",
+      icon: RotateCcw,
+      faded: retryJobs === 0,
+    },
+  ]
 
   return (
     <div className="flex w-full flex-col gap-6">

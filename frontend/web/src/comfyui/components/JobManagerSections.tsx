@@ -718,7 +718,6 @@ export const JobTableSection = memo(function JobTableSection({
                   <TableCell colSpan={6} className="h-80 p-0">
                     <Empty className="border-0 bg-transparent shadow-none">
                       <EmptyMedia variant="icon">
-                        {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
                         <div className="size-10 opacity-20" />
                       </EmptyMedia>
                       <EmptyHeader>

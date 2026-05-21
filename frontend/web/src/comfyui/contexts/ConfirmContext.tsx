@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react"
+import React, { createContext, useState, useCallback } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-interface ConfirmOptions {
+export interface ConfirmOptions {
   title?: string
   description?: string
   cancelText?: string
@@ -24,11 +24,7 @@ interface ConfirmContextValue {
 
 const ConfirmContext = createContext<ConfirmContextValue | null>(null)
 
-export const useConfirm = () => {
-  const ctx = useContext(ConfirmContext)
-  if (!ctx) throw new Error("useConfirm must be used within ConfirmProvider")
-  return ctx.confirm
-}
+export { ConfirmContext }
 
 export const ConfirmProvider = ({
   children,

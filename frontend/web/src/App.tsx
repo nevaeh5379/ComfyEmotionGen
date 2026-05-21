@@ -50,9 +50,10 @@ import {
   NAME_CONFLICT_START_NUMBER,
 } from "./lib/constants"
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
-import { Header, type TabId } from "./comfyui/components/layout/Header"
+import { Header } from "./comfyui/components/layout/Header"
+import type { TabId } from "./comfyui/components/layout/nav-tabs"
 import { cn } from "@/lib/utils"
-import { useConfirm } from "./comfyui/contexts/ConfirmContext"
+import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import type { JobStatus } from "./comfyui/types/Message"
 import { toast } from "sonner"
 import {

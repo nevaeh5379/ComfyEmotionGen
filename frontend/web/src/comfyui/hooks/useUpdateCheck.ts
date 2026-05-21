@@ -9,7 +9,12 @@ export function useUpdateCheck(
   const effectiveChannel =
     updateChannel === "auto" ? UPDATE_CHANNEL : updateChannel
 
-  const [update, setUpdate] = useState<UpdateInfo | null>(null)
+  const [update, setUpdate] = useState<UpdateInfo | null>(() => {
+    if (IS_LOCAL_DEV) return null
+    const cacheKey = `ceg_update_check_${BUNDLE_VERSION}_${effectiveChannel}`
+    const cached = sessionStorage.getItem(cacheKey)
+    return cached ? (JSON.parse(cached) as UpdateInfo) : null
+  })
 
   useEffect(() => {
     if (IS_LOCAL_DEV) return
@@ -18,7 +23,8 @@ export function useUpdateCheck(
     const cached = sessionStorage.getItem(cacheKey)
 
     if (cached !== null) {
-      setUpdate(cached ? (JSON.parse(cached) as UpdateInfo) : null)
+      const parsed = cached ? (JSON.parse(cached) as UpdateInfo) : null
+      queueMicrotask(() => setUpdate(parsed))
       return
     }
 

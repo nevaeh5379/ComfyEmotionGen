@@ -1,12 +1,7 @@
 import {
   ArrowDown,
   ArrowUp,
-  BarChart3,
-  ClipboardList,
-  Image as ImageIcon,
-  Layers,
   Menu,
-  Settings,
   XIcon,
   FilterIcon,
   MoreVertical,
@@ -61,16 +56,7 @@ import {
   encodeAxis,
   type FreeGroupBy,
 } from "../combinationpicker/freeCurationGroupers"
-
-export const NAV_TABS = [
-  { id: "jobs", label: "작업", icon: ClipboardList },
-  { id: "stats", label: "통계", icon: BarChart3 },
-  { id: "gallery", label: "갤러리", icon: ImageIcon },
-  { id: "curation", label: "큐레이션", icon: Layers },
-  { id: "settings", label: "설정", icon: Settings },
-] as const
-
-export type TabId = (typeof NAV_TABS)[number]["id"]
+import { NAV_TABS, type TabId } from "./nav-tabs"
 
 interface HeaderProps {
   activeTab: TabId

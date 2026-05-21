@@ -14,7 +14,7 @@
 
 import { useEffect } from "react"
 import { toast } from "sonner"
-import type { TabId } from "../components/layout/Header"
+import type { TabId } from "../components/layout/nav-tabs"
 
 interface UseGlobalShortcutsOptions {
   activeTab: TabId

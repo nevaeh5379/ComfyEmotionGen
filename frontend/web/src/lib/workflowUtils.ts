@@ -82,7 +82,7 @@ export const applyAxisFilters = (
   const hasAnyDisabled = Object.values(filter).some((vals) =>
     Object.values(vals).some((v) => !v)
   )
-  if (!hasAnyDisabled) return items
+  if (!hasAnyDisabled) return items.slice()
   return items.filter((item) =>
     Object.entries(item.meta).every(([key, value]) => {
       const axisVals = filter[key]
@@ -90,6 +90,19 @@ export const applyAxisFilters = (
       return axisVals[value] !== false
     })
   )
+}
+
+export const randomSelect = <T,>(
+  items: T[],
+  count: number
+): T[] => {
+  const pool = items.slice()
+  const selected: T[] = []
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    const idx = Math.floor(Math.random() * pool.length)
+    selected.push(pool.splice(idx, 1)[0]!)
+  }
+  return selected
 }
 
 export const filterByItem = (

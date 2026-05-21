@@ -14,7 +14,7 @@
  *  - 휴지통 비우기, filename 그룹 재생성
  */
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -76,7 +76,7 @@ import { STATUS_LABEL } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
 import { downloadImagesAsZip, getImageFilename } from "../utils/downloadImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
-import { useConfirm } from "../contexts/ConfirmContext"
+import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import { toast } from "sonner"
 import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
@@ -229,8 +229,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     tagFilter !== undefined ? tagFilter : localTagFilter
   const effectiveMetadataFilter =
     metadataFilter !== undefined ? metadataFilter : localMetadataFilter
-  const effectiveGeneralFilters =
-    generalFilters !== undefined ? generalFilters : []
+  const effectiveGeneralFilters = useMemo(
+    () => generalFilters ?? [],
+    [generalFilters]
+  )
 
   // When toolbarState is provided (from App.tsx nav bar), use those values
   const effectiveStatusFilter = toolbarState
@@ -286,15 +288,21 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // total 변동으로 현재 page가 범위 밖이면 클램프
   // (totalPages는 비동기 API 결과에서 파생되므로 렌더 중 파생값으로 처리할 수 없음)
+  const prevTotalPagesRef = useRef(totalPages)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (page > totalPages) setPage(totalPages)
+    if (prevTotalPagesRef.current !== totalPages && page > totalPages) {
+      setPage(totalPages)
+    }
+    prevTotalPagesRef.current = totalPages
   }, [page, totalPages])
 
   // groupTotal 변동으로 groupPage 범위 밖이면 클램프
+  const prevGroupTotalPagesRef = useRef(groupTotalPages)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (groupPage > groupTotalPages) setGroupPage(groupTotalPages)
+    if (prevGroupTotalPagesRef.current !== groupTotalPages && groupPage > groupTotalPages) {
+      setGroupPage(groupTotalPages)
+    }
+    prevGroupTotalPagesRef.current = groupTotalPages
   }, [groupPage, groupTotalPages])
 
   // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
@@ -438,7 +446,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // 3. 프롬프트 단어들 추가 (특수문자 제외)
       if (img.prompt) {
         const words = img.prompt
-          .replace(/[\(\):,\.\-\_\"\'\+\*\?\/\|\{\}\[\]]/g, " ")
+          .replace(/[():,.\\_'"*?/|{}[]-]/g, " ")
           .split(/\s+/)
         words.forEach((word) => {
           const cleaned = word.trim()

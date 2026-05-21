@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { useConfirm } from "../contexts/ConfirmContext"
+import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import {
   useWebhooks,
   type WebhookConfig,

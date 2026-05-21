@@ -405,7 +405,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       setSelectedFilename(filename)
       setViewMode("grid")
     },
-    [exitSelectionMode]
+    [exitSelectionMode, setViewMode]
   )
 
   const handleRejectAll = useCallback(
@@ -536,6 +536,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     visibleImages,
     selectionMode,
     exitSelectionMode,
+    setViewMode,
   ])
 
   const handleTabChange = useCallback(

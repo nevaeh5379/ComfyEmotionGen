@@ -35,7 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { JobStatus, JobView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
 import { cn } from "@/lib/utils"
-import { useConfirm } from "../contexts/ConfirmContext"
+import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import { API, HEADERS } from "@/lib/api"
 import {
   JOB_PAGE_SIZE,
@@ -56,18 +56,6 @@ import { TagInputSearch } from "./TagInputSearch"
 import { useSettings } from "../hooks/useSettings"
 
 // Session utilities (extracted to sessionUtils.ts)
-export type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
-export {
-  loadMarkers,
-  saveMarkers,
-  loadActiveState,
-  saveActiveState,
-  genId,
-  initMarkers,
-  initActiveState,
-  jobSessionId,
-  makeSessionLabel,
-} from "../utils/sessionUtils"
 import type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
 
 const PAGE_SIZE = JOB_PAGE_SIZE

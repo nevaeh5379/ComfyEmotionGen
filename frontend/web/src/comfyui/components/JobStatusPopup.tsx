@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import type { JobView } from "../types/Message"
-import { useConfirm } from "../contexts/ConfirmContext"
+import { useConfirm } from "@/comfyui/hooks/useConfirm"
 
 // ---------------------------------------------------------------------------
 // helpers
