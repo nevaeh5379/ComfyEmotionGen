@@ -22,10 +22,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   ArrowDown,
   ArrowUp,
+  CheckCircleIcon,
   ChevronDown,
   ChevronUp,
   DownloadIcon,
   PinIcon,
+  RotateCcwIcon,
+  XCircleIcon,
   XIcon,
   FilterIcon,
   MoreVertical,
@@ -876,6 +879,38 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             <span className="text-sm font-bold text-blue-700">
               {selectedHashes.size}개 이미지 선택됨
             </span>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[10px] font-bold text-ok"
+                onClick={() => handleBulkAction("approved")}
+                disabled={bulkActionLoading}
+              >
+                <CheckCircleIcon className="h-3.5 w-3.5" />
+                일괄 통과
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[10px] font-bold text-bad"
+                onClick={() => handleBulkAction("rejected")}
+                disabled={bulkActionLoading}
+              >
+                <XCircleIcon className="h-3.5 w-3.5" />
+                일괄 탈락
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[10px] font-bold text-info"
+                onClick={() => handleBulkAction("pending")}
+                disabled={bulkActionLoading}
+              >
+                <RotateCcwIcon className="h-3.5 w-3.5" />
+                일괄 대기
+              </Button>
+            </div>
             <div className="flex items-center gap-1">
               <Button
                 size="sm"

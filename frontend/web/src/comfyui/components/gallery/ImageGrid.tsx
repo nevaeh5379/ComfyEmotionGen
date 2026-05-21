@@ -2,12 +2,15 @@ import { useState } from "react"
 import {
   PinIcon,
   PinOffIcon,
+  CheckCircleIcon,
   CheckSquareIcon,
-  SquareIcon,
-  Trash2Icon,
   CopyIcon,
   EyeIcon,
   ImageOff,
+  RotateCcwIcon,
+  SquareIcon,
+  Trash2Icon,
+  XCircleIcon,
 } from "lucide-react"
 import {
   ContextMenu,
@@ -199,6 +202,31 @@ export function ImageGrid({
                     비교에 추가
                   </>
                 )}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onClick={() => setStatus(img.hash, "approved")}
+                className="gap-2 font-bold text-ok"
+                disabled={img.status === "approved"}
+              >
+                <CheckCircleIcon className="h-3.5 w-3.5" />
+                통과
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => setStatus(img.hash, "rejected")}
+                className="gap-2 font-bold text-bad"
+                disabled={img.status === "rejected"}
+              >
+                <XCircleIcon className="h-3.5 w-3.5" />
+                탈락
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => setStatus(img.hash, "pending")}
+                className="gap-2 font-bold text-info"
+                disabled={img.status === "pending"}
+              >
+                <RotateCcwIcon className="h-3.5 w-3.5" />
+                대기
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
