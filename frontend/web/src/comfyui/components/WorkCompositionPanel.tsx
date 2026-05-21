@@ -8,6 +8,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { CompositionTabsList } from "./CompositionTabsList"
 import { WorkCompositionToolbar } from "./WorkCompositionToolbar"
 import CodeEditor from "@/components/CodeEditor"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
@@ -283,70 +284,89 @@ export function WorkCompositionPanel({
                 </span>
               )}
               <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground"
-                  title="파일 열기"
-                  onClick={() => {
-                    const input = document.createElement("input")
-                    input.type = "file"
-                    input.accept = ".json,.txt"
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0]
-                      if (file) {
-                        const reader = new FileReader()
-                        reader.onload = (ev) => {
-                          const content = ev.target?.result as string
-                          handleWorkflowFileOpen(content, file.name)
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground"
+                      onClick={() => {
+                        const input = document.createElement("input")
+                        input.type = "file"
+                        input.accept = ".json,.txt"
+                        input.onchange = (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0]
+                          if (file) {
+                            const reader = new FileReader()
+                            reader.onload = (ev) => {
+                              const content = ev.target?.result as string
+                              handleWorkflowFileOpen(content, file.name)
+                            }
+                            reader.readAsText(file)
+                          }
                         }
-                        reader.readAsText(file)
+                        input.click()
+                      }}
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>워크플로우 파일 열기</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground"
+                      onClick={() =>
+                        navigator.clipboard.writeText(workflow.workflowJson)
                       }
-                    }
-                    input.click()
-                  }}
-                >
-                  <FolderOpen className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground"
-                  title="복사"
-                  onClick={() =>
-                    navigator.clipboard.writeText(workflow.workflowJson)
-                  }
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground"
-                  title="다운로드"
-                  onClick={() => {
-                    const blob = new Blob([workflow.workflowJson], {
-                      type: "application/json",
-                    })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = "workflow.json"
-                    a.click()
-                    URL.revokeObjectURL(url)
-                  }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground"
-                  title="그래프 보기"
-                  onClick={onGraphOpen}
-                >
-                  <Workflow className="h-3.5 w-3.5" />
-                </Button>
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>워크플로우 JSON 복사</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground"
+                      onClick={() => {
+                        const blob = new Blob([workflow.workflowJson], {
+                          type: "application/json",
+                        })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement("a")
+                        a.href = url
+                        a.download = "workflow.json"
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>워크플로우 JSON 다운로드</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground"
+                      onClick={onGraphOpen}
+                    >
+                      <Workflow className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>그래프 보기</TooltipContent>
+                </Tooltip>
               </div>
             </div>
 

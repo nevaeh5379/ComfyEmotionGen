@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { EllipsisVertical, Play, Shuffle } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface WorkCompositionToolbarProps {
   repeatCount: number
@@ -46,11 +47,16 @@ export function WorkCompositionToolbar({
     <div className={` ${className || ""}`}>
       <ButtonGroup>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-6 p-0 text-muted-foreground">
-              <EllipsisVertical />
-            </Button>
-          </DropdownMenuTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-6 p-0 text-muted-foreground">
+                  <EllipsisVertical />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>실행 옵션 더보기</TooltipContent>
+          </Tooltip>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onSelectionOpen} disabled={!canRun}>
               선택 실행

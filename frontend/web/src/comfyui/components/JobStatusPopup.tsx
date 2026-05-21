@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { Minimize2, Play, Pause, Trash2, ExternalLink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import type { JobView } from "../types/Message"
@@ -185,27 +186,36 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           </span>
         </div>
         <div className="flex items-center gap-0.5">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6"
-            onClick={() => setExpanded(false)}
-            title="최소화"
-          >
-            <Minimize2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6"
-            onClick={() => {
-              setExpanded(false)
-              onNavigateToJobs?.()
-            }}
-            title="작업 탭으로 이동"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => setExpanded(false)}
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>최소화</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => {
+                  setExpanded(false)
+                  onNavigateToJobs?.()
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>작업 탭으로 이동</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -233,9 +243,14 @@ export const JobStatusPopup = memo(function JobStatusPopup({
             return (
               <div key={j.id} className="space-y-1">
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="truncate font-mono" title={j.filename}>
-                    {j.filename}
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="truncate font-mono cursor-help">
+                        {j.filename}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{j.filename}</TooltipContent>
+                  </Tooltip>
                   {remaining != null && (
                     <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                       ETA {formatETA(remaining)}

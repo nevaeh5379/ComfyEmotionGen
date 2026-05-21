@@ -6,6 +6,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Trash2Icon } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export interface SaveableItem {
   id: string
@@ -158,16 +159,20 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
           onKeyDown={handleKeyDown}
           ref={inputRef}
         />
-        <Button
-          variant="outline"
-          disabled={!canSave}
-          onClick={handleSave}
-          title={
-            hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"
-          }
-        >
-          저장
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={!canSave}
+              onClick={handleSave}
+            >
+              저장
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {hasActivePreset ? "저장 (빈 입력: 현재 프리셋 업데이트)" : "저장"}
+          </TooltipContent>
+        </Tooltip>
       </ButtonGroup>
     </div>
   )
@@ -209,30 +214,38 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                   onMouseDown={(e) => e.preventDefault()}
                   onMouseEnter={() => setFocusedIndex(index)}
                 >
-                  <button
-                    className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${isActive ? "font-semibold" : ""}`}
-                    onClick={() => {
-                      onLoad?.(item)
-                      setOpen(false)
-                    }}
-                    title="불러오기"
-                  >
-                    {item.name}
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${isActive ? "font-semibold" : ""}`}
+                        onClick={() => {
+                          onLoad?.(item)
+                          setOpen(false)
+                        }}
+                      >
+                        {item.name}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>불러오기</TooltipContent>
+                  </Tooltip>
 
                   <span className="text-xs text-muted-foreground">
                     {new Date(item.savedAt).toLocaleDateString()}
                   </span>
                   <div className="flex items-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-                      title="삭제"
-                      onClick={() => onDelete?.(item.id)}
-                    >
-                      <Trash2Icon />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => onDelete?.(item.id)}
+                        >
+                          <Trash2Icon />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>삭제</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               )
@@ -273,26 +286,35 @@ export function SavedItemsList<T extends SaveableItem>({
             key={item.id}
             className={`flex items-center gap-2 rounded px-1.5 py-1 md:py-0.5 ${isActive ? "bg-primary/10" : ""}`}
           >
-            <button
-              className={`min-w-0 flex-1 truncate py-2 text-left text-sm hover:underline md:py-1 ${isActive ? "font-semibold text-primary" : ""}`}
-              onClick={() => onLoad(item)}
-              title="불러오기"
-            >
-              {item.name}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={`min-w-0 flex-1 truncate py-2 text-left text-sm hover:underline md:py-1 ${isActive ? "font-semibold text-primary" : ""}`}
+                  onClick={() => onLoad(item)}
+                >
+                  {item.name}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>불러오기</TooltipContent>
+            </Tooltip>
             <span className="text-left text-xs text-muted-foreground">
               {new Date(item.savedAt).toLocaleDateString()}
             </span>
 
             <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(item.id)}
-              >
-                <Trash2Icon />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => onDelete(item.id)}
+                  >
+                    <Trash2Icon />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>삭제</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         )

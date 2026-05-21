@@ -19,6 +19,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Empty,
   EmptyHeader,
@@ -150,25 +151,31 @@ export function ImageGrid({
                   </span>
 
                   {/* 휴지통 버튼 - 오른쪽 위 (데스크톱만) */}
-                  <button
-                    type="button"
-                    className={`absolute top-2 right-2 hidden h-7 w-7 items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 md:flex ${
-                      img.status === "trashed"
-                        ? "text-bad"
-                        : "text-white/60 hover:text-white"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setStatus(
-                        img.hash,
-                        img.status === "trashed" ? "pending" : "trashed"
-                      )
-                    }}
-                    aria-label={img.status === "trashed" ? "복원" : "휴지통"}
-                    title={img.status === "trashed" ? "복원" : "휴지통"}
-                  >
-                    <Trash2Icon className="h-4 w-4" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className={`absolute top-2 right-2 hidden h-7 w-7 items-center justify-center rounded-md bg-black/40 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 md:flex ${
+                          img.status === "trashed"
+                            ? "text-bad"
+                            : "text-white/60 hover:text-white"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setStatus(
+                            img.hash,
+                            img.status === "trashed" ? "pending" : "trashed"
+                          )
+                        }}
+                        aria-label={img.status === "trashed" ? "복원" : "휴지통"}
+                      >
+                        <Trash2Icon className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {img.status === "trashed" ? "복원" : "휴지통"}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
 
                 {/* 태그 (데스크톱만) */}

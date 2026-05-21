@@ -2,6 +2,7 @@ import { Download, FileCode2, Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import CodeEditor from "@/components/CodeEditor"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { SaveInputBar } from "./SavedItemsManager"
 import type { SavedTemplate } from "../hooks/useSavedTemplates"
@@ -61,26 +62,34 @@ export function CegTemplatePanel({
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {previewCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2.5 text-xs text-muted-foreground hover:bg-background/80 hover:text-foreground"
-              onClick={onPreviewOpen}
-              title="미리보기"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs text-muted-foreground hover:bg-background/80 hover:text-foreground"
+                  onClick={onPreviewOpen}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>미리보기</TooltipContent>
+            </Tooltip>
           )}
           {activeTemplateId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2.5 text-xs text-muted-foreground hover:bg-background/80 hover:text-foreground"
-              onClick={onDownloadSingle}
-              title="템플릿 다운로드"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs text-muted-foreground hover:bg-background/80 hover:text-foreground"
+                  onClick={onDownloadSingle}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>템플릿 다운로드</TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>

@@ -40,6 +40,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Tabs } from "@/components/ui/tabs"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { CompositionTabsList } from "../CompositionTabsList"
 import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
@@ -477,44 +478,58 @@ export function Header(props: HeaderProps) {
                 </SelectContent>
               </Select>
 
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  toggleSort(props.gallerySortKey)
-                }
-                className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
-              >
-                {props.gallerySortDir === "asc" ? (
-                  <ArrowUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowDown className="h-3.5 w-3.5" />
-                )}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      toggleSort(props.gallerySortKey)
+                    }
+                    className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
+                  >
+                    {props.gallerySortDir === "asc" ? (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>정렬 방향</TooltipContent>
+              </Tooltip>
 
-              <Button
-                size="sm"
-                variant={props.galleryShowFilters ? "secondary" : "outline"}
-                onClick={() =>
-                  props.setGalleryShowFilters(!props.galleryShowFilters)
-                }
-                className="relative !h-7 !w-7 p-0"
-              >
-                <FilterIcon className="h-3.5 w-3.5" />
-                {props.galleryHasAnyFilter && (
-                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary"></span>
-                )}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={props.galleryShowFilters ? "secondary" : "outline"}
+                    onClick={() =>
+                      props.setGalleryShowFilters(!props.galleryShowFilters)
+                    }
+                    className="relative !h-7 !w-7 p-0"
+                  >
+                    <FilterIcon className="h-3.5 w-3.5" />
+                    {props.galleryHasAnyFilter && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary"></span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>검색 및 필터 토글</TooltipContent>
+              </Tooltip>
 
-              <Button
-                size="sm"
-                variant="outline"
-                className="!h-7 !w-7 p-0"
-                title="갤러리 내보내기"
-                onClick={() => props.onGalleryExport?.()}
-              >
-                <DownloadIcon className="h-3.5 w-3.5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!h-7 !w-7 p-0"
+                    onClick={() => props.onGalleryExport?.()}
+                  >
+                    <DownloadIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>갤러리 내보내기</TooltipContent>
+              </Tooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="outline" className="!h-7 !w-7 p-0">
@@ -625,11 +640,16 @@ export function Header(props: HeaderProps) {
                 {props.paused ? "재개" : "일시중지"}
               </Button>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>추가 작업</TooltipContent>
+                </Tooltip>
                 <DropdownMenuContent align="end" className="w-56 p-2">
                   <DropdownMenuItem
                     onClick={props.onCancelAll}
@@ -660,21 +680,26 @@ export function Header(props: HeaderProps) {
           )}
           <div className="flex items-center gap-1">
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                >
-                  {theme === "light" ? (
-                    <Sun className="h-4 w-4" />
-                  ) : theme === "dark" ? (
-                    <Moon className="h-4 w-4" />
-                  ) : (
-                    <Monitor className="h-4 w-4" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                    >
+                      {theme === "light" ? (
+                        <Sun className="h-4 w-4" />
+                      ) : theme === "dark" ? (
+                        <Moon className="h-4 w-4" />
+                      ) : (
+                        <Monitor className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>테마 설정</TooltipContent>
+              </Tooltip>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onClick={() => setTheme("light")}

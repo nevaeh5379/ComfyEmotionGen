@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Download, ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { curationApi } from "../../hooks/useSavedImages"
@@ -90,35 +91,39 @@ export function ImageDetail({
           <h3 className="truncate font-mono text-sm">
             {image.originalFilename}
           </h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto"
-            onClick={async () => {
-              const url = `${backendUrl}/saved-images/${image.hash}`
-              if (singleDownloadMode === "direct") {
-                try {
-                  const response = await fetch(url)
-                  const blob = await response.blob()
-                  const blobUrl = URL.createObjectURL(blob)
-                  const a = document.createElement("a")
-                  a.href = blobUrl
-                  a.download = image.originalFilename || image.hash
-                  document.body.appendChild(a)
-                  a.click()
-                  document.body.removeChild(a)
-                  URL.revokeObjectURL(blobUrl)
-                } catch {
-                  window.open(url, "_blank")
-                }
-              } else {
-                window.open(url, "_blank")
-              }
-            }}
-            title="다운로드"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto"
+                onClick={async () => {
+                  const url = `${backendUrl}/saved-images/${image.hash}`
+                  if (singleDownloadMode === "direct") {
+                    try {
+                      const response = await fetch(url)
+                      const blob = await response.blob()
+                      const blobUrl = URL.createObjectURL(blob)
+                      const a = document.createElement("a")
+                      a.href = blobUrl
+                      a.download = image.originalFilename || image.hash
+                      document.body.appendChild(a)
+                      a.click()
+                      document.body.removeChild(a)
+                      URL.revokeObjectURL(blobUrl)
+                    } catch {
+                      window.open(url, "_blank")
+                    }
+                  } else {
+                    window.open(url, "_blank")
+                  }
+                }}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>다운로드</TooltipContent>
+          </Tooltip>
           <Button size="sm" variant="ghost" onClick={onClose}>
             닫기
           </Button>
@@ -220,16 +225,19 @@ export function ImageDetail({
           <label className="text-xs font-semibold">태그</label>
           <div className="flex flex-wrap gap-1">
             {tags.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-destructive/20"
-                onClick={() => removeTag(t)}
-                aria-label={`${t} 태그 제거`}
-                title="클릭하여 제거"
-              >
-                #{t} ×
-              </button>
+              <Tooltip key={t}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-destructive/20"
+                    onClick={() => removeTag(t)}
+                    aria-label={`${t} 태그 제거`}
+                  >
+                    #{t} ×
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>태그 삭제</TooltipContent>
+              </Tooltip>
             ))}
           </div>
           <div className="flex items-center gap-2">

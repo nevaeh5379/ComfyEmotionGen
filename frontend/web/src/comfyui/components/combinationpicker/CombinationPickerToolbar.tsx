@@ -14,6 +14,7 @@ import {
   SearchIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
@@ -335,36 +336,44 @@ export function CombinationPickerToolbar({
         {/* 액션 및 설정 그룹 */}
         <div className="ml-auto flex items-center gap-1.5 md:ml-0">
           {/* 필터 토글 */}
-          <Button
-            variant={
-              filtersExpanded ||
-              statusFilter !== "all" ||
-              filenameFilter ||
-              metadataFilter
-                ? "secondary"
-                : "outline"
-            }
-            size="sm"
-            className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-            onClick={() => setFiltersExpanded(!filtersExpanded)}
-            title="필터"
-          >
-            <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
-            <span className="hidden sm:inline">필터</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={
+                  filtersExpanded ||
+                  statusFilter !== "all" ||
+                  filenameFilter ||
+                  metadataFilter
+                    ? "secondary"
+                    : "outline"
+                }
+                size="sm"
+                className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
+                onClick={() => setFiltersExpanded(!filtersExpanded)}
+              >
+                <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                <span className="hidden sm:inline">필터</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>필터 토글</TooltipContent>
+          </Tooltip>
 
           {/* 설정 드롭다운 */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 text-[10px] font-bold md:h-8 md:w-auto md:gap-1 md:px-2.5"
-                title="설정"
-              >
-                <Settings2Icon className="h-4 w-4 md:h-3.5 md:w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 text-[10px] font-bold md:h-8 md:w-auto md:gap-1 md:px-2.5"
+                  >
+                    <Settings2Icon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>설정 열기</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel className="text-xs">설정</DropdownMenuLabel>
               <DropdownMenuSeparator />

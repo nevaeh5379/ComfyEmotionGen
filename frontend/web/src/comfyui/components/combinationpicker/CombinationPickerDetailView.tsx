@@ -11,6 +11,7 @@ import {
   LayoutListIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -148,44 +149,64 @@ export function CombinationPickerDetailView({
           {/* 컨트롤 영역 (모바일: 첫 줄 / 데스크탑: 좌측) */}
           <div className="flex items-center justify-between md:justify-start md:gap-2">
             <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onBack}
-                className="h-9 w-9 shrink-0 md:h-7 md:w-7"
-              >
-                <ArrowLeftIcon className="h-5 w-5 md:h-3 md:w-3" />
-              </Button>
-              <div className="flex items-center rounded-lg border border-line bg-muted/60 p-0.5 shadow-inner">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
-                  onClick={() => onNavigate("prev")}
-                  title="이전 조합 (K)"
-                >
-                  <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
-                </Button>
-                {onOpenList && (
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="h-8 w-8 rounded-none border-x border-line/50 p-0 hover:bg-background/80 active:bg-background md:hidden"
-                    onClick={onOpenList}
-                    title="조합 목록 보기"
+                    onClick={onBack}
+                    className="h-9 w-9 shrink-0 md:h-7 md:w-7"
                   >
-                    <LayoutListIcon className="h-4.5 w-4.5 text-primary" />
+                    <ArrowLeftIcon className="h-5 w-5 md:h-3 md:w-3" />
                   </Button>
+                </TooltipTrigger>
+                <TooltipContent>목록으로 돌아가기 (Esc)</TooltipContent>
+              </Tooltip>
+
+              <div className="flex items-center rounded-lg border border-line bg-muted/60 p-0.5 shadow-inner">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
+                      onClick={() => onNavigate("prev")}
+                    >
+                      <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>이전 조합 (K)</TooltipContent>
+                </Tooltip>
+
+                {onOpenList && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 rounded-none border-x border-line/50 p-0 hover:bg-background/80 active:bg-background md:hidden"
+                        onClick={onOpenList}
+                      >
+                        <LayoutListIcon className="h-4.5 w-4.5 text-primary" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>조합 목록 보기</TooltipContent>
+                  </Tooltip>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
-                  onClick={() => onNavigate("next")}
-                  title="다음 조합 (J)"
-                >
-                  <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
-                </Button>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
+                      onClick={() => onNavigate("next")}
+                    >
+                      <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>다음 조합 (J)</TooltipContent>
+                </Tooltip>
               </div>
             </div>
 
