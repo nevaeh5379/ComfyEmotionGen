@@ -40,6 +40,7 @@ export function useJobRunner({
   const [collapsedAxes, setCollapsedAxes] = useState<Set<string>>(new Set())
   const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
   const [repeatCount, setRepeatCount] = useState(1)
+  const [randomRunCount, setRandomRunCount] = useState(1)
 
   // CEG 템플릿 변경 시 자동 파싱 (debounce)
   useEffect(() => {
@@ -149,6 +150,17 @@ export function useJobRunner({
     await submitJobs(repeated)
   }
 
+  const handleRandomRun = async (count: number = 1) => {
+    if (!workflowJson || !isAliveBackend || axisFilteredItems.length === 0) return
+    const pool = [...axisFilteredItems]
+    const selected: RenderItem[] = []
+    for (let i = 0; i < count && pool.length > 0; i++) {
+      const idx = Math.floor(Math.random() * pool.length)
+      selected.push(pool.splice(idx, 1)[0]!)
+    }
+    await submitJobs(selected)
+  }
+
   const handleRunSelected = async () => {
     if (!workflowJson || !isAliveBackend) return false
     const parserResult = await callParser()
@@ -229,8 +241,11 @@ export function useJobRunner({
     uncheckedItems,
     repeatCount,
     setRepeatCount,
+    randomRunCount,
+    setRandomRunCount,
     handleRun,
     handleRunSelected,
+    handleRandomRun,
     toggleItemCheck,
     checkAllItems,
     uncheckAllItems,

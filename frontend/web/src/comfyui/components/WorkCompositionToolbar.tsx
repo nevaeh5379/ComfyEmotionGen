@@ -9,12 +9,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { EllipsisVertical, Play } from "lucide-react"
+import { EllipsisVertical, Play, Shuffle } from "lucide-react"
 
 interface WorkCompositionToolbarProps {
   repeatCount: number
   setRepeatCount: (v: number | ((c: number) => number)) => void
   handleRun: () => void
+  handleRandomRun: (count: number) => void
+  randomRunCount: number
+  setRandomRunCount: (v: number | ((c: number) => number)) => void
   canRun: boolean
   estimatedRunCount: number | null
   onSelectionOpen: () => void
@@ -28,6 +31,9 @@ export function WorkCompositionToolbar({
   repeatCount,
   setRepeatCount,
   handleRun,
+  handleRandomRun,
+  randomRunCount,
+  setRandomRunCount,
   canRun,
   estimatedRunCount,
   onSelectionOpen,
@@ -49,6 +55,21 @@ export function WorkCompositionToolbar({
             <DropdownMenuItem onClick={onSelectionOpen} disabled={!canRun}>
               선택 실행
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleRandomRun(randomRunCount)}
+              disabled={!canRun}
+            >
+              <Shuffle className="mr-2 h-4 w-4" /> 랜덤 실행
+            </DropdownMenuItem>
+            <DropdownMenuLabel>랜덤 개수</DropdownMenuLabel>
+            <Input
+              type="number"
+              min={1}
+              value={randomRunCount}
+              onChange={(e) =>
+                setRandomRunCount(Math.max(1, Number(e.target.value) || 1))
+              }
+            />
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onAxisFilterOpen}>
               축 필터

@@ -1,4 +1,4 @@
-import { Code2, Copy, Download, FolderOpen, Settings } from "lucide-react"
+import { Code2, Copy, Download, FolderOpen, Workflow } from "lucide-react"
 import { useCallback } from "react"
 import { toast } from "sonner"
 
@@ -24,6 +24,9 @@ export interface WorkCompositionPanelProps {
   repeatCount: number
   setRepeatCount: (value: number | ((prev: number) => number)) => void
   handleRun: () => void
+  handleRandomRun: (count: number) => void
+  randomRunCount: number
+  setRandomRunCount: (value: number | ((prev: number) => number)) => void
   estimatedRunCount: number | null
   canRun: boolean
   previewCount: number
@@ -48,6 +51,9 @@ export function WorkCompositionPanel({
   repeatCount,
   setRepeatCount,
   handleRun,
+  handleRandomRun,
+  randomRunCount,
+  setRandomRunCount,
   estimatedRunCount,
   canRun,
   previewCount,
@@ -116,6 +122,9 @@ export function WorkCompositionPanel({
               repeatCount={repeatCount}
               setRepeatCount={setRepeatCount}
               handleRun={handleRun}
+              handleRandomRun={handleRandomRun}
+              randomRunCount={randomRunCount}
+              setRandomRunCount={setRandomRunCount}
               canRun={canRun}
               estimatedRunCount={estimatedRunCount}
               onSelectionOpen={onSelectionOpen}
@@ -328,7 +337,7 @@ export function WorkCompositionPanel({
                   title="그래프 보기"
                   onClick={onGraphOpen}
                 >
-                  <Settings className="h-3.5 w-3.5" />
+                  <Workflow className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>

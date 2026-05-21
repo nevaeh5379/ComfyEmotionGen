@@ -88,6 +88,9 @@ interface HeaderProps {
   repeatCount: number
   setRepeatCount: (v: number | ((c: number) => number)) => void
   handleRun: () => void
+  handleRandomRun: (count: number) => void
+  randomRunCount: number
+  setRandomRunCount: (v: number | ((c: number) => number)) => void
   canRun: boolean
   estimatedRunCount: number | null
   setIsSelectionOpen: (v: boolean) => void
@@ -323,6 +326,9 @@ export function Header(props: HeaderProps) {
                 repeatCount={props.repeatCount}
                 setRepeatCount={props.setRepeatCount}
                 handleRun={props.handleRun}
+                handleRandomRun={props.handleRandomRun}
+                randomRunCount={props.randomRunCount}
+                setRandomRunCount={props.setRandomRunCount}
                 canRun={props.canRun}
                 estimatedRunCount={props.estimatedRunCount}
                 onSelectionOpen={() => props.setIsSelectionOpen(true)}

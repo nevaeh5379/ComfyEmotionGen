@@ -622,6 +622,9 @@ function AppContent(props: AppContentProps) {
     setRepeatCount,
     handleRun,
     handleRunSelected,
+    handleRandomRun,
+    randomRunCount,
+    setRandomRunCount,
     toggleItemCheck,
     checkAllItems,
     uncheckAllItems,
@@ -809,6 +812,9 @@ function AppContent(props: AppContentProps) {
         repeatCount={repeatCount}
         setRepeatCount={setRepeatCount}
         handleRun={handleRun}
+        handleRandomRun={handleRandomRun}
+        randomRunCount={randomRunCount}
+        setRandomRunCount={setRandomRunCount}
         canRun={canRun}
         estimatedRunCount={estimatedRunCount}
         setIsSelectionOpen={props.setIsSelectionOpen}
@@ -971,6 +977,9 @@ function AppContent(props: AppContentProps) {
                     repeatCount={repeatCount}
                     setRepeatCount={setRepeatCount}
                     handleRun={handleRun}
+                    handleRandomRun={handleRandomRun}
+                    randomRunCount={randomRunCount}
+                    setRandomRunCount={setRandomRunCount}
                     estimatedRunCount={estimatedRunCount}
                     canRun={canRun}
                     previewCount={fakeJobQueue.length}
@@ -1024,6 +1033,9 @@ function AppContent(props: AppContentProps) {
                     repeatCount={repeatCount}
                     setRepeatCount={setRepeatCount}
                     handleRun={handleRun}
+                    handleRandomRun={handleRandomRun}
+                    randomRunCount={randomRunCount}
+                    setRandomRunCount={setRandomRunCount}
                     estimatedRunCount={estimatedRunCount}
                     canRun={canRun}
                     previewCount={fakeJobQueue.length}
