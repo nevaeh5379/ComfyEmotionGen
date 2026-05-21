@@ -166,6 +166,22 @@ class ComfyWorker:
             async for chunk in resp.aiter_bytes():
                 yield chunk
 
+    async def upload_image(
+        self,
+        *,
+        file_data: bytes,
+        filename: str,
+        subfolder: str = "",
+    ) -> str:
+        """POST /upload/image to the ComfyUI server. Returns the image name."""
+        resp = await self._http.post(
+            "/upload/image",
+            data={"subfolder": subfolder},
+            files={"image": (filename, file_data)},
+        )
+        resp.raise_for_status()
+        return resp.json().get("name", filename)
+
     async def get_object_info(self) -> dict[str, Any]:
         """GET /object_info from the ComfyUI server."""
         resp = await self._http.get("/object_info")

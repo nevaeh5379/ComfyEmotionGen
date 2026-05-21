@@ -51,6 +51,9 @@ export const API = {
   upload: {
     image: "/upload/image",
   },
+  images: {
+    upload: "/images/upload",
+  },
 } as const
 
 export const HEADERS = {

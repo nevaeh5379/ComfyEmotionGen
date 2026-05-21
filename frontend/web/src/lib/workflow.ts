@@ -79,4 +79,5 @@ export interface NodeMapping {
   seedValue?: number
   seedRandom?: boolean
   fixedValue?: string
+  imageValue?: string
 }

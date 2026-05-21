@@ -39,17 +39,19 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import logging
 import mimetypes
+import re
 import zipfile
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -57,7 +59,8 @@ from pydantic import BaseModel, Field
 
 from prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
 from worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
-from jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR
+from jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
+from fastapi.staticfiles import StaticFiles
 from job_store import JobStore
 from webhook import WebhookService, WEBHOOK_EVENTS
 from _version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
@@ -158,6 +161,7 @@ class JobItem(BaseModel):
     workflow: Dict[str, Any]
     meta: Dict[str, str] = Field(default_factory=dict)
     cegTemplate: str = ""
+    imageUploads: Dict[str, Dict[str, str]] = Field(default_factory=dict)
 
 
 class JobsCreateRequest(BaseModel):
@@ -267,6 +271,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+UPLOAD_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploaded_images", StaticFiles(directory=str(UPLOAD_IMAGES_DIR)), name="uploaded_images")
 
 
 # ====== 에러 핸들러 ======
@@ -519,6 +526,28 @@ async def images_view(worker_id: str, filename: str, subfolder: str = "", type: 
 
     media_type = "image/png" if filename.lower().endswith(".png") else "application/octet-stream"
     return StreamingResponse(stream(), media_type=media_type)
+
+
+# ====== 이미지 업로드 (프론트에서 미리 업로드, 디스패치 시 워커로 전달) ======
+
+
+@app.post("/images/upload")
+async def images_upload(file: UploadFile):
+    """클라이언트에서 이미지를 업로드. SHA-256 해시로 저장 후 해시 반환.
+
+    디스패치 시 이 이미지를 워커의 /upload/image로 전달하고
+    워크플로우의 __upload__{hash}.png 마커를 실제 파일명으로 치환한다.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="empty filename")
+    ext = Path(file.filename).suffix.lower() or ".png"
+    data = await file.read()
+    sha = hashlib.sha256(data).hexdigest()
+    UPLOAD_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    target = UPLOAD_IMAGES_DIR / f"{sha}{ext}"
+    if not target.exists():
+        target.write_bytes(data)
+    return {"hash": sha, "filename": file.filename, "name": f"{sha}{ext}"}
 
 
 # ====== object_info 프록시 ======

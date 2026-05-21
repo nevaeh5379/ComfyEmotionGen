@@ -21,6 +21,7 @@ import hashlib
 import json
 import logging
 import random
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -52,6 +53,7 @@ JobStatus = Literal[
 
 RETRY_DELAY = 1.0  # 재시도 간격 (초)
 DEFAULT_IMAGES_DIR = Path("images")
+UPLOAD_IMAGES_DIR = Path("uploaded_images")
 
 
 class ActiveJobError(Exception):
@@ -85,6 +87,7 @@ class Job:
     execution_duration_ms: Optional[float] = None
     meta: dict[str, str] = field(default_factory=dict)
     ceg_template: str = ""
+    image_uploads: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -108,6 +111,7 @@ class Job:
             "executionDurationMs": self.execution_duration_ms,
             "meta": self.meta,
             "cegTemplate": self.ceg_template,
+            "imageUploads": self.image_uploads,
         }
 
     @classmethod
@@ -133,6 +137,7 @@ class Job:
             execution_duration_ms=d.get("executionDurationMs"),
             meta=d.get("meta", {}),
             ceg_template=d.get("cegTemplate", ""),
+            image_uploads=d.get("imageUploads", {}),
         )
 
 
@@ -238,6 +243,7 @@ class JobManager:
                     workflow=item["workflow"],
                     meta=item.get("meta", {}),
                     ceg_template=item.get("cegTemplate", ""),
+                    image_uploads=item.get("imageUploads", {}),
                 )
                 self._jobs[job.id] = job
                 created.append(job)
@@ -429,6 +435,7 @@ class JobManager:
                 worker.current_job_id = pending.id
                 job_dict = pending.to_dict()
                 workflow = pending.workflow
+                image_uploads = pending.image_uploads
                 job_id = pending.id
             await self._store.save(job_dict)
             await self._store.save_event(
@@ -437,6 +444,12 @@ class JobManager:
                 details={"worker_url": worker.base_url},
             )
             await self._emit({"type": "job.updated", "job": job_dict})
+
+            # 이미지 마커 치환 (워커로 업로드 후 실제 파일명으로 교체)
+            if image_uploads:
+                workflow = await _resolve_image_markers(
+                    workflow, image_uploads, worker
+                )
 
             try:
                 await worker.submit_prompt(prompt=workflow, prompt_id=job_id)
@@ -981,3 +994,68 @@ def _clone_workflow_with_new_seed(
             else:
                 inputs[key] = random.randint(0, _MAX_SEED)
     return cloned
+
+
+# ---------- image upload helpers ----------
+
+_UPLOAD_MARKER_RE = re.compile(r"^__upload__([a-f0-9]{64})\.(png|jpg|jpeg|webp)$")
+
+
+async def _resolve_image_markers(
+    workflow: dict[str, Any],
+    image_uploads: dict[str, dict[str, str]],
+    worker: ComfyWorker,
+) -> dict[str, Any]:
+    """워크플로우에서 __upload__{hash}.{ext} 마커를 찾아 워커로 업로드 후 실제 파일명으로 치환.
+
+    Returns:
+        치환된 워크플로우 (깊은 복사)
+    """
+    import copy
+
+    resolved = copy.deepcopy(workflow)
+    uploaded: dict[str, str] = {}
+
+    for node in resolved.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for key, value in list(inputs.items()):
+            if not isinstance(value, str):
+                continue
+            m = _UPLOAD_MARKER_RE.match(value)
+            if not m:
+                continue
+            sha, ext = m.group(1), m.group(2)
+            if sha in uploaded:
+                inputs[key] = uploaded[sha]
+                continue
+            meta = image_uploads.get(sha)
+            if meta is None:
+                logger.warning(
+                    "image marker %s found but not in imageUploads, skipping", sha
+                )
+                continue
+            src = UPLOAD_IMAGES_DIR / f"{sha}.{ext}"
+            if not src.exists():
+                src = UPLOAD_IMAGES_DIR / f"{sha}.png"
+            if not src.exists():
+                logger.warning(
+                    "image file %s not found on disk, skipping upload", sha
+                )
+                continue
+            try:
+                name = await worker.upload_image(
+                    file_data=src.read_bytes(),
+                    filename=meta.get("filename", f"{sha}.{ext}"),
+                )
+                inputs[key] = name
+                uploaded[sha] = name
+            except Exception:
+                logger.exception(
+                    "failed to upload image %s to worker %s", sha, worker.id
+                )
+
+    return resolved

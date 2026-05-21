@@ -10,17 +10,10 @@ import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 
-interface ImageUploadState {
-  uploadedName: string | null
-  error: string | null
-  uploading: boolean
-}
-
 interface UseJobRunnerParams {
   cegTemplate: string
   workflowJson: string
   nodeMappings: NodeMapping[]
-  imageUploads: Record<string, ImageUploadState>
   backendUrl: string
   isAliveBackend: boolean
 }
@@ -29,7 +22,6 @@ export function useJobRunner({
   cegTemplate,
   workflowJson,
   nodeMappings,
-  imageUploads,
   backendUrl,
   isAliveBackend,
 }: UseJobRunnerParams) {
@@ -107,10 +99,15 @@ export function useJobRunner({
   const submitJobs = async (renderItems: RenderItem[]): Promise<boolean> => {
     if (!workflowJson || renderItems.length === 0) return false
     const imageNameMap: Record<string, string> = {}
+    const imageUploads: Record<string, Record<string, string>> = {}
     for (const m of nodeMappings) {
-      if (m.sourceType === "image") {
-        const name = imageUploads[`${m.nodeId}.${m.inputKey}`]?.uploadedName
-        if (name) imageNameMap[`${m.nodeId}.${m.inputKey}`] = name
+      if (m.sourceType === "image" && m.imageValue) {
+        imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
+        // __upload__ 마커에서 hash 추출
+        const match = m.imageValue.match(/^__upload__([a-f0-9]{64})\.\w+$/)
+        if (match && match[1]) {
+          imageUploads[match[1]] = { name: m.imageValue }
+        }
       }
     }
     const items = renderItems.map((item) => ({
@@ -124,6 +121,7 @@ export function useJobRunner({
       ),
       meta: item.meta,
       cegTemplate: cegTemplate,
+      imageUploads,
     }))
     try {
       const res = await fetch(`${backendUrl}${API.jobs.root}`, {

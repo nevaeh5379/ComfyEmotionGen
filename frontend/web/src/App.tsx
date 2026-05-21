@@ -148,7 +148,7 @@ export function App() {
         onPendingUpdate={handlePendingUpdate}
         onPendingPresetSelection={setPendingPresetSelection}
       >
-        <NodeMappingProvider workers={workers}>
+        <NodeMappingProvider backendUrl={backendUrl}>
           <AppContent
             pendingSave={pendingSave}
             setPendingSave={setPendingSave}
@@ -640,7 +640,6 @@ function AppContent(props: AppContentProps) {
     cegTemplate: template.cegTemplate,
     workflowJson: workflow.workflowJson,
     nodeMappings: nodeMapping.nodeMappings,
-    imageUploads: nodeMapping.imageUploads,
     backendUrl: props.backendUrl,
     isAliveBackend: props.isAliveBackend,
   })

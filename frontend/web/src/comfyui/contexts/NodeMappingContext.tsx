@@ -9,6 +9,7 @@ import type {
 } from "../hooks/useSavedWorkflows"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { useWorkflowContext } from "./WorkflowContext"
+import { API } from "@/lib/api"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,6 +19,7 @@ interface ImageUploadState {
   uploadedName: string | null
   error: string | null
   uploading: boolean
+  previewUrl: string | null
 }
 
 interface AvailableNodeOption {
@@ -78,12 +80,12 @@ export function useNodeMappingContext(): NodeMappingContextValue {
 // ---------------------------------------------------------------------------
 
 interface NodeMappingProviderProps {
-  workers: { url: string; alive: boolean }[]
+  backendUrl: string
   children: React.ReactNode
 }
 
 export function NodeMappingProvider({
-  workers,
+  backendUrl,
   children,
 }: NodeMappingProviderProps): React.JSX.Element {
   const {
@@ -142,7 +144,20 @@ export function NodeMappingProvider({
 
   const updateMapping = (id: string, patch: Partial<NodeMapping>) =>
     setNodeMappings((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+      prev.map((m) => {
+        if (m.id !== id) return m
+        // sourceType가 image에서 다른 값으로 변경되면 imageValue 초기화
+        if (
+          patch.sourceType !== undefined &&
+          m.sourceType === "image" &&
+          patch.sourceType !== "image"
+        ) {
+          const next = { ...m, ...patch }
+          delete next.imageValue
+          return next
+        }
+        return { ...m, ...patch }
+      })
     )
 
   const handleAutoMap = () => {
@@ -158,48 +173,69 @@ export function NodeMappingProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedWorkflow, nodeMappings])
 
+  // 새로고침 후 imageValue에서 previewUrl 복원
+  useEffect(() => {
+    const markerRe = /^__upload__([a-f0-9]{64})\.(png|jpg|jpeg|webp)$/
+    const next: Record<string, ImageUploadState> = {}
+    nodeMappings.forEach((m) => {
+      if (m.sourceType !== "image" || !m.imageValue) return
+      const match = markerRe.exec(m.imageValue)
+      if (!match) return
+      const [, hash, ext] = match
+      if (!hash || !ext) return
+      const key = `${m.nodeId}.${m.inputKey}`
+      next[key] = {
+        uploadedName: hash,
+        error: null,
+        uploading: false,
+        previewUrl: `${backendUrl}/uploaded_images/${hash}.${ext}`,
+      }
+    })
+    setImageUploads((prev) => ({ ...prev, ...next }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeMappings])
+
   const handleImageUpload = async (
     file: File,
     nodeId: string,
     inputKey: string
   ) => {
     const key = `${nodeId}.${inputKey}`
+    const previewUrl = URL.createObjectURL(file)
     setImageUploads((prev) => ({
       ...prev,
-      [key]: { uploadedName: null, error: null, uploading: true },
+      [key]: { uploadedName: null, error: null, uploading: true, previewUrl },
     }))
-    const workerUrl = workers.find((w) => w.alive)?.url
-    if (!workerUrl) {
-      setImageUploads((prev) => ({
-        ...prev,
-        [key]: {
-          uploadedName: null,
-          error: "업로드 가능한 ComfyUI 워커가 없습니다.",
-          uploading: false,
-        },
-      }))
-      return
-    }
     try {
       const fd = new FormData()
-      fd.append("image", file)
-      const res = await fetch(`${workerUrl}/upload/image`, {
+      fd.append("file", file)
+      const res = await fetch(`${backendUrl}${API.images.upload}`, {
         method: "POST",
         body: fd,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as { name: string }
+      const data = (await res.json()) as { hash: string; filename: string }
+      // imageValue에 __upload__{hash}.{ext} 마커 저장
+      const ext = file.name.split(".").pop() ?? "png"
+      updateMapping(
+        nodeMappings.find(
+          (m) => m.nodeId === nodeId && m.inputKey === inputKey
+        )?.id ?? "",
+        { imageValue: `__upload__${data.hash}.${ext}` }
+      )
       setImageUploads((prev) => ({
         ...prev,
-        [key]: { uploadedName: data.name, error: null, uploading: false },
+        [key]: { uploadedName: data.hash, error: null, uploading: false, previewUrl },
       }))
     } catch (err) {
+      URL.revokeObjectURL(previewUrl)
       setImageUploads((prev) => ({
         ...prev,
         [key]: {
           uploadedName: null,
           error: `업로드 실패: ${err instanceof Error ? err.message : String(err)}`,
           uploading: false,
+          previewUrl: null,
         },
       }))
     }

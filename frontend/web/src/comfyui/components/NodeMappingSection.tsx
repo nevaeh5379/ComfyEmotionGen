@@ -49,6 +49,7 @@ interface ImageUploadState {
   uploadedName: string | null
   error: string | null
   uploading: boolean
+  previewUrl: string | null
 }
 
 interface NodeMappingSectionProps {
@@ -325,37 +326,49 @@ export const NodeMappingSection = ({
                                 </InputGroupAddon>
                               </InputGroup>
                             )}
-                            {m.sourceType === "image" && (
-                              <div className="flex items-center gap-2">
-                                <label className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border bg-background px-3 text-[11px] font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50">
-                                  파일 선택
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="sr-only"
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0]
-                                      if (f)
-                                        handleImageUpload(
-                                          f,
-                                          m.nodeId,
-                                          m.inputKey
-                                        )
-                                    }}
-                                  />
-                                </label>
-                                {upload?.uploading && (
-                                  <span className="animate-pulse text-[10px] text-muted-foreground">
-                                    업로드 중...
-                                  </span>
-                                )}
-                                {upload?.uploadedName && (
-                                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500">
-                                    완료
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                           {m.sourceType === "image" && (
+                               <div className="flex items-center gap-2">
+                                 <label className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border bg-background px-3 text-[11px] font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50">
+                                   파일 선택
+                                   <input
+                                     type="file"
+                                     accept="image/*"
+                                     className="sr-only"
+                                     onChange={(e) => {
+                                       const f = e.target.files?.[0]
+                                       if (f)
+                                         handleImageUpload(
+                                           f,
+                                           m.nodeId,
+                                           m.inputKey
+                                         )
+                                     }}
+                                   />
+                                 </label>
+                                 {upload?.uploading && (
+                                   <span className="animate-pulse text-[10px] text-muted-foreground">
+                                     업로드 중...
+                                   </span>
+                                 )}
+                                 {upload?.error && (
+                                   <span className="text-[10px] font-medium text-red-600 dark:text-red-400">
+                                     {upload.error}
+                                   </span>
+                                 )}
+                                 {m.imageValue && upload?.previewUrl && (
+                                   <img
+                                     src={upload.previewUrl}
+                                     alt="미리보기"
+                                     className="h-7 w-7 rounded object-cover ring-1 ring-border"
+                                   />
+                                 )}
+                                 {m.imageValue && (
+                                   <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500">
+                                     완료
+                                   </span>
+                                 )}
+                               </div>
+                             )}
                             {m.sourceType === "fixed" &&
                               (enumOptions ? (
                                 <Select
