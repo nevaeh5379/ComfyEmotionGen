@@ -371,12 +371,14 @@ export function GalleryView({
                           onSelect(item.filename)
                         }
                       }}
-                      className={`group relative flex flex-col gap-2 rounded-lg border bg-card p-2 hover:border-primary hover:shadow-md ${isSelected ? "bg-blue-50/30 ring-2 ring-blue-500" : ""}`}
+                      className={`group relative flex flex-col rounded-lg border bg-card hover:border-primary hover:shadow-md ${isSelected ? "bg-blue-50/30 ring-2 ring-blue-500" : ""}`}
                     >
-                      <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                      <div className="relative overflow-hidden rounded-md bg-muted">
                         {preview ? (
                           <ImageWithSkeleton
                             src={`${backendUrl}/saved-images/${preview.hash}`}
+                            aspectRatio=""
+                            objectFit="object-contain"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
@@ -412,7 +414,7 @@ export function GalleryView({
                         </div>
                       </div>
 
-                      <div className="px-1 text-left">
+                      <div className="px-1 text-center">
                         <div className="truncate font-mono text-[11px] font-bold">
                           {item.filename}
                         </div>

@@ -65,7 +65,7 @@ export function ImageWithSkeleton({
   src,
   alt = "",
   className = "",
-  aspectRatio = "aspect-square",
+  aspectRatio = "",
   objectFit = "object-cover",
 }: {
   src: string
