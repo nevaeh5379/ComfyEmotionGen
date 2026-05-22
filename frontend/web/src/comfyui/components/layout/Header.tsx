@@ -22,6 +22,7 @@ import {
   Sheet,
   SheetClose,
   SheetContent,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
 import {
@@ -279,6 +280,7 @@ export function Header(props: HeaderProps) {
               showCloseButton={false}
               className="w-[300px] sm:w-[320px]"
             >
+              <SheetTitle className="sr-only">메뉴</SheetTitle>
               {/* Header */}
               <div className="flex items-center justify-between border-b border-line px-5 py-4">
                 <span className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[15px] font-black tracking-tighter text-transparent">
@@ -647,7 +649,7 @@ export function Header(props: HeaderProps) {
                 }}
               >
                 <SelectTrigger
-                  className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                  className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -692,7 +694,7 @@ export function Header(props: HeaderProps) {
                 }}
               >
                 <SelectTrigger
-                  className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                  className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -716,7 +718,7 @@ export function Header(props: HeaderProps) {
                 }
               >
                 <SelectTrigger
-                  className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                  className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -748,7 +750,7 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     variant="outline"
                     onClick={() => toggleSort(tb.sortKey)}
-                    className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                    className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
                   >
                     {tb.sortDir === "asc" ? (
                       <ArrowUp className="h-3.5 w-3.5" />
@@ -797,7 +799,7 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     variant={tb.showFilters ? "secondary" : "outline"}
                     onClick={() => tb.setShowFilters(!tb.showFilters)}
-                    className={`relative !h-7 !w-7 p-0 ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                    className={`relative !h-7 !w-7 p-0 hidden md:inline-flex ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : ""}`}
                   >
                     <FilterIcon className="h-3.5 w-3.5" />
                     {tb.hasAnyFilter && (
@@ -813,7 +815,7 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className={`!h-7 !w-7 p-0 ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                    className={`!h-7 !w-7 p-0 hidden md:inline-flex ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : ""}`}
                     onClick={() => tb.handleExport()}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
@@ -828,7 +830,7 @@ export function Header(props: HeaderProps) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className={`!h-7 !w-7 p-0 ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                      className={`!h-7 !w-7 p-0 hidden md:inline-flex ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : ""}`}
                       onClick={() => {
                         panel.gallery.setIsFloating(true)
                         props.setActiveTab("jobs")
@@ -842,7 +844,7 @@ export function Header(props: HeaderProps) {
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="!h-7 !w-7 p-0">
+                  <Button size="sm" variant="outline" className="!h-7 !w-7 p-0 hidden md:inline-flex">
                     <MoreVertical className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -1096,7 +1098,7 @@ export function Header(props: HeaderProps) {
                 value={props.curationSelectedAxis}
                 onValueChange={(v) => props.setCurationSelectedAxis(v)}
               >
-                <SelectTrigger className="!h-7 w-[150px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[200px]">
+                <SelectTrigger className="!h-7 w-[150px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[200px] hidden md:inline-flex">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1150,10 +1152,122 @@ export function Header(props: HeaderProps) {
         </div>
         <div
           ref={rightSectionRef}
-          className="ml-1 hidden shrink-0 items-center gap-2 md:flex"
+          className="ml-1 shrink-0 items-center gap-2 flex"
         >
+          {/* 모바일 갤러리 ... 버튼 (오른쪽 배치) */}
+          {props.activeTab === "gallery" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="!h-8 !w-8 p-0 md:hidden">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className={
+                  isGalleryToolbarUltraCompact
+                    ? "w-[220px] p-2"
+                    : isGalleryToolbarCompact
+                      ? "w-[200px] p-2"
+                      : "w-[160px]"
+                }
+              >
+                {isGalleryToolbarUltraCompact && (
+                  <>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
+                        <span>
+                          필터: {tb.statusFilter === "all" ? "전체" : tb.statusFilter === "pending" ? "대기" : tb.statusFilter === "approved" ? "통과" : tb.statusFilter === "rejected" ? "탈락" : "휴지통"}
+                        </span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent className="w-[120px] p-1">
+                          {(["all","pending","approved","rejected","trashed"] as const).map((s) => (
+                            <DropdownMenuItem key={s} onClick={() => tb.setStatusFilter(s)} className="text-[12px] font-bold">
+                              {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
+                        <span>보기: {tb.groupMode ? "그룹" : tb.viewMode === "grid" ? "그리드" : "비교"}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent className="w-[120px] p-1">
+                          <DropdownMenuItem onClick={() => tb.setGroupMode(true)} className="text-[12px] font-bold">그룹</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { tb.setGroupMode(false); tb.setViewMode("grid") }} className="text-[12px] font-bold">그리드</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { tb.setGroupMode(false); tb.setViewMode("compare") }} className="text-[12px] font-bold">비교</DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
+                        <span>정렬: {tb.sortKey === "createdAt" ? "날짜순" : tb.sortKey === "filename" ? "파일명순" : "크기순"}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent className="w-[120px] p-1">
+                          <DropdownMenuItem onClick={() => toggleSort("createdAt")} className="text-[12px] font-bold">날짜순</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleSort("filename")} className="text-[12px] font-bold">파일명순</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleSort("sizeBytes")} className="text-[12px] font-bold">크기순</DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                    <DropdownMenuItem onClick={() => toggleSort(tb.sortKey)} className="mb-1 flex items-center gap-2 border-b border-line/45 pb-2 text-[12px] font-bold">
+                      {tb.sortDir === "asc" ? (
+                        <><ArrowUp className="h-3.5 w-3.5 opacity-60" /><span>정렬 방향: 오름차순</span></>
+                      ) : (
+                        <><ArrowDown className="h-3.5 w-3.5 opacity-60" /><span>정렬 방향: 내림차순</span></>
+                      )}
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) && (
+                  <>
+                    <DropdownMenuItem onClick={() => tb.setShowFilters(!tb.showFilters)} className="flex items-center gap-2 text-[12px] font-bold">
+                      <FilterIcon className={`h-3.5 w-3.5 ${tb.showFilters ? "text-primary" : "opacity-60"}`} />
+                      <span>필터 {tb.showFilters ? "숨기기" : "표시"}</span>
+                      {tb.hasAnyFilter && <span className="ml-auto h-2 w-2 rounded-full bg-primary" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => tb.handleExport()} className="flex items-center gap-2 text-[12px] font-bold">
+                      <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
+                      <span>갤러리 내보내기</span>
+                    </DropdownMenuItem>
+                    {props.useWindowMode && (
+                      <DropdownMenuItem onClick={() => { panel.gallery.setIsFloating(true); props.setActiveTab("jobs") }} className="flex items-center gap-2 text-[12px] font-bold">
+                        <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+                        <span>창으로 분리 (Pop out)</span>
+                      </DropdownMenuItem>
+                    )}
+                    {(tb.groupMode || tb.viewMode === "grid") && (
+                      <div className="my-1 flex flex-col gap-1.5 border-b border-line/45 px-2.5 py-2">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                          <span className="flex items-center gap-1.5"><LayoutGrid className="h-3.5 w-3.5" />크기 조절</span>
+                          <span className="font-mono text-[10px] text-primary">{tb.thumbnailSize}px</span>
+                        </div>
+                        <input type="range" min="120" max="320" step="10" value={tb.thumbnailSize} onChange={(e) => tb.setThumbnailSize(Number(e.target.value))} className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none" onClick={(e) => e.stopPropagation()} />
+                      </div>
+                    )}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => tb.handleRefresh()} className="text-[12px] font-bold">
+                  <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
+                  새로고침
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => tb.handleEmptyTrash()} className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive">
+                  <Trash2Icon className="mr-2 h-3.5 w-3.5 opacity-60" />
+                  휴지통 비우기
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {/* 모바일 구분선 */}
+          {props.activeTab === "gallery" && <div className="h-4 w-px bg-border/60 md:hidden" />}
           {props.activeTab === "jobs" && props.sessionMarkers && (
-            <div className="mr-1 flex items-center gap-1.5 border-r border-line/65 pr-3">
+            <div className="hidden mr-1 items-center gap-1.5 border-r border-line/65 pr-3 md:flex">
               <div className="relative">
                 <SessionPopover
                   markers={props.sessionMarkers}
@@ -1219,7 +1333,7 @@ export function Header(props: HeaderProps) {
               </DropdownMenu>
             </div>
           )}
-          <div className="flex items-center gap-1">
+          <div className="hidden items-center gap-1 md:flex">
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1262,6 +1376,7 @@ export function Header(props: HeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          <div className="hidden items-center gap-2 md:flex">
           <ServerStatus
             name="백엔드"
             isConnected={props.isAliveBackend && props.backendAlive}
@@ -1272,6 +1387,7 @@ export function Header(props: HeaderProps) {
             workers={props.workers}
             backendAlive={props.isAliveBackend}
           />
+          </div>
         </div>
       </div>
 

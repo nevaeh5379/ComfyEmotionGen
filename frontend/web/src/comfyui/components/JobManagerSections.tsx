@@ -1,4 +1,5 @@
-import { memo } from "react"
+import { memo, useRef, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import {
   ArrowDown,
   ArrowUp,
@@ -188,32 +189,44 @@ export const SessionPopover = memo(function SessionPopover({
 
   const isActive = activeState?.activeSessionId
 
-  return (
-    <div className="relative">
-      <button
-        onClick={() => onOpenChange(!isOpen)}
-        className={cn(
-          "flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-black transition-all hover:bg-muted/70 active:scale-95",
-          isOpen ? "bg-muted/65" : ""
-        )}
-      >
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-75"></span>
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-ok"></span>
-        </span>
-        <span className="max-w-40 truncate tracking-wide">
-          {sessionButtonLabel}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
-            isOpen && "rotate-180"
-          )}
-        />
-      </button>
+  const ref = useRef<HTMLDivElement>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null)
 
-      {isOpen && (
-        <div className="absolute top-full left-0 z-50 mt-1 w-76 animate-in rounded-xl border border-line-strong/60 bg-popover/85 p-1 shadow-2xl backdrop-blur-md duration-200 fade-in-0 zoom-in-95">
+  useEffect(() => {
+    if (isOpen && ref.current) {
+      const el = ref.current
+      const isVisible = el.offsetParent !== null || getComputedStyle(el).position === "fixed"
+      if (isVisible) {
+        setRect(el.getBoundingClientRect())
+      } else {
+        setRect(null)
+      }
+    } else {
+      setRect(null)
+    }
+  }, [isOpen])
+
+  const dropdownStyle = rect
+    ? (() => {
+        const popupWidth = window.innerWidth < 768 ? window.innerWidth - 32 : 304
+        let left = rect.left
+        if (left + popupWidth > window.innerWidth - 16) {
+          left = window.innerWidth - popupWidth - 16
+        }
+        if (left < 16) left = 16
+        return {
+          top: rect.bottom + 4,
+          left,
+          width: popupWidth,
+        }
+      })()
+    : null
+
+  const dropdownContent = isOpen && dropdownStyle && (
+    <div
+      className="fixed z-50 rounded-xl border border-line-strong/60 bg-popover/85 p-1 shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 duration-200"
+      style={dropdownStyle}
+    >
           <div className="flex items-center justify-between border-b border-line px-3 py-2.5">
             <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
               세션 히스토리
@@ -284,9 +297,36 @@ export const SessionPopover = memo(function SessionPopover({
               })}
             </div>
           </ScrollArea>
-        </div>
-      )}
     </div>
+  )
+
+  return (
+    <>
+      <div ref={ref}>
+        <button
+          onClick={() => onOpenChange(!isOpen)}
+          className={cn(
+            "flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-black transition-all hover:bg-muted/70 active:scale-95",
+            isOpen ? "bg-muted/65" : ""
+          )}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-ok"></span>
+          </span>
+          <span className="max-w-40 truncate tracking-wide">
+            {sessionButtonLabel}
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+              isOpen && "rotate-180"
+            )}
+          />
+        </button>
+      </div>
+      {dropdownContent && typeof document !== "undefined" && createPortal(dropdownContent, document.body)}
+    </>
   )
 })
 
