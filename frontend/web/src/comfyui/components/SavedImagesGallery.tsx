@@ -1547,233 +1547,220 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           {/* ── Scrollable Content ── */}
           <div className="flex-1 p-4" onMouseDown={handleMouseDown}>
             {/* ── Danbooru Folder-like Breadcrumb tag system ── */}
-            <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-card px-3 py-3 shadow-sm sm:px-5 sm:py-4">
-              {/* Top Row: Title/Icon + Breadcrumb Trail */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-                {/* Left section: Title + Breadcrumb + Clear button */}
-                <div className="flex flex-1 flex-wrap items-center gap-2">
-                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground select-none">
-                    {breadcrumbTags.length > 0 ? (
-                      <FolderOpen
-                        className="h-4 w-4 text-muted-foreground"
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
+              {breadcrumbTags.length > 0 ? (
+                <FolderOpen
+                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                  strokeWidth={1.6}
+                />
+              ) : (
+                <Folder
+                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                  strokeWidth={1.6}
+                />
+              )}
+
+              <div className="h-3 w-px shrink-0 bg-border" />
+
+              <Breadcrumb>
+                <BreadcrumbList className="flex-nowrap items-center text-xs font-medium">
+                  <BreadcrumbItem>
+                    <BreadcrumbLink
+                      onClick={() => {
+                        setBreadcrumbTags([])
+                        setPage(1)
+                        setGroupPage(1)
+                      }}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-1 font-medium transition-colors hover:text-foreground",
+                        breadcrumbTags.length === 0
+                          ? "cursor-default font-semibold text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      <Home
+                        className="h-3.5 w-3.5 text-muted-foreground/80"
                         strokeWidth={1.6}
                       />
-                    ) : (
-                      <Folder
-                        className="h-4 w-4 text-muted-foreground"
-                        strokeWidth={1.6}
-                      />
-                    )}
-                    경로 탐색
-                  </span>
-
-                  <div className="mx-2 hidden h-3 w-px shrink-0 bg-border sm:block" />
-
-                  <Breadcrumb className="flex-1">
-                    <BreadcrumbList className="flex-wrap items-center text-xs font-medium sm:text-xs">
-                      <BreadcrumbItem>
-                        <BreadcrumbLink
-                          onClick={() => {
-                            setBreadcrumbTags([])
-                            setPage(1)
-                            setGroupPage(1)
-                          }}
-                          className={cn(
-                            "flex cursor-pointer items-center gap-1 font-medium transition-colors hover:text-foreground",
-                            breadcrumbTags.length === 0
-                              ? "cursor-default font-semibold text-foreground"
-                              : "text-muted-foreground"
-                          )}
-                        >
-                          <Home
-                            className="h-3.5 w-3.5 text-muted-foreground/80"
-                            strokeWidth={1.6}
-                          />
-                          Home
-                        </BreadcrumbLink>
-                      </BreadcrumbItem>
-                      {breadcrumbTags.map((tag, idx) => {
-                        const isLast = idx === breadcrumbTags.length - 1
-                        return (
-                          <React.Fragment key={tag}>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                              <ContextMenu>
-                                <ContextMenuTrigger asChild>
-                                  {isLast ? (
-                                    <span className="block rounded border border-border/40 bg-muted/60 px-2 py-0.5 text-[11px] leading-none font-semibold text-foreground select-none">
-                                      {tag}
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className="block cursor-pointer font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
-                                      onClick={() => {
-                                        setBreadcrumbTags(
-                                          breadcrumbTags.slice(0, idx + 1)
-                                        )
-                                        setPage(1)
-                                        setGroupPage(1)
-                                      }}
-                                    >
-                                      {tag}
-                                    </span>
-                                  )}
-                                </ContextMenuTrigger>
-                                <ContextMenuContent className="w-44">
-                                  <ContextMenuItem
-                                    onClick={() => {
-                                      setBreadcrumbTags(
-                                        breadcrumbTags.slice(0, idx + 1)
-                                      )
-                                      setPage(1)
-                                      setGroupPage(1)
-                                    }}
-                                    className="gap-2 font-bold"
-                                  >
-                                    <Scissors className="h-3.5 w-3.5" />이
-                                    위치까지 경로 자르기
-                                  </ContextMenuItem>
-                                  <ContextMenuItem
-                                    onClick={() => {
-                                      setBreadcrumbTags(
-                                        breadcrumbTags.filter((_, i) => i !== idx)
-                                      )
-                                      setPage(1)
-                                      setGroupPage(1)
-                                    }}
-                                    className="gap-2 font-bold"
-                                  >
-                                    <Trash2Icon className="h-3.5 w-3.5" />
-                                    경로에서 제거
-                                  </ContextMenuItem>
-                                  <ContextMenuSeparator />
-                                  <ContextMenuItem
-                                    onClick={() => {
-                                      navigator.clipboard
-                                        .writeText(tag)
-                                        .catch(() => {})
-                                    }}
-                                    className="gap-2 font-bold"
-                                  >
-                                    <Copy className="h-3.5 w-3.5" />
-                                    태그명 복사
-                                  </ContextMenuItem>
-                                </ContextMenuContent>
-                              </ContextMenu>
-                            </BreadcrumbItem>
-                          </React.Fragment>
-                        )
-                      })}
-                    </BreadcrumbList>
-                  </Breadcrumb>
-                </div>
-              </div>
-
-              {/* Bottom section: Sub-folders suggestions integrated in a single row */}
-              <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 shadow-2xs sm:flex-row sm:items-center sm:gap-3">
-                {/* Optional sub-tag filtering input - 모바일에서 전체 너비 */}
-                <div className="relative w-full shrink-0 sm:w-40">
-                  <Search
-                    className="absolute top-2.5 left-2.5 h-3.5 w-3.5 text-muted-foreground/80 sm:top-3"
-                    strokeWidth={1.6}
-                  />
-                  <input
-                    type="text"
-                    placeholder="폴더 검색..."
-                    value={subTagQuery}
-                    onChange={(e) => setSubTagQuery(e.target.value)}
-                    onContextMenu={(e) => e.stopPropagation()}
-                    className="h-9 w-full rounded-md border border-input bg-transparent pr-2.5 pl-9 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:h-8"
-                  />
-                </div>
-
-                {/* Vertical Divider - 모바일에서 수평, 데스크탑에서 수직 */}
-                <div className="h-px w-full bg-border sm:h-4 sm:w-px" />
-
-                {nextAvailableTokens.length > 0 ? (
-                  /* 모바일: 가로 스크롤, 데스크탑: flex-wrap + 세로 스크롤 */
-                  <div className="flex flex-1 gap-2 overflow-x-auto sm:max-h-[44px] sm:flex-wrap sm:overflow-x-visible sm:overflow-y-auto">
-                    {nextAvailableTokens
-                      .slice(0, 30)
-                      .map(({ token, count }) => (
-                        <ContextMenu key={token}>
-                          <ContextMenuTrigger asChild>
-                            <button
-                              onClick={() => {
-                                setBreadcrumbTags([...breadcrumbTags, token])
-                                setSubTagQuery("")
-                                setPage(1)
-                                setGroupPage(1)
-                              }}
-                              className="group flex h-9 shrink-0 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95 sm:h-8 sm:gap-2.5 sm:px-3 sm:py-1"
-                            >
-                              <div className="flex items-center gap-1.5 overflow-hidden">
-                                <Folder
-                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
-                                  strokeWidth={1.6}
-                                />
-                                <span className="max-w-[100px] truncate leading-none font-medium text-foreground/80 group-hover:text-foreground sm:max-w-[130px]">
-                                  {token}
+                      Home
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  {breadcrumbTags.map((tag, idx) => {
+                    const isLast = idx === breadcrumbTags.length - 1
+                    return (
+                      <React.Fragment key={tag}>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>
+                              {isLast ? (
+                                <span className="block rounded border border-border/40 bg-muted/60 px-2 py-0.5 text-[11px] leading-none font-semibold text-foreground select-none">
+                                  {tag}
                                 </span>
-                              </div>
-                              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
-                                {count}
+                              ) : (
+                                <span
+                                  className="block cursor-pointer font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
+                                  onClick={() => {
+                                    setBreadcrumbTags(
+                                      breadcrumbTags.slice(0, idx + 1)
+                                    )
+                                    setPage(1)
+                                    setGroupPage(1)
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              )}
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-44">
+                              <ContextMenuItem
+                                onClick={() => {
+                                  setBreadcrumbTags(
+                                    breadcrumbTags.slice(0, idx + 1)
+                                  )
+                                  setPage(1)
+                                  setGroupPage(1)
+                                }}
+                                className="gap-2 font-bold"
+                              >
+                                <Scissors className="h-3.5 w-3.5" />이
+                                위치까지 경로 자르기
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() => {
+                                  setBreadcrumbTags(
+                                    breadcrumbTags.filter((_, i) => i !== idx)
+                                  )
+                                  setPage(1)
+                                  setGroupPage(1)
+                                }}
+                                className="gap-2 font-bold"
+                              >
+                                <Trash2Icon className="h-3.5 w-3.5" />
+                                경로에서 제거
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                onClick={() => {
+                                  navigator.clipboard
+                                    .writeText(tag)
+                                    .catch(() => {})
+                                }}
+                                className="gap-2 font-bold"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                                태그명 복사
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        </BreadcrumbItem>
+                      </React.Fragment>
+                    )
+                  })}
+                </BreadcrumbList>
+              </Breadcrumb>
+
+              <div className="h-3 w-px shrink-0 bg-border" />
+
+              {nextAvailableTokens.length > 0 ? (
+                <div className="flex flex-1 gap-2 overflow-x-auto">
+                  {nextAvailableTokens
+                    .slice(0, 30)
+                    .map(({ token, count }) => (
+                      <ContextMenu key={token}>
+                        <ContextMenuTrigger asChild>
+                          <button
+                            onClick={() => {
+                              setBreadcrumbTags([...breadcrumbTags, token])
+                              setSubTagQuery("")
+                              setPage(1)
+                              setGroupPage(1)
+                            }}
+                            className="group flex h-7 shrink-0 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-card px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95"
+                          >
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                              <Folder
+                                className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
+                                strokeWidth={1.6}
+                              />
+                              <span className="max-w-[100px] truncate leading-none font-medium text-foreground/80 group-hover:text-foreground sm:max-w-[130px]">
+                                {token}
                               </span>
-                            </button>
-                          </ContextMenuTrigger>
-                          <ContextMenuContent className="w-44">
-                            <ContextMenuItem
-                              onClick={() => {
-                                setBreadcrumbTags([token, ...breadcrumbTags])
-                                setSubTagQuery("")
-                                setPage(1)
-                                setGroupPage(1)
-                              }}
-                              className="gap-2 font-bold"
-                            >
-                              <FolderPlus className="h-3.5 w-3.5" />맨 앞에 경로
-                              추가
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem
-                              onClick={() => {
-                                navigator.clipboard
-                                  .writeText(token)
-                                  .catch(() => {})
-                              }}
-                              className="gap-2 font-bold"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                              태그명 복사
-                            </ContextMenuItem>
-                          </ContextMenuContent>
-                        </ContextMenu>
-                      ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 py-1">
-                    {breadcrumbTags.length > 0 ? (
-                      <button
-                        onClick={() => {
-                          setBreadcrumbTags(breadcrumbTags.slice(0, -1))
-                          setPage(1)
-                          setGroupPage(1)
-                        }}
-                        className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground active:scale-95 sm:h-8 sm:w-auto sm:px-3 sm:py-1 sm:text-xs"
-                      >
-                        <ArrowLeft
-                          className="h-4 w-4 shrink-0 text-muted-foreground sm:h-3.5 sm:w-3.5"
-                          strokeWidth={1.6}
-                        />
-                        <span>뒤로 가기</span>
-                      </button>
-                    ) : (
-                      <div className="text-xs font-medium text-muted-foreground">
-                        더 이상 하위 폴더가 없습니다.
-                      </div>
-                    )}
-                  </div>
-                )}
+                            </div>
+                            <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
+                              {count}
+                            </span>
+                          </button>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-44">
+                          <ContextMenuItem
+                            onClick={() => {
+                              setBreadcrumbTags([token, ...breadcrumbTags])
+                              setSubTagQuery("")
+                              setPage(1)
+                              setGroupPage(1)
+                            }}
+                            className="gap-2 font-bold"
+                          >
+                            <FolderPlus className="h-3.5 w-3.5" />맨 앞에 경로
+                            추가
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            onClick={() => {
+                              navigator.clipboard
+                                .writeText(token)
+                                .catch(() => {})
+                            }}
+                            className="gap-2 font-bold"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            태그명 복사
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {breadcrumbTags.length > 0 ? (
+                    <button
+                      onClick={() => {
+                        setBreadcrumbTags(breadcrumbTags.slice(0, -1))
+                        setPage(1)
+                        setGroupPage(1)
+                      }}
+                      className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1 text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground active:scale-95"
+                    >
+                      <ArrowLeft
+                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                        strokeWidth={1.6}
+                      />
+                      <span>뒤로 가기</span>
+                    </button>
+                  ) : (
+                    <div className="text-xs font-medium text-muted-foreground">
+                      더 이상 하위 폴더가 없습니다.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="h-3 w-px shrink-0 bg-border" />
+
+              <div className="relative w-32 shrink-0">
+                <Search
+                  className="absolute top-1 left-2.5 h-3.5 w-3.5 text-muted-foreground/80"
+                  strokeWidth={1.6}
+                />
+                <input
+                  type="text"
+                  placeholder="폴더 검색..."
+                  value={subTagQuery}
+                  onChange={(e) => setSubTagQuery(e.target.value)}
+                  onContextMenu={(e) => e.stopPropagation()}
+                  className="h-7 w-full rounded-md border border-input bg-transparent pr-2.5 pl-8 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                />
               </div>
             </div>
 
