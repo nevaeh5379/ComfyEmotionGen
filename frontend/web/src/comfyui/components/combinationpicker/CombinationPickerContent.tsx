@@ -39,6 +39,7 @@ import type {
   CurationToolbarState,
   CurationViewMode,
 } from "./CurationToolbarTypes"
+import { useCurationToolbar } from "./CurationToolbarTypes"
 import type { FreeGroupBy } from "./freeCurationGroupers"
 
 type ViewMode = CurationViewMode
@@ -91,26 +92,21 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const { selectionMode, selectedFilenames, toggleSelect, exitSelectionMode } =
     selection
 
+  const curationToolbarCtx = useCurationToolbar()
+
   // ── State ──
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null)
-  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">(
-    "hash"
-  )
 
   const exportAction = useAsyncAction(3000)
   const regenAction = useAsyncAction(3000)
 
-  const [hideRejected, setHideRejected] = useState(false)
-  const [autoAdvance, setAutoAdvance] = useState(autoApplyReject)
-
-  const [internalViewMode, setInternalViewMode] = useState<ViewMode>("gallery")
-  // hideTopSection일 때 뷰 모드는 내부에서 관리
+  // hideTopSection일 때 뷰 모드는 context에서 관리
   const viewMode = toolbarState?.hideTopSection
-    ? internalViewMode
-    : (toolbarState?.viewMode ?? internalViewMode)
+    ? curationToolbarCtx.viewMode
+    : (toolbarState?.viewMode ?? curationToolbarCtx.viewMode)
   const setViewMode = toolbarState?.hideTopSection
-    ? setInternalViewMode
-    : (toolbarState?.setViewMode ?? setInternalViewMode)
+    ? curationToolbarCtx.setViewMode
+    : (toolbarState?.setViewMode ?? curationToolbarCtx.setViewMode)
   const [compareImageKeys, setCompareImageKeys] = useState<Set<string>>(
     new Set()
   )
@@ -128,8 +124,6 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   }>({ open: false, filenames: [] })
 
   // 미할당 이미지(고아) 관리 관련 상태
-  const [showUnassignedPanel, setShowUnassignedPanel] = useState(false)
-  const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [unassignedSelectedFilenames, setUnassignedSelectedFilenames] =
     useState<Set<string>>(new Set())
   const [showTrueOrphansOnly, setShowTrueOrphansOnly] = useState(false)
@@ -190,11 +184,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   // 미할당 패널 열릴 때 템플릿 소속 확인 실행
   useEffect(() => {
-    if (showUnassignedPanel && templateAffiliationCache.size === 0) {
+    if (curationToolbarCtx.showUnassignedPanel && templateAffiliationCache.size === 0) {
       checkTemplateAffiliation()
     }
   }, [
-    showUnassignedPanel,
+    curationToolbarCtx.showUnassignedPanel,
     templateAffiliationCache.size,
     checkTemplateAffiliation,
   ])
@@ -274,9 +268,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   // 미할당 패널 닫기
   const closeUnassignedPanel = useCallback(() => {
-    setShowUnassignedPanel(false)
+    curationToolbarCtx.setShowUnassignedPanel(false)
     setUnassignedSelectedFilenames(new Set())
-  }, [])
+  }, [curationToolbarCtx.setShowUnassignedPanel])
 
   const selectedImages = useMemo(
     () =>
@@ -291,9 +285,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const visibleImages = useMemo(
     () =>
       selectedImages.filter(
-        (img) => !hideRejected || img.status !== "rejected"
+        (img) => !curationToolbarCtx.hideRejected || img.status !== "rejected"
       ),
-    [selectedImages, hideRejected]
+    [selectedImages, curationToolbarCtx.hideRejected]
   )
 
   // ── Handlers ──
@@ -314,7 +308,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     async (filename: string, selectedHash: string) => {
       await approveImage(filename, selectedHash)
 
-      if (autoAdvance) {
+      if (curationToolbarCtx.autoAdvance) {
         const currentIdx = renderItems.findIndex(
           (ri) => ri.filename === filename
         )
@@ -326,7 +320,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         if (next) setSelectedFilename(next.filename)
       }
     },
-    [approveImage, autoAdvance, renderItems, imagesByFilename]
+    [approveImage, curationToolbarCtx.autoAdvance, renderItems, imagesByFilename]
   )
 
   const handleExport = useCallback(async () => {
@@ -338,7 +332,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           .map((ri) => ri.filename)
         await curationApi.exportDataset(backendUrl, {
           filenames: approvedFilenames,
-          duplicateStrategy,
+          duplicateStrategy: curationToolbarCtx.duplicateStrategy,
         })
         return approvedFilenames.length
       },
@@ -351,7 +345,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     doneCount,
     renderItems,
     imagesByFilename,
-    duplicateStrategy,
+    curationToolbarCtx.duplicateStrategy,
   ])
 
   const handleContextMenuRegenerate = useCallback(
@@ -495,6 +489,27 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       }
       return next
     })
+  }, [])
+
+  // ── Register toolbar handlers with context ──
+  useEffect(() => {
+    curationToolbarCtx.setExportHandler(handleExport)
+  }, [handleExport, curationToolbarCtx.setExportHandler])
+
+  useEffect(() => {
+    curationToolbarCtx.setRefreshHandler(fetchData)
+  }, [fetchData, curationToolbarCtx.setRefreshHandler])
+
+  useEffect(() => {
+    curationToolbarCtx.setUnassignedGroupsSize(unassignedGroups.size)
+  }, [unassignedGroups.size, curationToolbarCtx.setUnassignedGroupsSize])
+
+  // autoAdvance 초기값을 autoApplyReject prop에서 동기화
+  useEffect(() => {
+    if (autoApplyReject) {
+      curationToolbarCtx.setAutoAdvance(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── Keyboard Handler ──
@@ -646,18 +661,18 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         onViewModeChange={handleTabChange}
         selectedFilename={selectedFilename}
         compareImageCount={compareImageCount}
-        filtersExpanded={filtersExpanded}
-        setFiltersExpanded={setFiltersExpanded}
-        hideRejected={hideRejected}
-        setHideRejected={setHideRejected}
-        autoAdvance={autoAdvance}
-        setAutoAdvance={setAutoAdvance}
-        duplicateStrategy={duplicateStrategy}
-        setDuplicateStrategy={setDuplicateStrategy}
+        filtersExpanded={curationToolbarCtx.filtersExpanded}
+        setFiltersExpanded={curationToolbarCtx.setFiltersExpanded}
+        hideRejected={curationToolbarCtx.hideRejected}
+        setHideRejected={curationToolbarCtx.setHideRejected}
+        autoAdvance={curationToolbarCtx.autoAdvance}
+        setAutoAdvance={curationToolbarCtx.setAutoAdvance}
+        duplicateStrategy={curationToolbarCtx.duplicateStrategy}
+        setDuplicateStrategy={curationToolbarCtx.setDuplicateStrategy}
         unassignedGroupsSize={unassignedGroups.size}
         unassignedTotalCount={unassignedTotalCount}
-        showUnassignedPanel={showUnassignedPanel}
-        setShowUnassignedPanel={setShowUnassignedPanel}
+        showUnassignedPanel={curationToolbarCtx.showUnassignedPanel}
+        setShowUnassignedPanel={curationToolbarCtx.setShowUnassignedPanel}
         handleBulkRegenerate={handleBulkRegenerate}
         bulkRegenActionMessage={bulkRegenAction.message}
         handleBulkDownload={handleBulkDownload}
@@ -676,7 +691,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       {/* ── Scrollable Content ── */}
       <div className="flex-1 p-4">
         {/* 미할당 이미지 관리 패널 */}
-        {showUnassignedPanel && !isFreeMode && (
+        {curationToolbarCtx.showUnassignedPanel && !isFreeMode && (
           <CombinationPickerUnassignedPanel
             filteredUnassignedGroups={filteredUnassignedGroups}
             templateAffiliationCache={templateAffiliationCache}

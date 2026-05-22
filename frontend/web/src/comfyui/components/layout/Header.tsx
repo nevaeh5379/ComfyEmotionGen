@@ -7,6 +7,7 @@ import {
   FilterIcon,
   MoreVertical,
   RefreshCwIcon,
+  Settings2Icon,
   DownloadIcon,
   Trash2Icon,
   Sun,
@@ -39,6 +40,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -70,6 +72,7 @@ import {
   encodeAxis,
   type FreeGroupBy,
 } from "../combinationpicker/freeCurationGroupers"
+import { useCurationToolbar } from "../combinationpicker/CurationToolbarTypes"
 import { usePanelLayout } from "../../contexts/PanelLayoutContext"
 import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
 import { NAV_TABS, type TabId } from "./nav-tabs"
@@ -101,11 +104,6 @@ interface HeaderProps {
   setIsAxisFilterOpen: (v: boolean) => void
   setIsGraphOpen: (v: boolean) => void
 
-  // Curation specific
-  curationSelectedAxis: string
-  setCurationSelectedAxis: (v: string) => void
-  savedTemplates: { id: string; name: string }[]
-
   // Session / Job controls props (lifted)
   sessionMarkers?: SessionMarker[]
   sessionJobCounts?: Map<string, number>
@@ -133,6 +131,7 @@ export function Header(props: HeaderProps) {
   const { theme, setTheme } = useTheme()
   const panel = usePanelLayout()
   const tb = useGalleryToolbar()
+  const curToolbar = useCurationToolbar()
 
   const tabDragRef = useRef<{
     tabId: "stats" | "curation" | "gallery"
@@ -1089,14 +1088,13 @@ export function Header(props: HeaderProps) {
               </DropdownMenu>
             </div>
           )}
-          {/* Curation toolbar (merged into nav) */}
+          {/* Curation toolbar — desktop (hidden on mobile) */}
           {props.activeTab === "curation" && (
-            <div ref={curationToolbarRef} className="flex items-center gap-1.5">
+            <div ref={curationToolbarRef} className="hidden items-center gap-1.5 md:flex">
               <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-              {/* Classification axis selector (template + free axes unified) */}
               <Select
-                value={props.curationSelectedAxis}
-                onValueChange={(v) => props.setCurationSelectedAxis(v)}
+                value={curToolbar.selectedAxis}
+                onValueChange={(v) => curToolbar.setSelectedAxis(v)}
               >
                 <SelectTrigger className="!h-7 w-[150px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[200px] hidden md:inline-flex">
                   <SelectValue />
@@ -1115,7 +1113,7 @@ export function Header(props: HeaderProps) {
                     >
                       현재 편집 중인 템플릿
                     </SelectItem>
-                    {props.savedTemplates.map((t) => (
+                    {curToolbar.savedTemplates.map((t) => (
                       <SelectItem
                         key={t.id}
                         value={encodeAxis({
@@ -1147,6 +1145,169 @@ export function Header(props: HeaderProps) {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Curation toolbar — mobile (hidden on desktop) */}
+          {props.activeTab === "curation" && (
+            <div className="flex items-center gap-1 md:hidden">
+              <Select
+                value={curToolbar.selectedAxis}
+                onValueChange={(v) => curToolbar.setSelectedAxis(v)}
+              >
+                <SelectTrigger className="!h-7 w-[120px] border-line bg-background px-1.5 !py-1 text-[10px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] text-muted-foreground">
+                      템플릿
+                    </SelectLabel>
+                    <SelectItem
+                      value={encodeAxis({
+                        kind: "template",
+                        templateId: CURRENT_TEMPLATE_ID,
+                      })}
+                      className="text-[11px] font-bold"
+                    >
+                      현재 편집 중
+                    </SelectItem>
+                    {curToolbar.savedTemplates.map((t) => (
+                      <SelectItem
+                        key={t.id}
+                        value={encodeAxis({
+                          kind: "template",
+                          templateId: t.id,
+                        })}
+                        className="text-[11px] font-bold"
+                      >
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectSeparator />
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] text-muted-foreground">
+                      기타 분류
+                    </SelectLabel>
+                    {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
+                      (mode) => (
+                        <SelectItem
+                          key={mode}
+                          value={encodeAxis({ kind: "free", mode })}
+                          className="text-[11px] font-bold"
+                        >
+                          {FREE_GROUP_LABELS[mode]}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={curToolbar.viewMode}
+                onValueChange={(v) =>
+                  curToolbar.setViewMode(
+                    v as "gallery" | "table" | "grid" | "compare" | "tournament"
+                  )
+                }
+              >
+                <SelectTrigger className="!h-7 w-[84px] border-line bg-background px-1.5 !py-1 text-[10px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gallery" className="text-[11px] font-bold">
+                    갤러리
+                  </SelectItem>
+                  <SelectItem value="table" className="text-[11px] font-bold">
+                    테이블
+                  </SelectItem>
+                  <SelectItem value="grid" className="text-[11px] font-bold">
+                    그리드
+                  </SelectItem>
+                  <SelectItem value="compare" className="text-[11px] font-bold">
+                    비교
+                  </SelectItem>
+                  <SelectItem value="tournament" className="text-[11px] font-bold">
+                    토너
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                size="sm"
+                variant={curToolbar.filtersExpanded ? "secondary" : "outline"}
+                className="!h-7 !w-7 shrink-0 p-0"
+                onClick={() =>
+                  curToolbar.setFiltersExpanded(!curToolbar.filtersExpanded)
+                }
+              >
+                <FilterIcon className="h-3.5 w-3.5" />
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="!h-7 !w-7 shrink-0 p-0"
+                onClick={curToolbar.handleExport}
+              >
+                <DownloadIcon className="h-3.5 w-3.5" />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="!h-7 !w-7 shrink-0 p-0">
+                    <Settings2Icon className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 p-2">
+                  <DropdownMenuCheckboxItem
+                    checked={curToolbar.hideRejected}
+                    onCheckedChange={(v) => curToolbar.setHideRejected(v)}
+                    className="text-[12px] font-bold"
+                  >
+                    리젝 숨기기
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={curToolbar.autoAdvance}
+                    onCheckedChange={(v) => curToolbar.setAutoAdvance(v)}
+                    className="text-[12px] font-bold"
+                  >
+                    자동 다음 이동
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="text-[12px] font-bold">
+                      중복 전략: {curToolbar.duplicateStrategy === "hash" ? "HASH" : "NUM"}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="w-24 p-1">
+                        <DropdownMenuItem
+                          onClick={() => curToolbar.setDuplicateStrategy("hash")}
+                          className="text-[12px] font-bold"
+                        >
+                          HASH
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => curToolbar.setDuplicateStrategy("number")}
+                          className="text-[12px] font-bold"
+                        >
+                          NUM
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={curToolbar.onRefresh}
+                    className="text-[12px] font-bold"
+                  >
+                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
+                    새로고침
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>

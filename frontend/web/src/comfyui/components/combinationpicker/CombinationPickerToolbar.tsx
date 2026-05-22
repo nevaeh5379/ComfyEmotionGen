@@ -172,8 +172,8 @@ export function CombinationPickerToolbar({
         { "--toolbar-height": `${toolbarHeight}px` } as React.CSSProperties
       }
     >
-      {/* 메인 툴바: 1 줄 (모바일에서는 줄바꿈 허용) */}
-      <div className="flex flex-wrap items-center gap-2 border-b bg-muted/5 px-4 py-2 md:gap-3">
+      {/* 메인 툴바: 모바일에서는 헤더로 이동했으므로 숨김 */}
+      <div className="hidden flex-wrap items-center gap-2 border-b bg-muted/5 px-4 py-2 md:flex md:gap-3">
         {/* 분류 축 선택 (hideTopSection일 때 숨김) */}
         {!hideTopSection && (
           <>
@@ -484,44 +484,44 @@ export function CombinationPickerToolbar({
           </LoadingButton>
         </div>
 
-        {/* 선택 모드 (인라인) */}
-        {selectionMode && (
-          <>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-1.5 rounded-md border border-blue-300 bg-blue-50/60 px-2 py-0.5">
-              <span className="text-[10px] font-bold text-blue-700">
-                {selectedFilenames.size}개
-              </span>
-              <Button
-                size="sm"
-                className="h-6 px-1.5 text-[9px] font-bold"
-                onClick={handleBulkRegenerate}
-                disabled={selectedFilenames.size === 0}
-              >
-                <RefreshCwIcon className="h-2.5 w-2.5" />
-                재생성
-              </Button>
-              <Button
-                size="sm"
-                className="h-6 px-1.5 text-[9px] font-bold"
-                onClick={handleBulkDownload}
-                disabled={selectedFilenames.size === 0 || bulkDownloadIsLoading}
-              >
-                <DownloadIcon className="h-2.5 w-2.5" />
-                다운로드
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-1 text-[9px] font-bold text-muted-foreground"
-                onClick={exitSelectionMode}
-              >
-                <XIcon className="h-2.5 w-2.5" />
-              </Button>
-            </div>
-          </>
-        )}
       </div>
+
+      {/* 선택 모드 (인라인) — 메인 툴바 밖으로 분리, 모바일에서도 항상 표시 */}
+      {selectionMode && (
+        <div className="flex items-center gap-1.5 border-b bg-muted/5 px-4 py-2">
+          <div className="flex items-center gap-1.5 rounded-md border border-blue-300 bg-blue-50/60 px-2 py-0.5">
+            <span className="text-[10px] font-bold text-blue-700">
+              {selectedFilenames.size}개
+            </span>
+            <Button
+              size="sm"
+              className="h-6 px-1.5 text-[9px] font-bold"
+              onClick={handleBulkRegenerate}
+              disabled={selectedFilenames.size === 0}
+            >
+              <RefreshCwIcon className="h-2.5 w-2.5" />
+              재생성
+            </Button>
+            <Button
+              size="sm"
+              className="h-6 px-1.5 text-[9px] font-bold"
+              onClick={handleBulkDownload}
+              disabled={selectedFilenames.size === 0 || bulkDownloadIsLoading}
+            >
+              <DownloadIcon className="h-2.5 w-2.5" />
+              다운로드
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1 text-[9px] font-bold text-muted-foreground"
+              onClick={exitSelectionMode}
+            >
+              <XIcon className="h-2.5 w-2.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 메시지 영역 (툴바 아래 고정 높이 방지 위해 절대 위치 지양) */}
       {(exportActionMessage ||

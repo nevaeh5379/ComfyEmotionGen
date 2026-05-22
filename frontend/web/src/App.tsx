@@ -33,6 +33,7 @@ import { SavedImagesGallery } from "./comfyui/components/SavedImagesGallery"
 import { useGlobalShortcuts } from "./comfyui/hooks/useGlobalShortcuts"
 import { CombinationPicker } from "./comfyui/components/combinationpicker/CombinationPicker"
 import { DEFAULT_AXIS } from "./comfyui/components/combinationpicker/freeCurationGroupers"
+import { CurationToolbarProvider } from "./comfyui/components/combinationpicker/CurationToolbarTypes"
 import { WorkflowGraphViewer } from "./comfyui/components/WorkflowGraphViewer"
 import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
@@ -1121,6 +1122,11 @@ function AppContent() {
         activeTab === "jobs" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
       }`}
     >
+      <CurationToolbarProvider
+        selectedAxis={curationSelectedAxis}
+        setSelectedAxis={setCurationSelectedAxis}
+        savedTemplates={template.savedTemplates}
+      >
       <Header
         useWindowMode={settings.useWindowMode}
         activeTab={activeTab}
@@ -1145,9 +1151,6 @@ function AppContent() {
         hasActiveFilter={hasActiveFilter}
         setIsAxisFilterOpen={setIsAxisFilterOpen}
         setIsGraphOpen={setIsGraphOpen}
-        curationSelectedAxis={curationSelectedAxis}
-        setCurationSelectedAxis={setCurationSelectedAxis}
-        savedTemplates={template.savedTemplates}
         onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
         onCurationDragStart={(cx, cy) =>
           handleNavTabDragStart("curation", cx, cy)
@@ -2272,6 +2275,7 @@ function AppContent() {
           </div>
         </div>
       )}
+    </CurationToolbarProvider>
     </div>
   )
 }
