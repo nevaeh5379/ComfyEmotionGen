@@ -1,10 +1,28 @@
-import { useState, useEffect, useMemo } from "react"
-import { Sparkles, Copy, Download, Check, Save, ArrowRight } from "lucide-react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import {
+  Sparkles,
+  Copy,
+  Download,
+  Check,
+  Save,
+  ArrowRight,
+  FileCode2,
+  ChevronDown,
+  ChevronUp,
+  BookTemplate,
+  Pencil,
+  Clock,
+  Package,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import CodeEditor from "@/components/CodeEditor"
 import { useTemplateContext } from "../contexts/TemplateContext"
 
@@ -15,10 +33,6 @@ interface TemplateItem {
   code: string
   savedAt?: number
 }
-
-
-
-
 
 export function TemplateGeneratorPanel({
   setActiveTab,
@@ -34,6 +48,8 @@ export function TemplateGeneratorPanel({
   const [saveName, setSaveName] = useState<string>("")
   const [copied, setCopied] = useState(false)
   const [systemTemplates, setSystemTemplates] = useState<TemplateItem[]>([])
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(true)
+  const previewRef = useRef<HTMLDivElement>(null)
 
   // 시스템 templates 폴더에서 템플릿 목록 로드
   useEffect(() => {
@@ -69,6 +85,17 @@ export function TemplateGeneratorPanel({
     }))
     return [...customItems, ...systemTemplates]
   }, [savedTemplates, systemTemplates])
+
+  // 카테고리 그룹화
+  const groupedTemplates = useMemo(() => {
+    const groups: Record<string, TemplateItem[]> = {}
+    for (const tmpl of combinedTemplates) {
+      const cat = tmpl.category || "기타"
+      if (!groups[cat]) groups[cat] = []
+      groups[cat]!.push(tmpl)
+    }
+    return groups
+  }, [combinedTemplates])
 
   // 목록 갱신 시 안전한 초기 선택 처리
   useEffect(() => {
@@ -106,8 +133,6 @@ export function TemplateGeneratorPanel({
       [name]: value
     }))
   }
-
-
 
   // 사용자 입력을 반영한 DSL 최종 코드 생성
   const generatedCode = useMemo(() => {
@@ -165,179 +190,342 @@ export function TemplateGeneratorPanel({
     toast.success("다운로드가 완료되었습니다.")
   }
 
+  const categoryLabel = (cat: string) => {
+    if (cat === "saved") return "내 저장"
+    return cat
+  }
+
+  const categoryIcon = (cat: string) => {
+    if (cat === "saved") return <BookTemplate className="h-3 w-3" />
+    return <Package className="h-3 w-3" />
+  }
+
+  const varCount = Object.keys(variables).length
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background">
-      <div className="grid h-full grid-cols-1 md:grid-cols-12 overflow-hidden">
-        
-        {/* 왼쪽 영역: 템플릿 선택 및 변수 치환 폼 */}
-        <div className="col-span-1 md:col-span-5 flex flex-col border-r border-line overflow-y-auto p-4 md:p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
-              <Sparkles className="h-5 w-5 text-primary" />
+      {/* 전체 스크롤 영역 */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-8 space-y-6">
+
+          {/* 헤더 */}
+          <div className="space-y-1">
+            <h1 className="text-xl font-black tracking-tight flex items-center gap-2.5 text-foreground">
+              <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 shrink-0">
+                <Sparkles className="h-4.5 w-4.5 text-primary" />
+              </span>
               템플릿 생성기
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            </h1>
+            <p className="text-sm text-muted-foreground leading-relaxed pl-[42px]">
               기존에 작성해 둔 템플릿을 골라 캐릭터 속성값을 손쉽게 치환하고 조합을 생성합니다.
             </p>
           </div>
 
-          {/* 템플릿 목록 */}
-          <div className="space-y-2.5">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              대상 템플릿 선택
-            </Label>
-            
-            {combinedTemplates.length === 0 ? (
-              <div className="p-4 rounded-xl border border-line bg-panel-2/30 text-center">
-                <p className="text-xs text-muted-foreground italic">선택 가능한 템플릿이 없습니다.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto pr-1">
-                {combinedTemplates.map((tmpl) => (
-                  <button
-                    key={tmpl.id}
-                    onClick={() => setSelectedTemplateId(tmpl.id)}
-                    className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all duration-200 ${
-                      selectedTemplateId === tmpl.id
-                        ? "bg-muted/70 border-primary/70 shadow-sm"
-                        : "bg-panel/40 border-line hover:border-muted-foreground/30 hover:bg-muted/20"
-                    }`}
-                  >
-                    <span className="font-bold text-sm text-foreground truncate max-w-[200px]">
-                      {tmpl.name}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground shrink-0 font-medium">
-                      {tmpl.category === "saved" && tmpl.savedAt
-                        ? new Date(tmpl.savedAt).toLocaleDateString()
-                        : "기본"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <Separator />
 
-          {/* 변수 치환 입력 필드 */}
-          <div className="space-y-4 pt-2 border-t border-line/60">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-              태그 입력
-            </Label>
-            
-            {!activeTemplate ? (
-              <p className="text-xs text-muted-foreground italic">템플릿을 선택하면 변수가 자동으로 노출됩니다.</p>
-            ) : Object.keys(variables).length === 0 ? (
-              <div className="p-3.5 rounded-lg border border-dashed border-line bg-muted/10 text-center">
-                <p className="text-xs text-muted-foreground leading-normal">
-                  선택한 템플릿 내에 치환 가능한 캐릭터 변수가 정의되어 있지 않습니다.
-                </p>
+          {/* ────── Step 1 & 2: 데스크탑에서 2열, 모바일에서 세로 ────── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+
+            {/* ── 왼쪽: 템플릿 선택 ── */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center h-5 w-5 rounded-md bg-muted text-[10px] font-black text-muted-foreground">
+                  1
+                </span>
+                <h2 className="text-sm font-bold text-foreground">대상 템플릿 선택</h2>
+                {activeTemplate && (
+                  <Badge variant="secondary" className="text-[10px] ml-auto">
+                    {combinedTemplates.length}개
+                  </Badge>
+                )}
               </div>
-            ) : (
-              <div className="space-y-3.5">
-                {Object.entries(variables).map(([name, val]) => (
-                  <div key={name} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={`var-${name}`} className="text-xs font-bold text-foreground">
-                        {name === "character" ? "캐릭터 기본 태그 (character)" : name}
-                      </Label>
-                      <span className="text-[10px] text-muted-foreground mono font-medium">
-                        {"{{" + name + "}}"}
-                      </span>
+
+              {combinedTemplates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 rounded-xl border border-dashed border-line bg-muted/10">
+                  <FileCode2 className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-xs text-muted-foreground italic">선택 가능한 템플릿이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-line bg-card/30 overflow-hidden">
+                  <ScrollArea className="max-h-[320px]">
+                    <div className="p-1.5 space-y-3">
+                      {Object.entries(groupedTemplates).map(([category, templates]) => (
+                        <div key={category}>
+                          {/* 카테고리 헤더 */}
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">{categoryIcon(category)}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                              {categoryLabel(category)}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                              {templates.length}
+                            </span>
+                          </div>
+
+                          {/* 템플릿 아이템 */}
+                          <div className="space-y-0.5">
+                            {templates.map((tmpl) => {
+                              const isActive = selectedTemplateId === tmpl.id
+                              return (
+                                <button
+                                  key={tmpl.id}
+                                  onClick={() => setSelectedTemplateId(tmpl.id)}
+                                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150 group ${
+                                    isActive
+                                      ? "bg-primary/8 border border-primary/30 shadow-sm"
+                                      : "border border-transparent hover:bg-muted/40"
+                                  }`}
+                                >
+                                  {/* 선택 인디케이터 */}
+                                  <div className={`h-2 w-2 rounded-full shrink-0 transition-colors duration-150 ${
+                                    isActive
+                                      ? "bg-primary shadow-[0_0_6px_var(--primary)]"
+                                      : "bg-line group-hover:bg-muted-foreground/40"
+                                  }`} />
+
+                                  {/* 이름 */}
+                                  <span className={`flex-1 text-sm truncate transition-colors duration-150 ${
+                                    isActive ? "font-bold text-foreground" : "font-medium text-foreground/80 group-hover:text-foreground"
+                                  }`}>
+                                    {tmpl.name}
+                                  </span>
+
+                                  {/* 날짜 또는 기본 태그 */}
+                                  {tmpl.category === "saved" && tmpl.savedAt ? (
+                                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground/70 shrink-0">
+                                      <Clock className="h-2.5 w-2.5" />
+                                      {new Date(tmpl.savedAt).toLocaleDateString()}
+                                    </span>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 opacity-60">
+                                      기본
+                                    </Badge>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <Input
-                      id={`var-${name}`}
-                      value={val}
-                      onChange={(e) => handleVariableChange(name, e.target.value)}
-                      placeholder={`${name} 값을 입력하세요...`}
-                      className="bg-panel/50 border-line rounded-lg text-sm"
-                    />
-                  </div>
-                ))}
+                  </ScrollArea>
+                </div>
+              )}
+            </section>
+
+            {/* ── 오른쪽: 변수 치환 입력 ── */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center h-5 w-5 rounded-md bg-muted text-[10px] font-black text-muted-foreground">
+                  2
+                </span>
+                <h2 className="text-sm font-bold text-foreground">태그 입력</h2>
+                {varCount > 0 && (
+                  <Badge variant="secondary" className="text-[10px] ml-auto">
+                    {varCount}개 변수
+                  </Badge>
+                )}
               </div>
-            )}
+
+              {!activeTemplate ? (
+                <div className="flex flex-col items-center justify-center py-10 rounded-xl border border-dashed border-line bg-muted/10">
+                  <Pencil className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-xs text-muted-foreground italic">
+                    템플릿을 선택하면 변수가 자동으로 노출됩니다.
+                  </p>
+                </div>
+              ) : varCount === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 rounded-xl border border-dashed border-line bg-muted/10">
+                  <Pencil className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-xs text-muted-foreground leading-relaxed text-center px-4">
+                    선택한 템플릿 내에 치환 가능한<br />캐릭터 변수가 정의되어 있지 않습니다.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-line bg-card/30 overflow-hidden">
+                  <ScrollArea className="max-h-[320px]">
+                    <div className="p-3 space-y-2.5">
+                      {Object.entries(variables).map(([name, val], idx) => (
+                        <div
+                          key={name}
+                          className="rounded-lg bg-muted/20 border border-line/60 p-3 space-y-2 transition-colors hover:bg-muted/30"
+                        >
+                          <div className="flex items-center justify-between">
+                            <Label
+                              htmlFor={`var-${name}`}
+                              className="text-xs font-bold text-foreground flex items-center gap-1.5"
+                            >
+                              <span className="inline-flex items-center justify-center h-4 w-4 rounded bg-primary/10 text-primary text-[9px] font-black shrink-0">
+                                {idx + 1}
+                              </span>
+                              {name === "character" ? "캐릭터 기본 태그" : name}
+                            </Label>
+                            <span className="text-[9px] text-muted-foreground/60 mono font-medium bg-muted/60 rounded px-1.5 py-0.5">
+                              {"{{" + name + "}}"}
+                            </span>
+                          </div>
+                          <Input
+                            id={`var-${name}`}
+                            value={val}
+                            onChange={(e) => handleVariableChange(name, e.target.value)}
+                            placeholder={`${name} 값을 입력하세요...`}
+                            className="bg-background/60 border-line/80 rounded-lg text-sm h-9"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </section>
           </div>
 
-        </div>
-
-        {/* 오른쪽 영역: 실시간 코드 미리보기 및 연동 제어 */}
-        <div className="col-span-1 md:col-span-7 flex flex-col overflow-hidden bg-panel-2/20">
-          
-          <div className="flex items-center justify-between border-b border-line bg-muted/30 px-4 py-3 shrink-0">
+          {/* ────── Step 3: 코드 미리보기 (접기/펼치기) ────── */}
+          <section className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-ok animate-pulse" />
-              <span className="text-xs font-bold text-muted-foreground">코드 미리보기</span>
-            </div>
-            
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCopy}
-                disabled={!generatedCode}
-                className="h-8 px-2.5 text-xs text-muted-foreground hover:bg-background/80"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 mr-1 text-ok" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
-                복사
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDownload}
-                disabled={!generatedCode}
-                className="h-8 px-2.5 text-xs text-muted-foreground hover:bg-background/80"
-              >
-                <Download className="h-3.5 w-3.5 mr-1" />
-                다운로드
-              </Button>
-            </div>
-          </div>
+              <span className="inline-flex items-center justify-center h-5 w-5 rounded-md bg-muted text-[10px] font-black text-muted-foreground">
+                3
+              </span>
+              <h2 className="text-sm font-bold text-foreground">코드 미리보기</h2>
 
-          <div className="flex-1 min-h-0 relative">
-            <CodeEditor
-              language="ceg"
-              value={generatedCode}
-              onChange={() => {}}
-              minHeight="100%"
-              bareWrapper
-              className="h-full w-full"
-            />
-          </div>
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* 복사 */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopy}
+                      disabled={!generatedCode}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    >
+                      {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>복사</TooltipContent>
+                </Tooltip>
 
-          {/* 저장 및 적용 제어 하단 툴바 */}
-          <div className="border-t border-line bg-muted/30 p-4 shrink-0 space-y-3">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <div className="flex-1">
-                <Input
-                  value={saveName}
-                  onChange={(e) => setSaveName(e.target.value)}
-                  disabled={!generatedCode}
-                  placeholder="저장할 템플릿 이름 입력..."
-                  className="bg-panel border-line rounded-lg text-xs h-9"
+                {/* 다운로드 */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDownload}
+                      disabled={!generatedCode}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>다운로드</TooltipContent>
+                </Tooltip>
+
+                <Separator orientation="vertical" className="h-4 mx-1" />
+
+                {/* 접기/펼치기 */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsPreviewExpanded((v) => !v)}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                >
+                  {isPreviewExpanded ? (
+                    <>
+                      접기
+                      <ChevronUp className="h-3 w-3" />
+                    </>
+                  ) : (
+                    <>
+                      펼치기
+                      <ChevronDown className="h-3 w-3" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div
+              ref={previewRef}
+              className={`rounded-xl border border-line overflow-hidden transition-all duration-300 ease-in-out ${
+                isPreviewExpanded ? "opacity-100" : "max-h-0 opacity-0 border-0 !mt-0"
+              }`}
+              style={isPreviewExpanded ? { maxHeight: "500px" } : undefined}
+            >
+              {/* 에디터 상태 바 */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-line/60">
+                <div className="flex gap-1">
+                  <div className="h-2 w-2 rounded-full bg-bad/60" />
+                  <div className="h-2 w-2 rounded-full bg-warn/60" />
+                  <div className="h-2 w-2 rounded-full bg-ok/60" />
+                </div>
+                <span className="text-[10px] font-medium text-muted-foreground/70 ml-1">
+                  {activeTemplate?.name || "코드"}.template
+                </span>
+                {generatedCode && (
+                  <span className="text-[10px] text-muted-foreground/50 ml-auto mono">
+                    {generatedCode.split("\n").length} lines
+                  </span>
+                )}
+              </div>
+
+              <div className="h-[280px] md:h-[320px]">
+                <CodeEditor
+                  language="ceg"
+                  value={generatedCode}
+                  onChange={() => {}}
+                  minHeight="100%"
+                  bareWrapper
+                  className="h-full w-full"
                 />
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSaveAsPreset}
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      {/* ────── 하단 고정 액션 바 ────── */}
+      <div className="shrink-0 border-t border-line bg-muted/20 backdrop-blur-sm">
+        <div className="mx-auto w-full max-w-5xl px-4 py-3 md:px-8">
+          <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
+            {/* 저장 영역 */}
+            <div className="flex flex-1 items-center gap-2 min-w-0">
+              <Input
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
                 disabled={!generatedCode}
-                className="h-9 px-4 text-xs font-semibold shrink-0 gap-1.5 rounded-lg border-line hover:bg-background"
-              >
-                <Save className="h-3.5 w-3.5" />
-                템플릿 저장
-              </Button>
+                placeholder="저장할 템플릿 이름 입력..."
+                className="bg-background border-line rounded-lg text-xs h-9 flex-1 min-w-0"
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveAsPreset}
+                    disabled={!generatedCode}
+                    className="h-9 px-3 text-xs font-semibold shrink-0 gap-1.5 rounded-lg border-line hover:bg-background"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">템플릿 저장</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>현재 코드를 템플릿으로 저장</TooltipContent>
+              </Tooltip>
             </div>
 
+            {/* 적용 버튼 */}
             <Button
               onClick={handleApplyToEditor}
               disabled={!generatedCode}
-              className="w-full h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/95 rounded-xl shadow-sm flex items-center justify-center gap-2 group transition-all duration-200 text-xs"
+              className="h-9 sm:h-9 px-5 font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg shadow-sm flex items-center justify-center gap-2 group transition-all duration-200 text-xs shrink-0"
             >
-              작업 탭 에디터에 적용하기
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 duration-200" />
+              작업 탭 에디터에 적용
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 duration-200" />
             </Button>
           </div>
-
         </div>
-
       </div>
     </div>
   )
