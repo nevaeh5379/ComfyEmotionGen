@@ -10,6 +10,8 @@ import {
   Pencil,
   Search,
   AlertCircle,
+  Sliders,
+  Code,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -93,6 +95,7 @@ export function TemplateGeneratorPanel({
   const [prevActiveTemplateId, setPrevActiveTemplateId] = useState<
     string | null
   >(null)
+  const [mobileSubTab, setMobileSubTab] = useState<"settings" | "editor" | "results">("settings")
 
   // 시스템 templates 폴더에서 템플릿 목록 로드
   useEffect(() => {
@@ -389,44 +392,515 @@ export function TemplateGeneratorPanel({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background">
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel
-          defaultSize={65}
-          minSize={40}
-          className="flex flex-col overflow-y-auto"
-        >
-          <div className="space-y-4 p-4">
-            {/* ── Step 1: 대상 템플릿 선택 ── */}
-            <section>
-              <button
-                type="button"
-                onClick={() => setIsSection1Expanded((v) => !v)}
-                className="flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:bg-muted/50"
-              >
-                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-black text-muted-foreground">
-                  1
-                </span>
-                <h2 className="text-sm font-bold text-foreground">
-                  대상 템플릿 선택
-                </h2>
-                <ChevronDown
-                  className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                    isSection1Expanded ? "rotate-180" : ""
+      {/* 데스크탑 뷰: 기존 좌우 2단 분할 Resizable 패널 */}
+      <div className="hidden md:flex min-h-0 flex-1">
+        <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+          <ResizablePanel
+            defaultSize={65}
+            minSize={40}
+            className="flex flex-col overflow-y-auto"
+          >
+            <div className="space-y-4 p-4">
+              {/* ── Step 1: 대상 템플릿 선택 ── */}
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setIsSection1Expanded((v) => !v)}
+                  className="flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:bg-muted/50"
+                >
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-black text-muted-foreground">
+                    1
+                  </span>
+                  <h2 className="text-sm font-bold text-foreground">
+                    대상 템플릿 선택
+                  </h2>
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                      isSection1Expanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    isSection1Expanded
+                      ? "mt-2 opacity-100"
+                      : "mt-0 max-h-0 opacity-0"
                   }`}
-                />
-              </button>
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  isSection1Expanded
-                    ? "mt-2 opacity-100"
-                    : "mt-0 max-h-0 opacity-0"
-                }`}
-              >
+                >
+                  <Select
+                    value={effectiveSelectedTemplateId}
+                    onValueChange={(v) => setSelectedTemplateId(v)}
+                  >
+                    <SelectTrigger className="h-9 w-full rounded-lg border-line bg-background text-sm">
+                      <SelectValue placeholder="템플릿을 선택하세요..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(groupedTemplates).map(
+                        ([category, templates]) => (
+                          <SelectGroup key={category}>
+                            <SelectLabel className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                              {categoryLabel(category)}
+                            </SelectLabel>
+                            {templates.map((tmpl) => (
+                              <SelectItem key={tmpl.id} value={tmpl.id}>
+                                {tmpl.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </section>
+
+              {/* ── Step 2: 태그 입력 (변수 치환) ── */}
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setIsSection2Expanded((v) => !v)}
+                  className="flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:bg-muted/50"
+                >
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-black text-muted-foreground">
+                    2
+                  </span>
+                  <h2 className="text-sm font-bold text-foreground">태그 입력</h2>
+                  {varCount > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-[10px]">
+                      {varCount}개 변수
+                    </Badge>
+                  )}
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                      isSection2Expanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    isSection2Expanded
+                      ? "mt-2 opacity-100"
+                      : "mt-0 max-h-0 opacity-0"
+                  }`}
+                >
+                  {!activeTemplate ? (
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-muted/10 py-10">
+                      <Pencil className="mb-2 h-8 w-8 text-muted-foreground/40" />
+                      <p className="text-xs text-muted-foreground italic">
+                        템플릿을 선택하면 변수가 자동으로 노출됩니다.
+                      </p>
+                    </div>
+                  ) : varCount === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-muted/10 py-10">
+                      <Pencil className="mb-2 h-8 w-8 text-muted-foreground/40" />
+                      <p className="px-4 text-center text-xs leading-relaxed text-muted-foreground">
+                        선택한 템플릿 내에 치환 가능한
+                        <br />
+                        캐릭터 변수가 정의되어 있지 않습니다.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-xl border border-line bg-card/30">
+                      <ScrollArea className="max-h-[320px]">
+                        <div className="space-y-2.5 p-3">
+                          {variables.map((v, idx) => (
+                            <div
+                              key={v.id}
+                              className="space-y-2.5 rounded-lg border border-line/60 bg-muted/20 p-3 transition-colors hover:bg-muted/30"
+                            >
+                              <div className="flex items-center justify-between">
+                                <Label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                                  <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary/10 text-[9px] font-black text-primary">
+                                    {idx + 1}
+                                  </span>
+                                  {v.originalName === "character"
+                                    ? "캐릭터 기본 태그 정의"
+                                    : `${v.originalName} 변수 정의`}
+                                </Label>
+                                <span className="mono rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/60">
+                                  {"{{" + v.name + "}}"}
+                                </span>
+                              </div>
+
+                              <div className="flex gap-2">
+                                {/* 변수명 인풋 */}
+                                <div className="w-1/3 space-y-1">
+                                  <span className="text-[9px] font-bold text-muted-foreground">
+                                    변수명
+                                  </span>
+                                  <Input
+                                    value={v.name}
+                                    onChange={(e) =>
+                                      handleVariableNameChange(
+                                        v.id,
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="변수명..."
+                                    className="h-8 rounded-lg border-line/80 bg-background/60 font-mono text-xs"
+                                  />
+                                </div>
+                                {/* 치환값 인풋 */}
+                                <div className="flex-1 space-y-1">
+                                  <span className="text-[9px] font-bold text-muted-foreground">
+                                    치환값 (Value)
+                                  </span>
+                                  <Input
+                                    value={v.value}
+                                    onChange={(e) =>
+                                      handleVariableValueChange(
+                                        v.id,
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="변수 값을 입력하세요..."
+                                    className="h-8 rounded-lg border-line/80 bg-background/60 text-xs"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* ── Step 3: 코드 미리보기 ── */}
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewExpanded((v) => !v)}
+                  className="flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:bg-muted/50"
+                >
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-black text-muted-foreground">
+                    3
+                  </span>
+                  <h2 className="text-sm font-bold text-foreground">
+                    코드 미리보기
+                  </h2>
+                  <div
+                    className="ml-auto flex items-center gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* 복사 */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCopy}
+                          disabled={!generatedCode}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        >
+                          {copied ? (
+                            <Check className="h-3.5 w-3.5 text-ok" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>복사</TooltipContent>
+                    </Tooltip>
+
+                    {/* 다운로드 */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDownload}
+                          disabled={!generatedCode}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>다운로드</TooltipContent>
+                    </Tooltip>
+
+                    <Separator orientation="vertical" className="mx-0.5 h-4" />
+
+                    <span className="text-[10px] text-muted-foreground">
+                      {isPreviewExpanded ? "접기" : "펼치기"}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                      isPreviewExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    isPreviewExpanded
+                      ? "mt-2 opacity-100"
+                      : "mt-0 max-h-0 opacity-0"
+                  }`}
+                >
+                  <div
+                    ref={previewRef}
+                    className="overflow-hidden rounded-xl border border-line"
+                  >
+                    <div className="flex items-center gap-2 border-b border-line/60 bg-muted/30 px-3 py-1.5">
+                      <FileCode2 className="h-3 w-3 text-muted-foreground/50" />
+                      <span className="text-[10px] font-medium text-muted-foreground/70">
+                        {activeTemplate?.name || "코드"}.template
+                      </span>
+                      {generatedCode && (
+                        <span className="mono ml-auto text-[10px] text-muted-foreground/50">
+                          {generatedCode.split("\n").length} lines
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="h-[280px] md:h-[320px]">
+                      <CodeEditor
+                        language="ceg"
+                        value={generatedCode}
+                        onChange={() => {}}
+                        minHeight="100%"
+                        bareWrapper
+                        className="h-full w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          <ResizablePanel
+            defaultSize={35}
+            minSize={20}
+            className="flex flex-col overflow-hidden border-l border-line/50"
+          >
+            {/* ── 오른쪽: 생성 결과 리스트 미리보기 헤더 ── */}
+            <div className="flex shrink-0 flex-col gap-2 border-b border-line bg-muted/20 px-4 py-3">
+              {/* 검색창 */}
+              {!displayParserError && activeQueue.length > 0 && (
+                <div className="relative mt-1">
+                  <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="파일명 또는 프롬프트 검색..."
+                    value={previewFilter}
+                    onChange={(e) => setPreviewFilter(e.target.value)}
+                    className="h-8 rounded-lg border-line/60 bg-background/50 pl-8 text-xs focus-visible:ring-1"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 본문 영역 */}
+            <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
+              {displayIsLoading ? (
+                // 로딩 상태: 세련된 스켈레톤
+                <div className="h-full space-y-3 overflow-y-auto p-4">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse space-y-2 rounded-xl border border-line/40 bg-muted/10 p-3"
+                    >
+                      <div className="h-4 w-2/3 rounded bg-muted/40" />
+                      <div className="flex gap-1.5">
+                        <div className="h-4 w-16 rounded bg-muted/30" />
+                        <div className="h-4 w-20 rounded bg-muted/30" />
+                      </div>
+                      <div className="h-10 w-full rounded bg-muted/20" />
+                    </div>
+                  ))}
+                </div>
+              ) : displayParserError ? (
+                // 에러 상태: 프리미엄 에러 카드 UI
+                <div className="flex h-full items-center justify-center p-4">
+                  <div className="w-full max-w-md rounded-xl border border-bad/30 bg-bad-bg/20 p-4 shadow-lg backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="shrink-0 rounded-lg bg-bad/10 p-2">
+                        <AlertCircle className="h-5 w-5 text-bad" />
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <h3 className="text-xs font-bold text-bad">
+                          템플릿 파싱 에러
+                        </h3>
+                        <p className="text-[11px] leading-normal text-muted-foreground">
+                          템플릿 문법에 오류가 있어 리스트를 구성할 수 없습니다.
+                          문법이나 변수 선언을 확인해 주세요.
+                        </p>
+                        <div className="mt-2.5 max-h-[180px] overflow-y-auto rounded-lg border border-line/40 bg-background/80 p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-bad/90">
+                          {displayParserError}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : activeQueue.length === 0 ? (
+                // 비어 있는 상태
+                <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
+                  <div className="mb-4 rounded-full bg-muted/30 p-4">
+                    <FileCode2 className="h-8 w-8 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-xs font-bold text-muted-foreground">
+                    생성 가능한 결과가 없습니다
+                  </p>
+                  <p className="mt-1 max-w-[200px] text-[11px] leading-relaxed text-muted-foreground/60">
+                    템플릿을 선택하거나 에디터에 올바른 CEG 코드를 작성하면 실시간
+                    조합 목록이 표시됩니다.
+                  </p>
+                </div>
+              ) : filteredPreview.length === 0 ? (
+                // 검색 결과 없음
+                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+                  <p className="text-xs font-bold text-muted-foreground">
+                    검색 결과가 없습니다
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground/60">
+                    다른 키워드로 검색해 보세요.
+                  </p>
+                </div>
+              ) : (
+                // 렌더링 테이블 뷰
+                <ScrollArea className="h-full rounded-md border border-line bg-background/50 shadow-inner">
+                  <Table className="text-xs">
+                    <TableHeader className="sticky top-0 z-10 bg-muted/95 shadow-sm backdrop-blur-sm">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-[30%] px-3 py-2 font-bold text-foreground">
+                          파일명
+                        </TableHead>
+                        <TableHead className="w-[25%] px-3 py-2 font-bold text-foreground">
+                          조합 속성
+                        </TableHead>
+                        <TableHead className="px-3 py-2 font-bold text-foreground">
+                          치환된 프롬프트 (Prompt)
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPreview.map((item, idx) => {
+                        const renderedFilename = substitute(item.filename, item)
+                        const renderedPrompt = substitute(item.prompt, item)
+                        const key = itemKey(item)
+
+                        return (
+                          <TableRow
+                            key={`res-${key}-${idx}`}
+                            className="group transition-colors hover:bg-accent/30"
+                          >
+                            {/* 파일명 */}
+                            <TableCell className="border-r border-line/20 px-3 py-3 align-top font-mono text-[11px] font-black">
+                              <div className="leading-relaxed break-all text-foreground select-all">
+                                {renderedFilename}
+                              </div>
+                            </TableCell>
+
+                            {/* 조합 속성 (값만 뱃지로 렌더링) */}
+                            <TableCell className="border-r border-line/20 px-3 py-3 align-top">
+                              {Object.keys(item.meta).length > 0 ? (
+                                <div className="flex flex-wrap gap-1 opacity-80 transition-opacity group-hover:opacity-100">
+                                  {Object.entries(item.meta).map(([k, v]) => (
+                                    <Badge
+                                      key={k}
+                                      variant="outline"
+                                      className="origin-left scale-95 border-primary/10 bg-primary/5 px-1.5 py-0 text-[9px] font-bold text-primary/80 capitalize"
+                                    >
+                                      {v}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground/40 italic">
+                                  -
+                                </span>
+                              )}
+                            </TableCell>
+
+                            {/* 치환된 프롬프트 내용 */}
+                            <TableCell className="px-3 py-3 align-top font-mono">
+                              <div className="line-clamp-4 text-[10px] leading-relaxed text-muted-foreground transition-all select-all group-hover:line-clamp-none group-hover:text-foreground">
+                                {renderedPrompt}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              )}
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+
+      {/* 모바일 뷰: 상단 서브 탭 스위치 + 전용 최적화 레이아웃 */}
+      <div className="flex md:hidden min-h-0 flex-1 flex-col overflow-hidden">
+        {/* 상단 Segmented Control 탭 바 */}
+        <div className="flex border-b border-line bg-muted/10 p-1.5 shrink-0 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setMobileSubTab("settings")}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all duration-200 ${
+              mobileSubTab === "settings"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+            }`}
+          >
+            <Sliders className="h-3.5 w-3.5" />
+            <span>설정</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileSubTab("editor")}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all duration-200 ${
+              mobileSubTab === "editor"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+            }`}
+          >
+            <Code className="h-3.5 w-3.5" />
+            <span>에디터</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileSubTab("results")}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all duration-200 ${
+              mobileSubTab === "results"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+            }`}
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span>결과</span>
+            {activeQueue.length > 0 && (
+              <Badge variant="secondary" className="px-1.5 py-0 text-[9px] font-bold origin-left scale-90">
+                {activeQueue.length}
+              </Badge>
+            )}
+          </button>
+        </div>
+
+        {/* 탭 콘텐츠 영역 */}
+        {mobileSubTab === "settings" && (
+          <ScrollArea className="flex-1">
+            <div className="space-y-5 p-4 pb-8">
+              {/* ── Step 1: 대상 템플릿 선택 ── */}
+              <div className="rounded-xl border border-line bg-card/20 p-4 shadow-xs">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-black text-primary">
+                    1
+                  </span>
+                  <h2 className="text-sm font-bold text-foreground">
+                    대상 템플릿 선택
+                  </h2>
+                </div>
                 <Select
                   value={effectiveSelectedTemplateId}
                   onValueChange={(v) => setSelectedTemplateId(v)}
                 >
-                  <SelectTrigger className="h-9 w-full rounded-lg border-line bg-background text-sm">
+                  <SelectTrigger className="h-10 w-full rounded-lg border-line bg-background text-sm">
                     <SelectValue placeholder="템플릿을 선택하세요..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -447,37 +921,21 @@ export function TemplateGeneratorPanel({
                   </SelectContent>
                 </Select>
               </div>
-            </section>
 
-            {/* ── Step 2: 태그 입력 (변수 치환) ── */}
-            <section>
-              <button
-                type="button"
-                onClick={() => setIsSection2Expanded((v) => !v)}
-                className="flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:bg-muted/50"
-              >
-                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-black text-muted-foreground">
-                  2
-                </span>
-                <h2 className="text-sm font-bold text-foreground">태그 입력</h2>
-                {varCount > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-[10px]">
-                    {varCount}개 변수
-                  </Badge>
-                )}
-                <ChevronDown
-                  className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                    isSection2Expanded ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  isSection2Expanded
-                    ? "mt-2 opacity-100"
-                    : "mt-0 max-h-0 opacity-0"
-                }`}
-              >
+              {/* ── Step 2: 태그 입력 ── */}
+              <div className="rounded-xl border border-line bg-card/20 p-4 shadow-xs">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-black text-primary">
+                    2
+                  </span>
+                  <h2 className="text-sm font-bold text-foreground">태그 입력</h2>
+                  {varCount > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-[10px]">
+                      {varCount}개 변수
+                    </Badge>
+                  )}
+                </div>
+
                 {!activeTemplate ? (
                   <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-muted/10 py-10">
                     <Pencil className="mb-2 h-8 w-8 text-muted-foreground/40" />
@@ -495,339 +953,251 @@ export function TemplateGeneratorPanel({
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-line bg-card/30">
-                    <ScrollArea className="max-h-[320px]">
-                      <div className="space-y-2.5 p-3">
-                        {variables.map((v, idx) => (
-                          <div
-                            key={v.id}
-                            className="space-y-2.5 rounded-lg border border-line/60 bg-muted/20 p-3 transition-colors hover:bg-muted/30"
-                          >
-                            <div className="flex items-center justify-between">
-                              <Label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                                <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary/10 text-[9px] font-black text-primary">
-                                  {idx + 1}
-                                </span>
-                                {v.originalName === "character"
-                                  ? "캐릭터 기본 태그 정의"
-                                  : `${v.originalName} 변수 정의`}
-                              </Label>
-                              <span className="mono rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/60">
-                                {"{{" + v.name + "}}"}
-                              </span>
-                            </div>
+                  <div className="space-y-3">
+                    {variables.map((v, idx) => (
+                      <div
+                        key={v.id}
+                        className="space-y-2.5 rounded-lg border border-line/60 bg-muted/20 p-3.5 transition-colors hover:bg-muted/30"
+                      >
+                        <div className="flex items-center justify-between">
+                          <Label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary/10 text-[9px] font-black text-primary">
+                              {idx + 1}
+                            </span>
+                            {v.originalName === "character"
+                              ? "캐릭터 기본 태그 정의"
+                              : `${v.originalName} 변수 정의`}
+                          </Label>
+                          <span className="mono rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/60">
+                            {"{{" + v.name + "}}"}
+                          </span>
+                        </div>
 
-                            <div className="flex gap-2">
-                              {/* 변수명 인풋 */}
-                              <div className="w-1/3 space-y-1">
-                                <span className="text-[9px] font-bold text-muted-foreground">
-                                  변수명
-                                </span>
-                                <Input
-                                  value={v.name}
-                                  onChange={(e) =>
-                                    handleVariableNameChange(
-                                      v.id,
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="변수명..."
-                                  className="h-8 rounded-lg border-line/80 bg-background/60 font-mono text-xs"
-                                />
-                              </div>
-                              {/* 치환값 인풋 */}
-                              <div className="flex-1 space-y-1">
-                                <span className="text-[9px] font-bold text-muted-foreground">
-                                  치환값 (Value)
-                                </span>
-                                <Input
-                                  value={v.value}
-                                  onChange={(e) =>
-                                    handleVariableValueChange(
-                                      v.id,
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="변수 값을 입력하세요..."
-                                  className="h-8 rounded-lg border-line/80 bg-background/60 text-xs"
-                                />
-                              </div>
-                            </div>
+                        <div className="flex flex-col gap-2">
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-muted-foreground">
+                              변수명
+                            </span>
+                            <Input
+                              value={v.name}
+                              onChange={(e) =>
+                                handleVariableNameChange(v.id, e.target.value)
+                              }
+                              placeholder="변수명..."
+                              className="h-9 rounded-lg border-line/80 bg-background/60 font-mono text-xs"
+                            />
                           </div>
-                        ))}
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-muted-foreground">
+                              치환값 (Value)
+                            </span>
+                            <Input
+                              value={v.value}
+                              onChange={(e) =>
+                                handleVariableValueChange(v.id, e.target.value)
+                              }
+                              placeholder="변수 값을 입력하세요..."
+                              className="h-9 rounded-lg border-line/80 bg-background/60 text-xs"
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </ScrollArea>
+                    ))}
                   </div>
                 )}
               </div>
-            </section>
+            </div>
+          </ScrollArea>
+        )}
 
-            {/* ── Step 3: 코드 미리보기 ── */}
-            <section>
-              <button
-                type="button"
-                onClick={() => setIsPreviewExpanded((v) => !v)}
-                className="flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:bg-muted/50"
-              >
-                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-black text-muted-foreground">
-                  3
-                </span>
-                <h2 className="text-sm font-bold text-foreground">
-                  코드 미리보기
-                </h2>
-                <div
-                  className="ml-auto flex items-center gap-1.5"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* 복사 */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleCopy}
-                        disabled={!generatedCode}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                      >
-                        {copied ? (
-                          <Check className="h-3.5 w-3.5 text-ok" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>복사</TooltipContent>
-                  </Tooltip>
-
-                  {/* 다운로드 */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleDownload}
-                        disabled={!generatedCode}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>다운로드</TooltipContent>
-                  </Tooltip>
-
-                  <Separator orientation="vertical" className="mx-0.5 h-4" />
-
+        {mobileSubTab === "editor" && (
+          <div className="flex flex-1 flex-col overflow-hidden p-4">
+            <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-line bg-card/20 shadow-xs">
+              <div className="flex items-center justify-between border-b border-line/60 bg-muted/30 px-3 py-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-black text-primary">
+                    3
+                  </span>
+                  <span className="text-xs font-bold text-foreground">
+                    코드 미리보기
+                  </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {isPreviewExpanded ? "접기" : "펼치기"}
+                    ({activeTemplate?.name || "코드"}.template)
                   </span>
                 </div>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                    isPreviewExpanded ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  isPreviewExpanded
-                    ? "mt-2 opacity-100"
-                    : "mt-0 max-h-0 opacity-0"
-                }`}
-              >
-                <div
-                  ref={previewRef}
-                  className="overflow-hidden rounded-xl border border-line"
-                >
-                  <div className="flex items-center gap-2 border-b border-line/60 bg-muted/30 px-3 py-1.5">
-                    <FileCode2 className="h-3 w-3 text-muted-foreground/50" />
-                    <span className="text-[10px] font-medium text-muted-foreground/70">
-                      {activeTemplate?.name || "코드"}.template
-                    </span>
-                    {generatedCode && (
-                      <span className="mono ml-auto text-[10px] text-muted-foreground/50">
-                        {generatedCode.split("\n").length} lines
-                      </span>
+                
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopy}
+                    disabled={!generatedCode}
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-ok" />
+                        <span className="text-[10px] font-bold text-ok">복사됨</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span className="text-[10px] font-bold">복사</span>
+                      </>
                     )}
-                  </div>
+                  </Button>
 
-                  <div className="h-[280px] md:h-[320px]">
-                    <CodeEditor
-                      language="ceg"
-                      value={generatedCode}
-                      onChange={() => {}}
-                      minHeight="100%"
-                      bareWrapper
-                      className="h-full w-full"
-                    />
-                  </div>
+                  <Separator orientation="vertical" className="h-4 mx-0.5" />
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDownload}
+                    disabled={!generatedCode}
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-bold">다운로드</span>
+                  </Button>
                 </div>
               </div>
-            </section>
+
+              <div className="flex-1 min-h-0 relative">
+                <CodeEditor
+                  language="ceg"
+                  value={generatedCode}
+                  onChange={() => {}}
+                  minHeight="100%"
+                  bareWrapper
+                  className="h-full w-full"
+                />
+              </div>
+            </div>
           </div>
-        </ResizablePanel>
+        )}
 
-        <ResizableHandle withHandle />
-
-        <ResizablePanel
-          defaultSize={35}
-          minSize={20}
-          className="flex flex-col overflow-hidden border-l border-line/50"
-        >
-          {/* ── 오른쪽: 생성 결과 리스트 미리보기 헤더 ── */}
-          <div className="flex shrink-0 flex-col gap-2 border-b border-line bg-muted/20 px-4 py-3">
-            {/* 검색창 */}
+        {mobileSubTab === "results" && (
+          <div className="flex flex-1 flex-col overflow-hidden p-4">
             {!displayParserError && activeQueue.length > 0 && (
-              <div className="relative mt-1">
+              <div className="relative mb-3 shrink-0">
                 <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="파일명 또는 프롬프트 검색..."
                   value={previewFilter}
                   onChange={(e) => setPreviewFilter(e.target.value)}
-                  className="h-8 rounded-lg border-line/60 bg-background/50 pl-8 text-xs focus-visible:ring-1"
+                  className="h-9 rounded-lg border-line/60 bg-background/50 pl-8 text-xs focus-visible:ring-1"
                 />
               </div>
             )}
-          </div>
 
-          {/* 본문 영역 */}
-          <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
-            {displayIsLoading ? (
-              // 로딩 상태: 세련된 스켈레톤
-              <div className="h-full space-y-3 overflow-y-auto p-4">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="animate-pulse space-y-2 rounded-xl border border-line/40 bg-muted/10 p-3"
-                  >
-                    <div className="h-4 w-2/3 rounded bg-muted/40" />
-                    <div className="flex gap-1.5">
-                      <div className="h-4 w-16 rounded bg-muted/30" />
-                      <div className="h-4 w-20 rounded bg-muted/30" />
+            <div className="flex-1 min-h-0 rounded-xl border border-line bg-card/10 overflow-hidden">
+              {displayIsLoading ? (
+                <div className="h-full space-y-3 overflow-y-auto p-4">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse space-y-2 rounded-xl border border-line/40 bg-muted/10 p-3"
+                    >
+                      <div className="h-4 w-2/3 rounded bg-muted/40" />
+                      <div className="flex gap-1.5">
+                        <div className="h-4 w-16 rounded bg-muted/30" />
+                        <div className="h-4 w-20 rounded bg-muted/30" />
+                      </div>
+                      <div className="h-10 w-full rounded bg-muted/20" />
                     </div>
-                    <div className="h-10 w-full rounded bg-muted/20" />
-                  </div>
-                ))}
-              </div>
-            ) : displayParserError ? (
-              // 에러 상태: 프리미엄 에러 카드 UI
-              <div className="flex h-full items-center justify-center p-4">
-                <div className="w-full max-w-md rounded-xl border border-bad/30 bg-bad-bg/20 p-4 shadow-lg backdrop-blur-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="shrink-0 rounded-lg bg-bad/10 p-2">
-                      <AlertCircle className="h-5 w-5 text-bad" />
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <h3 className="text-xs font-bold text-bad">
-                        템플릿 파싱 에러
-                      </h3>
-                      <p className="text-[11px] leading-normal text-muted-foreground">
-                        템플릿 문법에 오류가 있어 리스트를 구성할 수 없습니다.
-                        문법이나 변수 선언을 확인해 주세요.
-                      </p>
-                      <div className="mt-2.5 max-h-[180px] overflow-y-auto rounded-lg border border-line/40 bg-background/80 p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-bad/90">
-                        {displayParserError}
+                  ))}
+                </div>
+              ) : displayParserError ? (
+                <div className="flex h-full items-center justify-center p-4">
+                  <div className="w-full max-w-md rounded-xl border border-bad/30 bg-bad-bg/20 p-4 shadow-lg backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="shrink-0 rounded-lg bg-bad/10 p-2">
+                        <AlertCircle className="h-5 w-5 text-bad" />
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <h3 className="text-xs font-bold text-bad">
+                          템플릿 파싱 에러
+                        </h3>
+                        <p className="text-[11px] leading-normal text-muted-foreground">
+                          템플릿 문법에 오류가 있어 리스트를 구성할 수 없습니다.
+                          문법이나 변수 선언을 확인해 주세요.
+                        </p>
+                        <div className="mt-2.5 max-h-[180px] overflow-y-auto rounded-lg border border-line/40 bg-background/80 p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-bad/90">
+                          {displayParserError}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : activeQueue.length === 0 ? (
-              // 비어 있는 상태
-              <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
-                <div className="mb-4 rounded-full bg-muted/30 p-4">
-                  <FileCode2 className="h-8 w-8 text-muted-foreground/40" />
+              ) : activeQueue.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
+                  <div className="mb-4 rounded-full bg-muted/30 p-4">
+                    <FileCode2 className="h-8 w-8 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-xs font-bold text-muted-foreground">
+                    생성 가능한 결과가 없습니다
+                  </p>
+                  <p className="mt-1 max-w-[200px] text-[11px] leading-relaxed text-muted-foreground/60">
+                    템플릿을 선택하거나 에디터에 올바른 CEG 코드를 작성하면 실시간
+                    조합 목록이 표시됩니다.
+                  </p>
                 </div>
-                <p className="text-xs font-bold text-muted-foreground">
-                  생성 가능한 결과가 없습니다
-                </p>
-                <p className="mt-1 max-w-[200px] text-[11px] leading-relaxed text-muted-foreground/60">
-                  템플릿을 선택하거나 에디터에 올바른 CEG 코드를 작성하면 실시간
-                  조합 목록이 표시됩니다.
-                </p>
-              </div>
-            ) : filteredPreview.length === 0 ? (
-              // 검색 결과 없음
-              <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-                <p className="text-xs font-bold text-muted-foreground">
-                  검색 결과가 없습니다
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground/60">
-                  다른 키워드로 검색해 보세요.
-                </p>
-              </div>
-            ) : (
-              // 렌더링 테이블 뷰
-              <ScrollArea className="h-full rounded-md border border-line bg-background/50 shadow-inner">
-                <Table className="text-xs">
-                  <TableHeader className="sticky top-0 z-10 bg-muted/95 shadow-sm backdrop-blur-sm">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-[30%] px-3 py-2 font-bold text-foreground">
-                        파일명
-                      </TableHead>
-                      <TableHead className="w-[25%] px-3 py-2 font-bold text-foreground">
-                        조합 속성
-                      </TableHead>
-                      <TableHead className="px-3 py-2 font-bold text-foreground">
-                        치환된 프롬프트 (Prompt)
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              ) : filteredPreview.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+                  <p className="text-xs font-bold text-muted-foreground">
+                    검색 결과가 없습니다
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground/60">
+                    다른 키워드로 검색해 보세요.
+                  </p>
+                </div>
+              ) : (
+                <ScrollArea className="h-full bg-background/50">
+                  <div className="divide-y divide-line/20">
                     {filteredPreview.map((item, idx) => {
                       const renderedFilename = substitute(item.filename, item)
                       const renderedPrompt = substitute(item.prompt, item)
                       const key = itemKey(item)
 
                       return (
-                        <TableRow
-                          key={`res-${key}-${idx}`}
-                          className="group transition-colors hover:bg-accent/30"
+                        <div
+                          key={`res-mobile-${key}-${idx}`}
+                          className="p-3.5 space-y-2 hover:bg-accent/10 transition-colors"
                         >
-                          {/* 파일명 */}
-                          <TableCell className="border-r border-line/20 px-3 py-3 align-top font-mono text-[11px] font-black">
-                            <div className="leading-relaxed break-all text-foreground select-all">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-mono text-xs font-black break-all text-foreground select-all leading-tight">
                               {renderedFilename}
-                            </div>
-                          </TableCell>
+                            </span>
+                          </div>
 
-                          {/* 조합 속성 (값만 뱃지로 렌더링) */}
-                          <TableCell className="border-r border-line/20 px-3 py-3 align-top">
-                            {Object.keys(item.meta).length > 0 ? (
-                              <div className="flex flex-wrap gap-1 opacity-80 transition-opacity group-hover:opacity-100">
-                                {Object.entries(item.meta).map(([k, v]) => (
-                                  <Badge
-                                    key={k}
-                                    variant="outline"
-                                    className="origin-left scale-95 border-primary/10 bg-primary/5 px-1.5 py-0 text-[9px] font-bold text-primary/80 capitalize"
-                                  >
-                                    {v}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground/40 italic">
-                                -
-                              </span>
-                            )}
-                          </TableCell>
-
-                          {/* 치환된 프롬프트 내용 */}
-                          <TableCell className="px-3 py-3 align-top font-mono">
-                            <div className="line-clamp-4 text-[10px] leading-relaxed text-muted-foreground transition-all select-all group-hover:line-clamp-none group-hover:text-foreground">
-                              {renderedPrompt}
+                          {Object.keys(item.meta).length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {Object.entries(item.meta).map(([k, v]) => (
+                                <Badge
+                                  key={k}
+                                  variant="outline"
+                                  className="origin-left scale-90 border-primary/15 bg-primary/5 px-2 py-0 text-[9px] font-bold text-primary capitalize"
+                                >
+                                  {k}: {v}
+                                </Badge>
+                              ))}
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          )}
+
+                          <div className="font-mono text-[11px] leading-relaxed text-muted-foreground bg-muted/30 rounded-lg p-2.5 break-words select-all">
+                            {renderedPrompt}
+                          </div>
+                        </div>
                       )
                     })}
-                  </TableBody>
-                </Table>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            )}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              )}
+            </div>
           </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        )}
+      </div>
 
       {/* ────── 하단 고정 액션 바 ────── */}
       <div className="shrink-0 border-t border-line bg-muted/20 backdrop-blur-sm">

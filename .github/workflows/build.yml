@@ -5,6 +5,11 @@ on:
     branches: [master]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      beta_number:
+        description: 'Beta number (e.g. 1, 2, 3)'
+        required: true
+        default: '1'
 
 permissions:
   contents: write   # for creating releases
@@ -21,6 +26,7 @@ jobs:
       docker_tag: ${{ steps.v.outputs.docker_tag }}
       commit: ${{ steps.v.outputs.commit }}
       is_release: ${{ steps.v.outputs.is_release }}
+      is_beta: ${{ steps.v.outputs.is_beta }}
       image_backend: ${{ steps.v.outputs.image_backend }}
       image_frontend: ${{ steps.v.outputs.image_frontend }}
       image_aio: ${{ steps.v.outputs.image_aio }}
@@ -33,6 +39,14 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             BUNDLE="${GITHUB_REF#refs/tags/}"
             IS_RELEASE=true
+            IS_BETA=false
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            # Manual beta release: date-only (KST) + beta number, no timestamp.
+            DATE=$(TZ=Asia/Seoul date +%Y.%m.%d)
+            BETA_NUM="${{ github.event.inputs.beta_number }}"
+            BUNDLE="v${DATE}-beta.${BETA_NUM}+${SHORT}"
+            IS_RELEASE=false
+            IS_BETA=true
           else
             # KST timestamp so the tag is self-describing in local time and
             # lexicographic sort = chronological sort (same-day builds no longer
@@ -40,6 +54,7 @@ jobs:
             STAMP=$(TZ=Asia/Seoul date +%Y.%m.%d.%H%M%S)
             BUNDLE="v${STAMP}-dev+${SHORT}"
             IS_RELEASE=false
+            IS_BETA=false
           fi
           # Docker tags cannot contain '+'
           DOCKER_TAG="${BUNDLE//+/.}"
@@ -47,6 +62,7 @@ jobs:
           echo "docker_tag=$DOCKER_TAG"       >> $GITHUB_OUTPUT
           echo "commit=$SHORT"                >> $GITHUB_OUTPUT
           echo "is_release=$IS_RELEASE"       >> $GITHUB_OUTPUT
+          echo "is_beta=$IS_BETA"             >> $GITHUB_OUTPUT
           echo "image_backend=$REPO_LC/ceg-backend"   >> $GITHUB_OUTPUT
           echo "image_frontend=$REPO_LC/ceg-frontend" >> $GITHUB_OUTPUT
           echo "image_aio=$REPO_LC/ceg-all-in-one"    >> $GITHUB_OUTPUT
@@ -266,7 +282,7 @@ jobs:
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
             ${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
       - name: Build & push frontend
@@ -279,7 +295,7 @@ jobs:
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
             ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
       - name: Build & push all-in-one
@@ -293,7 +309,7 @@ jobs:
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
             ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || 'dev' }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
           cache-from: type=gha,scope=aio
           cache-to: type=gha,scope=aio,mode=max
 
@@ -315,6 +331,8 @@ jobs:
           prerelease: ${{ needs.version.outputs.is_release != 'true' }}
           files: artifacts/**/*
           body: |
+            ${{ needs.version.outputs.is_beta == 'true' && '> **Beta Release** — may contain bugs. Use in production at your own risk.' || '' }}
+
             Bundle: `${{ needs.version.outputs.bundle }}`
             Commit: `${{ needs.version.outputs.commit }}`
 
