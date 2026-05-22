@@ -90,6 +90,7 @@ export function TemplateGeneratorPanel({
   const [isSection1Expanded, setIsSection1Expanded] = useState(true)
   const [isSection2Expanded, setIsSection2Expanded] = useState(true)
   const previewRef = useRef<HTMLDivElement>(null)
+  const [prevActiveTemplateId, setPrevActiveTemplateId] = useState<string | null>(null)
 
   // 시스템 templates 폴더에서 템플릿 목록 로드
   useEffect(() => {
@@ -137,49 +138,43 @@ export function TemplateGeneratorPanel({
     return groups
   }, [combinedTemplates])
 
-  // 목록 갱신 시 안전한 초기 선택 처리
-  useEffect(() => {
-    if (combinedTemplates.length > 0) {
-      if (
-        !selectedTemplateId ||
-        !combinedTemplates.some((t) => t.id === selectedTemplateId)
-      ) {
-        setSelectedTemplateId(combinedTemplates[0]!.id)
-      }
+  // 목록에 없는 ID 선택 시 첫 번째 항목으로 폴백
+  const effectiveSelectedTemplateId = useMemo(() => {
+    if (combinedTemplates.length === 0) return ""
+    if (!selectedTemplateId || !combinedTemplates.some((t) => t.id === selectedTemplateId)) {
+      return combinedTemplates[0]!.id
     }
-  }, [combinedTemplates, selectedTemplateId])
+    return selectedTemplateId
+  }, [selectedTemplateId, combinedTemplates])
 
   // 현재 선택된 템플릿
   const activeTemplate = useMemo<TemplateItem | null>(() => {
-    return (
-      combinedTemplates.find((t) => t.id === selectedTemplateId) ||
-      combinedTemplates[0] ||
-      null
-    )
-  }, [combinedTemplates, selectedTemplateId])
+    return combinedTemplates.find((t) => t.id === effectiveSelectedTemplateId) || null
+  }, [combinedTemplates, effectiveSelectedTemplateId])
 
-  // {{set name = "value"}} 패턴을 파싱하여 변수 추출
-  useEffect(() => {
-    if (!activeTemplate) return
-    // 하이픈(-)이 포함된 식별자도 정상 파싱할 수 있도록 Lark 문법 규칙([a-zA-Z_-][a-zA-Z0-9_-]*) 적용
+  // activeTemplate이 바뀔 때만 variables/saveName 초기화 (state during render 패턴)
+  if (activeTemplate?.id !== prevActiveTemplateId) {
+    setPrevActiveTemplateId(activeTemplate?.id ?? null)
     const regex =
       /\{\{\s*set\s+([a-zA-Z_-][a-zA-Z0-9_-]*)\s*=\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*\}\}/g
     const foundVars: TemplateVariable[] = []
     let match
     let index = 0
-    while ((match = regex.exec(activeTemplate.code)) !== null) {
-      if (match[1] && match[2] !== undefined) {
-        foundVars.push({
-          id: `${match[1]}-${index++}`,
-          originalName: match[1],
-          name: match[1],
-          value: match[2],
-        })
+    if (activeTemplate) {
+      while ((match = regex.exec(activeTemplate.code)) !== null) {
+        if (match[1] && match[2] !== undefined) {
+          foundVars.push({
+            id: `${match[1]}-${index++}`,
+            originalName: match[1],
+            name: match[1],
+            value: match[2],
+          })
+        }
       }
     }
     setVariables(foundVars)
-    setSaveName(`${activeTemplate.name} 커스텀`)
-  }, [activeTemplate])
+    setSaveName(activeTemplate ? `${activeTemplate.name} 커스텀` : "")
+  }
 
   // 변수명 실시간 업데이트
   const handleVariableNameChange = (id: string, newName: string) => {
@@ -206,7 +201,7 @@ export function TemplateGeneratorPanel({
     // 1. 단일 패스 렉서 방식 매칭 패턴 작성
     // 변수명 충돌(길이가 긴 식별자 우선)을 예방하기 위해 내림차순 정렬 및 이스케이프
     const escapedOriginals = variables
-      .map((v) => v.originalName.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"))
+      .map((v) => v.originalName.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"))
       .sort((a, b) => b.length - a.length)
 
     // 마스터 패턴들 조립
@@ -276,18 +271,13 @@ export function TemplateGeneratorPanel({
 
   // 실시간 파싱 디바운스 Effect
   useEffect(() => {
-    if (!generatedCode.trim()) {
-      setFakeJobQueue([])
-      setParserError(null)
-      setIsLoading(false)
-      return
-    }
+    if (!generatedCode.trim()) return
 
     const controller = new AbortController()
-    setIsLoading(true)
-    setParserError(null)
 
     const timer = setTimeout(async () => {
+      setIsLoading(true)
+      setParserError(null)
       try {
         const res = await fetch(`${backendUrl}${API.render}`, {
           method: "POST",
@@ -315,11 +305,19 @@ export function TemplateGeneratorPanel({
     }
   }, [generatedCode, backendUrl])
 
+  // generatedCode가 비어있을 때 이전 상태가 노출되지 않도록 파생값으로 처리
+  const activeQueue = useMemo(
+    () => (generatedCode.trim() ? fakeJobQueue : []),
+    [generatedCode, fakeJobQueue]
+  )
+  const displayIsLoading = generatedCode.trim() ? isLoading : false
+  const displayParserError = generatedCode.trim() ? parserError : null
+
   // 검색 필터링된 렌더링 아이템 목록
   const filteredPreview = useMemo(() => {
     const needle = previewFilter.trim().toLowerCase()
-    if (!needle) return fakeJobQueue
-    return fakeJobQueue.filter((item) => {
+    if (!needle) return activeQueue
+    return activeQueue.filter((item) => {
       const renderedFilename = substitute(item.filename, item)
       const renderedPrompt = substitute(item.prompt, item)
       return (
@@ -327,7 +325,7 @@ export function TemplateGeneratorPanel({
         renderedPrompt.toLowerCase().includes(needle)
       )
     })
-  }, [fakeJobQueue, previewFilter])
+  }, [activeQueue, previewFilter])
 
   // 에디터 적용
   const handleApplyToEditor = () => {
@@ -417,7 +415,7 @@ export function TemplateGeneratorPanel({
                 }`}
               >
                 <Select
-                  value={selectedTemplateId}
+                  value={effectiveSelectedTemplateId}
                   onValueChange={(v) => setSelectedTemplateId(v)}
                 >
                   <SelectTrigger className="h-9 w-full rounded-lg border-line bg-background text-sm">
@@ -670,7 +668,7 @@ export function TemplateGeneratorPanel({
           {/* ── 오른쪽: 생성 결과 리스트 미리보기 헤더 ── */}
           <div className="flex shrink-0 flex-col gap-2 border-b border-line bg-muted/20 px-4 py-3">
             {/* 검색창 */}
-            {!parserError && fakeJobQueue.length > 0 && (
+            {!displayParserError && activeQueue.length > 0 && (
               <div className="relative mt-1">
                 <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -685,7 +683,7 @@ export function TemplateGeneratorPanel({
 
           {/* 본문 영역 */}
           <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
-            {isLoading ? (
+            {displayIsLoading ? (
               // 로딩 상태: 세련된 스켈레톤
               <div className="h-full space-y-3 overflow-y-auto p-4">
                 {[1, 2, 3].map((i) => (
@@ -702,7 +700,7 @@ export function TemplateGeneratorPanel({
                   </div>
                 ))}
               </div>
-            ) : parserError ? (
+            ) : displayParserError ? (
               // 에러 상태: 프리미엄 에러 카드 UI
               <div className="flex h-full items-center justify-center p-4">
                 <div className="w-full max-w-md rounded-xl border border-bad/30 bg-bad-bg/20 p-4 shadow-lg backdrop-blur-sm">
@@ -719,13 +717,13 @@ export function TemplateGeneratorPanel({
                         문법이나 변수 선언을 확인해 주세요.
                       </p>
                       <div className="mt-2.5 max-h-[180px] overflow-y-auto rounded-lg border border-line/40 bg-background/80 p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-bad/90">
-                        {parserError}
+                        {displayParserError}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            ) : fakeJobQueue.length === 0 ? (
+            ) : activeQueue.length === 0 ? (
               // 비어 있는 상태
               <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
                 <div className="mb-4 rounded-full bg-muted/30 p-4">
