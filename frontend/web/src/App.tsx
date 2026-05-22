@@ -30,6 +30,7 @@ import { NameConflictDialog } from "./comfyui/components/NameConflictDialog"
 import { PresetSelectionDialog } from "./comfyui/components/PresetSelectionDialog"
 import { VersionDiffDialog } from "./comfyui/components/VersionDiffDialog"
 import { WorkCompositionPanel } from "./comfyui/components/WorkCompositionPanel"
+import { KeyboardShortcutsDialog } from "./comfyui/components/KeyboardShortcutsDialog"
 import { useTemplateContext } from "./comfyui/contexts/TemplateContext"
 import { useWorkflowContext } from "./comfyui/contexts/WorkflowContext"
 import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
@@ -242,6 +243,7 @@ interface AppContentProps {
 
 function AppContent(props: AppContentProps) {
   useRenderLog("AppContent")
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   // ── Contexts ──
   const template = useTemplateContext()
@@ -732,6 +734,7 @@ function AppContent(props: AppContentProps) {
     handleSave: handleQuickSave,
     handleGalleryRefresh,
     setActiveTab: props.setActiveTab,
+    toggleShortcuts: () => setShortcutsOpen((prev) => !prev),
   })
 
   // ── Name conflict helpers ──
@@ -1233,6 +1236,11 @@ function AppContent(props: AppContentProps) {
         oldContent={props.pendingDiff?.oldContent ?? ""}
         newContent={props.pendingDiff?.newContent ?? ""}
         itemName={props.pendingDiff?.name ?? ""}
+      />
+
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
       />
     </div>
   )

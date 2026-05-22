@@ -24,6 +24,7 @@ interface UseGlobalShortcutsOptions {
   handleSave: () => void
   handleGalleryRefresh: () => void
   setActiveTab?: (tab: TabId) => void
+  toggleShortcuts?: () => void
 }
 
 export function useGlobalShortcuts({
@@ -34,9 +35,26 @@ export function useGlobalShortcuts({
   handleSave,
   handleGalleryRefresh,
   setActiveTab,
+  toggleShortcuts,
 }: UseGlobalShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in editable element
+      const activeEl = document.activeElement
+      const isEditable =
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          activeEl.getAttribute("contenteditable") === "true")
+
+      if (e.key === "?") {
+        if (isEditable) return
+        e.preventDefault()
+        toggleShortcuts?.()
+        return
+      }
+
       const isMac = navigator.platform.includes("Mac")
       const modifier = isMac ? e.metaKey : e.ctrlKey
 
@@ -104,6 +122,7 @@ export function useGlobalShortcuts({
     handleSave,
     handleGalleryRefresh,
     setActiveTab,
+    toggleShortcuts,
   ])
 }
 
