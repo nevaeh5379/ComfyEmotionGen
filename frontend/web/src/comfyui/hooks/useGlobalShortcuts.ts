@@ -58,12 +58,12 @@ export function useGlobalShortcuts({
       const isMac = navigator.platform.includes("Mac")
       const modifier = isMac ? e.metaKey : e.ctrlKey
 
-      // Ctrl + Shift + 1..5 or Alt + 1..5 → Switch tabs
+      // Ctrl + Shift + 1..6 or Alt + 1..6 → Switch tabs
       const isSwitchTabModifier = (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) || (modifier && e.shiftKey)
-      if (isSwitchTabModifier && e.key >= "1" && e.key <= "5") {
+      if (isSwitchTabModifier && e.key >= "1" && e.key <= "6") {
         e.preventDefault()
         const tabIndex = parseInt(e.key) - 1
-        const tabs: TabId[] = ["jobs", "stats", "gallery", "curation", "settings"]
+        const tabs: TabId[] = ["jobs", "stats", "gallery", "curation", "generator", "settings"]
         const targetTab = tabs[tabIndex]
         if (targetTab && setActiveTab) {
           setActiveTab(targetTab)
@@ -72,6 +72,7 @@ export function useGlobalShortcuts({
             stats: "통계",
             gallery: "갤러리",
             curation: "큐레이션",
+            generator: "템플릿 생성기",
             settings: "설정",
           }
           toast.info(`'${tabNames[targetTab]}' 탭으로 이동했습니다.`)

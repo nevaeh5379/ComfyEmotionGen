@@ -290,6 +290,30 @@ async def _dsl_error_handler(_request, exc: DSLSyntaxError):
 # ====== 헬스/파서 ======
 
 _OBJECT_INFO_PATH = Path(__file__).parent.parent / "object_info.json"
+_TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+@app.get("/templates")
+def list_system_templates():
+    _TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
+    templates = []
+    for path in sorted(_TEMPLATES_DIR.glob("*.template")):
+        name = path.stem
+        safe_id = "".join([c if c.isalnum() else "_" for c in name]).strip("_")
+        try:
+            code = path.read_text(encoding="utf-8")
+        except Exception:
+            try:
+                code = path.read_text(encoding="cp949")
+            except Exception:
+                continue
+        templates.append({
+            "id": f"system-{safe_id}",
+            "name": name,
+            "category": "system",
+            "code": code
+        })
+    return templates
 
 
 @app.get("/object_info")

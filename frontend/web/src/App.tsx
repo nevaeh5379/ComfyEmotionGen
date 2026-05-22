@@ -39,6 +39,7 @@ import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
 import { SettingsPanel } from "./comfyui/components/SettingsPanel"
 import { StatisticsPanel } from "./comfyui/components/StatisticsPanel"
+import { TemplateGeneratorPanel } from "./comfyui/components/TemplateGeneratorPanel"
 import { useSettings } from "./comfyui/hooks/useSettings"
 import { useLocalStorage } from "./comfyui/hooks/useLocalStorage"
 import { useSyncedStorage } from "./comfyui/hooks/useSyncedStorage"
@@ -1577,6 +1578,9 @@ function AppContent(props: AppContentProps) {
               }}
             />
           </div>
+        )}
+        {props.activeTab === "generator" && (
+          <TemplateGeneratorPanel setActiveTab={props.setActiveTab} backendUrl={props.backendUrl} />
         )}
         {props.activeTab === "settings" && (
           <div className="flex-1 overflow-y-auto">

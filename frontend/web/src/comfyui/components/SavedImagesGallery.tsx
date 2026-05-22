@@ -1664,7 +1664,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   </button>
                 ) : (
                   <div className="text-xs font-medium text-muted-foreground">
-                    📂 더 이상 하위 폴더가 없습니다.
+                     더 이상 하위 폴더가 없습니다.
                   </div>
                 )}
               </div>
