@@ -1,4 +1,4 @@
-import { Code2, Copy, Download, FolderOpen, Workflow } from "lucide-react"
+import { Code2, Copy, Download, FolderOpen, Workflow, ArrowUpRight, ExternalLink, Columns2, Rows2 } from "lucide-react"
 import { useCallback } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
@@ -65,6 +65,14 @@ export interface WorkCompositionPanelProps {
   onSelectionOpen: () => void
   hasActiveFilter: boolean
   onGraphOpen: () => void
+
+  // Floating Window controls
+  isFloating?: boolean
+  onFloatToggle?: () => void
+
+  // Layout orientation
+  jobsLayoutOrientation?: "horizontal" | "vertical"
+  onToggleJobsLayoutOrientation?: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +96,10 @@ export function WorkCompositionPanel({
   onSelectionOpen,
   hasActiveFilter,
   onGraphOpen,
+  isFloating,
+  onFloatToggle,
+  jobsLayoutOrientation,
+  onToggleJobsLayoutOrientation,
 }: WorkCompositionPanelProps) {
   // ── Consume contexts ──
   const template = useTemplateContext()
@@ -142,21 +154,73 @@ export function WorkCompositionPanel({
         >
           <div className="flex hidden shrink-0 items-center justify-between border-b px-3 py-2 md:inline-flex">
             <CompositionTabsList className="hidden md:inline-flex" />
-            <WorkCompositionToolbar
-              repeatCount={repeatCount}
-              setRepeatCount={setRepeatCount}
-              handleRun={handleRun}
-              handleRandomRun={handleRandomRun}
-              randomRunCount={randomRunCount}
-              setRandomRunCount={setRandomRunCount}
-              canRun={canRun}
-              estimatedRunCount={estimatedRunCount}
-              onSelectionOpen={onSelectionOpen}
-              hasActiveFilter={hasActiveFilter}
-              onAxisFilterOpen={onAxisFilterOpen}
-              onGraphOpen={onGraphOpen}
-              className="hidden md:flex"
-            />
+            <div className="flex items-center gap-2">
+              <WorkCompositionToolbar
+                repeatCount={repeatCount}
+                setRepeatCount={setRepeatCount}
+                handleRun={handleRun}
+                handleRandomRun={handleRandomRun}
+                randomRunCount={randomRunCount}
+                setRandomRunCount={setRandomRunCount}
+                canRun={canRun}
+                estimatedRunCount={estimatedRunCount}
+                onSelectionOpen={onSelectionOpen}
+                hasActiveFilter={hasActiveFilter}
+                onAxisFilterOpen={onAxisFilterOpen}
+                onGraphOpen={onGraphOpen}
+                className="hidden md:flex"
+              />
+              {onToggleJobsLayoutOrientation && jobsLayoutOrientation && (
+                <>
+                  <div className="h-4 w-px shrink-0 bg-line/60" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={onToggleJobsLayoutOrientation}
+                      >
+                        {jobsLayoutOrientation === "horizontal" ? (
+                          <Rows2 className="h-4 w-4" />
+                        ) : (
+                          <Columns2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
+                      {jobsLayoutOrientation === "horizontal"
+                        ? "세로 분할 레이아웃으로 전환 (위/아래)"
+                        : "가로 분할 레이아웃으로 전환 (왼쪽/오른쪽)"}
+                    </TooltipContent>
+                  </Tooltip>
+                </>
+              )}
+              {onFloatToggle && (
+                <>
+                  <div className="h-4 w-px shrink-0 bg-line/60" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={onFloatToggle}
+                      >
+                        {isFloating ? (
+                          <ArrowUpRight className="h-4 w-4" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
+                      {isFloating ? "원래대로 결합 (Dock)" : "창으로 분리 (Pop out)"}
+                    </TooltipContent>
+                  </Tooltip>
+                </>
+              )}
+            </div>
           </div>
 
           <TabsContent

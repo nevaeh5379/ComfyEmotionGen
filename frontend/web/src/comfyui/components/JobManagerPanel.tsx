@@ -12,9 +12,12 @@ import {
   Activity,
   CheckCircle2,
   AlertCircle,
+  ArrowUpRight,
+  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -124,6 +127,10 @@ interface Props {
   handleCancelAll: () => void
   handleRetryAllFailed: () => void
   handleDeleteAllFailed: () => void
+
+  // Floating Window controls
+  isFloating?: boolean
+  onFloatToggle?: () => void
 }
 
 export const JobManagerPanel = memo(function JobManagerPanel({
@@ -132,6 +139,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   mobileTab = "list",
   counts,
   sessionJobs,
+  isFloating,
+  onFloatToggle,
 }: Props) {
   useRenderLog("JobManagerPanel")
   const confirm = useConfirm()
@@ -996,6 +1005,31 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 </span>
               )}
             </Button>
+
+            {onFloatToggle && (
+              <>
+                <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="hidden h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none md:inline-flex"
+                      onClick={onFloatToggle}
+                    >
+                      {isFloating ? (
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      ) : (
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
+                    {isFloating ? "원래대로 결합 (Dock)" : "창으로 분리 (Pop out)"}
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            )}
           </div>
         </div>
 

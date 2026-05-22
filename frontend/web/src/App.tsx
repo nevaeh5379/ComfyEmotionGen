@@ -15,11 +15,15 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  ArrowLeft,
+  ArrowRight,
   RefreshCw as RefreshCwIcon,
   Download as DownloadIcon,
   Trash2 as Trash2Icon,
   Filter as FilterIcon,
   LayoutGrid,
+  Workflow,
+  RotateCcw,
 } from "lucide-react"
 
 import { useBackend } from "./comfyui/hooks/useBackend"
@@ -161,6 +165,33 @@ export function App() {
     "ceg_galleryFloatingSize",
     { w: 600, h: 500 }
   )
+
+  const [isCompositionFloating, setIsCompositionFloating] = useLocalStorage<boolean>(
+    "ceg_isCompositionFloating",
+    false
+  )
+  const [compositionFloatingPos, setCompositionFloatingPos] = useLocalStorage<{ x: number; y: number }>(
+    "ceg_compositionFloatingPos",
+    { x: 50, y: 150 }
+  )
+  const [compositionFloatingSize, setCompositionFloatingSize] = useLocalStorage<{ w: number; h: number }>(
+    "ceg_compositionFloatingSize",
+    { w: 420, h: 650 }
+  )
+
+  const [isJobManagerFloating, setIsJobManagerFloating] = useLocalStorage<boolean>(
+    "ceg_isJobManagerFloating",
+    false
+  )
+  const [jobManagerFloatingPos, setJobManagerFloatingPos] = useLocalStorage<{ x: number; y: number }>(
+    "ceg_jobManagerFloatingPos",
+    { x: 500, y: 150 }
+  )
+  const [jobManagerFloatingSize, setJobManagerFloatingSize] = useLocalStorage<{ w: number; h: number }>(
+    "ceg_jobManagerFloatingSize",
+    { w: 750, h: 650 }
+  )
+
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
@@ -219,6 +250,18 @@ export function App() {
             setGalleryFloatingPos={setGalleryFloatingPos}
             galleryFloatingSize={galleryFloatingSize}
             setGalleryFloatingSize={setGalleryFloatingSize}
+            isCompositionFloating={isCompositionFloating}
+            setIsCompositionFloating={setIsCompositionFloating}
+            compositionFloatingPos={compositionFloatingPos}
+            setCompositionFloatingPos={setCompositionFloatingPos}
+            compositionFloatingSize={compositionFloatingSize}
+            setCompositionFloatingSize={setCompositionFloatingSize}
+            isJobManagerFloating={isJobManagerFloating}
+            setIsJobManagerFloating={setIsJobManagerFloating}
+            jobManagerFloatingPos={jobManagerFloatingPos}
+            setJobManagerFloatingPos={setJobManagerFloatingPos}
+            jobManagerFloatingSize={jobManagerFloatingSize}
+            setJobManagerFloatingSize={setJobManagerFloatingSize}
           />
         </NodeMappingProvider>
       </WorkflowProvider>
@@ -283,11 +326,125 @@ interface AppContentProps {
   setGalleryFloatingPos: (pos: { x: number; y: number }) => void
   galleryFloatingSize: { w: number; h: number }
   setGalleryFloatingSize: (size: { w: number; h: number }) => void
+
+  isCompositionFloating: boolean
+  setIsCompositionFloating: (v: boolean) => void
+  compositionFloatingPos: { x: number; y: number }
+  setCompositionFloatingPos: (pos: { x: number; y: number }) => void
+  compositionFloatingSize: { w: number; h: number }
+  setCompositionFloatingSize: (size: { w: number; h: number }) => void
+
+  isJobManagerFloating: boolean
+  setIsJobManagerFloating: (v: boolean) => void
+  jobManagerFloatingPos: { x: number; y: number }
+  setJobManagerFloatingPos: (pos: { x: number; y: number }) => void
+  jobManagerFloatingSize: { w: number; h: number }
+  setJobManagerFloatingSize: (size: { w: number; h: number }) => void
 }
 
 function AppContent(props: AppContentProps) {
   useRenderLog("AppContent")
+  const {
+    setIsCompositionFloating,
+    setIsJobManagerFloating,
+    setIsGalleryFloating,
+    setActiveTab,
+  } = props
+
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  const [jobsLayoutOrientation, setJobsLayoutOrientation] = useLocalStorage<"horizontal" | "vertical">(
+    "ceg_jobsLayoutOrientation",
+    "horizontal"
+  )
+
+  const [jobsPanelOrder, setJobsPanelOrder] = useLocalStorage<"composition-first" | "manager-first">(
+    "ceg_jobsPanelOrder",
+    "composition-first"
+  )
+
+  const [snapDockZone, setSnapDockZone] = useState<{
+    zone: "left" | "right" | "top" | "bottom"
+    windowType: "composition" | "jobManager" | "gallery"
+  } | null>(null)
+
+  const handleDragProgress = useCallback(
+    (
+      clientX: number,
+      clientY: number,
+      screenW: number,
+      screenH: number,
+      isEnding: boolean,
+      windowType: "composition" | "jobManager" | "gallery"
+    ) => {
+      const SNAP_THRESHOLD = 50
+      const distLeft = clientX
+      const distRight = screenW - clientX
+      const distTop = clientY
+      const distBottom = screenH - clientY
+
+      const minDist = Math.min(distLeft, distRight, distTop, distBottom)
+      let activeZone: "left" | "right" | "top" | "bottom" | null = null
+
+      if (minDist < SNAP_THRESHOLD) {
+        if (minDist === distLeft) activeZone = "left"
+        else if (minDist === distRight) activeZone = "right"
+        else if (minDist === distTop) activeZone = "top"
+        else activeZone = "bottom"
+      }
+
+      if (isEnding) {
+        setSnapDockZone(null)
+        if (activeZone) {
+          if (windowType === "composition") {
+            setIsCompositionFloating(false)
+            if (activeZone === "left" || activeZone === "right") {
+              setJobsLayoutOrientation("horizontal")
+            } else {
+              setJobsLayoutOrientation("vertical")
+            }
+            if (activeZone === "left" || activeZone === "top") {
+              setJobsPanelOrder("composition-first")
+            } else {
+              setJobsPanelOrder("manager-first")
+            }
+            toast.success("작업 구성 패널이 스냅 결합되었습니다.")
+          } else if (windowType === "jobManager") {
+            setIsJobManagerFloating(false)
+            if (activeZone === "left" || activeZone === "right") {
+              setJobsLayoutOrientation("horizontal")
+            } else {
+              setJobsLayoutOrientation("vertical")
+            }
+            if (activeZone === "left" || activeZone === "top") {
+              setJobsPanelOrder("manager-first")
+            } else {
+              setJobsPanelOrder("composition-first")
+            }
+            toast.success("작업 큐 매니저가 스냅 결합되었습니다.")
+          } else if (windowType === "gallery") {
+            setIsGalleryFloating(false)
+            setActiveTab("gallery")
+            toast.success("갤러리가 메인 탭으로 결합되었습니다.")
+          }
+        }
+      } else {
+        if (activeZone) {
+          setSnapDockZone({ zone: activeZone, windowType })
+        } else {
+          setSnapDockZone(null)
+        }
+      }
+    },
+    [
+      setIsCompositionFloating,
+      setIsJobManagerFloating,
+      setIsGalleryFloating,
+      setActiveTab,
+      setJobsLayoutOrientation,
+      setJobsPanelOrder,
+    ]
+  )
 
   // ── Contexts ──
   const template = useTemplateContext()
@@ -1025,39 +1182,149 @@ function AppContent(props: AppContentProps) {
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* Desktop: Resizable, Mobile: Single Panel */}
             <div className="hidden md:contents">
-              <ResizablePanelGroup
-                orientation="horizontal"
-                className="min-h-0 flex-1 overflow-hidden"
-              >
-                <ResizablePanel
-                  defaultSize={35}
-                  minSize={25}
-                  className="flex min-h-0 flex-col overflow-hidden border-r border-line bg-panel"
+              {!props.isCompositionFloating && !props.isJobManagerFloating ? (
+                <ResizablePanelGroup
+                  orientation={jobsLayoutOrientation}
+                  className="min-h-0 flex-1 overflow-hidden"
                 >
-                  <WorkCompositionPanel
-                    repeatCount={repeatCount}
-                    setRepeatCount={setRepeatCount}
-                    handleRun={handleRun}
-                    handleRandomRun={handleRandomRun}
-                    randomRunCount={randomRunCount}
-                    setRandomRunCount={setRandomRunCount}
-                    estimatedRunCount={estimatedRunCount}
-                    canRun={canRun}
-                    previewCount={fakeJobQueue.length}
-                    compositionTab={props.compositionTab}
-                    setCompositionTab={props.setCompositionTab}
-                    onPreviewOpen={() => props.setIsSheetOpen(true)}
-                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
-                    hasActiveFilter={hasActiveFilter}
-                    onGraphOpen={() => props.setIsGraphOpen(true)}
-                  />
-                </ResizablePanel>
-                <ResizableHandle />
-                <ResizablePanel
-                  defaultSize={65}
-                  className="flex min-h-0 flex-col overflow-hidden bg-panel"
-                >
+                  {jobsPanelOrder === "composition-first" ? (
+                    <>
+                      <ResizablePanel
+                        defaultSize={35}
+                        minSize={25}
+                        className={cn(
+                          "flex min-h-0 flex-col overflow-hidden bg-panel",
+                          jobsLayoutOrientation === "horizontal" ? "border-r border-line" : "border-b border-line"
+                        )}
+                      >
+                        <WorkCompositionPanel
+                          repeatCount={repeatCount}
+                          setRepeatCount={setRepeatCount}
+                          handleRun={handleRun}
+                          handleRandomRun={handleRandomRun}
+                          randomRunCount={randomRunCount}
+                          setRandomRunCount={setRandomRunCount}
+                          estimatedRunCount={estimatedRunCount}
+                          canRun={canRun}
+                          previewCount={fakeJobQueue.length}
+                          compositionTab={props.compositionTab}
+                          setCompositionTab={props.setCompositionTab}
+                          onPreviewOpen={() => props.setIsSheetOpen(true)}
+                          onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+                          onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                          hasActiveFilter={hasActiveFilter}
+                          onGraphOpen={() => props.setIsGraphOpen(true)}
+                          isFloating={false}
+                          onFloatToggle={() => props.setIsCompositionFloating(true)}
+                          jobsLayoutOrientation={jobsLayoutOrientation}
+                          onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
+                        />
+                      </ResizablePanel>
+                      <ResizableHandle />
+                      <ResizablePanel
+                        defaultSize={65}
+                        className="flex min-h-0 flex-col overflow-hidden bg-panel"
+                      >
+                        <div className="min-h-0 flex-1 overflow-y-auto">
+                          <JobManagerPanel
+                            jobs={props.jobs}
+                            paused={props.paused}
+                            backendUrl={props.backendUrl}
+                            isAliveBackend={props.isAliveBackend}
+                            selectedId={selectedSessionId}
+                            setSelectedId={setSelectedSessionId}
+                            markers={markers}
+                            setMarkersRaw={setMarkersRaw}
+                            activeState={activeState}
+                            setActiveStateRaw={setActiveStateRaw}
+                            sessionPickerOpen={sessionPickerOpen}
+                            setSessionPickerOpen={setSessionPickerOpen}
+                            createNewSession={createNewSession}
+                            sessionJobCounts={sessionJobCounts}
+                            sortedMarkers={sortedMarkers}
+                            counts={sessionCounts}
+                            sessionJobs={sessionJobs}
+                            handleTogglePause={handleTogglePause}
+                            handleCancelAll={handleCancelAll}
+                            handleRetryAllFailed={handleRetryAllFailed}
+                            handleDeleteAllFailed={handleDeleteAllFailed}
+                            isFloating={false}
+                            onFloatToggle={() => props.setIsJobManagerFloating(true)}
+                          />
+                        </div>
+                      </ResizablePanel>
+                    </>
+                  ) : (
+                    <>
+                      <ResizablePanel
+                        defaultSize={65}
+                        className={cn(
+                          "flex min-h-0 flex-col overflow-hidden bg-panel",
+                          jobsLayoutOrientation === "horizontal" ? "border-r border-line" : "border-b border-line"
+                        )}
+                      >
+                        <div className="min-h-0 flex-1 overflow-y-auto">
+                          <JobManagerPanel
+                            jobs={props.jobs}
+                            paused={props.paused}
+                            backendUrl={props.backendUrl}
+                            isAliveBackend={props.isAliveBackend}
+                            selectedId={selectedSessionId}
+                            setSelectedId={setSelectedSessionId}
+                            markers={markers}
+                            setMarkersRaw={setMarkersRaw}
+                            activeState={activeState}
+                            setActiveStateRaw={setActiveStateRaw}
+                            sessionPickerOpen={sessionPickerOpen}
+                            setSessionPickerOpen={setSessionPickerOpen}
+                            createNewSession={createNewSession}
+                            sessionJobCounts={sessionJobCounts}
+                            sortedMarkers={sortedMarkers}
+                            counts={sessionCounts}
+                            sessionJobs={sessionJobs}
+                            handleTogglePause={handleTogglePause}
+                            handleCancelAll={handleCancelAll}
+                            handleRetryAllFailed={handleRetryAllFailed}
+                            handleDeleteAllFailed={handleDeleteAllFailed}
+                            isFloating={false}
+                            onFloatToggle={() => props.setIsJobManagerFloating(true)}
+                          />
+                        </div>
+                      </ResizablePanel>
+                      <ResizableHandle />
+                      <ResizablePanel
+                        defaultSize={35}
+                        minSize={25}
+                        className="flex min-h-0 flex-col overflow-hidden bg-panel"
+                      >
+                        <WorkCompositionPanel
+                          repeatCount={repeatCount}
+                          setRepeatCount={setRepeatCount}
+                          handleRun={handleRun}
+                          handleRandomRun={handleRandomRun}
+                          randomRunCount={randomRunCount}
+                          setRandomRunCount={setRandomRunCount}
+                          estimatedRunCount={estimatedRunCount}
+                          canRun={canRun}
+                          previewCount={fakeJobQueue.length}
+                          compositionTab={props.compositionTab}
+                          setCompositionTab={props.setCompositionTab}
+                          onPreviewOpen={() => props.setIsSheetOpen(true)}
+                          onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+                          onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                          hasActiveFilter={hasActiveFilter}
+                          onGraphOpen={() => props.setIsGraphOpen(true)}
+                          isFloating={false}
+                          onFloatToggle={() => props.setIsCompositionFloating(true)}
+                          jobsLayoutOrientation={jobsLayoutOrientation}
+                          onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
+                        />
+                      </ResizablePanel>
+                    </>
+                  )}
+                </ResizablePanelGroup>
+              ) : props.isCompositionFloating && !props.isJobManagerFloating ? (
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     <JobManagerPanel
                       jobs={props.jobs}
@@ -1081,10 +1348,61 @@ function AppContent(props: AppContentProps) {
                       handleCancelAll={handleCancelAll}
                       handleRetryAllFailed={handleRetryAllFailed}
                       handleDeleteAllFailed={handleDeleteAllFailed}
+                      isFloating={false}
+                      onFloatToggle={() => props.setIsJobManagerFloating(true)}
                     />
                   </div>
-                </ResizablePanel>
-              </ResizablePanelGroup>
+                </div>
+              ) : !props.isCompositionFloating && props.isJobManagerFloating ? (
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel border-r border-line">
+                  <WorkCompositionPanel
+                    repeatCount={repeatCount}
+                    setRepeatCount={setRepeatCount}
+                    handleRun={handleRun}
+                    handleRandomRun={handleRandomRun}
+                    randomRunCount={randomRunCount}
+                    setRandomRunCount={setRandomRunCount}
+                    estimatedRunCount={estimatedRunCount}
+                    canRun={canRun}
+                    previewCount={fakeJobQueue.length}
+                    compositionTab={props.compositionTab}
+                    setCompositionTab={props.setCompositionTab}
+                    onPreviewOpen={() => props.setIsSheetOpen(true)}
+                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                    hasActiveFilter={hasActiveFilter}
+                    onGraphOpen={() => props.setIsGraphOpen(true)}
+                    isFloating={false}
+                    onFloatToggle={() => props.setIsCompositionFloating(true)}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 select-none text-center animate-in fade-in duration-300">
+                  <div className="relative flex flex-col items-center justify-center p-8 max-w-md rounded-2xl border border-line/45 bg-panel/40 backdrop-blur-xl shadow-xl space-y-6 overflow-hidden before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-tr before:from-primary/5 before:via-transparent before:to-primary/10 before:-z-10 animate-in zoom-in-95 duration-300">
+                    <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <Workflow className="h-8 w-8 animate-pulse" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-bold text-foreground tracking-tight">
+                        모든 작업 패널이 창 모드로 분리되었습니다
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed px-4">
+                        작업 구성 패널과 작업 큐 매니저가 개별 플로팅 창으로 활성화되었습니다. 창을 이동하거나 크기를 조절하며 멀티태스킹 작업을 수행해 보세요.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        props.setIsCompositionFloating(false)
+                        props.setIsJobManagerFloating(false)
+                      }}
+                      className="px-6 py-2 h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/20 flex items-center gap-2 group transition-all duration-200"
+                    >
+                      <RotateCcw className="h-4 w-4 transition-transform group-hover:rotate-180 duration-500" />
+                      모두 원래대로 결합
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-1 flex-col overflow-hidden md:hidden">
@@ -1289,6 +1607,87 @@ function AppContent(props: AppContentProps) {
         onOpenChange={setShortcutsOpen}
       />
 
+      {props.isCompositionFloating && (
+        <FloatingWindow
+          isOpen={props.isCompositionFloating}
+          onClose={() => props.setIsCompositionFloating(false)}
+          onDock={() => props.setIsCompositionFloating(false)}
+          initialPos={props.compositionFloatingPos}
+          initialSize={props.compositionFloatingSize}
+          onPosChange={props.setCompositionFloatingPos}
+          onSizeChange={props.setCompositionFloatingSize}
+          title="작업 구성 패널"
+          onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "composition")}
+        >
+          <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
+            <WorkCompositionPanel
+              repeatCount={repeatCount}
+              setRepeatCount={setRepeatCount}
+              handleRun={handleRun}
+              handleRandomRun={handleRandomRun}
+              randomRunCount={randomRunCount}
+              setRandomRunCount={setRandomRunCount}
+              estimatedRunCount={estimatedRunCount}
+              canRun={canRun}
+              previewCount={fakeJobQueue.length}
+              compositionTab={props.compositionTab}
+              setCompositionTab={props.setCompositionTab}
+              onPreviewOpen={() => props.setIsSheetOpen(true)}
+              onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+              onSelectionOpen={() => props.setIsSelectionOpen(true)}
+              hasActiveFilter={hasActiveFilter}
+              onGraphOpen={() => props.setIsGraphOpen(true)}
+              isFloating={true}
+              onFloatToggle={() => props.setIsCompositionFloating(false)}
+            />
+          </div>
+        </FloatingWindow>
+      )}
+
+      {props.isJobManagerFloating && (
+        <FloatingWindow
+          isOpen={props.isJobManagerFloating}
+          onClose={() => props.setIsJobManagerFloating(false)}
+          onDock={() => props.setIsJobManagerFloating(false)}
+          initialPos={props.jobManagerFloatingPos}
+          initialSize={props.jobManagerFloatingSize}
+          onPosChange={props.setJobManagerFloatingPos}
+          onSizeChange={props.setJobManagerFloatingSize}
+          title="작업 큐 매니저"
+          onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")}
+        >
+          <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <JobManagerPanel
+                jobs={props.jobs}
+                paused={props.paused}
+                backendUrl={props.backendUrl}
+                isAliveBackend={props.isAliveBackend}
+                selectedId={selectedSessionId}
+                setSelectedId={setSelectedSessionId}
+                markers={markers}
+                setMarkersRaw={setMarkersRaw}
+                activeState={activeState}
+                setActiveStateRaw={setActiveStateRaw}
+                sessionPickerOpen={sessionPickerOpen}
+                setSessionPickerOpen={setSessionPickerOpen}
+                createNewSession={createNewSession}
+                sessionJobCounts={sessionJobCounts}
+                sortedMarkers={sortedMarkers}
+                counts={sessionCounts}
+                sessionJobs={sessionJobs}
+                handleTogglePause={handleTogglePause}
+                handleCancelAll={handleCancelAll}
+                handleRetryAllFailed={handleRetryAllFailed}
+                handleDeleteAllFailed={handleDeleteAllFailed}
+                isFloating={true}
+                onFloatToggle={() => props.setIsJobManagerFloating(false)}
+              />
+            </div>
+          </div>
+        </FloatingWindow>
+      )}
+
       {props.activeTab !== "gallery" && props.isGalleryFloating && (
         <FloatingWindow
           isOpen={props.isGalleryFloating}
@@ -1302,6 +1701,7 @@ function AppContent(props: AppContentProps) {
           onPosChange={props.setGalleryFloatingPos}
           onSizeChange={props.setGalleryFloatingSize}
           title="갤러리 플로팅 창"
+          onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")}
           toolbar={
             <div className="flex flex-wrap items-center gap-1.5 w-full">
               {/* 상태 필터 Select */}
@@ -1562,6 +1962,32 @@ function AppContent(props: AppContentProps) {
             }}
           />
         </FloatingWindow>
+      )}
+
+      {snapDockZone && (
+        <div
+          className={cn(
+            "fixed pointer-events-none z-50 flex items-center justify-center border border-primary/30 bg-primary/10 backdrop-blur-xs transition-all duration-300 animate-pulse",
+            snapDockZone.zone === "left" && "left-0 top-0 bottom-0 w-1/2 rounded-r-2xl border-l-0",
+            snapDockZone.zone === "right" && "right-0 top-0 bottom-0 w-1/2 rounded-l-2xl border-r-0",
+            snapDockZone.zone === "top" && "left-0 right-0 top-0 h-1/2 rounded-b-2xl border-t-0",
+            snapDockZone.zone === "bottom" && "left-0 right-0 bottom-0 h-1/2 rounded-t-2xl border-b-0"
+          )}
+        >
+          <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-panel/60 border border-line shadow-2xl backdrop-blur-xl scale-110 animate-in zoom-in-95 duration-200">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary/20 text-primary border border-primary/30 shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">
+              {snapDockZone.zone === "left" && <ArrowLeft className="h-6 w-6" />}
+              {snapDockZone.zone === "right" && <ArrowRight className="h-6 w-6" />}
+              {snapDockZone.zone === "top" && <ArrowUp className="h-6 w-6" />}
+              {snapDockZone.zone === "bottom" && <ArrowDown className="h-6 w-6" />}
+            </div>
+            <span className="mt-3 text-xs font-black text-foreground tracking-wider uppercase">
+              {snapDockZone.zone === "left" || snapDockZone.zone === "right"
+                ? "가로 결합 스냅"
+                : "세로 결합 스냅"}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   )

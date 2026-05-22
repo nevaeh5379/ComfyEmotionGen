@@ -14,6 +14,13 @@ interface FloatingWindowProps {
   children: React.ReactNode
   title?: string
   toolbar?: React.ReactNode
+  onDragProgress?: (
+    clientX: number,
+    clientY: number,
+    screenW: number,
+    screenH: number,
+    isEnding: boolean
+  ) => void
 }
 
 export function FloatingWindow({
@@ -27,6 +34,7 @@ export function FloatingWindow({
   children,
   title = "플로팅 윈도우",
   toolbar,
+  onDragProgress,
 }: FloatingWindowProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const posRef = useRef(initialPos)
@@ -81,11 +89,17 @@ export function FloatingWindow({
         containerRef.current.style.left = `${nextLeft}px`
         containerRef.current.style.top = `${nextTop}px`
       }
+
+      // 실시간 드래그 진행 상황 및 좌표 버블링
+      onDragProgress?.(moveEvent.clientX, moveEvent.clientY, screenW, screenH, false)
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (upEvent: MouseEvent) => {
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseup", handleMouseUp)
+
+      const screenW = window.innerWidth
+      const screenH = window.innerHeight
 
       // 최종 위치를 React State 및 localStorage에 한 번만 커밋
       if (containerRef.current) {
@@ -95,6 +109,9 @@ export function FloatingWindow({
         posRef.current = nextPos
         onPosChange(nextPos)
       }
+
+      // 최종 드래그 종료 버블링
+      onDragProgress?.(upEvent.clientX, upEvent.clientY, screenW, screenH, true)
     }
 
     document.addEventListener("mousemove", handleMouseMove)
