@@ -4,6 +4,7 @@ import {
   useSavedTemplates,
   type SavedTemplate,
 } from "../hooks/useSavedTemplates"
+import { usePendingDialog } from "./PendingDialogContext"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 // ---------------------------------------------------------------------------
@@ -23,7 +24,7 @@ export interface TemplateContextValue {
   /** Called when a name conflict needs App-level resolution */
   onPendingSave: (name: string, type: "template") => void
   /** Called when updating a saved item; shows diff if content changed */
-  onPendingUpdate?: (
+  onPendingUpdate: (
     name: string,
     type: "template",
     oldContent: string,
@@ -50,21 +51,14 @@ export function useTemplateContext(): TemplateContextValue {
 // ---------------------------------------------------------------------------
 
 interface TemplateProviderProps {
-  onPendingSave: (name: string, type: "template") => void
-  onPendingUpdate?: (
-    name: string,
-    type: "template",
-    oldContent: string,
-    newContent: string
-  ) => boolean | null
   children: React.ReactNode
 }
 
 export function TemplateProvider({
-  onPendingSave,
-  onPendingUpdate,
   children,
 }: TemplateProviderProps): React.JSX.Element {
+  const { setPendingSave, handlePendingUpdate } = usePendingDialog()
+
   const [cegTemplate, setCegTemplate] = useSyncedStorage(
     STORAGE_KEYS.cegTemplate,
     ""
@@ -91,8 +85,14 @@ export function TemplateProvider({
         deleteTemplate,
         templateResetKey,
         setTemplateResetKey,
-        onPendingSave,
-        ...(onPendingUpdate ? { onPendingUpdate } : {}),
+        onPendingSave: (name: string, type: "template") =>
+          setPendingSave({ name, type }),
+        onPendingUpdate: (
+          name: string,
+          type: "template",
+          oldContent: string,
+          newContent: string
+        ) => handlePendingUpdate(name, type, oldContent, newContent),
       }}
     >
       {children}

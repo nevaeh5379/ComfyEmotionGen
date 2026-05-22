@@ -30,7 +30,6 @@ import {
 
 import { useBackend } from "./comfyui/hooks/useBackend"
 import { SavedImagesGallery } from "./comfyui/components/SavedImagesGallery"
-import { curationApi } from "./comfyui/hooks/useSavedImages"
 import { useGlobalShortcuts } from "./comfyui/hooks/useGlobalShortcuts"
 import { CombinationPicker } from "./comfyui/components/combinationpicker/CombinationPicker"
 import { DEFAULT_AXIS } from "./comfyui/components/combinationpicker/freeCurationGroupers"
@@ -60,7 +59,9 @@ import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
 import { TemplateProvider } from "./comfyui/contexts/TemplateContext"
 import { WorkflowProvider } from "./comfyui/contexts/WorkflowContext"
 import { NodeMappingProvider } from "./comfyui/contexts/NodeMappingContext"
-import type { SavedWorkflow } from "./comfyui/hooks/useSavedWorkflows"
+import { PendingDialogProvider, usePendingDialog } from "./comfyui/contexts/PendingDialogContext"
+import { PanelLayoutProvider, usePanelLayout } from "./comfyui/contexts/PanelLayoutContext"
+import { GalleryToolbarProvider, useGalleryToolbar } from "./comfyui/contexts/GalleryToolbarContext"
 import type { NodeMapping } from "./lib/workflow"
 import {
   DEFAULT_BACKEND_URL,
@@ -105,38 +106,51 @@ export function App() {
   useRenderLog("App")
   useOfflineSync()
 
-  const [pendingSave, setPendingSave] = useState<{
-    name: string
-    type: "template" | "workflow" | "nodeMapping"
-  } | null>(null)
+  const [storedBackendUrl] = useLocalStorage(
+    STORAGE_KEYS.backendUrl,
+    DEFAULT_BACKEND_URL
+  )
+  const backendUrl = IS_PACKAGE_MODE
+    ? (PACKAGE_BACKEND_URL as string)
+    : storedBackendUrl
 
-  const handlePendingSave = (
-    name: string,
-    type: "template" | "workflow" | "nodeMapping"
-  ) => {
-    setPendingSave({ name, type })
-  }
+  return (
+    <PendingDialogProvider>
+      <PanelLayoutProvider>
+        <GalleryToolbarProvider backendUrl={backendUrl}>
+          <TemplateProvider>
+            <WorkflowProvider>
+              <NodeMappingProvider backendUrl={backendUrl}>
+                <AppContent />
+              </NodeMappingProvider>
+            </WorkflowProvider>
+          </TemplateProvider>
+        </GalleryToolbarProvider>
+      </PanelLayoutProvider>
+    </PendingDialogProvider>
+  )
+}
 
-  const [pendingDiff, setPendingDiff] = useState<{
-    name: string
-    type: "template" | "workflow"
-    oldContent: string
-    newContent: string
-  } | null>(null)
+// ---------------------------------------------------------------------------
+// AppContent — inside all 3 contexts
+// ---------------------------------------------------------------------------
+function AppContent() {
+  useRenderLog("AppContent")
 
-  const handlePendingUpdate = (
-    name: string,
-    type: "template" | "workflow",
-    oldContent: string,
-    newContent: string
-  ) => {
-    // If content is identical, no diff needed
-    if (oldContent === newContent) return null
-    setPendingDiff({ name, type, oldContent, newContent })
-    return true // Show diff
-  }
+  const panel = usePanelLayout()
+  const tb = useGalleryToolbar()
+  const {
+    pendingSave,
+    setPendingSave,
+    pendingDiff,
+    setPendingDiff,
+    pendingPresetSelection,
+    setPendingPresetSelection,
+  } = usePendingDialog()
 
-  // Backend URL (remains at App level — used by many components)
+  const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
+  const { settings, updateSetting } = useSettings()
+
   const [storedBackendUrl, setStoredBackendUrl] = useLocalStorage(
     STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL
@@ -148,85 +162,11 @@ export function App() {
     ? (_: string) => {}
     : setStoredBackendUrl
 
-  const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
-  const { settings, updateSetting } = useSettings()
-
   // UI state
   const [activeTab, setActiveTab] = useState<TabId>("jobs")
   const [compositionTab, setCompositionTab] = useState<"ceg" | "workflow">(
     "ceg"
   )
-  const [isGalleryFloating, setIsGalleryFloating] = useLocalStorage<boolean>(
-    "ceg_isGalleryFloating",
-    false
-  )
-  const [galleryFloatingPos, setGalleryFloatingPos] = useLocalStorage<{ x: number; y: number }>(
-    "ceg_galleryFloatingPos",
-    { x: 100, y: 100 }
-  )
-  const [galleryFloatingSize, setGalleryFloatingSize] = useLocalStorage<{ w: number; h: number }>(
-    "ceg_galleryFloatingSize",
-    { w: 600, h: 500 }
-  )
-
-  const [isCompositionFloating, setIsCompositionFloating] = useLocalStorage<boolean>(
-    "ceg_isCompositionFloating",
-    false
-  )
-  const [compositionFloatingPos, setCompositionFloatingPos] = useLocalStorage<{ x: number; y: number }>(
-    "ceg_compositionFloatingPos",
-    { x: 50, y: 150 }
-  )
-  const [compositionFloatingSize, setCompositionFloatingSize] = useLocalStorage<{ w: number; h: number }>(
-    "ceg_compositionFloatingSize",
-    { w: 420, h: 650 }
-  )
-
-  const [isJobManagerFloating, setIsJobManagerFloating] = useLocalStorage<boolean>(
-    "ceg_isJobManagerFloating",
-    false
-  )
-  const [jobManagerFloatingPos, setJobManagerFloatingPos] = useLocalStorage<{ x: number; y: number }>(
-    "ceg_jobManagerFloatingPos",
-    { x: 500, y: 150 }
-  )
-  const [jobManagerFloatingSize, setJobManagerFloatingSize] = useLocalStorage<{ w: number; h: number }>(
-    "ceg_jobManagerFloatingSize",
-    { w: 750, h: 650 }
-  )
-
-  const [isStatsFloating, setIsStatsFloating] = useLocalStorage<boolean>(
-    "ceg_isStatsFloating",
-    false
-  )
-  const [statsFloatingPos, setStatsFloatingPos] = useLocalStorage<{ x: number; y: number }>(
-    "ceg_statsFloatingPos",
-    { x: 200, y: 100 }
-  )
-  const [statsFloatingSize, setStatsFloatingSize] = useLocalStorage<{ w: number; h: number }>(
-    "ceg_statsFloatingSize",
-    { w: 700, h: 500 }
-  )
-
-  const [isCurationFloating, setIsCurationFloating] = useLocalStorage<boolean>(
-    "ceg_isCurationFloating",
-    false
-  )
-  const [curationFloatingPos, setCurationFloatingPos] = useLocalStorage<{ x: number; y: number }>(
-    "ceg_curationFloatingPos",
-    { x: 300, y: 100 }
-  )
-  const [curationFloatingSize, setCurationFloatingSize] = useLocalStorage<{ w: number; h: number }>(
-    "ceg_curationFloatingSize",
-    { w: 800, h: 600 }
-  )
-
-  const [isStatsDocked, setIsStatsDocked] = useLocalStorage<boolean>("ceg_isStatsDocked", false)
-  const [statsDockedSide, setStatsDockedSide] = useLocalStorage<"start" | "end">("ceg_statsDockedSide", "end")
-  const [isGalleryDocked, setIsGalleryDocked] = useLocalStorage<boolean>("ceg_isGalleryDocked", false)
-  const [galleryDockedSide, setGalleryDockedSide] = useLocalStorage<"start" | "end">("ceg_galleryDockedSide", "end")
-  const [isCurationDocked, setIsCurationDocked] = useLocalStorage<boolean>("ceg_isCurationDocked", false)
-  const [curationDockedSide, setCurationDockedSide] = useLocalStorage<"start" | "end">("ceg_curationDockedSide", "end")
 
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
@@ -234,240 +174,62 @@ export function App() {
   const [isSelectionOpen, setIsSelectionOpen] = useState(false)
   const [isAliveBackend, setIsAliveBackend] = useState(false)
   const [previewFilter, setPreviewFilter] = useState("")
-  const [pendingPresetSelection, setPendingPresetSelection] =
-    useState<SavedWorkflow | null>(null)
 
-  useEffect(() => {
-    if (!settings.useWindowMode) {
-      setIsGalleryFloating(false)
-      setIsGalleryDocked(false)
-      setIsCompositionFloating(false)
-      setIsJobManagerFloating(false)
-      setIsStatsFloating(false)
-      setIsStatsDocked(false)
-      setIsCurationFloating(false)
-      setIsCurationDocked(false)
-    }
-  }, [
-    settings.useWindowMode,
-    setIsGalleryFloating,
-    setIsGalleryDocked,
-    setIsCompositionFloating,
-    setIsJobManagerFloating,
-    setIsStatsFloating,
-    setIsStatsDocked,
-    setIsCurationFloating,
-    setIsCurationDocked,
-  ])
-
-  // ── Wrap everything in context providers ──
-  return (
-    <TemplateProvider
-      onPendingSave={handlePendingSave}
-      onPendingUpdate={handlePendingUpdate}
-    >
-      <WorkflowProvider
-        onPendingSave={handlePendingSave}
-        onPendingUpdate={handlePendingUpdate}
-        onPendingPresetSelection={setPendingPresetSelection}
-      >
-        <NodeMappingProvider backendUrl={backendUrl}>
-          <AppContent
-            pendingSave={pendingSave}
-            setPendingSave={setPendingSave}
-            pendingDiff={pendingDiff}
-            setPendingDiff={setPendingDiff}
-            pendingPresetSelection={pendingPresetSelection}
-            setPendingPresetSelection={setPendingPresetSelection}
-            backendUrl={backendUrl}
-            setBackendUrl={setBackendUrl}
-            backendAlive={backendAlive}
-            isAliveBackend={isAliveBackend}
-            setIsAliveBackend={setIsAliveBackend}
-            jobs={jobs}
-            workers={workers}
-            paused={paused}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            compositionTab={compositionTab}
-            setCompositionTab={setCompositionTab}
-            isSheetOpen={isSheetOpen}
-            setIsSheetOpen={setIsSheetOpen}
-            isGraphOpen={isGraphOpen}
-            setIsGraphOpen={setIsGraphOpen}
-            isAxisFilterOpen={isAxisFilterOpen}
-            setIsAxisFilterOpen={setIsAxisFilterOpen}
-            isSelectionOpen={isSelectionOpen}
-            setIsSelectionOpen={setIsSelectionOpen}
-            previewFilter={previewFilter}
-            setPreviewFilter={setPreviewFilter}
-            settings={settings}
-            updateSetting={updateSetting}
-            isGalleryFloating={isGalleryFloating}
-            setIsGalleryFloating={setIsGalleryFloating}
-            galleryFloatingPos={galleryFloatingPos}
-            setGalleryFloatingPos={setGalleryFloatingPos}
-            galleryFloatingSize={galleryFloatingSize}
-            setGalleryFloatingSize={setGalleryFloatingSize}
-            isCompositionFloating={isCompositionFloating}
-            setIsCompositionFloating={setIsCompositionFloating}
-            compositionFloatingPos={compositionFloatingPos}
-            setCompositionFloatingPos={setCompositionFloatingPos}
-            compositionFloatingSize={compositionFloatingSize}
-            setCompositionFloatingSize={setCompositionFloatingSize}
-            isJobManagerFloating={isJobManagerFloating}
-            setIsJobManagerFloating={setIsJobManagerFloating}
-            jobManagerFloatingPos={jobManagerFloatingPos}
-            setJobManagerFloatingPos={setJobManagerFloatingPos}
-            jobManagerFloatingSize={jobManagerFloatingSize}
-            setJobManagerFloatingSize={setJobManagerFloatingSize}
-            isStatsFloating={isStatsFloating}
-            setIsStatsFloating={setIsStatsFloating}
-            statsFloatingPos={statsFloatingPos}
-            setStatsFloatingPos={setStatsFloatingPos}
-            statsFloatingSize={statsFloatingSize}
-            setStatsFloatingSize={setStatsFloatingSize}
-            isCurationFloating={isCurationFloating}
-            setIsCurationFloating={setIsCurationFloating}
-            curationFloatingPos={curationFloatingPos}
-            setCurationFloatingPos={setCurationFloatingPos}
-            curationFloatingSize={curationFloatingSize}
-            setCurationFloatingSize={setCurationFloatingSize}
-            isStatsDocked={isStatsDocked}
-            setIsStatsDocked={setIsStatsDocked}
-            statsDockedSide={statsDockedSide}
-            setStatsDockedSide={setStatsDockedSide}
-            isGalleryDocked={isGalleryDocked}
-            setIsGalleryDocked={setIsGalleryDocked}
-            galleryDockedSide={galleryDockedSide}
-            setGalleryDockedSide={setGalleryDockedSide}
-            isCurationDocked={isCurationDocked}
-            setIsCurationDocked={setIsCurationDocked}
-            curationDockedSide={curationDockedSide}
-            setCurationDockedSide={setCurationDockedSide}
-          />
-        </NodeMappingProvider>
-      </WorkflowProvider>
-    </TemplateProvider>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// AppContent — inside all 3 contexts
-// ---------------------------------------------------------------------------
-interface AppContentProps {
-  pendingSave: {
-    name: string
-    type: "template" | "workflow" | "nodeMapping"
-  } | null
-  setPendingSave: (
-    v: { name: string; type: "template" | "workflow" | "nodeMapping" } | null
-  ) => void
-  pendingDiff: {
-    name: string
-    type: "template" | "workflow"
-    oldContent: string
-    newContent: string
-  } | null
-  setPendingDiff: (
-    v: {
-      name: string
-      type: "template" | "workflow"
-      oldContent: string
-      newContent: string
-    } | null
-  ) => void
-  pendingPresetSelection: SavedWorkflow | null
-  setPendingPresetSelection: (w: SavedWorkflow | null) => void
-  backendUrl: string
-  setBackendUrl: (url: string) => void
-  backendAlive: boolean
-  isAliveBackend: boolean
-  setIsAliveBackend: (v: boolean) => void
-  jobs: ReturnType<typeof useBackend>["jobs"]
-  workers: ReturnType<typeof useBackend>["workers"]
-  paused: boolean
-  activeTab: TabId
-  setActiveTab: (t: TabId) => void
-  compositionTab: "ceg" | "workflow"
-  setCompositionTab: (t: "ceg" | "workflow") => void
-  isSheetOpen: boolean
-  setIsSheetOpen: (v: boolean) => void
-  isGraphOpen: boolean
-  setIsGraphOpen: (v: boolean) => void
-  isAxisFilterOpen: boolean
-  setIsAxisFilterOpen: (v: boolean) => void
-  isSelectionOpen: boolean
-  setIsSelectionOpen: (v: boolean) => void
-  previewFilter: string
-  setPreviewFilter: (v: string) => void
-  settings: ReturnType<typeof useSettings>["settings"]
-  updateSetting: ReturnType<typeof useSettings>["updateSetting"]
-  isGalleryFloating: boolean
-  setIsGalleryFloating: (v: boolean) => void
-  galleryFloatingPos: { x: number; y: number }
-  setGalleryFloatingPos: (pos: { x: number; y: number }) => void
-  galleryFloatingSize: { w: number; h: number }
-  setGalleryFloatingSize: (size: { w: number; h: number }) => void
-
-  isCompositionFloating: boolean
-  setIsCompositionFloating: (v: boolean) => void
-  compositionFloatingPos: { x: number; y: number }
-  setCompositionFloatingPos: (pos: { x: number; y: number }) => void
-  compositionFloatingSize: { w: number; h: number }
-  setCompositionFloatingSize: (size: { w: number; h: number }) => void
-
-  isJobManagerFloating: boolean
-  setIsJobManagerFloating: (v: boolean) => void
-  jobManagerFloatingPos: { x: number; y: number }
-  setJobManagerFloatingPos: (pos: { x: number; y: number }) => void
-  jobManagerFloatingSize: { w: number; h: number }
-  setJobManagerFloatingSize: (size: { w: number; h: number }) => void
-
-  isStatsFloating: boolean
-  setIsStatsFloating: (v: boolean) => void
-  statsFloatingPos: { x: number; y: number }
-  setStatsFloatingPos: (pos: { x: number; y: number }) => void
-  statsFloatingSize: { w: number; h: number }
-  setStatsFloatingSize: (size: { w: number; h: number }) => void
-
-  isCurationFloating: boolean
-  setIsCurationFloating: (v: boolean) => void
-  curationFloatingPos: { x: number; y: number }
-  setCurationFloatingPos: (pos: { x: number; y: number }) => void
-  curationFloatingSize: { w: number; h: number }
-  setCurationFloatingSize: (size: { w: number; h: number }) => void
-
-  isStatsDocked: boolean
-  setIsStatsDocked: (v: boolean) => void
-  statsDockedSide: "start" | "end"
-  setStatsDockedSide: (v: "start" | "end") => void
-  isGalleryDocked: boolean
-  setIsGalleryDocked: (v: boolean) => void
-  galleryDockedSide: "start" | "end"
-  setGalleryDockedSide: (v: "start" | "end") => void
-  isCurationDocked: boolean
-  setIsCurationDocked: (v: boolean) => void
-  curationDockedSide: "start" | "end"
-  setCurationDockedSide: (v: "start" | "end") => void
-}
-
-function AppContent(props: AppContentProps) {
-  useRenderLog("AppContent")
+  // Destructure panel setters for stable refs in callbacks
   const {
-    setIsCompositionFloating,
-    setIsJobManagerFloating,
-    setIsGalleryFloating,
-    setIsStatsFloating,
-    setIsCurationFloating,
-    setIsStatsDocked,
-    setIsGalleryDocked,
-    setIsCurationDocked,
-    setStatsDockedSide,
-    setGalleryDockedSide,
-    setCurationDockedSide,
-    setActiveTab,
-  } = props
+    composition: {
+      isFloating: isCompositionFloating,
+      setIsFloating: setIsCompositionFloating,
+      pos: compositionFloatingPos,
+      setPos: setCompositionFloatingPos,
+      size: compositionFloatingSize,
+      setSize: setCompositionFloatingSize,
+    },
+    jobManager: {
+      isFloating: isJobManagerFloating,
+      setIsFloating: setIsJobManagerFloating,
+      pos: jobManagerFloatingPos,
+      setPos: setJobManagerFloatingPos,
+      size: jobManagerFloatingSize,
+      setSize: setJobManagerFloatingSize,
+    },
+    gallery: {
+      isFloating: isGalleryFloating,
+      setIsFloating: setIsGalleryFloating,
+      pos: galleryFloatingPos,
+      setPos: setGalleryFloatingPos,
+      size: galleryFloatingSize,
+      setSize: setGalleryFloatingSize,
+      isDocked: isGalleryDocked,
+      setIsDocked: setIsGalleryDocked,
+      dockedSide: galleryDockedSide,
+      setDockedSide: setGalleryDockedSide,
+    },
+    stats: {
+      isFloating: isStatsFloating,
+      setIsFloating: setIsStatsFloating,
+      pos: statsFloatingPos,
+      setPos: setStatsFloatingPos,
+      size: statsFloatingSize,
+      setSize: setStatsFloatingSize,
+      isDocked: isStatsDocked,
+      setIsDocked: setIsStatsDocked,
+      dockedSide: statsDockedSide,
+      setDockedSide: setStatsDockedSide,
+    },
+    curation: {
+      isFloating: isCurationFloating,
+      setIsFloating: setIsCurationFloating,
+      pos: curationFloatingPos,
+      setPos: setCurationFloatingPos,
+      size: curationFloatingSize,
+      setSize: setCurationFloatingSize,
+      isDocked: isCurationDocked,
+      setIsDocked: setIsCurationDocked,
+      dockedSide: curationDockedSide,
+      setDockedSide: setCurationDockedSide,
+    },
+  } = panel
 
   const dragSessionRef = useRef<{
     windowType: "composition" | "jobManager" | "stats" | "curation" | "gallery"
@@ -603,8 +365,8 @@ function AppContent(props: AppContentProps) {
 
       const size =
         windowType === "composition"
-          ? props.compositionFloatingSize
-          : props.jobManagerFloatingSize
+          ? compositionFloatingSize
+          : jobManagerFloatingSize
 
       dragSessionRef.current = {
         windowType,
@@ -623,21 +385,19 @@ function AppContent(props: AppContentProps) {
           const dy = moveEvent.clientY - session.startY
           const distance = Math.sqrt(dx * dx + dy * dy)
 
-          // 8px 이상 드래그 되었을 때 분리(Popout) 트리거
           if (distance > 8) {
             session.isPopoutTriggered = true
 
-            // 초기 마우스 위치 기준으로 창의 타이틀바 중앙에 마우스가 오도록 계산
             const w = session.size.w
             const initX = moveEvent.clientX - w / 2
             const initY = moveEvent.clientY - 20
 
             if (session.windowType === "composition") {
-              props.setCompositionFloatingPos({ x: initX, y: initY })
-              props.setIsCompositionFloating(true)
+              setCompositionFloatingPos({ x: initX, y: initY })
+              setIsCompositionFloating(true)
             } else {
-              props.setJobManagerFloatingPos({ x: initX, y: initY })
-              props.setIsJobManagerFloating(true)
+              setJobManagerFloatingPos({ x: initX, y: initY })
+              setIsJobManagerFloating(true)
             }
 
             toast.info(
@@ -650,7 +410,6 @@ function AppContent(props: AppContentProps) {
             )
           }
         } else {
-          // 이미 팝아웃된 상태: 60fps 무지연 DOM 바이패스 다이렉트 드래그
           const domId =
             session.windowType === "composition"
               ? "floating-window-composition"
@@ -661,7 +420,6 @@ function AppContent(props: AppContentProps) {
           let nextLeft = moveEvent.clientX - w / 2
           let nextTop = moveEvent.clientY - 20
 
-          // 화면 뷰포트 가두리 적용
           nextLeft = Math.max(0, Math.min(nextLeft, window.innerWidth - w))
           nextTop = Math.max(0, Math.min(nextTop, window.innerHeight - 40))
 
@@ -670,7 +428,6 @@ function AppContent(props: AppContentProps) {
             el.style.top = `${nextTop}px`
           }
 
-          // 실시간 엣지 스냅 검출 가이드 프리뷰 호출
           handleDragProgress(
             moveEvent.clientX,
             moveEvent.clientY,
@@ -690,7 +447,6 @@ function AppContent(props: AppContentProps) {
         if (!session) return
 
         if (session.isPopoutTriggered) {
-          // 스냅 결합 검증 및 완료 처리
           handleDragProgress(
             upEvent.clientX,
             upEvent.clientY,
@@ -700,7 +456,6 @@ function AppContent(props: AppContentProps) {
             session.windowType
           )
 
-          // 엣지에 스냅 도킹되지 않고 여전히 플로팅 상태로 유지되는 경우 최종 포지션을 확정 및 반영
           setTimeout(() => {
             const domId =
               session.windowType === "composition"
@@ -712,9 +467,9 @@ function AppContent(props: AppContentProps) {
               const finalY = parseInt(el.style.top || "0", 10)
               const finalPos = { x: finalX, y: finalY }
               if (session.windowType === "composition") {
-                props.setCompositionFloatingPos(finalPos)
+                setCompositionFloatingPos(finalPos)
               } else {
-                props.setJobManagerFloatingPos(finalPos)
+                setJobManagerFloatingPos(finalPos)
               }
             }
           }, 50)
@@ -726,17 +481,25 @@ function AppContent(props: AppContentProps) {
       document.addEventListener("mousemove", handleGlobalMouseMove)
       document.addEventListener("mouseup", handleGlobalMouseUp)
     },
-    [props, handleDragProgress]
+    [
+      compositionFloatingSize,
+      jobManagerFloatingSize,
+      setCompositionFloatingPos,
+      setIsCompositionFloating,
+      setJobManagerFloatingPos,
+      setIsJobManagerFloating,
+      handleDragProgress,
+    ]
   )
 
   const handleNavTabDragStart = useCallback(
     (tabId: "stats" | "curation" | "gallery", clientX: number, clientY: number) => {
       const size =
         tabId === "stats"
-          ? props.statsFloatingSize
+          ? statsFloatingSize
           : tabId === "gallery"
-            ? props.galleryFloatingSize
-            : props.curationFloatingSize
+            ? galleryFloatingSize
+            : curationFloatingSize
 
       dragSessionRef.current = {
         windowType: tabId,
@@ -763,17 +526,17 @@ function AppContent(props: AppContentProps) {
             const initY = moveEvent.clientY - 20
 
             if (session.windowType === "stats") {
-              props.setStatsFloatingPos({ x: initX, y: initY })
-              props.setIsStatsFloating(true)
-              if (props.activeTab === "stats") props.setActiveTab("jobs")
+              setStatsFloatingPos({ x: initX, y: initY })
+              setIsStatsFloating(true)
+              if (activeTab === "stats") setActiveTab("jobs")
             } else if (session.windowType === "gallery") {
-              props.setGalleryFloatingPos({ x: initX, y: initY })
-              props.setIsGalleryFloating(true)
-              if (props.activeTab === "gallery") props.setActiveTab("jobs")
+              setGalleryFloatingPos({ x: initX, y: initY })
+              setIsGalleryFloating(true)
+              if (activeTab === "gallery") setActiveTab("jobs")
             } else {
-              props.setCurationFloatingPos({ x: initX, y: initY })
-              props.setIsCurationFloating(true)
-              if (props.activeTab === "curation") props.setActiveTab("jobs")
+              setCurationFloatingPos({ x: initX, y: initY })
+              setIsCurationFloating(true)
+              if (activeTab === "curation") setActiveTab("jobs")
             }
 
             const label =
@@ -838,11 +601,11 @@ function AppContent(props: AppContentProps) {
               const finalY = parseInt(el.style.top || "0", 10)
               const finalPos = { x: finalX, y: finalY }
               if (session.windowType === "stats") {
-                props.setStatsFloatingPos(finalPos)
+                setStatsFloatingPos(finalPos)
               } else if (session.windowType === "gallery") {
-                props.setGalleryFloatingPos(finalPos)
+                setGalleryFloatingPos(finalPos)
               } else {
-                props.setCurationFloatingPos(finalPos)
+                setCurationFloatingPos(finalPos)
               }
             }
           }, 50)
@@ -854,7 +617,20 @@ function AppContent(props: AppContentProps) {
       document.addEventListener("mousemove", handleGlobalMouseMove)
       document.addEventListener("mouseup", handleGlobalMouseUp)
     },
-    [props, handleDragProgress]
+    [
+      activeTab,
+      statsFloatingSize,
+      galleryFloatingSize,
+      curationFloatingSize,
+      setStatsFloatingPos,
+      setIsStatsFloating,
+      setGalleryFloatingPos,
+      setIsGalleryFloating,
+      setCurationFloatingPos,
+      setIsCurationFloating,
+      setActiveTab,
+      handleDragProgress,
+    ]
   )
 
   // ── Contexts ──
@@ -920,21 +696,21 @@ function AppContent(props: AppContentProps) {
 
   const sessionJobCounts = useMemo(() => {
     const map = new Map<string, number>()
-    for (const j of props.jobs) {
+    for (const j of jobs) {
       const sid = jobSessionId(j.createdAt, sortedMarkers, activeState)
       map.set(sid, (map.get(sid) ?? 0) + 1)
     }
     return map
-  }, [props.jobs, sortedMarkers, activeState])
+  }, [jobs, sortedMarkers, activeState])
 
   const sessionJobs = useMemo(
     () =>
-      props.jobs.filter(
+      jobs.filter(
         (j) =>
           jobSessionId(j.createdAt, sortedMarkers, activeState) ===
           selectedSessionId
       ),
-    [props.jobs, sortedMarkers, activeState, selectedSessionId]
+    [jobs, sortedMarkers, activeState, selectedSessionId]
   )
 
   const sessionCounts = useMemo(() => {
@@ -978,7 +754,7 @@ function AppContent(props: AppContentProps) {
           toast.success(`모든 작업이 완료되었습니다! (${doneCount}개)`)
         }
         // Send batch complete webhook notification
-        fetch(`${props.backendUrl}${API.webhooks.batchComplete}`, {
+        fetch(`${backendUrl}${API.webhooks.batchComplete}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -996,7 +772,7 @@ function AppContent(props: AppContentProps) {
     sessionCounts.error,
     sessionCounts.cancelled,
     sessionJobs.length,
-    props.backendUrl,
+    backendUrl,
   ])
 
   const createNewSession = () => {
@@ -1023,7 +799,7 @@ function AppContent(props: AppContentProps) {
   const handleTogglePause = async () => {
     try {
       await fetch(
-        `${props.backendUrl}${props.paused ? API.jobs.resume : API.jobs.pause}`,
+        `${backendUrl}${paused ? API.jobs.resume : API.jobs.pause}`,
         {
           method: "POST",
         }
@@ -1044,7 +820,7 @@ function AppContent(props: AppContentProps) {
     )
       return
     try {
-      await fetch(`${props.backendUrl}${API.jobs.cancelAll}`, {
+      await fetch(`${backendUrl}${API.jobs.cancelAll}`, {
         method: "POST",
       })
     } catch {
@@ -1058,7 +834,7 @@ function AppContent(props: AppContentProps) {
     )
     for (const j of failed) {
       try {
-        await fetch(`${props.backendUrl}${API.jobs.retry(j.id)}`, {
+        await fetch(`${backendUrl}${API.jobs.retry(j.id)}`, {
           method: "POST",
         })
       } catch {
@@ -1082,7 +858,7 @@ function AppContent(props: AppContentProps) {
     )
       return
     try {
-      await fetch(`${props.backendUrl}${API.jobs.delete}`, {
+      await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
         headers: HEADERS.json,
         body: JSON.stringify({ job_ids: failed.map((j) => j.id) }),
@@ -1096,136 +872,7 @@ function AppContent(props: AppContentProps) {
     "editor" | "status" | "list"
   >("editor")
 
-  // ── Gallery toolbar state (lifted for nav bar rendering) ──
-  const [galleryStatusFilter, setGalleryStatusFilter] = useState<
-    "pending" | "approved" | "rejected" | "trashed" | "all"
-  >("pending")
-  const [galleryViewMode, setGalleryViewMode] = useState<"grid" | "compare">(
-    "grid"
-  )
-  const [galleryGroupMode, setGalleryGroupMode] = useState(false)
-  const [galleryShowFilters, setGalleryShowFilters] = useState(false)
-  const [galleryHideRejected, setGalleryHideRejected] = useState(false)
-  const [gallerySearchTags, setGallerySearchTags] = useState<string[]>([])
-  const [gallerySearchInput, setGallerySearchInput] = useState("")
-  const [galleryCandidates, setGalleryCandidates] = useState<
-    { value: string; type: "filename" | "tag" | "metadata" }[]
-  >([])
-  const [_galleryDuplicateStrategy, setGalleryDuplicateStrategy] = useState<
-    "hash" | "number"
-  >("hash")
-  const [gallerySortKey, setGallerySortKey] = useState<
-    "createdAt" | "filename" | "sizeBytes"
-  >("createdAt")
-  const [gallerySortDir, setGallerySortDir] = useState<"asc" | "desc">("desc")
-
-  const [galleryThumbnailSize, setGalleryThumbnailSize] = useSyncedStorage<number>(
-    STORAGE_KEYS.galleryThumbnailSize,
-    180
-  )
-
-
-  const galleryFilenameFilter = useMemo(() => {
-    return gallerySearchTags
-      .filter((t) => t.startsWith("@"))
-      .map((t) => t.slice(1))
-      .join(" ")
-  }, [gallerySearchTags])
-
-  const galleryTagFilter = useMemo(() => {
-    return gallerySearchTags
-      .filter((t) => t.startsWith("#"))
-      .map((t) => t.slice(1))
-      .join(" ")
-  }, [gallerySearchTags])
-
-  const galleryMetadataFilter = useMemo(() => {
-    return gallerySearchTags
-      .filter((t) => t.startsWith("$"))
-      .map((t) => t.slice(1))
-      .join(" ")
-  }, [gallerySearchTags])
-
-  const galleryGeneralFilters = useMemo(() => {
-    return gallerySearchTags.filter(
-      (t) => !t.startsWith("@") && !t.startsWith("#") && !t.startsWith("$")
-    )
-  }, [gallerySearchTags])
-
-  const galleryHasAnyFilter = !!(
-    gallerySearchTags.length > 0 || galleryHideRejected
-  )
-
-  // ── Gallery action handlers (for Header dropdown + keyboard shortcuts) ──
-  const galleryReloadRef = useRef<(() => void) | null>(null)
-
-  const handleGalleryExport = useCallback(async () => {
-    try {
-      await curationApi.exportDataset(props.backendUrl, {
-        ...(props.settings.galleryExportScope === "approved"
-          ? { status: "approved" }
-          : {}),
-        duplicateStrategy: props.settings.galleryExportStrategy,
-      })
-      toast.success("내보내기가 완료되었습니다.")
-    } catch {
-      toast.error("내보내기 요청에 실패했습니다.")
-    }
-  }, [
-    props.backendUrl,
-    props.settings.galleryExportScope,
-    props.settings.galleryExportStrategy,
-  ])
-
-  const handleGalleryEmptyTrash = useCallback(async () => {
-    if (
-      !(await confirm({
-        title: "휴지통 비우기",
-        description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",
-        variant: "destructive",
-        confirmText: "영구 삭제",
-      }))
-    )
-      return
-    try {
-      const n = await curationApi.emptyTrash(props.backendUrl)
-      toast.success(`${n}개 영구 삭제됨`)
-      galleryReloadRef.current?.()
-    } catch {
-      toast.error("휴지통 비우기에 실패했습니다.")
-    }
-  }, [props.backendUrl, confirm])
-
-  const handleGalleryRefresh = useCallback(() => {
-    galleryReloadRef.current?.()
-  }, [])
-
-  // ── Quick save handler (Ctrl+S shortcut) ──
-  const handleQuickSave = useCallback(() => {
-    if (props.compositionTab === "ceg") {
-      // Save template
-      if (template.activeTemplateId) {
-        const active = template.savedTemplates.find(
-          (t) => t.id === template.activeTemplateId
-        )
-        if (active) {
-          template.saveTemplate(active.name, template.cegTemplate)
-          template.setTemplateResetKey((k) => k + 1)
-        }
-      }
-    } else {
-      // Save workflow
-      if (workflow.activeWorkflow) {
-        workflow.saveWorkflow(
-          workflow.activeWorkflow.name,
-          workflow.workflowJson
-        )
-        workflow.setWorkflowResetKey((k) => k + 1)
-      }
-    }
-  }, [props.compositionTab, template, workflow])
-
-  // ── Curation toolbar state (lifted for nav bar rendering) ──
+  // ── Gallery toolbar state is now in GalleryToolbarContext ──
   const [curationSelectedAxis, setCurationSelectedAxis] = useSyncedStorage(
     STORAGE_KEYS.curationSelectedAxis,
     DEFAULT_AXIS
@@ -1260,36 +907,36 @@ function AppContent(props: AppContentProps) {
     cegTemplate: template.cegTemplate,
     workflowJson: workflow.workflowJson,
     nodeMappings: nodeMapping.nodeMappings,
-    backendUrl: props.backendUrl,
-    isAliveBackend: props.isAliveBackend,
+    backendUrl,
+    isAliveBackend,
   })
 
   const filteredPreview = useMemo(() => {
-    const needle = props.previewFilter.trim().toLowerCase()
+    const needle = previewFilter.trim().toLowerCase()
     if (!needle) return fakeJobQueue
     return fakeJobQueue.filter(
       (it) =>
         it.filename.toLowerCase().includes(needle) ||
         it.prompt.toLowerCase().includes(needle)
     )
-  }, [fakeJobQueue, props.previewFilter])
+  }, [fakeJobQueue, previewFilter])
 
   useWatchValues("AppContent", {
-    backendAlive: props.backendAlive,
-    jobs: props.jobs,
-    workers: props.workers,
-    paused: props.paused,
-    activeTab: props.activeTab,
+    backendAlive,
+    jobs,
+    workers,
+    paused,
+    activeTab,
     fakeJobQueue,
-    isSheetOpen: props.isSheetOpen,
-    isGraphOpen: props.isGraphOpen,
-    isAxisFilterOpen: props.isAxisFilterOpen,
-    isSelectionOpen: props.isSelectionOpen,
-    isAliveBackend: props.isAliveBackend,
-    previewFilter: props.previewFilter,
+    isSheetOpen,
+    isGraphOpen,
+    isAxisFilterOpen,
+    isSelectionOpen,
+    isAliveBackend,
+    previewFilter,
     parserError,
     axisValueFilter,
-    pendingSave: props.pendingSave,
+    pendingSave,
     cegTemplate: template.cegTemplate,
     workflowJson: workflow.workflowJson,
     nodeMappings: nodeMapping.nodeMappings,
@@ -1300,7 +947,7 @@ function AppContent(props: AppContentProps) {
     let cancelled = false
     const checkHealth = async () => {
       try {
-        const response = await fetch(`${props.backendUrl}${API.health}`)
+        const response = await fetch(`${backendUrl}${API.health}`)
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
         return data["backend"] === "ok"
@@ -1311,7 +958,7 @@ function AppContent(props: AppContentProps) {
     }
     const tick = async () => {
       const ok = await checkHealth()
-      if (!cancelled) props.setIsAliveBackend(ok)
+      if (!cancelled) setIsAliveBackend(ok)
     }
     tick()
     const timer = setInterval(tick, HEALTH_CHECK_INTERVAL_MS)
@@ -1319,33 +966,57 @@ function AppContent(props: AppContentProps) {
       cancelled = true
       clearInterval(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.backendUrl])
+  }, [backendUrl])
 
   // ── Object info fetch ──
   useEffect(() => {
-    if (!props.isAliveBackend) return
-    fetch(`${props.backendUrl}${API.objectInfo}`)
+    if (!isAliveBackend) return
+    fetch(`${backendUrl}${API.objectInfo}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) nodeMapping.setObjectInfo(data)
       })
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.backendUrl, props.isAliveBackend])
+  }, [backendUrl, isAliveBackend])
+
+  // ── Quick save handler (Ctrl+S shortcut) ──
+  const handleQuickSave = useCallback(() => {
+    if (compositionTab === "ceg") {
+      // Save template
+      if (template.activeTemplateId) {
+        const active = template.savedTemplates.find(
+          (t) => t.id === template.activeTemplateId
+        )
+        if (active) {
+          template.saveTemplate(active.name, template.cegTemplate)
+          template.setTemplateResetKey((k) => k + 1)
+        }
+      }
+    } else {
+      // Save workflow
+      if (workflow.activeWorkflow) {
+        workflow.saveWorkflow(
+          workflow.activeWorkflow.name,
+          workflow.workflowJson
+        )
+        workflow.setWorkflowResetKey((k) => k + 1)
+      }
+    }
+  }, [compositionTab, template, workflow])
 
   const canRun =
-    Boolean(workflow.workflowJson) && props.isAliveBackend && props.backendAlive
+    Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
 
   // ── Global keyboard shortcuts ──
   useGlobalShortcuts({
-    activeTab: props.activeTab,
+    activeTab,
     mobileJobTab,
     canRun,
     handleRun,
     handleSave: handleQuickSave,
-    handleGalleryRefresh,
-    setActiveTab: props.setActiveTab,
+    handleGalleryRefresh: tb.handleRefresh,
+    setActiveTab,
     toggleShortcuts: () => setShortcutsOpen((prev) => !prev),
   })
 
@@ -1358,19 +1029,19 @@ function AppContent(props: AppContentProps) {
   }
 
   const pendingSaveItems =
-    props.pendingSave?.type === "template"
+    pendingSave?.type === "template"
       ? template.savedTemplates
-      : props.pendingSave?.type === "workflow"
+      : pendingSave?.type === "workflow"
         ? workflow.savedWorkflows
         : nodeMapping.savedNodeMappings
 
   const handleNameConflictSaveNew = () => {
-    if (!props.pendingSave) return
-    const newName = nextFreeName(props.pendingSave.name, pendingSaveItems)
-    if (props.pendingSave.type === "template") {
+    if (!pendingSave) return
+    const newName = nextFreeName(pendingSave.name, pendingSaveItems)
+    if (pendingSave.type === "template") {
       template.saveTemplate(newName, template.cegTemplate)
       template.setTemplateResetKey((k) => k + 1)
-    } else if (props.pendingSave.type === "workflow") {
+    } else if (pendingSave.type === "workflow") {
       const w = workflow.saveWorkflow(newName, workflow.workflowJson)
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
@@ -1384,17 +1055,17 @@ function AppContent(props: AppContentProps) {
         nodeMapping.setNodeMappingResetKey((k) => k + 1)
       }
     }
-    props.setPendingSave(null)
+    setPendingSave(null)
   }
 
   const handleNameConflictOverwrite = () => {
-    if (!props.pendingSave) return
-    if (props.pendingSave.type === "template") {
-      template.saveTemplate(props.pendingSave.name, template.cegTemplate)
+    if (!pendingSave) return
+    if (pendingSave.type === "template") {
+      template.saveTemplate(pendingSave.name, template.cegTemplate)
       template.setTemplateResetKey((k) => k + 1)
-    } else if (props.pendingSave.type === "workflow") {
+    } else if (pendingSave.type === "workflow") {
       const w = workflow.saveWorkflow(
-        props.pendingSave.name,
+        pendingSave.name,
         workflow.workflowJson
       )
       workflow.setActiveWorkflowId(w.id)
@@ -1403,37 +1074,35 @@ function AppContent(props: AppContentProps) {
       if (workflow.activeWorkflowId) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
-          props.pendingSave.name,
+          pendingSave.name,
           nodeMapping.nodeMappings
         )
         nodeMapping.setNodeMappingResetKey((k) => k + 1)
       }
     }
-    props.setPendingSave(null)
+    setPendingSave(null)
   }
 
   return (
     <div
       className={`flex flex-col bg-background ${
-        props.activeTab === "jobs"
+        activeTab === "jobs"
           ? "h-[100dvh] overflow-hidden"
           : "min-h-[100dvh]"
       }`}
     >
       <Header
-        useWindowMode={props.settings.useWindowMode}
-        activeTab={props.activeTab}
-        setActiveTab={props.setActiveTab}
-        isGalleryFloating={props.isGalleryFloating}
-        setIsGalleryFloating={props.setIsGalleryFloating}
-        isAliveBackend={props.isAliveBackend}
-        backendAlive={props.backendAlive}
-        workers={props.workers}
-        jobsCount={props.jobs.length}
+        useWindowMode={settings.useWindowMode}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isAliveBackend={isAliveBackend}
+        backendAlive={backendAlive}
+        workers={workers}
+        jobsCount={jobs.length}
         mobileJobTab={mobileJobTab}
         setMobileJobTab={setMobileJobTab}
-        compositionTab={props.compositionTab}
-        setCompositionTab={props.setCompositionTab}
+        compositionTab={compositionTab}
+        setCompositionTab={setCompositionTab}
         repeatCount={repeatCount}
         setRepeatCount={setRepeatCount}
         handleRun={handleRun}
@@ -1442,49 +1111,16 @@ function AppContent(props: AppContentProps) {
         setRandomRunCount={setRandomRunCount}
         canRun={canRun}
         estimatedRunCount={estimatedRunCount}
-        setIsSelectionOpen={props.setIsSelectionOpen}
+        setIsSelectionOpen={setIsSelectionOpen}
         hasActiveFilter={hasActiveFilter}
-        setIsAxisFilterOpen={props.setIsAxisFilterOpen}
-        setIsGraphOpen={props.setIsGraphOpen}
-        galleryStatusFilter={galleryStatusFilter}
-        setGalleryStatusFilter={setGalleryStatusFilter}
-        galleryViewMode={galleryViewMode}
-        setGalleryViewMode={setGalleryViewMode}
-        galleryGroupMode={galleryGroupMode}
-        setGalleryGroupMode={setGalleryGroupMode}
-        galleryShowFilters={galleryShowFilters}
-        setGalleryShowFilters={setGalleryShowFilters}
-        galleryHasAnyFilter={galleryHasAnyFilter}
-        gallerySearchTags={gallerySearchTags}
-        setGallerySearchTags={setGallerySearchTags}
-        gallerySearchInput={gallerySearchInput}
-        setGallerySearchInput={setGallerySearchInput}
-        galleryCandidates={galleryCandidates}
-        galleryHideRejected={galleryHideRejected}
-        setGalleryHideRejected={setGalleryHideRejected}
-        setGalleryDuplicateStrategy={setGalleryDuplicateStrategy}
-        gallerySortKey={gallerySortKey}
-        setGallerySortKey={setGallerySortKey}
-        gallerySortDir={gallerySortDir}
-        setGallerySortDir={setGallerySortDir}
-        galleryThumbnailSize={galleryThumbnailSize}
-        setGalleryThumbnailSize={setGalleryThumbnailSize}
+        setIsAxisFilterOpen={setIsAxisFilterOpen}
+        setIsGraphOpen={setIsGraphOpen}
         curationSelectedAxis={curationSelectedAxis}
-
         setCurationSelectedAxis={setCurationSelectedAxis}
         savedTemplates={template.savedTemplates}
-        onGalleryExport={handleGalleryExport}
-        onGalleryRefresh={handleGalleryRefresh}
-        onGalleryEmptyTrash={handleGalleryEmptyTrash}
         onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
         onCurationDragStart={(cx, cy) => handleNavTabDragStart("curation", cx, cy)}
         onGalleryDragStart={(cx, cy) => handleNavTabDragStart("gallery", cx, cy)}
-        isStatsFloating={props.isStatsFloating}
-        isStatsDocked={props.isStatsDocked}
-        isCurationFloating={props.isCurationFloating}
-        isCurationDocked={props.isCurationDocked}
-        isGalleryDocked={props.isGalleryDocked}
-        // Session / Job controls props (lifted)
         sessionMarkers={markers}
         sessionJobCounts={sessionJobCounts}
         sortedMarkers={sortedMarkers}
@@ -1496,7 +1132,7 @@ function AppContent(props: AppContentProps) {
         onSessionPickerOpenChange={setSessionPickerOpen}
         onSelectSession={setSelectedSessionId}
         onCreateNewSession={createNewSession}
-        paused={props.paused}
+        paused={paused}
         onTogglePause={handleTogglePause}
         onCancelAll={handleCancelAll}
         onRetryAllFailed={handleRetryAllFailed}
@@ -1506,68 +1142,42 @@ function AppContent(props: AppContentProps) {
 
       <main
         className={`flex w-full flex-1 flex-col ${
-          props.activeTab === "jobs" ? "overflow-hidden" : ""
+          activeTab === "jobs" ? "overflow-hidden" : ""
         }`}
       >
-        {props.activeTab === "stats" && (
+        {activeTab === "stats" && (
           <div className="flex flex-1 flex-col overflow-y-auto p-4 md:p-6">
-            <StatisticsPanel jobs={props.jobs} workers={props.workers} />
+            <StatisticsPanel jobs={jobs} workers={workers} />
           </div>
         )}
-        {props.activeTab === "gallery" && (
+        {activeTab === "gallery" && (
           <div className="flex flex-1 flex-col bg-background">
             <SavedImagesGallery
-              backendUrl={props.backendUrl}
-              enableHover={props.settings.enableHover}
-              imagePageSize={props.settings.imagePageSize}
-              imageLazyLoad={props.settings.imageLazyLoad}
-              singleDownloadMode={props.settings.singleDownloadMode}
-              filenameFilter={galleryFilenameFilter}
-              tagFilter={galleryTagFilter}
-              metadataFilter={galleryMetadataFilter}
-              generalFilters={galleryGeneralFilters}
-              onTokensExtracted={setGalleryCandidates}
+              backendUrl={backendUrl}
+              enableHover={settings.enableHover}
+              imagePageSize={settings.imagePageSize}
+              imageLazyLoad={settings.imageLazyLoad}
+              singleDownloadMode={settings.singleDownloadMode}
+              filenameFilter={tb.filenameFilter}
+              tagFilter={tb.tagFilter}
+              metadataFilter={tb.metadataFilter}
+              generalFilters={tb.generalFilters}
+              onTokensExtracted={tb.setCandidates}
               onReloadReady={(reload) => {
-                galleryReloadRef.current = reload
+                tb.registerReload(reload)
               }}
-              toolbarState={{
-                statusFilter: galleryStatusFilter,
-                setStatusFilter: setGalleryStatusFilter,
-                galleryViewMode: galleryViewMode,
-                setGalleryViewMode: setGalleryViewMode,
-                groupMode: galleryGroupMode,
-                setGroupMode: setGalleryGroupMode,
-                showFilters: galleryShowFilters,
-                setShowFilters: setGalleryShowFilters,
-                hasAnyFilter: galleryHasAnyFilter,
-                hideRejected: galleryHideRejected,
-                setHideRejected: setGalleryHideRejected,
-                sortKey: gallerySortKey,
-                setSortKey: setGallerySortKey,
-                sortDir: gallerySortDir,
-                setSortDir: setGallerySortDir,
-                thumbnailSize: galleryThumbnailSize,
-                setThumbnailSize: setGalleryThumbnailSize,
-                clearAllFilters: () => {
-                  setGallerySearchTags([])
-                  setGallerySearchInput("")
-                  setGalleryHideRejected(false)
-                },
-                reload: handleGalleryRefresh,
-                handleExport: handleGalleryExport,
-                handleEmptyTrash: handleGalleryEmptyTrash,
-              }}
+              toolbarState={tb}
             />
           </div>
         )}
-        {props.activeTab === "curation" && (
+        {activeTab === "curation" && (
           <div className="flex flex-col bg-background">
             <CombinationPicker
-              backendUrl={props.backendUrl}
+              backendUrl={backendUrl}
               cegTemplate={template.cegTemplate}
               savedTemplates={template.savedTemplates}
-              enableHover={props.settings.enableHover}
-              autoApplyReject={props.settings.autoApplyReject}
+              enableHover={settings.enableHover}
+              autoApplyReject={settings.autoApplyReject}
               savedWorkflows={workflow.savedWorkflows}
               toolbarState={{
                 selectedAxis: curationSelectedAxis,
@@ -1579,27 +1189,29 @@ function AppContent(props: AppContentProps) {
             />
           </div>
         )}
-        {props.activeTab === "generator" && (
-          <TemplateGeneratorPanel setActiveTab={props.setActiveTab} backendUrl={props.backendUrl} />
+        {activeTab === "generator" && (
+          <div className="flex flex-1 flex-col">
+            <TemplateGeneratorPanel setActiveTab={setActiveTab} backendUrl={backendUrl} />
+          </div>
         )}
-        {props.activeTab === "settings" && (
+        {activeTab === "settings" && (
           <div className="flex-1 overflow-y-auto">
             <SettingsPanel
-              settings={props.settings}
-              updateSetting={props.updateSetting}
-              backendUrl={props.backendUrl}
-              onBackendUrlChange={props.setBackendUrl}
-              workers={props.workers}
+              settings={settings}
+              updateSetting={updateSetting}
+              backendUrl={backendUrl}
+              onBackendUrlChange={setBackendUrl}
+              workers={workers}
             />
           </div>
         )}
-        {props.activeTab === "jobs" && (
+        {activeTab === "jobs" && (
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* Desktop: Resizable, Mobile: Single Panel */}
             <div className="hidden md:contents">
               {(() => {
                 // ── 패널 콘텐츠 ──────────────────────────────────────────
-                const compositionEl = !props.isCompositionFloating ? (
+                const compositionEl = !isCompositionFloating ? (
                   <WorkCompositionPanel
                     repeatCount={repeatCount}
                     setRepeatCount={setRepeatCount}
@@ -1610,30 +1222,30 @@ function AppContent(props: AppContentProps) {
                     estimatedRunCount={estimatedRunCount}
                     canRun={canRun}
                     previewCount={fakeJobQueue.length}
-                    compositionTab={props.compositionTab}
-                    setCompositionTab={props.setCompositionTab}
-                    onPreviewOpen={() => props.setIsSheetOpen(true)}
-                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                    compositionTab={compositionTab}
+                    setCompositionTab={setCompositionTab}
+                    onPreviewOpen={() => setIsSheetOpen(true)}
+                    onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
+                    onSelectionOpen={() => setIsSelectionOpen(true)}
                     hasActiveFilter={hasActiveFilter}
-                    onGraphOpen={() => props.setIsGraphOpen(true)}
+                    onGraphOpen={() => setIsGraphOpen(true)}
                     isFloating={false}
                     jobsLayoutOrientation={jobsLayoutOrientation}
                     onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
-                    {...(props.settings.useWindowMode ? {
-                      onFloatToggle: () => props.setIsCompositionFloating(true),
-                      onHeaderDragStart: (e) => handleHeaderDragStart(e, "composition")
+                    {...(settings.useWindowMode ? {
+                      onFloatToggle: () => setIsCompositionFloating(true),
+                      onHeaderDragStart: (e: React.MouseEvent) => handleHeaderDragStart(e, "composition")
                     } : {})}
                   />
                 ) : null
 
-                const jobManagerEl = !props.isJobManagerFloating ? (
+                const jobManagerEl = !isJobManagerFloating ? (
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     <JobManagerPanel
-                      jobs={props.jobs}
-                      paused={props.paused}
-                      backendUrl={props.backendUrl}
-                      isAliveBackend={props.isAliveBackend}
+                      jobs={jobs}
+                      paused={paused}
+                      backendUrl={backendUrl}
+                      isAliveBackend={isAliveBackend}
                       selectedId={selectedSessionId}
                       setSelectedId={setSelectedSessionId}
                       markers={markers}
@@ -1652,9 +1264,9 @@ function AppContent(props: AppContentProps) {
                       handleRetryAllFailed={handleRetryAllFailed}
                       handleDeleteAllFailed={handleDeleteAllFailed}
                       isFloating={false}
-                      {...(props.settings.useWindowMode ? {
-                        onFloatToggle: () => props.setIsJobManagerFloating(true),
-                        onHeaderDragStart: (e) => handleHeaderDragStart(e, "jobManager")
+                      {...(settings.useWindowMode ? {
+                        onFloatToggle: () => setIsJobManagerFloating(true),
+                        onHeaderDragStart: (e: React.MouseEvent) => handleHeaderDragStart(e, "jobManager")
                       } : {})}
                     />
                   </div>
@@ -1692,95 +1304,73 @@ function AppContent(props: AppContentProps) {
                 const addExtra = (item: PanelItem, side: "start" | "end") =>
                   (side === "start" ? startExtra : endExtra).push(item)
 
-                if (props.isStatsDocked) addExtra({
+                if (isStatsDocked) addExtra({
                   id: "stats",
                   el: (
                     <div className="flex h-full w-full flex-col">
                       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
                         <span className="text-[13px] font-bold">통계</span>
                         <div className="flex items-center gap-0.5">
-                          {props.settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsStatsDocked(false); props.setIsStatsFloating(true) }, "창으로 분리")}
-                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsStatsDocked(false), "패널 닫기")}
+                          {settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { setIsStatsDocked(false); setIsStatsFloating(true) }, "창으로 분리")}
+                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => setIsStatsDocked(false), "패널 닫기")}
                         </div>
                       </div>
                       <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-                        <StatisticsPanel jobs={props.jobs} workers={props.workers} />
+                        <StatisticsPanel jobs={jobs} workers={workers} />
                       </div>
                     </div>
                   ),
-                }, props.statsDockedSide)
+                }, statsDockedSide)
 
-                if (props.isGalleryDocked) addExtra({
+                if (isGalleryDocked) addExtra({
                   id: "gallery",
                   el: (
                     <div className="flex h-full w-full flex-col">
                       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
                         <span className="text-[13px] font-bold">갤러리</span>
                         <div className="flex items-center gap-0.5">
-                          {props.settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsGalleryDocked(false); props.setIsGalleryFloating(true) }, "창으로 분리")}
-                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsGalleryDocked(false), "패널 닫기")}
+                          {settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { setIsGalleryDocked(false); setIsGalleryFloating(true) }, "창으로 분리")}
+                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => setIsGalleryDocked(false), "패널 닫기")}
                         </div>
                       </div>
                       <div className="min-h-0 flex-1 overflow-hidden">
                         <SavedImagesGallery
-                          backendUrl={props.backendUrl}
-                          enableHover={props.settings.enableHover}
-                          imagePageSize={props.settings.imagePageSize}
-                          imageLazyLoad={props.settings.imageLazyLoad}
-                          singleDownloadMode={props.settings.singleDownloadMode}
-                          filenameFilter={galleryFilenameFilter}
-                          tagFilter={galleryTagFilter}
-                          metadataFilter={galleryMetadataFilter}
-                          generalFilters={galleryGeneralFilters}
-                          onTokensExtracted={setGalleryCandidates}
-                          onReloadReady={(reload) => { galleryReloadRef.current = reload }}
-                          toolbarState={{
-                            statusFilter: galleryStatusFilter,
-                            setStatusFilter: setGalleryStatusFilter,
-                            galleryViewMode,
-                            setGalleryViewMode,
-                            groupMode: galleryGroupMode,
-                            setGroupMode: setGalleryGroupMode,
-                            showFilters: galleryShowFilters,
-                            setShowFilters: setGalleryShowFilters,
-                            hasAnyFilter: galleryHasAnyFilter,
-                            hideRejected: galleryHideRejected,
-                            setHideRejected: setGalleryHideRejected,
-                            sortKey: gallerySortKey,
-                            setSortKey: setGallerySortKey,
-                            sortDir: gallerySortDir,
-                            setSortDir: setGallerySortDir,
-                            thumbnailSize: galleryThumbnailSize,
-                            setThumbnailSize: setGalleryThumbnailSize,
-                            clearAllFilters: () => { setGallerySearchTags([]); setGallerySearchInput(""); setGalleryHideRejected(false) },
-                            reload: handleGalleryRefresh,
-                            handleExport: handleGalleryExport,
-                            handleEmptyTrash: handleGalleryEmptyTrash,
-                          }}
+                          backendUrl={backendUrl}
+                          enableHover={settings.enableHover}
+                          imagePageSize={settings.imagePageSize}
+                          imageLazyLoad={settings.imageLazyLoad}
+                          singleDownloadMode={settings.singleDownloadMode}
+                          filenameFilter={tb.filenameFilter}
+                          tagFilter={tb.tagFilter}
+                          metadataFilter={tb.metadataFilter}
+                          generalFilters={tb.generalFilters}
+                          onTokensExtracted={tb.setCandidates}
+                          onReloadReady={(reload) => { tb.registerReload(reload) }}
+                          toolbarState={tb}
                         />
                       </div>
                     </div>
                   ),
-                }, props.galleryDockedSide)
+                }, galleryDockedSide)
 
-                if (props.isCurationDocked) addExtra({
+                if (isCurationDocked) addExtra({
                   id: "curation",
                   el: (
                     <div className="flex h-full w-full flex-col">
                       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
                         <span className="text-[13px] font-bold">큐레이션</span>
                         <div className="flex items-center gap-0.5">
-                          {props.settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsCurationDocked(false); props.setIsCurationFloating(true) }, "창으로 분리")}
-                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsCurationDocked(false), "패널 닫기")}
+                          {settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { setIsCurationDocked(false); setIsCurationFloating(true) }, "창으로 분리")}
+                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => setIsCurationDocked(false), "패널 닫기")}
                         </div>
                       </div>
                       <div className="min-h-0 flex-1 overflow-hidden">
                         <CombinationPicker
-                          backendUrl={props.backendUrl}
+                          backendUrl={backendUrl}
                           cegTemplate={template.cegTemplate}
                           savedTemplates={template.savedTemplates}
-                          enableHover={props.settings.enableHover}
-                          autoApplyReject={props.settings.autoApplyReject}
+                          enableHover={settings.enableHover}
+                          autoApplyReject={settings.autoApplyReject}
                           savedWorkflows={workflow.savedWorkflows}
                           toolbarState={{
                             selectedAxis: curationSelectedAxis,
@@ -1793,7 +1383,7 @@ function AppContent(props: AppContentProps) {
                       </div>
                     </div>
                   ),
-                }, props.curationDockedSide)
+                }, curationDockedSide)
 
                 // start → core → end 순서로 최종 패널 리스트
                 const panels: PanelItem[] = [...startExtra, ...corePanels, ...endExtra]
@@ -1811,7 +1401,7 @@ function AppContent(props: AppContentProps) {
                           <p className="text-sm text-muted-foreground leading-relaxed px-4">작업 구성 패널과 작업 큐 매니저가 개별 플로팅 창으로 활성화되었습니다.</p>
                         </div>
                         <Button
-                          onClick={() => { props.setIsCompositionFloating(false); props.setIsJobManagerFloating(false) }}
+                          onClick={() => { setIsCompositionFloating(false); setIsJobManagerFloating(false) }}
                           className="px-6 py-2 h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/20 flex items-center gap-2 group transition-all duration-200"
                         >
                           <RotateCcw className="h-4 w-4 transition-transform group-hover:rotate-180 duration-500" />
@@ -1873,23 +1463,23 @@ function AppContent(props: AppContentProps) {
                     estimatedRunCount={estimatedRunCount}
                     canRun={canRun}
                     previewCount={fakeJobQueue.length}
-                    compositionTab={props.compositionTab}
-                    setCompositionTab={props.setCompositionTab}
-                    onPreviewOpen={() => props.setIsSheetOpen(true)}
-                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                    compositionTab={compositionTab}
+                    setCompositionTab={setCompositionTab}
+                    onPreviewOpen={() => setIsSheetOpen(true)}
+                    onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
+                    onSelectionOpen={() => setIsSelectionOpen(true)}
                     hasActiveFilter={hasActiveFilter}
-                    onGraphOpen={() => props.setIsGraphOpen(true)}
+                    onGraphOpen={() => setIsGraphOpen(true)}
                   />
                 </div>
               )}
               {(mobileJobTab === "status" || mobileJobTab === "list") && (
                 <div className="flex min-h-0 flex-1 flex-col bg-panel">
                   <JobManagerPanel
-                    jobs={props.jobs}
-                    paused={props.paused}
-                    backendUrl={props.backendUrl}
-                    isAliveBackend={props.isAliveBackend}
+                    jobs={jobs}
+                    paused={paused}
+                    backendUrl={backendUrl}
+                    isAliveBackend={isAliveBackend}
                     mobileTab={mobileJobTab}
                     selectedId={selectedSessionId}
                     setSelectedId={setSelectedSessionId}
@@ -1920,7 +1510,7 @@ function AppContent(props: AppContentProps) {
                     { id: "status" as const, label: "현황" },
                     {
                       id: "list" as const,
-                      label: `기록 (${props.jobs.length})`,
+                      label: `기록 (${jobs.length})`,
                     },
                   ].map((tab) => (
                     <button
@@ -1944,18 +1534,18 @@ function AppContent(props: AppContentProps) {
       </main>
 
       <ParserPreviewDialog
-        open={props.isSheetOpen}
-        onOpenChange={props.setIsSheetOpen}
+        open={isSheetOpen}
+        onOpenChange={setIsSheetOpen}
         fakeJobQueue={fakeJobQueue}
-        previewFilter={props.previewFilter}
-        onPreviewFilterChange={props.setPreviewFilter}
+        previewFilter={previewFilter}
+        onPreviewFilterChange={setPreviewFilter}
         filteredPreview={filteredPreview}
         filteredByAxisSet={filteredByAxisSet}
       />
 
       <AxisFilterSheet
-        open={props.isAxisFilterOpen}
-        onOpenChange={props.setIsAxisFilterOpen}
+        open={isAxisFilterOpen}
+        onOpenChange={setIsAxisFilterOpen}
         axisValueFilter={axisValueFilter}
         setAxisValueFilter={setAxisValueFilter}
         collapsedAxes={collapsedAxes}
@@ -1969,12 +1559,12 @@ function AppContent(props: AppContentProps) {
       />
 
       <SelectionSheet
-        open={props.isSelectionOpen}
-        onOpenChange={props.setIsSelectionOpen}
+        open={isSelectionOpen}
+        onOpenChange={setIsSelectionOpen}
         fakeJobQueue={fakeJobQueue}
         filteredPreview={filteredPreview}
-        previewFilter={props.previewFilter}
-        onPreviewFilterChange={props.setPreviewFilter}
+        previewFilter={previewFilter}
+        onPreviewFilterChange={setPreviewFilter}
         uncheckedItems={uncheckedItems}
         selectedCount={selectedCount}
         canRun={canRun}
@@ -1983,78 +1573,78 @@ function AppContent(props: AppContentProps) {
         toggleItemCheck={toggleItemCheck}
         onRunSelected={async () => {
           const ok = await handleRunSelected()
-          if (ok) props.setIsSelectionOpen(false)
+          if (ok) setIsSelectionOpen(false)
         }}
       />
 
       {workflow.parsedWorkflow?.success && (
         <WorkflowGraphViewer
           workflow={workflow.parsedWorkflow.data}
-          isOpen={props.isGraphOpen}
-          onClose={() => props.setIsGraphOpen(false)}
-          backendUrl={props.backendUrl}
+          isOpen={isGraphOpen}
+          onClose={() => setIsGraphOpen(false)}
+          backendUrl={backendUrl}
         />
       )}
 
       <NameConflictDialog
-        pendingSave={props.pendingSave}
-        onClose={() => props.setPendingSave(null)}
-        newName={nextFreeName(props.pendingSave?.name ?? "", pendingSaveItems)}
+        pendingSave={pendingSave}
+        onClose={() => setPendingSave(null)}
+        newName={nextFreeName(pendingSave?.name ?? "", pendingSaveItems)}
         onSaveNew={handleNameConflictSaveNew}
         onOverwrite={handleNameConflictOverwrite}
       />
 
-      {props.activeTab !== "jobs" && (
+      {activeTab !== "jobs" && (
         <JobStatusPopup
-          jobs={props.jobs}
-          paused={props.paused}
-          backendUrl={props.backendUrl}
-          isAliveBackend={props.isAliveBackend}
-          onNavigateToJobs={() => props.setActiveTab("jobs")}
+          jobs={jobs}
+          paused={paused}
+          backendUrl={backendUrl}
+          isAliveBackend={isAliveBackend}
+          onNavigateToJobs={() => setActiveTab("jobs")}
         />
       )}
 
       <PresetSelectionDialog
-        pendingWorkflow={props.pendingPresetSelection}
-        onClose={() => props.setPendingPresetSelection(null)}
+        pendingWorkflow={pendingPresetSelection}
+        onClose={() => setPendingPresetSelection(null)}
         onSelectPreset={(mappings: NodeMapping[], presetId: string) => {
           nodeMapping.setNodeMappings(mappings)
           nodeMapping.setActiveNodeMappingPresetId(presetId)
-          props.setPendingPresetSelection(null)
+          setPendingPresetSelection(null)
         }}
         onStartWithoutMapping={() => {
           nodeMapping.setNodeMappings([])
           nodeMapping.setActiveNodeMappingPresetId(null)
-          props.setPendingPresetSelection(null)
+          setPendingPresetSelection(null)
         }}
       />
 
       <VersionDiffDialog
-        open={props.pendingDiff !== null}
-        onClose={() => props.setPendingDiff(null)}
+        open={pendingDiff !== null}
+        onClose={() => setPendingDiff(null)}
         onConfirm={() => {
-          if (!props.pendingDiff) return
-          if (props.pendingDiff.type === "template") {
+          if (!pendingDiff) return
+          if (pendingDiff.type === "template") {
             template.saveTemplate(
-              props.pendingDiff.name,
-              props.pendingDiff.newContent
+              pendingDiff.name,
+              pendingDiff.newContent
             )
             template.setTemplateResetKey((k) => k + 1)
           } else {
             const w = workflow.saveWorkflow(
-              props.pendingDiff.name,
-              props.pendingDiff.newContent
+              pendingDiff.name,
+              pendingDiff.newContent
             )
             workflow.setActiveWorkflowId(w.id)
             workflow.setWorkflowResetKey((k) => k + 1)
           }
           toast.success(
-            `'${props.pendingDiff.name}' 업데이트가 완료되었습니다.`
+            `'${pendingDiff.name}' 업데이트가 완료되었습니다.`
           )
         }}
-        oldContent={props.pendingDiff?.oldContent ?? ""}
-        newContent={props.pendingDiff?.newContent ?? ""}
-        itemName={props.pendingDiff?.name ?? ""}
+        oldContent={pendingDiff?.oldContent ?? ""}
+        newContent={pendingDiff?.newContent ?? ""}
+        itemName={pendingDiff?.name ?? ""}
       />
 
       <KeyboardShortcutsDialog
@@ -2062,16 +1652,16 @@ function AppContent(props: AppContentProps) {
         onOpenChange={setShortcutsOpen}
       />
 
-      {props.isCompositionFloating && (
+      {isCompositionFloating && (
         <FloatingWindow
           id="floating-window-composition"
-          isOpen={props.isCompositionFloating}
-          onClose={() => props.setIsCompositionFloating(false)}
-          onDock={() => props.setIsCompositionFloating(false)}
-          initialPos={props.compositionFloatingPos}
-          initialSize={props.compositionFloatingSize}
-          onPosChange={props.setCompositionFloatingPos}
-          onSizeChange={props.setCompositionFloatingSize}
+          isOpen={isCompositionFloating}
+          onClose={() => setIsCompositionFloating(false)}
+          onDock={() => setIsCompositionFloating(false)}
+          initialPos={compositionFloatingPos}
+          initialSize={compositionFloatingSize}
+          onPosChange={setCompositionFloatingPos}
+          onSizeChange={setCompositionFloatingSize}
           title="작업 구성 패널"
           onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "composition")}
         >
@@ -2086,40 +1676,40 @@ function AppContent(props: AppContentProps) {
               estimatedRunCount={estimatedRunCount}
               canRun={canRun}
               previewCount={fakeJobQueue.length}
-              compositionTab={props.compositionTab}
-              setCompositionTab={props.setCompositionTab}
-              onPreviewOpen={() => props.setIsSheetOpen(true)}
-              onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-              onSelectionOpen={() => props.setIsSelectionOpen(true)}
+              compositionTab={compositionTab}
+              setCompositionTab={setCompositionTab}
+              onPreviewOpen={() => setIsSheetOpen(true)}
+              onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
+              onSelectionOpen={() => setIsSelectionOpen(true)}
               hasActiveFilter={hasActiveFilter}
-              onGraphOpen={() => props.setIsGraphOpen(true)}
+              onGraphOpen={() => setIsGraphOpen(true)}
               isFloating={true}
-              onFloatToggle={() => props.setIsCompositionFloating(false)}
+              onFloatToggle={() => setIsCompositionFloating(false)}
             />
           </div>
         </FloatingWindow>
       )}
 
-      {props.isJobManagerFloating && (
+      {isJobManagerFloating && (
         <FloatingWindow
           id="floating-window-jobManager"
-          isOpen={props.isJobManagerFloating}
-          onClose={() => props.setIsJobManagerFloating(false)}
-          onDock={() => props.setIsJobManagerFloating(false)}
-          initialPos={props.jobManagerFloatingPos}
-          initialSize={props.jobManagerFloatingSize}
-          onPosChange={props.setJobManagerFloatingPos}
-          onSizeChange={props.setJobManagerFloatingSize}
+          isOpen={isJobManagerFloating}
+          onClose={() => setIsJobManagerFloating(false)}
+          onDock={() => setIsJobManagerFloating(false)}
+          initialPos={jobManagerFloatingPos}
+          initialSize={jobManagerFloatingSize}
+          onPosChange={setJobManagerFloatingPos}
+          onSizeChange={setJobManagerFloatingSize}
           title="작업 큐 매니저"
           onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")}
         >
           <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
             <div className="min-h-0 flex-1 overflow-y-auto">
               <JobManagerPanel
-                jobs={props.jobs}
-                paused={props.paused}
-                backendUrl={props.backendUrl}
-                isAliveBackend={props.isAliveBackend}
+                jobs={jobs}
+                paused={paused}
+                backendUrl={backendUrl}
+                isAliveBackend={isAliveBackend}
                 selectedId={selectedSessionId}
                 setSelectedId={setSelectedSessionId}
                 markers={markers}
@@ -2138,35 +1728,35 @@ function AppContent(props: AppContentProps) {
                 handleRetryAllFailed={handleRetryAllFailed}
                 handleDeleteAllFailed={handleDeleteAllFailed}
                 isFloating={true}
-                onFloatToggle={() => props.setIsJobManagerFloating(false)}
+                onFloatToggle={() => setIsJobManagerFloating(false)}
               />
             </div>
           </div>
         </FloatingWindow>
       )}
 
-      {props.activeTab !== "gallery" && !props.isGalleryDocked && props.isGalleryFloating && (
+      {activeTab !== "gallery" && !isGalleryDocked && isGalleryFloating && (
         <FloatingWindow
           id="floating-window-gallery"
-          isOpen={props.isGalleryFloating}
-          onClose={() => props.setIsGalleryFloating(false)}
+          isOpen={isGalleryFloating}
+          onClose={() => setIsGalleryFloating(false)}
           onDock={() => {
-            props.setIsGalleryFloating(false)
-            props.setActiveTab("gallery")
+            setIsGalleryFloating(false)
+            setActiveTab("gallery")
           }}
-          initialPos={props.galleryFloatingPos}
-          initialSize={props.galleryFloatingSize}
-          onPosChange={props.setGalleryFloatingPos}
-          onSizeChange={props.setGalleryFloatingSize}
+          initialPos={galleryFloatingPos}
+          initialSize={galleryFloatingSize}
+          onPosChange={setGalleryFloatingPos}
+          onSizeChange={setGalleryFloatingSize}
           title="갤러리 플로팅 창"
           onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")}
           toolbar={
             <div className="flex flex-wrap items-center gap-1.5 w-full">
               {/* 상태 필터 Select */}
               <Select
-                value={galleryStatusFilter}
+                value={tb.statusFilter}
                 onValueChange={(v: string) => {
-                  setGalleryStatusFilter(v as "pending" | "approved" | "rejected" | "trashed" | "all")
+                  tb.setStatusFilter(v as "pending" | "approved" | "rejected" | "trashed" | "all")
                 }}
               >
                 <SelectTrigger className="!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
@@ -2183,13 +1773,13 @@ function AppContent(props: AppContentProps) {
 
               {/* 뷰 모드 Select */}
               <Select
-                value={galleryGroupMode ? "group" : galleryViewMode}
+                value={tb.groupMode ? "group" : tb.viewMode}
                 onValueChange={(v: string) => {
                   if (v === "group") {
-                    setGalleryGroupMode(true)
+                    tb.setGroupMode(true)
                   } else {
-                    setGalleryGroupMode(false)
-                    setGalleryViewMode(v as "grid" | "compare")
+                    tb.setGroupMode(false)
+                    tb.setViewMode(v as "grid" | "compare")
                   }
                 }}
               >
@@ -2205,13 +1795,13 @@ function AppContent(props: AppContentProps) {
 
               {/* 정렬 기준 Select */}
               <Select
-                value={gallerySortKey}
+                value={tb.sortKey}
                 onValueChange={(k: string) => {
-                  if (gallerySortKey === k) {
-                    setGallerySortDir(gallerySortDir === "asc" ? "desc" : "asc")
+                  if (tb.sortKey === k) {
+                    tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
                   } else {
-                    setGallerySortKey(k as "createdAt" | "filename" | "sizeBytes")
-                    setGallerySortDir("desc")
+                    tb.setSortKey(k as "createdAt" | "filename" | "sizeBytes")
+                    tb.setSortDir("desc")
                   }
                 }}
               >
@@ -2231,10 +1821,10 @@ function AppContent(props: AppContentProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setGallerySortDir(gallerySortDir === "asc" ? "desc" : "asc")}
+                    onClick={() => tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")}
                     className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
                   >
-                    {gallerySortDir === "asc" ? (
+                    {tb.sortDir === "asc" ? (
                       <ArrowDown className="h-3.5 w-3.5" />
                     ) : (
                       <ArrowUp className="h-3.5 w-3.5" />
@@ -2245,7 +1835,7 @@ function AppContent(props: AppContentProps) {
               </Tooltip>
 
               {/* 썸네일 크기 조절 슬라이더 */}
-              {(galleryGroupMode || galleryViewMode === "grid") && (
+              {(tb.groupMode || tb.viewMode === "grid") && (
                 <div className="flex items-center gap-1.5 rounded-md border border-line bg-background/50 px-1.5 h-7 shadow-none">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -2260,12 +1850,12 @@ function AppContent(props: AppContentProps) {
                     min="100"
                     max="300"
                     step="10"
-                    value={galleryThumbnailSize}
-                    onChange={(e) => setGalleryThumbnailSize(Number(e.target.value))}
+                    value={tb.thumbnailSize}
+                    onChange={(e) => tb.setThumbnailSize(Number(e.target.value))}
                     className="h-1 w-12 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
                   <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
-                    {galleryThumbnailSize}px
+                    {tb.thumbnailSize}px
                   </span>
                 </div>
               )}
@@ -2279,7 +1869,7 @@ function AppContent(props: AppContentProps) {
                     size="sm"
                     variant="outline"
                     className="!h-7 !w-7 p-0"
-                    onClick={handleGalleryRefresh}
+                    onClick={tb.handleRefresh}
                   >
                     <RefreshCwIcon className="h-3.5 w-3.5" />
                   </Button>
@@ -2294,7 +1884,7 @@ function AppContent(props: AppContentProps) {
                     size="sm"
                     variant="outline"
                     className="!h-7 !w-7 p-0"
-                    onClick={handleGalleryExport}
+                    onClick={tb.handleExport}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
                   </Button>
@@ -2309,7 +1899,7 @@ function AppContent(props: AppContentProps) {
                     size="sm"
                     variant="outline"
                     className="!h-7 !w-7 p-0 hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
-                    onClick={handleGalleryEmptyTrash}
+                    onClick={tb.handleEmptyTrash}
                   >
                     <Trash2Icon className="h-3.5 w-3.5" />
                   </Button>
@@ -2322,12 +1912,12 @@ function AppContent(props: AppContentProps) {
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"
-                    variant={galleryShowFilters ? "secondary" : "outline"}
+                    variant={tb.showFilters ? "secondary" : "outline"}
                     className="relative !h-7 !w-7 p-0"
-                    onClick={() => setGalleryShowFilters(!galleryShowFilters)}
+                    onClick={() => tb.setShowFilters(!tb.showFilters)}
                   >
                     <FilterIcon className="h-3.5 w-3.5" />
-                    {galleryHasAnyFilter && (
+                    {tb.hasAnyFilter && (
                       <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
                     )}
                   </Button>
@@ -2336,26 +1926,26 @@ function AppContent(props: AppContentProps) {
               </Tooltip>
 
               {/* 검색창 조건부 렌더링 */}
-              {galleryShowFilters && (
+              {tb.showFilters && (
                 <div className="w-full mt-1.5 pt-1.5 border-t border-line/40 flex items-center gap-2">
                   <div className="flex-1">
                     <TagInputSearch
-                      value={gallerySearchInput}
-                      tags={gallerySearchTags}
-                      candidates={galleryCandidates.filter((c) => {
-                        const valClean = gallerySearchInput.replace(/^[@#$]/, "").toLowerCase()
+                      value={tb.searchInput}
+                      tags={tb.searchTags}
+                      candidates={tb.candidates.filter((c) => {
+                        const valClean = tb.searchInput.replace(/^[@#$]/, "").toLowerCase()
                         return c.value.toLowerCase().includes(valClean)
                       })}
                       placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
-                      onValueChange={(val: string) => setGallerySearchInput(val)}
+                      onValueChange={(val: string) => tb.setSearchInput(val)}
                       onAddTag={(tag: string) => {
-                        if (!gallerySearchTags.includes(tag)) {
-                          setGallerySearchTags([...gallerySearchTags, tag])
+                        if (!tb.searchTags.includes(tag)) {
+                          tb.setSearchTags([...tb.searchTags, tag])
                         }
-                        setGallerySearchInput("")
+                        tb.setSearchInput("")
                       }}
                       onRemoveTag={(tag: string) => {
-                        setGallerySearchTags(gallerySearchTags.filter((t) => t !== tag))
+                        tb.setSearchTags(tb.searchTags.filter((t) => t !== tag))
                       }}
                       size="sm"
                     />
@@ -2364,11 +1954,7 @@ function AppContent(props: AppContentProps) {
                     variant="ghost"
                     size="sm"
                     className="h-7 px-1.5 text-[10px] font-bold text-muted-foreground shrink-0"
-                    onClick={() => {
-                      setGallerySearchTags([])
-                      setGallerySearchInput("")
-                      setGalleryHideRejected(false)
-                    }}
+                    onClick={tb.clearAllFilters}
                   >
                     초기화
                   </Button>
@@ -2378,87 +1964,61 @@ function AppContent(props: AppContentProps) {
           }
         >
           <SavedImagesGallery
-            backendUrl={props.backendUrl}
-            enableHover={props.settings.enableHover}
-            imagePageSize={props.settings.imagePageSize}
-            imageLazyLoad={props.settings.imageLazyLoad}
-            singleDownloadMode={props.settings.singleDownloadMode}
-            filenameFilter={galleryFilenameFilter}
-            tagFilter={galleryTagFilter}
-            metadataFilter={galleryMetadataFilter}
-            generalFilters={galleryGeneralFilters}
-            onTokensExtracted={setGalleryCandidates}
+            backendUrl={backendUrl}
+            enableHover={settings.enableHover}
+            imagePageSize={settings.imagePageSize}
+            imageLazyLoad={settings.imageLazyLoad}
+            singleDownloadMode={settings.singleDownloadMode}
+            filenameFilter={tb.filenameFilter}
+            tagFilter={tb.tagFilter}
+            metadataFilter={tb.metadataFilter}
+            generalFilters={tb.generalFilters}
+            onTokensExtracted={tb.setCandidates}
             onReloadReady={(reload) => {
-              galleryReloadRef.current = reload
+              tb.registerReload(reload)
             }}
-            toolbarState={{
-              statusFilter: galleryStatusFilter,
-              setStatusFilter: setGalleryStatusFilter,
-              galleryViewMode: galleryViewMode,
-              setGalleryViewMode: setGalleryViewMode,
-              groupMode: galleryGroupMode,
-              setGroupMode: setGalleryGroupMode,
-              showFilters: galleryShowFilters,
-              setShowFilters: setGalleryShowFilters,
-              hasAnyFilter: galleryHasAnyFilter,
-              hideRejected: galleryHideRejected,
-              setHideRejected: setGalleryHideRejected,
-              sortKey: gallerySortKey,
-              setSortKey: setGallerySortKey,
-              sortDir: gallerySortDir,
-              setSortDir: setGallerySortDir,
-              thumbnailSize: galleryThumbnailSize,
-              setThumbnailSize: setGalleryThumbnailSize,
-              clearAllFilters: () => {
-                setGallerySearchTags([])
-                setGallerySearchInput("")
-                setGalleryHideRejected(false)
-              },
-              reload: handleGalleryRefresh,
-              handleExport: handleGalleryExport,
-              handleEmptyTrash: handleGalleryEmptyTrash,
-            }}
+            toolbarState={tb}
           />
         </FloatingWindow>
       )}
 
-      {props.activeTab !== "stats" && props.isStatsFloating && (
+      {activeTab !== "stats" && isStatsFloating && (
         <FloatingWindow
           id="floating-window-stats"
-          isOpen={props.isStatsFloating}
-          onClose={() => props.setIsStatsFloating(false)}
+          isOpen={isStatsFloating}
+          onClose={() => setIsStatsFloating(false)}
           onDock={() => {
-            props.setIsStatsFloating(false)
-            props.setActiveTab("stats")
+            setIsStatsFloating(false)
+            setActiveTab("stats")
           }}
-          initialPos={props.statsFloatingPos}
-          initialSize={props.statsFloatingSize}
-          onPosChange={props.setStatsFloatingPos}
-          onSizeChange={props.setStatsFloatingSize}
+          initialPos={statsFloatingPos}
+          initialSize={statsFloatingSize}
+          onPosChange={setStatsFloatingPos}
+          onSizeChange={setStatsFloatingSize}
           title="통계"
           onDragProgress={(cx, cy, sw, sh, isEnding) =>
             handleDragProgress(cx, cy, sw, sh, isEnding, "stats")
           }
         >
           <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
-            <StatisticsPanel jobs={props.jobs} workers={props.workers} />
+            <StatisticsPanel jobs={jobs} workers={workers} />
           </div>
         </FloatingWindow>
       )}
 
-      {props.activeTab !== "curation" && props.isCurationFloating && (
+      {activeTab !== "curation" && isCurationFloating && (
         <FloatingWindow
           id="floating-window-curation"
-          isOpen={props.isCurationFloating}
-          onClose={() => props.setIsCurationFloating(false)}
+          isOpen={isCurationFloating}
+          onClose={() => setIsCurationFloating(false)}
           onDock={() => {
-            props.setIsCurationFloating(false)
-            props.setActiveTab("curation")
+            setIsCurationFloating(false)
+            setActiveTab("curation")
           }}
-          initialPos={props.curationFloatingPos}
-          initialSize={props.curationFloatingSize}
-          onPosChange={props.setCurationFloatingPos}
-          onSizeChange={props.setCurationFloatingSize}
+          initialPos={curationFloatingPos}
+          initialSize={curationFloatingSize}
+          onPosChange={setCurationFloatingPos}
+          onSizeChange={setCurationFloatingSize}
           title="큐레이션"
           onDragProgress={(cx, cy, sw, sh, isEnding) =>
             handleDragProgress(cx, cy, sw, sh, isEnding, "curation")
@@ -2466,11 +2026,11 @@ function AppContent(props: AppContentProps) {
         >
           <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
             <CombinationPicker
-              backendUrl={props.backendUrl}
+              backendUrl={backendUrl}
               cegTemplate={template.cegTemplate}
               savedTemplates={template.savedTemplates}
-              enableHover={props.settings.enableHover}
-              autoApplyReject={props.settings.autoApplyReject}
+              enableHover={settings.enableHover}
+              autoApplyReject={settings.autoApplyReject}
               savedWorkflows={workflow.savedWorkflows}
               toolbarState={{
                 selectedAxis: curationSelectedAxis,

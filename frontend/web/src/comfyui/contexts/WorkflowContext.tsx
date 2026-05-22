@@ -9,6 +9,7 @@ import {
   type NodeMapping,
   type ComfyWorkflow,
 } from "@/lib/workflow"
+import { usePendingDialog } from "./PendingDialogContext"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 // ---------------------------------------------------------------------------
@@ -34,7 +35,7 @@ export interface WorkflowContextValue {
   /** Called when a name conflict needs App-level resolution */
   onPendingSave: (name: string, type: "workflow") => void
   /** Called when updating a saved item; shows diff if content changed */
-  onPendingUpdate?: (
+  onPendingUpdate: (
     name: string,
     type: "workflow",
     oldContent: string,
@@ -78,23 +79,15 @@ export function useWorkflowContext(): WorkflowContextValue {
 // ---------------------------------------------------------------------------
 
 interface WorkflowProviderProps {
-  onPendingSave: (name: string, type: "workflow") => void
-  onPendingUpdate?: (
-    name: string,
-    type: "workflow",
-    oldContent: string,
-    newContent: string
-  ) => boolean | null
-  onPendingPresetSelection: (w: SavedWorkflow) => void
   children: React.ReactNode
 }
 
 export function WorkflowProvider({
-  onPendingSave,
-  onPendingUpdate,
-  onPendingPresetSelection,
   children,
 }: WorkflowProviderProps): React.JSX.Element {
+  const { setPendingSave, handlePendingUpdate, setPendingPresetSelection } =
+    usePendingDialog()
+
   const [workflowJson, setWorkflowJson] = useSyncedStorage(
     STORAGE_KEYS.workflow,
     ""
@@ -142,7 +135,7 @@ export function WorkflowProvider({
     } else if (w.mappingPresets.length === 1) {
       onSetMappings(w.mappingPresets[0]!.mappings, w.mappingPresets[0]!.id)
     } else {
-      onPendingPresetSelection(w)
+      setPendingPresetSelection(w)
     }
   }
 
@@ -160,9 +153,15 @@ export function WorkflowProvider({
         deleteWorkflow,
         workflowResetKey,
         setWorkflowResetKey,
-        onPendingSave,
-        ...(onPendingUpdate ? { onPendingUpdate } : {}),
-        onPendingPresetSelection,
+        onPendingSave: (name: string, type: "workflow") =>
+          setPendingSave({ name, type }),
+        onPendingUpdate: (
+          name: string,
+          type: "workflow",
+          oldContent: string,
+          newContent: string
+        ) => handlePendingUpdate(name, type, oldContent, newContent),
+        onPendingPresetSelection: setPendingPresetSelection,
         loadWorkflowItem,
         saveMappingPreset,
         deleteMappingPreset,

@@ -65,6 +65,8 @@ import {
   encodeAxis,
   type FreeGroupBy,
 } from "../combinationpicker/freeCurationGroupers"
+import { usePanelLayout } from "../../contexts/PanelLayoutContext"
+import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
 import { NAV_TABS, type TabId } from "./nav-tabs"
 
 interface HeaderProps {
@@ -94,37 +96,6 @@ interface HeaderProps {
   setIsAxisFilterOpen: (v: boolean) => void
   setIsGraphOpen: (v: boolean) => void
 
-  // Gallery specific
-  galleryStatusFilter: CurationStatus | "all"
-  setGalleryStatusFilter: (v: CurationStatus | "all") => void
-  galleryViewMode: "grid" | "compare"
-  setGalleryViewMode: (v: "grid" | "compare") => void
-  galleryGroupMode: boolean
-  setGalleryGroupMode: (v: boolean) => void
-  galleryShowFilters: boolean
-  setGalleryShowFilters: (v: boolean) => void
-  galleryHasAnyFilter: boolean
-  gallerySearchTags: string[]
-  setGallerySearchTags: (tags: string[]) => void
-  gallerySearchInput: string
-  setGallerySearchInput: (v: string) => void
-  galleryCandidates: { value: string; type: "filename" | "tag" | "metadata" }[]
-  galleryHideRejected: boolean
-  setGalleryHideRejected: (v: boolean) => void
-  gallerySortKey: "createdAt" | "filename" | "sizeBytes"
-  setGallerySortKey: (k: "createdAt" | "filename" | "sizeBytes") => void
-  gallerySortDir: "asc" | "desc"
-  setGallerySortDir: (d: "asc" | "desc") => void
-  setGalleryDuplicateStrategy: (v: "hash" | "number") => void
-  galleryThumbnailSize: number
-  setGalleryThumbnailSize: (v: number) => void
-
-
-  // Gallery action callbacks
-  onGalleryExport?: () => void
-  onGalleryRefresh?: () => void
-  onGalleryEmptyTrash?: () => void
-
   // Curation specific
   curationSelectedAxis: string
   setCurationSelectedAxis: (v: string) => void
@@ -147,23 +118,16 @@ interface HeaderProps {
   onDeleteAllFailed?: () => void
   activeJobsCount?: number
 
-  // Floating Gallery Props
-  isGalleryFloating?: boolean
-  setIsGalleryFloating?: (v: boolean) => void
-
   // Drag-to-float for stats/curation/gallery nav tabs
   onStatsDragStart?: (clientX: number, clientY: number) => void
   onCurationDragStart?: (clientX: number, clientY: number) => void
   onGalleryDragStart?: (clientX: number, clientY: number) => void
-  isStatsFloating?: boolean
-  isStatsDocked?: boolean
-  isCurationFloating?: boolean
-  isCurationDocked?: boolean
-  isGalleryDocked?: boolean
 }
 
 export function Header(props: HeaderProps) {
   const { theme, setTheme } = useTheme()
+  const panel = usePanelLayout()
+  const tb = useGalleryToolbar()
 
   const tabDragRef = useRef<{
     tabId: "stats" | "curation" | "gallery"
@@ -270,11 +234,11 @@ export function Header(props: HeaderProps) {
   const toggleSort = (
     key: "createdAt" | "filename" | "sizeBytes"
   ) => {
-    if (props.gallerySortKey === key) {
-      props.setGallerySortDir(props.gallerySortDir === "asc" ? "desc" : "asc")
+    if (tb.sortKey === key) {
+      tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
     } else {
-      props.setGallerySortKey(key)
-      props.setGallerySortDir("asc")
+      tb.setSortKey(key)
+      tb.setSortDir("asc")
     }
   }
 
@@ -460,9 +424,9 @@ export function Header(props: HeaderProps) {
                         ? props.onGalleryDragStart
                         : undefined
                 const isDetached =
-                  (tab.id === "stats" && (props.isStatsFloating || props.isStatsDocked)) ||
-                  (tab.id === "curation" && (props.isCurationFloating || props.isCurationDocked)) ||
-                  (tab.id === "gallery" && (props.isGalleryFloating || props.isGalleryDocked))
+                  (tab.id === "stats" && (panel.stats.isFloating || panel.stats.isDocked)) ||
+                  (tab.id === "curation" && (panel.curation.isFloating || panel.curation.isDocked)) ||
+                  (tab.id === "gallery" && (panel.gallery.isFloating || panel.gallery.isDocked))
                 return (
                   <Button
                     key={tab.id}
@@ -625,9 +589,9 @@ export function Header(props: HeaderProps) {
             <div ref={galleryToolbarRef} className="flex items-center gap-1.5">
               <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
               <Select
-                value={props.galleryStatusFilter}
+                value={tb.statusFilter}
                 onValueChange={(v: string) => {
-                  props.setGalleryStatusFilter(v as CurationStatus | "all")
+                  tb.setStatusFilter(v as CurationStatus | "all")
                 }}
               >
                 <SelectTrigger className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}>
@@ -663,13 +627,13 @@ export function Header(props: HeaderProps) {
               </Select>
 
               <Select
-                value={props.galleryGroupMode ? "group" : props.galleryViewMode}
+                value={tb.groupMode ? "group" : tb.viewMode}
                 onValueChange={(v) => {
                   if (v === "group") {
-                    props.setGalleryGroupMode(true)
+                    tb.setGroupMode(true)
                   } else {
-                    props.setGalleryGroupMode(false)
-                    props.setGalleryViewMode(v as "grid" | "compare")
+                    tb.setGroupMode(false)
+                    tb.setViewMode(v as "grid" | "compare")
                   }
                 }}
               >
@@ -690,7 +654,7 @@ export function Header(props: HeaderProps) {
               </Select>
 
               <Select
-                value={props.gallerySortKey}
+                value={tb.sortKey}
                 onValueChange={(k) =>
                   toggleSort(k as "createdAt" | "filename" | "sizeBytes")
                 }
@@ -717,11 +681,11 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     variant="outline"
                     onClick={() =>
-                      toggleSort(props.gallerySortKey)
+                      toggleSort(tb.sortKey)
                     }
                     className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
                   >
-                    {props.gallerySortDir === "asc" ? (
+                    {tb.sortDir === "asc" ? (
                       <ArrowUp className="h-3.5 w-3.5" />
                     ) : (
                       <ArrowDown className="h-3.5 w-3.5" />
@@ -731,7 +695,7 @@ export function Header(props: HeaderProps) {
                 <TooltipContent>정렬 방향</TooltipContent>
               </Tooltip>
 
-              {(props.galleryGroupMode || props.galleryViewMode === "grid") && (
+              {(tb.groupMode || tb.viewMode === "grid") && (
                 <div className={`hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs h-7 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "md:flex"}`}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -746,12 +710,12 @@ export function Header(props: HeaderProps) {
                     min="120"
                     max="320"
                     step="10"
-                    value={props.galleryThumbnailSize}
-                    onChange={(e) => props.setGalleryThumbnailSize(Number(e.target.value))}
+                    value={tb.thumbnailSize}
+                    onChange={(e) => tb.setThumbnailSize(Number(e.target.value))}
                     className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
                   <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
-                    {props.galleryThumbnailSize}px
+                    {tb.thumbnailSize}px
                   </span>
                 </div>
               )}
@@ -760,14 +724,14 @@ export function Header(props: HeaderProps) {
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"
-                    variant={props.galleryShowFilters ? "secondary" : "outline"}
+                    variant={tb.showFilters ? "secondary" : "outline"}
                     onClick={() =>
-                      props.setGalleryShowFilters(!props.galleryShowFilters)
+                      tb.setShowFilters(!tb.showFilters)
                     }
                     className={`relative !h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
                   >
                     <FilterIcon className="h-3.5 w-3.5" />
-                    {props.galleryHasAnyFilter && (
+                    {tb.hasAnyFilter && (
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary"></span>
                     )}
                   </Button>
@@ -781,7 +745,7 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     variant="outline"
                     className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
-                    onClick={() => props.onGalleryExport?.()}
+                    onClick={() => tb.handleExport()}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
                   </Button>
@@ -797,7 +761,7 @@ export function Header(props: HeaderProps) {
                       variant="outline"
                       className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
                       onClick={() => {
-                        props.setIsGalleryFloating?.(true)
+                        panel.gallery.setIsFloating(true)
                         props.setActiveTab("jobs")
                       }}
                     >
@@ -820,10 +784,10 @@ export function Header(props: HeaderProps) {
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
                           <span>필터: {
-                            props.galleryStatusFilter === "all" ? "전체" :
-                            props.galleryStatusFilter === "pending" ? "대기" :
-                            props.galleryStatusFilter === "approved" ? "통과" :
-                            props.galleryStatusFilter === "rejected" ? "탈락" : "휴지통"
+                            tb.statusFilter === "all" ? "전체" :
+                            tb.statusFilter === "pending" ? "대기" :
+                            tb.statusFilter === "approved" ? "통과" :
+                            tb.statusFilter === "rejected" ? "탈락" : "휴지통"
                           }</span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
@@ -831,7 +795,7 @@ export function Header(props: HeaderProps) {
                             {(["all", "pending", "approved", "rejected", "trashed"] as const).map((s) => (
                               <DropdownMenuItem
                                 key={s}
-                                onClick={() => props.setGalleryStatusFilter(s)}
+                                onClick={() => tb.setStatusFilter(s)}
                                 className="text-[12px] font-bold"
                               >
                                 {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
@@ -845,22 +809,22 @@ export function Header(props: HeaderProps) {
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
                           <span>보기: {
-                            props.galleryGroupMode ? "그룹" :
-                            props.galleryViewMode === "grid" ? "그리드" : "비교"
+                            tb.groupMode ? "그룹" :
+                            tb.viewMode === "grid" ? "그리드" : "비교"
                           }</span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-[120px] p-1">
                             <DropdownMenuItem
-                              onClick={() => props.setGalleryGroupMode(true)}
+                              onClick={() => tb.setGroupMode(true)}
                               className="text-[12px] font-bold"
                             >
                               그룹
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
-                                props.setGalleryGroupMode(false)
-                                props.setGalleryViewMode("grid")
+                                tb.setGroupMode(false)
+                                tb.setViewMode("grid")
                               }}
                               className="text-[12px] font-bold"
                             >
@@ -868,8 +832,8 @@ export function Header(props: HeaderProps) {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
-                                props.setGalleryGroupMode(false)
-                                props.setGalleryViewMode("compare")
+                                tb.setGroupMode(false)
+                                tb.setViewMode("compare")
                               }}
                               className="text-[12px] font-bold"
                             >
@@ -883,8 +847,8 @@ export function Header(props: HeaderProps) {
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
                           <span>정렬: {
-                            props.gallerySortKey === "createdAt" ? "날짜순" :
-                            props.gallerySortKey === "filename" ? "파일명순" : "크기순"
+                            tb.sortKey === "createdAt" ? "날짜순" :
+                            tb.sortKey === "filename" ? "파일명순" : "크기순"
                           }</span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
@@ -913,10 +877,10 @@ export function Header(props: HeaderProps) {
 
                       {/* 정렬 방향 토글 아이템 */}
                       <DropdownMenuItem
-                        onClick={() => toggleSort(props.gallerySortKey)}
+                        onClick={() => toggleSort(tb.sortKey)}
                         className="flex items-center gap-2 text-[12px] font-bold border-b border-line/45 pb-2 mb-1"
                       >
-                        {props.gallerySortDir === "asc" ? (
+                        {tb.sortDir === "asc" ? (
                           <>
                             <ArrowUp className="h-3.5 w-3.5 opacity-60" />
                             <span>정렬 방향: 오름차순</span>
@@ -934,18 +898,18 @@ export function Header(props: HeaderProps) {
                   {(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) && (
                     <>
                       <DropdownMenuItem
-                        onClick={() => props.setGalleryShowFilters(!props.galleryShowFilters)}
+                        onClick={() => tb.setShowFilters(!tb.showFilters)}
                         className="flex items-center gap-2 text-[12px] font-bold"
                       >
-                        <FilterIcon className={`h-3.5 w-3.5 ${props.galleryShowFilters ? "text-primary" : "opacity-60"}`} />
-                        <span>필터 {props.galleryShowFilters ? "숨기기" : "표시"}</span>
-                        {props.galleryHasAnyFilter && (
+                        <FilterIcon className={`h-3.5 w-3.5 ${tb.showFilters ? "text-primary" : "opacity-60"}`} />
+                        <span>필터 {tb.showFilters ? "숨기기" : "표시"}</span>
+                        {tb.hasAnyFilter && (
                           <span className="ml-auto h-2 w-2 rounded-full bg-primary" />
                         )}
                       </DropdownMenuItem>
                       
                       <DropdownMenuItem
-                        onClick={() => props.onGalleryExport?.()}
+                        onClick={() => tb.handleExport()}
                         className="flex items-center gap-2 text-[12px] font-bold"
                       >
                         <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
@@ -955,7 +919,7 @@ export function Header(props: HeaderProps) {
                       {props.useWindowMode && (
                         <DropdownMenuItem
                           onClick={() => {
-                            props.setIsGalleryFloating?.(true)
+                            panel.gallery.setIsFloating(true)
                             props.setActiveTab("jobs")
                           }}
                           className="flex items-center gap-2 text-[12px] font-bold"
@@ -965,22 +929,22 @@ export function Header(props: HeaderProps) {
                         </DropdownMenuItem>
                       )}
 
-                      {(props.galleryGroupMode || props.galleryViewMode === "grid") && (
+                      {(tb.groupMode || tb.viewMode === "grid") && (
                         <div className="flex flex-col gap-1.5 px-2.5 py-2 border-b border-line/45 my-1">
                           <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
                             <span className="flex items-center gap-1.5">
                               <LayoutGrid className="h-3.5 w-3.5" />
                               크기 조절
                             </span>
-                            <span className="font-mono text-[10px] text-primary">{props.galleryThumbnailSize}px</span>
+                            <span className="font-mono text-[10px] text-primary">{tb.thumbnailSize}px</span>
                           </div>
                           <input
                             type="range"
                             min="120"
                             max="320"
                             step="10"
-                            value={props.galleryThumbnailSize}
-                            onChange={(e) => props.setGalleryThumbnailSize(Number(e.target.value))}
+                            value={tb.thumbnailSize}
+                            onChange={(e) => tb.setThumbnailSize(Number(e.target.value))}
                             className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -989,13 +953,13 @@ export function Header(props: HeaderProps) {
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuItem onClick={() => props.onGalleryRefresh?.()} className="text-[12px] font-bold">
+                  <DropdownMenuItem onClick={() => tb.handleRefresh()} className="text-[12px] font-bold">
                     <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
                     새로고침
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => props.onGalleryEmptyTrash?.()}
+                    onClick={() => tb.handleEmptyTrash()}
                     className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >
                     <Trash2Icon className="mr-2 h-3.5 w-3.5 opacity-60" />
@@ -1191,7 +1155,7 @@ export function Header(props: HeaderProps) {
       </div>
 
       {/* Collapsible Filters (gallery only) */}
-      {props.activeTab === "gallery" && props.galleryShowFilters && (
+      {props.activeTab === "gallery" && tb.showFilters && (
         <div className="border-t border-line/60 bg-panel/80 px-3 py-2 md:px-4 md:py-2.5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
@@ -1200,28 +1164,28 @@ export function Header(props: HeaderProps) {
               </span>
               <div className="max-w-lg flex-1">
                 <TagInputSearch
-                  value={props.gallerySearchInput}
-                  tags={props.gallerySearchTags}
-                  candidates={props.galleryCandidates.filter((c) => {
-                    const valClean = props.gallerySearchInput
+                  value={tb.searchInput}
+                  tags={tb.searchTags}
+                  candidates={tb.candidates.filter((c) => {
+                    const valClean = tb.searchInput
                       .replace(/^[@#$]/, "")
                       .toLowerCase()
                     return c.value.toLowerCase().includes(valClean)
                   })}
                   placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
-                  onValueChange={props.setGallerySearchInput}
+                  onValueChange={tb.setSearchInput}
                   onAddTag={(tag) => {
-                    if (!props.gallerySearchTags.includes(tag)) {
-                      props.setGallerySearchTags([
-                        ...props.gallerySearchTags,
+                    if (!tb.searchTags.includes(tag)) {
+                      tb.setSearchTags([
+                        ...tb.searchTags,
                         tag,
                       ])
                     }
-                    props.setGallerySearchInput("")
+                    tb.setSearchInput("")
                   }}
                   onRemoveTag={(tag) => {
-                    props.setGallerySearchTags(
-                      props.gallerySearchTags.filter((t) => t !== tag)
+                    tb.setSearchTags(
+                      tb.searchTags.filter((t) => t !== tag)
                     )
                   }}
                   size="sm"
@@ -1235,9 +1199,9 @@ export function Header(props: HeaderProps) {
               <div className="flex cursor-pointer items-center gap-2">
                 <Checkbox
                   id="gallery-hide-rejected"
-                  checked={props.galleryHideRejected}
+                  checked={tb.hideRejected}
                   onCheckedChange={(v) =>
-                    props.setGalleryHideRejected(v === true)
+                    tb.setHideRejected(v === true)
                   }
                 />
                 <Label
@@ -1253,9 +1217,9 @@ export function Header(props: HeaderProps) {
                 size="sm"
                 className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
                 onClick={() => {
-                  props.setGallerySearchTags([])
-                  props.setGallerySearchInput("")
-                  props.setGalleryHideRejected(false)
+                  tb.setSearchTags([])
+                  tb.setSearchInput("")
+                  tb.setHideRejected(false)
                 }}
               >
                 <XIcon className="mr-1 h-3 w-3" />
