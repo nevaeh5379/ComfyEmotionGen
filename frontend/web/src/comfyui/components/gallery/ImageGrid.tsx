@@ -11,6 +11,9 @@ import {
   SquareIcon,
   Trash2Icon,
   XCircleIcon,
+  Download,
+  FileJson,
+  Tag,
 } from "lucide-react"
 import {
   ContextMenu,
@@ -275,6 +278,58 @@ export function ImageGrid({
               >
                 <EyeIcon className="h-3.5 w-3.5" />
                 상세 보기
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  try {
+                    let workflowStr = ""
+                    if (img.workflow) {
+                      workflowStr = JSON.stringify(img.workflow, null, 2)
+                    } else if (img.prompt) {
+                      const parsed = JSON.parse(img.prompt)
+                      workflowStr = JSON.stringify(parsed, null, 2)
+                    }
+                    if (workflowStr) {
+                      navigator.clipboard.writeText(workflowStr).catch(() => {})
+                    }
+                  } catch (e) {
+                    if (img.prompt) {
+                      navigator.clipboard.writeText(img.prompt).catch(() => {})
+                    }
+                  }
+                }}
+                disabled={!img.workflow && !img.prompt}
+                className="gap-2 font-bold"
+              >
+                <FileJson className="h-3.5 w-3.5" />
+                워크플로우 JSON 복사
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  if (img.tags && img.tags.length > 0) {
+                    navigator.clipboard.writeText(img.tags.join(", ")).catch(() => {})
+                  }
+                }}
+                disabled={!img.tags || img.tags.length === 0}
+                className="gap-2 font-bold"
+              >
+                <Tag className="h-3.5 w-3.5" />
+                태그 전체 복사
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  const url = `${backendUrl}/saved-images/${img.hash}`
+                  const link = document.createElement("a")
+                  link.href = url
+                  link.download = img.originalFilename || `${img.hash}.${img.extension}`
+                  document.body.appendChild(link)
+                  link.click()
+                  document.body.removeChild(link)
+                }}
+                className="gap-2 font-bold"
+              >
+                <Download className="h-3.5 w-3.5" />
+                원래 이름으로 다운로드
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => {

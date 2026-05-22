@@ -39,13 +39,26 @@ import {
   FolderOpen,
   Home,
   Search,
+  FolderPlus,
+  Copy,
+  Scissors,
+  Eye,
 } from "lucide-react"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  ContextMenuSub,
+  ContextMenuSubTrigger,
+  ContextMenuSubContent,
+} from "@/components/ui/context-menu"
 import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
-  BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -944,7 +957,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   )
 
   return (
-    <div className="flex flex-col">
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className="flex flex-col">
       {/* ── Sticky Toolbar Header (내부 렌더링: toolbarState 없을 때만) ── */}
       {!toolbarState && (
         <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-panel px-4 py-2">
@@ -1123,6 +1138,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     placeholder="파일명 필터"
                     value={filenameFilter}
                     onChange={(e) => setFilenameFilter(e.target.value)}
+                    onContextMenu={(e) => e.stopPropagation()}
                   />
                   <Input
                     className="h-9 w-full text-sm md:h-7 md:w-36 md:text-xs"
@@ -1130,6 +1146,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     placeholder="태그 필터"
                     value={tagFilter}
                     onChange={(e) => setTagFilter(e.target.value)}
+                    onContextMenu={(e) => e.stopPropagation()}
                   />
                   <Input
                     className="h-9 w-full text-sm sm:col-span-2 md:h-7 md:w-48 md:text-xs"
@@ -1137,6 +1154,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     placeholder="메타데이터/prompt 검색"
                     value={metadataFilter}
                     onChange={(e) => setMetadataFilter(e.target.value)}
+                    onContextMenu={(e) => e.stopPropagation()}
                   />
                 </div>
               </div>
@@ -1310,28 +1328,65 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     Home
                   </BreadcrumbLink>
                 </BreadcrumbItem>
-                {breadcrumbTags.map((tag, idx) => {
+                 {breadcrumbTags.map((tag, idx) => {
                   const isLast = idx === breadcrumbTags.length - 1
                   return (
                     <React.Fragment key={tag}>
                       <BreadcrumbSeparator />
                       <BreadcrumbItem>
-                        {isLast ? (
-                          <BreadcrumbPage className="font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40 text-[11px] leading-none">
-                            {tag}
-                          </BreadcrumbPage>
-                        ) : (
-                          <BreadcrumbLink
-                            onClick={() => {
-                              setBreadcrumbTags(breadcrumbTags.slice(0, idx + 1))
-                              setPage(1)
-                              setGroupPage(1)
-                            }}
-                            className="font-medium text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
-                          >
-                            {tag}
-                          </BreadcrumbLink>
-                        )}
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            {isLast ? (
+                              <span className="font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40 text-[11px] leading-none block select-none">
+                                {tag}
+                              </span>
+                            ) : (
+                              <span className="font-medium text-muted-foreground transition-colors hover:text-foreground cursor-pointer block select-none"
+                                onClick={() => {
+                                  setBreadcrumbTags(breadcrumbTags.slice(0, idx + 1))
+                                  setPage(1)
+                                  setGroupPage(1)
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            )}
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-44">
+                            <ContextMenuItem
+                              onClick={() => {
+                                setBreadcrumbTags(breadcrumbTags.slice(0, idx + 1))
+                                setPage(1)
+                                setGroupPage(1)
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <Scissors className="h-3.5 w-3.5" />
+                              이 위치까지 경로 자르기
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => {
+                                setBreadcrumbTags(breadcrumbTags.filter((_, i) => i !== idx))
+                                setPage(1)
+                                setGroupPage(1)
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <Trash2Icon className="h-3.5 w-3.5" />
+                              경로에서 제거
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() => {
+                                navigator.clipboard.writeText(tag).catch(() => {})
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              태그명 복사
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
                       </BreadcrumbItem>
                     </React.Fragment>
                   )
@@ -1366,6 +1421,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 placeholder="폴더 검색..."
                 value={subTagQuery}
                 onChange={(e) => setSubTagQuery(e.target.value)}
+                onContextMenu={(e) => e.stopPropagation()}
                 className="h-8 w-full rounded-md border border-input bg-transparent pl-9 pr-2.5 text-xs font-normal placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:border-input transition-all disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
@@ -1376,24 +1432,51 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             {nextAvailableTokens.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2 flex-1 max-h-[44px] overflow-y-auto pr-1">
                 {nextAvailableTokens.slice(0, 30).map(({ token, count }) => (
-                  <button
-                    key={token}
-                    onClick={() => {
-                      setBreadcrumbTags([...breadcrumbTags, token])
-                      setSubTagQuery("")
-                      setPage(1)
-                      setGroupPage(1)
-                    }}
-                    className="group flex h-8 shrink-0 cursor-pointer items-center justify-between gap-2.5 rounded-md border border-border bg-card px-3 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-98"
-                  >
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                      <Folder className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0 group-hover:text-accent-foreground" strokeWidth={1.6} />
-                      <span className="truncate max-w-[130px] font-medium text-foreground/80 group-hover:text-foreground leading-none">{token}</span>
-                    </div>
-                    <span className="text-[9px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0 group-hover:bg-background">
-                      {count}
-                    </span>
-                  </button>
+                  <ContextMenu key={token}>
+                    <ContextMenuTrigger asChild>
+                      <button
+                        onClick={() => {
+                          setBreadcrumbTags([...breadcrumbTags, token])
+                          setSubTagQuery("")
+                          setPage(1)
+                          setGroupPage(1)
+                        }}
+                        className="group flex h-8 shrink-0 cursor-pointer items-center justify-between gap-2.5 rounded-md border border-border bg-card px-3 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-98"
+                      >
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <Folder className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0 group-hover:text-accent-foreground" strokeWidth={1.6} />
+                          <span className="truncate max-w-[130px] font-medium text-foreground/80 group-hover:text-foreground leading-none">{token}</span>
+                        </div>
+                        <span className="text-[9px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0 group-hover:bg-background">
+                          {count}
+                        </span>
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-44">
+                      <ContextMenuItem
+                        onClick={() => {
+                          setBreadcrumbTags([token, ...breadcrumbTags])
+                          setSubTagQuery("")
+                          setPage(1)
+                          setGroupPage(1)
+                        }}
+                        className="gap-2 font-bold"
+                      >
+                        <FolderPlus className="h-3.5 w-3.5" />
+                        맨 앞에 경로 추가
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onClick={() => {
+                          navigator.clipboard.writeText(token).catch(() => {})
+                        }}
+                        className="gap-2 font-bold"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        태그명 복사
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 ))}
               </div>
             ) : (
@@ -1456,28 +1539,85 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               {pinnedHashes.map((hash) => {
                 const img = visibleImages.find((i) => i.hash === hash)
                 return (
-                  <div
-                    key={hash}
-                    className="relative overflow-hidden rounded-lg border bg-black/5 shadow-inner"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => togglePin(hash)}
-                      className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
-                    >
-                      <PinIcon className="h-5 w-5" />
-                    </button>
-                    {img &&
-                      (enableHover ? (
-                        <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
-                      ) : (
-                        <img
-                          src={`${backendUrl}/saved-images/${hash}`}
-                          className="max-h-full max-w-full object-contain"
-                          alt=""
-                        />
-                      ))}
-                  </div>
+                  <ContextMenu key={hash}>
+                    <ContextMenuTrigger asChild>
+                      <div
+                        className="relative overflow-hidden rounded-lg border bg-black/5 shadow-inner cursor-pointer"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => togglePin(hash)}
+                          className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl hover:bg-blue-600 transition-colors"
+                        >
+                          <PinIcon className="h-5 w-5" />
+                        </button>
+                        {img &&
+                          (enableHover ? (
+                            <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                          ) : (
+                            <img
+                              src={`${backendUrl}/saved-images/${hash}`}
+                              className="max-h-full max-w-full object-contain"
+                              alt=""
+                            />
+                          ))}
+                      </div>
+                    </ContextMenuTrigger>
+                    {img && (
+                      <ContextMenuContent className="w-48">
+                        <ContextMenuItem
+                          onClick={() => togglePin(hash)}
+                          className="gap-2 font-bold"
+                        >
+                          <PinIcon className="h-3.5 w-3.5" />
+                          비교에서 제거
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onClick={() => setStatus(hash, "approved")}
+                          className="gap-2 font-bold text-ok"
+                          disabled={img.status === "approved"}
+                        >
+                          <CheckCircleIcon className="h-3.5 w-3.5" />
+                          통과
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() => setStatus(hash, "rejected")}
+                          className="gap-2 font-bold text-bad"
+                          disabled={img.status === "rejected"}
+                        >
+                          <XCircleIcon className="h-3.5 w-3.5" />
+                          탈락
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() => setStatus(hash, "pending")}
+                          className="gap-2 font-bold text-info"
+                          disabled={img.status === "pending"}
+                        >
+                          <RotateCcwIcon className="h-3.5 w-3.5" />
+                          대기
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onClick={() => setSelected(img)}
+                          className="gap-2 font-bold"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          상세 보기
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() => {
+                            const url = `${backendUrl}/saved-images/${hash}`
+                            navigator.clipboard.writeText(url).catch(() => {})
+                          }}
+                          className="gap-2 font-bold"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          이미지 URL 복사
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    )}
+                  </ContextMenu>
                 )
               })}
             </div>
@@ -1763,5 +1903,66 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         </DialogContent>
       </Dialog>
     </div>
+  </ContextMenuTrigger>
+  <ContextMenuContent className="w-48">
+    <ContextMenuItem
+      disabled={breadcrumbTags.length === 0}
+      onClick={() => {
+        setBreadcrumbTags(breadcrumbTags.slice(0, -1))
+        setPage(1)
+        setGroupPage(1)
+      }}
+      className="gap-2 font-bold"
+    >
+      <ArrowUp className="h-3.5 w-3.5" />
+      상위 폴더로 이동
+    </ContextMenuItem>
+    <ContextMenuItem
+      disabled={breadcrumbTags.length === 0}
+      onClick={() => {
+        setBreadcrumbTags([])
+        setPage(1)
+        setGroupPage(1)
+      }}
+      className="gap-2 font-bold"
+    >
+      <Home className="h-3.5 w-3.5" />
+      홈 폴더로 이동
+    </ContextMenuItem>
+    <ContextMenuSub>
+      <ContextMenuSubTrigger className="gap-2 font-bold" disabled={nextAvailableTokens.length === 0}>
+        <Folder className="h-3.5 w-3.5 text-muted-foreground/80" />
+        하위 폴더로 이동
+      </ContextMenuSubTrigger>
+      <ContextMenuSubContent className="w-48 max-h-[300px] overflow-y-auto">
+        {nextAvailableTokens.slice(0, 40).map(({ token, count }) => (
+          <ContextMenuItem
+            key={token}
+            onClick={() => {
+              setBreadcrumbTags([...breadcrumbTags, token])
+              setPage(1)
+              setGroupPage(1)
+            }}
+            className="gap-2 font-bold"
+          >
+            <Folder className="h-3.5 w-3.5 text-muted-foreground/80" />
+            <span className="truncate flex-1 font-medium">{token}</span>
+            <span className="text-[9px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+              {count}
+            </span>
+          </ContextMenuItem>
+        ))}
+      </ContextMenuSubContent>
+    </ContextMenuSub>
+    <ContextMenuSeparator />
+    <ContextMenuItem
+      onClick={reload}
+      className="gap-2 font-bold"
+    >
+      <RefreshCwIcon className="h-3.5 w-3.5" />
+      경로 새로고침
+    </ContextMenuItem>
+  </ContextMenuContent>
+</ContextMenu>
   )
 })

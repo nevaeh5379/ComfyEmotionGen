@@ -4,9 +4,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Trash2Icon } from "lucide-react"
+import { Trash2Icon, Copy, ArrowUpRight } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 
 export interface SaveableItem {
   id: string
@@ -203,51 +210,83 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
               const isActive = item.id === activeItemId
               const isFocused = index === focusedIndex
               return (
-                <div
-                  key={item.id}
-                  data-item
-                  className={cn(
-                    "flex items-center gap-2 rounded px-1",
-                    isActive && "bg-primary/10",
-                    isFocused && "bg-accent ring-1 ring-primary/50 outline-none"
-                  )}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setFocusedIndex(index)}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${isActive ? "font-semibold" : ""}`}
-                        onClick={() => {
-                          onLoad?.(item)
-                          setOpen(false)
-                        }}
-                      >
-                        {item.name}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>불러오기</TooltipContent>
-                  </Tooltip>
+                <ContextMenu key={item.id}>
+                  <ContextMenuTrigger asChild>
+                    <div
+                      data-item
+                      className={cn(
+                        "flex items-center gap-2 rounded px-1 cursor-pointer select-none",
+                        isActive && "bg-primary/10",
+                        isFocused && "bg-accent ring-1 ring-primary/50 outline-none"
+                      )}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setFocusedIndex(index)}
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${isActive ? "font-semibold" : ""}`}
+                            onClick={() => {
+                              onLoad?.(item)
+                              setOpen(false)
+                            }}
+                          >
+                            {item.name}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>불러오기</TooltipContent>
+                      </Tooltip>
 
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(item.savedAt).toLocaleDateString()}
-                  </span>
-                  <div className="flex items-center">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-                          onClick={() => onDelete?.(item.id)}
-                        >
-                          <Trash2Icon />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>삭제</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(item.savedAt).toLocaleDateString()}
+                      </span>
+                      <div className="flex items-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => onDelete?.(item.id)}
+                            >
+                              <Trash2Icon />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>삭제</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-40">
+                    <ContextMenuItem
+                      onClick={() => {
+                        onLoad?.(item)
+                        setOpen(false)
+                      }}
+                      className="gap-2 font-bold"
+                    >
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      불러오기
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onClick={() => {
+                        navigator.clipboard.writeText(item.name).catch(() => {})
+                      }}
+                      className="gap-2 font-bold"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      이름 복사
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      onClick={() => onDelete?.(item.id)}
+                      className="gap-2 font-bold text-bad hover:text-bad"
+                    >
+                      <Trash2Icon className="h-3.5 w-3.5" />
+                      삭제
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )
             })}
           </div>
@@ -282,41 +321,70 @@ export function SavedItemsList<T extends SaveableItem>({
       {items.map((item) => {
         const isActive = item.id === activeItemId
         return (
-          <div
-            key={item.id}
-            className={`flex items-center gap-2 rounded px-1.5 py-1 md:py-0.5 ${isActive ? "bg-primary/10" : ""}`}
-          >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={`min-w-0 flex-1 truncate py-2 text-left text-sm hover:underline md:py-1 ${isActive ? "font-semibold text-primary" : ""}`}
-                  onClick={() => onLoad(item)}
-                >
-                  {item.name}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>불러오기</TooltipContent>
-            </Tooltip>
-            <span className="text-left text-xs text-muted-foreground">
-              {new Date(item.savedAt).toLocaleDateString()}
-            </span>
+          <ContextMenu key={item.id}>
+            <ContextMenuTrigger asChild>
+              <div
+                className={`flex items-center gap-2 rounded px-1.5 py-1 md:py-0.5 cursor-pointer select-none ${isActive ? "bg-primary/10" : ""}`}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`min-w-0 flex-1 truncate py-2 text-left text-sm hover:underline md:py-1 ${isActive ? "font-semibold text-primary" : ""}`}
+                      onClick={() => onLoad(item)}
+                    >
+                      {item.name}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>불러오기</TooltipContent>
+                </Tooltip>
+                <span className="text-left text-xs text-muted-foreground">
+                  {new Date(item.savedAt).toLocaleDateString()}
+                </span>
 
-            <div className="flex items-center">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => onDelete(item.id)}
-                  >
-                    <Trash2Icon />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>삭제</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
+                <div className="flex items-center">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => onDelete(item.id)}
+                      >
+                        <Trash2Icon />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>삭제</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-40">
+              <ContextMenuItem
+                onClick={() => onLoad(item)}
+                className="gap-2 font-bold"
+              >
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                불러오기
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  navigator.clipboard.writeText(item.name).catch(() => {})
+                }}
+                className="gap-2 font-bold"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                이름 복사
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onClick={() => onDelete(item.id)}
+                className="gap-2 font-bold text-bad hover:text-bad"
+              >
+                <Trash2Icon className="h-3.5 w-3.5" />
+                삭제
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         )
       })}
     </div>
