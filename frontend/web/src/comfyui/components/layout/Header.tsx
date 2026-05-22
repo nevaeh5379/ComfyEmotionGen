@@ -14,6 +14,8 @@ import {
   Monitor,
   LayoutGrid,
   ChevronDown,
+  PictureInPicture,
+  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
@@ -144,6 +146,10 @@ interface HeaderProps {
   onRetryAllFailed?: () => void
   onDeleteAllFailed?: () => void
   activeJobsCount?: number
+
+  // Floating Gallery Props
+  isGalleryFloating?: boolean
+  setIsGalleryFloating?: (v: boolean) => void
 }
 
 export function Header(props: HeaderProps) {
@@ -710,6 +716,23 @@ export function Header(props: HeaderProps) {
                 </TooltipTrigger>
                 <TooltipContent>갤러리 내보내기</TooltipContent>
               </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
+                    onClick={() => {
+                      props.setIsGalleryFloating?.(true)
+                      props.setActiveTab("jobs")
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>창으로 분리 (Pop out)</TooltipContent>
+              </Tooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="outline" className="!h-7 !w-7 p-0">
@@ -853,6 +876,17 @@ export function Header(props: HeaderProps) {
                       >
                         <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
                         <span>갤러리 내보내기</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={() => {
+                          props.setIsGalleryFloating?.(true)
+                          props.setActiveTab("jobs")
+                        }}
+                        className="flex items-center gap-2 text-[12px] font-bold"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+                        <span>창으로 분리 (Pop out)</span>
                       </DropdownMenuItem>
 
                       {(props.galleryGroupMode || props.galleryViewMode === "grid") && (
@@ -1021,6 +1055,27 @@ export function Header(props: HeaderProps) {
             </div>
           )}
           <div className="flex items-center gap-1">
+            {props.activeTab !== "gallery" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant={props.isGalleryFloating ? "secondary" : "ghost"}
+                    className={`h-8 w-8 transition-colors ${
+                      props.isGalleryFloating
+                        ? "bg-accent text-primary hover:text-primary-active"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => props.setIsGalleryFloating?.(!props.isGalleryFloating)}
+                  >
+                    <PictureInPicture className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
+                  갤러리 플로팅 창 토글
+                </TooltipContent>
+              </Tooltip>
+            )}
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>

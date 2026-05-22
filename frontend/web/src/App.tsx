@@ -5,6 +5,22 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  ArrowDown,
+  ArrowUp,
+  RefreshCw as RefreshCwIcon,
+  Download as DownloadIcon,
+  Trash2 as Trash2Icon,
+  Filter as FilterIcon,
+  LayoutGrid,
+} from "lucide-react"
 
 import { useBackend } from "./comfyui/hooks/useBackend"
 import { SavedImagesGallery } from "./comfyui/components/SavedImagesGallery"
@@ -52,7 +68,11 @@ import {
 } from "./lib/constants"
 import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 import { Header } from "./comfyui/components/layout/Header"
+import { FloatingWindow } from "./comfyui/components/layout/FloatingWindow"
 import type { TabId } from "./comfyui/components/layout/nav-tabs"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { Button } from "@/components/ui/button"
+import { TagInputSearch } from "./comfyui/components/TagInputSearch"
 import { cn } from "@/lib/utils"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import type { JobStatus } from "./comfyui/types/Message"
@@ -129,6 +149,18 @@ export function App() {
   const [compositionTab, setCompositionTab] = useState<"ceg" | "workflow">(
     "ceg"
   )
+  const [isGalleryFloating, setIsGalleryFloating] = useLocalStorage<boolean>(
+    "ceg_isGalleryFloating",
+    false
+  )
+  const [galleryFloatingPos, setGalleryFloatingPos] = useLocalStorage<{ x: number; y: number }>(
+    "ceg_galleryFloatingPos",
+    { x: 100, y: 100 }
+  )
+  const [galleryFloatingSize, setGalleryFloatingSize] = useLocalStorage<{ w: number; h: number }>(
+    "ceg_galleryFloatingSize",
+    { w: 600, h: 500 }
+  )
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
@@ -181,6 +213,12 @@ export function App() {
             setPreviewFilter={setPreviewFilter}
             settings={settings}
             updateSetting={updateSetting}
+            isGalleryFloating={isGalleryFloating}
+            setIsGalleryFloating={setIsGalleryFloating}
+            galleryFloatingPos={galleryFloatingPos}
+            setGalleryFloatingPos={setGalleryFloatingPos}
+            galleryFloatingSize={galleryFloatingSize}
+            setGalleryFloatingSize={setGalleryFloatingSize}
           />
         </NodeMappingProvider>
       </WorkflowProvider>
@@ -239,6 +277,12 @@ interface AppContentProps {
   setPreviewFilter: (v: string) => void
   settings: ReturnType<typeof useSettings>["settings"]
   updateSetting: ReturnType<typeof useSettings>["updateSetting"]
+  isGalleryFloating: boolean
+  setIsGalleryFloating: (v: boolean) => void
+  galleryFloatingPos: { x: number; y: number }
+  setGalleryFloatingPos: (pos: { x: number; y: number }) => void
+  galleryFloatingSize: { w: number; h: number }
+  setGalleryFloatingSize: (size: { w: number; h: number }) => void
 }
 
 function AppContent(props: AppContentProps) {
@@ -811,6 +855,8 @@ function AppContent(props: AppContentProps) {
       <Header
         activeTab={props.activeTab}
         setActiveTab={props.setActiveTab}
+        isGalleryFloating={props.isGalleryFloating}
+        setIsGalleryFloating={props.setIsGalleryFloating}
         isAliveBackend={props.isAliveBackend}
         backendAlive={props.backendAlive}
         workers={props.workers}
@@ -1242,6 +1288,281 @@ function AppContent(props: AppContentProps) {
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}
       />
+
+      {props.activeTab !== "gallery" && props.isGalleryFloating && (
+        <FloatingWindow
+          isOpen={props.isGalleryFloating}
+          onClose={() => props.setIsGalleryFloating(false)}
+          onDock={() => {
+            props.setIsGalleryFloating(false)
+            props.setActiveTab("gallery")
+          }}
+          initialPos={props.galleryFloatingPos}
+          initialSize={props.galleryFloatingSize}
+          onPosChange={props.setGalleryFloatingPos}
+          onSizeChange={props.setGalleryFloatingSize}
+          title="갤러리 플로팅 창"
+          toolbar={
+            <div className="flex flex-wrap items-center gap-1.5 w-full">
+              {/* 상태 필터 Select */}
+              <Select
+                value={galleryStatusFilter}
+                onValueChange={(v: string) => {
+                  setGalleryStatusFilter(v as "pending" | "approved" | "rejected" | "trashed" | "all")
+                }}
+              >
+                <SelectTrigger className="!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["all", "pending", "approved", "rejected", "trashed"] as const).map((s) => (
+                    <SelectItem key={s} value={s} className="text-[12px] font-bold">
+                      {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* 뷰 모드 Select */}
+              <Select
+                value={galleryGroupMode ? "group" : galleryViewMode}
+                onValueChange={(v: string) => {
+                  if (v === "group") {
+                    setGalleryGroupMode(true)
+                  } else {
+                    setGalleryGroupMode(false)
+                    setGalleryViewMode(v as "grid" | "compare")
+                  }
+                }}
+              >
+                <SelectTrigger className="!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="group" className="text-[12px] font-bold">그룹</SelectItem>
+                  <SelectItem value="grid" className="text-[12px] font-bold">그리드</SelectItem>
+                  <SelectItem value="compare" className="text-[12px] font-bold">비교</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* 정렬 기준 Select */}
+              <Select
+                value={gallerySortKey}
+                onValueChange={(k: string) => {
+                  if (gallerySortKey === k) {
+                    setGallerySortDir(gallerySortDir === "asc" ? "desc" : "asc")
+                  } else {
+                    setGallerySortKey(k as "createdAt" | "filename" | "sizeBytes")
+                    setGallerySortDir("desc")
+                  }
+                }}
+              >
+                <SelectTrigger className="!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt" className="text-[12px] font-bold">날짜순</SelectItem>
+                  <SelectItem value="filename" className="text-[12px] font-bold">파일명순</SelectItem>
+                  <SelectItem value="sizeBytes" className="text-[12px] font-bold">크기순</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* 정렬 방향 토글 */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGallerySortDir(gallerySortDir === "asc" ? "desc" : "asc")}
+                    className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
+                  >
+                    {gallerySortDir === "asc" ? (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs font-bold">정렬 방향 토글</TooltipContent>
+              </Tooltip>
+
+              {/* 썸네일 크기 조절 슬라이더 */}
+              {(galleryGroupMode || galleryViewMode === "grid") && (
+                <div className="flex items-center gap-1.5 rounded-md border border-line bg-background/50 px-1.5 h-7 shadow-none">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center text-muted-foreground">
+                        <LayoutGrid className="h-3 w-3" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs font-bold">이미지 크기 조절</TooltipContent>
+                  </Tooltip>
+                  <input
+                    type="range"
+                    min="100"
+                    max="300"
+                    step="10"
+                    value={galleryThumbnailSize}
+                    onChange={(e) => setGalleryThumbnailSize(Number(e.target.value))}
+                    className="h-1 w-12 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
+                  />
+                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[28px] text-right tabular-nums">
+                    {galleryThumbnailSize}px
+                  </span>
+                </div>
+              )}
+
+              <div className="h-4 w-px shrink-0 bg-line/60" />
+
+              {/* 새로고침 */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!h-7 !w-7 p-0"
+                    onClick={handleGalleryRefresh}
+                  >
+                    <RefreshCwIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs font-bold">새로고침</TooltipContent>
+              </Tooltip>
+
+              {/* 내보내기 */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!h-7 !w-7 p-0"
+                    onClick={handleGalleryExport}
+                  >
+                    <DownloadIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs font-bold">내보내기</TooltipContent>
+              </Tooltip>
+
+              {/* 휴지통 비우기 */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!h-7 !w-7 p-0 hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
+                    onClick={handleGalleryEmptyTrash}
+                  >
+                    <Trash2Icon className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs font-bold bg-destructive text-destructive-foreground">휴지통 비우기</TooltipContent>
+              </Tooltip>
+
+              {/* 검색 필터 토글 */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={galleryShowFilters ? "secondary" : "outline"}
+                    className="relative !h-7 !w-7 p-0"
+                    onClick={() => setGalleryShowFilters(!galleryShowFilters)}
+                  >
+                    <FilterIcon className="h-3.5 w-3.5" />
+                    {galleryHasAnyFilter && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs font-bold">검색 토글</TooltipContent>
+              </Tooltip>
+
+              {/* 검색창 조건부 렌더링 */}
+              {galleryShowFilters && (
+                <div className="w-full mt-1.5 pt-1.5 border-t border-line/40 flex items-center gap-2">
+                  <div className="flex-1">
+                    <TagInputSearch
+                      value={gallerySearchInput}
+                      tags={gallerySearchTags}
+                      candidates={galleryCandidates.filter((c) => {
+                        const valClean = gallerySearchInput.replace(/^[@#$]/, "").toLowerCase()
+                        return c.value.toLowerCase().includes(valClean)
+                      })}
+                      placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
+                      onValueChange={(val: string) => setGallerySearchInput(val)}
+                      onAddTag={(tag: string) => {
+                        if (!gallerySearchTags.includes(tag)) {
+                          setGallerySearchTags([...gallerySearchTags, tag])
+                        }
+                        setGallerySearchInput("")
+                      }}
+                      onRemoveTag={(tag: string) => {
+                        setGallerySearchTags(gallerySearchTags.filter((t) => t !== tag))
+                      }}
+                      size="sm"
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-1.5 text-[10px] font-bold text-muted-foreground shrink-0"
+                    onClick={() => {
+                      setGallerySearchTags([])
+                      setGallerySearchInput("")
+                      setGalleryHideRejected(false)
+                    }}
+                  >
+                    초기화
+                  </Button>
+                </div>
+              )}
+            </div>
+          }
+        >
+          <SavedImagesGallery
+            backendUrl={props.backendUrl}
+            enableHover={props.settings.enableHover}
+            imagePageSize={props.settings.imagePageSize}
+            imageLazyLoad={props.settings.imageLazyLoad}
+            singleDownloadMode={props.settings.singleDownloadMode}
+            filenameFilter={galleryFilenameFilter}
+            tagFilter={galleryTagFilter}
+            metadataFilter={galleryMetadataFilter}
+            generalFilters={galleryGeneralFilters}
+            onTokensExtracted={setGalleryCandidates}
+            onReloadReady={(reload) => {
+              galleryReloadRef.current = reload
+            }}
+            toolbarState={{
+              statusFilter: galleryStatusFilter,
+              setStatusFilter: setGalleryStatusFilter,
+              galleryViewMode: galleryViewMode,
+              setGalleryViewMode: setGalleryViewMode,
+              groupMode: galleryGroupMode,
+              setGroupMode: setGalleryGroupMode,
+              showFilters: galleryShowFilters,
+              setShowFilters: setGalleryShowFilters,
+              hasAnyFilter: galleryHasAnyFilter,
+              hideRejected: galleryHideRejected,
+              setHideRejected: setGalleryHideRejected,
+              sortKey: gallerySortKey,
+              setSortKey: setGallerySortKey,
+              sortDir: gallerySortDir,
+              setSortDir: setGallerySortDir,
+              thumbnailSize: galleryThumbnailSize,
+              setThumbnailSize: setGalleryThumbnailSize,
+              clearAllFilters: () => {
+                setGallerySearchTags([])
+                setGallerySearchInput("")
+                setGalleryHideRejected(false)
+              },
+              reload: handleGalleryRefresh,
+              handleExport: handleGalleryExport,
+              handleEmptyTrash: handleGalleryEmptyTrash,
+            }}
+          />
+        </FloatingWindow>
+      )}
     </div>
   )
 }
