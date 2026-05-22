@@ -14,7 +14,6 @@ import {
   Monitor,
   LayoutGrid,
   ChevronDown,
-  PictureInPicture,
   ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -150,10 +149,27 @@ interface HeaderProps {
   // Floating Gallery Props
   isGalleryFloating?: boolean
   setIsGalleryFloating?: (v: boolean) => void
+
+  // Drag-to-float for stats/curation/gallery nav tabs
+  onStatsDragStart?: (clientX: number, clientY: number) => void
+  onCurationDragStart?: (clientX: number, clientY: number) => void
+  onGalleryDragStart?: (clientX: number, clientY: number) => void
+  isStatsFloating?: boolean
+  isStatsDocked?: boolean
+  isCurationFloating?: boolean
+  isCurationDocked?: boolean
+  isGalleryDocked?: boolean
 }
 
 export function Header(props: HeaderProps) {
   const { theme, setTheme } = useTheme()
+
+  const tabDragRef = useRef<{
+    tabId: "stats" | "curation" | "gallery"
+    startX: number
+    startY: number
+    wasDragged: boolean
+  } | null>(null)
 
   const [isCompact, setIsCompact] = useState(false)
   const [isGalleryToolbarCompact, setIsGalleryToolbarCompact] = useState(false)
@@ -429,6 +445,22 @@ export function Header(props: HeaderProps) {
             >
               {NAV_TABS.map((tab) => {
                 const Icon = tab.icon
+                const isDraggableTab =
+                  tab.id === "stats" ||
+                  tab.id === "curation" ||
+                  tab.id === "gallery"
+                const dragCb =
+                  tab.id === "stats"
+                    ? props.onStatsDragStart
+                    : tab.id === "curation"
+                      ? props.onCurationDragStart
+                      : tab.id === "gallery"
+                        ? props.onGalleryDragStart
+                        : undefined
+                const isDetached =
+                  (tab.id === "stats" && (props.isStatsFloating || props.isStatsDocked)) ||
+                  (tab.id === "curation" && (props.isCurationFloating || props.isCurationDocked)) ||
+                  (tab.id === "gallery" && (props.isGalleryFloating || props.isGalleryDocked))
                 return (
                   <Button
                     key={tab.id}
@@ -437,12 +469,47 @@ export function Header(props: HeaderProps) {
                     role="tab"
                     aria-selected={props.activeTab === tab.id}
                     aria-label={tab.label}
-                    onClick={() => props.setActiveTab(tab.id)}
-                    className={`h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
+                    onClick={() => {
+                      if (tabDragRef.current?.wasDragged) {
+                        tabDragRef.current = null
+                        return
+                      }
+                      props.setActiveTab(tab.id)
+                    }}
+                    onMouseDown={isDraggableTab && dragCb ? (e) => {
+                      tabDragRef.current = {
+                        tabId: tab.id as "stats" | "curation" | "gallery",
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        wasDragged: false,
+                      }
+
+                      const handleMove = (me: MouseEvent) => {
+                        if (!tabDragRef.current) return
+                        const dx = me.clientX - tabDragRef.current.startX
+                        const dy = me.clientY - tabDragRef.current.startY
+                        if (Math.sqrt(dx * dx + dy * dy) > 8 && !tabDragRef.current.wasDragged) {
+                          tabDragRef.current.wasDragged = true
+                          dragCb(tabDragRef.current.startX, tabDragRef.current.startY)
+                          document.removeEventListener("mousemove", handleMove)
+                          document.removeEventListener("mouseup", handleUp)
+                        }
+                      }
+                      const handleUp = () => {
+                        document.removeEventListener("mousemove", handleMove)
+                        document.removeEventListener("mouseup", handleUp)
+                        if (!tabDragRef.current?.wasDragged) {
+                          tabDragRef.current = null
+                        }
+                      }
+                      document.addEventListener("mousemove", handleMove)
+                      document.addEventListener("mouseup", handleUp)
+                    } : undefined}
+                    className={`relative h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
                       props.activeTab === tab.id
                         ? "bg-foreground text-background shadow-lg"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    }`}
+                    } ${isDraggableTab ? "cursor-grab active:cursor-grabbing select-none" : ""}`}
                   >
                     <Icon
                       className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
@@ -454,6 +521,9 @@ export function Header(props: HeaderProps) {
                     >
                       {tab.label}
                     </span>
+                    {isDetached && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+                    )}
                   </Button>
                 )
               })}
@@ -1055,27 +1125,6 @@ export function Header(props: HeaderProps) {
             </div>
           )}
           <div className="flex items-center gap-1">
-            {props.activeTab !== "gallery" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant={props.isGalleryFloating ? "secondary" : "ghost"}
-                    className={`h-8 w-8 transition-colors ${
-                      props.isGalleryFloating
-                        ? "bg-accent text-primary hover:text-primary-active"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    onClick={() => props.setIsGalleryFloating?.(!props.isGalleryFloating)}
-                  >
-                    <PictureInPicture className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
-                  갤러리 플로팅 창 토글
-                </TooltipContent>
-              </Tooltip>
-            )}
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>

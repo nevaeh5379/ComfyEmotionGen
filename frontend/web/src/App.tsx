@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   ResizableHandle,
@@ -24,6 +24,8 @@ import {
   LayoutGrid,
   Workflow,
   RotateCcw,
+  X as XIcon,
+  ExternalLink,
 } from "lucide-react"
 
 import { useBackend } from "./comfyui/hooks/useBackend"
@@ -192,6 +194,36 @@ export function App() {
     { w: 750, h: 650 }
   )
 
+  const [isStatsFloating, setIsStatsFloating] = useLocalStorage<boolean>(
+    "ceg_isStatsFloating",
+    false
+  )
+  const [statsFloatingPos, setStatsFloatingPos] = useLocalStorage<{ x: number; y: number }>(
+    "ceg_statsFloatingPos",
+    { x: 200, y: 100 }
+  )
+  const [statsFloatingSize, setStatsFloatingSize] = useLocalStorage<{ w: number; h: number }>(
+    "ceg_statsFloatingSize",
+    { w: 700, h: 500 }
+  )
+
+  const [isCurationFloating, setIsCurationFloating] = useLocalStorage<boolean>(
+    "ceg_isCurationFloating",
+    false
+  )
+  const [curationFloatingPos, setCurationFloatingPos] = useLocalStorage<{ x: number; y: number }>(
+    "ceg_curationFloatingPos",
+    { x: 300, y: 100 }
+  )
+  const [curationFloatingSize, setCurationFloatingSize] = useLocalStorage<{ w: number; h: number }>(
+    "ceg_curationFloatingSize",
+    { w: 800, h: 600 }
+  )
+
+  const [isStatsDocked, setIsStatsDocked] = useLocalStorage<boolean>("ceg_isStatsDocked", false)
+  const [isGalleryDocked, setIsGalleryDocked] = useLocalStorage<boolean>("ceg_isGalleryDocked", false)
+  const [isCurationDocked, setIsCurationDocked] = useLocalStorage<boolean>("ceg_isCurationDocked", false)
+
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
@@ -262,6 +294,24 @@ export function App() {
             setJobManagerFloatingPos={setJobManagerFloatingPos}
             jobManagerFloatingSize={jobManagerFloatingSize}
             setJobManagerFloatingSize={setJobManagerFloatingSize}
+            isStatsFloating={isStatsFloating}
+            setIsStatsFloating={setIsStatsFloating}
+            statsFloatingPos={statsFloatingPos}
+            setStatsFloatingPos={setStatsFloatingPos}
+            statsFloatingSize={statsFloatingSize}
+            setStatsFloatingSize={setStatsFloatingSize}
+            isCurationFloating={isCurationFloating}
+            setIsCurationFloating={setIsCurationFloating}
+            curationFloatingPos={curationFloatingPos}
+            setCurationFloatingPos={setCurationFloatingPos}
+            curationFloatingSize={curationFloatingSize}
+            setCurationFloatingSize={setCurationFloatingSize}
+            isStatsDocked={isStatsDocked}
+            setIsStatsDocked={setIsStatsDocked}
+            isGalleryDocked={isGalleryDocked}
+            setIsGalleryDocked={setIsGalleryDocked}
+            isCurationDocked={isCurationDocked}
+            setIsCurationDocked={setIsCurationDocked}
           />
         </NodeMappingProvider>
       </WorkflowProvider>
@@ -340,6 +390,27 @@ interface AppContentProps {
   setJobManagerFloatingPos: (pos: { x: number; y: number }) => void
   jobManagerFloatingSize: { w: number; h: number }
   setJobManagerFloatingSize: (size: { w: number; h: number }) => void
+
+  isStatsFloating: boolean
+  setIsStatsFloating: (v: boolean) => void
+  statsFloatingPos: { x: number; y: number }
+  setStatsFloatingPos: (pos: { x: number; y: number }) => void
+  statsFloatingSize: { w: number; h: number }
+  setStatsFloatingSize: (size: { w: number; h: number }) => void
+
+  isCurationFloating: boolean
+  setIsCurationFloating: (v: boolean) => void
+  curationFloatingPos: { x: number; y: number }
+  setCurationFloatingPos: (pos: { x: number; y: number }) => void
+  curationFloatingSize: { w: number; h: number }
+  setCurationFloatingSize: (size: { w: number; h: number }) => void
+
+  isStatsDocked: boolean
+  setIsStatsDocked: (v: boolean) => void
+  isGalleryDocked: boolean
+  setIsGalleryDocked: (v: boolean) => void
+  isCurationDocked: boolean
+  setIsCurationDocked: (v: boolean) => void
 }
 
 function AppContent(props: AppContentProps) {
@@ -348,11 +419,16 @@ function AppContent(props: AppContentProps) {
     setIsCompositionFloating,
     setIsJobManagerFloating,
     setIsGalleryFloating,
+    setIsStatsFloating,
+    setIsCurationFloating,
+    setIsStatsDocked,
+    setIsGalleryDocked,
+    setIsCurationDocked,
     setActiveTab,
   } = props
 
   const dragSessionRef = useRef<{
-    windowType: "composition" | "jobManager"
+    windowType: "composition" | "jobManager" | "stats" | "curation" | "gallery"
     startX: number
     startY: number
     isPopoutTriggered: boolean
@@ -373,7 +449,7 @@ function AppContent(props: AppContentProps) {
 
   const [snapDockZone, setSnapDockZone] = useState<{
     zone: "left" | "right" | "top" | "bottom"
-    windowType: "composition" | "jobManager" | "gallery"
+    windowType: "composition" | "jobManager" | "gallery" | "stats" | "curation"
   } | null>(null)
 
   const handleDragProgress = useCallback(
@@ -383,7 +459,7 @@ function AppContent(props: AppContentProps) {
       screenW: number,
       screenH: number,
       isEnding: boolean,
-      windowType: "composition" | "jobManager" | "gallery"
+      windowType: "composition" | "jobManager" | "gallery" | "stats" | "curation"
     ) => {
       const SNAP_THRESHOLD = 50
       const distLeft = clientX
@@ -432,8 +508,34 @@ function AppContent(props: AppContentProps) {
             toast.success("작업 큐 매니저가 스냅 결합되었습니다.")
           } else if (windowType === "gallery") {
             setIsGalleryFloating(false)
-            setActiveTab("gallery")
-            toast.success("갤러리가 메인 탭으로 결합되었습니다.")
+            setIsGalleryDocked(true)
+            if (activeZone === "left" || activeZone === "right") {
+              setJobsLayoutOrientation("horizontal")
+            } else {
+              setJobsLayoutOrientation("vertical")
+            }
+            setActiveTab("jobs")
+            toast.success("갤러리가 메인 패널에 결합되었습니다.")
+          } else if (windowType === "stats") {
+            setIsStatsFloating(false)
+            setIsStatsDocked(true)
+            if (activeZone === "left" || activeZone === "right") {
+              setJobsLayoutOrientation("horizontal")
+            } else {
+              setJobsLayoutOrientation("vertical")
+            }
+            setActiveTab("jobs")
+            toast.success("통계 패널이 메인 패널에 결합되었습니다.")
+          } else if (windowType === "curation") {
+            setIsCurationFloating(false)
+            setIsCurationDocked(true)
+            if (activeZone === "left" || activeZone === "right") {
+              setJobsLayoutOrientation("horizontal")
+            } else {
+              setJobsLayoutOrientation("vertical")
+            }
+            setActiveTab("jobs")
+            toast.success("큐레이션 패널이 메인 패널에 결합되었습니다.")
           }
         }
       } else {
@@ -448,6 +550,11 @@ function AppContent(props: AppContentProps) {
       setIsCompositionFloating,
       setIsJobManagerFloating,
       setIsGalleryFloating,
+      setIsStatsFloating,
+      setIsCurationFloating,
+      setIsStatsDocked,
+      setIsGalleryDocked,
+      setIsCurationDocked,
       setActiveTab,
       setJobsLayoutOrientation,
       setJobsPanelOrder,
@@ -572,6 +679,134 @@ function AppContent(props: AppContentProps) {
                 props.setCompositionFloatingPos(finalPos)
               } else {
                 props.setJobManagerFloatingPos(finalPos)
+              }
+            }
+          }, 50)
+        }
+
+        dragSessionRef.current = null
+      }
+
+      document.addEventListener("mousemove", handleGlobalMouseMove)
+      document.addEventListener("mouseup", handleGlobalMouseUp)
+    },
+    [props, handleDragProgress]
+  )
+
+  const handleNavTabDragStart = useCallback(
+    (tabId: "stats" | "curation" | "gallery", clientX: number, clientY: number) => {
+      const size =
+        tabId === "stats"
+          ? props.statsFloatingSize
+          : tabId === "gallery"
+            ? props.galleryFloatingSize
+            : props.curationFloatingSize
+
+      dragSessionRef.current = {
+        windowType: tabId,
+        startX: clientX,
+        startY: clientY,
+        isPopoutTriggered: false,
+        size,
+      }
+
+      const handleGlobalMouseMove = (moveEvent: MouseEvent) => {
+        const session = dragSessionRef.current
+        if (!session) return
+
+        if (!session.isPopoutTriggered) {
+          const dx = moveEvent.clientX - session.startX
+          const dy = moveEvent.clientY - session.startY
+          const distance = Math.sqrt(dx * dx + dy * dy)
+
+          if (distance > 8) {
+            session.isPopoutTriggered = true
+
+            const w = session.size.w
+            const initX = moveEvent.clientX - w / 2
+            const initY = moveEvent.clientY - 20
+
+            if (session.windowType === "stats") {
+              props.setStatsFloatingPos({ x: initX, y: initY })
+              props.setIsStatsFloating(true)
+              if (props.activeTab === "stats") props.setActiveTab("jobs")
+            } else if (session.windowType === "gallery") {
+              props.setGalleryFloatingPos({ x: initX, y: initY })
+              props.setIsGalleryFloating(true)
+              if (props.activeTab === "gallery") props.setActiveTab("jobs")
+            } else {
+              props.setCurationFloatingPos({ x: initX, y: initY })
+              props.setIsCurationFloating(true)
+              if (props.activeTab === "curation") props.setActiveTab("jobs")
+            }
+
+            const label =
+              session.windowType === "stats"
+                ? "통계"
+                : session.windowType === "gallery"
+                  ? "갤러리"
+                  : "큐레이션"
+            toast.info(`${label} 패널이 창 모드로 분리되었습니다.`, {
+              id: "popout-toast",
+            })
+          }
+        } else {
+          const domId = `floating-window-${session.windowType}`
+          const el = document.getElementById(domId)
+
+          const w = session.size.w
+          let nextLeft = moveEvent.clientX - w / 2
+          let nextTop = moveEvent.clientY - 20
+
+          nextLeft = Math.max(0, Math.min(nextLeft, window.innerWidth - w))
+          nextTop = Math.max(0, Math.min(nextTop, window.innerHeight - 40))
+
+          if (el) {
+            el.style.left = `${nextLeft}px`
+            el.style.top = `${nextTop}px`
+          }
+
+          handleDragProgress(
+            moveEvent.clientX,
+            moveEvent.clientY,
+            window.innerWidth,
+            window.innerHeight,
+            false,
+            session.windowType as "stats" | "curation" | "gallery"
+          )
+        }
+      }
+
+      const handleGlobalMouseUp = (upEvent: MouseEvent) => {
+        document.removeEventListener("mousemove", handleGlobalMouseMove)
+        document.removeEventListener("mouseup", handleGlobalMouseUp)
+
+        const session = dragSessionRef.current
+        if (!session) return
+
+        if (session.isPopoutTriggered) {
+          handleDragProgress(
+            upEvent.clientX,
+            upEvent.clientY,
+            window.innerWidth,
+            window.innerHeight,
+            true,
+            session.windowType as "stats" | "curation" | "gallery"
+          )
+
+          setTimeout(() => {
+            const domId = `floating-window-${session.windowType}`
+            const el = document.getElementById(domId)
+            if (el) {
+              const finalX = parseInt(el.style.left || "0", 10)
+              const finalY = parseInt(el.style.top || "0", 10)
+              const finalPos = { x: finalX, y: finalY }
+              if (session.windowType === "stats") {
+                props.setStatsFloatingPos(finalPos)
+              } else if (session.windowType === "gallery") {
+                props.setGalleryFloatingPos(finalPos)
+              } else {
+                props.setCurationFloatingPos(finalPos)
               }
             }
           }, 50)
@@ -1204,6 +1439,14 @@ function AppContent(props: AppContentProps) {
         onGalleryExport={handleGalleryExport}
         onGalleryRefresh={handleGalleryRefresh}
         onGalleryEmptyTrash={handleGalleryEmptyTrash}
+        onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
+        onCurationDragStart={(cx, cy) => handleNavTabDragStart("curation", cx, cy)}
+        onGalleryDragStart={(cx, cy) => handleNavTabDragStart("gallery", cx, cy)}
+        isStatsFloating={props.isStatsFloating}
+        isStatsDocked={props.isStatsDocked}
+        isCurationFloating={props.isCurationFloating}
+        isCurationDocked={props.isCurationDocked}
+        isGalleryDocked={props.isGalleryDocked}
         // Session / Job controls props (lifted)
         sessionMarkers={markers}
         sessionJobCounts={sessionJobCounts}
@@ -1322,153 +1565,35 @@ function AppContent(props: AppContentProps) {
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* Desktop: Resizable, Mobile: Single Panel */}
             <div className="hidden md:contents">
-              {!props.isCompositionFloating && !props.isJobManagerFloating ? (
-                <ResizablePanelGroup
-                  orientation={jobsLayoutOrientation}
-                  className="min-h-0 flex-1 overflow-hidden"
-                >
-                  {jobsPanelOrder === "composition-first" ? (
-                    <>
-                      <ResizablePanel
-                        defaultSize={35}
-                        minSize={25}
-                        className={cn(
-                          "flex min-h-0 flex-col overflow-hidden bg-panel",
-                          jobsLayoutOrientation === "horizontal" ? "border-r border-line" : "border-b border-line"
-                        )}
-                      >
-                        <WorkCompositionPanel
-                          repeatCount={repeatCount}
-                          setRepeatCount={setRepeatCount}
-                          handleRun={handleRun}
-                          handleRandomRun={handleRandomRun}
-                          randomRunCount={randomRunCount}
-                          setRandomRunCount={setRandomRunCount}
-                          estimatedRunCount={estimatedRunCount}
-                          canRun={canRun}
-                          previewCount={fakeJobQueue.length}
-                          compositionTab={props.compositionTab}
-                          setCompositionTab={props.setCompositionTab}
-                          onPreviewOpen={() => props.setIsSheetOpen(true)}
-                          onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                          onSelectionOpen={() => props.setIsSelectionOpen(true)}
-                          hasActiveFilter={hasActiveFilter}
-                          onGraphOpen={() => props.setIsGraphOpen(true)}
-                          isFloating={false}
-                          onFloatToggle={() => props.setIsCompositionFloating(true)}
-                          onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
-                          jobsLayoutOrientation={jobsLayoutOrientation}
-                          onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
-                        />
-                      </ResizablePanel>
-                      <ResizableHandle />
-                      <ResizablePanel
-                        defaultSize={65}
-                        className="flex min-h-0 flex-col overflow-hidden bg-panel"
-                      >
-                        <div className="min-h-0 flex-1 overflow-y-auto">
-                          <JobManagerPanel
-                            jobs={props.jobs}
-                            paused={props.paused}
-                            backendUrl={props.backendUrl}
-                            isAliveBackend={props.isAliveBackend}
-                            selectedId={selectedSessionId}
-                            setSelectedId={setSelectedSessionId}
-                            markers={markers}
-                            setMarkersRaw={setMarkersRaw}
-                            activeState={activeState}
-                            setActiveStateRaw={setActiveStateRaw}
-                            sessionPickerOpen={sessionPickerOpen}
-                            setSessionPickerOpen={setSessionPickerOpen}
-                            createNewSession={createNewSession}
-                            sessionJobCounts={sessionJobCounts}
-                            sortedMarkers={sortedMarkers}
-                            counts={sessionCounts}
-                            sessionJobs={sessionJobs}
-                            handleTogglePause={handleTogglePause}
-                            handleCancelAll={handleCancelAll}
-                            handleRetryAllFailed={handleRetryAllFailed}
-                            handleDeleteAllFailed={handleDeleteAllFailed}
-                            isFloating={false}
-                            onFloatToggle={() => props.setIsJobManagerFloating(true)}
-                            onHeaderDragStart={(e) => handleHeaderDragStart(e, "jobManager")}
-                          />
-                        </div>
-                      </ResizablePanel>
-                    </>
-                  ) : (
-                    <>
-                      <ResizablePanel
-                        defaultSize={65}
-                        className={cn(
-                          "flex min-h-0 flex-col overflow-hidden bg-panel",
-                          jobsLayoutOrientation === "horizontal" ? "border-r border-line" : "border-b border-line"
-                        )}
-                      >
-                        <div className="min-h-0 flex-1 overflow-y-auto">
-                          <JobManagerPanel
-                            jobs={props.jobs}
-                            paused={props.paused}
-                            backendUrl={props.backendUrl}
-                            isAliveBackend={props.isAliveBackend}
-                            selectedId={selectedSessionId}
-                            setSelectedId={setSelectedSessionId}
-                            markers={markers}
-                            setMarkersRaw={setMarkersRaw}
-                            activeState={activeState}
-                            setActiveStateRaw={setActiveStateRaw}
-                            sessionPickerOpen={sessionPickerOpen}
-                            setSessionPickerOpen={setSessionPickerOpen}
-                            createNewSession={createNewSession}
-                            sessionJobCounts={sessionJobCounts}
-                            sortedMarkers={sortedMarkers}
-                            counts={sessionCounts}
-                            sessionJobs={sessionJobs}
-                            handleTogglePause={handleTogglePause}
-                            handleCancelAll={handleCancelAll}
-                            handleRetryAllFailed={handleRetryAllFailed}
-                            handleDeleteAllFailed={handleDeleteAllFailed}
-                            isFloating={false}
-                            onFloatToggle={() => props.setIsJobManagerFloating(true)}
-                            onHeaderDragStart={(e) => handleHeaderDragStart(e, "jobManager")}
-                          />
-                        </div>
-                      </ResizablePanel>
-                      <ResizableHandle />
-                      <ResizablePanel
-                        defaultSize={35}
-                        minSize={25}
-                        className="flex min-h-0 flex-col overflow-hidden bg-panel"
-                      >
-                        <WorkCompositionPanel
-                          repeatCount={repeatCount}
-                          setRepeatCount={setRepeatCount}
-                          handleRun={handleRun}
-                          handleRandomRun={handleRandomRun}
-                          randomRunCount={randomRunCount}
-                          setRandomRunCount={setRandomRunCount}
-                          estimatedRunCount={estimatedRunCount}
-                          canRun={canRun}
-                          previewCount={fakeJobQueue.length}
-                          compositionTab={props.compositionTab}
-                          setCompositionTab={props.setCompositionTab}
-                          onPreviewOpen={() => props.setIsSheetOpen(true)}
-                          onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                          onSelectionOpen={() => props.setIsSelectionOpen(true)}
-                          hasActiveFilter={hasActiveFilter}
-                          onGraphOpen={() => props.setIsGraphOpen(true)}
-                          isFloating={false}
-                          onFloatToggle={() => props.setIsCompositionFloating(true)}
-                          onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
-                          jobsLayoutOrientation={jobsLayoutOrientation}
-                          onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
-                        />
-                      </ResizablePanel>
-                    </>
-                  )}
-                </ResizablePanelGroup>
-              ) : props.isCompositionFloating && !props.isJobManagerFloating ? (
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
+              {(() => {
+                // ── 패널 콘텐츠 ──────────────────────────────────────────
+                const compositionEl = !props.isCompositionFloating ? (
+                  <WorkCompositionPanel
+                    repeatCount={repeatCount}
+                    setRepeatCount={setRepeatCount}
+                    handleRun={handleRun}
+                    handleRandomRun={handleRandomRun}
+                    randomRunCount={randomRunCount}
+                    setRandomRunCount={setRandomRunCount}
+                    estimatedRunCount={estimatedRunCount}
+                    canRun={canRun}
+                    previewCount={fakeJobQueue.length}
+                    compositionTab={props.compositionTab}
+                    setCompositionTab={props.setCompositionTab}
+                    onPreviewOpen={() => props.setIsSheetOpen(true)}
+                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
+                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                    hasActiveFilter={hasActiveFilter}
+                    onGraphOpen={() => props.setIsGraphOpen(true)}
+                    isFloating={false}
+                    onFloatToggle={() => props.setIsCompositionFloating(true)}
+                    onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
+                    jobsLayoutOrientation={jobsLayoutOrientation}
+                    onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
+                  />
+                ) : null
+
+                const jobManagerEl = !props.isJobManagerFloating ? (
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     <JobManagerPanel
                       jobs={props.jobs}
@@ -1497,58 +1622,203 @@ function AppContent(props: AppContentProps) {
                       onHeaderDragStart={(e) => handleHeaderDragStart(e, "jobManager")}
                     />
                   </div>
-                </div>
-              ) : !props.isCompositionFloating && props.isJobManagerFloating ? (
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel border-r border-line">
-                  <WorkCompositionPanel
-                    repeatCount={repeatCount}
-                    setRepeatCount={setRepeatCount}
-                    handleRun={handleRun}
-                    handleRandomRun={handleRandomRun}
-                    randomRunCount={randomRunCount}
-                    setRandomRunCount={setRandomRunCount}
-                    estimatedRunCount={estimatedRunCount}
-                    canRun={canRun}
-                    previewCount={fakeJobQueue.length}
-                    compositionTab={props.compositionTab}
-                    setCompositionTab={props.setCompositionTab}
-                    onPreviewOpen={() => props.setIsSheetOpen(true)}
-                    onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                    onSelectionOpen={() => props.setIsSelectionOpen(true)}
-                    hasActiveFilter={hasActiveFilter}
-                    onGraphOpen={() => props.setIsGraphOpen(true)}
-                    isFloating={false}
-                    onFloatToggle={() => props.setIsCompositionFloating(true)}
-                    onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 select-none text-center animate-in fade-in duration-300">
-                  <div className="relative flex flex-col items-center justify-center p-8 max-w-md rounded-2xl border border-line/45 bg-panel/40 backdrop-blur-xl shadow-xl space-y-6 overflow-hidden before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-tr before:from-primary/5 before:via-transparent before:to-primary/10 before:-z-10 animate-in zoom-in-95 duration-300">
-                    <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                      <Workflow className="h-8 w-8 animate-pulse" />
+                ) : null
+
+                // 도킹 패널 공통 헤더 버튼
+                const panelBtn = (icon: React.ReactNode, onClick: () => void, title: string) => (
+                  <button
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    onClick={onClick}
+                    title={title}
+                  >
+                    {icon}
+                  </button>
+                )
+
+                // ── 패널 리스트 구성 ────────────────────────────────────
+                const panels: { id: string; el: React.ReactNode; minSize?: number }[] = []
+
+                const comp = compositionEl ? { id: "composition", el: compositionEl, minSize: 20 } : null
+                const mgr = jobManagerEl ? { id: "jobManager", el: jobManagerEl } : null
+                if (jobsPanelOrder === "composition-first") {
+                  if (comp) panels.push(comp)
+                  if (mgr) panels.push(mgr)
+                } else {
+                  if (mgr) panels.push(mgr)
+                  if (comp) panels.push(comp)
+                }
+
+                if (props.isStatsDocked) panels.push({
+                  id: "stats",
+                  el: (
+                    <div className="flex h-full w-full flex-col">
+                      <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
+                        <span className="text-[13px] font-bold">통계</span>
+                        <div className="flex items-center gap-0.5">
+                          {panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsStatsDocked(false); props.setIsStatsFloating(true) }, "창으로 분리")}
+                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsStatsDocked(false), "패널 닫기")}
+                        </div>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+                        <StatisticsPanel jobs={props.jobs} workers={props.workers} />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-bold text-foreground tracking-tight">
-                        모든 작업 패널이 창 모드로 분리되었습니다
-                      </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed px-4">
-                        작업 구성 패널과 작업 큐 매니저가 개별 플로팅 창으로 활성화되었습니다. 창을 이동하거나 크기를 조절하며 멀티태스킹 작업을 수행해 보세요.
-                      </p>
+                  ),
+                })
+
+                if (props.isGalleryDocked) panels.push({
+                  id: "gallery",
+                  el: (
+                    <div className="flex h-full w-full flex-col">
+                      <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
+                        <span className="text-[13px] font-bold">갤러리</span>
+                        <div className="flex items-center gap-0.5">
+                          {panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsGalleryDocked(false); props.setIsGalleryFloating(true) }, "창으로 분리")}
+                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsGalleryDocked(false), "패널 닫기")}
+                        </div>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-hidden">
+                        <SavedImagesGallery
+                          backendUrl={props.backendUrl}
+                          enableHover={props.settings.enableHover}
+                          imagePageSize={props.settings.imagePageSize}
+                          imageLazyLoad={props.settings.imageLazyLoad}
+                          singleDownloadMode={props.settings.singleDownloadMode}
+                          filenameFilter={galleryFilenameFilter}
+                          tagFilter={galleryTagFilter}
+                          metadataFilter={galleryMetadataFilter}
+                          generalFilters={galleryGeneralFilters}
+                          onTokensExtracted={setGalleryCandidates}
+                          onReloadReady={(reload) => { galleryReloadRef.current = reload }}
+                          toolbarState={{
+                            statusFilter: galleryStatusFilter,
+                            setStatusFilter: setGalleryStatusFilter,
+                            galleryViewMode,
+                            setGalleryViewMode,
+                            groupMode: galleryGroupMode,
+                            setGroupMode: setGalleryGroupMode,
+                            showFilters: galleryShowFilters,
+                            setShowFilters: setGalleryShowFilters,
+                            hasAnyFilter: galleryHasAnyFilter,
+                            hideRejected: galleryHideRejected,
+                            setHideRejected: setGalleryHideRejected,
+                            sortKey: gallerySortKey,
+                            setSortKey: setGallerySortKey,
+                            sortDir: gallerySortDir,
+                            setSortDir: setGallerySortDir,
+                            thumbnailSize: galleryThumbnailSize,
+                            setThumbnailSize: setGalleryThumbnailSize,
+                            clearAllFilters: () => { setGallerySearchTags([]); setGallerySearchInput(""); setGalleryHideRejected(false) },
+                            reload: handleGalleryRefresh,
+                            handleExport: handleGalleryExport,
+                            handleEmptyTrash: handleGalleryEmptyTrash,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <Button
-                      onClick={() => {
-                        props.setIsCompositionFloating(false)
-                        props.setIsJobManagerFloating(false)
-                      }}
-                      className="px-6 py-2 h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/20 flex items-center gap-2 group transition-all duration-200"
-                    >
-                      <RotateCcw className="h-4 w-4 transition-transform group-hover:rotate-180 duration-500" />
-                      모두 원래대로 결합
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  ),
+                })
+
+                if (props.isCurationDocked) panels.push({
+                  id: "curation",
+                  el: (
+                    <div className="flex h-full w-full flex-col">
+                      <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
+                        <span className="text-[13px] font-bold">큐레이션</span>
+                        <div className="flex items-center gap-0.5">
+                          {panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsCurationDocked(false); props.setIsCurationFloating(true) }, "창으로 분리")}
+                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsCurationDocked(false), "패널 닫기")}
+                        </div>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-hidden">
+                        <CombinationPicker
+                          backendUrl={props.backendUrl}
+                          cegTemplate={template.cegTemplate}
+                          savedTemplates={template.savedTemplates}
+                          enableHover={props.settings.enableHover}
+                          autoApplyReject={props.settings.autoApplyReject}
+                          savedWorkflows={workflow.savedWorkflows}
+                          toolbarState={{
+                            selectedAxis: curationSelectedAxis,
+                            setSelectedAxis: setCurationSelectedAxis,
+                            viewMode: "gallery" as const,
+                            setViewMode: () => {},
+                            hideTopSection: true,
+                            exportIsLoading: false,
+                            setExportIsLoading: () => {},
+                            exportMessage: null,
+                            setExportMessage: () => {},
+                            regenMessage: null,
+                            setRegenMessage: () => {},
+                            onExport: () => {},
+                            onRegenerate: () => {},
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ),
+                })
+
+                // ── 렌더링 ──────────────────────────────────────────────
+                if (panels.length === 0) {
+                  return (
+                    <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 select-none text-center animate-in fade-in duration-300">
+                      <div className="relative flex flex-col items-center justify-center p-8 max-w-md rounded-2xl border border-line/45 bg-panel/40 backdrop-blur-xl shadow-xl space-y-6 overflow-hidden before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-tr before:from-primary/5 before:via-transparent before:to-primary/10 before:-z-10 animate-in zoom-in-95 duration-300">
+                        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <Workflow className="h-8 w-8 animate-pulse" />
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-bold text-foreground tracking-tight">모든 작업 패널이 창 모드로 분리되었습니다</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed px-4">작업 구성 패널과 작업 큐 매니저가 개별 플로팅 창으로 활성화되었습니다.</p>
+                        </div>
+                        <Button
+                          onClick={() => { props.setIsCompositionFloating(false); props.setIsJobManagerFloating(false) }}
+                          className="px-6 py-2 h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/20 flex items-center gap-2 group transition-all duration-200"
+                        >
+                          <RotateCcw className="h-4 w-4 transition-transform group-hover:rotate-180 duration-500" />
+                          모두 원래대로 결합
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (panels.length === 1) {
+                  return (
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
+                      {panels[0]!.el}
+                    </div>
+                  )
+                }
+
+                const defaultSize = Math.floor(100 / panels.length)
+                return (
+                  <ResizablePanelGroup
+                    key={panels.map(p => p.id).join(",")}
+                    orientation={jobsLayoutOrientation}
+                    className="min-h-0 flex-1 overflow-hidden"
+                  >
+                    {panels.flatMap((panel, i) => {
+                      const items = []
+                      if (i > 0) items.push(<ResizableHandle key={`h-${panel.id}`} />)
+                      items.push(
+                        <ResizablePanel
+                          key={panel.id}
+                          defaultSize={defaultSize}
+                          minSize={panel.minSize ?? 15}
+                          className={cn(
+                            "flex min-h-0 flex-col overflow-hidden bg-panel",
+                            i < panels.length - 1 && (jobsLayoutOrientation === "horizontal" ? "border-r border-line" : "border-b border-line")
+                          )}
+                        >
+                          {panel.el}
+                        </ResizablePanel>
+                      )
+                      return items
+                    })}
+                  </ResizablePanelGroup>
+                )
+              })()}
             </div>
 
             <div className="flex flex-1 flex-col overflow-hidden md:hidden">
@@ -1836,7 +2106,7 @@ function AppContent(props: AppContentProps) {
         </FloatingWindow>
       )}
 
-      {props.activeTab !== "gallery" && props.isGalleryFloating && (
+      {props.activeTab !== "gallery" && !props.isGalleryDocked && props.isGalleryFloating && (
         <FloatingWindow
           id="floating-window-gallery"
           isOpen={props.isGalleryFloating}
@@ -2110,6 +2380,76 @@ function AppContent(props: AppContentProps) {
               handleEmptyTrash: handleGalleryEmptyTrash,
             }}
           />
+        </FloatingWindow>
+      )}
+
+      {props.activeTab !== "stats" && props.isStatsFloating && (
+        <FloatingWindow
+          id="floating-window-stats"
+          isOpen={props.isStatsFloating}
+          onClose={() => props.setIsStatsFloating(false)}
+          onDock={() => {
+            props.setIsStatsFloating(false)
+            props.setActiveTab("stats")
+          }}
+          initialPos={props.statsFloatingPos}
+          initialSize={props.statsFloatingSize}
+          onPosChange={props.setStatsFloatingPos}
+          onSizeChange={props.setStatsFloatingSize}
+          title="통계"
+          onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            handleDragProgress(cx, cy, sw, sh, isEnding, "stats")
+          }
+        >
+          <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
+            <StatisticsPanel jobs={props.jobs} workers={props.workers} />
+          </div>
+        </FloatingWindow>
+      )}
+
+      {props.activeTab !== "curation" && props.isCurationFloating && (
+        <FloatingWindow
+          id="floating-window-curation"
+          isOpen={props.isCurationFloating}
+          onClose={() => props.setIsCurationFloating(false)}
+          onDock={() => {
+            props.setIsCurationFloating(false)
+            props.setActiveTab("curation")
+          }}
+          initialPos={props.curationFloatingPos}
+          initialSize={props.curationFloatingSize}
+          onPosChange={props.setCurationFloatingPos}
+          onSizeChange={props.setCurationFloatingSize}
+          title="큐레이션"
+          onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            handleDragProgress(cx, cy, sw, sh, isEnding, "curation")
+          }
+        >
+          <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
+            <CombinationPicker
+              backendUrl={props.backendUrl}
+              cegTemplate={template.cegTemplate}
+              savedTemplates={template.savedTemplates}
+              enableHover={props.settings.enableHover}
+              autoApplyReject={props.settings.autoApplyReject}
+              savedWorkflows={workflow.savedWorkflows}
+              toolbarState={{
+                selectedAxis: curationSelectedAxis,
+                setSelectedAxis: setCurationSelectedAxis,
+                viewMode: "gallery" as const,
+                setViewMode: () => {},
+                hideTopSection: true,
+                exportIsLoading: false,
+                setExportIsLoading: () => {},
+                exportMessage: null,
+                setExportMessage: () => {},
+                regenMessage: null,
+                setRegenMessage: () => {},
+                onExport: () => {},
+                onRegenerate: () => {},
+              }}
+            />
+          </div>
         </FloatingWindow>
       )}
 
