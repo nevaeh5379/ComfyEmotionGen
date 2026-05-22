@@ -351,7 +351,7 @@ export function CombinationPickerDetailView({
           <div
             className="grid gap-3 sm:gap-4"
             style={{
-              gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
+              gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize}px)`,
             }}
           >
             {visibleImages.map((img, idx) => {

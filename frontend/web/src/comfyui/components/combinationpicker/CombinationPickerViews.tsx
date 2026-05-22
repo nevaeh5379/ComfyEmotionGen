@@ -511,7 +511,7 @@ export function GalleryView({
     <div
       className="grid gap-4 items-start"
       style={{
-        gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
+        gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize}px)`,
       }}
     >
       {items.map((item: RenderItem) => {

@@ -401,7 +401,7 @@ export function SettingsPanel({
               }}
             >
               <Download className="mr-2 h-3.5 w-3.5" />
-              전체 템플트 내보내기 (JSON)
+              전체 탬플릿 내보내기 (JSON)
             </Button>
             <Button
               variant="outline"
@@ -418,7 +418,7 @@ export function SettingsPanel({
                     try {
                       const imported = JSON.parse(reader.result as string)
                       if (!Array.isArray(imported)) {
-                        toast.error("유효한 템플트 파일이 아닙니다.")
+                        toast.error("유효한 탬플릿 파일이 아닙니다.")
                         return
                       }
                       const now = Date.now()
@@ -427,7 +427,7 @@ export function SettingsPanel({
                           const p = item as Record<string, unknown>
                           return {
                             id: `${now + Math.random().toString(36).slice(2, 7)}`,
-                            name: (p.name as string) || "미명 템플트",
+                            name: (p.name as string) || "미명 탬플릿",
                             template: (p.template as string) || "",
                             savedAt: (p.savedAt as number) || now,
                           }
@@ -437,7 +437,7 @@ export function SettingsPanel({
                       const merged = [...existing, ...newTemplates]
                       persistTemplates(merged)
                       toast.success(
-                        `${newTemplates.length}개의 템플트를 가져왔습니다.`
+                        `${newTemplates.length}개의 탬플릿를 가져왔습니다.`
                       )
                     } catch {
                       toast.error("파일을 읽는 중 오류가 발생했습니다.")
@@ -449,7 +449,7 @@ export function SettingsPanel({
               }}
             >
               <Upload className="mr-2 h-3.5 w-3.5" />
-              템플트 가져오기 (JSON)
+              탬플릿 가져오기 (JSON)
             </Button>
           </div>
         </Section>

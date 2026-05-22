@@ -163,19 +163,16 @@ export function KeyboardShortcutsDialog({
                 />
                 <ShortcutRow
                   keys={["1"]}
-                  alternativeKeys={["a"]}
                   description="이미지 통과 (Approved)"
                   subDescription="포커스된 이미지의 상태를 '통과'로 변경합니다."
                 />
                 <ShortcutRow
                   keys={["2"]}
-                  alternativeKeys={["x"]}
                   description="이미지 탈락 (Rejected)"
                   subDescription="포커스된 이미지의 상태를 '탈락'으로 변경합니다."
                 />
                 <ShortcutRow
                   keys={["3"]}
-                  alternativeKeys={["t"]}
                   description="휴지통 이동 / 복원"
                   subDescription="이미지를 휴지통으로 버리거나 대기 상태로 복원합니다."
                 />

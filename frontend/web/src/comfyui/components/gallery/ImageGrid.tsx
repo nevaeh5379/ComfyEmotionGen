@@ -92,7 +92,7 @@ export function ImageGrid({
     <div
       className="grid gap-3 sm:gap-4 items-start"
       style={{
-        gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize ?? 180}px, 1fr))`,
+        gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize ?? 180}px)`,
       }}
     >
       {items.map((img) => {

@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   CheckCircleIcon,
   ChevronDown,
@@ -869,8 +870,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         return
       }
 
-      // 1 / a -> approved
-      if (e.key === "1" || e.key === "a") {
+      // 1 -> approved
+      if (e.key === "1") {
         if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
@@ -882,8 +883,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         return
       }
 
-      // 2 / x -> rejected
-      if (e.key === "2" || e.key === "x") {
+      // 2 -> rejected
+      if (e.key === "2") {
         if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
@@ -895,8 +896,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         return
       }
 
-      // 3 / t -> trashed / restore
-      if (e.key === "3" || e.key === "t") {
+      // 3 -> trashed / restore
+      if (e.key === "3") {
         if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
@@ -1395,10 +1396,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               >
                 <CheckCircleIcon className="h-3.5 w-3.5" />
                 <span>일괄 통과</span>
-                <div className="flex gap-0.5 ml-1">
-                  <Kbd className="bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">1</Kbd>
-                  <Kbd className="bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">A</Kbd>
-                </div>
+                <Kbd className="bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">1</Kbd>
               </Button>
               <Button
                 size="sm"
@@ -1409,10 +1407,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               >
                 <XCircleIcon className="h-3.5 w-3.5" />
                 <span>일괄 탈락</span>
-                <div className="flex gap-0.5 ml-1">
-                  <Kbd className="bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400">2</Kbd>
-                  <Kbd className="bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400">X</Kbd>
-                </div>
+                <Kbd className="bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400">2</Kbd>
               </Button>
               <Button
                 size="sm"
@@ -1423,10 +1418,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               >
                 <RotateCcwIcon className="h-3.5 w-3.5" />
                 <span>일괄 대기</span>
-                <div className="flex gap-0.5 ml-1">
-                  <Kbd className="bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-400">3</Kbd>
-                  <Kbd className="bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-400">T</Kbd>
-                </div>
+                <Kbd className="bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-400">3</Kbd>
               </Button>
             </div>
             <div className="flex items-center gap-1">
@@ -1657,8 +1649,24 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 ))}
               </div>
             ) : (
-              <div className="flex items-center text-xs font-medium text-muted-foreground py-1">
-                📂 더 이상 하위 폴더가 없습니다.
+              <div className="flex items-center gap-2 py-1">
+                {breadcrumbTags.length > 0 ? (
+                  <button
+                    onClick={() => {
+                      setBreadcrumbTags(breadcrumbTags.slice(0, -1))
+                      setPage(1)
+                      setGroupPage(1)
+                    }}
+                    className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1 text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground active:scale-98"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground shrink-0" strokeWidth={1.6} />
+                    <span>뒤로 가기</span>
+                  </button>
+                ) : (
+                  <div className="text-xs font-medium text-muted-foreground">
+                    📂 더 이상 하위 폴더가 없습니다.
+                  </div>
+                )}
               </div>
             )}
           </div>
