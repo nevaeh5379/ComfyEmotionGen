@@ -1,9 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Download, Upload } from "lucide-react"
+import { ClipboardList, Database, Download, Upload, Workflow } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
-import { Kbd } from "@/components/ui/kbd"
-
 import { Switch } from "@/components/ui/switch"
 
 import {
@@ -21,8 +19,10 @@ import type { WorkerView } from "../types/Message"
 import { BUNDLE_VERSION, COMMIT, IS_LOCAL_DEV } from "@/version"
 import { useUpdateCheck } from "@/comfyui/hooks/useUpdateCheck"
 import { useTemplateContext } from "@/comfyui/contexts/TemplateContext"
+import { useWorkflowContext } from "@/comfyui/contexts/WorkflowContext"
 import { saveSetting } from "@/lib/serverStorage"
 import type { SavedTemplate } from "@/comfyui/hooks/useSavedTemplates"
+import type { SavedWorkflow } from "@/comfyui/hooks/useSavedWorkflows"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { toast } from "sonner"
 
@@ -84,6 +84,7 @@ export function SettingsPanel({
   workers,
 }: Props) {
   const template = useTemplateContext()
+  const workflow = useWorkflowContext()
   const update = useUpdateCheck(settings.updateChannel)
 
   return (
@@ -378,155 +379,288 @@ export function SettingsPanel({
 
         {/* 데이터 관리 */}
         <Section title="데이터 관리">
-          <div className="flex flex-wrap gap-3 py-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={template.savedTemplates.length === 0}
-              onClick={() => {
-                const data = template.savedTemplates.map((t) => ({
-                  name: t.name,
-                  template: t.template,
-                  savedAt: t.savedAt,
-                }))
-                const blob = new Blob([JSON.stringify(data, null, 2)], {
-                  type: "application/json",
-                })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement("a")
-                a.href = url
-                a.download = `templates_${new Date().toISOString().slice(0, 10)}.json`
-                a.click()
-                URL.revokeObjectURL(url)
-              }}
-            >
-              <Download className="mr-2 h-3.5 w-3.5" />
-              전체 탬플릿 내보내기 (JSON)
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const input = document.createElement("input")
-                input.type = "file"
-                input.accept = ".json"
-                input.onchange = () => {
-                  const target = input.files?.[0]
-                  if (!target) return
-                  const reader = new FileReader()
-                  reader.onload = () => {
-                    try {
-                      const imported = JSON.parse(reader.result as string)
-                      if (!Array.isArray(imported)) {
-                        toast.error("유효한 탬플릿 파일이 아닙니다.")
-                        return
-                      }
-                      const now = Date.now()
-                      const newTemplates: SavedTemplate[] = imported.map(
-                        (item: unknown) => {
-                          const p = item as Record<string, unknown>
-                          return {
-                            id: `${now + Math.random().toString(36).slice(2, 7)}`,
-                            name: (p.name as string) || "미명 탬플릿",
-                            template: (p.template as string) || "",
-                            savedAt: (p.savedAt as number) || now,
+          <div className="mt-3 space-y-4">
+            
+            {/* 템플릿 백업/복원 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-lg bg-blue-500/10 p-2 text-blue-500 shrink-0">
+                  <ClipboardList className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold flex flex-wrap items-center gap-2">
+                    ComfyUI 템플릿
+                    <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-500">
+                      {template.savedTemplates.length}개 저장됨
+                    </span>
+                  </h4>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    저장된 ComfyUI 프롬프트 템플릿 목록을 JSON 파일로 백업하거나 가져와 현재 목록에 병합합니다.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={template.savedTemplates.length === 0}
+                  onClick={() => {
+                    const data = template.savedTemplates.map((t) => ({
+                      name: t.name,
+                      template: t.template,
+                      savedAt: t.savedAt,
+                    }))
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                      type: "application/json",
+                    })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = `templates_${new Date().toISOString().slice(0, 10)}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                    toast.success("템플릿 내보내기가 완료되었습니다.")
+                  }}
+                  className="h-8 text-xs transition-transform active:scale-95"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  내보내기
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.accept = ".json"
+                    input.onchange = () => {
+                      const target = input.files?.[0]
+                      if (!target) return
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        try {
+                          const imported = JSON.parse(reader.result as string)
+                          if (!Array.isArray(imported)) {
+                            toast.error("유효한 템플릿 파일이 아닙니다.")
+                            return
                           }
+                          const now = Date.now()
+                          const newTemplates: SavedTemplate[] = imported.map(
+                            (item: unknown) => {
+                              const p = item as Record<string, unknown>
+                              return {
+                                id: `${now + Math.random().toString(36).slice(2, 7)}`,
+                                name: (p.name as string) || "미명 템플릿",
+                                template: (p.template as string) || "",
+                                savedAt: (p.savedAt as number) || now,
+                              }
+                            }
+                          )
+                          const existing = loadTemplates()
+                          const merged = [...existing, ...newTemplates]
+                          persistTemplates(merged)
+                          toast.success(
+                            `${newTemplates.length}개의 템플릿을 가져왔습니다.`
+                          )
+                        } catch {
+                          toast.error("파일을 읽는 중 오류가 발생했습니다.")
                         }
-                      )
-                      const existing = loadTemplates()
-                      const merged = [...existing, ...newTemplates]
-                      persistTemplates(merged)
-                      toast.success(
-                        `${newTemplates.length}개의 탬플릿를 가져왔습니다.`
-                      )
-                    } catch {
-                      toast.error("파일을 읽는 중 오류가 발생했습니다.")
+                      }
+                      reader.readAsText(target)
                     }
-                  }
-                  reader.readAsText(target)
-                }
-                input.click()
-              }}
-            >
-              <Upload className="mr-2 h-3.5 w-3.5" />
-              탬플릿 가져오기 (JSON)
-            </Button>
+                    input.click()
+                  }}
+                  className="h-8 text-xs transition-transform active:scale-95"
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  가져오기
+                </Button>
+              </div>
+            </div>
+
+            {/* 워크플로우 백업/복원 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-lg bg-purple-500/10 p-2 text-purple-500 shrink-0">
+                  <Workflow className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold flex flex-wrap items-center gap-2">
+                    ComfyUI 워크플로우
+                    <span className="inline-flex items-center rounded-full bg-purple-500/10 px-2 py-0.5 text-[11px] font-medium text-purple-500">
+                      {workflow.savedWorkflows.length}개 저장됨
+                    </span>
+                  </h4>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    저장된 ComfyUI 워크플로우 및 노드 매핑 프리셋 목록을 JSON 파일로 백업하거나 가져와 현재 목록에 병합합니다.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={workflow.savedWorkflows.length === 0}
+                  onClick={() => {
+                    const data = workflow.savedWorkflows.map((w) => ({
+                      name: w.name,
+                      workflow: w.workflow,
+                      mappingPresets: w.mappingPresets,
+                      savedAt: w.savedAt,
+                    }))
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                      type: "application/json",
+                    })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = `workflows_${new Date().toISOString().slice(0, 10)}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                    toast.success("워크플로우 내보내기가 완료되었습니다.")
+                  }}
+                  className="h-8 text-xs transition-transform active:scale-95"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  내보내기
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.accept = ".json"
+                    input.onchange = () => {
+                      const target = input.files?.[0]
+                      if (!target) return
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        try {
+                          const imported = JSON.parse(reader.result as string)
+                          if (!Array.isArray(imported)) {
+                            toast.error("유효한 워크플로우 파일이 아닙니다.")
+                            return
+                          }
+                          const now = Date.now()
+                          const newWorkflows: SavedWorkflow[] = imported.map(
+                            (item: unknown) => {
+                              const p = item as Record<string, unknown>
+                              return {
+                                id: `${now + Math.random().toString(36).slice(2, 7)}`,
+                                name: (p.name as string) || "미명 워크플로우",
+                                workflow: (p.workflow as string) || "",
+                                mappingPresets: (p.mappingPresets as SavedWorkflow["mappingPresets"]) || [],
+                                savedAt: (p.savedAt as number) || now,
+                              }
+                            }
+                          )
+                          const existing = loadWorkflows()
+                          const merged = [...existing, ...newWorkflows]
+                          persistWorkflows(merged)
+                          toast.success(
+                            `${newWorkflows.length}개의 워크플로우를 가져왔습니다.`
+                          )
+                        } catch {
+                          toast.error("파일을 읽는 중 오류가 발생했습니다.")
+                        }
+                      }
+                      reader.readAsText(target)
+                    }
+                    input.click()
+                  }}
+                  className="h-8 text-xs transition-transform active:scale-95"
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  가져오기
+                </Button>
+              </div>
+            </div>
+
+            {/* 데이터베이스 백업/복원 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-lg bg-emerald-500/10 p-2 text-emerald-500 shrink-0">
+                  <Database className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold flex flex-wrap items-center gap-2">
+                    생성 작업 데이터베이스 (SQLite)
+                    <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
+                      서버 데이터
+                    </span>
+                  </h4>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    서버의 SQLite 생성 이력 및 작업 데이터베이스(jobs.db) 파일 자체를 백업하거나 복원하여 덮어씁니다.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const cleanUrl = backendUrl.replace(/\/+$/, "")
+                    const exportUrl = `${cleanUrl}/db/export`
+                    const a = document.createElement("a")
+                    a.href = exportUrl
+                    a.download = "jobs.db"
+                    a.click()
+                    toast.success("데이터베이스 백업 다운로드가 시작되었습니다.")
+                  }}
+                  className="h-8 text-xs transition-transform active:scale-95"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  백업
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.accept = ".db"
+                    input.onchange = () => {
+                      const target = input.files?.[0]
+                      if (!target) return
+
+                      // DB 복원 API 호출
+                      const cleanUrl = backendUrl.replace(/\/+$/, "")
+                      const importUrl = `${cleanUrl}/db/import`
+                      
+                      const formData = new FormData()
+                      formData.append("file", target)
+
+                      const importPromise = fetch(importUrl, {
+                        method: "POST",
+                        body: formData,
+                      }).then(async (res) => {
+                        if (!res.ok) {
+                          const errText = await res.text()
+                          throw new Error(errText || "데이터베이스 복원 실패")
+                        }
+                        return res.json()
+                      })
+
+                      toast.promise(importPromise, {
+                        loading: "데이터베이스를 서버에 업로드하고 복원하는 중...",
+                        success: "데이터베이스가 성공적으로 복원되고 UI가 동기화되었습니다.",
+                        error: (err) => `데이터베이스 복원 실패: ${err.message || err}`,
+                      })
+                    }
+                    input.click()
+                  }}
+                  className="h-8 text-xs transition-transform active:scale-95"
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  복원
+                </Button>
+              </div>
+            </div>
+
           </div>
         </Section>
 
-        {/* 키보드 단축키 */}
-        <Section title="키보드 단축키">
-          <div className="space-y-6 pt-2">
-            <div>
-              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">전역 & 앱 탐색</h4>
-              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
-                {[
-                  ["Alt + 1..5", "탭 전환 (작업, 통계, 갤러리, 큐레이션, 설정)"],
-                  ["D", "다크/라이트 테마 토글"],
-                ].map(([key, desc]) => (
-                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
-                    <span className="text-muted-foreground">{desc}</span>
-                    <Kbd>{key}</Kbd>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">작업 관리</h4>
-              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
-                {[
-                  ["Ctrl + Enter", "작업 실행 (작업 탭)"],
-                  ["Ctrl + S", "템플릿/워크플로우 저장 (편집기)"],
-                ].map(([key, desc]) => (
-                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
-                    <span className="text-muted-foreground">{desc}</span>
-                    <Kbd>{key}</Kbd>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">갤러리 탐색 & 조작</h4>
-              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
-                {[
-                  ["← / → / ↑ / ↓ (h/l/k/j)", "이미지 격자 포커스 이동"],
-                  ["Enter / Space", "상세 보기 열기 / 선택 토글"],
-                  ["1 / A", "선택된 이미지 통과 (Approved)"],
-                  ["2 / X", "선택된 이미지 탈락 (Rejected)"],
-                  ["3 / T", "선택된 이미지 휴지통 이동 / 대기 복원"],
-                  ["P", "비교 뷰 추가 / 제거 (Pin)"],
-                  ["Ctrl + Shift + R", "갤러리 새로고침"],
-                  ["ESC", "포커스 해제 / 상세 보기 닫기"],
-                ].map(([key, desc]) => (
-                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
-                    <span className="text-muted-foreground">{desc}</span>
-                    <Kbd>{key}</Kbd>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">이미지 뷰어</h4>
-              <div className="space-y-1.5 rounded-lg border bg-muted/10 p-3">
-                {[
-                  ["Shift + 드래그", "뷰어에서 영역 지정 확대"],
-                  ["좌클릭", "이미지 확대"],
-                  ["우클릭", "이미지 축소"],
-                  ["스크롤 휠", "줌 인/아웃"],
-                  ["ESC", "뷰어 닫기"],
-                ].map(([key, desc]) => (
-                  <div key={key} className="flex items-center justify-between gap-4 py-1 text-xs">
-                    <span className="text-muted-foreground">{desc}</span>
-                    <Kbd>{key}</Kbd>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Section>
       </div>
     </div>
   )
@@ -551,4 +685,39 @@ function persistTemplates(templates: SavedTemplate[]): void {
   }
   // 서버 비동기 저장
   saveSetting(STORAGE_KEYS.savedTemplates, serialized).catch(() => {})
+  // 로컬 탭 즉시 동기화
+  window.dispatchEvent(
+    new StorageEvent("storage", {
+      key: STORAGE_KEYS.savedTemplates,
+      newValue: serialized,
+    })
+  )
+}
+
+function loadWorkflows(): SavedWorkflow[] {
+  try {
+    return JSON.parse(
+      localStorage.getItem(STORAGE_KEYS.savedWorkflows) ?? "[]"
+    ) as SavedWorkflow[]
+  } catch {
+    return []
+  }
+}
+
+function persistWorkflows(workflows: SavedWorkflow[]): void {
+  const serialized = JSON.stringify(workflows)
+  try {
+    localStorage.setItem(STORAGE_KEYS.savedWorkflows, serialized)
+  } catch {
+    // ignore quota errors
+  }
+  // 서버 비동기 저장
+  saveSetting(STORAGE_KEYS.savedWorkflows, serialized).catch(() => {})
+  // 로컬 탭 즉시 동기화
+  window.dispatchEvent(
+    new StorageEvent("storage", {
+      key: STORAGE_KEYS.savedWorkflows,
+      newValue: serialized,
+    })
+  )
 }

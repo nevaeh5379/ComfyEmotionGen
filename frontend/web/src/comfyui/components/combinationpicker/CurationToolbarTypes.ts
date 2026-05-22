@@ -11,12 +11,12 @@ export interface CurationToolbarState {
   viewMode: CurationViewMode
   setViewMode: (v: CurationViewMode) => void
   hideTopSection: boolean
-  exportIsLoading: boolean
-  setExportIsLoading: (v: boolean) => void
-  exportMessage: string | null
-  setExportMessage: (v: string | null) => void
-  regenMessage: string | null
-  setRegenMessage: (v: string | null) => void
-  onExport: () => void
-  onRegenerate: () => void
+  exportIsLoading?: boolean
+  setExportIsLoading?: (v: boolean) => void
+  exportMessage?: string | null
+  setExportMessage?: (v: string | null) => void
+  regenMessage?: string | null
+  setRegenMessage?: (v: string | null) => void
+  onExport?: () => void
+  onRegenerate?: () => void
 }

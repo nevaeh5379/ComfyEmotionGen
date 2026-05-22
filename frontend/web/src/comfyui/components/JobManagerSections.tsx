@@ -386,7 +386,7 @@ export const JobStatBar = memo(function JobStatBar({
         </div>
         <Progress
           value={progress}
-          className="h-2 w-full shadow-inner [&>[data-slot=progress-indicator]]:animate-shimmer [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-ok [&>[data-slot=progress-indicator]]:via-ok/60 [&>[data-slot=progress-indicator]]:to-ok [&>[data-slot=progress-indicator]]:bg-[length:200%_auto]"
+          className="h-2 w-full shadow-inner [&>[data-slot=progress-indicator]]:bg-ok"
         />
       </div>
     </div>
@@ -441,7 +441,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
             </div>
             <Progress
               value={j.progressPercent}
-              className="h-1.5 w-full [&>[data-slot=progress-indicator]]:animate-shimmer [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-info [&>[data-slot=progress-indicator]]:via-primary [&>[data-slot=progress-indicator]]:to-info [&>[data-slot=progress-indicator]]:bg-[length:200%_auto]"
+              className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
             />
             {overallPercent != null && (
               <>
@@ -455,7 +455,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                 </div>
                 <Progress
                   value={overallPercent}
-                  className="h-1.5 w-full [&>[data-slot=progress-indicator]]:animate-shimmer [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-ok [&>[data-slot=progress-indicator]]:via-ok/60 [&>[data-slot=progress-indicator]]:to-ok [&>[data-slot=progress-indicator]]:bg-[length:200%_auto]"
+                  className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
                 />
               </>
             )}

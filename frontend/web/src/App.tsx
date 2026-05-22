@@ -1574,14 +1574,6 @@ function AppContent(props: AppContentProps) {
                 viewMode: "gallery" as const,
                 setViewMode: () => {},
                 hideTopSection: true,
-                exportIsLoading: false,
-                setExportIsLoading: () => {},
-                exportMessage: null,
-                setExportMessage: () => {},
-                regenMessage: null,
-                setRegenMessage: () => {},
-                onExport: () => {},
-                onRegenerate: () => {},
               }}
             />
           </div>
@@ -1792,14 +1784,6 @@ function AppContent(props: AppContentProps) {
                             viewMode: "gallery" as const,
                             setViewMode: () => {},
                             hideTopSection: true,
-                            exportIsLoading: false,
-                            setExportIsLoading: () => {},
-                            exportMessage: null,
-                            setExportMessage: () => {},
-                            regenMessage: null,
-                            setRegenMessage: () => {},
-                            onExport: () => {},
-                            onRegenerate: () => {},
                           }}
                         />
                       </div>
@@ -2490,14 +2474,6 @@ function AppContent(props: AppContentProps) {
                 viewMode: "gallery" as const,
                 setViewMode: () => {},
                 hideTopSection: true,
-                exportIsLoading: false,
-                setExportIsLoading: () => {},
-                exportMessage: null,
-                setExportMessage: () => {},
-                regenMessage: null,
-                setRegenMessage: () => {},
-                onExport: () => {},
-                onRegenerate: () => {},
               }}
             />
           </div>

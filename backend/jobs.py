@@ -224,6 +224,24 @@ class JobManager:
         await self._pool.stop()
         await self._store.close()
 
+    async def reload_jobs(self) -> None:
+        """데이터베이스 로드 및 인메모리 잡 목록을 동기화합니다."""
+        stored = await self._store.load_all()
+        async with self._lock:
+            self._jobs.clear()
+            for d in stored:
+                job = Job.from_dict(d)
+                if job.status in ("queued", "running"):
+                    job.status = "pending"
+                    job.worker_id = None
+                    job.progress_percent = 0.0
+                    job.current_node_name = ""
+                    job.total_node_count = 0
+                    job.completed_node_count = 0
+                    job.started_at = None
+                self._jobs[job.id] = job
+        self._wakeup.set()
+
     # ---------- public API ----------
 
     async def submit(

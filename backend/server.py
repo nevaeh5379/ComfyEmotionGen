@@ -824,6 +824,72 @@ class SettingValueRequest(BaseModel):
     value: str
 
 
+# ====== 데이터베이스 관리 ======
+
+@app.get("/db/export")
+async def db_export():
+    """SQLite jobs.db 데이터베이스 파일을 직접 내보냅니다."""
+    db_path = job_manager._store._db_path
+    if not db_path.exists():
+        raise HTTPException(status_code=404, detail="Database file not found")
+    
+    headers = {
+        "Content-Disposition": 'attachment; filename="jobs.db"',
+    }
+    return FileResponse(
+        str(db_path),
+        media_type="application/x-sqlite3",
+        headers=headers,
+    )
+
+
+@app.post("/db/import")
+async def db_import(file: UploadFile):
+    """SQLite jobs.db 데이터베이스 파일을 업로드받아 덮어쓰고 복원합니다."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="empty filename")
+    
+    db_path = job_manager._store._db_path
+    
+    # 1. 기존 DB 커넥션 종료
+    await job_manager._store.close()
+    
+    try:
+        # 2. 파일 덮어쓰기
+        content = await file.read()
+        db_path.write_bytes(content)
+    except Exception as exc:
+        # 실패 시 재오픈 시도
+        await job_manager._store.open()
+        raise HTTPException(status_code=500, detail=f"Failed to write database: {exc}")
+    
+    # 3. 새로운 DB 커넥션 오픈 및 마이그레이션 실행
+    await job_manager._store.open()
+    
+    # 4. 메모리 로드 동기화
+    await job_manager.reload_jobs()
+    
+    # 5. UI 동기화 이벤트 송출 (모든 클라이언트가 잡 목록을 새로고침할 수 있게 함)
+    snapshot = await job_manager.snapshot()
+    await broadcast({
+        "type": "snapshot",
+        "jobs": snapshot,
+        "workers": [
+            {
+                "id": info.id,
+                "url": info.url,
+                "alive": info.alive,
+                "busy": info.busy,
+                "currentJobId": info.current_job_id,
+            }
+            for info in worker_pool.info()
+        ],
+        "paused": job_manager.paused,
+    })
+    
+    return {"ok": True}
+
+
 # ====== App Settings (client-side localStorage → server storage) ======
 
 @app.get("/app-settings")
