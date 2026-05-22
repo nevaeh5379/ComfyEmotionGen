@@ -104,6 +104,8 @@ export function ImageGrid({
           <ContextMenu key={img.hash}>
             <ContextMenuTrigger>
               <div
+                data-selectable="true"
+                data-image-hash={img.hash}
                 onClick={() => onFocus?.(img.hash)}
                 className={`m-1 flex break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md cursor-pointer ${
                   isSelected
@@ -292,7 +294,7 @@ export function ImageGrid({
                     if (workflowStr) {
                       navigator.clipboard.writeText(workflowStr).catch(() => {})
                     }
-                  } catch (e) {
+                  } catch {
                     if (img.prompt) {
                       navigator.clipboard.writeText(img.prompt).catch(() => {})
                     }

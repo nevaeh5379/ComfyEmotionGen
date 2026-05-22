@@ -282,6 +282,179 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     useState<GalleryViewMode>("grid")
   const [showFilters, setShowFilters] = useState(false)
 
+  // ── Marquee Drag-to-Select optimized refs & handlers ──
+  const marqueeRef = useRef<HTMLDivElement>(null)
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null)
+  const initialSelectionRef = useRef<Set<string>>(new Set())
+  const cachedCardsRef = useRef<{ hash: string; rect: DOMRect }[]>([])
+  const lastSelectedHashesRef = useRef<Set<string>>(new Set())
+  const scrollContainerRef = useRef<HTMLElement | null>(null)
+  const initialScrollPosRef = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
+  const cleanupListenersRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => {
+      cleanupListenersRef.current?.()
+    }
+  }, [])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return // Left click only
+
+    const target = e.target as HTMLElement
+    // Ignore interactive elements
+    if (
+      target.closest("button") ||
+      target.closest("input") ||
+      target.closest("select") ||
+      target.closest("a") ||
+      target.closest('[role="button"]') ||
+      target.closest('[data-selectable="true"]') ||
+      target.closest(".sticky")
+    ) {
+      return
+    }
+
+    e.preventDefault() // Prevents default browser text selection/drag
+
+    const startPos = { x: e.clientX, y: e.clientY }
+    dragStartRef.current = startPos
+
+    // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
+    const scrollContainer = target.closest(".overflow-y-auto") as HTMLElement | null
+    scrollContainerRef.current = scrollContainer
+    if (scrollContainer) {
+      initialScrollPosRef.current = {
+        top: scrollContainer.scrollTop,
+        left: scrollContainer.scrollLeft,
+      }
+    } else {
+      initialScrollPosRef.current = { top: 0, left: 0 }
+    }
+
+    // Determine initial selection
+    const isCumulative = e.shiftKey || e.ctrlKey || e.metaKey
+    const initialSet = isCumulative ? new Set(selectedHashes) : new Set<string>()
+    initialSelectionRef.current = initialSet
+    lastSelectedHashesRef.current = new Set(initialSet)
+
+    // Cache the bounding rects of all selectable cards to avoid layout thrashing in mousemove
+    const cardElements = document.querySelectorAll('[data-selectable="true"]')
+    cachedCardsRef.current = Array.from(cardElements).map((el) => ({
+      hash: el.getAttribute("data-image-hash") || "",
+      rect: el.getBoundingClientRect(),
+    }))
+
+    // Clear selection if not cumulative
+    if (!isCumulative) {
+      setSelectedHashes(new Set())
+    }
+
+    // Clean up any stray listeners
+    cleanupListenersRef.current?.()
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      const start = dragStartRef.current
+      if (!start) return
+
+      const left = Math.min(start.x, ev.clientX)
+      const top = Math.min(start.y, ev.clientY)
+      const right = Math.max(start.x, ev.clientX)
+      const bottom = Math.max(start.y, ev.clientY)
+
+      // 1. Direct DOM manipulation for marquee box (Zero React renders during dragging!)
+      if (marqueeRef.current) {
+        marqueeRef.current.style.left = `${left}px`
+        marqueeRef.current.style.top = `${top}px`
+        marqueeRef.current.style.width = `${right - left}px`
+        marqueeRef.current.style.height = `${bottom - top}px`
+        marqueeRef.current.style.display = "block"
+      }
+
+      // 2. Adjust for scroll container movement
+      let deltaY = 0
+      let deltaX = 0
+      if (scrollContainerRef.current) {
+        deltaY = scrollContainerRef.current.scrollTop - initialScrollPosRef.current.top
+        deltaX = scrollContainerRef.current.scrollLeft - initialScrollPosRef.current.left
+      }
+
+      // 3. Mathematical intersection tests on cached rects (Zero layout reflows!)
+      const newlyIntersected = new Set<string>()
+      cachedCardsRef.current.forEach((card) => {
+        const adjustedLeft = card.rect.left - deltaX
+        const adjustedRight = card.rect.right - deltaX
+        const adjustedTop = card.rect.top - deltaY
+        const adjustedBottom = card.rect.bottom - deltaY
+
+        const intersects = !(
+          adjustedLeft > right ||
+          adjustedRight < left ||
+          adjustedTop > bottom ||
+          adjustedBottom < top
+        )
+
+        if (intersects) {
+          newlyIntersected.add(card.hash)
+        }
+      })
+
+      // 4. Merge selection
+      const merged = new Set<string>(initialSelectionRef.current)
+      newlyIntersected.forEach((hash) => merged.add(hash))
+
+      // 5. Diff-based updates: Only call state setter if selection changed
+      let hasChanged = merged.size !== lastSelectedHashesRef.current.size
+      if (!hasChanged) {
+        for (const hash of merged) {
+          if (!lastSelectedHashesRef.current.has(hash)) {
+            hasChanged = true
+            break
+          }
+        }
+      }
+
+      if (hasChanged) {
+        lastSelectedHashesRef.current = merged
+        if (merged.size > 0) {
+          setSelectionMode(true)
+          setSelectedHashes(merged)
+        } else {
+          setSelectedHashes(new Set())
+        }
+      }
+    }
+
+    const handleMouseUp = () => {
+      cleanup()
+
+      if (marqueeRef.current) {
+        marqueeRef.current.style.display = "none"
+      }
+
+      dragStartRef.current = null
+      initialSelectionRef.current = new Set()
+      cachedCardsRef.current = []
+
+      setSelectedHashes((current) => {
+        if (current.size === 0) {
+          setSelectionMode(false)
+        }
+        return current
+      })
+    }
+
+    const cleanup = () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+      cleanupListenersRef.current = null
+    }
+
+    cleanupListenersRef.current = cleanup
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+  }, [selectedHashes, setSelectedHashes])
+
   // 썸네일 크기 조절 (로컬 상태 폴백)
   const [localThumbnailSize, setLocalThumbnailSize] = useState<number>(180)
   const thumbnailSize = toolbarState?.thumbnailSize ?? localThumbnailSize
@@ -368,6 +541,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
     prevGroupTotalPagesRef.current = groupTotalPages
   }, [groupPage, groupTotalPages])
+
+  const setStatus = useCallback(
+    async (hash: string, status: CurationStatus) => {
+      try {
+        await curationApi.patchStatus(backendUrl, hash, status)
+        reload()
+      } catch (err) {
+        console.error("setStatus failed", err)
+      }
+    },
+    [backendUrl, reload]
+  )
+
 
   // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
   const metadataFilteredImages = useMemo(() => {
@@ -740,7 +926,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [focusedHash, navImages, selectionMode, toggleSelectHash, togglePin, pinnedHashes, selected])
+  }, [focusedHash, navImages, selectionMode, toggleSelectHash, togglePin, pinnedHashes, selected, setStatus])
 
   // 갤러리 이미지 토큰 실시간 추출 후 상위 컴포넌트 전달
   useEffect(() => {
@@ -782,15 +968,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
     onTokensExtracted(extracted.slice(0, 150))
   }, [images, onTokensExtracted])
-
-  const setStatus = async (hash: string, status: CurationStatus) => {
-    try {
-      await curationApi.patchStatus(backendUrl, hash, status)
-      reload()
-    } catch (err) {
-      console.error("setStatus failed", err)
-    }
-  }
 
 
   const handleLongPress = useCallback(
@@ -959,7 +1136,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="flex flex-col">
+        <div className="flex flex-1 flex-col">
       {/* ── Sticky Toolbar Header (내부 렌더링: toolbarState 없을 때만) ── */}
       {!toolbarState && (
         <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-panel px-4 py-2">
@@ -1294,7 +1471,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       )}
 
       {/* ── Scrollable Content ── */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4" onMouseDown={handleMouseDown}>
         {/* ── Danbooru Folder-like Breadcrumb tag system ── */}
         <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-card px-5 py-4 shadow-sm">
           {/* Top Row: Title/Icon + Breadcrumb Trail */}
@@ -1902,6 +2079,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <div
+        ref={marqueeRef}
+        className="fixed z-[9999] pointer-events-none border border-primary/60 bg-primary/10 rounded-sm shadow-xs"
+        style={{ display: "none" }}
+      />
     </div>
   </ContextMenuTrigger>
   <ContextMenuContent className="w-48">

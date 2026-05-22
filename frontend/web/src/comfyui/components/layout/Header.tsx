@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react"
 import {
   ArrowDown,
   ArrowUp,
@@ -12,6 +13,7 @@ import {
   Moon,
   Monitor,
   LayoutGrid,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
@@ -143,6 +145,59 @@ interface HeaderProps {
 export function Header(props: HeaderProps) {
   const { theme, setTheme } = useTheme()
 
+  const [isCompact, setIsCompact] = useState(false)
+
+  const headerRef = useRef<HTMLDivElement>(null)
+  const logoRef = useRef<HTMLSpanElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  
+  const galleryToolbarRef = useRef<HTMLDivElement>(null)
+  const curationToolbarRef = useRef<HTMLDivElement>(null)
+  const rightSectionRef = useRef<HTMLDivElement>(null)
+  
+  const cachedTabsWidthRef = useRef<number>(480)
+
+  useEffect(() => {
+    if (!headerRef.current) return
+
+    const getElWidth = (el: HTMLElement | null) => {
+      if (!el) return 0
+      return Math.max(el.scrollWidth, el.getBoundingClientRect().width)
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const currentWidth = entry.contentRect.width
+
+        const logoWidth = getElWidth(logoRef.current)
+        
+        let toolbarWidth = 0
+        if (rightSectionRef.current) {
+          toolbarWidth += getElWidth(rightSectionRef.current)
+        }
+        if (props.activeTab === "gallery" && galleryToolbarRef.current) {
+          toolbarWidth += getElWidth(galleryToolbarRef.current)
+        } else if (props.activeTab === "curation" && curationToolbarRef.current) {
+          toolbarWidth += getElWidth(curationToolbarRef.current)
+        }
+
+        if (tabsRef.current) {
+          const actualTabsWidth = getElWidth(tabsRef.current)
+          if (actualTabsWidth > 0) {
+            cachedTabsWidthRef.current = actualTabsWidth
+          }
+        }
+
+        // 로고 + 가로탭 + 활성화된 우측 툴바들 + 안전 마진(64px)
+        const requiredWidth = logoWidth + cachedTabsWidthRef.current + toolbarWidth + 64
+        setIsCompact(currentWidth < requiredWidth)
+      }
+    })
+
+    observer.observe(headerRef.current)
+    return () => observer.disconnect()
+  }, [props.activeTab])
+
   const toggleSort = (
     key: "createdAt" | "filename" | "sizeBytes"
   ) => {
@@ -155,7 +210,7 @@ export function Header(props: HeaderProps) {
   }
 
   return (
-    <nav className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
+    <nav ref={headerRef} className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
       <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
         <div className="flex flex-1 items-center overflow-hidden md:gap-4">
           {/* Mobile hamburger (left side) */}
@@ -261,47 +316,97 @@ export function Header(props: HeaderProps) {
               </div>
             </SheetContent>
           </Sheet>
-          <span className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]">
+          <span ref={logoRef} className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]">
             <span className="hidden md:inline">ComfyEmotionGen</span>
           </span>
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
           {/* Desktop tabs */}
-          <div
-            className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex"
-            role="tablist"
-            aria-label="메인 탭 네비게이션"
-          >
-            {NAV_TABS.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <Button
-                  key={tab.id}
-                  variant="ghost"
-                  size="sm"
-                  role="tab"
-                  aria-selected={props.activeTab === tab.id}
-                  aria-label={tab.label}
-                  onClick={() => props.setActiveTab(tab.id)}
-                  className={`h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
-                    props.activeTab === tab.id
-                      ? "bg-foreground text-background shadow-lg"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  }`}
-                >
-                  <Icon
-                    className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
-                  />
-                  <span
-                    className={
-                      props.activeTab === tab.id ? "" : "hidden sm:inline"
-                    }
+          {isCompact ? (
+            <div className="hidden md:block">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 rounded-full border-line bg-background px-4 text-[13px] font-black shadow-xs hover:bg-accent/50"
                   >
-                    {tab.label}
-                  </span>
-                </Button>
-              )
-            })}
-          </div>
+                    {(() => {
+                      const activeTabInfo = NAV_TABS.find((t) => t.id === props.activeTab)
+                      const ActiveIcon = activeTabInfo?.icon
+                      return (
+                        <>
+                          {ActiveIcon && <ActiveIcon className="h-4 w-4 opacity-100" />}
+                          <span>{activeTabInfo?.label}</span>
+                        </>
+                      )
+                    })()}
+                    <ChevronDown className="h-3.5 w-3.5 opacity-55" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[150px] p-1.5">
+                  {NAV_TABS.map((tab) => {
+                    const TabIcon = tab.icon
+                    const isActive = props.activeTab === tab.id
+                    return (
+                      <DropdownMenuItem
+                        key={tab.id}
+                        onClick={() => props.setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold ${
+                          isActive
+                            ? "bg-accent text-accent-foreground"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        }`}
+                      >
+                        <TabIcon className={`h-3.5 w-3.5 ${isActive ? "opacity-100" : "opacity-60"}`} />
+                        <span>{tab.label}</span>
+                        {isActive && (
+                          <div className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-foreground" />
+                        )}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <div
+              ref={tabsRef}
+              className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex"
+              role="tablist"
+              aria-label="메인 탭 네비게이션"
+            >
+              {NAV_TABS.map((tab) => {
+                const Icon = tab.icon
+                return (
+                  <Button
+                    key={tab.id}
+                    variant="ghost"
+                    size="sm"
+                    role="tab"
+                    aria-selected={props.activeTab === tab.id}
+                    aria-label={tab.label}
+                    onClick={() => props.setActiveTab(tab.id)}
+                    className={`h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
+                      props.activeTab === tab.id
+                        ? "bg-foreground text-background shadow-lg"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    }`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
+                    />
+                    <span
+                      className={
+                        props.activeTab === tab.id ? "" : "hidden sm:inline"
+                      }
+                    >
+                      {tab.label}
+                    </span>
+                  </Button>
+                )
+              })}
+            </div>
+          )}
           {/* Mobile composition tabs (jobs editor only) */}
           {props.activeTab === "jobs" && props.mobileJobTab === "editor" && (
             <div className="no-scrollbar flex flex-1 items-center justify-between gap-2 overflow-x-auto md:hidden">
@@ -393,7 +498,7 @@ export function Header(props: HeaderProps) {
             )}
           {/* Gallery toolbar (merged into nav) */}
           {props.activeTab === "gallery" && (
-            <div className="flex items-center gap-1.5">
+            <div ref={galleryToolbarRef} className="flex items-center gap-1.5">
               <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
               <Select
                 value={props.galleryStatusFilter}
@@ -585,7 +690,7 @@ export function Header(props: HeaderProps) {
           )}
           {/* Curation toolbar (merged into nav) */}
           {props.activeTab === "curation" && (
-            <div className="flex items-center gap-1.5">
+            <div ref={curationToolbarRef} className="flex items-center gap-1.5">
               <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
               {/* Classification axis selector (template + free axes unified) */}
               <Select
@@ -644,7 +749,7 @@ export function Header(props: HeaderProps) {
             </div>
           )}
         </div>
-        <div className="ml-1 hidden shrink-0 items-center gap-2 md:flex">
+        <div ref={rightSectionRef} className="ml-1 hidden shrink-0 items-center gap-2 md:flex">
           {props.activeTab === "jobs" && props.sessionMarkers && (
             <div className="mr-1 flex items-center gap-1.5 border-r border-line/65 pr-3">
               <div className="relative">

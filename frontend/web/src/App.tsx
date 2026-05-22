@@ -892,7 +892,7 @@ function AppContent(props: AppContentProps) {
           </div>
         )}
         {props.activeTab === "gallery" && (
-          <div className="flex flex-col bg-background">
+          <div className="flex flex-1 flex-col bg-background">
             <SavedImagesGallery
               backendUrl={props.backendUrl}
               enableHover={props.settings.enableHover}
