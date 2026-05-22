@@ -37,6 +37,7 @@ python -m PyInstaller --name "ComfyEmotionGen-backend" `
             --hidden-import "uvicorn.protocols.websockets.auto" `
             --hidden-import "uvicorn.lifespan" `
             --hidden-import "uvicorn.lifespan.on" `
+            --hidden-import "multipart" `
             --clean `
             backend_entry.py
 

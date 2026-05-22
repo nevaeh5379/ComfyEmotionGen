@@ -83,6 +83,7 @@ Write-Host "Running PyInstaller compilation..." -ForegroundColor Gray
             --hidden-import "uvicorn.protocols.websockets.auto" `
             --hidden-import "uvicorn.lifespan" `
             --hidden-import "uvicorn.lifespan.on" `
+            --hidden-import "multipart" `
             --clean `
             launcher.py
 
