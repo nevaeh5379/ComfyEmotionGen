@@ -19,7 +19,7 @@ export function KeyboardShortcutsDialog({
 }: KeyboardShortcutsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1.5rem)] sm:w-full sm:max-w-2xl border-line/60 bg-panel/95 shadow-2xl backdrop-blur-md dark:bg-panel/90 p-4 sm:p-6">
+      <DialogContent className="w-[calc(100%-1.5rem)] border-line/60 bg-panel/95 p-4 shadow-2xl backdrop-blur-md sm:w-full sm:max-w-2xl sm:p-6 dark:bg-panel/90">
         <DialogHeader className="border-b border-line/40 pb-4">
           <DialogTitle className="flex items-center gap-2.5 text-lg font-black tracking-tight text-foreground">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -30,23 +30,35 @@ export function KeyboardShortcutsDialog({
         </DialogHeader>
 
         <Tabs defaultValue="global" className="mt-4 w-full">
-          <TabsList className="flex w-full items-center justify-start overflow-x-auto no-scrollbar border border-line/30 bg-muted/40 p-0.5 rounded-lg">
-            <TabsTrigger value="global" className="flex-1 shrink-0 flex items-center justify-center gap-1.5 font-bold cursor-pointer whitespace-nowrap px-3 py-1.5">
+          <TabsList className="no-scrollbar flex w-full items-center justify-start overflow-x-auto rounded-lg border border-line/30 bg-muted/40 p-0.5">
+            <TabsTrigger
+              value="global"
+              className="flex flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 font-bold whitespace-nowrap"
+            >
               <Globe className="h-3.5 w-3.5" />
               전역 단축키
             </TabsTrigger>
-            <TabsTrigger value="gallery" className="flex-1 shrink-0 flex items-center justify-center gap-1.5 font-bold cursor-pointer whitespace-nowrap px-3 py-1.5">
+            <TabsTrigger
+              value="gallery"
+              className="flex flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 font-bold whitespace-nowrap"
+            >
               <Image className="h-3.5 w-3.5" />
               갤러리 단축키
             </TabsTrigger>
-            <TabsTrigger value="curation" className="flex-1 shrink-0 flex items-center justify-center gap-1.5 font-bold cursor-pointer whitespace-nowrap px-3 py-1.5">
+            <TabsTrigger
+              value="curation"
+              className="flex flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 font-bold whitespace-nowrap"
+            >
               <Sparkles className="h-3.5 w-3.5" />
               큐레이션 단축키
             </TabsTrigger>
           </TabsList>
 
           {/* ────────────────── 1. GLOBAL SHORTCUTS ────────────────── */}
-          <TabsContent value="global" className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <TabsContent
+            value="global"
+            className="mt-4 max-h-[60vh] space-y-4 overflow-y-auto pr-1"
+          >
             <div className="rounded-xl border border-line/20 bg-background/25 p-1.5">
               <div className="px-3 py-2">
                 <h3 className="text-xs font-black tracking-wider text-muted-foreground/75 uppercase">
@@ -63,7 +75,9 @@ export function KeyboardShortcutsDialog({
                   keys={["Alt", "1..5"]}
                   alternativeKeys={["Ctrl", "Shift", "1..5"]}
                   description="메인 탭 이동"
-                  subDescription={"1:\u00a0작업, 2:\u00a0통계, 3:\u00a0갤러리, 4:\u00a0큐레이션, 5:\u00a0설정"}
+                  subDescription={
+                    "1:\u00a0작업, 2:\u00a0통계, 3:\u00a0갤러리, 4:\u00a0큐레이션, 5:\u00a0설정"
+                  }
                 />
               </div>
             </div>
@@ -108,7 +122,10 @@ export function KeyboardShortcutsDialog({
           </TabsContent>
 
           {/* ────────────────── 2. GALLERY SHORTCUTS ────────────────── */}
-          <TabsContent value="gallery" className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <TabsContent
+            value="gallery"
+            className="mt-4 max-h-[60vh] space-y-4 overflow-y-auto pr-1"
+          >
             <div className="rounded-xl border border-line/20 bg-background/25 p-1.5">
               <div className="px-3 py-2">
                 <h3 className="text-xs font-black tracking-wider text-muted-foreground/75 uppercase">
@@ -201,7 +218,10 @@ export function KeyboardShortcutsDialog({
           </TabsContent>
 
           {/* ────────────────── 3. CURATION SHORTCUTS ────────────────── */}
-          <TabsContent value="curation" className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <TabsContent
+            value="curation"
+            className="mt-4 max-h-[60vh] space-y-4 overflow-y-auto pr-1"
+          >
             <div className="rounded-xl border border-line/20 bg-background/25 p-1.5">
               <div className="px-3 py-2">
                 <h3 className="text-xs font-black tracking-wider text-muted-foreground/75 uppercase">
@@ -242,9 +262,12 @@ export function KeyboardShortcutsDialog({
           </TabsContent>
         </Tabs>
 
-        <div className="mt-5 border-t border-line/40 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>* 입력 포커스가 검색 창이나 텍스트 박스에 있을 때는 단축키가 작동하지 않습니다.</span>
-          <div className="flex items-center gap-1.5 shrink-0 justify-start sm:justify-end">
+        <div className="mt-5 flex flex-col justify-between gap-2 border-t border-line/40 pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center">
+          <span>
+            * 입력 포커스가 검색 창이나 텍스트 박스에 있을 때는 단축키가
+            작동하지 않습니다.
+          </span>
+          <div className="flex shrink-0 items-center justify-start gap-1.5 sm:justify-end">
             <span>닫기</span>
             <Kbd className="bg-muted px-2 py-0.5">Esc</Kbd>
           </div>
@@ -268,42 +291,54 @@ function ShortcutRow({
   subDescription,
 }: ShortcutRowProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 border-b border-line/10 last:border-b-0 text-sm transition-all duration-150 hover:bg-muted/15 rounded-lg">
+    <div className="flex flex-col justify-between gap-3 rounded-lg border-b border-line/10 px-4 py-3 text-sm transition-all duration-150 last:border-b-0 hover:bg-muted/15 sm:flex-row sm:items-center">
       {/* Left Column: Description & SubDescription */}
-      <div className="flex flex-col gap-0.5 flex-1 min-w-0 pr-4">
-        <span className="font-semibold text-foreground/90 dark:text-foreground/95 leading-normal break-keep">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-4">
+        <span className="leading-normal font-semibold break-keep text-foreground/90 dark:text-foreground/95">
           {description}
         </span>
         {subDescription && (
-          <span className="text-[11.5px] text-muted-foreground/80 leading-relaxed font-medium break-keep">
+          <span className="text-[11.5px] leading-relaxed font-medium break-keep text-muted-foreground/80">
             {subDescription}
           </span>
         )}
       </div>
 
       {/* Right Column: Key combinations laid out horizontally, wrapping cleanly as full blocks */}
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 justify-start sm:justify-end text-left sm:text-right">
+      <div className="flex shrink-0 flex-wrap items-center justify-start gap-1.5 text-left sm:justify-end sm:gap-2 sm:text-right">
         {/* Primary combination */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           {keys.map((k, i) => (
-            <span key={i} className="flex items-center gap-1 shrink-0">
-              {i > 0 && <span className="text-[10px] text-muted-foreground/50 font-black shrink-0">+</span>}
-              <Kbd className="bg-muted/95 shadow-xs border-line/60 font-mono font-black py-0.5 px-1.5 h-6 select-none shrink-0">{k}</Kbd>
+            <span key={i} className="flex shrink-0 items-center gap-1">
+              {i > 0 && (
+                <span className="shrink-0 text-[10px] font-black text-muted-foreground/50">
+                  +
+                </span>
+              )}
+              <Kbd className="h-6 shrink-0 border-line/60 bg-muted/95 px-1.5 py-0.5 font-mono font-black shadow-xs select-none">
+                {k}
+              </Kbd>
             </span>
           ))}
         </div>
 
         {/* Alternative combination */}
         {alternativeKeys && (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10.5px] text-muted-foreground/45 font-bold select-none whitespace-nowrap px-0.5">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="px-0.5 text-[10.5px] font-bold whitespace-nowrap text-muted-foreground/45 select-none">
               또는
             </span>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-1">
               {alternativeKeys.map((k, i) => (
-                <span key={i} className="flex items-center gap-1 shrink-0">
-                  {i > 0 && <span className="text-[10px] text-muted-foreground/50 font-black shrink-0">+</span>}
-                  <Kbd className="bg-muted/60 text-muted-foreground border-line/45 font-mono font-bold py-0.5 px-1.5 h-6 select-none shrink-0">{k}</Kbd>
+                <span key={i} className="flex shrink-0 items-center gap-1">
+                  {i > 0 && (
+                    <span className="shrink-0 text-[10px] font-black text-muted-foreground/50">
+                      +
+                    </span>
+                  )}
+                  <Kbd className="h-6 shrink-0 border-line/45 bg-muted/60 px-1.5 py-0.5 font-mono font-bold text-muted-foreground select-none">
+                    {k}
+                  </Kbd>
                 </span>
               ))}
             </div>

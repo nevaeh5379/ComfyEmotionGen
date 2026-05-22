@@ -150,7 +150,8 @@ export function useJobRunner({
   }
 
   const handleRandomRun = async (count: number = 1) => {
-    if (!workflowJson || !isAliveBackend || axisFilteredItems.length === 0) return
+    if (!workflowJson || !isAliveBackend || axisFilteredItems.length === 0)
+      return
     const selected = randomSelect(axisFilteredItems, count)
     await submitJobs(selected)
   }

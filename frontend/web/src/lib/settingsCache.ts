@@ -31,10 +31,7 @@ export function populateSettingsCache(settings: Record<string, string>): void {
 }
 
 /** 단일 설정 변경(다른 기기의 PUT/DELETE) 시 반영. */
-export function applySettingUpdate(
-  key: string,
-  value: string | null
-): void {
+export function applySettingUpdate(key: string, value: string | null): void {
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)

@@ -59,11 +59,20 @@ export function useGlobalShortcuts({
       const modifier = isMac ? e.metaKey : e.ctrlKey
 
       // Ctrl + Shift + 1..6 or Alt + 1..6 → Switch tabs
-      const isSwitchTabModifier = (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) || (modifier && e.shiftKey)
+      const isSwitchTabModifier =
+        (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) ||
+        (modifier && e.shiftKey)
       if (isSwitchTabModifier && e.key >= "1" && e.key <= "6") {
         e.preventDefault()
         const tabIndex = parseInt(e.key) - 1
-        const tabs: TabId[] = ["jobs", "stats", "gallery", "curation", "generator", "settings"]
+        const tabs: TabId[] = [
+          "jobs",
+          "stats",
+          "gallery",
+          "curation",
+          "generator",
+          "settings",
+        ]
         const targetTab = tabs[tabIndex]
         if (targetTab && setActiveTab) {
           setActiveTab(targetTab)
@@ -126,4 +135,3 @@ export function useGlobalShortcuts({
     toggleShortcuts,
   ])
 }
-

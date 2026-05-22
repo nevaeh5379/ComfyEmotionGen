@@ -19,9 +19,14 @@ const readBackendUrl = (): string => {
 }
 
 /** 모든 설정을 {key: value}로 반환. 실패 시 null. */
-export async function fetchAllSettings(): Promise<Record<string, string> | null> {
+export async function fetchAllSettings(): Promise<Record<
+  string,
+  string
+> | null> {
   try {
-    const res = await fetch(`${readBackendUrl()}/app-settings`, { cache: "no-store" })
+    const res = await fetch(`${readBackendUrl()}/app-settings`, {
+      cache: "no-store",
+    })
     if (!res.ok) {
       toast.error(`설정 로드 실패: HTTP ${res.status}`)
       return null
@@ -54,7 +59,10 @@ export async function fetchSetting(key: string): Promise<string | null> {
 }
 
 /** 설정 저장. 성공 시 true, 실패 시 false. */
-export async function saveSetting(key: string, value: string): Promise<boolean> {
+export async function saveSetting(
+  key: string,
+  value: string
+): Promise<boolean> {
   try {
     const res = await fetch(
       `${readBackendUrl()}/app-settings/${encodeURIComponent(key)}`,

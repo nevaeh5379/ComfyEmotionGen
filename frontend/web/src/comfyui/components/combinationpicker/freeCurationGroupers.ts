@@ -1,7 +1,11 @@
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 
-export type FreeGroupBy = "filename" | "parsedFilename" | "tags" | "savedTemplate"
+export type FreeGroupBy =
+  | "filename"
+  | "parsedFilename"
+  | "tags"
+  | "savedTemplate"
 
 export const FREE_GROUP_LABELS: Record<FreeGroupBy, string> = {
   filename: "파일명별",
@@ -25,7 +29,8 @@ export type AxisValue =
   | { kind: "free"; mode: FreeGroupBy }
 
 export function encodeAxis(v: AxisValue): string {
-  if (v.kind === "template") return `template:${v.templateId || CURRENT_TEMPLATE_ID}`
+  if (v.kind === "template")
+    return `template:${v.templateId || CURRENT_TEMPLATE_ID}`
   return `free:${v.mode}`
 }
 
@@ -107,8 +112,7 @@ export function groupSavedImagesAsRenderItems(
   if (mode === "tags") {
     const tagBuckets = new Map<string, Set<string>>()
     for (const img of active) {
-      const tagList =
-        img.tags && img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
+      const tagList = img.tags && img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
       for (const tag of tagList) {
         if (!tagBuckets.has(tag)) tagBuckets.set(tag, new Set())
         tagBuckets.get(tag)!.add(img.originalFilename)
@@ -159,8 +163,7 @@ export function buildImagesByGroupKey(
 
   if (mode === "tags") {
     for (const img of active) {
-      const tagList =
-        img.tags && img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
+      const tagList = img.tags && img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
       for (const tag of tagList) push(`tag:${tag}`, img)
     }
     return map

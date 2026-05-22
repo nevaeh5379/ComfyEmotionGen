@@ -22,10 +22,7 @@ import {
   CombinationContextMenu,
   type RenderItem,
 } from "./CombinationPickerComponents"
-import {
-  StatusIcon,
-  MetaTags,
-} from "./CombinationPickerHelpers"
+import { StatusIcon, MetaTags } from "./CombinationPickerHelpers"
 import { useCurationContext } from "./CurationContext"
 
 /* ─── Magnifier ─── */
@@ -219,7 +216,7 @@ export function TournamentView({
           </span>
         </div>
       </div>
-      <div className="flex w-full flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-6 justify-center">
+      <div className="flex w-full flex-1 flex-col justify-center gap-4 overflow-hidden md:flex-row md:gap-6">
         {[left, right].map((img, idx) => (
           <button
             key={img.hash}
@@ -231,7 +228,7 @@ export function TournamentView({
             <img
               src={`${backendUrl}/saved-images/${img.hash}`}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover blur-md opacity-35 scale-110 pointer-events-none select-none"
+              className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md select-none"
             />
             <img
               src={`${backendUrl}/saved-images/${img.hash}`}
@@ -351,7 +348,10 @@ function GalleryGridItem({
   enableHover: boolean
   selectionMode: boolean
   isSelected: boolean
-  toggleSelect: (filename: string, e?: React.MouseEvent | React.KeyboardEvent) => void
+  toggleSelect: (
+    filename: string,
+    e?: React.MouseEvent | React.KeyboardEvent
+  ) => void
   onSelect: (filename: string) => void
   onOpen: (filename: string) => void
   onLongPress: (filename: string) => void
@@ -367,41 +367,33 @@ function GalleryGridItem({
     <ContextMenu key={item.filename}>
       <ContextMenuTrigger asChild>
         <div className="contents">
-          <HoverCard
-            openDelay={enableHover ? 500 : 99999}
-            closeDelay={100}
-          >
+          <HoverCard openDelay={enableHover ? 500 : 99999} closeDelay={100}>
             <HoverCardTrigger asChild>
               <LongPressWrapper
                 onLongPress={() => onLongPress(item.filename)}
                 onClick={(e) => {
-                  if (
-                    selectionMode ||
-                    e.shiftKey ||
-                    e.ctrlKey ||
-                    e.metaKey
-                  ) {
+                  if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
                     toggleSelect(item.filename, e)
                   } else {
                     onSelect(item.filename)
                   }
                 }}
-                className={`group relative rounded-xl border bg-card p-1 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] ${isSelected ? "bg-blue-50/10 ring-2 ring-blue-500 border-blue-500/80 shadow-md shadow-blue-500/10" : "border-border/80 hover:border-primary/50"}`}
+                className={`group relative rounded-xl border bg-card p-1 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] ${isSelected ? "border-blue-500/80 bg-blue-50/10 shadow-md ring-2 shadow-blue-500/10 ring-blue-500" : "border-border/80 hover:border-primary/50"}`}
               >
-                <div 
+                <div
                   className="relative overflow-hidden rounded-lg bg-muted"
                   style={{ aspectRatio: aspect ?? 1 }}
                 >
                   {preview ? (
                     <>
                       {loading && (
-                        <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center">
+                        <div className="absolute inset-0 flex animate-pulse items-center justify-center bg-muted">
                           <FolderIcon className="h-8 w-8 text-muted-foreground/15" />
                         </div>
                       )}
                       <img
                         src={`${backendUrl}/saved-images/${preview.hash}`}
-                        className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${loading ? "opacity-0" : "opacity-100"}`}
+                        className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-105 ${loading ? "opacity-0" : "opacity-100"}`}
                         alt=""
                         onLoad={(e) => {
                           setLoading(false)
@@ -431,37 +423,41 @@ function GalleryGridItem({
                   )}
 
                   {!selectionMode && (
-                    <div className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded bg-black/45 text-white border border-white/10 backdrop-blur-md shadow-xs opacity-90 transition-transform group-hover:scale-105 duration-300">
+                    <div className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded border border-white/10 bg-black/45 text-white opacity-90 shadow-xs backdrop-blur-md transition-transform duration-300 group-hover:scale-105">
                       <FolderIcon className="h-3 w-3" />
                     </div>
                   )}
 
                   {isDone && (
-                    <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-white shadow-md border border-white/20 transition-transform group-hover:scale-110 duration-300 z-20">
+                    <div className="absolute top-2 right-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-green-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
                       <CheckIcon className="h-3.5 w-3.5 stroke-[3]" />
                     </div>
                   )}
 
                   {/* 장수 배지 - 승인 아이콘이 있으면 왼쪽으로 이동하여 겹치지 않게 처리 */}
-                  <div className={`absolute top-2 rounded-sm bg-black/60 border border-white/5 px-1.5 py-0.5 text-[9px] font-extrabold text-white backdrop-blur-md shadow-xs z-10 transition-all duration-300 ${isDone ? "right-10" : "right-2"}`}>
+                  <div
+                    className={`absolute top-2 z-10 rounded-sm border border-white/5 bg-black/60 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-xs backdrop-blur-md transition-all duration-300 ${isDone ? "right-10" : "right-2"}`}
+                  >
                     {imgs.length}장
                   </div>
 
                   {/* 파일명 & 태그 오버레이 */}
-                  <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-linear-to-t from-black/85 via-black/55 to-transparent pt-8 pb-2 px-2 text-center">
-                    <div className="truncate font-mono text-[10px] font-black text-white/95 tracking-tight">
+                  <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-linear-to-t from-black/85 via-black/55 to-transparent px-2 pt-8 pb-2 text-center">
+                    <div className="truncate font-mono text-[10px] font-black tracking-tight text-white/95">
                       {item.filename}
                     </div>
                     {item.meta && Object.keys(item.meta).length > 0 && (
-                      <div className="flex justify-center gap-1 flex-wrap">
-                        {Object.values(item.meta).slice(0, 2).map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="rounded bg-white/15 px-1 py-0.5 text-[8px] font-extrabold uppercase text-white/80 backdrop-blur-md border border-white/5 whitespace-nowrap"
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {Object.values(item.meta)
+                          .slice(0, 2)
+                          .map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className="rounded border border-white/5 bg-white/15 px-1 py-0.5 text-[8px] font-extrabold whitespace-nowrap text-white/80 uppercase backdrop-blur-md"
+                            >
+                              {tag}
+                            </span>
+                          ))}
                       </div>
                     )}
                   </div>
@@ -503,13 +499,14 @@ export function GalleryView({
   onLongPress: (filename: string) => void
   onRegenerate?: (filename: string) => void
 }) {
-  const { backendUrl, enableHover, data, selection, thumbnailSize } = useCurationContext()
+  const { backendUrl, enableHover, data, selection, thumbnailSize } =
+    useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
   const { selectionMode, selectedFilenames, toggleSelect } = selection
 
   return (
     <div
-      className="grid gap-4 items-start"
+      className="grid items-start gap-4"
       style={{
         gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize}px)`,
       }}

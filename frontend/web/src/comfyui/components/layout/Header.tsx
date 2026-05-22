@@ -48,7 +48,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Tabs } from "@/components/ui/tabs"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { CompositionTabsList } from "../CompositionTabsList"
 import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
@@ -138,16 +142,17 @@ export function Header(props: HeaderProps) {
 
   const [isCompact, setIsCompact] = useState(false)
   const [isGalleryToolbarCompact, setIsGalleryToolbarCompact] = useState(false)
-  const [isGalleryToolbarUltraCompact, setIsGalleryToolbarUltraCompact] = useState(false)
+  const [isGalleryToolbarUltraCompact, setIsGalleryToolbarUltraCompact] =
+    useState(false)
 
   const headerRef = useRef<HTMLDivElement>(null)
   const logoRef = useRef<HTMLSpanElement>(null)
   const tabsRef = useRef<HTMLDivElement>(null)
-  
+
   const galleryToolbarRef = useRef<HTMLDivElement>(null)
   const curationToolbarRef = useRef<HTMLDivElement>(null)
   const rightSectionRef = useRef<HTMLDivElement>(null)
-  
+
   const cachedTabsWidthRef = useRef<number>(480)
   const cachedGalleryToolbarWidthRef = useRef<number>(450)
   const cachedGalleryToolbarCompactWidthRef = useRef<number>(280)
@@ -166,13 +171,13 @@ export function Header(props: HeaderProps) {
 
         const logoWidth = getElWidth(logoRef.current)
         const rightSectionWidth = getElWidth(rightSectionRef.current)
-        
+
         let targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
         let toolbarWidth = rightSectionWidth
-        
+
         if (props.activeTab === "gallery" && galleryToolbarRef.current) {
           const currentToolbarWidth = getElWidth(galleryToolbarRef.current)
-          
+
           if (!isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
             // 완전히 펼쳐진 상태의 너비 캐싱
             cachedGalleryToolbarWidthRef.current = currentToolbarWidth
@@ -181,17 +186,21 @@ export function Header(props: HeaderProps) {
             // 1단계 콤팩트 상태(셀렉트 박스들은 살아있음)의 너비 캐싱
             cachedGalleryToolbarCompactWidthRef.current = currentToolbarWidth
           }
-          
+
           if (isGalleryToolbarUltraCompact) {
             targetGalleryToolbarWidth = 36 // MoreVertical 버튼 1개만 노출될 때의 너비
           } else if (isGalleryToolbarCompact) {
-            targetGalleryToolbarWidth = cachedGalleryToolbarCompactWidthRef.current
+            targetGalleryToolbarWidth =
+              cachedGalleryToolbarCompactWidthRef.current
           } else {
             targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
           }
-          
+
           toolbarWidth += targetGalleryToolbarWidth
-        } else if (props.activeTab === "curation" && curationToolbarRef.current) {
+        } else if (
+          props.activeTab === "curation" &&
+          curationToolbarRef.current
+        ) {
           toolbarWidth += getElWidth(curationToolbarRef.current)
         }
 
@@ -203,21 +212,32 @@ export function Header(props: HeaderProps) {
         }
 
         // 1. 탭 콤팩트 판단 (로고 + 가로탭 리스트 + 우측 툴바 + 안전 마진)
-        const requiredWidthForTabs = logoWidth + cachedTabsWidthRef.current + toolbarWidth + 64
+        const requiredWidthForTabs =
+          logoWidth + cachedTabsWidthRef.current + toolbarWidth + 64
         const nextIsCompact = currentWidth < requiredWidthForTabs
         setIsCompact(nextIsCompact)
 
         // 2. 갤러리 툴바 콤팩트 판단
         if (props.activeTab === "gallery") {
           const tabsWidth = nextIsCompact ? 120 : cachedTabsWidthRef.current
-          
+
           // 풀 버전 기준 필요한 너비
-          const requiredWidthForToolbar = logoWidth + tabsWidth + cachedGalleryToolbarWidthRef.current + rightSectionWidth + 64
+          const requiredWidthForToolbar =
+            logoWidth +
+            tabsWidth +
+            cachedGalleryToolbarWidthRef.current +
+            rightSectionWidth +
+            64
           const nextIsToolbarCompact = currentWidth < requiredWidthForToolbar
           setIsGalleryToolbarCompact(nextIsToolbarCompact)
-          
+
           // 콤팩트 버전 기준 필요한 너비 (드롭다운 3개 + 방향 버튼이 펼쳐진 상태)
-          const requiredWidthForUltraToolbar = logoWidth + tabsWidth + cachedGalleryToolbarCompactWidthRef.current + rightSectionWidth + 64
+          const requiredWidthForUltraToolbar =
+            logoWidth +
+            tabsWidth +
+            cachedGalleryToolbarCompactWidthRef.current +
+            rightSectionWidth +
+            64
           const nextIsUltraCompact = currentWidth < requiredWidthForUltraToolbar
           setIsGalleryToolbarUltraCompact(nextIsUltraCompact)
         } else {
@@ -231,9 +251,7 @@ export function Header(props: HeaderProps) {
     return () => observer.disconnect()
   }, [props.activeTab, isGalleryToolbarCompact, isGalleryToolbarUltraCompact])
 
-  const toggleSort = (
-    key: "createdAt" | "filename" | "sizeBytes"
-  ) => {
+  const toggleSort = (key: "createdAt" | "filename" | "sizeBytes") => {
     if (tb.sortKey === key) {
       tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
     } else {
@@ -243,7 +261,10 @@ export function Header(props: HeaderProps) {
   }
 
   return (
-    <nav ref={headerRef} className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80">
+    <nav
+      ref={headerRef}
+      className="sticky top-0 z-50 shrink-0 border-b border-line bg-panel/95 backdrop-blur supports-backdrop-filter:bg-panel/80"
+    >
       <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
         <div className="flex flex-1 items-center overflow-hidden md:gap-4">
           {/* Mobile hamburger (left side) */}
@@ -349,7 +370,10 @@ export function Header(props: HeaderProps) {
               </div>
             </SheetContent>
           </Sheet>
-          <span ref={logoRef} className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]">
+          <span
+            ref={logoRef}
+            className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]"
+          >
             <span className="hidden md:inline">ComfyEmotionGen</span>
           </span>
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
@@ -364,11 +388,15 @@ export function Header(props: HeaderProps) {
                     className="h-9 gap-2 rounded-full border-line bg-background px-4 text-[13px] font-black shadow-xs hover:bg-accent/50"
                   >
                     {(() => {
-                      const activeTabInfo = NAV_TABS.find((t) => t.id === props.activeTab)
+                      const activeTabInfo = NAV_TABS.find(
+                        (t) => t.id === props.activeTab
+                      )
                       const ActiveIcon = activeTabInfo?.icon
                       return (
                         <>
-                          {ActiveIcon && <ActiveIcon className="h-4 w-4 opacity-100" />}
+                          {ActiveIcon && (
+                            <ActiveIcon className="h-4 w-4 opacity-100" />
+                          )}
                           <span>{activeTabInfo?.label}</span>
                         </>
                       )
@@ -390,7 +418,9 @@ export function Header(props: HeaderProps) {
                             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                         }`}
                       >
-                        <TabIcon className={`h-3.5 w-3.5 ${isActive ? "opacity-100" : "opacity-60"}`} />
+                        <TabIcon
+                          className={`h-3.5 w-3.5 ${isActive ? "opacity-100" : "opacity-60"}`}
+                        />
                         <span>{tab.label}</span>
                         {isActive && (
                           <div className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-foreground" />
@@ -424,9 +454,12 @@ export function Header(props: HeaderProps) {
                         ? props.onGalleryDragStart
                         : undefined
                 const isDetached =
-                  (tab.id === "stats" && (panel.stats.isFloating || panel.stats.isDocked)) ||
-                  (tab.id === "curation" && (panel.curation.isFloating || panel.curation.isDocked)) ||
-                  (tab.id === "gallery" && (panel.gallery.isFloating || panel.gallery.isDocked))
+                  (tab.id === "stats" &&
+                    (panel.stats.isFloating || panel.stats.isDocked)) ||
+                  (tab.id === "curation" &&
+                    (panel.curation.isFloating || panel.curation.isDocked)) ||
+                  (tab.id === "gallery" &&
+                    (panel.gallery.isFloating || panel.gallery.isDocked))
                 return (
                   <Button
                     key={tab.id}
@@ -442,40 +475,59 @@ export function Header(props: HeaderProps) {
                       }
                       props.setActiveTab(tab.id)
                     }}
-                    onMouseDown={isDraggableTab && dragCb ? (e) => {
-                      tabDragRef.current = {
-                        tabId: tab.id as "stats" | "curation" | "gallery",
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        wasDragged: false,
-                      }
+                    onMouseDown={
+                      isDraggableTab && dragCb
+                        ? (e) => {
+                            tabDragRef.current = {
+                              tabId: tab.id as "stats" | "curation" | "gallery",
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              wasDragged: false,
+                            }
 
-                      const handleMove = (me: MouseEvent) => {
-                        if (!tabDragRef.current) return
-                        const dx = me.clientX - tabDragRef.current.startX
-                        const dy = me.clientY - tabDragRef.current.startY
-                        if (Math.sqrt(dx * dx + dy * dy) > 8 && !tabDragRef.current.wasDragged) {
-                          tabDragRef.current.wasDragged = true
-                          dragCb(tabDragRef.current.startX, tabDragRef.current.startY)
-                          document.removeEventListener("mousemove", handleMove)
-                          document.removeEventListener("mouseup", handleUp)
-                        }
-                      }
-                      const handleUp = () => {
-                        document.removeEventListener("mousemove", handleMove)
-                        document.removeEventListener("mouseup", handleUp)
-                        if (!tabDragRef.current?.wasDragged) {
-                          tabDragRef.current = null
-                        }
-                      }
-                      document.addEventListener("mousemove", handleMove)
-                      document.addEventListener("mouseup", handleUp)
-                    } : undefined}
+                            const handleMove = (me: MouseEvent) => {
+                              if (!tabDragRef.current) return
+                              const dx = me.clientX - tabDragRef.current.startX
+                              const dy = me.clientY - tabDragRef.current.startY
+                              if (
+                                Math.sqrt(dx * dx + dy * dy) > 8 &&
+                                !tabDragRef.current.wasDragged
+                              ) {
+                                tabDragRef.current.wasDragged = true
+                                dragCb(
+                                  tabDragRef.current.startX,
+                                  tabDragRef.current.startY
+                                )
+                                document.removeEventListener(
+                                  "mousemove",
+                                  handleMove
+                                )
+                                document.removeEventListener(
+                                  "mouseup",
+                                  handleUp
+                                )
+                              }
+                            }
+                            const handleUp = () => {
+                              document.removeEventListener(
+                                "mousemove",
+                                handleMove
+                              )
+                              document.removeEventListener("mouseup", handleUp)
+                              if (!tabDragRef.current?.wasDragged) {
+                                tabDragRef.current = null
+                              }
+                            }
+                            document.addEventListener("mousemove", handleMove)
+                            document.addEventListener("mouseup", handleUp)
+                          }
+                        : undefined
+                    }
                     className={`relative h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
                       props.activeTab === tab.id
                         ? "bg-foreground text-background shadow-lg"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    } ${isDraggableTab ? "cursor-grab active:cursor-grabbing select-none" : ""}`}
+                    } ${isDraggableTab ? "cursor-grab select-none active:cursor-grabbing" : ""}`}
                   >
                     <Icon
                       className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
@@ -594,7 +646,9 @@ export function Header(props: HeaderProps) {
                   tb.setStatusFilter(v as CurationStatus | "all")
                 }}
               >
-                <SelectTrigger className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}>
+                <SelectTrigger
+                  className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -605,7 +659,7 @@ export function Header(props: HeaderProps) {
                       "approved",
                       "rejected",
                       "trashed",
-                      ] as const
+                    ] as const
                   ).map((s) => (
                     <SelectItem
                       key={s}
@@ -637,7 +691,9 @@ export function Header(props: HeaderProps) {
                   }
                 }}
               >
-                <SelectTrigger className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}>
+                <SelectTrigger
+                  className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -659,17 +715,28 @@ export function Header(props: HeaderProps) {
                   toggleSort(k as "createdAt" | "filename" | "sizeBytes")
                 }
               >
-                <SelectTrigger className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}>
+                <SelectTrigger
+                  className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="createdAt" className="text-[12px] font-bold">
+                  <SelectItem
+                    value="createdAt"
+                    className="text-[12px] font-bold"
+                  >
                     날짜순
                   </SelectItem>
-                  <SelectItem value="filename" className="text-[12px] font-bold">
+                  <SelectItem
+                    value="filename"
+                    className="text-[12px] font-bold"
+                  >
                     파일명순
                   </SelectItem>
-                  <SelectItem value="sizeBytes" className="text-[12px] font-bold">
+                  <SelectItem
+                    value="sizeBytes"
+                    className="text-[12px] font-bold"
+                  >
                     크기순
                   </SelectItem>
                 </SelectContent>
@@ -680,9 +747,7 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() =>
-                      toggleSort(tb.sortKey)
-                    }
+                    onClick={() => toggleSort(tb.sortKey)}
                     className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
                   >
                     {tb.sortDir === "asc" ? (
@@ -696,14 +761,18 @@ export function Header(props: HeaderProps) {
               </Tooltip>
 
               {(tb.groupMode || tb.viewMode === "grid") && (
-                <div className={`hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs h-7 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "md:flex"}`}>
+                <div
+                  className={`hidden h-7 items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "md:flex"}`}
+                >
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center text-muted-foreground">
                         <LayoutGrid className="h-3.5 w-3.5" />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="text-xs font-bold">크기 조절</TooltipContent>
+                    <TooltipContent className="text-xs font-bold">
+                      크기 조절
+                    </TooltipContent>
                   </Tooltip>
                   <input
                     type="range"
@@ -711,10 +780,12 @@ export function Header(props: HeaderProps) {
                     max="320"
                     step="10"
                     value={tb.thumbnailSize}
-                    onChange={(e) => tb.setThumbnailSize(Number(e.target.value))}
+                    onChange={(e) =>
+                      tb.setThumbnailSize(Number(e.target.value))
+                    }
                     className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
-                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
+                  <span className="w-[34px] text-right font-mono text-[9px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
                     {tb.thumbnailSize}px
                   </span>
                 </div>
@@ -725,10 +796,8 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant={tb.showFilters ? "secondary" : "outline"}
-                    onClick={() =>
-                      tb.setShowFilters(!tb.showFilters)
-                    }
-                    className={`relative !h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
+                    onClick={() => tb.setShowFilters(!tb.showFilters)}
+                    className={`relative !h-7 !w-7 p-0 ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
                   >
                     <FilterIcon className="h-3.5 w-3.5" />
                     {tb.hasAnyFilter && (
@@ -744,7 +813,7 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
+                    className={`!h-7 !w-7 p-0 ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
                     onClick={() => tb.handleExport()}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
@@ -759,7 +828,7 @@ export function Header(props: HeaderProps) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
+                      className={`!h-7 !w-7 p-0 ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
                       onClick={() => {
                         panel.gallery.setIsFloating(true)
                         props.setActiveTab("jobs")
@@ -777,28 +846,59 @@ export function Header(props: HeaderProps) {
                     <MoreVertical className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className={isGalleryToolbarUltraCompact ? "w-[220px] p-2" : isGalleryToolbarCompact ? "w-[200px] p-2" : "w-[160px]"}>
+                <DropdownMenuContent
+                  align="end"
+                  className={
+                    isGalleryToolbarUltraCompact
+                      ? "w-[220px] p-2"
+                      : isGalleryToolbarCompact
+                        ? "w-[200px] p-2"
+                        : "w-[160px]"
+                  }
+                >
                   {isGalleryToolbarUltraCompact && (
                     <>
                       {/* 상태 필터 서브메뉴 */}
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                          <span>필터: {
-                            tb.statusFilter === "all" ? "전체" :
-                            tb.statusFilter === "pending" ? "대기" :
-                            tb.statusFilter === "approved" ? "통과" :
-                            tb.statusFilter === "rejected" ? "탈락" : "휴지통"
-                          }</span>
+                          <span>
+                            필터:{" "}
+                            {tb.statusFilter === "all"
+                              ? "전체"
+                              : tb.statusFilter === "pending"
+                                ? "대기"
+                                : tb.statusFilter === "approved"
+                                  ? "통과"
+                                  : tb.statusFilter === "rejected"
+                                    ? "탈락"
+                                    : "휴지통"}
+                          </span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-[120px] p-1">
-                            {(["all", "pending", "approved", "rejected", "trashed"] as const).map((s) => (
+                            {(
+                              [
+                                "all",
+                                "pending",
+                                "approved",
+                                "rejected",
+                                "trashed",
+                              ] as const
+                            ).map((s) => (
                               <DropdownMenuItem
                                 key={s}
                                 onClick={() => tb.setStatusFilter(s)}
                                 className="text-[12px] font-bold"
                               >
-                                {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
+                                {s === "all"
+                                  ? "전체"
+                                  : s === "pending"
+                                    ? "대기"
+                                    : s === "approved"
+                                      ? "통과"
+                                      : s === "rejected"
+                                        ? "탈락"
+                                        : "휴지통"}
                               </DropdownMenuItem>
                             ))}
                           </DropdownMenuSubContent>
@@ -808,10 +908,14 @@ export function Header(props: HeaderProps) {
                       {/* 뷰 모드 서브메뉴 */}
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                          <span>보기: {
-                            tb.groupMode ? "그룹" :
-                            tb.viewMode === "grid" ? "그리드" : "비교"
-                          }</span>
+                          <span>
+                            보기:{" "}
+                            {tb.groupMode
+                              ? "그룹"
+                              : tb.viewMode === "grid"
+                                ? "그리드"
+                                : "비교"}
+                          </span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-[120px] p-1">
@@ -846,10 +950,14 @@ export function Header(props: HeaderProps) {
                       {/* 정렬 기준 서브메뉴 */}
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                          <span>정렬: {
-                            tb.sortKey === "createdAt" ? "날짜순" :
-                            tb.sortKey === "filename" ? "파일명순" : "크기순"
-                          }</span>
+                          <span>
+                            정렬:{" "}
+                            {tb.sortKey === "createdAt"
+                              ? "날짜순"
+                              : tb.sortKey === "filename"
+                                ? "파일명순"
+                                : "크기순"}
+                          </span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-[120px] p-1">
@@ -878,7 +986,7 @@ export function Header(props: HeaderProps) {
                       {/* 정렬 방향 토글 아이템 */}
                       <DropdownMenuItem
                         onClick={() => toggleSort(tb.sortKey)}
-                        className="flex items-center gap-2 text-[12px] font-bold border-b border-line/45 pb-2 mb-1"
+                        className="mb-1 flex items-center gap-2 border-b border-line/45 pb-2 text-[12px] font-bold"
                       >
                         {tb.sortDir === "asc" ? (
                           <>
@@ -895,19 +1003,22 @@ export function Header(props: HeaderProps) {
                     </>
                   )}
 
-                  {(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) && (
+                  {(isGalleryToolbarCompact ||
+                    isGalleryToolbarUltraCompact) && (
                     <>
                       <DropdownMenuItem
                         onClick={() => tb.setShowFilters(!tb.showFilters)}
                         className="flex items-center gap-2 text-[12px] font-bold"
                       >
-                        <FilterIcon className={`h-3.5 w-3.5 ${tb.showFilters ? "text-primary" : "opacity-60"}`} />
+                        <FilterIcon
+                          className={`h-3.5 w-3.5 ${tb.showFilters ? "text-primary" : "opacity-60"}`}
+                        />
                         <span>필터 {tb.showFilters ? "숨기기" : "표시"}</span>
                         {tb.hasAnyFilter && (
                           <span className="ml-auto h-2 w-2 rounded-full bg-primary" />
                         )}
                       </DropdownMenuItem>
-                      
+
                       <DropdownMenuItem
                         onClick={() => tb.handleExport()}
                         className="flex items-center gap-2 text-[12px] font-bold"
@@ -930,13 +1041,15 @@ export function Header(props: HeaderProps) {
                       )}
 
                       {(tb.groupMode || tb.viewMode === "grid") && (
-                        <div className="flex flex-col gap-1.5 px-2.5 py-2 border-b border-line/45 my-1">
+                        <div className="my-1 flex flex-col gap-1.5 border-b border-line/45 px-2.5 py-2">
                           <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
                             <span className="flex items-center gap-1.5">
                               <LayoutGrid className="h-3.5 w-3.5" />
                               크기 조절
                             </span>
-                            <span className="font-mono text-[10px] text-primary">{tb.thumbnailSize}px</span>
+                            <span className="font-mono text-[10px] text-primary">
+                              {tb.thumbnailSize}px
+                            </span>
                           </div>
                           <input
                             type="range"
@@ -944,7 +1057,9 @@ export function Header(props: HeaderProps) {
                             max="320"
                             step="10"
                             value={tb.thumbnailSize}
-                            onChange={(e) => tb.setThumbnailSize(Number(e.target.value))}
+                            onChange={(e) =>
+                              tb.setThumbnailSize(Number(e.target.value))
+                            }
                             className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -953,7 +1068,10 @@ export function Header(props: HeaderProps) {
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuItem onClick={() => tb.handleRefresh()} className="text-[12px] font-bold">
+                  <DropdownMenuItem
+                    onClick={() => tb.handleRefresh()}
+                    className="text-[12px] font-bold"
+                  >
                     <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
                     새로고침
                   </DropdownMenuItem>
@@ -1030,7 +1148,10 @@ export function Header(props: HeaderProps) {
             </div>
           )}
         </div>
-        <div ref={rightSectionRef} className="ml-1 hidden shrink-0 items-center gap-2 md:flex">
+        <div
+          ref={rightSectionRef}
+          className="ml-1 hidden shrink-0 items-center gap-2 md:flex"
+        >
           {props.activeTab === "jobs" && props.sessionMarkers && (
             <div className="mr-1 flex items-center gap-1.5 border-r border-line/65 pr-3">
               <div className="relative">
@@ -1059,7 +1180,11 @@ export function Header(props: HeaderProps) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -1099,11 +1224,7 @@ export function Header(props: HeaderProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                    >
+                    <Button size="icon" variant="ghost" className="h-8 w-8">
                       {theme === "light" ? (
                         <Sun className="h-4 w-4" />
                       ) : theme === "dark" ? (
@@ -1176,17 +1297,12 @@ export function Header(props: HeaderProps) {
                   onValueChange={tb.setSearchInput}
                   onAddTag={(tag) => {
                     if (!tb.searchTags.includes(tag)) {
-                      tb.setSearchTags([
-                        ...tb.searchTags,
-                        tag,
-                      ])
+                      tb.setSearchTags([...tb.searchTags, tag])
                     }
                     tb.setSearchInput("")
                   }}
                   onRemoveTag={(tag) => {
-                    tb.setSearchTags(
-                      tb.searchTags.filter((t) => t !== tag)
-                    )
+                    tb.setSearchTags(tb.searchTags.filter((t) => t !== tag))
                   }}
                   size="sm"
                 />
@@ -1200,9 +1316,7 @@ export function Header(props: HeaderProps) {
                 <Checkbox
                   id="gallery-hide-rejected"
                   checked={tb.hideRejected}
-                  onCheckedChange={(v) =>
-                    tb.setHideRejected(v === true)
-                  }
+                  onCheckedChange={(v) => tb.setHideRejected(v === true)}
                 />
                 <Label
                   htmlFor="gallery-hide-rejected"

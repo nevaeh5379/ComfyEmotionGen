@@ -87,9 +87,7 @@ const persistTheme = (key: string, value: Theme) => {
   saveSetting(key, value).catch(() => {})
 }
 
-const loadThemeFromServer = async (
-  key: string
-): Promise<Theme | null> => {
+const loadThemeFromServer = async (key: string): Promise<Theme | null> => {
   const raw = await fetchSetting(key)
   if (raw === null) return null
   if (isTheme(raw)) return raw

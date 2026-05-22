@@ -47,10 +47,7 @@ export const useSettings = () => {
   )
 
   // 서버/캐시 데이터가 DEFAULT_SETTINGS 에 없는 키를 포함할 수 있으므로 병합
-  const settings = useMemo(
-    () => ({ ...DEFAULT_SETTINGS, ...raw }),
-    [raw]
-  )
+  const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...raw }), [raw])
 
   const updateSetting = useCallback(
     <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {

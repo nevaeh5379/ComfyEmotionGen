@@ -22,7 +22,11 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   Empty,
   EmptyHeader,
@@ -90,7 +94,7 @@ export function ImageGrid({
   }
   return (
     <div
-      className="grid gap-3 sm:gap-4 items-start"
+      className="grid items-start gap-3 sm:gap-4"
       style={{
         gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize ?? 180}px)`,
       }}
@@ -107,13 +111,13 @@ export function ImageGrid({
                 data-selectable="true"
                 data-image-hash={img.hash}
                 onClick={() => onFocus?.(img.hash)}
-                className={`m-1 flex break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md cursor-pointer ${
+                className={`m-1 flex cursor-pointer break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md ${
                   isSelected
                     ? "scale-[1.02] bg-primary/5 shadow-lg ring-2 ring-primary"
                     : ""
                 } ${
                   isFocused
-                    ? "ring-4 ring-blue-500 ring-offset-1 scale-[1.01] shadow-xl dark:ring-blue-400 dark:ring-offset-background"
+                    ? "scale-[1.01] shadow-xl ring-4 ring-blue-500 ring-offset-1 dark:ring-blue-400 dark:ring-offset-background"
                     : ""
                 }`}
               >
@@ -191,7 +195,9 @@ export function ImageGrid({
                             img.status === "trashed" ? "pending" : "trashed"
                           )
                         }}
-                        aria-label={img.status === "trashed" ? "복원" : "휴지통"}
+                        aria-label={
+                          img.status === "trashed" ? "복원" : "휴지통"
+                        }
                       >
                         <Trash2Icon className="h-4 w-4" />
                       </button>
@@ -309,7 +315,9 @@ export function ImageGrid({
               <ContextMenuItem
                 onClick={() => {
                   if (img.tags && img.tags.length > 0) {
-                    navigator.clipboard.writeText(img.tags.join(", ")).catch(() => {})
+                    navigator.clipboard
+                      .writeText(img.tags.join(", "))
+                      .catch(() => {})
                   }
                 }}
                 disabled={!img.tags || img.tags.length === 0}
@@ -323,7 +331,8 @@ export function ImageGrid({
                   const url = `${backendUrl}/saved-images/${img.hash}`
                   const link = document.createElement("a")
                   link.href = url
-                  link.download = img.originalFilename || `${img.hash}.${img.extension}`
+                  link.download =
+                    img.originalFilename || `${img.hash}.${img.extension}`
                   document.body.appendChild(link)
                   link.click()
                   document.body.removeChild(link)

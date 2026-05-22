@@ -59,9 +59,18 @@ import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
 import { TemplateProvider } from "./comfyui/contexts/TemplateContext"
 import { WorkflowProvider } from "./comfyui/contexts/WorkflowContext"
 import { NodeMappingProvider } from "./comfyui/contexts/NodeMappingContext"
-import { PendingDialogProvider, usePendingDialog } from "./comfyui/contexts/PendingDialogContext"
-import { PanelLayoutProvider, usePanelLayout } from "./comfyui/contexts/PanelLayoutContext"
-import { GalleryToolbarProvider, useGalleryToolbar } from "./comfyui/contexts/GalleryToolbarContext"
+import {
+  PendingDialogProvider,
+  usePendingDialog,
+} from "./comfyui/contexts/PendingDialogContext"
+import {
+  PanelLayoutProvider,
+  usePanelLayout,
+} from "./comfyui/contexts/PanelLayoutContext"
+import {
+  GalleryToolbarProvider,
+  useGalleryToolbar,
+} from "./comfyui/contexts/GalleryToolbarContext"
 import type { NodeMapping } from "./lib/workflow"
 import {
   DEFAULT_BACKEND_URL,
@@ -78,7 +87,11 @@ import { useRenderLog, useWatchValues } from "./lib/renderLogger"
 import { Header } from "./comfyui/components/layout/Header"
 import { FloatingWindow } from "./comfyui/components/layout/FloatingWindow"
 import type { TabId } from "./comfyui/components/layout/nav-tabs"
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
 import { TagInputSearch } from "./comfyui/components/TagInputSearch"
 import { cn } from "@/lib/utils"
@@ -241,15 +254,13 @@ function AppContent() {
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
-  const [jobsLayoutOrientation, setJobsLayoutOrientation] = useLocalStorage<"horizontal" | "vertical">(
-    "ceg_jobsLayoutOrientation",
-    "horizontal"
-  )
+  const [jobsLayoutOrientation, setJobsLayoutOrientation] = useLocalStorage<
+    "horizontal" | "vertical"
+  >("ceg_jobsLayoutOrientation", "horizontal")
 
-  const [jobsPanelOrder, setJobsPanelOrder] = useLocalStorage<"composition-first" | "manager-first">(
-    "ceg_jobsPanelOrder",
-    "composition-first"
-  )
+  const [jobsPanelOrder, setJobsPanelOrder] = useLocalStorage<
+    "composition-first" | "manager-first"
+  >("ceg_jobsPanelOrder", "composition-first")
 
   const [snapDockZone, setSnapDockZone] = useState<{
     zone: "left" | "right" | "top" | "bottom"
@@ -263,7 +274,12 @@ function AppContent() {
       screenW: number,
       screenH: number,
       isEnding: boolean,
-      windowType: "composition" | "jobManager" | "gallery" | "stats" | "curation"
+      windowType:
+        | "composition"
+        | "jobManager"
+        | "gallery"
+        | "stats"
+        | "curation"
     ) => {
       const SNAP_THRESHOLD = 50
       const distLeft = clientX
@@ -313,22 +329,40 @@ function AppContent() {
           } else if (windowType === "gallery") {
             setIsGalleryFloating(false)
             setIsGalleryDocked(true)
-            setGalleryDockedSide(activeZone === "left" || activeZone === "top" ? "start" : "end")
-            setJobsLayoutOrientation(activeZone === "left" || activeZone === "right" ? "horizontal" : "vertical")
+            setGalleryDockedSide(
+              activeZone === "left" || activeZone === "top" ? "start" : "end"
+            )
+            setJobsLayoutOrientation(
+              activeZone === "left" || activeZone === "right"
+                ? "horizontal"
+                : "vertical"
+            )
             setActiveTab("jobs")
             toast.success("갤러리가 메인 패널에 결합되었습니다.")
           } else if (windowType === "stats") {
             setIsStatsFloating(false)
             setIsStatsDocked(true)
-            setStatsDockedSide(activeZone === "left" || activeZone === "top" ? "start" : "end")
-            setJobsLayoutOrientation(activeZone === "left" || activeZone === "right" ? "horizontal" : "vertical")
+            setStatsDockedSide(
+              activeZone === "left" || activeZone === "top" ? "start" : "end"
+            )
+            setJobsLayoutOrientation(
+              activeZone === "left" || activeZone === "right"
+                ? "horizontal"
+                : "vertical"
+            )
             setActiveTab("jobs")
             toast.success("통계 패널이 메인 패널에 결합되었습니다.")
           } else if (windowType === "curation") {
             setIsCurationFloating(false)
             setIsCurationDocked(true)
-            setCurationDockedSide(activeZone === "left" || activeZone === "top" ? "start" : "end")
-            setJobsLayoutOrientation(activeZone === "left" || activeZone === "right" ? "horizontal" : "vertical")
+            setCurationDockedSide(
+              activeZone === "left" || activeZone === "top" ? "start" : "end"
+            )
+            setJobsLayoutOrientation(
+              activeZone === "left" || activeZone === "right"
+                ? "horizontal"
+                : "vertical"
+            )
             setActiveTab("jobs")
             toast.success("큐레이션 패널이 메인 패널에 결합되었습니다.")
           }
@@ -493,7 +527,11 @@ function AppContent() {
   )
 
   const handleNavTabDragStart = useCallback(
-    (tabId: "stats" | "curation" | "gallery", clientX: number, clientY: number) => {
+    (
+      tabId: "stats" | "curation" | "gallery",
+      clientX: number,
+      clientY: number
+    ) => {
       const size =
         tabId === "stats"
           ? statsFloatingSize
@@ -642,8 +680,8 @@ function AppContent() {
 
   // ── session state (lifted) ──────────────────────────────────────────
   const initialMarkers = useMemo(() => initMarkers(), [])
-  const [markers, setMarkersRaw] = useState<SessionMarkerRaw[]>(() =>
-    initialMarkers
+  const [markers, setMarkersRaw] = useState<SessionMarkerRaw[]>(
+    () => initialMarkers
   )
 
   const persistMarkers = (ms: SessionMarkerRaw[]) => {
@@ -798,12 +836,9 @@ function AppContent() {
 
   const handleTogglePause = async () => {
     try {
-      await fetch(
-        `${backendUrl}${paused ? API.jobs.resume : API.jobs.pause}`,
-        {
-          method: "POST",
-        }
-      )
+      await fetch(`${backendUrl}${paused ? API.jobs.resume : API.jobs.pause}`, {
+        method: "POST",
+      })
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
@@ -1064,10 +1099,7 @@ function AppContent() {
       template.saveTemplate(pendingSave.name, template.cegTemplate)
       template.setTemplateResetKey((k) => k + 1)
     } else if (pendingSave.type === "workflow") {
-      const w = workflow.saveWorkflow(
-        pendingSave.name,
-        workflow.workflowJson
-      )
+      const w = workflow.saveWorkflow(pendingSave.name, workflow.workflowJson)
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
@@ -1086,9 +1118,7 @@ function AppContent() {
   return (
     <div
       className={`flex flex-col bg-background ${
-        activeTab === "jobs"
-          ? "h-[100dvh] overflow-hidden"
-          : "min-h-[100dvh]"
+        activeTab === "jobs" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
       }`}
     >
       <Header
@@ -1119,8 +1149,12 @@ function AppContent() {
         setCurationSelectedAxis={setCurationSelectedAxis}
         savedTemplates={template.savedTemplates}
         onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
-        onCurationDragStart={(cx, cy) => handleNavTabDragStart("curation", cx, cy)}
-        onGalleryDragStart={(cx, cy) => handleNavTabDragStart("gallery", cx, cy)}
+        onCurationDragStart={(cx, cy) =>
+          handleNavTabDragStart("curation", cx, cy)
+        }
+        onGalleryDragStart={(cx, cy) =>
+          handleNavTabDragStart("gallery", cx, cy)
+        }
         sessionMarkers={markers}
         sessionJobCounts={sessionJobCounts}
         sortedMarkers={sortedMarkers}
@@ -1191,7 +1225,10 @@ function AppContent() {
         )}
         {activeTab === "generator" && (
           <div className="flex flex-1 flex-col">
-            <TemplateGeneratorPanel setActiveTab={setActiveTab} backendUrl={backendUrl} />
+            <TemplateGeneratorPanel
+              setActiveTab={setActiveTab}
+              backendUrl={backendUrl}
+            />
           </div>
         )}
         {activeTab === "settings" && (
@@ -1231,11 +1268,20 @@ function AppContent() {
                     onGraphOpen={() => setIsGraphOpen(true)}
                     isFloating={false}
                     jobsLayoutOrientation={jobsLayoutOrientation}
-                    onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
-                    {...(settings.useWindowMode ? {
-                      onFloatToggle: () => setIsCompositionFloating(true),
-                      onHeaderDragStart: (e: React.MouseEvent) => handleHeaderDragStart(e, "composition")
-                    } : {})}
+                    onToggleJobsLayoutOrientation={() =>
+                      setJobsLayoutOrientation(
+                        jobsLayoutOrientation === "horizontal"
+                          ? "vertical"
+                          : "horizontal"
+                      )
+                    }
+                    {...(settings.useWindowMode
+                      ? {
+                          onFloatToggle: () => setIsCompositionFloating(true),
+                          onHeaderDragStart: (e: React.MouseEvent) =>
+                            handleHeaderDragStart(e, "composition"),
+                        }
+                      : {})}
                   />
                 ) : null
 
@@ -1264,18 +1310,25 @@ function AppContent() {
                       handleRetryAllFailed={handleRetryAllFailed}
                       handleDeleteAllFailed={handleDeleteAllFailed}
                       isFloating={false}
-                      {...(settings.useWindowMode ? {
-                        onFloatToggle: () => setIsJobManagerFloating(true),
-                        onHeaderDragStart: (e: React.MouseEvent) => handleHeaderDragStart(e, "jobManager")
-                      } : {})}
+                      {...(settings.useWindowMode
+                        ? {
+                            onFloatToggle: () => setIsJobManagerFloating(true),
+                            onHeaderDragStart: (e: React.MouseEvent) =>
+                              handleHeaderDragStart(e, "jobManager"),
+                          }
+                        : {})}
                     />
                   </div>
                 ) : null
 
                 // 도킹 패널 공통 헤더 버튼
-                const panelBtn = (icon: React.ReactNode, onClick: () => void, title: string) => (
+                const panelBtn = (
+                  icon: React.ReactNode,
+                  onClick: () => void,
+                  title: string
+                ) => (
                   <button
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     onClick={onClick}
                     title={title}
                   >
@@ -1284,12 +1337,20 @@ function AppContent() {
                 )
 
                 // ── 패널 리스트 구성 ────────────────────────────────────
-                type PanelItem = { id: string; el: React.ReactNode; minSize?: number }
+                type PanelItem = {
+                  id: string
+                  el: React.ReactNode
+                  minSize?: number
+                }
 
                 // 코어 패널 (composition / jobManager)
                 const corePanels: PanelItem[] = []
-                const comp = compositionEl ? { id: "composition", el: compositionEl, minSize: 20 } : null
-                const mgr = jobManagerEl ? { id: "jobManager", el: jobManagerEl } : null
+                const comp = compositionEl
+                  ? { id: "composition", el: compositionEl, minSize: 20 }
+                  : null
+                const mgr = jobManagerEl
+                  ? { id: "jobManager", el: jobManagerEl }
+                  : null
                 if (jobsPanelOrder === "composition-first") {
                   if (comp) corePanels.push(comp)
                   if (mgr) corePanels.push(mgr)
@@ -1304,107 +1365,173 @@ function AppContent() {
                 const addExtra = (item: PanelItem, side: "start" | "end") =>
                   (side === "start" ? startExtra : endExtra).push(item)
 
-                if (isStatsDocked) addExtra({
-                  id: "stats",
-                  el: (
-                    <div className="flex h-full w-full flex-col">
-                      <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-                        <span className="text-[13px] font-bold">통계</span>
-                        <div className="flex items-center gap-0.5">
-                          {settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { setIsStatsDocked(false); setIsStatsFloating(true) }, "창으로 분리")}
-                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => setIsStatsDocked(false), "패널 닫기")}
+                if (isStatsDocked)
+                  addExtra(
+                    {
+                      id: "stats",
+                      el: (
+                        <div className="flex h-full w-full flex-col">
+                          <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
+                            <span className="text-[13px] font-bold">통계</span>
+                            <div className="flex items-center gap-0.5">
+                              {settings.useWindowMode &&
+                                panelBtn(
+                                  <ExternalLink className="h-3.5 w-3.5" />,
+                                  () => {
+                                    setIsStatsDocked(false)
+                                    setIsStatsFloating(true)
+                                  },
+                                  "창으로 분리"
+                                )}
+                              {panelBtn(
+                                <XIcon className="h-3.5 w-3.5" />,
+                                () => setIsStatsDocked(false),
+                                "패널 닫기"
+                              )}
+                            </div>
+                          </div>
+                          <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+                            <StatisticsPanel jobs={jobs} workers={workers} />
+                          </div>
                         </div>
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-                        <StatisticsPanel jobs={jobs} workers={workers} />
-                      </div>
-                    </div>
-                  ),
-                }, statsDockedSide)
+                      ),
+                    },
+                    statsDockedSide
+                  )
 
-                if (isGalleryDocked) addExtra({
-                  id: "gallery",
-                  el: (
-                    <div className="flex h-full w-full flex-col">
-                      <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-                        <span className="text-[13px] font-bold">갤러리</span>
-                        <div className="flex items-center gap-0.5">
-                          {settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { setIsGalleryDocked(false); setIsGalleryFloating(true) }, "창으로 분리")}
-                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => setIsGalleryDocked(false), "패널 닫기")}
+                if (isGalleryDocked)
+                  addExtra(
+                    {
+                      id: "gallery",
+                      el: (
+                        <div className="flex h-full w-full flex-col">
+                          <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
+                            <span className="text-[13px] font-bold">
+                              갤러리
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {settings.useWindowMode &&
+                                panelBtn(
+                                  <ExternalLink className="h-3.5 w-3.5" />,
+                                  () => {
+                                    setIsGalleryDocked(false)
+                                    setIsGalleryFloating(true)
+                                  },
+                                  "창으로 분리"
+                                )}
+                              {panelBtn(
+                                <XIcon className="h-3.5 w-3.5" />,
+                                () => setIsGalleryDocked(false),
+                                "패널 닫기"
+                              )}
+                            </div>
+                          </div>
+                          <div className="min-h-0 flex-1 overflow-hidden">
+                            <SavedImagesGallery
+                              backendUrl={backendUrl}
+                              enableHover={settings.enableHover}
+                              imagePageSize={settings.imagePageSize}
+                              imageLazyLoad={settings.imageLazyLoad}
+                              singleDownloadMode={settings.singleDownloadMode}
+                              filenameFilter={tb.filenameFilter}
+                              tagFilter={tb.tagFilter}
+                              metadataFilter={tb.metadataFilter}
+                              generalFilters={tb.generalFilters}
+                              onTokensExtracted={tb.setCandidates}
+                              onReloadReady={(reload) => {
+                                tb.registerReload(reload)
+                              }}
+                              toolbarState={tb}
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-hidden">
-                        <SavedImagesGallery
-                          backendUrl={backendUrl}
-                          enableHover={settings.enableHover}
-                          imagePageSize={settings.imagePageSize}
-                          imageLazyLoad={settings.imageLazyLoad}
-                          singleDownloadMode={settings.singleDownloadMode}
-                          filenameFilter={tb.filenameFilter}
-                          tagFilter={tb.tagFilter}
-                          metadataFilter={tb.metadataFilter}
-                          generalFilters={tb.generalFilters}
-                          onTokensExtracted={tb.setCandidates}
-                          onReloadReady={(reload) => { tb.registerReload(reload) }}
-                          toolbarState={tb}
-                        />
-                      </div>
-                    </div>
-                  ),
-                }, galleryDockedSide)
+                      ),
+                    },
+                    galleryDockedSide
+                  )
 
-                if (isCurationDocked) addExtra({
-                  id: "curation",
-                  el: (
-                    <div className="flex h-full w-full flex-col">
-                      <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-                        <span className="text-[13px] font-bold">큐레이션</span>
-                        <div className="flex items-center gap-0.5">
-                          {settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { setIsCurationDocked(false); setIsCurationFloating(true) }, "창으로 분리")}
-                          {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => setIsCurationDocked(false), "패널 닫기")}
+                if (isCurationDocked)
+                  addExtra(
+                    {
+                      id: "curation",
+                      el: (
+                        <div className="flex h-full w-full flex-col">
+                          <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
+                            <span className="text-[13px] font-bold">
+                              큐레이션
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {settings.useWindowMode &&
+                                panelBtn(
+                                  <ExternalLink className="h-3.5 w-3.5" />,
+                                  () => {
+                                    setIsCurationDocked(false)
+                                    setIsCurationFloating(true)
+                                  },
+                                  "창으로 분리"
+                                )}
+                              {panelBtn(
+                                <XIcon className="h-3.5 w-3.5" />,
+                                () => setIsCurationDocked(false),
+                                "패널 닫기"
+                              )}
+                            </div>
+                          </div>
+                          <div className="min-h-0 flex-1 overflow-hidden">
+                            <CombinationPicker
+                              backendUrl={backendUrl}
+                              cegTemplate={template.cegTemplate}
+                              savedTemplates={template.savedTemplates}
+                              enableHover={settings.enableHover}
+                              autoApplyReject={settings.autoApplyReject}
+                              savedWorkflows={workflow.savedWorkflows}
+                              toolbarState={{
+                                selectedAxis: curationSelectedAxis,
+                                setSelectedAxis: setCurationSelectedAxis,
+                                viewMode: "gallery" as const,
+                                setViewMode: () => {},
+                                hideTopSection: true,
+                              }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-hidden">
-                        <CombinationPicker
-                          backendUrl={backendUrl}
-                          cegTemplate={template.cegTemplate}
-                          savedTemplates={template.savedTemplates}
-                          enableHover={settings.enableHover}
-                          autoApplyReject={settings.autoApplyReject}
-                          savedWorkflows={workflow.savedWorkflows}
-                          toolbarState={{
-                            selectedAxis: curationSelectedAxis,
-                            setSelectedAxis: setCurationSelectedAxis,
-                            viewMode: "gallery" as const,
-                            setViewMode: () => {},
-                            hideTopSection: true,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ),
-                }, curationDockedSide)
+                      ),
+                    },
+                    curationDockedSide
+                  )
 
                 // start → core → end 순서로 최종 패널 리스트
-                const panels: PanelItem[] = [...startExtra, ...corePanels, ...endExtra]
+                const panels: PanelItem[] = [
+                  ...startExtra,
+                  ...corePanels,
+                  ...endExtra,
+                ]
 
                 // ── 렌더링 ──────────────────────────────────────────────
                 if (panels.length === 0) {
                   return (
-                    <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 select-none text-center animate-in fade-in duration-300">
-                      <div className="relative flex flex-col items-center justify-center p-8 max-w-md rounded-2xl border border-line/45 bg-panel/40 backdrop-blur-xl shadow-xl space-y-6 overflow-hidden before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-tr before:from-primary/5 before:via-transparent before:to-primary/10 before:-z-10 animate-in zoom-in-95 duration-300">
+                    <div className="flex flex-1 animate-in flex-col items-center justify-center bg-background p-8 text-center duration-300 select-none fade-in">
+                      <div className="relative flex max-w-md animate-in flex-col items-center justify-center space-y-6 overflow-hidden rounded-2xl border border-line/45 bg-panel/40 p-8 shadow-xl backdrop-blur-xl duration-300 zoom-in-95 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:bg-gradient-to-tr before:from-primary/5 before:via-transparent before:to-primary/10">
                         <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                           <Workflow className="h-8 w-8 animate-pulse" />
                         </div>
                         <div className="space-y-2">
-                          <h3 className="text-lg font-bold text-foreground tracking-tight">모든 작업 패널이 창 모드로 분리되었습니다</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed px-4">작업 구성 패널과 작업 큐 매니저가 개별 플로팅 창으로 활성화되었습니다.</p>
+                          <h3 className="text-lg font-bold tracking-tight text-foreground">
+                            모든 작업 패널이 창 모드로 분리되었습니다
+                          </h3>
+                          <p className="px-4 text-sm leading-relaxed text-muted-foreground">
+                            작업 구성 패널과 작업 큐 매니저가 개별 플로팅 창으로
+                            활성화되었습니다.
+                          </p>
                         </div>
                         <Button
-                          onClick={() => { setIsCompositionFloating(false); setIsJobManagerFloating(false) }}
-                          className="px-6 py-2 h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/20 flex items-center gap-2 group transition-all duration-200"
+                          onClick={() => {
+                            setIsCompositionFloating(false)
+                            setIsJobManagerFloating(false)
+                          }}
+                          className="group flex h-10 items-center gap-2 rounded-xl bg-primary px-6 py-2 font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200 hover:bg-primary/90"
                         >
-                          <RotateCcw className="h-4 w-4 transition-transform group-hover:rotate-180 duration-500" />
+                          <RotateCcw className="h-4 w-4 transition-transform duration-500 group-hover:rotate-180" />
                           모두 원래대로 결합
                         </Button>
                       </div>
@@ -1423,13 +1550,14 @@ function AppContent() {
                 const defaultSize = Math.floor(100 / panels.length)
                 return (
                   <ResizablePanelGroup
-                    key={panels.map(p => p.id).join(",")}
+                    key={panels.map((p) => p.id).join(",")}
                     orientation={jobsLayoutOrientation}
                     className="min-h-0 flex-1 overflow-hidden"
                   >
                     {panels.flatMap((panel, i) => {
                       const items = []
-                      if (i > 0) items.push(<ResizableHandle key={`h-${panel.id}`} />)
+                      if (i > 0)
+                        items.push(<ResizableHandle key={`h-${panel.id}`} />)
                       items.push(
                         <ResizablePanel
                           key={panel.id}
@@ -1437,7 +1565,10 @@ function AppContent() {
                           minSize={panel.minSize ?? 15}
                           className={cn(
                             "flex min-h-0 flex-col overflow-hidden bg-panel",
-                            i < panels.length - 1 && (jobsLayoutOrientation === "horizontal" ? "border-r border-line" : "border-b border-line")
+                            i < panels.length - 1 &&
+                              (jobsLayoutOrientation === "horizontal"
+                                ? "border-r border-line"
+                                : "border-b border-line")
                           )}
                         >
                           {panel.el}
@@ -1625,10 +1756,7 @@ function AppContent() {
         onConfirm={() => {
           if (!pendingDiff) return
           if (pendingDiff.type === "template") {
-            template.saveTemplate(
-              pendingDiff.name,
-              pendingDiff.newContent
-            )
+            template.saveTemplate(pendingDiff.name, pendingDiff.newContent)
             template.setTemplateResetKey((k) => k + 1)
           } else {
             const w = workflow.saveWorkflow(
@@ -1638,9 +1766,7 @@ function AppContent() {
             workflow.setActiveWorkflowId(w.id)
             workflow.setWorkflowResetKey((k) => k + 1)
           }
-          toast.success(
-            `'${pendingDiff.name}' 업데이트가 완료되었습니다.`
-          )
+          toast.success(`'${pendingDiff.name}' 업데이트가 완료되었습니다.`)
         }}
         oldContent={pendingDiff?.oldContent ?? ""}
         newContent={pendingDiff?.newContent ?? ""}
@@ -1663,7 +1789,9 @@ function AppContent() {
           onPosChange={setCompositionFloatingPos}
           onSizeChange={setCompositionFloatingSize}
           title="작업 구성 패널"
-          onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "composition")}
+          onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            handleDragProgress(cx, cy, sw, sh, isEnding, "composition")
+          }
         >
           <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
             <WorkCompositionPanel
@@ -1701,7 +1829,9 @@ function AppContent() {
           onPosChange={setJobManagerFloatingPos}
           onSizeChange={setJobManagerFloatingSize}
           title="작업 큐 매니저"
-          onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")}
+          onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")
+          }
         >
           <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1749,23 +1879,47 @@ function AppContent() {
           onPosChange={setGalleryFloatingPos}
           onSizeChange={setGalleryFloatingSize}
           title="갤러리 플로팅 창"
-          onDragProgress={(cx, cy, sw, sh, isEnding) => handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")}
+          onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")
+          }
           toolbar={
-            <div className="flex flex-wrap items-center gap-1.5 w-full">
+            <div className="flex w-full flex-wrap items-center gap-1.5">
               {/* 상태 필터 Select */}
               <Select
                 value={tb.statusFilter}
                 onValueChange={(v: string) => {
-                  tb.setStatusFilter(v as "pending" | "approved" | "rejected" | "trashed" | "all")
+                  tb.setStatusFilter(
+                    v as "pending" | "approved" | "rejected" | "trashed" | "all"
+                  )
                 }}
               >
                 <SelectTrigger className="!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(["all", "pending", "approved", "rejected", "trashed"] as const).map((s) => (
-                    <SelectItem key={s} value={s} className="text-[12px] font-bold">
-                      {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
+                  {(
+                    [
+                      "all",
+                      "pending",
+                      "approved",
+                      "rejected",
+                      "trashed",
+                    ] as const
+                  ).map((s) => (
+                    <SelectItem
+                      key={s}
+                      value={s}
+                      className="text-[12px] font-bold"
+                    >
+                      {s === "all"
+                        ? "전체"
+                        : s === "pending"
+                          ? "대기"
+                          : s === "approved"
+                            ? "통과"
+                            : s === "rejected"
+                              ? "탈락"
+                              : "휴지통"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1787,9 +1941,15 @@ function AppContent() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="group" className="text-[12px] font-bold">그룹</SelectItem>
-                  <SelectItem value="grid" className="text-[12px] font-bold">그리드</SelectItem>
-                  <SelectItem value="compare" className="text-[12px] font-bold">비교</SelectItem>
+                  <SelectItem value="group" className="text-[12px] font-bold">
+                    그룹
+                  </SelectItem>
+                  <SelectItem value="grid" className="text-[12px] font-bold">
+                    그리드
+                  </SelectItem>
+                  <SelectItem value="compare" className="text-[12px] font-bold">
+                    비교
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1809,9 +1969,24 @@ function AppContent() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="createdAt" className="text-[12px] font-bold">날짜순</SelectItem>
-                  <SelectItem value="filename" className="text-[12px] font-bold">파일명순</SelectItem>
-                  <SelectItem value="sizeBytes" className="text-[12px] font-bold">크기순</SelectItem>
+                  <SelectItem
+                    value="createdAt"
+                    className="text-[12px] font-bold"
+                  >
+                    날짜순
+                  </SelectItem>
+                  <SelectItem
+                    value="filename"
+                    className="text-[12px] font-bold"
+                  >
+                    파일명순
+                  </SelectItem>
+                  <SelectItem
+                    value="sizeBytes"
+                    className="text-[12px] font-bold"
+                  >
+                    크기순
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1821,7 +1996,9 @@ function AppContent() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")}
+                    onClick={() =>
+                      tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
+                    }
                     className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
                   >
                     {tb.sortDir === "asc" ? (
@@ -1831,19 +2008,23 @@ function AppContent() {
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="text-xs font-bold">정렬 방향 토글</TooltipContent>
+                <TooltipContent className="text-xs font-bold">
+                  정렬 방향 토글
+                </TooltipContent>
               </Tooltip>
 
               {/* 썸네일 크기 조절 슬라이더 */}
               {(tb.groupMode || tb.viewMode === "grid") && (
-                <div className="flex items-center gap-1.5 rounded-md border border-line bg-background/50 px-1.5 h-7 shadow-none">
+                <div className="flex h-7 items-center gap-1.5 rounded-md border border-line bg-background/50 px-1.5 shadow-none">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center text-muted-foreground">
                         <LayoutGrid className="h-3 w-3" />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="text-xs font-bold">이미지 크기 조절</TooltipContent>
+                    <TooltipContent className="text-xs font-bold">
+                      이미지 크기 조절
+                    </TooltipContent>
                   </Tooltip>
                   <input
                     type="range"
@@ -1851,10 +2032,12 @@ function AppContent() {
                     max="300"
                     step="10"
                     value={tb.thumbnailSize}
-                    onChange={(e) => tb.setThumbnailSize(Number(e.target.value))}
+                    onChange={(e) =>
+                      tb.setThumbnailSize(Number(e.target.value))
+                    }
                     className="h-1 w-12 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
-                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
+                  <span className="w-[34px] text-right font-mono text-[9px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
                     {tb.thumbnailSize}px
                   </span>
                 </div>
@@ -1874,7 +2057,9 @@ function AppContent() {
                     <RefreshCwIcon className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="text-xs font-bold">새로고침</TooltipContent>
+                <TooltipContent className="text-xs font-bold">
+                  새로고침
+                </TooltipContent>
               </Tooltip>
 
               {/* 내보내기 */}
@@ -1889,7 +2074,9 @@ function AppContent() {
                     <DownloadIcon className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="text-xs font-bold">내보내기</TooltipContent>
+                <TooltipContent className="text-xs font-bold">
+                  내보내기
+                </TooltipContent>
               </Tooltip>
 
               {/* 휴지통 비우기 */}
@@ -1898,13 +2085,15 @@ function AppContent() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="!h-7 !w-7 p-0 hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
+                    className="!h-7 !w-7 p-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
                     onClick={tb.handleEmptyTrash}
                   >
                     <Trash2Icon className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="text-xs font-bold bg-destructive text-destructive-foreground">휴지통 비우기</TooltipContent>
+                <TooltipContent className="text-destructive-foreground bg-destructive text-xs font-bold">
+                  휴지통 비우기
+                </TooltipContent>
               </Tooltip>
 
               {/* 검색 필터 토글 */}
@@ -1922,18 +2111,22 @@ function AppContent() {
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="text-xs font-bold">검색 토글</TooltipContent>
+                <TooltipContent className="text-xs font-bold">
+                  검색 토글
+                </TooltipContent>
               </Tooltip>
 
               {/* 검색창 조건부 렌더링 */}
               {tb.showFilters && (
-                <div className="w-full mt-1.5 pt-1.5 border-t border-line/40 flex items-center gap-2">
+                <div className="mt-1.5 flex w-full items-center gap-2 border-t border-line/40 pt-1.5">
                   <div className="flex-1">
                     <TagInputSearch
                       value={tb.searchInput}
                       tags={tb.searchTags}
                       candidates={tb.candidates.filter((c) => {
-                        const valClean = tb.searchInput.replace(/^[@#$]/, "").toLowerCase()
+                        const valClean = tb.searchInput
+                          .replace(/^[@#$]/, "")
+                          .toLowerCase()
                         return c.value.toLowerCase().includes(valClean)
                       })}
                       placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
@@ -1953,7 +2146,7 @@ function AppContent() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-1.5 text-[10px] font-bold text-muted-foreground shrink-0"
+                    className="h-7 shrink-0 px-1.5 text-[10px] font-bold text-muted-foreground"
                     onClick={tb.clearAllFilters}
                   >
                     초기화
@@ -2047,21 +2240,31 @@ function AppContent() {
       {snapDockZone && (
         <div
           className={cn(
-            "fixed pointer-events-none z-50 flex items-center justify-center border border-primary/30 bg-primary/10 backdrop-blur-xs transition-all duration-300 animate-pulse",
-            snapDockZone.zone === "left" && "left-0 top-0 bottom-0 w-1/2 rounded-r-2xl border-l-0",
-            snapDockZone.zone === "right" && "right-0 top-0 bottom-0 w-1/2 rounded-l-2xl border-r-0",
-            snapDockZone.zone === "top" && "left-0 right-0 top-0 h-1/2 rounded-b-2xl border-t-0",
-            snapDockZone.zone === "bottom" && "left-0 right-0 bottom-0 h-1/2 rounded-t-2xl border-b-0"
+            "pointer-events-none fixed z-50 flex animate-pulse items-center justify-center border border-primary/30 bg-primary/10 backdrop-blur-xs transition-all duration-300",
+            snapDockZone.zone === "left" &&
+              "top-0 bottom-0 left-0 w-1/2 rounded-r-2xl border-l-0",
+            snapDockZone.zone === "right" &&
+              "top-0 right-0 bottom-0 w-1/2 rounded-l-2xl border-r-0",
+            snapDockZone.zone === "top" &&
+              "top-0 right-0 left-0 h-1/2 rounded-b-2xl border-t-0",
+            snapDockZone.zone === "bottom" &&
+              "right-0 bottom-0 left-0 h-1/2 rounded-t-2xl border-b-0"
           )}
         >
-          <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-panel/60 border border-line shadow-2xl backdrop-blur-xl scale-110 animate-in zoom-in-95 duration-200">
-            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary/20 text-primary border border-primary/30 shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">
-              {snapDockZone.zone === "left" && <ArrowLeft className="h-6 w-6" />}
-              {snapDockZone.zone === "right" && <ArrowRight className="h-6 w-6" />}
+          <div className="flex scale-110 animate-in flex-col items-center justify-center rounded-2xl border border-line bg-panel/60 p-6 shadow-2xl backdrop-blur-xl duration-200 zoom-in-95">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary/20 text-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">
+              {snapDockZone.zone === "left" && (
+                <ArrowLeft className="h-6 w-6" />
+              )}
+              {snapDockZone.zone === "right" && (
+                <ArrowRight className="h-6 w-6" />
+              )}
               {snapDockZone.zone === "top" && <ArrowUp className="h-6 w-6" />}
-              {snapDockZone.zone === "bottom" && <ArrowDown className="h-6 w-6" />}
+              {snapDockZone.zone === "bottom" && (
+                <ArrowDown className="h-6 w-6" />
+              )}
             </div>
-            <span className="mt-3 text-xs font-black text-foreground tracking-wider uppercase">
+            <span className="mt-3 text-xs font-black tracking-wider text-foreground uppercase">
               {snapDockZone.zone === "left" || snapDockZone.zone === "right"
                 ? "가로 결합 스냅"
                 : "세로 결합 스냅"}

@@ -14,7 +14,14 @@
  *  - 휴지통 비우기, filename 그룹 재생성
  */
 
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -62,7 +69,11 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import {
   Select,
@@ -208,8 +219,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   // 그룹 접기/펴기 상태
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const toggleGroupCollapse = (name: string) =>
-    setCollapsedGroups(prev => prev.has(name) ? new Set([...prev].filter(a => a !== name)) : new Set([...prev, name]))
-  const collapseAll = () => setCollapsedGroups(new Set(groups.map(g => g.filename)))
+    setCollapsedGroups((prev) =>
+      prev.has(name)
+        ? new Set([...prev].filter((a) => a !== name))
+        : new Set([...prev, name])
+    )
+  const collapseAll = () =>
+    setCollapsedGroups(new Set(groups.map((g) => g.filename)))
   const expandAll = () => setCollapsedGroups(new Set())
 
   // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
@@ -284,7 +300,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const cachedCardsRef = useRef<{ hash: string; rect: DOMRect }[]>([])
   const lastSelectedHashesRef = useRef<Set<string>>(new Set())
   const scrollContainerRef = useRef<HTMLElement | null>(null)
-  const initialScrollPosRef = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
+  const initialScrollPosRef = useRef<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  })
   const cleanupListenersRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
@@ -293,167 +312,179 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }, [])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return // Left click only
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return // Left click only
 
-    const target = e.target as HTMLElement
-    // Ignore interactive elements
-    if (
-      target.closest("button") ||
-      target.closest("input") ||
-      target.closest("select") ||
-      target.closest("a") ||
-      target.closest('[role="button"]') ||
-      target.closest('[data-selectable="true"]') ||
-      target.closest(".sticky")
-    ) {
-      return
-    }
-
-    e.preventDefault() // Prevents default browser text selection/drag
-
-    const startPos = { x: e.clientX, y: e.clientY }
-    dragStartRef.current = startPos
-
-    // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
-    const scrollContainer = target.closest(".overflow-y-auto") as HTMLElement | null
-    scrollContainerRef.current = scrollContainer
-    if (scrollContainer) {
-      initialScrollPosRef.current = {
-        top: scrollContainer.scrollTop,
-        left: scrollContainer.scrollLeft,
-      }
-    } else {
-      initialScrollPosRef.current = { top: 0, left: 0 }
-    }
-
-    // Determine initial selection
-    const isCumulative = e.shiftKey || e.ctrlKey || e.metaKey
-    const initialSet = isCumulative ? new Set(selectedHashes) : new Set<string>()
-    initialSelectionRef.current = initialSet
-    lastSelectedHashesRef.current = new Set(initialSet)
-
-    // Cache the bounding rects of all selectable cards to avoid layout thrashing in mousemove
-    const cardElements = document.querySelectorAll('[data-selectable="true"]')
-    cachedCardsRef.current = Array.from(cardElements).map((el) => ({
-      hash: el.getAttribute("data-image-hash") || "",
-      rect: el.getBoundingClientRect(),
-    }))
-
-    // Clear selection if not cumulative
-    if (!isCumulative) {
-      setSelectedHashes(new Set())
-    }
-
-    // Clean up any stray listeners
-    cleanupListenersRef.current?.()
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      const start = dragStartRef.current
-      if (!start) return
-
-      const left = Math.min(start.x, ev.clientX)
-      const top = Math.min(start.y, ev.clientY)
-      const right = Math.max(start.x, ev.clientX)
-      const bottom = Math.max(start.y, ev.clientY)
-
-      // 1. Direct DOM manipulation for marquee box (Zero React renders during dragging!)
-      if (marqueeRef.current) {
-        marqueeRef.current.style.left = `${left}px`
-        marqueeRef.current.style.top = `${top}px`
-        marqueeRef.current.style.width = `${right - left}px`
-        marqueeRef.current.style.height = `${bottom - top}px`
-        marqueeRef.current.style.display = "block"
+      const target = e.target as HTMLElement
+      // Ignore interactive elements
+      if (
+        target.closest("button") ||
+        target.closest("input") ||
+        target.closest("select") ||
+        target.closest("a") ||
+        target.closest('[role="button"]') ||
+        target.closest('[data-selectable="true"]') ||
+        target.closest(".sticky")
+      ) {
+        return
       }
 
-      // 2. Adjust for scroll container movement
-      let deltaY = 0
-      let deltaX = 0
-      if (scrollContainerRef.current) {
-        deltaY = scrollContainerRef.current.scrollTop - initialScrollPosRef.current.top
-        deltaX = scrollContainerRef.current.scrollLeft - initialScrollPosRef.current.left
-      }
+      e.preventDefault() // Prevents default browser text selection/drag
 
-      // 3. Mathematical intersection tests on cached rects (Zero layout reflows!)
-      const newlyIntersected = new Set<string>()
-      cachedCardsRef.current.forEach((card) => {
-        const adjustedLeft = card.rect.left - deltaX
-        const adjustedRight = card.rect.right - deltaX
-        const adjustedTop = card.rect.top - deltaY
-        const adjustedBottom = card.rect.bottom - deltaY
+      const startPos = { x: e.clientX, y: e.clientY }
+      dragStartRef.current = startPos
 
-        const intersects = !(
-          adjustedLeft > right ||
-          adjustedRight < left ||
-          adjustedTop > bottom ||
-          adjustedBottom < top
-        )
-
-        if (intersects) {
-          newlyIntersected.add(card.hash)
+      // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
+      const scrollContainer = target.closest(
+        ".overflow-y-auto"
+      ) as HTMLElement | null
+      scrollContainerRef.current = scrollContainer
+      if (scrollContainer) {
+        initialScrollPosRef.current = {
+          top: scrollContainer.scrollTop,
+          left: scrollContainer.scrollLeft,
         }
-      })
+      } else {
+        initialScrollPosRef.current = { top: 0, left: 0 }
+      }
 
-      // 4. Merge selection
-      const merged = new Set<string>(initialSelectionRef.current)
-      newlyIntersected.forEach((hash) => merged.add(hash))
+      // Determine initial selection
+      const isCumulative = e.shiftKey || e.ctrlKey || e.metaKey
+      const initialSet = isCumulative
+        ? new Set(selectedHashes)
+        : new Set<string>()
+      initialSelectionRef.current = initialSet
+      lastSelectedHashesRef.current = new Set(initialSet)
 
-      // 5. Diff-based updates: Only call state setter if selection changed
-      let hasChanged = merged.size !== lastSelectedHashesRef.current.size
-      if (!hasChanged) {
-        for (const hash of merged) {
-          if (!lastSelectedHashesRef.current.has(hash)) {
-            hasChanged = true
-            break
+      // Cache the bounding rects of all selectable cards to avoid layout thrashing in mousemove
+      const cardElements = document.querySelectorAll('[data-selectable="true"]')
+      cachedCardsRef.current = Array.from(cardElements).map((el) => ({
+        hash: el.getAttribute("data-image-hash") || "",
+        rect: el.getBoundingClientRect(),
+      }))
+
+      // Clear selection if not cumulative
+      if (!isCumulative) {
+        setSelectedHashes(new Set())
+      }
+
+      // Clean up any stray listeners
+      cleanupListenersRef.current?.()
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        const start = dragStartRef.current
+        if (!start) return
+
+        const left = Math.min(start.x, ev.clientX)
+        const top = Math.min(start.y, ev.clientY)
+        const right = Math.max(start.x, ev.clientX)
+        const bottom = Math.max(start.y, ev.clientY)
+
+        // 1. Direct DOM manipulation for marquee box (Zero React renders during dragging!)
+        if (marqueeRef.current) {
+          marqueeRef.current.style.left = `${left}px`
+          marqueeRef.current.style.top = `${top}px`
+          marqueeRef.current.style.width = `${right - left}px`
+          marqueeRef.current.style.height = `${bottom - top}px`
+          marqueeRef.current.style.display = "block"
+        }
+
+        // 2. Adjust for scroll container movement
+        let deltaY = 0
+        let deltaX = 0
+        if (scrollContainerRef.current) {
+          deltaY =
+            scrollContainerRef.current.scrollTop -
+            initialScrollPosRef.current.top
+          deltaX =
+            scrollContainerRef.current.scrollLeft -
+            initialScrollPosRef.current.left
+        }
+
+        // 3. Mathematical intersection tests on cached rects (Zero layout reflows!)
+        const newlyIntersected = new Set<string>()
+        cachedCardsRef.current.forEach((card) => {
+          const adjustedLeft = card.rect.left - deltaX
+          const adjustedRight = card.rect.right - deltaX
+          const adjustedTop = card.rect.top - deltaY
+          const adjustedBottom = card.rect.bottom - deltaY
+
+          const intersects = !(
+            adjustedLeft > right ||
+            adjustedRight < left ||
+            adjustedTop > bottom ||
+            adjustedBottom < top
+          )
+
+          if (intersects) {
+            newlyIntersected.add(card.hash)
+          }
+        })
+
+        // 4. Merge selection
+        const merged = new Set<string>(initialSelectionRef.current)
+        newlyIntersected.forEach((hash) => merged.add(hash))
+
+        // 5. Diff-based updates: Only call state setter if selection changed
+        let hasChanged = merged.size !== lastSelectedHashesRef.current.size
+        if (!hasChanged) {
+          for (const hash of merged) {
+            if (!lastSelectedHashesRef.current.has(hash)) {
+              hasChanged = true
+              break
+            }
+          }
+        }
+
+        if (hasChanged) {
+          lastSelectedHashesRef.current = merged
+          if (merged.size > 0) {
+            setSelectionMode(true)
+            setSelectedHashes(merged)
+          } else {
+            setSelectedHashes(new Set())
           }
         }
       }
 
-      if (hasChanged) {
-        lastSelectedHashesRef.current = merged
-        if (merged.size > 0) {
-          setSelectionMode(true)
-          setSelectedHashes(merged)
-        } else {
-          setSelectedHashes(new Set())
+      const handleMouseUp = () => {
+        cleanup()
+
+        if (marqueeRef.current) {
+          marqueeRef.current.style.display = "none"
         }
+
+        dragStartRef.current = null
+        initialSelectionRef.current = new Set()
+        cachedCardsRef.current = []
+
+        setSelectedHashes((current) => {
+          if (current.size === 0) {
+            setSelectionMode(false)
+          }
+          return current
+        })
       }
-    }
 
-    const handleMouseUp = () => {
-      cleanup()
-
-      if (marqueeRef.current) {
-        marqueeRef.current.style.display = "none"
+      const cleanup = () => {
+        window.removeEventListener("mousemove", handleMouseMove)
+        window.removeEventListener("mouseup", handleMouseUp)
+        cleanupListenersRef.current = null
       }
 
-      dragStartRef.current = null
-      initialSelectionRef.current = new Set()
-      cachedCardsRef.current = []
-
-      setSelectedHashes((current) => {
-        if (current.size === 0) {
-          setSelectionMode(false)
-        }
-        return current
-      })
-    }
-
-    const cleanup = () => {
-      window.removeEventListener("mousemove", handleMouseMove)
-      window.removeEventListener("mouseup", handleMouseUp)
-      cleanupListenersRef.current = null
-    }
-
-    cleanupListenersRef.current = cleanup
-    window.addEventListener("mousemove", handleMouseMove)
-    window.addEventListener("mouseup", handleMouseUp)
-  }, [selectedHashes, setSelectedHashes])
+      cleanupListenersRef.current = cleanup
+      window.addEventListener("mousemove", handleMouseMove)
+      window.addEventListener("mouseup", handleMouseUp)
+    },
+    [selectedHashes, setSelectedHashes]
+  )
 
   // 썸네일 크기 조절 (로컬 상태 폴백)
   const [localThumbnailSize, setLocalThumbnailSize] = useState<number>(180)
   const thumbnailSize = toolbarState?.thumbnailSize ?? localThumbnailSize
-  const setThumbnailSize = toolbarState?.setThumbnailSize ?? setLocalThumbnailSize
+  const setThumbnailSize =
+    toolbarState?.setThumbnailSize ?? setLocalThumbnailSize
 
   const effectiveFilenameFilter =
     filenameFilter !== undefined ? filenameFilter : localFilenameFilter
@@ -531,7 +562,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   // groupTotal 변동으로 groupPage 범위 밖이면 클램프
   const prevGroupTotalPagesRef = useRef(groupTotalPages)
   useEffect(() => {
-    if (prevGroupTotalPagesRef.current !== groupTotalPages && groupPage > groupTotalPages) {
+    if (
+      prevGroupTotalPagesRef.current !== groupTotalPages &&
+      groupPage > groupTotalPages
+    ) {
       setGroupPage(groupTotalPages)
     }
     prevGroupTotalPagesRef.current = groupTotalPages
@@ -548,7 +582,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     },
     [backendUrl, reload]
   )
-
 
   // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
   const metadataFilteredImages = useMemo(() => {
@@ -634,7 +667,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           return dir * (a.createdAt - b.createdAt)
       }
     })
-  }, [breadcrumbFilteredImages, effectiveHideRejected, effectiveSortKey, effectiveSortDir])
+  }, [
+    breadcrumbFilteredImages,
+    effectiveHideRejected,
+    effectiveSortKey,
+    effectiveSortDir,
+  ])
 
   // 그룹 모드: groups + groupImagesMap 기반 visible 데이터
   const visibleGroups = useMemo(() => {
@@ -668,7 +706,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       if (breadcrumbTags.length > 0) {
         items = items.filter((img) => {
           const tokens = getTokens(img)
-          return breadcrumbTags.every((bTag) => tokens.includes(bTag.toLowerCase()))
+          return breadcrumbTags.every((bTag) =>
+            tokens.includes(bTag.toLowerCase())
+          )
         })
       }
       if (effectiveHideRejected) {
@@ -786,7 +826,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // If detail view is open, do not handle navigation
       if (selected) return
 
-      const currentIndex = navImages.findIndex((img) => img.hash === focusedHash)
+      const currentIndex = navImages.findIndex(
+        (img) => img.hash === focusedHash
+      )
 
       const focusIndex = (index: number) => {
         if (index >= 0 && index < navImages.length) {
@@ -896,9 +938,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           e.preventDefault()
           const img = navImages[currentIndex]
           if (img) {
-            const targetStatus = img.status === "trashed" ? "pending" : "trashed"
+            const targetStatus =
+              img.status === "trashed" ? "pending" : "trashed"
             setStatus(img.hash, targetStatus)
-            toast.success(targetStatus === "trashed" ? "휴지통으로 이동했습니다." : "대기로 복원했습니다.")
+            toast.success(
+              targetStatus === "trashed"
+                ? "휴지통으로 이동했습니다."
+                : "대기로 복원했습니다."
+            )
           }
         }
         return
@@ -912,7 +959,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           if (img) {
             togglePin(img.hash)
             const isPinned = pinnedHashes.includes(img.hash)
-            toast.success(isPinned ? "비교에서 제거했습니다." : "비교에 추가했습니다.")
+            toast.success(
+              isPinned ? "비교에서 제거했습니다." : "비교에 추가했습니다."
+            )
           }
         }
         return
@@ -921,7 +970,16 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [focusedHash, navImages, selectionMode, toggleSelectHash, togglePin, pinnedHashes, selected, setStatus])
+  }, [
+    focusedHash,
+    navImages,
+    selectionMode,
+    toggleSelectHash,
+    togglePin,
+    pinnedHashes,
+    selected,
+    setStatus,
+  ])
 
   // 갤러리 이미지 토큰 실시간 추출 후 상위 컴포넌트 전달
   useEffect(() => {
@@ -963,7 +1021,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
     onTokensExtracted(extracted.slice(0, 150))
   }, [images, onTokensExtracted])
-
 
   const handleLongPress = useCallback(
     (hash: string) => {
@@ -1033,9 +1090,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       const downloads: Array<{ url: string; filename: string }> = []
       for (const hash of selectedHashes) {
         const img = imageLookup.get(hash)
-        const filename = img
-          ? getImageFilename(img)
-          : `${hash}.png`
+        const filename = img ? getImageFilename(img) : `${hash}.png`
         downloads.push({ url: `${backendUrl}/saved-images/${hash}`, filename })
       }
       await downloadImagesAsZip(downloads, "gallery-images.zip")
@@ -1090,12 +1145,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }
 
-
   const toggleSort = useCallback(
     (key: GallerySortKey) => {
       if (toolbarState) {
         if (toolbarState.sortKey === key) {
-          toolbarState.setSortDir(toolbarState.sortDir === "asc" ? "desc" : "asc")
+          toolbarState.setSortDir(
+            toolbarState.sortDir === "asc" ? "desc" : "asc"
+          )
         } else {
           toolbarState.setSortKey(key)
           toolbarState.setSortDir("asc")
@@ -1132,416 +1188,570 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div className="flex flex-1 flex-col">
-      {/* ── Sticky Toolbar Header (내부 렌더링: toolbarState 없을 때만) ── */}
-      {!toolbarState && (
-        <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-panel px-4 py-2">
-          {/* Single row: 4 consolidated items */}
-          <div className="flex items-center justify-between gap-2">
-            {/* Left: Status filter + View mode */}
-            <div className="flex items-center gap-2">
-              {/* 1. Status filter dropdown */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-8 w-[80px] border-line bg-background px-2 text-[11px] font-bold shadow-none focus:ring-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(
-                    [
-                      "all",
-                      "pending",
-                      "approved",
-                      "rejected",
-                      "trashed",
-                    ] as const
-                  ).map((s) => (
-                    <SelectItem
-                      key={s}
-                      value={s}
-                      className="text-[12px] font-bold"
-                    >
-                      {STATUS_LABEL[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* ── Sticky Toolbar Header (내부 렌더링: toolbarState 없을 때만) ── */}
+          {!toolbarState && (
+            <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-panel px-4 py-2">
+              {/* Single row: 4 consolidated items */}
+              <div className="flex items-center justify-between gap-2">
+                {/* Left: Status filter + View mode */}
+                <div className="flex items-center gap-2">
+                  {/* 1. Status filter dropdown */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 w-[80px] border-line bg-background px-2 text-[11px] font-bold shadow-none focus:ring-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        [
+                          "all",
+                          "pending",
+                          "approved",
+                          "rejected",
+                          "trashed",
+                        ] as const
+                      ).map((s) => (
+                        <SelectItem
+                          key={s}
+                          value={s}
+                          className="text-[12px] font-bold"
+                        >
+                          {STATUS_LABEL[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-              {/* 2. View mode dropdown (group toggle + grid/compare) */}
-              <Select
-                value={groupMode ? "group" : galleryViewMode}
-                onValueChange={(v) => {
-                  if (v === "group") {
-                    setGroupMode(true)
-                  } else {
-                    setGroupMode(false)
-                    setGalleryViewMode(v as GalleryViewMode)
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 w-[70px] border-line bg-background px-2 text-[11px] font-bold shadow-none focus:ring-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="group" className="text-[12px] font-bold">
-                    그룹
-                  </SelectItem>
-                  <SelectItem value="grid" className="text-[12px] font-bold">
-                    그리드
-                  </SelectItem>
-                  <SelectItem value="compare" className="text-[12px] font-bold">
-                    비교
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* 3. Sort: key select + direction toggle */}
-              <Select
-                value={sortKey}
-                onValueChange={(k) => toggleSort(k as GallerySortKey)}
-              >
-                <SelectTrigger className="h-8 w-[72px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="createdAt" className="text-[12px] font-bold">
-                    날짜순
-                  </SelectItem>
-                  <SelectItem value="filename" className="text-[12px] font-bold">
-                    파일명순
-                  </SelectItem>
-                  <SelectItem value="sizeBytes" className="text-[12px] font-bold">
-                    크기순
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => toggleSort(sortKey)}
-                className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
-              >
-                {sortDir === "asc" ? (
-                  <ArrowUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowDown className="h-3.5 w-3.5" />
-                )}
-              </Button>
-
-              {/* 썸네일 크기 조절 슬라이더 */}
-              {(effectiveGroupMode || effectiveGalleryViewMode === "grid") && (
-                <div className="hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 md:flex shadow-xs h-8">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center text-muted-foreground">
-                        <LayoutGrid className="h-3.5 w-3.5" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-xs font-bold">크기 조절</TooltipContent>
-                  </Tooltip>
-                  <input
-                    type="range"
-                    min="120"
-                    max="320"
-                    step="10"
-                    value={thumbnailSize}
-                    onChange={(e) => setThumbnailSize(Number(e.target.value))}
-                    className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
-                  />
-                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
-                    {thumbnailSize}px
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Filter + More actions */}
-            <div className="flex items-center gap-2">
-              {/* 3. Filter button */}
-              <Button
-                size="sm"
-                variant={showFilters ? "secondary" : "outline"}
-                onClick={() => setShowFilters(!showFilters)}
-                className="relative h-8 w-8 p-0"
-              >
-                <FilterIcon className="h-4 w-4" />
-                {hasAnyFilter && (
-                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary"></span>
-                  </span>
-                )}
-              </Button>
-
-              {/* More actions dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[160px]">
-                  <DropdownMenuItem onClick={reload}>
-                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
-                    새로고침
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleEmptyTrash}
-                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  {/* 2. View mode dropdown (group toggle + grid/compare) */}
+                  <Select
+                    value={groupMode ? "group" : galleryViewMode}
+                    onValueChange={(v) => {
+                      if (v === "group") {
+                        setGroupMode(true)
+                      } else {
+                        setGroupMode(false)
+                        setGalleryViewMode(v as GalleryViewMode)
+                      }
+                    }}
                   >
-                    <Trash2Icon className="mr-2 h-3.5 w-3.5" />
-                    휴지통 비우기
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
+                    <SelectTrigger className="h-8 w-[70px] border-line bg-background px-2 text-[11px] font-bold shadow-none focus:ring-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="group"
+                        className="text-[12px] font-bold"
+                      >
+                        그룹
+                      </SelectItem>
+                      <SelectItem
+                        value="grid"
+                        className="text-[12px] font-bold"
+                      >
+                        그리드
+                      </SelectItem>
+                      <SelectItem
+                        value="compare"
+                        className="text-[12px] font-bold"
+                      >
+                        비교
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
 
-          {/* ── Collapsible Filters ── */}
-          {showFilters && (
-            <div className="mt-3 flex animate-in flex-col gap-3 rounded-md border bg-muted/10 px-3 py-3 duration-200 fade-in slide-in-from-top-1 md:flex-row md:items-center">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                <span className="text-[11px] font-bold text-muted-foreground uppercase">
-                  검색
-                </span>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:items-center">
-                  <Input
-                    className="h-9 w-full text-sm md:h-7 md:w-40 md:text-xs"
-                    type="search"
-                    placeholder="파일명 필터"
-                    value={filenameFilter}
-                    onChange={(e) => setFilenameFilter(e.target.value)}
-                    onContextMenu={(e) => e.stopPropagation()}
-                  />
-                  <Input
-                    className="h-9 w-full text-sm md:h-7 md:w-36 md:text-xs"
-                    type="search"
-                    placeholder="태그 필터"
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                    onContextMenu={(e) => e.stopPropagation()}
-                  />
-                  <Input
-                    className="h-9 w-full text-sm sm:col-span-2 md:h-7 md:w-48 md:text-xs"
-                    type="search"
-                    placeholder="메타데이터/prompt 검색"
-                    value={metadataFilter}
-                    onChange={(e) => setMetadataFilter(e.target.value)}
-                    onContextMenu={(e) => e.stopPropagation()}
-                  />
+                  {/* 3. Sort: key select + direction toggle */}
+                  <Select
+                    value={sortKey}
+                    onValueChange={(k) => toggleSort(k as GallerySortKey)}
+                  >
+                    <SelectTrigger className="h-8 w-[72px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="createdAt"
+                        className="text-[12px] font-bold"
+                      >
+                        날짜순
+                      </SelectItem>
+                      <SelectItem
+                        value="filename"
+                        className="text-[12px] font-bold"
+                      >
+                        파일명순
+                      </SelectItem>
+                      <SelectItem
+                        value="sizeBytes"
+                        className="text-[12px] font-bold"
+                      >
+                        크기순
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleSort(sortKey)}
+                    className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
+                  >
+                    {sortDir === "asc" ? (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+
+                  {/* 썸네일 크기 조절 슬라이더 */}
+                  {(effectiveGroupMode ||
+                    effectiveGalleryViewMode === "grid") && (
+                    <div className="hidden h-8 items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs md:flex">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center text-muted-foreground">
+                            <LayoutGrid className="h-3.5 w-3.5" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs font-bold">
+                          크기 조절
+                        </TooltipContent>
+                      </Tooltip>
+                      <input
+                        type="range"
+                        min="120"
+                        max="320"
+                        step="10"
+                        value={thumbnailSize}
+                        onChange={(e) =>
+                          setThumbnailSize(Number(e.target.value))
+                        }
+                        className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
+                      />
+                      <span className="w-[34px] text-right font-mono text-[9px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
+                        {thumbnailSize}px
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Filter + More actions */}
+                <div className="flex items-center gap-2">
+                  {/* 3. Filter button */}
+                  <Button
+                    size="sm"
+                    variant={showFilters ? "secondary" : "outline"}
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="relative h-8 w-8 p-0"
+                  >
+                    <FilterIcon className="h-4 w-4" />
+                    {hasAnyFilter && (
+                      <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary"></span>
+                      </span>
+                    )}
+                  </Button>
+
+                  {/* More actions dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[160px]">
+                      <DropdownMenuItem onClick={reload}>
+                        <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
+                        새로고침
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={handleEmptyTrash}
+                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      >
+                        <Trash2Icon className="mr-2 h-3.5 w-3.5" />
+                        휴지통 비우기
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
-              <div className="hidden h-4 w-px bg-line md:block" />
+              {/* ── Collapsible Filters ── */}
+              {showFilters && (
+                <div className="mt-3 flex animate-in flex-col gap-3 rounded-md border bg-muted/10 px-3 py-3 duration-200 fade-in slide-in-from-top-1 md:flex-row md:items-center">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase">
+                      검색
+                    </span>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:items-center">
+                      <Input
+                        className="h-9 w-full text-sm md:h-7 md:w-40 md:text-xs"
+                        type="search"
+                        placeholder="파일명 필터"
+                        value={filenameFilter}
+                        onChange={(e) => setFilenameFilter(e.target.value)}
+                        onContextMenu={(e) => e.stopPropagation()}
+                      />
+                      <Input
+                        className="h-9 w-full text-sm md:h-7 md:w-36 md:text-xs"
+                        type="search"
+                        placeholder="태그 필터"
+                        value={tagFilter}
+                        onChange={(e) => setTagFilter(e.target.value)}
+                        onContextMenu={(e) => e.stopPropagation()}
+                      />
+                      <Input
+                        className="h-9 w-full text-sm sm:col-span-2 md:h-7 md:w-48 md:text-xs"
+                        type="search"
+                        placeholder="메타데이터/prompt 검색"
+                        value={metadataFilter}
+                        onChange={(e) => setMetadataFilter(e.target.value)}
+                        onContextMenu={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
 
-              <div className="flex items-center justify-between border-t border-line/40 pt-2 md:border-0 md:pt-0">
-                <div className="flex cursor-pointer items-center gap-2">
-                  <Checkbox
-                    id="hide-rejected"
-                    checked={hideRejected}
-                    onCheckedChange={(v) => setHideRejected(v === true)}
-                  />
-                  <Label
-                    htmlFor="hide-rejected"
-                    className="cursor-pointer text-xs font-bold text-muted-foreground md:text-[11px]"
-                  >
-                    리젝 숨기기
-                  </Label>
+                  <div className="hidden h-4 w-px bg-line md:block" />
+
+                  <div className="flex items-center justify-between border-t border-line/40 pt-2 md:border-0 md:pt-0">
+                    <div className="flex cursor-pointer items-center gap-2">
+                      <Checkbox
+                        id="hide-rejected"
+                        checked={hideRejected}
+                        onCheckedChange={(v) => setHideRejected(v === true)}
+                      />
+                      <Label
+                        htmlFor="hide-rejected"
+                        className="cursor-pointer text-xs font-bold text-muted-foreground md:text-[11px]"
+                      >
+                        리젝 숨기기
+                      </Label>
+                    </div>
+
+                    <div className="md:ml-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-xs font-bold text-muted-foreground md:h-7 md:text-[10px]"
+                        onClick={() => {
+                          setFilenameFilter("")
+                          setTagFilter("")
+                          setMetadataFilter("")
+                          setHideRejected(false)
+                          setBreadcrumbTags([])
+                          setSubTagQuery("")
+                        }}
+                      >
+                        <XIcon className="mr-1 h-3.5 w-3.5 md:h-3 md:w-3" />
+                        필터 초기화
+                      </Button>
+                    </div>
+                  </div>
                 </div>
+              )}
+            </div>
+          )}
 
-                <div className="md:ml-auto">
+          {/* 선택 모드 액션 바 */}
+          {selectionMode && (
+            <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-blue-50/30 px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-blue-700">
+                  {selectedHashes.size}개 이미지 선택됨
+                </span>
+                <div className="flex items-center gap-1">
                   <Button
-                    variant="ghost"
                     size="sm"
-                    className="h-8 px-2 text-xs font-bold text-muted-foreground md:h-7 md:text-[10px]"
-                    onClick={() => {
-                      setFilenameFilter("")
-                      setTagFilter("")
-                      setMetadataFilter("")
-                      setHideRejected(false)
-                      setBreadcrumbTags([])
-                      setSubTagQuery("")
-                    }}
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[10px] font-bold text-ok"
+                    onClick={() => handleBulkAction("approved")}
+                    disabled={bulkActionLoading}
                   >
-                    <XIcon className="mr-1 h-3.5 w-3.5 md:h-3 md:w-3" />
-                    필터 초기화
+                    <CheckCircleIcon className="h-3.5 w-3.5" />
+                    <span>일괄 통과</span>
+                    <Kbd className="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                      1
+                    </Kbd>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[10px] font-bold text-bad"
+                    onClick={() => handleBulkAction("rejected")}
+                    disabled={bulkActionLoading}
+                  >
+                    <XCircleIcon className="h-3.5 w-3.5" />
+                    <span>일괄 탈락</span>
+                    <Kbd className="border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-400">
+                      2
+                    </Kbd>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[10px] font-bold text-info"
+                    onClick={() => handleBulkAction("pending")}
+                    disabled={bulkActionLoading}
+                  >
+                    <RotateCcwIcon className="h-3.5 w-3.5" />
+                    <span>일괄 대기</span>
+                    <Kbd className="border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-400">
+                      3
+                    </Kbd>
                   </Button>
                 </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[10px] font-bold"
+                    onClick={() => handleBulkAction("trashed")}
+                    disabled={bulkActionLoading}
+                  >
+                    <Trash2Icon className="h-3.5 w-3.5" />
+                    <span>일괄 휴지통</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[10px] font-bold"
+                    onClick={handleBulkDownload}
+                    disabled={bulkDownloadLoading}
+                  >
+                    <DownloadIcon className="h-3.5 w-3.5" />
+                    일괄 다운로드
+                  </Button>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
+                  onClick={exitSelectionMode}
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                  <span>선택 종료</span>
+                  <Kbd className="ml-1 bg-muted/40">Esc</Kbd>
+                </Button>
+                {bulkActionMessage && (
+                  <span className="text-xs font-bold text-blue-600">
+                    {bulkActionMessage}
+                  </span>
+                )}
               </div>
             </div>
           )}
 
-        </div>
-      )}
+          {/* ── Scrollable Content ── */}
+          <div className="flex-1 p-4" onMouseDown={handleMouseDown}>
+            {/* ── Danbooru Folder-like Breadcrumb tag system ── */}
+            <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-card px-5 py-4 shadow-sm">
+              {/* Top Row: Title/Icon + Breadcrumb Trail */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground select-none">
+                  {breadcrumbTags.length > 0 ? (
+                    <FolderOpen
+                      className="h-4 w-4 text-muted-foreground"
+                      strokeWidth={1.6}
+                    />
+                  ) : (
+                    <Folder
+                      className="h-4 w-4 text-muted-foreground"
+                      strokeWidth={1.6}
+                    />
+                  )}
+                  경로 탐색
+                </span>
 
-      {/* 선택 모드 액션 바 */}
-      {selectionMode && (
-        <div className="sticky top-0 z-40 shrink-0 border-b border-line bg-blue-50/30 px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-blue-700">
-              {selectedHashes.size}개 이미지 선택됨
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-[10px] font-bold text-ok"
-                onClick={() => handleBulkAction("approved")}
-                disabled={bulkActionLoading}
-              >
-                <CheckCircleIcon className="h-3.5 w-3.5" />
-                <span>일괄 통과</span>
-                <Kbd className="bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">1</Kbd>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-[10px] font-bold text-bad"
-                onClick={() => handleBulkAction("rejected")}
-                disabled={bulkActionLoading}
-              >
-                <XCircleIcon className="h-3.5 w-3.5" />
-                <span>일괄 탈락</span>
-                <Kbd className="bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400">2</Kbd>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-[10px] font-bold text-info"
-                onClick={() => handleBulkAction("pending")}
-                disabled={bulkActionLoading}
-              >
-                <RotateCcwIcon className="h-3.5 w-3.5" />
-                <span>일괄 대기</span>
-                <Kbd className="bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-400">3</Kbd>
-              </Button>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-[10px] font-bold"
-                onClick={() => handleBulkAction("trashed")}
-                disabled={bulkActionLoading}
-              >
-                <Trash2Icon className="h-3.5 w-3.5" />
-                <span>일괄 휴지통</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-[10px] font-bold"
-                onClick={handleBulkDownload}
-                disabled={bulkDownloadLoading}
-              >
-                <DownloadIcon className="h-3.5 w-3.5" />
-                일괄 다운로드
-              </Button>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1 text-[10px] font-bold text-muted-foreground"
-              onClick={exitSelectionMode}
-            >
-              <XIcon className="h-3.5 w-3.5" />
-              <span>선택 종료</span>
-              <Kbd className="ml-1 bg-muted/40">Esc</Kbd>
-            </Button>
-            {bulkActionMessage && (
-              <span className="text-xs font-bold text-blue-600">
-                {bulkActionMessage}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+                <div className="mx-2 hidden h-3 w-px shrink-0 bg-border sm:block" />
 
-      {/* ── Scrollable Content ── */}
-      <div className="flex-1 p-4" onMouseDown={handleMouseDown}>
-        {/* ── Danbooru Folder-like Breadcrumb tag system ── */}
-        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-card px-5 py-4 shadow-sm">
-          {/* Top Row: Title/Icon + Breadcrumb Trail */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="flex select-none items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-              {breadcrumbTags.length > 0 ? (
-                <FolderOpen className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} />
-              ) : (
-                <Folder className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} />
-              )}
-              경로 탐색
-            </span>
+                <Breadcrumb className="flex-1">
+                  <BreadcrumbList className="flex-wrap items-center text-xs font-medium sm:text-xs">
+                    <BreadcrumbItem>
+                      <BreadcrumbLink
+                        onClick={() => {
+                          setBreadcrumbTags([])
+                          setPage(1)
+                          setGroupPage(1)
+                        }}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-1 font-medium transition-colors hover:text-foreground",
+                          breadcrumbTags.length === 0
+                            ? "cursor-default font-semibold text-foreground"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        <Home
+                          className="h-3.5 w-3.5 text-muted-foreground/80"
+                          strokeWidth={1.6}
+                        />
+                        Home
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    {breadcrumbTags.map((tag, idx) => {
+                      const isLast = idx === breadcrumbTags.length - 1
+                      return (
+                        <React.Fragment key={tag}>
+                          <BreadcrumbSeparator />
+                          <BreadcrumbItem>
+                            <ContextMenu>
+                              <ContextMenuTrigger asChild>
+                                {isLast ? (
+                                  <span className="block rounded border border-border/40 bg-muted/60 px-2 py-0.5 text-[11px] leading-none font-semibold text-foreground select-none">
+                                    {tag}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="block cursor-pointer font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
+                                    onClick={() => {
+                                      setBreadcrumbTags(
+                                        breadcrumbTags.slice(0, idx + 1)
+                                      )
+                                      setPage(1)
+                                      setGroupPage(1)
+                                    }}
+                                  >
+                                    {tag}
+                                  </span>
+                                )}
+                              </ContextMenuTrigger>
+                              <ContextMenuContent className="w-44">
+                                <ContextMenuItem
+                                  onClick={() => {
+                                    setBreadcrumbTags(
+                                      breadcrumbTags.slice(0, idx + 1)
+                                    )
+                                    setPage(1)
+                                    setGroupPage(1)
+                                  }}
+                                  className="gap-2 font-bold"
+                                >
+                                  <Scissors className="h-3.5 w-3.5" />이
+                                  위치까지 경로 자르기
+                                </ContextMenuItem>
+                                <ContextMenuItem
+                                  onClick={() => {
+                                    setBreadcrumbTags(
+                                      breadcrumbTags.filter((_, i) => i !== idx)
+                                    )
+                                    setPage(1)
+                                    setGroupPage(1)
+                                  }}
+                                  className="gap-2 font-bold"
+                                >
+                                  <Trash2Icon className="h-3.5 w-3.5" />
+                                  경로에서 제거
+                                </ContextMenuItem>
+                                <ContextMenuSeparator />
+                                <ContextMenuItem
+                                  onClick={() => {
+                                    navigator.clipboard
+                                      .writeText(tag)
+                                      .catch(() => {})
+                                  }}
+                                  className="gap-2 font-bold"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                  태그명 복사
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            </ContextMenu>
+                          </BreadcrumbItem>
+                        </React.Fragment>
+                      )
+                    })}
+                  </BreadcrumbList>
+                </Breadcrumb>
 
-            <div className="hidden h-3 w-px bg-border mx-2 shrink-0 sm:block" />
-
-            <Breadcrumb className="flex-1">
-              <BreadcrumbList className="flex-wrap items-center text-xs font-medium sm:text-xs">
-                <BreadcrumbItem>
-                  <BreadcrumbLink
+                {/* Clear All Breadcrumbs Button */}
+                {breadcrumbTags.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded px-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
                     onClick={() => {
                       setBreadcrumbTags([])
                       setPage(1)
                       setGroupPage(1)
                     }}
-                    className={cn(
-                      "flex items-center gap-1 font-medium transition-colors hover:text-foreground cursor-pointer",
-                      breadcrumbTags.length === 0 ? "text-foreground font-semibold cursor-default" : "text-muted-foreground"
-                    )}
                   >
-                    <Home className="h-3.5 w-3.5 text-muted-foreground/80" strokeWidth={1.6} />
-                    Home
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                 {breadcrumbTags.map((tag, idx) => {
-                  const isLast = idx === breadcrumbTags.length - 1
-                  return (
-                    <React.Fragment key={tag}>
-                      <BreadcrumbSeparator />
-                      <BreadcrumbItem>
-                        <ContextMenu>
+                    경로 초기화
+                  </Button>
+                )}
+              </div>
+
+              {/* Bottom section: Sub-folders suggestions integrated in a single row */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2 shadow-2xs">
+                {/* Optional sub-tag filtering input */}
+                <div className="relative w-40 shrink-0">
+                  <Search
+                    className="absolute top-2.5 left-2.5 h-3.5 w-3.5 text-muted-foreground/80"
+                    strokeWidth={1.6}
+                  />
+                  <input
+                    type="text"
+                    placeholder="폴더 검색..."
+                    value={subTagQuery}
+                    onChange={(e) => setSubTagQuery(e.target.value)}
+                    onContextMenu={(e) => e.stopPropagation()}
+                    className="h-8 w-full rounded-md border border-input bg-transparent pr-2.5 pl-9 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="h-4 w-px shrink-0 bg-border" />
+
+                {nextAvailableTokens.length > 0 ? (
+                  <div className="flex max-h-[44px] flex-1 flex-wrap items-center gap-2 overflow-y-auto pr-1">
+                    {nextAvailableTokens
+                      .slice(0, 30)
+                      .map(({ token, count }) => (
+                        <ContextMenu key={token}>
                           <ContextMenuTrigger asChild>
-                            {isLast ? (
-                              <span className="font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40 text-[11px] leading-none block select-none">
-                                {tag}
+                            <button
+                              onClick={() => {
+                                setBreadcrumbTags([...breadcrumbTags, token])
+                                setSubTagQuery("")
+                                setPage(1)
+                                setGroupPage(1)
+                              }}
+                              className="group flex h-8 shrink-0 cursor-pointer items-center justify-between gap-2.5 rounded-md border border-border bg-card px-3 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-98"
+                            >
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <Folder
+                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
+                                  strokeWidth={1.6}
+                                />
+                                <span className="max-w-[130px] truncate leading-none font-medium text-foreground/80 group-hover:text-foreground">
+                                  {token}
+                                </span>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
+                                {count}
                               </span>
-                            ) : (
-                              <span className="font-medium text-muted-foreground transition-colors hover:text-foreground cursor-pointer block select-none"
-                                onClick={() => {
-                                  setBreadcrumbTags(breadcrumbTags.slice(0, idx + 1))
-                                  setPage(1)
-                                  setGroupPage(1)
-                                }}
-                              >
-                                {tag}
-                              </span>
-                            )}
+                            </button>
                           </ContextMenuTrigger>
                           <ContextMenuContent className="w-44">
                             <ContextMenuItem
                               onClick={() => {
-                                setBreadcrumbTags(breadcrumbTags.slice(0, idx + 1))
+                                setBreadcrumbTags([token, ...breadcrumbTags])
+                                setSubTagQuery("")
                                 setPage(1)
                                 setGroupPage(1)
                               }}
                               className="gap-2 font-bold"
                             >
-                              <Scissors className="h-3.5 w-3.5" />
-                              이 위치까지 경로 자르기
-                            </ContextMenuItem>
-                            <ContextMenuItem
-                              onClick={() => {
-                                setBreadcrumbTags(breadcrumbTags.filter((_, i) => i !== idx))
-                                setPage(1)
-                                setGroupPage(1)
-                              }}
-                              className="gap-2 font-bold"
-                            >
-                              <Trash2Icon className="h-3.5 w-3.5" />
-                              경로에서 제거
+                              <FolderPlus className="h-3.5 w-3.5" />맨 앞에 경로
+                              추가
                             </ContextMenuItem>
                             <ContextMenuSeparator />
                             <ContextMenuItem
                               onClick={() => {
-                                navigator.clipboard.writeText(tag).catch(() => {})
+                                navigator.clipboard
+                                  .writeText(token)
+                                  .catch(() => {})
                               }}
                               className="gap-2 font-bold"
                             >
@@ -1550,591 +1760,517 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             </ContextMenuItem>
                           </ContextMenuContent>
                         </ContextMenu>
-                      </BreadcrumbItem>
-                    </React.Fragment>
-                  )
-                })}
-              </BreadcrumbList>
-            </Breadcrumb>
-            
-            {/* Clear All Breadcrumbs Button */}
-            {breadcrumbTags.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground rounded"
-                onClick={() => {
-                  setBreadcrumbTags([])
-                  setPage(1)
-                  setGroupPage(1)
-                }}
-              >
-                경로 초기화
-              </Button>
-            )}
-          </div>
-
-          {/* Bottom section: Sub-folders suggestions integrated in a single row */}
-          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2 shadow-2xs">
-            {/* Optional sub-tag filtering input */}
-            <div className="relative w-40 shrink-0">
-              <Search className="absolute top-2.5 left-2.5 h-3.5 w-3.5 text-muted-foreground/80" strokeWidth={1.6} />
-              <input
-                type="text"
-                placeholder="폴더 검색..."
-                value={subTagQuery}
-                onChange={(e) => setSubTagQuery(e.target.value)}
-                onContextMenu={(e) => e.stopPropagation()}
-                className="h-8 w-full rounded-md border border-input bg-transparent pl-9 pr-2.5 text-xs font-normal placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:border-input transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </div>
-
-            {/* Vertical Divider */}
-            <div className="h-4 w-px bg-border shrink-0" />
-
-            {nextAvailableTokens.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2 flex-1 max-h-[44px] overflow-y-auto pr-1">
-                {nextAvailableTokens.slice(0, 30).map(({ token, count }) => (
-                  <ContextMenu key={token}>
-                    <ContextMenuTrigger asChild>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 py-1">
+                    {breadcrumbTags.length > 0 ? (
                       <button
                         onClick={() => {
-                          setBreadcrumbTags([...breadcrumbTags, token])
-                          setSubTagQuery("")
+                          setBreadcrumbTags(breadcrumbTags.slice(0, -1))
                           setPage(1)
                           setGroupPage(1)
                         }}
-                        className="group flex h-8 shrink-0 cursor-pointer items-center justify-between gap-2.5 rounded-md border border-border bg-card px-3 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-98"
+                        className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1 text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground active:scale-98"
                       >
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                          <Folder className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0 group-hover:text-accent-foreground" strokeWidth={1.6} />
-                          <span className="truncate max-w-[130px] font-medium text-foreground/80 group-hover:text-foreground leading-none">{token}</span>
-                        </div>
-                        <span className="text-[9px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0 group-hover:bg-background">
-                          {count}
-                        </span>
+                        <ArrowLeft
+                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          strokeWidth={1.6}
+                        />
+                        <span>뒤로 가기</span>
                       </button>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent className="w-44">
-                      <ContextMenuItem
-                        onClick={() => {
-                          setBreadcrumbTags([token, ...breadcrumbTags])
-                          setSubTagQuery("")
-                          setPage(1)
-                          setGroupPage(1)
-                        }}
-                        className="gap-2 font-bold"
-                      >
-                        <FolderPlus className="h-3.5 w-3.5" />
-                        맨 앞에 경로 추가
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem
-                        onClick={() => {
-                          navigator.clipboard.writeText(token).catch(() => {})
-                        }}
-                        className="gap-2 font-bold"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        태그명 복사
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 py-1">
-                {breadcrumbTags.length > 0 ? (
-                  <button
-                    onClick={() => {
-                      setBreadcrumbTags(breadcrumbTags.slice(0, -1))
-                      setPage(1)
-                      setGroupPage(1)
-                    }}
-                    className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1 text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground active:scale-98"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground shrink-0" strokeWidth={1.6} />
-                    <span>뒤로 가기</span>
-                  </button>
-                ) : (
-                  <div className="text-xs font-medium text-muted-foreground">
-                     더 이상 하위 폴더가 없습니다.
+                    ) : (
+                      <div className="text-xs font-medium text-muted-foreground">
+                        더 이상 하위 폴더가 없습니다.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {error && (
-          <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        {loading && (
-          <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div
-                key={i}
-                className="m-1 break-inside-avoid overflow-hidden rounded-lg border bg-card"
-              >
-                <Skeleton
-                  className="w-full"
-                  style={{ height: `${140 + ((i * 47) % 120)}px` }}
-                />
+            {error && (
+              <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+                {error}
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-       
-        {/* 비교 뷰 (그룹 모드 off + 비교 선택 시) */}
-        {!effectiveGroupMode &&
-          effectiveGalleryViewMode === "compare" &&
-          pinnedHashes.length > 0 && (
-            <div
-              className={`grid gap-3 ${
-                pinnedHashes.length === 1
-                  ? "grid-cols-1"
-                  : pinnedHashes.length === 2
-                    ? "grid-cols-2"
-                    : "grid-cols-3"
-              }`}
-              style={{ minHeight: 400 }}
-            >
-              {pinnedHashes.map((hash) => {
-                const img = visibleImages.find((i) => i.hash === hash)
-                return (
-                  <ContextMenu key={hash}>
-                    <ContextMenuTrigger asChild>
-                      <div
-                        className="relative overflow-hidden rounded-lg border bg-black/5 shadow-inner cursor-pointer"
-                      >
+            {loading && (
+              <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="m-1 break-inside-avoid overflow-hidden rounded-lg border bg-card"
+                  >
+                    <Skeleton
+                      className="w-full"
+                      style={{ height: `${140 + ((i * 47) % 120)}px` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 비교 뷰 (그룹 모드 off + 비교 선택 시) */}
+            {!effectiveGroupMode &&
+              effectiveGalleryViewMode === "compare" &&
+              pinnedHashes.length > 0 && (
+                <div
+                  className={`grid gap-3 ${
+                    pinnedHashes.length === 1
+                      ? "grid-cols-1"
+                      : pinnedHashes.length === 2
+                        ? "grid-cols-2"
+                        : "grid-cols-3"
+                  }`}
+                  style={{ minHeight: 400 }}
+                >
+                  {pinnedHashes.map((hash) => {
+                    const img = visibleImages.find((i) => i.hash === hash)
+                    return (
+                      <ContextMenu key={hash}>
+                        <ContextMenuTrigger asChild>
+                          <div className="relative cursor-pointer overflow-hidden rounded-lg border bg-black/5 shadow-inner">
+                            <button
+                              type="button"
+                              onClick={() => togglePin(hash)}
+                              className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl transition-colors hover:bg-blue-600"
+                            >
+                              <PinIcon className="h-5 w-5" />
+                            </button>
+                            {img &&
+                              (enableHover ? (
+                                <Magnifier
+                                  src={`${backendUrl}/saved-images/${hash}`}
+                                />
+                              ) : (
+                                <img
+                                  src={`${backendUrl}/saved-images/${hash}`}
+                                  className="max-h-full max-w-full object-contain"
+                                  alt=""
+                                />
+                              ))}
+                          </div>
+                        </ContextMenuTrigger>
+                        {img && (
+                          <ContextMenuContent className="w-48">
+                            <ContextMenuItem
+                              onClick={() => togglePin(hash)}
+                              className="gap-2 font-bold"
+                            >
+                              <PinIcon className="h-3.5 w-3.5" />
+                              비교에서 제거
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() => setStatus(hash, "approved")}
+                              className="gap-2 font-bold text-ok"
+                              disabled={img.status === "approved"}
+                            >
+                              <CheckCircleIcon className="h-3.5 w-3.5" />
+                              통과
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => setStatus(hash, "rejected")}
+                              className="gap-2 font-bold text-bad"
+                              disabled={img.status === "rejected"}
+                            >
+                              <XCircleIcon className="h-3.5 w-3.5" />
+                              탈락
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => setStatus(hash, "pending")}
+                              className="gap-2 font-bold text-info"
+                              disabled={img.status === "pending"}
+                            >
+                              <RotateCcwIcon className="h-3.5 w-3.5" />
+                              대기
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() => setSelected(img)}
+                              className="gap-2 font-bold"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              상세 보기
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => {
+                                const url = `${backendUrl}/saved-images/${hash}`
+                                navigator.clipboard
+                                  .writeText(url)
+                                  .catch(() => {})
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              이미지 URL 복사
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        )}
+                      </ContextMenu>
+                    )
+                  })}
+                </div>
+              )}
+
+            {/* 그룹 모드 */}
+            {effectiveGroupMode ? (
+              <div className="flex flex-col gap-4">
+                {/* 모두 접기/펴기 컨트롤 */}
+                {visibleGroups.length > 0 && (
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
+                      onClick={
+                        collapsedGroups.size === visibleGroups.length
+                          ? expandAll
+                          : collapseAll
+                      }
+                    >
+                      {collapsedGroups.size === visibleGroups.length
+                        ? "모두 펴기"
+                        : "모두 접기"}
+                    </Button>
+                  </div>
+                )}
+                {visibleGroups.map(({ name, items }) => {
+                  const groupMeta = groups.find((g) => g.filename === name)
+                  const isCollapsed = collapsedGroups.has(name)
+                  return (
+                    <div key={name} className="rounded-md border p-3">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        {/* Collapse toggle */}
                         <button
                           type="button"
-                          onClick={() => togglePin(hash)}
-                          className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl hover:bg-blue-600 transition-colors"
+                          onClick={() => toggleGroupCollapse(name)}
+                          className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-transform hover:bg-muted/50 ${isCollapsed && "rotate-180"}`}
+                          aria-label={isCollapsed ? "펴기" : "접기"}
                         >
-                          <PinIcon className="h-5 w-5" />
-                        </button>
-                        {img &&
-                          (enableHover ? (
-                            <Magnifier src={`${backendUrl}/saved-images/${hash}`} />
+                          {isCollapsed ? (
+                            <ChevronDown className="h-4 w-4" />
                           ) : (
-                            <img
-                              src={`${backendUrl}/saved-images/${hash}`}
-                              className="max-h-full max-w-full object-contain"
-                              alt=""
-                            />
-                          ))}
+                            <ChevronUp className="h-4 w-4" />
+                          )}
+                        </button>
+                        <span className="font-mono text-sm font-semibold">
+                          {name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          총 {groupMeta?.total ?? items.length} · 통과{" "}
+                          {groupMeta?.approvedCount ?? 0} · 탈락{" "}
+                          {groupMeta?.rejectedCount ?? 0} · 휴지통{" "}
+                          {groupMeta?.trashedCount ?? 0}
+                        </span>
+                        {!isCollapsed && (
+                          <div className="ml-auto">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRegenerate(name)}
+                            >
+                              재생성
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                    </ContextMenuTrigger>
-                    {img && (
-                      <ContextMenuContent className="w-48">
-                        <ContextMenuItem
-                          onClick={() => togglePin(hash)}
-                          className="gap-2 font-bold"
-                        >
-                          <PinIcon className="h-3.5 w-3.5" />
-                          비교에서 제거
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onClick={() => setStatus(hash, "approved")}
-                          className="gap-2 font-bold text-ok"
-                          disabled={img.status === "approved"}
-                        >
-                          <CheckCircleIcon className="h-3.5 w-3.5" />
-                          통과
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => setStatus(hash, "rejected")}
-                          className="gap-2 font-bold text-bad"
-                          disabled={img.status === "rejected"}
-                        >
-                          <XCircleIcon className="h-3.5 w-3.5" />
-                          탈락
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => setStatus(hash, "pending")}
-                          className="gap-2 font-bold text-info"
-                          disabled={img.status === "pending"}
-                        >
-                          <RotateCcwIcon className="h-3.5 w-3.5" />
-                          대기
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onClick={() => setSelected(img)}
-                          className="gap-2 font-bold"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          상세 보기
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => {
-                            const url = `${backendUrl}/saved-images/${hash}`
-                            navigator.clipboard.writeText(url).catch(() => {})
-                          }}
-                          className="gap-2 font-bold"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          이미지 URL 복사
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    )}
-                  </ContextMenu>
-                )
-              })}
-            </div>
-          )}
+                      {!isCollapsed && (
+                        <ImageGrid
+                          items={items}
+                          backendUrl={backendUrl}
+                          setStatus={setStatus}
+                          onOpen={setSelected}
+                          selectionMode={selectionMode}
+                          selectedHashes={selectedHashes}
+                          onToggleSelect={toggleSelectHash}
+                          onLongPress={handleLongPress}
+                          togglePin={togglePin}
+                          pinnedHashes={pinnedHashes}
+                          imageLazyLoad={imageLazyLoad}
+                          focusedHash={focusedHash}
+                          onFocus={setFocusedHash}
+                          thumbnailSize={thumbnailSize}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
 
-        {/* 그룹 모드 */}
-        {effectiveGroupMode ? (
-          <div className="flex flex-col gap-4">
-            {/* 모두 접기/펴기 컨트롤 */}
-            {visibleGroups.length > 0 && (
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
-                  onClick={collapsedGroups.size === visibleGroups.length ? expandAll : collapseAll}
-                >
-                  {collapsedGroups.size === visibleGroups.length ? "모두 펴기" : "모두 접기"}
-                </Button>
-              </div>
-            )}
-            {visibleGroups.map(({ name, items }) => {
-              const groupMeta = groups.find((g) => g.filename === name)
-              const isCollapsed = collapsedGroups.has(name)
-              return (
-                <div key={name} className="rounded-md border p-3">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    {/* Collapse toggle */}
-                    <button
-                      type="button"
-                      onClick={() => toggleGroupCollapse(name)}
-                      className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-transform hover:bg-muted/50 ${isCollapsed && "rotate-180"}`}
-                      aria-label={isCollapsed ? "펴기" : "접기"}
-                    >
-                      {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                    </button>
-                    <span className="font-mono text-sm font-semibold">
-                      {name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      총 {groupMeta?.total ?? items.length} · 통과{" "}
-                      {groupMeta?.approvedCount ?? 0} · 탈락{" "}
-                      {groupMeta?.rejectedCount ?? 0} · 휴지통{" "}
-                      {groupMeta?.trashedCount ?? 0}
-                    </span>
-                    {!isCollapsed && (
-                      <div className="ml-auto">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRegenerate(name)}
-                        >
-                          재생성
-                        </Button>
-                      </div>
-                    )}
+                {/* 그룹 페이지네이션 */}
+                {groupTotal > GROUP_PAGE_SIZE && (
+                  <div className="flex flex-col items-center gap-2">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() =>
+                              groupPage > 1 && setGroupPage(groupPage - 1)
+                            }
+                            aria-disabled={groupPage <= 1}
+                            className={
+                              groupPage <= 1
+                                ? "pointer-events-none opacity-50"
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
+                        {groupPageList.map((p, i) =>
+                          p === "…" ? (
+                            <PaginationItem key={`ge-${i}`}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          ) : (
+                            <PaginationItem key={p}>
+                              <PaginationLink
+                                isActive={p === groupPage}
+                                onClick={() => setGroupPage(p)}
+                              >
+                                {p}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )
+                        )}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() =>
+                              groupPage < groupTotalPages &&
+                              setGroupPage(groupPage + 1)
+                            }
+                            aria-disabled={groupPage >= groupTotalPages}
+                            className={
+                              groupPage >= groupTotalPages
+                                ? "pointer-events-none opacity-50"
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                    <p className="text-xs text-muted-foreground">
+                      총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages}{" "}
+                      페이지
+                    </p>
                   </div>
-                  {!isCollapsed && (
-                    <ImageGrid
-                      items={items}
-                      backendUrl={backendUrl}
-                      setStatus={setStatus}
-                      onOpen={setSelected}
-                      selectionMode={selectionMode}
-                      selectedHashes={selectedHashes}
-                      onToggleSelect={toggleSelectHash}
-                      onLongPress={handleLongPress}
-                      togglePin={togglePin}
-                      pinnedHashes={pinnedHashes}
-                      imageLazyLoad={imageLazyLoad}
-                      focusedHash={focusedHash}
-                      onFocus={setFocusedHash}
-                      thumbnailSize={thumbnailSize}
-                    />
+                )}
+              </div>
+            ) : effectiveGalleryViewMode === "grid" ||
+              (effectiveGalleryViewMode === "compare" &&
+                pinnedHashes.length === 0) ? (
+              <>
+                {effectiveGalleryViewMode === "compare" &&
+                  pinnedHashes.length === 0 && (
+                    <div className="mx-auto mb-4 flex max-w-lg items-center gap-3 rounded-xl border border-info/20 bg-info-bg px-4 py-3 text-sm">
+                      <PinIcon className="h-5 w-5 shrink-0 text-info" />
+                      <div>
+                        <p className="font-bold text-foreground">
+                          비교할 이미지를 핀 고정하세요
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          이미지를 우클릭하여 "비교에 추가"를 선택하면 핀 고정된
+                          이미지들이 나란히 표시됩니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                <ImageGrid
+                  items={visibleImages}
+                  backendUrl={backendUrl}
+                  setStatus={setStatus}
+                  onOpen={setSelected}
+                  selectionMode={selectionMode}
+                  selectedHashes={selectedHashes}
+                  onToggleSelect={toggleSelectHash}
+                  onLongPress={handleLongPress}
+                  togglePin={togglePin}
+                  pinnedHashes={pinnedHashes}
+                  imageLazyLoad={imageLazyLoad}
+                  focusedHash={focusedHash}
+                  onFocus={setFocusedHash}
+                  thumbnailSize={thumbnailSize}
+                />
+              </>
+            ) : null}
+
+            {!effectiveGroupMode &&
+              effectiveGalleryViewMode === "grid" &&
+              total > imagePageSize && (
+                <div className="flex flex-col items-center gap-2">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => page > 1 && setPage(page - 1)}
+                          aria-disabled={page <= 1}
+                          className={
+                            page <= 1
+                              ? "pointer-events-none opacity-50"
+                              : undefined
+                          }
+                        />
+                      </PaginationItem>
+                      {pageList.map((p, i) =>
+                        p === "…" ? (
+                          <PaginationItem key={`e-${i}`}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={p}>
+                            <PaginationLink
+                              isActive={p === page}
+                              onClick={() => setPage(p)}
+                            >
+                              {p}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      )}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => page < totalPages && setPage(page + 1)}
+                          aria-disabled={page >= totalPages}
+                          className={
+                            page >= totalPages
+                              ? "pointer-events-none opacity-50"
+                              : undefined
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                  <p className="text-xs text-muted-foreground">
+                    총 {total}개 · {page}/{totalPages} 페이지
+                  </p>
+                  {selectionMode && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px] font-bold"
+                        onClick={selectAll}
+                      >
+                        {selectedHashes.size === visibleImages.length &&
+                        visibleImages.length > 0
+                          ? "전체 해제"
+                          : "전체 선택"}
+                      </Button>
+                    </div>
                   )}
                 </div>
-              )
-            })}
+              )}
 
-            {/* 그룹 페이지네이션 */}
-            {groupTotal > GROUP_PAGE_SIZE && (
-              <div className="flex flex-col items-center gap-2">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() =>
-                          groupPage > 1 && setGroupPage(groupPage - 1)
-                        }
-                        aria-disabled={groupPage <= 1}
-                        className={
-                          groupPage <= 1
-                            ? "pointer-events-none opacity-50"
-                            : undefined
-                        }
-                      />
-                    </PaginationItem>
-                    {groupPageList.map((p, i) =>
-                      p === "…" ? (
-                        <PaginationItem key={`ge-${i}`}>
-                          <PaginationEllipsis />
-                        </PaginationItem>
-                      ) : (
-                        <PaginationItem key={p}>
-                          <PaginationLink
-                            isActive={p === groupPage}
-                            onClick={() => setGroupPage(p)}
-                          >
-                            {p}
-                          </PaginationLink>
-                        </PaginationItem>
-                      )
-                    )}
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() =>
-                          groupPage < groupTotalPages &&
-                          setGroupPage(groupPage + 1)
-                        }
-                        aria-disabled={groupPage >= groupTotalPages}
-                        className={
-                          groupPage >= groupTotalPages
-                            ? "pointer-events-none opacity-50"
-                            : undefined
-                        }
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-                <p className="text-xs text-muted-foreground">
-                  총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages} 페이지
-                </p>
-              </div>
+            {selected && (
+              <ImageDetail
+                key={selected.hash}
+                backendUrl={backendUrl}
+                image={selected}
+                onClose={() => setSelected(null)}
+                onChanged={reload}
+                {...(singleDownloadMode && { singleDownloadMode })}
+              />
             )}
           </div>
-        ) : effectiveGalleryViewMode === "grid" ||
-          (effectiveGalleryViewMode === "compare" &&
-            pinnedHashes.length === 0) ? (
-          <>
-            {effectiveGalleryViewMode === "compare" &&
-              pinnedHashes.length === 0 && (
-                <div className="mx-auto mb-4 flex max-w-lg items-center gap-3 rounded-xl border border-info/20 bg-info-bg px-4 py-3 text-sm">
-                  <PinIcon className="h-5 w-5 shrink-0 text-info" />
-                  <div>
-                    <p className="font-bold text-foreground">
-                      비교할 이미지를 핀 고정하세요
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      이미지를 우클릭하여 "비교에 추가"를 선택하면 핀 고정된
-                      이미지들이 나란히 표시됩니다.
-                    </p>
-                  </div>
-                </div>
-              )}
-            <ImageGrid
-              items={visibleImages}
-              backendUrl={backendUrl}
-              setStatus={setStatus}
-              onOpen={setSelected}
-              selectionMode={selectionMode}
-              selectedHashes={selectedHashes}
-              onToggleSelect={toggleSelectHash}
-              onLongPress={handleLongPress}
-              togglePin={togglePin}
-              pinnedHashes={pinnedHashes}
-              imageLazyLoad={imageLazyLoad}
-              focusedHash={focusedHash}
-              onFocus={setFocusedHash}
-              thumbnailSize={thumbnailSize}
-            />
-          </>
-        ) : null}
 
-        {!effectiveGroupMode &&
-          effectiveGalleryViewMode === "grid" &&
-          total > imagePageSize && (
-            <div className="flex flex-col items-center gap-2">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => page > 1 && setPage(page - 1)}
-                      aria-disabled={page <= 1}
-                      className={
-                        page <= 1 ? "pointer-events-none opacity-50" : undefined
-                      }
-                    />
-                  </PaginationItem>
-                  {pageList.map((p, i) =>
-                    p === "…" ? (
-                      <PaginationItem key={`e-${i}`}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    ) : (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          isActive={p === page}
-                          onClick={() => setPage(p)}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => page < totalPages && setPage(page + 1)}
-                      aria-disabled={page >= totalPages}
-                      className={
-                        page >= totalPages
-                          ? "pointer-events-none opacity-50"
-                          : undefined
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-              <p className="text-xs text-muted-foreground">
-                총 {total}개 · {page}/{totalPages} 페이지
-              </p>
-              {selectionMode && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-[10px] font-bold"
-                    onClick={selectAll}
-                  >
-                    {selectedHashes.size === visibleImages.length &&
-                    visibleImages.length > 0
-                      ? "전체 해제"
-                      : "전체 선택"}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-        {selected && (
-          <ImageDetail
-            key={selected.hash}
-            backendUrl={backendUrl}
-            image={selected}
-            onClose={() => setSelected(null)}
-            onChanged={reload}
-            {...(singleDownloadMode && { singleDownloadMode })}
-          />
-        )}
-      </div>
-
-      {/* 재생성 수량 입력 다이얼로그 */}
-      <Dialog
-        open={regenTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setRegenTarget(null)
-        }}
-      >
-        <DialogContent className="sm:max-w-[340px]">
-          <DialogHeader>
-            <DialogTitle>추가 생성</DialogTitle>
-            <DialogDescription>
-              '{regenTarget}' 그룹에 몇 장을 추가 생성할까요?
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            type="number"
-            min={1}
-            max={100}
-            value={regenCount}
-            onChange={(e) => setRegenCount(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleRegenConfirm()
+          {/* 재생성 수량 입력 다이얼로그 */}
+          <Dialog
+            open={regenTarget !== null}
+            onOpenChange={(open) => {
+              if (!open) setRegenTarget(null)
             }}
-            className="text-center text-lg font-bold"
-            autoFocus
+          >
+            <DialogContent className="sm:max-w-[340px]">
+              <DialogHeader>
+                <DialogTitle>추가 생성</DialogTitle>
+                <DialogDescription>
+                  '{regenTarget}' 그룹에 몇 장을 추가 생성할까요?
+                </DialogDescription>
+              </DialogHeader>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={regenCount}
+                onChange={(e) => setRegenCount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRegenConfirm()
+                }}
+                className="text-center text-lg font-bold"
+                autoFocus
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRegenTarget(null)}>
+                  취소
+                </Button>
+                <Button onClick={handleRegenConfirm}>생성</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <div
+            ref={marqueeRef}
+            className="pointer-events-none fixed z-[9999] rounded-sm border border-primary/60 bg-primary/10 shadow-xs"
+            style={{ display: "none" }}
           />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRegenTarget(null)}>
-              취소
-            </Button>
-            <Button onClick={handleRegenConfirm}>생성</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <div
-        ref={marqueeRef}
-        className="fixed z-[9999] pointer-events-none border border-primary/60 bg-primary/10 rounded-sm shadow-xs"
-        style={{ display: "none" }}
-      />
-    </div>
-  </ContextMenuTrigger>
-  <ContextMenuContent className="w-48">
-    <ContextMenuItem
-      disabled={breadcrumbTags.length === 0}
-      onClick={() => {
-        setBreadcrumbTags(breadcrumbTags.slice(0, -1))
-        setPage(1)
-        setGroupPage(1)
-      }}
-      className="gap-2 font-bold"
-    >
-      <ArrowUp className="h-3.5 w-3.5" />
-      상위 폴더로 이동
-    </ContextMenuItem>
-    <ContextMenuItem
-      disabled={breadcrumbTags.length === 0}
-      onClick={() => {
-        setBreadcrumbTags([])
-        setPage(1)
-        setGroupPage(1)
-      }}
-      className="gap-2 font-bold"
-    >
-      <Home className="h-3.5 w-3.5" />
-      홈 폴더로 이동
-    </ContextMenuItem>
-    <ContextMenuSub>
-      <ContextMenuSubTrigger className="gap-2 font-bold" disabled={nextAvailableTokens.length === 0}>
-        <Folder className="h-3.5 w-3.5 text-muted-foreground/80" />
-        하위 폴더로 이동
-      </ContextMenuSubTrigger>
-      <ContextMenuSubContent className="w-48 max-h-[300px] overflow-y-auto">
-        {nextAvailableTokens.slice(0, 40).map(({ token, count }) => (
-          <ContextMenuItem
-            key={token}
-            onClick={() => {
-              setBreadcrumbTags([...breadcrumbTags, token])
-              setPage(1)
-              setGroupPage(1)
-            }}
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem
+          disabled={breadcrumbTags.length === 0}
+          onClick={() => {
+            setBreadcrumbTags(breadcrumbTags.slice(0, -1))
+            setPage(1)
+            setGroupPage(1)
+          }}
+          className="gap-2 font-bold"
+        >
+          <ArrowUp className="h-3.5 w-3.5" />
+          상위 폴더로 이동
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={breadcrumbTags.length === 0}
+          onClick={() => {
+            setBreadcrumbTags([])
+            setPage(1)
+            setGroupPage(1)
+          }}
+          className="gap-2 font-bold"
+        >
+          <Home className="h-3.5 w-3.5" />홈 폴더로 이동
+        </ContextMenuItem>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger
             className="gap-2 font-bold"
+            disabled={nextAvailableTokens.length === 0}
           >
             <Folder className="h-3.5 w-3.5 text-muted-foreground/80" />
-            <span className="truncate flex-1 font-medium">{token}</span>
-            <span className="text-[9px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-              {count}
-            </span>
-          </ContextMenuItem>
-        ))}
-      </ContextMenuSubContent>
-    </ContextMenuSub>
-    <ContextMenuSeparator />
-    <ContextMenuItem
-      onClick={reload}
-      className="gap-2 font-bold"
-    >
-      <RefreshCwIcon className="h-3.5 w-3.5" />
-      경로 새로고침
-    </ContextMenuItem>
-  </ContextMenuContent>
-</ContextMenu>
+            하위 폴더로 이동
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent className="max-h-[300px] w-48 overflow-y-auto">
+            {nextAvailableTokens.slice(0, 40).map(({ token, count }) => (
+              <ContextMenuItem
+                key={token}
+                onClick={() => {
+                  setBreadcrumbTags([...breadcrumbTags, token])
+                  setPage(1)
+                  setGroupPage(1)
+                }}
+                className="gap-2 font-bold"
+              >
+                <Folder className="h-3.5 w-3.5 text-muted-foreground/80" />
+                <span className="flex-1 truncate font-medium">{token}</span>
+                <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground">
+                  {count}
+                </span>
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={reload} className="gap-2 font-bold">
+          <RefreshCwIcon className="h-3.5 w-3.5" />
+          경로 새로고침
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 })

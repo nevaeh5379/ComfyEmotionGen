@@ -1,6 +1,12 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ClipboardList, Database, Download, Upload, Workflow } from "lucide-react"
+import {
+  ClipboardList,
+  Database,
+  Download,
+  Upload,
+  Workflow,
+} from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 
@@ -341,9 +347,13 @@ export function SettingsPanel({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="done">완료만 / 전체</SelectItem>
-                <SelectItem value="doneOrCancelled">완료 + 취소 / 전체</SelectItem>
+                <SelectItem value="doneOrCancelled">
+                  완료 + 취소 / 전체
+                </SelectItem>
                 <SelectItem value="doneOrFailed">완료 + 실패 / 전체</SelectItem>
-                <SelectItem value="excludeFromDenominator">완료 / (전체 - 실패 - 취소)</SelectItem>
+                <SelectItem value="excludeFromDenominator">
+                  완료 / (전체 - 실패 - 취소)
+                </SelectItem>
               </SelectContent>
             </Select>
           </SettingRow>
@@ -367,7 +377,9 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.useWindowMode}
-              onCheckedChange={(v) => updateSetting("useWindowMode", v === true)}
+              onCheckedChange={(v) =>
+                updateSetting("useWindowMode", v === true)
+              }
             />
           </SettingRow>
         </Section>
@@ -380,26 +392,26 @@ export function SettingsPanel({
         {/* 데이터 관리 */}
         <Section title="데이터 관리">
           <div className="mt-3 space-y-4">
-            
             {/* 템플릿 백업/복원 */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50">
+            <div className="flex flex-col justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50 sm:flex-row sm:items-center">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-lg bg-blue-500/10 p-2 text-blue-500 shrink-0">
+                <div className="mt-0.5 shrink-0 rounded-lg bg-blue-500/10 p-2 text-blue-500">
                   <ClipboardList className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold flex flex-wrap items-center gap-2">
+                  <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                     ComfyUI 템플릿
                     <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-500">
                       {template.savedTemplates.length}개 저장됨
                     </span>
                   </h4>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    저장된 ComfyUI 프롬프트 템플릿 목록을 JSON 파일로 백업하거나 가져와 현재 목록에 병합합니다.
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    저장된 ComfyUI 프롬프트 템플릿 목록을 JSON 파일로 백업하거나
+                    가져와 현재 목록에 병합합니다.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
                 <Button
                   variant="outline"
                   size="sm"
@@ -479,24 +491,25 @@ export function SettingsPanel({
             </div>
 
             {/* 워크플로우 백업/복원 */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50">
+            <div className="flex flex-col justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50 sm:flex-row sm:items-center">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-lg bg-purple-500/10 p-2 text-purple-500 shrink-0">
+                <div className="mt-0.5 shrink-0 rounded-lg bg-purple-500/10 p-2 text-purple-500">
                   <Workflow className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold flex flex-wrap items-center gap-2">
+                  <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                     ComfyUI 워크플로우
                     <span className="inline-flex items-center rounded-full bg-purple-500/10 px-2 py-0.5 text-[11px] font-medium text-purple-500">
                       {workflow.savedWorkflows.length}개 저장됨
                     </span>
                   </h4>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    저장된 ComfyUI 워크플로우 및 노드 매핑 프리셋 목록을 JSON 파일로 백업하거나 가져와 현재 목록에 병합합니다.
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    저장된 ComfyUI 워크플로우 및 노드 매핑 프리셋 목록을 JSON
+                    파일로 백업하거나 가져와 현재 목록에 병합합니다.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
                 <Button
                   variant="outline"
                   size="sm"
@@ -550,7 +563,9 @@ export function SettingsPanel({
                                 id: `${now + Math.random().toString(36).slice(2, 7)}`,
                                 name: (p.name as string) || "미명 워크플로우",
                                 workflow: (p.workflow as string) || "",
-                                mappingPresets: (p.mappingPresets as SavedWorkflow["mappingPresets"]) || [],
+                                mappingPresets:
+                                  (p.mappingPresets as SavedWorkflow["mappingPresets"]) ||
+                                  [],
                                 savedAt: (p.savedAt as number) || now,
                               }
                             }
@@ -578,24 +593,25 @@ export function SettingsPanel({
             </div>
 
             {/* 데이터베이스 백업/복원 */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50">
+            <div className="flex flex-col justify-between gap-4 rounded-xl border border-line bg-card/30 p-4 transition-all duration-200 hover:bg-card/50 sm:flex-row sm:items-center">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-lg bg-emerald-500/10 p-2 text-emerald-500 shrink-0">
+                <div className="mt-0.5 shrink-0 rounded-lg bg-emerald-500/10 p-2 text-emerald-500">
                   <Database className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold flex flex-wrap items-center gap-2">
+                  <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                     생성 작업 데이터베이스 (SQLite)
                     <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
                       서버 데이터
                     </span>
                   </h4>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    서버의 SQLite 생성 이력 및 작업 데이터베이스(jobs.db) 파일 자체를 백업하거나 복원하여 덮어씁니다.
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    서버의 SQLite 생성 이력 및 작업 데이터베이스(jobs.db) 파일
+                    자체를 백업하거나 복원하여 덮어씁니다.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
                 <Button
                   variant="outline"
                   size="sm"
@@ -606,7 +622,9 @@ export function SettingsPanel({
                     a.href = exportUrl
                     a.download = "jobs.db"
                     a.click()
-                    toast.success("데이터베이스 백업 다운로드가 시작되었습니다.")
+                    toast.success(
+                      "데이터베이스 백업 다운로드가 시작되었습니다."
+                    )
                   }}
                   className="h-8 text-xs transition-transform active:scale-95"
                 >
@@ -627,7 +645,7 @@ export function SettingsPanel({
                       // DB 복원 API 호출
                       const cleanUrl = backendUrl.replace(/\/+$/, "")
                       const importUrl = `${cleanUrl}/db/import`
-                      
+
                       const formData = new FormData()
                       formData.append("file", target)
 
@@ -643,9 +661,12 @@ export function SettingsPanel({
                       })
 
                       toast.promise(importPromise, {
-                        loading: "데이터베이스를 서버에 업로드하고 복원하는 중...",
-                        success: "데이터베이스가 성공적으로 복원되고 UI가 동기화되었습니다.",
-                        error: (err) => `데이터베이스 복원 실패: ${err.message || err}`,
+                        loading:
+                          "데이터베이스를 서버에 업로드하고 복원하는 중...",
+                        success:
+                          "데이터베이스가 성공적으로 복원되고 UI가 동기화되었습니다.",
+                        error: (err) =>
+                          `데이터베이스 복원 실패: ${err.message || err}`,
                       })
                     }
                     input.click()
@@ -657,10 +678,8 @@ export function SettingsPanel({
                 </Button>
               </div>
             </div>
-
           </div>
         </Section>
-
       </div>
     </div>
   )

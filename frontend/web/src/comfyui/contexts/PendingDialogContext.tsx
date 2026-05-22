@@ -47,7 +47,9 @@ const PendingDialogContext = createContext<PendingDialogValue | null>(null)
 export function usePendingDialog(): PendingDialogValue {
   const ctx = useContext(PendingDialogContext)
   if (!ctx)
-    throw new Error("usePendingDialog must be used within PendingDialogProvider")
+    throw new Error(
+      "usePendingDialog must be used within PendingDialogProvider"
+    )
   return ctx
 }
 

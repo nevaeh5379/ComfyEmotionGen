@@ -15,7 +15,11 @@ import {
   SearchIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
@@ -117,7 +121,8 @@ export function CombinationPickerToolbar({
   exportActionMessage,
   regenActionMessage,
 }: ToolbarProps) {
-  const { savedTemplates, data, selection, thumbnailSize, setThumbnailSize } = useCurationContext()
+  const { savedTemplates, data, selection, thumbnailSize, setThumbnailSize } =
+    useCurationContext()
   const {
     renderItems,
     doneCount,
@@ -337,15 +342,19 @@ export function CombinationPickerToolbar({
         {/* 액션 및 설정 그룹 */}
         <div className="ml-auto flex items-center gap-1.5 md:ml-0">
           {/* 썸네일 크기 슬라이더 (갤러리, 그리드, 토너먼트 뷰 지원) */}
-          {(viewMode === "gallery" || viewMode === "grid" || viewMode === "tournament") && (
-            <div className="hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 md:flex shadow-xs h-8">
+          {(viewMode === "gallery" ||
+            viewMode === "grid" ||
+            viewMode === "tournament") && (
+            <div className="hidden h-8 items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs md:flex">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center text-muted-foreground">
                     <LayoutGridIcon className="h-3.5 w-3.5" />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent className="text-xs font-bold">크기 조절</TooltipContent>
+                <TooltipContent className="text-xs font-bold">
+                  크기 조절
+                </TooltipContent>
               </Tooltip>
               <input
                 type="range"
@@ -356,7 +365,7 @@ export function CombinationPickerToolbar({
                 onChange={(e) => setThumbnailSize(Number(e.target.value))}
                 className="h-1 w-20 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
               />
-              <span className="text-[10px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
+              <span className="w-[34px] text-right font-mono text-[10px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
                 {thumbnailSize}px
               </span>
             </div>

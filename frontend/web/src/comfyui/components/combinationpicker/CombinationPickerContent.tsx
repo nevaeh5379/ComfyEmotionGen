@@ -9,11 +9,7 @@ import {
   EmptyTitle,
   EmptyMedia,
 } from "@/components/ui/empty"
-import {
-  AlertTriangleIcon,
-  LayersIcon,
-  SearchXIcon,
-} from "lucide-react"
+import { AlertTriangleIcon, LayersIcon, SearchXIcon } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -22,7 +18,10 @@ import {
 } from "@/components/ui/sheet"
 import { curationApi } from "../../hooks/useSavedImages"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
-import { downloadImagesAsZip, getImageFilename } from "../../utils/downloadImages"
+import {
+  downloadImagesAsZip,
+  getImageFilename,
+} from "../../utils/downloadImages"
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import { RegenerateDialog } from "./CombinationPickerComponents"
@@ -112,7 +111,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const setViewMode = toolbarState?.hideTopSection
     ? setInternalViewMode
     : (toolbarState?.setViewMode ?? setInternalViewMode)
-  const [compareImageKeys, setCompareImageKeys] = useState<Set<string>>(new Set())
+  const [compareImageKeys, setCompareImageKeys] = useState<Set<string>>(
+    new Set()
+  )
   const compareImageCount = compareImageKeys.size
   const [previewHash, setPreviewHash] = useState<string | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
@@ -481,12 +482,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       (count) => `${count}장 다운로드 완료`,
       "다운로드 실패"
     )
-  }, [
-    backendUrl,
-    selectedFilenames,
-    imagesByFilename,
-    bulkDownloadAction,
-  ])
+  }, [backendUrl, selectedFilenames, imagesByFilename, bulkDownloadAction])
 
   const toggleCompareImage = useCallback((key: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -702,7 +698,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
           {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출, 모바일에서는 숨김) */}
           {selectedFilename && (
-            <div className="hidden flex-none md:flex py-4">
+            <div className="hidden flex-none py-4 md:flex">
               <CombinationPickerSidebar
                 selectedFilename={selectedFilename}
                 setSelectedFilename={setSelectedFilename}
@@ -835,11 +831,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 }}
               />
             </div>
-
-         </SheetContent>
+          </SheetContent>
         </Sheet>
 
-       <RegenerateDialog
+        <RegenerateDialog
           open={regenDialogState.open}
           onOpenChange={(open) =>
             setRegenDialogState((prev) => ({ ...prev, open }))

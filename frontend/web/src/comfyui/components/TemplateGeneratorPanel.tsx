@@ -90,7 +90,9 @@ export function TemplateGeneratorPanel({
   const [isSection1Expanded, setIsSection1Expanded] = useState(true)
   const [isSection2Expanded, setIsSection2Expanded] = useState(true)
   const previewRef = useRef<HTMLDivElement>(null)
-  const [prevActiveTemplateId, setPrevActiveTemplateId] = useState<string | null>(null)
+  const [prevActiveTemplateId, setPrevActiveTemplateId] = useState<
+    string | null
+  >(null)
 
   // 시스템 templates 폴더에서 템플릿 목록 로드
   useEffect(() => {
@@ -141,7 +143,10 @@ export function TemplateGeneratorPanel({
   // 목록에 없는 ID 선택 시 첫 번째 항목으로 폴백
   const effectiveSelectedTemplateId = useMemo(() => {
     if (combinedTemplates.length === 0) return ""
-    if (!selectedTemplateId || !combinedTemplates.some((t) => t.id === selectedTemplateId)) {
+    if (
+      !selectedTemplateId ||
+      !combinedTemplates.some((t) => t.id === selectedTemplateId)
+    ) {
       return combinedTemplates[0]!.id
     }
     return selectedTemplateId
@@ -149,7 +154,10 @@ export function TemplateGeneratorPanel({
 
   // 현재 선택된 템플릿
   const activeTemplate = useMemo<TemplateItem | null>(() => {
-    return combinedTemplates.find((t) => t.id === effectiveSelectedTemplateId) || null
+    return (
+      combinedTemplates.find((t) => t.id === effectiveSelectedTemplateId) ||
+      null
+    )
   }, [combinedTemplates, effectiveSelectedTemplateId])
 
   // activeTemplate이 바뀔 때만 variables/saveName 초기화 (state during render 패턴)

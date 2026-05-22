@@ -2,7 +2,11 @@ import { Download, FileCode2, Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import CodeEditor from "@/components/CodeEditor"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { SaveInputBar } from "./SavedItemsManager"
 import type { SavedTemplate } from "../hooks/useSavedTemplates"

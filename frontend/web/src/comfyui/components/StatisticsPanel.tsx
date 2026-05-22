@@ -136,7 +136,11 @@ const BarTooltip = ({
   payload,
 }: {
   active?: boolean
-  payload?: Array<{ dataKey: string; value: number; payload: BarTooltipPayload }>
+  payload?: Array<{
+    dataKey: string
+    value: number
+    payload: BarTooltipPayload
+  }>
 }) => {
   if (!active || !payload) return null
   const data = payload[0]?.payload

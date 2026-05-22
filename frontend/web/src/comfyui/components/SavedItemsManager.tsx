@@ -6,7 +6,11 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Trash2Icon, Copy, ArrowUpRight } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -75,7 +79,8 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   const inputRef = useRef<HTMLInputElement>(null)
   const hasItems = items !== undefined
   const hasActivePreset = !!activeName
-  const canSave = !saveDisabled && (name.trim() || hasActivePreset || !!allowEmptySave)
+  const canSave =
+    !saveDisabled && (name.trim() || hasActivePreset || !!allowEmptySave)
 
   const filteredItems = hasItems
     ? (items ?? []).filter((item) => {
@@ -168,11 +173,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
         />
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              disabled={!canSave}
-              onClick={handleSave}
-            >
+            <Button variant="outline" disabled={!canSave} onClick={handleSave}>
               저장
             </Button>
           </TooltipTrigger>
@@ -215,9 +216,10 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                     <div
                       data-item
                       className={cn(
-                        "flex items-center gap-2 rounded px-1 cursor-pointer select-none",
+                        "flex cursor-pointer items-center gap-2 rounded px-1 select-none",
                         isActive && "bg-primary/10",
-                        isFocused && "bg-accent ring-1 ring-primary/50 outline-none"
+                        isFocused &&
+                          "bg-accent ring-1 ring-primary/50 outline-none"
                       )}
                       onMouseDown={(e) => e.preventDefault()}
                       onMouseEnter={() => setFocusedIndex(index)}
@@ -324,7 +326,7 @@ export function SavedItemsList<T extends SaveableItem>({
           <ContextMenu key={item.id}>
             <ContextMenuTrigger asChild>
               <div
-                className={`flex items-center gap-2 rounded px-1.5 py-1 md:py-0.5 cursor-pointer select-none ${isActive ? "bg-primary/10" : ""}`}
+                className={`flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 select-none md:py-0.5 ${isActive ? "bg-primary/10" : ""}`}
               >
                 <Tooltip>
                   <TooltipTrigger asChild>

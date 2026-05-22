@@ -374,7 +374,8 @@
 }
 
 @keyframes pulse-slow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.7;
     transform: scale(1);
   }
@@ -385,11 +386,11 @@
 }
 
 @keyframes glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 4px var(--glow-color, oklch(0.55 0.15 250 / 0.1));
   }
   50% {
     box-shadow: 0 0 16px var(--glow-color, oklch(0.55 0.15 250 / 0.4));
   }
 }
-

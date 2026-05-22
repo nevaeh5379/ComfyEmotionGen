@@ -1,4 +1,14 @@
-import { Code2, Copy, Download, FolderOpen, Workflow, ArrowUpRight, ExternalLink, Columns2, Rows2 } from "lucide-react"
+import {
+  Code2,
+  Copy,
+  Download,
+  FolderOpen,
+  Workflow,
+  ArrowUpRight,
+  ExternalLink,
+  Columns2,
+  Rows2,
+} from "lucide-react"
 import { useCallback } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
@@ -8,7 +18,11 @@ import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { CompositionTabsList } from "./CompositionTabsList"
 import { WorkCompositionToolbar } from "./WorkCompositionToolbar"
 import CodeEditor from "@/components/CodeEditor"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
@@ -168,7 +182,7 @@ export function WorkCompositionPanel({
         >
           <div
             onMouseDown={handleMouseDown}
-            className="flex hidden shrink-0 items-center justify-between border-b px-3 py-2 md:inline-flex cursor-grab select-none"
+            className="flex hidden shrink-0 cursor-grab items-center justify-between border-b px-3 py-2 select-none md:inline-flex"
           >
             <CompositionTabsList className="hidden md:inline-flex" />
             <div className="flex items-center gap-2">
@@ -205,7 +219,7 @@ export function WorkCompositionPanel({
                         )}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
+                    <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
                       {jobsLayoutOrientation === "horizontal"
                         ? "세로 분할 레이아웃으로 전환 (위/아래)"
                         : "가로 분할 레이아웃으로 전환 (왼쪽/오른쪽)"}
@@ -231,8 +245,10 @@ export function WorkCompositionPanel({
                         )}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
-                      {isFloating ? "원래대로 결합 (Dock)" : "창으로 분리 (Pop out)"}
+                    <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
+                      {isFloating
+                        ? "원래대로 결합 (Dock)"
+                        : "창으로 분리 (Pop out)"}
                     </TooltipContent>
                   </Tooltip>
                 </>
@@ -309,7 +325,8 @@ export function WorkCompositionPanel({
                   onSave={makeSaveCallback(
                     workflow.savedWorkflows,
                     (name) => workflow.onPendingSave(name, "workflow"),
-                    (name) => workflow.saveWorkflow(name, workflow.workflowJson),
+                    (name) =>
+                      workflow.saveWorkflow(name, workflow.workflowJson),
                     workflow.setActiveWorkflowId
                   )}
                   allowEmptySave

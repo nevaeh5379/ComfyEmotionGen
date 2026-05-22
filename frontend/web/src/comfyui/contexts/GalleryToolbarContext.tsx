@@ -37,7 +37,9 @@ export interface GalleryToolbarValue {
   searchInput: string
   setSearchInput: (v: string) => void
   candidates: { value: string; type: "filename" | "tag" | "metadata" }[]
-  setCandidates: (c: { value: string; type: "filename" | "tag" | "metadata" }[]) => void
+  setCandidates: (
+    c: { value: string; type: "filename" | "tag" | "metadata" }[]
+  ) => void
   sortKey: GallerySortKey
   setSortKey: (k: GallerySortKey) => void
   sortDir: "asc" | "desc"
@@ -98,9 +100,9 @@ export function GalleryToolbarProvider({
   const { settings } = useSettings()
   const confirm = useConfirm()
 
-  const [statusFilter, setStatusFilter] = useState<
-    CurationStatus | "all"
-  >("pending")
+  const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">(
+    "pending"
+  )
   const [viewMode, setViewMode] = useState<GalleryViewMode>("grid")
   const [groupMode, setGroupMode] = useState(false)
   const [showFilters, setShowFilters] = useState(false)

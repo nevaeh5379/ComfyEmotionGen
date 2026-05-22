@@ -1,7 +1,11 @@
 import { useState } from "react"
 import { Download, ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { curationApi } from "../../hooks/useSavedImages"
@@ -9,7 +13,6 @@ import { useWorkflowContext } from "../../contexts/WorkflowContext"
 import { useTemplateContext } from "../../contexts/TemplateContext"
 import { STATUS_LABEL, STATUS_TINT, type SavedImage } from "../../types/Message"
 import { Badge } from "@/components/ui/badge"
-
 
 function defaultName(filename: string) {
   return filename.replace(/\.[^/.]+$/, "")
@@ -35,8 +38,12 @@ export function ImageDetail({
   const [tags, setTags] = useState<string[]>(image.tags)
   const [imgError, setImgError] = useState(false)
 
-  const [workflowName, setWorkflowName] = useState(defaultName(image.originalFilename))
-  const [templateName, setTemplateName] = useState(defaultName(image.originalFilename))
+  const [workflowName, setWorkflowName] = useState(
+    defaultName(image.originalFilename)
+  )
+  const [templateName, setTemplateName] = useState(
+    defaultName(image.originalFilename)
+  )
   const [workflowSaved, setWorkflowSaved] = useState(false)
   const [templateSaved, setTemplateSaved] = useState(false)
 
@@ -234,7 +241,7 @@ export function ImageDetail({
                   <Badge
                     asChild
                     variant="outline"
-                    className="h-auto border border-line/20 bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground hover:bg-destructive/20 hover:text-destructive hover:border-destructive/30 cursor-pointer"
+                    className="h-auto cursor-pointer border border-line/20 bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground hover:border-destructive/30 hover:bg-destructive/20 hover:text-destructive"
                   >
                     <button
                       type="button"
@@ -248,7 +255,6 @@ export function ImageDetail({
                 <TooltipContent>태그 삭제</TooltipContent>
               </Tooltip>
             ))}
-
           </div>
           <div className="flex items-center gap-2">
             <Input

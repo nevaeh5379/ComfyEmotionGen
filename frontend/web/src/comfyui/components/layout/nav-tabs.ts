@@ -1,4 +1,11 @@
-import { ClipboardList, BarChart3, ImageIcon, Layers, Sparkles, Settings } from "lucide-react"
+import {
+  ClipboardList,
+  BarChart3,
+  ImageIcon,
+  Layers,
+  Sparkles,
+  Settings,
+} from "lucide-react"
 
 export const NAV_TABS = [
   { id: "jobs", label: "작업", icon: ClipboardList },

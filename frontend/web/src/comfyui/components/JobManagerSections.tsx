@@ -318,10 +318,7 @@ export const JobStatBar = memo(function JobStatBar({
       numerator = done
       denominator = total
   }
-  const progress =
-    denominator > 0
-      ? (numerator / denominator) * 100
-      : 0
+  const progress = denominator > 0 ? (numerator / denominator) * 100 : 0
 
   return (
     <div className="flex flex-col">
@@ -379,9 +376,7 @@ export const JobStatBar = memo(function JobStatBar({
         <div className="flex items-center justify-between text-[11px] font-black uppercase">
           <span className="text-muted-foreground">세션 전체 진행률</span>
           <span className="mono tabular-nums">
-            {numerator}/{denominator} (
-            {Math.round(progress)}
-            % )
+            {numerator}/{denominator} ({Math.round(progress)}% )
           </span>
         </div>
         <Progress
@@ -435,9 +430,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
               <span className="truncate">
                 {j.currentNodeName || "노드 처리 중..."}
               </span>
-              <span className="mono">
-                {Math.round(j.progressPercent)}%
-              </span>
+              <span className="mono">{Math.round(j.progressPercent)}%</span>
             </div>
             <Progress
               value={j.progressPercent}
@@ -449,9 +442,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                   <span className="truncate">
                     전체 노드 {j.completedNodeCount}/{j.totalNodeCount}
                   </span>
-                  <span className="mono">
-                    {Math.round(overallPercent)}%
-                  </span>
+                  <span className="mono">{Math.round(overallPercent)}%</span>
                 </div>
                 <Progress
                   value={overallPercent}

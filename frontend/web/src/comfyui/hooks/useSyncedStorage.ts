@@ -42,9 +42,10 @@ export async function processSyncQueue(): Promise<number> {
 
   const successIds = new Set<number>()
   for (const item of queue) {
-    const ok = item.value === null
-      ? await deleteSetting(item.key)
-      : await saveSetting(item.key, item.value)
+    const ok =
+      item.value === null
+        ? await deleteSetting(item.key)
+        : await saveSetting(item.key, item.value)
     if (ok) successIds.add(item.createdAt)
   }
 
@@ -60,9 +61,9 @@ export function clearSyncQueueFor(key: string): void {
 export function useSyncedStorage<T>(key: string, defaultValue: T) {
   const isStringDefault = typeof defaultValue === "string"
   const initializedRef = useRef(false)
-  const saveIdRef = useRef(0) 
-  const defaultValueRef = useRef(defaultValue) 
-  const lastServerValueRef = useRef<string | null>(null) 
+  const saveIdRef = useRef(0)
+  const defaultValueRef = useRef(defaultValue)
+  const lastServerValueRef = useRef<string | null>(null)
 
   // [수정 1] 렌더링 단계인 useState 초기화 함수 내부에서는 Ref 접근 금지.
   // 이미 스코프에 존재하는 defaultValue 파라미터를 직접 사용합니다.
@@ -77,7 +78,8 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
   })
 
   const serialize = useCallback(
-    (v: T): string => (isStringDefault ? (v as unknown as string) : JSON.stringify(v)),
+    (v: T): string =>
+      isStringDefault ? (v as unknown as string) : JSON.stringify(v),
     [isStringDefault]
   )
 
@@ -88,14 +90,14 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
         return JSON.parse(raw) as T
       } catch {
         // ✅ useCallback 내부(나중에 실행됨)에서는 Ref 접근이 안전합니다.
-        return defaultValueRef.current 
+        return defaultValueRef.current
       }
     },
     [isStringDefault]
   )
 
   const valueRef = useRef<T>(value)
-  
+
   // [수정 2] 컴포넌트 본문(렌더링 단계)에서 ref.current에 값을 할당하면 안 됩니다.
   // 반드시 useEffect 내부에서 동기화해야 린트 오류가 발생하지 않습니다.
   useEffect(() => {
@@ -119,7 +121,7 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       const all = (e as CustomEvent<Record<string, string>>).detail
       const raw = all[key]
       if (raw === undefined || handlePendingConflict()) return
-      
+
       const nextValue = deserialize(raw)
       lastServerValueRef.current = serialize(nextValue)
       setValue(nextValue)
@@ -130,10 +132,13 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
 
   useEffect(() => {
     const onUpdated = (e: Event) => {
-      const { key: updatedKey, value: raw } = (e as CustomEvent<SettingsUpdatedDetail>).detail
+      const { key: updatedKey, value: raw } = (
+        e as CustomEvent<SettingsUpdatedDetail>
+      ).detail
       if (updatedKey !== key || handlePendingConflict()) return
-      
-      const nextValue = raw === null ? defaultValueRef.current : deserialize(raw)
+
+      const nextValue =
+        raw === null ? defaultValueRef.current : deserialize(raw)
       lastServerValueRef.current = serialize(nextValue)
       setValue(nextValue)
     }
@@ -161,7 +166,7 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
 
     const currentId = ++saveIdRef.current
     saveSetting(key, serialized).then((ok) => {
-      if (saveIdRef.current !== currentId) return 
+      if (saveIdRef.current !== currentId) return
       if (!ok) enqueueSync(key, serialized)
       else {
         clearSyncQueueFor(key)

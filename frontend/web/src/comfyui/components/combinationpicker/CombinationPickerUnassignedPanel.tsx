@@ -66,19 +66,19 @@ function UnassignedGridItem({
       }`}
     >
       <div
-        className="relative overflow-hidden rounded-md bg-muted w-full"
+        className="relative w-full overflow-hidden rounded-md bg-muted"
         style={{ aspectRatio: aspect ?? 1 }}
       >
         {preview ? (
           <>
             {loading && (
-              <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center">
+              <div className="absolute inset-0 flex animate-pulse items-center justify-center bg-muted">
                 <FolderIcon className="h-6 w-6 text-muted-foreground/15" />
               </div>
             )}
             <img
               src={`${backendUrl}/saved-images/${preview.hash}`}
-              className={`w-full h-full object-cover transition-all duration-300 ${
+              className={`h-full w-full object-cover transition-all duration-300 ${
                 loading ? "opacity-0" : "opacity-100"
               }`}
               alt=""
@@ -114,7 +114,7 @@ function UnassignedGridItem({
         </div>
       </div>
 
-      <div className="min-w-0 px-0.5 w-full">
+      <div className="w-full min-w-0 px-0.5">
         <div className="truncate font-mono text-[10px] font-bold">
           {filename}
         </div>
@@ -165,7 +165,8 @@ export function CombinationPickerUnassignedPanel({
         <div className="flex items-center gap-2">
           <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
           <span className="text-sm font-bold text-amber-800">
-            미할당 이미지: {unassignedGroups.size}개 파일 ({unassignedTotalCount}
+            미할당 이미지: {unassignedGroups.size}개 파일 (
+            {unassignedTotalCount}
             장)
           </span>
         </div>
@@ -174,9 +175,7 @@ export function CombinationPickerUnassignedPanel({
             <Checkbox
               id="showTrueOrphansOnly"
               checked={showTrueOrphansOnly}
-              onCheckedChange={(checked) =>
-                setShowTrueOrphansOnly(!!checked)
-              }
+              onCheckedChange={(checked) => setShowTrueOrphansOnly(!!checked)}
             />
             <Label
               htmlFor="showTrueOrphansOnly"
@@ -190,7 +189,7 @@ export function CombinationPickerUnassignedPanel({
             size="sm"
             onClick={checkTemplateAffiliation}
             disabled={checkingTemplates}
-            className="border-amber-300 text-amber-900 bg-amber-100/50 hover:bg-amber-100 hover:text-amber-950 font-bold h-7 text-[10px]"
+            className="h-7 border-amber-300 bg-amber-100/50 text-[10px] font-bold text-amber-900 hover:bg-amber-100 hover:text-amber-950"
           >
             <RefreshCwIcon
               className={`mr-1 h-3.5 w-3.5 ${
@@ -203,7 +202,7 @@ export function CombinationPickerUnassignedPanel({
             variant="ghost"
             size="sm"
             onClick={handleUnassignedSelectAll}
-            className="text-amber-900 hover:bg-amber-100 font-bold h-7 text-[10px]"
+            className="h-7 text-[10px] font-bold text-amber-900 hover:bg-amber-100"
           >
             전체 선택/해제
           </Button>
@@ -245,7 +244,7 @@ export function CombinationPickerUnassignedPanel({
               : "미할당 이미지가 없습니다."}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 items-start sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {Array.from(filteredUnassignedGroups.entries()).map(
               ([filename, imgs]) => {
                 const isSelected = unassignedSelectedFilenames.has(filename)

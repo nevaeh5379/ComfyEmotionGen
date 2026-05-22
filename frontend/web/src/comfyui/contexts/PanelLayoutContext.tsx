@@ -1,8 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-} from "react"
+import { createContext, useContext, useEffect } from "react"
 import { useLocalStorage } from "../hooks/useLocalStorage"
 import { useSettings } from "../hooks/useSettings"
 
@@ -78,10 +74,11 @@ export function PanelLayoutProvider({
     x: number
     y: number
   }>("ceg_compositionFloatingPos", { x: 50, y: 150 })
-  const [compositionFloatingSize, setCompositionFloatingSize] = useLocalStorage<{
-    w: number
-    h: number
-  }>("ceg_compositionFloatingSize", { w: 420, h: 650 })
+  const [compositionFloatingSize, setCompositionFloatingSize] =
+    useLocalStorage<{
+      w: number
+      h: number
+    }>("ceg_compositionFloatingSize", { w: 420, h: 650 })
 
   const [isJobManagerFloating, setIsJobManagerFloating] =
     useLocalStorage<boolean>("ceg_isJobManagerFloating", false)

@@ -49,10 +49,7 @@ export async function downloadImagesAsZip(
   triggerBlobDownload(zipBlob, zipName)
 }
 
-function deduplicateFilename(
-  filename: string,
-  used: Set<string>
-): string {
+function deduplicateFilename(filename: string, used: Set<string>): string {
   if (!used.has(filename)) return filename
   const dot = filename.lastIndexOf(".")
   const base = dot >= 0 ? filename.slice(0, dot) : filename

@@ -17,7 +17,11 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -903,7 +907,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         {/* Unified 1-Line Toolbar (Desktop viewport) */}
         <div
           onMouseDown={handleMouseDown}
-          className="hidden shrink-0 items-center justify-between gap-3 border-b bg-muted/10 px-4 py-2 md:flex cursor-grab select-none"
+          className="hidden shrink-0 cursor-grab items-center justify-between gap-3 border-b bg-muted/10 px-4 py-2 select-none md:flex"
         >
           <Tabs
             value={filterTab}
@@ -1041,8 +1045,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
-                    {isFloating ? "원래대로 결합 (Dock)" : "창으로 분리 (Pop out)"}
+                  <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
+                    {isFloating
+                      ? "원래대로 결합 (Dock)"
+                      : "창으로 분리 (Pop out)"}
                   </TooltipContent>
                 </Tooltip>
               </>

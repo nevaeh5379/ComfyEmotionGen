@@ -100,7 +100,10 @@ export function NodeMappingProvider({
     []
   )
   const [activeNodeMappingPresetId, setActiveNodeMappingPresetId] =
-    useSyncedStorage<string | null>(STORAGE_KEYS.activeNodeMappingPresetId, null)
+    useSyncedStorage<string | null>(
+      STORAGE_KEYS.activeNodeMappingPresetId,
+      null
+    )
   const [nodeMappingResetKey, setNodeMappingResetKey] = useState(0)
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
   const [imageUploads, setImageUploads] = useState<
@@ -218,14 +221,18 @@ export function NodeMappingProvider({
       // imageValue에 __upload__{hash}.{ext} 마커 저장
       const ext = file.name.split(".").pop() ?? "png"
       updateMapping(
-        nodeMappings.find(
-          (m) => m.nodeId === nodeId && m.inputKey === inputKey
-        )?.id ?? "",
+        nodeMappings.find((m) => m.nodeId === nodeId && m.inputKey === inputKey)
+          ?.id ?? "",
         { imageValue: `__upload__${data.hash}.${ext}` }
       )
       setImageUploads((prev) => ({
         ...prev,
-        [key]: { uploadedName: data.hash, error: null, uploading: false, previewUrl },
+        [key]: {
+          uploadedName: data.hash,
+          error: null,
+          uploading: false,
+          previewUrl,
+        },
       }))
     } catch (err) {
       URL.revokeObjectURL(previewUrl)

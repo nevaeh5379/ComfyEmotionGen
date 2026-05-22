@@ -1,7 +1,11 @@
 import React, { useRef, useEffect } from "react"
 import { X, ArrowUpRight, Move } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // 전역 z-index 카운터 — 창이 클릭/드래그될 때마다 가장 위로 올라옴
 let globalZCounter = 50
@@ -68,7 +72,11 @@ export function FloatingWindow({
   const handleDragMouseDown = (e: React.MouseEvent) => {
     // 버튼 클릭이나 입력 요소 클릭 시에는 드래그 차단
     const target = e.target as HTMLElement
-    if (target.closest("button") || target.closest("input") || target.closest("select")) {
+    if (
+      target.closest("button") ||
+      target.closest("input") ||
+      target.closest("select")
+    ) {
       return
     }
 
@@ -101,7 +109,13 @@ export function FloatingWindow({
       }
 
       // 실시간 드래그 진행 상황 및 좌표 버블링
-      onDragProgress?.(moveEvent.clientX, moveEvent.clientY, screenW, screenH, false)
+      onDragProgress?.(
+        moveEvent.clientX,
+        moveEvent.clientY,
+        screenW,
+        screenH,
+        false
+      )
     }
 
     const handleMouseUp = (upEvent: MouseEvent) => {
@@ -126,7 +140,7 @@ export function FloatingWindow({
 
     document.addEventListener("mousemove", handleMouseMove)
     document.addEventListener("mouseup", handleMouseUp)
-  };
+  }
 
   // 2. 리사이즈 핸들러 - Zero-lag DOM 조작
   const handleResizeMouseDown = (e: React.MouseEvent) => {
@@ -166,7 +180,10 @@ export function FloatingWindow({
       // 최종 크기를 React State 및 localStorage에 한 번만 커밋
       if (containerRef.current) {
         const finalWidth = parseInt(containerRef.current.style.width || "0", 10)
-        const finalHeight = parseInt(containerRef.current.style.height || "0", 10)
+        const finalHeight = parseInt(
+          containerRef.current.style.height || "0",
+          10
+        )
         const nextSize = { w: finalWidth, h: finalHeight }
         sizeRef.current = nextSize
         onSizeChange(nextSize)
@@ -175,13 +192,13 @@ export function FloatingWindow({
 
     document.addEventListener("mousemove", handleMouseMove)
     document.addEventListener("mouseup", handleMouseUp)
-  };
+  }
 
   return (
     <div
       ref={containerRef}
       id={id}
-      className="fixed flex flex-col rounded-xl border border-line bg-panel/95 shadow-2xl backdrop-blur supports-backdrop-filter:bg-panel/85 overflow-hidden transition-shadow duration-200 focus-within:shadow-primary/5 focus-within:border-line-active"
+      className="focus-within:border-line-active fixed flex flex-col overflow-hidden rounded-xl border border-line bg-panel/95 shadow-2xl backdrop-blur transition-shadow duration-200 focus-within:shadow-primary/5 supports-backdrop-filter:bg-panel/85"
       style={{
         minWidth: "360px",
         minHeight: "250px",
@@ -194,10 +211,10 @@ export function FloatingWindow({
       {/* 윈도우 헤더 (드래그 핸들) */}
       <div
         onMouseDown={handleDragMouseDown}
-        className="flex items-center justify-between px-3 py-2 bg-muted/60 border-b border-line cursor-move select-none shrink-0"
+        className="flex shrink-0 cursor-move items-center justify-between border-b border-line bg-muted/60 px-3 py-2 select-none"
       >
         <div className="flex items-center gap-1.5 text-foreground">
-          <Move className="h-3.5 w-3.5 opacity-60 text-primary animate-pulse" />
+          <Move className="h-3.5 w-3.5 animate-pulse text-primary opacity-60" />
           <span className="text-[12px] font-black tracking-tight">{title}</span>
         </div>
 
@@ -208,13 +225,13 @@ export function FloatingWindow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={onDock}
               >
                 <ArrowUpRight className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs font-bold bg-popover border border-line text-popover-foreground">
+            <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
               메인 탭 결합 (Dock)
             </TooltipContent>
           </Tooltip>
@@ -225,13 +242,13 @@ export function FloatingWindow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 rounded-md hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
+                className="h-6 w-6 rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
                 onClick={onClose}
               >
                 <X className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs font-bold bg-destructive text-destructive-foreground">
+            <TooltipContent className="text-destructive-foreground bg-destructive text-xs font-bold">
               닫기
             </TooltipContent>
           </Tooltip>
@@ -240,31 +257,52 @@ export function FloatingWindow({
 
       {/* 윈도우 전용 툴바 (옵션) */}
       {toolbar && (
-        <div className="shrink-0 border-b border-line/50 bg-panel/30 px-3 py-1.5 flex flex-wrap items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line/50 bg-panel/30 px-3 py-1.5">
           {toolbar}
         </div>
       )}
 
       {/* 윈도우 바디 (콘텐츠) */}
-      <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col bg-background/30">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background/30">
         {children}
       </div>
 
       {/* 리사이즈 핸들러 (우측 하단 코너) */}
       <div
         onMouseDown={handleResizeMouseDown}
-        className="absolute bottom-0 right-0 w-3.5 h-3.5 cursor-se-resize z-50 flex items-end justify-end p-0.5 group"
+        className="group absolute right-0 bottom-0 z-50 flex h-3.5 w-3.5 cursor-se-resize items-end justify-end p-0.5"
         aria-label="창 크기 조절"
       >
         <svg
           width="8"
           height="8"
           viewBox="0 0 8 8"
-          className="text-muted-foreground/40 group-hover:text-primary transition-colors"
+          className="text-muted-foreground/40 transition-colors group-hover:text-primary"
         >
-          <line x1="6" y1="0" x2="6" y2="6" stroke="currentColor" strokeWidth="1" />
-          <line x1="0" y1="6" x2="6" y2="6" stroke="currentColor" strokeWidth="1" />
-          <line x1="6" y1="3" x2="3" y2="6" stroke="currentColor" strokeWidth="1" />
+          <line
+            x1="6"
+            y1="0"
+            x2="6"
+            y2="6"
+            stroke="currentColor"
+            strokeWidth="1"
+          />
+          <line
+            x1="0"
+            y1="6"
+            x2="6"
+            y2="6"
+            stroke="currentColor"
+            strokeWidth="1"
+          />
+          <line
+            x1="6"
+            y1="3"
+            x2="3"
+            y2="6"
+            stroke="currentColor"
+            strokeWidth="1"
+          />
         </svg>
       </div>
     </div>

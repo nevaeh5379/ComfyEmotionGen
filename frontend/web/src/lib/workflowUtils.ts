@@ -92,10 +92,7 @@ export const applyAxisFilters = (
   )
 }
 
-export const randomSelect = <T,>(
-  items: T[],
-  count: number
-): T[] => {
+export const randomSelect = <T>(items: T[], count: number): T[] => {
   const pool = items.slice()
   const selected: T[] = []
   for (let i = 0; i < count && pool.length > 0; i++) {

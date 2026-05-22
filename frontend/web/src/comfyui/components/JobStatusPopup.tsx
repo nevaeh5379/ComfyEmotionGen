@@ -2,7 +2,11 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { Minimize2, Play, Pause, Trash2, ExternalLink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import type { JobView } from "../types/Message"
@@ -245,7 +249,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="truncate font-mono cursor-help">
+                      <span className="cursor-help truncate font-mono">
                         {j.filename}
                       </span>
                     </TooltipTrigger>

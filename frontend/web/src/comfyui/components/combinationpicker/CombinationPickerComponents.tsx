@@ -78,9 +78,9 @@ export function ImagePreviewHoverCard({
   const pendingCount = images.filter((img) => img.status === "pending").length
   const trashedCount = images.filter((img) => img.status === "trashed").length
 
-  const allTags = Array.from(
-    new Set(images.flatMap((img) => img.tags || []))
-  ).filter(Boolean).slice(0, 4)
+  const allTags = Array.from(new Set(images.flatMap((img) => img.tags || [])))
+    .filter(Boolean)
+    .slice(0, 4)
 
   const sortedImages = useMemo(() => {
     return [...images].sort((a, b) => b.createdAt - a.createdAt)
@@ -99,38 +99,38 @@ export function ImagePreviewHoverCard({
     : ""
 
   return (
-    <HoverCardContent 
-      className="w-80 p-4 bg-popover/95 backdrop-blur-md border border-border/80 shadow-2xl rounded-xl transition-all duration-300 animate-in fade-in-50 zoom-in-95" 
-      side="right" 
+    <HoverCardContent
+      className="w-80 animate-in rounded-xl border border-border/80 bg-popover/95 p-4 shadow-2xl backdrop-blur-md transition-all duration-300 fade-in-50 zoom-in-95"
+      side="right"
       align="start"
     >
       {/* Title & Info Header */}
-      <div className="flex flex-col gap-2 pb-3 mb-3 border-b border-border/40">
+      <div className="mb-3 flex flex-col gap-2 border-b border-border/40 pb-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-xs font-black tracking-tight text-foreground truncate max-w-[200px] bg-muted px-2 py-0.5 rounded border border-border/50">
+          <span className="max-w-[200px] truncate rounded border border-border/50 bg-muted px-2 py-0.5 font-mono text-xs font-black tracking-tight text-foreground">
             {filename}
           </span>
-          <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase">
+          <span className="shrink-0 rounded bg-primary/10 px-2 py-0.5 text-[10px] font-black tracking-wider text-primary uppercase">
             {images.length}장
           </span>
         </div>
 
         {/* Curation Stat Pills */}
         {images.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-0.5">
+          <div className="mt-0.5 flex flex-wrap gap-1.5">
             {approvedCount > 0 && (
               <Badge
                 variant="default"
-                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-ok bg-ok-bg border border-ok/20"
+                className="h-auto items-center gap-1 border border-ok/20 bg-ok-bg px-1.5 py-0.5 text-[9px] font-extrabold text-ok"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-ok animate-pulse" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" />
                 통과 {approvedCount}
               </Badge>
             )}
             {pendingCount > 0 && (
               <Badge
                 variant="default"
-                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-warn bg-warn-bg border border-warn/20"
+                className="h-auto items-center gap-1 border border-warn/20 bg-warn-bg px-1.5 py-0.5 text-[9px] font-extrabold text-warn"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-warn" />
                 대기 {pendingCount}
@@ -139,7 +139,7 @@ export function ImagePreviewHoverCard({
             {rejectedCount > 0 && (
               <Badge
                 variant="default"
-                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-bad bg-bad-bg border border-bad/20"
+                className="h-auto items-center gap-1 border border-bad/20 bg-bad-bg px-1.5 py-0.5 text-[9px] font-extrabold text-bad"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-bad" />
                 탈락 {rejectedCount}
@@ -148,13 +148,12 @@ export function ImagePreviewHoverCard({
             {trashedCount > 0 && (
               <Badge
                 variant="default"
-                className="h-auto items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold text-muted-foreground bg-muted border border-border/30"
+                className="h-auto items-center gap-1 border border-border/30 bg-muted px-1.5 py-0.5 text-[9px] font-extrabold text-muted-foreground"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                 휴지통 {trashedCount}
               </Badge>
             )}
-
           </div>
         )}
       </div>
@@ -162,7 +161,7 @@ export function ImagePreviewHoverCard({
       {/* Grid of Images */}
       {images.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-          <FolderIcon className="h-8 w-8 text-muted-foreground/30 mb-2 stroke-1" />
+          <FolderIcon className="mb-2 h-8 w-8 stroke-1 text-muted-foreground/30" />
           <p className="text-[10px] italic">저장된 이미지가 없습니다</p>
         </div>
       ) : (
@@ -171,13 +170,13 @@ export function ImagePreviewHoverCard({
             {images.slice(0, 12).map((img) => (
               <div
                 key={img.hash}
-                className="group relative aspect-square overflow-hidden rounded-lg bg-muted border border-border/40 hover:scale-105 hover:shadow-md hover:ring-2 hover:ring-primary/20 transition-all duration-200 cursor-pointer"
+                className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-border/40 bg-muted transition-all duration-200 hover:scale-105 hover:shadow-md hover:ring-2 hover:ring-primary/20"
               >
                 {/* Blurred Background to eliminate empty margins */}
                 <img
                   src={`${backendUrl}/saved-images/${img.hash}`}
                   alt=""
-                  className="absolute inset-0 h-full w-full object-cover blur-md opacity-35 scale-110 pointer-events-none select-none"
+                  className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md select-none"
                   loading="lazy"
                 />
                 <img
@@ -186,7 +185,7 @@ export function ImagePreviewHoverCard({
                   alt=""
                   loading="lazy"
                 />
-                
+
                 {/* Status Overlays */}
                 {img.status === "approved" && (
                   <div className="absolute top-1 right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-ok text-white shadow-md">
@@ -195,7 +194,7 @@ export function ImagePreviewHoverCard({
                 )}
                 {img.status === "rejected" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[0.5px]">
-                    <span className="text-[8px] font-black tracking-widest text-white/90 bg-bad/80 px-1 rounded scale-90">
+                    <span className="scale-90 rounded bg-bad/80 px-1 text-[8px] font-black tracking-widest text-white/90">
                       탈락
                     </span>
                   </div>
@@ -207,9 +206,9 @@ export function ImagePreviewHoverCard({
                 )}
               </div>
             ))}
-            
+
             {images.length > 12 && (
-              <div className="flex aspect-square items-center justify-center rounded-lg bg-muted hover:bg-muted/80 text-[11px] font-black text-muted-foreground border border-dashed border-border/60 transition-colors">
+              <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted text-[11px] font-black text-muted-foreground transition-colors hover:bg-muted/80">
                 +{images.length - 12}
               </div>
             )}
@@ -217,7 +216,7 @@ export function ImagePreviewHoverCard({
 
           {/* Expanded Prompt & Metadata Details */}
           {(allTags.length > 0 || latestPrompt || latestNote || latestDate) && (
-            <div className="pt-3 border-t border-border/30 space-y-2.5">
+            <div className="space-y-2.5 border-t border-border/30 pt-3">
               {/* Tags Capsules */}
               {allTags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
@@ -225,7 +224,7 @@ export function ImagePreviewHoverCard({
                     <Badge
                       key={tag}
                       variant="outline"
-                      className="h-auto items-center gap-0.5 bg-muted/65 text-muted-foreground px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-tight border border-border/20"
+                      className="h-auto items-center gap-0.5 rounded-full border border-border/20 bg-muted/65 px-1.5 py-0.5 text-[9px] font-black tracking-tight text-muted-foreground"
                     >
                       <Tag className="h-2 w-2 stroke-[2.5]" />
                       {tag}
@@ -234,15 +233,14 @@ export function ImagePreviewHoverCard({
                 </div>
               )}
 
-
               {/* Prompt Block */}
               {latestPrompt && (
-                <div className="relative rounded-lg bg-muted/30 border border-border/20 p-2 text-left">
-                  <div className="flex items-center gap-1.5 mb-1 text-[8px] font-bold text-muted-foreground tracking-wider uppercase">
+                <div className="relative rounded-lg border border-border/20 bg-muted/30 p-2 text-left">
+                  <div className="mb-1 flex items-center gap-1.5 text-[8px] font-bold tracking-wider text-muted-foreground uppercase">
                     <FileText className="h-2.5 w-2.5" />
                     최근 프롬프트
                   </div>
-                  <p className="font-mono text-[9px] leading-normal text-muted-foreground line-clamp-3 select-all">
+                  <p className="line-clamp-3 font-mono text-[9px] leading-normal text-muted-foreground select-all">
                     {latestPrompt}
                   </p>
                 </div>
@@ -250,8 +248,8 @@ export function ImagePreviewHoverCard({
 
               {/* Note / Memo Block */}
               {latestNote && (
-                <div className="border-l-2 border-warn/45 pl-2 py-0.5 text-left">
-                  <p className="text-[9px] text-foreground/80 italic font-medium leading-normal">
+                <div className="border-l-2 border-warn/45 py-0.5 pl-2 text-left">
+                  <p className="text-[9px] leading-normal font-medium text-foreground/80 italic">
                     💡 {latestNote}
                   </p>
                 </div>
@@ -259,7 +257,7 @@ export function ImagePreviewHoverCard({
 
               {/* Latest update timestamp */}
               {latestDate && (
-                <div className="flex items-center gap-1 text-[8.5px] text-muted-foreground/60 font-semibold justify-end">
+                <div className="flex items-center justify-end gap-1 text-[8.5px] font-semibold text-muted-foreground/60">
                   <Clock className="h-2.5 w-2.5" />
                   <span>최근 저장: {latestDate}</span>
                 </div>

@@ -95,7 +95,7 @@ export function ImageWithSkeleton({
             <img
               src={src}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover blur-md opacity-35 scale-110 pointer-events-none select-none"
+              className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md select-none"
             />
           )}
           <img
