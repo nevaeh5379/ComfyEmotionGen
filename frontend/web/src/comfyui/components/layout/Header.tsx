@@ -39,6 +39,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -146,6 +150,8 @@ export function Header(props: HeaderProps) {
   const { theme, setTheme } = useTheme()
 
   const [isCompact, setIsCompact] = useState(false)
+  const [isGalleryToolbarCompact, setIsGalleryToolbarCompact] = useState(false)
+  const [isGalleryToolbarUltraCompact, setIsGalleryToolbarUltraCompact] = useState(false)
 
   const headerRef = useRef<HTMLDivElement>(null)
   const logoRef = useRef<HTMLSpanElement>(null)
@@ -156,6 +162,8 @@ export function Header(props: HeaderProps) {
   const rightSectionRef = useRef<HTMLDivElement>(null)
   
   const cachedTabsWidthRef = useRef<number>(480)
+  const cachedGalleryToolbarWidthRef = useRef<number>(450)
+  const cachedGalleryToolbarCompactWidthRef = useRef<number>(280)
 
   useEffect(() => {
     if (!headerRef.current) return
@@ -170,13 +178,32 @@ export function Header(props: HeaderProps) {
         const currentWidth = entry.contentRect.width
 
         const logoWidth = getElWidth(logoRef.current)
+        const rightSectionWidth = getElWidth(rightSectionRef.current)
         
-        let toolbarWidth = 0
-        if (rightSectionRef.current) {
-          toolbarWidth += getElWidth(rightSectionRef.current)
-        }
+        let targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
+        let toolbarWidth = rightSectionWidth
+        
         if (props.activeTab === "gallery" && galleryToolbarRef.current) {
-          toolbarWidth += getElWidth(galleryToolbarRef.current)
+          const currentToolbarWidth = getElWidth(galleryToolbarRef.current)
+          
+          if (!isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
+            // 완전히 펼쳐진 상태의 너비 캐싱
+            cachedGalleryToolbarWidthRef.current = currentToolbarWidth
+            targetGalleryToolbarWidth = currentToolbarWidth
+          } else if (isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
+            // 1단계 콤팩트 상태(셀렉트 박스들은 살아있음)의 너비 캐싱
+            cachedGalleryToolbarCompactWidthRef.current = currentToolbarWidth
+          }
+          
+          if (isGalleryToolbarUltraCompact) {
+            targetGalleryToolbarWidth = 36 // MoreVertical 버튼 1개만 노출될 때의 너비
+          } else if (isGalleryToolbarCompact) {
+            targetGalleryToolbarWidth = cachedGalleryToolbarCompactWidthRef.current
+          } else {
+            targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
+          }
+          
+          toolbarWidth += targetGalleryToolbarWidth
         } else if (props.activeTab === "curation" && curationToolbarRef.current) {
           toolbarWidth += getElWidth(curationToolbarRef.current)
         }
@@ -188,15 +215,34 @@ export function Header(props: HeaderProps) {
           }
         }
 
-        // 로고 + 가로탭 + 활성화된 우측 툴바들 + 안전 마진(64px)
-        const requiredWidth = logoWidth + cachedTabsWidthRef.current + toolbarWidth + 64
-        setIsCompact(currentWidth < requiredWidth)
+        // 1. 탭 콤팩트 판단 (로고 + 가로탭 리스트 + 우측 툴바 + 안전 마진)
+        const requiredWidthForTabs = logoWidth + cachedTabsWidthRef.current + toolbarWidth + 64
+        const nextIsCompact = currentWidth < requiredWidthForTabs
+        setIsCompact(nextIsCompact)
+
+        // 2. 갤러리 툴바 콤팩트 판단
+        if (props.activeTab === "gallery") {
+          const tabsWidth = nextIsCompact ? 120 : cachedTabsWidthRef.current
+          
+          // 풀 버전 기준 필요한 너비
+          const requiredWidthForToolbar = logoWidth + tabsWidth + cachedGalleryToolbarWidthRef.current + rightSectionWidth + 64
+          const nextIsToolbarCompact = currentWidth < requiredWidthForToolbar
+          setIsGalleryToolbarCompact(nextIsToolbarCompact)
+          
+          // 콤팩트 버전 기준 필요한 너비 (드롭다운 3개 + 방향 버튼이 펼쳐진 상태)
+          const requiredWidthForUltraToolbar = logoWidth + tabsWidth + cachedGalleryToolbarCompactWidthRef.current + rightSectionWidth + 64
+          const nextIsUltraCompact = currentWidth < requiredWidthForUltraToolbar
+          setIsGalleryToolbarUltraCompact(nextIsUltraCompact)
+        } else {
+          setIsGalleryToolbarCompact(false)
+          setIsGalleryToolbarUltraCompact(false)
+        }
       }
     })
 
     observer.observe(headerRef.current)
     return () => observer.disconnect()
-  }, [props.activeTab])
+  }, [props.activeTab, isGalleryToolbarCompact, isGalleryToolbarUltraCompact])
 
   const toggleSort = (
     key: "createdAt" | "filename" | "sizeBytes"
@@ -506,7 +552,7 @@ export function Header(props: HeaderProps) {
                   props.setGalleryStatusFilter(v as CurationStatus | "all")
                 }}
               >
-                <SelectTrigger className="!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -517,7 +563,7 @@ export function Header(props: HeaderProps) {
                       "approved",
                       "rejected",
                       "trashed",
-                    ] as const
+                      ] as const
                   ).map((s) => (
                     <SelectItem
                       key={s}
@@ -549,7 +595,7 @@ export function Header(props: HeaderProps) {
                   }
                 }}
               >
-                <SelectTrigger className="!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -571,7 +617,7 @@ export function Header(props: HeaderProps) {
                   toggleSort(k as "createdAt" | "filename" | "sizeBytes")
                 }
               >
-                <SelectTrigger className="!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                <SelectTrigger className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -595,7 +641,7 @@ export function Header(props: HeaderProps) {
                     onClick={() =>
                       toggleSort(props.gallerySortKey)
                     }
-                    className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
+                    className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted ${isGalleryToolbarUltraCompact ? "hidden" : "inline-flex"}`}
                   >
                     {props.gallerySortDir === "asc" ? (
                       <ArrowUp className="h-3.5 w-3.5" />
@@ -608,7 +654,7 @@ export function Header(props: HeaderProps) {
               </Tooltip>
 
               {(props.galleryGroupMode || props.galleryViewMode === "grid") && (
-                <div className="hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 md:flex shadow-xs h-7">
+                <div className={`hidden items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs h-7 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "md:flex"}`}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center text-muted-foreground">
@@ -633,7 +679,6 @@ export function Header(props: HeaderProps) {
               )}
 
               <Tooltip>
-
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"
@@ -641,7 +686,7 @@ export function Header(props: HeaderProps) {
                     onClick={() =>
                       props.setGalleryShowFilters(!props.galleryShowFilters)
                     }
-                    className="relative !h-7 !w-7 p-0"
+                    className={`relative !h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
                   >
                     <FilterIcon className="h-3.5 w-3.5" />
                     {props.galleryHasAnyFilter && (
@@ -657,7 +702,7 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="!h-7 !w-7 p-0"
+                    className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
                     onClick={() => props.onGalleryExport?.()}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
@@ -671,17 +716,179 @@ export function Header(props: HeaderProps) {
                     <MoreVertical className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[160px]">
-                  <DropdownMenuItem onClick={() => props.onGalleryRefresh?.()}>
-                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5" />
+                <DropdownMenuContent align="end" className={isGalleryToolbarUltraCompact ? "w-[220px] p-2" : isGalleryToolbarCompact ? "w-[200px] p-2" : "w-[160px]"}>
+                  {isGalleryToolbarUltraCompact && (
+                    <>
+                      {/* 상태 필터 서브메뉴 */}
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
+                          <span>필터: {
+                            props.galleryStatusFilter === "all" ? "전체" :
+                            props.galleryStatusFilter === "pending" ? "대기" :
+                            props.galleryStatusFilter === "approved" ? "통과" :
+                            props.galleryStatusFilter === "rejected" ? "탈락" : "휴지통"
+                          }</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="w-[120px] p-1">
+                            {(["all", "pending", "approved", "rejected", "trashed"] as const).map((s) => (
+                              <DropdownMenuItem
+                                key={s}
+                                onClick={() => props.setGalleryStatusFilter(s)}
+                                className="text-[12px] font-bold"
+                              >
+                                {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+
+                      {/* 뷰 모드 서브메뉴 */}
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
+                          <span>보기: {
+                            props.galleryGroupMode ? "그룹" :
+                            props.galleryViewMode === "grid" ? "그리드" : "비교"
+                          }</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="w-[120px] p-1">
+                            <DropdownMenuItem
+                              onClick={() => props.setGalleryGroupMode(true)}
+                              className="text-[12px] font-bold"
+                            >
+                              그룹
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                props.setGalleryGroupMode(false)
+                                props.setGalleryViewMode("grid")
+                              }}
+                              className="text-[12px] font-bold"
+                            >
+                              그리드
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                props.setGalleryGroupMode(false)
+                                props.setGalleryViewMode("compare")
+                              }}
+                              className="text-[12px] font-bold"
+                            >
+                              비교
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+
+                      {/* 정렬 기준 서브메뉴 */}
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
+                          <span>정렬: {
+                            props.gallerySortKey === "createdAt" ? "날짜순" :
+                            props.gallerySortKey === "filename" ? "파일명순" : "크기순"
+                          }</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="w-[120px] p-1">
+                            <DropdownMenuItem
+                              onClick={() => toggleSort("createdAt")}
+                              className="text-[12px] font-bold"
+                            >
+                              날짜순
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => toggleSort("filename")}
+                              className="text-[12px] font-bold"
+                            >
+                              파일명순
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => toggleSort("sizeBytes")}
+                              className="text-[12px] font-bold"
+                            >
+                              크기순
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+
+                      {/* 정렬 방향 토글 아이템 */}
+                      <DropdownMenuItem
+                        onClick={() => toggleSort(props.gallerySortKey)}
+                        className="flex items-center gap-2 text-[12px] font-bold border-b border-line/45 pb-2 mb-1"
+                      >
+                        {props.gallerySortDir === "asc" ? (
+                          <>
+                            <ArrowUp className="h-3.5 w-3.5 opacity-60" />
+                            <span>정렬 방향: 오름차순</span>
+                          </>
+                        ) : (
+                          <>
+                            <ArrowDown className="h-3.5 w-3.5 opacity-60" />
+                            <span>정렬 방향: 내림차순</span>
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
+                  {(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => props.setGalleryShowFilters(!props.galleryShowFilters)}
+                        className="flex items-center gap-2 text-[12px] font-bold"
+                      >
+                        <FilterIcon className={`h-3.5 w-3.5 ${props.galleryShowFilters ? "text-primary" : "opacity-60"}`} />
+                        <span>필터 {props.galleryShowFilters ? "숨기기" : "표시"}</span>
+                        {props.galleryHasAnyFilter && (
+                          <span className="ml-auto h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </DropdownMenuItem>
+                      
+                      <DropdownMenuItem
+                        onClick={() => props.onGalleryExport?.()}
+                        className="flex items-center gap-2 text-[12px] font-bold"
+                      >
+                        <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
+                        <span>갤러리 내보내기</span>
+                      </DropdownMenuItem>
+
+                      {(props.galleryGroupMode || props.galleryViewMode === "grid") && (
+                        <div className="flex flex-col gap-1.5 px-2.5 py-2 border-b border-line/45 my-1">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                              <LayoutGrid className="h-3.5 w-3.5" />
+                              크기 조절
+                            </span>
+                            <span className="font-mono text-[10px] text-primary">{props.galleryThumbnailSize}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="120"
+                            max="320"
+                            step="10"
+                            value={props.galleryThumbnailSize}
+                            onChange={(e) => props.setGalleryThumbnailSize(Number(e.target.value))}
+                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem onClick={() => props.onGalleryRefresh?.()} className="text-[12px] font-bold">
+                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
                     새로고침
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => props.onGalleryEmptyTrash?.()}
-                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >
-                    <Trash2Icon className="mr-2 h-3.5 w-3.5" />
+                    <Trash2Icon className="mr-2 h-3.5 w-3.5 opacity-60" />
                     휴지통 비우기
                   </DropdownMenuItem>
                 </DropdownMenuContent>
