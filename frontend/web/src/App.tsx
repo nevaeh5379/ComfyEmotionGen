@@ -221,8 +221,11 @@ export function App() {
   )
 
   const [isStatsDocked, setIsStatsDocked] = useLocalStorage<boolean>("ceg_isStatsDocked", false)
+  const [statsDockedSide, setStatsDockedSide] = useLocalStorage<"start" | "end">("ceg_statsDockedSide", "end")
   const [isGalleryDocked, setIsGalleryDocked] = useLocalStorage<boolean>("ceg_isGalleryDocked", false)
+  const [galleryDockedSide, setGalleryDockedSide] = useLocalStorage<"start" | "end">("ceg_galleryDockedSide", "end")
   const [isCurationDocked, setIsCurationDocked] = useLocalStorage<boolean>("ceg_isCurationDocked", false)
+  const [curationDockedSide, setCurationDockedSide] = useLocalStorage<"start" | "end">("ceg_curationDockedSide", "end")
 
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
@@ -232,6 +235,29 @@ export function App() {
   const [previewFilter, setPreviewFilter] = useState("")
   const [pendingPresetSelection, setPendingPresetSelection] =
     useState<SavedWorkflow | null>(null)
+
+  useEffect(() => {
+    if (!settings.useWindowMode) {
+      setIsGalleryFloating(false)
+      setIsGalleryDocked(false)
+      setIsCompositionFloating(false)
+      setIsJobManagerFloating(false)
+      setIsStatsFloating(false)
+      setIsStatsDocked(false)
+      setIsCurationFloating(false)
+      setIsCurationDocked(false)
+    }
+  }, [
+    settings.useWindowMode,
+    setIsGalleryFloating,
+    setIsGalleryDocked,
+    setIsCompositionFloating,
+    setIsJobManagerFloating,
+    setIsStatsFloating,
+    setIsStatsDocked,
+    setIsCurationFloating,
+    setIsCurationDocked,
+  ])
 
   // ── Wrap everything in context providers ──
   return (
@@ -308,10 +334,16 @@ export function App() {
             setCurationFloatingSize={setCurationFloatingSize}
             isStatsDocked={isStatsDocked}
             setIsStatsDocked={setIsStatsDocked}
+            statsDockedSide={statsDockedSide}
+            setStatsDockedSide={setStatsDockedSide}
             isGalleryDocked={isGalleryDocked}
             setIsGalleryDocked={setIsGalleryDocked}
+            galleryDockedSide={galleryDockedSide}
+            setGalleryDockedSide={setGalleryDockedSide}
             isCurationDocked={isCurationDocked}
             setIsCurationDocked={setIsCurationDocked}
+            curationDockedSide={curationDockedSide}
+            setCurationDockedSide={setCurationDockedSide}
           />
         </NodeMappingProvider>
       </WorkflowProvider>
@@ -407,10 +439,16 @@ interface AppContentProps {
 
   isStatsDocked: boolean
   setIsStatsDocked: (v: boolean) => void
+  statsDockedSide: "start" | "end"
+  setStatsDockedSide: (v: "start" | "end") => void
   isGalleryDocked: boolean
   setIsGalleryDocked: (v: boolean) => void
+  galleryDockedSide: "start" | "end"
+  setGalleryDockedSide: (v: "start" | "end") => void
   isCurationDocked: boolean
   setIsCurationDocked: (v: boolean) => void
+  curationDockedSide: "start" | "end"
+  setCurationDockedSide: (v: "start" | "end") => void
 }
 
 function AppContent(props: AppContentProps) {
@@ -424,6 +462,9 @@ function AppContent(props: AppContentProps) {
     setIsStatsDocked,
     setIsGalleryDocked,
     setIsCurationDocked,
+    setStatsDockedSide,
+    setGalleryDockedSide,
+    setCurationDockedSide,
     setActiveTab,
   } = props
 
@@ -509,31 +550,22 @@ function AppContent(props: AppContentProps) {
           } else if (windowType === "gallery") {
             setIsGalleryFloating(false)
             setIsGalleryDocked(true)
-            if (activeZone === "left" || activeZone === "right") {
-              setJobsLayoutOrientation("horizontal")
-            } else {
-              setJobsLayoutOrientation("vertical")
-            }
+            setGalleryDockedSide(activeZone === "left" || activeZone === "top" ? "start" : "end")
+            setJobsLayoutOrientation(activeZone === "left" || activeZone === "right" ? "horizontal" : "vertical")
             setActiveTab("jobs")
             toast.success("갤러리가 메인 패널에 결합되었습니다.")
           } else if (windowType === "stats") {
             setIsStatsFloating(false)
             setIsStatsDocked(true)
-            if (activeZone === "left" || activeZone === "right") {
-              setJobsLayoutOrientation("horizontal")
-            } else {
-              setJobsLayoutOrientation("vertical")
-            }
+            setStatsDockedSide(activeZone === "left" || activeZone === "top" ? "start" : "end")
+            setJobsLayoutOrientation(activeZone === "left" || activeZone === "right" ? "horizontal" : "vertical")
             setActiveTab("jobs")
             toast.success("통계 패널이 메인 패널에 결합되었습니다.")
           } else if (windowType === "curation") {
             setIsCurationFloating(false)
             setIsCurationDocked(true)
-            if (activeZone === "left" || activeZone === "right") {
-              setJobsLayoutOrientation("horizontal")
-            } else {
-              setJobsLayoutOrientation("vertical")
-            }
+            setCurationDockedSide(activeZone === "left" || activeZone === "top" ? "start" : "end")
+            setJobsLayoutOrientation(activeZone === "left" || activeZone === "right" ? "horizontal" : "vertical")
             setActiveTab("jobs")
             toast.success("큐레이션 패널이 메인 패널에 결합되었습니다.")
           }
@@ -555,6 +587,9 @@ function AppContent(props: AppContentProps) {
       setIsStatsDocked,
       setIsGalleryDocked,
       setIsCurationDocked,
+      setStatsDockedSide,
+      setGalleryDockedSide,
+      setCurationDockedSide,
       setActiveTab,
       setJobsLayoutOrientation,
       setJobsPanelOrder,
@@ -1385,6 +1420,7 @@ function AppContent(props: AppContentProps) {
       }`}
     >
       <Header
+        useWindowMode={props.settings.useWindowMode}
         activeTab={props.activeTab}
         setActiveTab={props.setActiveTab}
         isGalleryFloating={props.isGalleryFloating}
@@ -1586,10 +1622,12 @@ function AppContent(props: AppContentProps) {
                     hasActiveFilter={hasActiveFilter}
                     onGraphOpen={() => props.setIsGraphOpen(true)}
                     isFloating={false}
-                    onFloatToggle={() => props.setIsCompositionFloating(true)}
-                    onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
                     jobsLayoutOrientation={jobsLayoutOrientation}
                     onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
+                    {...(props.settings.useWindowMode ? {
+                      onFloatToggle: () => props.setIsCompositionFloating(true),
+                      onHeaderDragStart: (e) => handleHeaderDragStart(e, "composition")
+                    } : {})}
                   />
                 ) : null
 
@@ -1618,8 +1656,10 @@ function AppContent(props: AppContentProps) {
                       handleRetryAllFailed={handleRetryAllFailed}
                       handleDeleteAllFailed={handleDeleteAllFailed}
                       isFloating={false}
-                      onFloatToggle={() => props.setIsJobManagerFloating(true)}
-                      onHeaderDragStart={(e) => handleHeaderDragStart(e, "jobManager")}
+                      {...(props.settings.useWindowMode ? {
+                        onFloatToggle: () => props.setIsJobManagerFloating(true),
+                        onHeaderDragStart: (e) => handleHeaderDragStart(e, "jobManager")
+                      } : {})}
                     />
                   </div>
                 ) : null
@@ -1636,26 +1676,34 @@ function AppContent(props: AppContentProps) {
                 )
 
                 // ── 패널 리스트 구성 ────────────────────────────────────
-                const panels: { id: string; el: React.ReactNode; minSize?: number }[] = []
+                type PanelItem = { id: string; el: React.ReactNode; minSize?: number }
 
+                // 코어 패널 (composition / jobManager)
+                const corePanels: PanelItem[] = []
                 const comp = compositionEl ? { id: "composition", el: compositionEl, minSize: 20 } : null
                 const mgr = jobManagerEl ? { id: "jobManager", el: jobManagerEl } : null
                 if (jobsPanelOrder === "composition-first") {
-                  if (comp) panels.push(comp)
-                  if (mgr) panels.push(mgr)
+                  if (comp) corePanels.push(comp)
+                  if (mgr) corePanels.push(mgr)
                 } else {
-                  if (mgr) panels.push(mgr)
-                  if (comp) panels.push(comp)
+                  if (mgr) corePanels.push(mgr)
+                  if (comp) corePanels.push(comp)
                 }
 
-                if (props.isStatsDocked) panels.push({
+                // 추가 도킹 패널 — snap 방향에 따라 start/end 분리
+                const startExtra: PanelItem[] = []
+                const endExtra: PanelItem[] = []
+                const addExtra = (item: PanelItem, side: "start" | "end") =>
+                  (side === "start" ? startExtra : endExtra).push(item)
+
+                if (props.isStatsDocked) addExtra({
                   id: "stats",
                   el: (
                     <div className="flex h-full w-full flex-col">
                       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
                         <span className="text-[13px] font-bold">통계</span>
                         <div className="flex items-center gap-0.5">
-                          {panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsStatsDocked(false); props.setIsStatsFloating(true) }, "창으로 분리")}
+                          {props.settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsStatsDocked(false); props.setIsStatsFloating(true) }, "창으로 분리")}
                           {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsStatsDocked(false), "패널 닫기")}
                         </div>
                       </div>
@@ -1664,16 +1712,16 @@ function AppContent(props: AppContentProps) {
                       </div>
                     </div>
                   ),
-                })
+                }, props.statsDockedSide)
 
-                if (props.isGalleryDocked) panels.push({
+                if (props.isGalleryDocked) addExtra({
                   id: "gallery",
                   el: (
                     <div className="flex h-full w-full flex-col">
                       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
                         <span className="text-[13px] font-bold">갤러리</span>
                         <div className="flex items-center gap-0.5">
-                          {panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsGalleryDocked(false); props.setIsGalleryFloating(true) }, "창으로 분리")}
+                          {props.settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsGalleryDocked(false); props.setIsGalleryFloating(true) }, "창으로 분리")}
                           {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsGalleryDocked(false), "패널 닫기")}
                         </div>
                       </div>
@@ -1717,16 +1765,16 @@ function AppContent(props: AppContentProps) {
                       </div>
                     </div>
                   ),
-                })
+                }, props.galleryDockedSide)
 
-                if (props.isCurationDocked) panels.push({
+                if (props.isCurationDocked) addExtra({
                   id: "curation",
                   el: (
                     <div className="flex h-full w-full flex-col">
                       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
                         <span className="text-[13px] font-bold">큐레이션</span>
                         <div className="flex items-center gap-0.5">
-                          {panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsCurationDocked(false); props.setIsCurationFloating(true) }, "창으로 분리")}
+                          {props.settings.useWindowMode && panelBtn(<ExternalLink className="h-3.5 w-3.5" />, () => { props.setIsCurationDocked(false); props.setIsCurationFloating(true) }, "창으로 분리")}
                           {panelBtn(<XIcon className="h-3.5 w-3.5" />, () => props.setIsCurationDocked(false), "패널 닫기")}
                         </div>
                       </div>
@@ -1757,7 +1805,10 @@ function AppContent(props: AppContentProps) {
                       </div>
                     </div>
                   ),
-                })
+                }, props.curationDockedSide)
+
+                // start → core → end 순서로 최종 패널 리스트
+                const panels: PanelItem[] = [...startExtra, ...corePanels, ...endExtra]
 
                 // ── 렌더링 ──────────────────────────────────────────────
                 if (panels.length === 0) {
@@ -2225,7 +2276,7 @@ function AppContent(props: AppContentProps) {
                     onChange={(e) => setGalleryThumbnailSize(Number(e.target.value))}
                     className="h-1 w-12 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
-                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[28px] text-right tabular-nums">
+                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
                     {galleryThumbnailSize}px
                   </span>
                 </div>

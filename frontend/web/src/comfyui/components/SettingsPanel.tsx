@@ -359,6 +359,16 @@ export function SettingsPanel({
               onCheckedChange={(v) => updateSetting("enableHover", v === true)}
             />
           </SettingRow>
+          <Separator />
+          <SettingRow
+            label="창 모드 기능 사용"
+            description="패널을 창 모드로 분리하거나 마우스 드래그로 외부 창으로 분리할 수 있습니다."
+          >
+            <Switch
+              checked={settings.useWindowMode}
+              onCheckedChange={(v) => updateSetting("useWindowMode", v === true)}
+            />
+          </SettingRow>
         </Section>
 
         {/* 알림 설정 */}

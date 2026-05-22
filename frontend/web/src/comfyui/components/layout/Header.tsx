@@ -68,6 +68,7 @@ import {
 import { NAV_TABS, type TabId } from "./nav-tabs"
 
 interface HeaderProps {
+  useWindowMode?: boolean
   activeTab: TabId
   setActiveTab: (t: TabId) => void
   isAliveBackend: boolean
@@ -446,9 +447,10 @@ export function Header(props: HeaderProps) {
               {NAV_TABS.map((tab) => {
                 const Icon = tab.icon
                 const isDraggableTab =
-                  tab.id === "stats" ||
-                  tab.id === "curation" ||
-                  tab.id === "gallery"
+                  props.useWindowMode &&
+                  (tab.id === "stats" ||
+                    tab.id === "curation" ||
+                    tab.id === "gallery")
                 const dragCb =
                   tab.id === "stats"
                     ? props.onStatsDragStart
@@ -748,7 +750,7 @@ export function Header(props: HeaderProps) {
                     onChange={(e) => props.setGalleryThumbnailSize(Number(e.target.value))}
                     className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
-                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-6 text-right tabular-nums">
+                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
                     {props.galleryThumbnailSize}px
                   </span>
                 </div>
@@ -787,22 +789,24 @@ export function Header(props: HeaderProps) {
                 <TooltipContent>갤러리 내보내기</TooltipContent>
               </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
-                    onClick={() => {
-                      props.setIsGalleryFloating?.(true)
-                      props.setActiveTab("jobs")
-                    }}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>창으로 분리 (Pop out)</TooltipContent>
-              </Tooltip>
+              {props.useWindowMode && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={`!h-7 !w-7 p-0 ${(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) ? "hidden" : "inline-flex"}`}
+                      onClick={() => {
+                        props.setIsGalleryFloating?.(true)
+                        props.setActiveTab("jobs")
+                      }}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>창으로 분리 (Pop out)</TooltipContent>
+                </Tooltip>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="outline" className="!h-7 !w-7 p-0">
@@ -948,16 +952,18 @@ export function Header(props: HeaderProps) {
                         <span>갤러리 내보내기</span>
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem
-                        onClick={() => {
-                          props.setIsGalleryFloating?.(true)
-                          props.setActiveTab("jobs")
-                        }}
-                        className="flex items-center gap-2 text-[12px] font-bold"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-                        <span>창으로 분리 (Pop out)</span>
-                      </DropdownMenuItem>
+                      {props.useWindowMode && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            props.setIsGalleryFloating?.(true)
+                            props.setActiveTab("jobs")
+                          }}
+                          className="flex items-center gap-2 text-[12px] font-bold"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+                          <span>창으로 분리 (Pop out)</span>
+                        </DropdownMenuItem>
+                      )}
 
                       {(props.galleryGroupMode || props.galleryViewMode === "grid") && (
                         <div className="flex flex-col gap-1.5 px-2.5 py-2 border-b border-line/45 my-1">

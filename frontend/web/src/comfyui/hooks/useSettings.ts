@@ -23,6 +23,8 @@ export interface AppSettings {
     | "doneOrCancelled"
     | "doneOrFailed"
     | "excludeFromDenominator"
+  /** 창 모드 기능 사용 여부 */
+  useWindowMode: boolean
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -35,6 +37,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   singleDownloadMode: "newtab",
   updateChannel: "auto",
   progressCalculation: "done",
+  useWindowMode: true,
 }
 
 export const useSettings = () => {

@@ -225,6 +225,19 @@
   }
 }
 
+/* FloatingWindow z-index 경쟁 방지:
+   Radix UI 포털(Select, DropdownMenu, Tooltip 등)은 document.body에 렌더링되므로
+   FloatingWindow의 z-index보다 항상 위에 표시되어야 함 */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+[data-radix-select-content],
+[data-radix-dropdown-menu-content],
+[data-radix-context-menu-content],
+[data-radix-tooltip-content] {
+  z-index: 9999 !important;
+}
+
 /* ── Prism.js syntax highlighting ── */
 
 /* Light theme (default) — GitHub Light */

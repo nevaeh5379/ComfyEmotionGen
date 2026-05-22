@@ -1251,7 +1251,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     onChange={(e) => setThumbnailSize(Number(e.target.value))}
                     className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
-                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-6 text-right tabular-nums">
+                  <span className="text-[9px] font-mono font-bold text-muted-foreground w-[34px] text-right whitespace-nowrap tabular-nums">
                     {thumbnailSize}px
                   </span>
                 </div>
