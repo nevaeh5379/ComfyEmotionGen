@@ -1694,19 +1694,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           </div>
         )}
 
-        {!loading &&
-          ((!effectiveGroupMode && visibleImages.length === 0) ||
-            (effectiveGroupMode && visibleGroups.length === 0)) && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>표시할 이미지가 없습니다</EmptyTitle>
-                <EmptyDescription>
-                  작업을 실행하거나 필터 조건을 바꿔보세요.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-
+       
         {/* 비교 뷰 (그룹 모드 off + 비교 선택 시) */}
         {!effectiveGroupMode &&
           effectiveGalleryViewMode === "compare" &&
