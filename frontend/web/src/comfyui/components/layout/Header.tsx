@@ -154,8 +154,8 @@ export function Header(props: HeaderProps) {
   const rightSectionRef = useRef<HTMLDivElement>(null)
 
   const cachedTabsWidthRef = useRef<number>(480)
-  const cachedGalleryToolbarWidthRef = useRef<number>(450)
-  const cachedGalleryToolbarCompactWidthRef = useRef<number>(280)
+  const cachedGalleryToolbarWidthRef = useRef<number>(560)
+  const cachedGalleryToolbarCompactWidthRef = useRef<number>(340)
 
   useEffect(() => {
     if (!headerRef.current) return
@@ -215,7 +215,7 @@ export function Header(props: HeaderProps) {
 
         // 1. 탭 콤팩트 판단 (로고 + 가로탭 리스트 + 우측 툴바 + 안전 마진)
         const requiredWidthForTabs =
-          logoWidth + cachedTabsWidthRef.current + toolbarWidth + 64
+          logoWidth + cachedTabsWidthRef.current + toolbarWidth + 80
         const nextIsCompact = currentWidth < requiredWidthForTabs
         setIsCompact(nextIsCompact)
 
@@ -229,7 +229,7 @@ export function Header(props: HeaderProps) {
             tabsWidth +
             cachedGalleryToolbarWidthRef.current +
             rightSectionWidth +
-            64
+            80
           const nextIsToolbarCompact = currentWidth < requiredWidthForToolbar
           setIsGalleryToolbarCompact(nextIsToolbarCompact)
 
@@ -239,7 +239,7 @@ export function Header(props: HeaderProps) {
             tabsWidth +
             cachedGalleryToolbarCompactWidthRef.current +
             rightSectionWidth +
-            64
+            80
           const nextIsUltraCompact = currentWidth < requiredWidthForUltraToolbar
           setIsGalleryToolbarUltraCompact(nextIsUltraCompact)
         } else {
@@ -382,13 +382,13 @@ export function Header(props: HeaderProps) {
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
           {/* Desktop tabs */}
           {isCompact ? (
-            <div className="hidden md:block">
+            <div className="hidden md:block shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 gap-2 rounded-full border-line bg-background px-4 text-[13px] font-black shadow-xs hover:bg-accent/50"
+                    className="h-9 gap-2 rounded-full border-line bg-background px-4 text-[13px] font-black shadow-xs hover:bg-accent/50 shrink-0"
                   >
                     {(() => {
                       const activeTabInfo = NAV_TABS.find(
@@ -437,7 +437,7 @@ export function Header(props: HeaderProps) {
           ) : (
             <div
               ref={tabsRef}
-              className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex"
+              className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex shrink-0"
               role="tablist"
               aria-label="메인 탭 네비게이션"
             >
@@ -877,7 +877,7 @@ export function Header(props: HeaderProps) {
                 }}
               >
                 <SelectTrigger
-                  className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
+                  className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -922,7 +922,7 @@ export function Header(props: HeaderProps) {
                 }}
               >
                 <SelectTrigger
-                  className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
+                  className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -946,7 +946,7 @@ export function Header(props: HeaderProps) {
                 }
               >
                 <SelectTrigger
-                  className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
+                  className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -978,7 +978,7 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     variant="outline"
                     onClick={() => toggleSort(tb.sortKey)}
-                    className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted hidden md:inline-flex ${isGalleryToolbarUltraCompact ? "hidden" : ""}`}
+                    className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                   >
                     {tb.sortDir === "asc" ? (
                       <ArrowUp className="h-3.5 w-3.5" />
@@ -992,7 +992,7 @@ export function Header(props: HeaderProps) {
 
               {(tb.groupMode || tb.viewMode === "grid") && (
                 <div
-                  className={`hidden h-7 items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : "md:flex"}`}
+                  className={`hidden h-7 items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:flex"}`}
                 >
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1027,7 +1027,7 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     variant={tb.showFilters ? "secondary" : "outline"}
                     onClick={() => tb.setShowFilters(!tb.showFilters)}
-                    className={`relative !h-7 !w-7 p-0 hidden md:inline-flex ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : ""}`}
+                    className={`relative !h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                   >
                     <FilterIcon className="h-3.5 w-3.5" />
                     {tb.hasAnyFilter && (
@@ -1043,7 +1043,7 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className={`!h-7 !w-7 p-0 hidden md:inline-flex ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : ""}`}
+                    className={`!h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                     onClick={() => tb.handleExport()}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
@@ -1058,7 +1058,7 @@ export function Header(props: HeaderProps) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className={`!h-7 !w-7 p-0 hidden md:inline-flex ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "hidden" : ""}`}
+                      className={`!h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                       onClick={() => {
                         panel.gallery.setIsFloating(true)
                         props.setActiveTab("jobs")
