@@ -131,6 +131,7 @@ interface Props {
   // Floating Window controls
   isFloating?: boolean
   onFloatToggle?: () => void
+  onHeaderDragStart?: (e: React.MouseEvent) => void
 }
 
 export const JobManagerPanel = memo(function JobManagerPanel({
@@ -141,10 +142,23 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   sessionJobs,
   isFloating,
   onFloatToggle,
+  onHeaderDragStart,
 }: Props) {
   useRenderLog("JobManagerPanel")
   const confirm = useConfirm()
   const { settings } = useSettings()
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return
+      const target = e.target as HTMLElement
+      if (target.closest("button, input, select, [role='tab'], a, textarea")) {
+        return
+      }
+      onHeaderDragStart?.(e)
+    },
+    [onHeaderDragStart]
+  )
 
   // ── filter / sort / date-range state ────────────────────────────────
   const [filterTab, setFilterTabState] = useState<FilterTab>("all")
@@ -887,7 +901,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         </div>
 
         {/* Unified 1-Line Toolbar (Desktop viewport) */}
-        <div className="hidden shrink-0 items-center justify-between gap-3 border-b bg-muted/10 px-4 py-2 md:flex">
+        <div
+          onMouseDown={handleMouseDown}
+          className="hidden shrink-0 items-center justify-between gap-3 border-b bg-muted/10 px-4 py-2 md:flex cursor-grab select-none"
+        >
           <Tabs
             value={filterTab}
             onValueChange={(v) => setFilterTab(v as FilterTab)}

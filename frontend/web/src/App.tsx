@@ -351,6 +351,14 @@ function AppContent(props: AppContentProps) {
     setActiveTab,
   } = props
 
+  const dragSessionRef = useRef<{
+    windowType: "composition" | "jobManager"
+    startX: number
+    startY: number
+    isPopoutTriggered: boolean
+    size: { w: number; h: number }
+  } | null>(null)
+
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const [jobsLayoutOrientation, setJobsLayoutOrientation] = useLocalStorage<"horizontal" | "vertical">(
@@ -444,6 +452,138 @@ function AppContent(props: AppContentProps) {
       setJobsLayoutOrientation,
       setJobsPanelOrder,
     ]
+  )
+
+  const handleHeaderDragStart = useCallback(
+    (e: React.MouseEvent, windowType: "composition" | "jobManager") => {
+      e.preventDefault()
+
+      const size =
+        windowType === "composition"
+          ? props.compositionFloatingSize
+          : props.jobManagerFloatingSize
+
+      dragSessionRef.current = {
+        windowType,
+        startX: e.clientX,
+        startY: e.clientY,
+        isPopoutTriggered: false,
+        size,
+      }
+
+      const handleGlobalMouseMove = (moveEvent: MouseEvent) => {
+        const session = dragSessionRef.current
+        if (!session) return
+
+        if (!session.isPopoutTriggered) {
+          const dx = moveEvent.clientX - session.startX
+          const dy = moveEvent.clientY - session.startY
+          const distance = Math.sqrt(dx * dx + dy * dy)
+
+          // 8px 이상 드래그 되었을 때 분리(Popout) 트리거
+          if (distance > 8) {
+            session.isPopoutTriggered = true
+
+            // 초기 마우스 위치 기준으로 창의 타이틀바 중앙에 마우스가 오도록 계산
+            const w = session.size.w
+            const initX = moveEvent.clientX - w / 2
+            const initY = moveEvent.clientY - 20
+
+            if (session.windowType === "composition") {
+              props.setCompositionFloatingPos({ x: initX, y: initY })
+              props.setIsCompositionFloating(true)
+            } else {
+              props.setJobManagerFloatingPos({ x: initX, y: initY })
+              props.setIsJobManagerFloating(true)
+            }
+
+            toast.info(
+              `${
+                session.windowType === "composition"
+                  ? "작업 구성 패널"
+                  : "작업 큐 매니저"
+              }이(가) 창 모드로 분리되었습니다.`,
+              { id: "popout-toast" }
+            )
+          }
+        } else {
+          // 이미 팝아웃된 상태: 60fps 무지연 DOM 바이패스 다이렉트 드래그
+          const domId =
+            session.windowType === "composition"
+              ? "floating-window-composition"
+              : "floating-window-jobManager"
+          const el = document.getElementById(domId)
+
+          const w = session.size.w
+          let nextLeft = moveEvent.clientX - w / 2
+          let nextTop = moveEvent.clientY - 20
+
+          // 화면 뷰포트 가두리 적용
+          nextLeft = Math.max(0, Math.min(nextLeft, window.innerWidth - w))
+          nextTop = Math.max(0, Math.min(nextTop, window.innerHeight - 40))
+
+          if (el) {
+            el.style.left = `${nextLeft}px`
+            el.style.top = `${nextTop}px`
+          }
+
+          // 실시간 엣지 스냅 검출 가이드 프리뷰 호출
+          handleDragProgress(
+            moveEvent.clientX,
+            moveEvent.clientY,
+            window.innerWidth,
+            window.innerHeight,
+            false,
+            session.windowType
+          )
+        }
+      }
+
+      const handleGlobalMouseUp = (upEvent: MouseEvent) => {
+        document.removeEventListener("mousemove", handleGlobalMouseMove)
+        document.removeEventListener("mouseup", handleGlobalMouseUp)
+
+        const session = dragSessionRef.current
+        if (!session) return
+
+        if (session.isPopoutTriggered) {
+          // 스냅 결합 검증 및 완료 처리
+          handleDragProgress(
+            upEvent.clientX,
+            upEvent.clientY,
+            window.innerWidth,
+            window.innerHeight,
+            true,
+            session.windowType
+          )
+
+          // 엣지에 스냅 도킹되지 않고 여전히 플로팅 상태로 유지되는 경우 최종 포지션을 확정 및 반영
+          setTimeout(() => {
+            const domId =
+              session.windowType === "composition"
+                ? "floating-window-composition"
+                : "floating-window-jobManager"
+            const el = document.getElementById(domId)
+            if (el) {
+              const finalX = parseInt(el.style.left || "0", 10)
+              const finalY = parseInt(el.style.top || "0", 10)
+              const finalPos = { x: finalX, y: finalY }
+              if (session.windowType === "composition") {
+                props.setCompositionFloatingPos(finalPos)
+              } else {
+                props.setJobManagerFloatingPos(finalPos)
+              }
+            }
+          }, 50)
+        }
+
+        dragSessionRef.current = null
+      }
+
+      document.addEventListener("mousemove", handleGlobalMouseMove)
+      document.addEventListener("mouseup", handleGlobalMouseUp)
+    },
+    [props, handleDragProgress]
   )
 
   // ── Contexts ──
@@ -1216,6 +1356,7 @@ function AppContent(props: AppContentProps) {
                           onGraphOpen={() => props.setIsGraphOpen(true)}
                           isFloating={false}
                           onFloatToggle={() => props.setIsCompositionFloating(true)}
+                          onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
                           jobsLayoutOrientation={jobsLayoutOrientation}
                           onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
                         />
@@ -1250,6 +1391,7 @@ function AppContent(props: AppContentProps) {
                             handleDeleteAllFailed={handleDeleteAllFailed}
                             isFloating={false}
                             onFloatToggle={() => props.setIsJobManagerFloating(true)}
+                            onHeaderDragStart={(e) => handleHeaderDragStart(e, "jobManager")}
                           />
                         </div>
                       </ResizablePanel>
@@ -1288,6 +1430,7 @@ function AppContent(props: AppContentProps) {
                             handleDeleteAllFailed={handleDeleteAllFailed}
                             isFloating={false}
                             onFloatToggle={() => props.setIsJobManagerFloating(true)}
+                            onHeaderDragStart={(e) => handleHeaderDragStart(e, "jobManager")}
                           />
                         </div>
                       </ResizablePanel>
@@ -1316,6 +1459,7 @@ function AppContent(props: AppContentProps) {
                           onGraphOpen={() => props.setIsGraphOpen(true)}
                           isFloating={false}
                           onFloatToggle={() => props.setIsCompositionFloating(true)}
+                          onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
                           jobsLayoutOrientation={jobsLayoutOrientation}
                           onToggleJobsLayoutOrientation={() => setJobsLayoutOrientation(jobsLayoutOrientation === "horizontal" ? "vertical" : "horizontal")}
                         />
@@ -1350,6 +1494,7 @@ function AppContent(props: AppContentProps) {
                       handleDeleteAllFailed={handleDeleteAllFailed}
                       isFloating={false}
                       onFloatToggle={() => props.setIsJobManagerFloating(true)}
+                      onHeaderDragStart={(e) => handleHeaderDragStart(e, "jobManager")}
                     />
                   </div>
                 </div>
@@ -1374,6 +1519,7 @@ function AppContent(props: AppContentProps) {
                     onGraphOpen={() => props.setIsGraphOpen(true)}
                     isFloating={false}
                     onFloatToggle={() => props.setIsCompositionFloating(true)}
+                    onHeaderDragStart={(e) => handleHeaderDragStart(e, "composition")}
                   />
                 </div>
               ) : (
@@ -1609,6 +1755,7 @@ function AppContent(props: AppContentProps) {
 
       {props.isCompositionFloating && (
         <FloatingWindow
+          id="floating-window-composition"
           isOpen={props.isCompositionFloating}
           onClose={() => props.setIsCompositionFloating(false)}
           onDock={() => props.setIsCompositionFloating(false)}
@@ -1646,6 +1793,7 @@ function AppContent(props: AppContentProps) {
 
       {props.isJobManagerFloating && (
         <FloatingWindow
+          id="floating-window-jobManager"
           isOpen={props.isJobManagerFloating}
           onClose={() => props.setIsJobManagerFloating(false)}
           onDock={() => props.setIsJobManagerFloating(false)}
@@ -1690,6 +1838,7 @@ function AppContent(props: AppContentProps) {
 
       {props.activeTab !== "gallery" && props.isGalleryFloating && (
         <FloatingWindow
+          id="floating-window-gallery"
           isOpen={props.isGalleryFloating}
           onClose={() => props.setIsGalleryFloating(false)}
           onDock={() => {

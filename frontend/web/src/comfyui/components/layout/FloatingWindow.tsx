@@ -3,7 +3,16 @@ import { X, ArrowUpRight, Move } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
+// 전역 z-index 카운터 — 창이 클릭/드래그될 때마다 가장 위로 올라옴
+let globalZCounter = 50
+
+function bringToFront(el: HTMLDivElement) {
+  globalZCounter += 1
+  el.style.zIndex = String(globalZCounter)
+}
+
 interface FloatingWindowProps {
+  id?: string
   isOpen: boolean
   onClose: () => void
   onDock: () => void
@@ -24,6 +33,7 @@ interface FloatingWindowProps {
 }
 
 export function FloatingWindow({
+  id,
   isOpen,
   onClose,
   onDock,
@@ -170,10 +180,15 @@ export function FloatingWindow({
   return (
     <div
       ref={containerRef}
-      className="fixed z-50 flex flex-col rounded-xl border border-line bg-panel/95 shadow-2xl backdrop-blur supports-backdrop-filter:bg-panel/85 overflow-hidden transition-shadow duration-200 focus-within:shadow-primary/5 focus-within:border-line-active"
+      id={id}
+      className="fixed flex flex-col rounded-xl border border-line bg-panel/95 shadow-2xl backdrop-blur supports-backdrop-filter:bg-panel/85 overflow-hidden transition-shadow duration-200 focus-within:shadow-primary/5 focus-within:border-line-active"
       style={{
         minWidth: "360px",
         minHeight: "250px",
+        zIndex: 50,
+      }}
+      onMouseDown={() => {
+        if (containerRef.current) bringToFront(containerRef.current)
       }}
     >
       {/* 윈도우 헤더 (드래그 핸들) */}

@@ -69,6 +69,7 @@ export interface WorkCompositionPanelProps {
   // Floating Window controls
   isFloating?: boolean
   onFloatToggle?: () => void
+  onHeaderDragStart?: (e: React.MouseEvent) => void
 
   // Layout orientation
   jobsLayoutOrientation?: "horizontal" | "vertical"
@@ -98,6 +99,7 @@ export function WorkCompositionPanel({
   onGraphOpen,
   isFloating,
   onFloatToggle,
+  onHeaderDragStart,
   jobsLayoutOrientation,
   onToggleJobsLayoutOrientation,
 }: WorkCompositionPanelProps) {
@@ -144,6 +146,18 @@ export function WorkCompositionPanel({
     URL.revokeObjectURL(url)
   }, [template])
 
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return
+      const target = e.target as HTMLElement
+      if (target.closest("button, input, select, [role='tab'], a, textarea")) {
+        return
+      }
+      onHeaderDragStart?.(e)
+    },
+    [onHeaderDragStart]
+  )
+
   return (
     <>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -152,7 +166,10 @@ export function WorkCompositionPanel({
           onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex hidden shrink-0 items-center justify-between border-b px-3 py-2 md:inline-flex">
+          <div
+            onMouseDown={handleMouseDown}
+            className="flex hidden shrink-0 items-center justify-between border-b px-3 py-2 md:inline-flex cursor-grab select-none"
+          >
             <CompositionTabsList className="hidden md:inline-flex" />
             <div className="flex items-center gap-2">
               <WorkCompositionToolbar
