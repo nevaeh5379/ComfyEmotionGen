@@ -14,7 +14,7 @@
  *  - 휴지통 비우기, filename 그룹 재생성
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,8 +35,21 @@ import {
   MoreVertical,
   RefreshCwIcon,
   Trash2Icon,
+  Folder,
+  FolderOpen,
+  Home,
+  Search,
 } from "lucide-react"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -226,6 +239,30 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   )
   const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false)
 
+  // ── Breadcrumb tag folder navigation states ──
+  const [breadcrumbTags, setBreadcrumbTags] = useState<string[]>([])
+  const [subTagQuery, setSubTagQuery] = useState("")
+
+  // Dynamic token extractor
+  const getTokens = useCallback((img: SavedImage): string[] => {
+    const tokensSet = new Set<string>()
+    const fn = img.originalFilename || img.comfyFilename || ""
+    const fnWithoutExt = fn.replace(/\.[^/.]+$/, "")
+    fnWithoutExt.split(/[_\s-]+/).forEach((token) => {
+      const t = token.trim().toLowerCase()
+      if (t && t.length >= 2) tokensSet.add(t)
+    })
+    if (img.tags && Array.isArray(img.tags)) {
+      img.tags.forEach((tag) => {
+        tag.split(/[_\s-]+/).forEach((token) => {
+          const t = token.trim().toLowerCase()
+          if (t && t.length >= 2) tokensSet.add(t)
+        })
+      })
+    }
+    return Array.from(tokensSet)
+  }, [])
+
   // 핀 고정 + 뷰 모드
   const [pinnedHashes, setPinnedHashes] = useState<string[]>([])
   const [galleryViewMode, setGalleryViewMode] =
@@ -349,9 +386,41 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     })
   }, [metadataFilteredImages, effectiveGeneralFilters])
 
+  // ── Breadcrumb filter applied to finalFilteredImages ──
+  const breadcrumbFilteredImages = useMemo(() => {
+    if (breadcrumbTags.length === 0) return finalFilteredImages
+    return finalFilteredImages.filter((img) => {
+      const tokens = getTokens(img)
+      return breadcrumbTags.every((bTag) => tokens.includes(bTag.toLowerCase()))
+    })
+  }, [finalFilteredImages, breadcrumbTags, getTokens])
+
+  // Get next available sub-folders/sub-tags
+  const nextAvailableTokens = useMemo(() => {
+    const freqMap = new Map<string, number>()
+    breadcrumbFilteredImages.forEach((img) => {
+      const tokens = getTokens(img)
+      tokens.forEach((token) => {
+        if (!breadcrumbTags.includes(token)) {
+          freqMap.set(token, (freqMap.get(token) || 0) + 1)
+        }
+      })
+    })
+
+    const sorted = Array.from(freqMap.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([token, count]) => ({ token, count }))
+
+    if (subTagQuery.trim()) {
+      const query = subTagQuery.toLowerCase().trim()
+      return sorted.filter((item) => item.token.includes(query))
+    }
+    return sorted
+  }, [breadcrumbFilteredImages, breadcrumbTags, getTokens, subTagQuery])
+
   // 리젝 숨기기 + 정렬 적용
   const visibleImages = useMemo(() => {
-    const filtered = finalFilteredImages.filter(
+    const filtered = breadcrumbFilteredImages.filter(
       (img) => !effectiveHideRejected || img.status !== "rejected"
     )
     const dir = effectiveSortDir === "asc" ? 1 : -1
@@ -371,7 +440,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           return dir * (a.createdAt - b.createdAt)
       }
     })
-  }, [finalFilteredImages, effectiveHideRejected, effectiveSortKey, effectiveSortDir])
+  }, [breadcrumbFilteredImages, effectiveHideRejected, effectiveSortKey, effectiveSortDir])
 
   // 그룹 모드: groups + groupImagesMap 기반 visible 데이터
   const visibleGroups = useMemo(() => {
@@ -400,6 +469,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               : false
             return inFilename || inTags || inPrompt
           })
+        })
+      }
+      if (breadcrumbTags.length > 0) {
+        items = items.filter((img) => {
+          const tokens = getTokens(img)
+          return breadcrumbTags.every((bTag) => tokens.includes(bTag.toLowerCase()))
         })
       }
       if (effectiveHideRejected) {
@@ -436,6 +511,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     effectiveHideRejected,
     effectiveSortKey,
     effectiveSortDir,
+    breadcrumbTags,
+    getTokens,
   ])
 
   // 선택 모드 토글
@@ -1091,6 +1168,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       setTagFilter("")
                       setMetadataFilter("")
                       setHideRejected(false)
+                      setBreadcrumbTags([])
+                      setSubTagQuery("")
                     }}
                   >
                     <XIcon className="mr-1 h-3.5 w-3.5 md:h-3 md:w-3" />
@@ -1198,6 +1277,133 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
       {/* ── Scrollable Content ── */}
       <div className="flex-1 p-4">
+        {/* ── Danbooru Folder-like Breadcrumb tag system ── */}
+        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-card px-5 py-4 shadow-sm">
+          {/* Top Row: Title/Icon + Breadcrumb Trail */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex select-none items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              {breadcrumbTags.length > 0 ? (
+                <FolderOpen className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} />
+              ) : (
+                <Folder className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} />
+              )}
+              경로 탐색
+            </span>
+
+            <div className="hidden h-3 w-px bg-border mx-2 shrink-0 sm:block" />
+
+            <Breadcrumb className="flex-1">
+              <BreadcrumbList className="flex-wrap items-center text-xs font-medium sm:text-xs">
+                <BreadcrumbItem>
+                  <BreadcrumbLink
+                    onClick={() => {
+                      setBreadcrumbTags([])
+                      setPage(1)
+                      setGroupPage(1)
+                    }}
+                    className={cn(
+                      "flex items-center gap-1 font-medium transition-colors hover:text-foreground cursor-pointer",
+                      breadcrumbTags.length === 0 ? "text-foreground font-semibold cursor-default" : "text-muted-foreground"
+                    )}
+                  >
+                    <Home className="h-3.5 w-3.5 text-muted-foreground/80" strokeWidth={1.6} />
+                    Home
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {breadcrumbTags.map((tag, idx) => {
+                  const isLast = idx === breadcrumbTags.length - 1
+                  return (
+                    <React.Fragment key={tag}>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        {isLast ? (
+                          <BreadcrumbPage className="font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40 text-[11px] leading-none">
+                            {tag}
+                          </BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink
+                            onClick={() => {
+                              setBreadcrumbTags(breadcrumbTags.slice(0, idx + 1))
+                              setPage(1)
+                              setGroupPage(1)
+                            }}
+                            className="font-medium text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+                          >
+                            {tag}
+                          </BreadcrumbLink>
+                        )}
+                      </BreadcrumbItem>
+                    </React.Fragment>
+                  )
+                })}
+              </BreadcrumbList>
+            </Breadcrumb>
+            
+            {/* Clear All Breadcrumbs Button */}
+            {breadcrumbTags.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground rounded"
+                onClick={() => {
+                  setBreadcrumbTags([])
+                  setPage(1)
+                  setGroupPage(1)
+                }}
+              >
+                경로 초기화
+              </Button>
+            )}
+          </div>
+
+          {/* Bottom section: Sub-folders suggestions integrated in a single row */}
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2 shadow-2xs">
+            {/* Optional sub-tag filtering input */}
+            <div className="relative w-40 shrink-0">
+              <Search className="absolute top-2.5 left-2.5 h-3.5 w-3.5 text-muted-foreground/80" strokeWidth={1.6} />
+              <input
+                type="text"
+                placeholder="폴더 검색..."
+                value={subTagQuery}
+                onChange={(e) => setSubTagQuery(e.target.value)}
+                className="h-8 w-full rounded-md border border-input bg-transparent pl-9 pr-2.5 text-xs font-normal placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:border-input transition-all disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            {/* Vertical Divider */}
+            <div className="h-4 w-px bg-border shrink-0" />
+
+            {nextAvailableTokens.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 flex-1 max-h-[44px] overflow-y-auto pr-1">
+                {nextAvailableTokens.slice(0, 30).map(({ token, count }) => (
+                  <button
+                    key={token}
+                    onClick={() => {
+                      setBreadcrumbTags([...breadcrumbTags, token])
+                      setSubTagQuery("")
+                      setPage(1)
+                      setGroupPage(1)
+                    }}
+                    className="group flex h-8 shrink-0 cursor-pointer items-center justify-between gap-2.5 rounded-md border border-border bg-card px-3 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-98"
+                  >
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <Folder className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0 group-hover:text-accent-foreground" strokeWidth={1.6} />
+                      <span className="truncate max-w-[130px] font-medium text-foreground/80 group-hover:text-foreground leading-none">{token}</span>
+                    </div>
+                    <span className="text-[9px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0 group-hover:bg-background">
+                      {count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center text-xs font-medium text-muted-foreground py-1">
+                📂 더 이상 하위 폴더가 없습니다.
+              </div>
+            )}
+          </div>
+        </div>
+
         {error && (
           <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
             {error}
