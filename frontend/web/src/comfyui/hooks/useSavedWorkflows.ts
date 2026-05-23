@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback } from "react"
 import { type NodeMapping } from "../../lib/workflow"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
-import { saveSetting } from "@/lib/serverStorage"
-import { clearSyncQueueFor, enqueueSync } from "./useSyncedStorage"
+import { usePersistedItems } from "./usePersistedItems"
 
 export interface SavedNodeMappingPreset {
   id: string
@@ -54,44 +53,7 @@ function load(): SavedWorkflow[] {
 }
 
 export function useSavedWorkflows() {
-  const [workflows, setWorkflows] = useState<SavedWorkflow[]>(load)
-  const lastSavedVersionRef = useRef(0)
-  const effectVersionRef = useRef(0)
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setWorkflows(load())
-    }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
-  }, [])
-
-  const persist = useCallback((next: SavedWorkflow[]) => {
-    // localStorage 캐시 즉시 업데이트
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    } catch {
-      // ignore quota errors
-    }
-    setWorkflows(next)
-
-    // 버전 추적 (중복 저장 방지)
-    effectVersionRef.current++
-    const currentVersion = effectVersionRef.current
-    if (lastSavedVersionRef.current === currentVersion) return
-    lastSavedVersionRef.current = currentVersion
-
-    // 서버에 비동기 저장
-    const serialized = JSON.stringify(next)
-    saveSetting(STORAGE_KEY, serialized).then((ok) => {
-      if (lastSavedVersionRef.current !== currentVersion) return
-      if (!ok) {
-        enqueueSync(STORAGE_KEY, serialized)
-      } else {
-        clearSyncQueueFor(STORAGE_KEY)
-      }
-    })
-  }, [])
+  const { items: workflows, persist } = usePersistedItems(STORAGE_KEY, load)
 
   const saveWorkflow = useCallback(
     (name: string, workflow: string): SavedWorkflow => {

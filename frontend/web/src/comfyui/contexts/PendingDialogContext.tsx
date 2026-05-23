@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback } from "react"
+import { createContext, useState, useCallback } from "react"
+import { useContextRequired } from "@/lib/context"
 import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
 
 // ---------------------------------------------------------------------------
@@ -45,12 +46,7 @@ const PendingDialogContext = createContext<PendingDialogValue | null>(null)
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function usePendingDialog(): PendingDialogValue {
-  const ctx = useContext(PendingDialogContext)
-  if (!ctx)
-    throw new Error(
-      "usePendingDialog must be used within PendingDialogProvider"
-    )
-  return ctx
+  return useContextRequired(PendingDialogContext, "usePendingDialog")
 }
 
 // ---------------------------------------------------------------------------

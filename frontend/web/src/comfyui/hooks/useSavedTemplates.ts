@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback } from "react"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
-import { saveSetting } from "@/lib/serverStorage"
-import { clearSyncQueueFor, enqueueSync } from "./useSyncedStorage"
+import { usePersistedItems } from "./usePersistedItems"
 
 export interface SavedTemplate {
   id: string
@@ -23,45 +22,7 @@ function load(): SavedTemplate[] {
 }
 
 export function useSavedTemplates() {
-  const [templates, setTemplates] = useState<SavedTemplate[]>(load)
-  const lastSavedVersionRef = useRef(0)
-  const effectVersionRef = useRef(0)
-
-  // 다른 탭에서 변경 시 동기화
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setTemplates(load())
-    }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
-  }, [])
-
-  const persist = useCallback((next: SavedTemplate[]) => {
-    // localStorage 캐시 즉시 업데이트
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    } catch {
-      // ignore quota errors
-    }
-    setTemplates(next)
-
-    // 버전 추적 (중복 저장 방지)
-    effectVersionRef.current++
-    const currentVersion = effectVersionRef.current
-    if (lastSavedVersionRef.current === currentVersion) return
-    lastSavedVersionRef.current = currentVersion
-
-    // 서버에 비동기 저장
-    const serialized = JSON.stringify(next)
-    saveSetting(STORAGE_KEY, serialized).then((ok) => {
-      if (lastSavedVersionRef.current !== currentVersion) return
-      if (!ok) {
-        enqueueSync(STORAGE_KEY, serialized)
-      } else {
-        clearSyncQueueFor(STORAGE_KEY)
-      }
-    })
-  }, [])
+  const { items: templates, persist } = usePersistedItems(STORAGE_KEY, load)
 
   const saveTemplate = useCallback(
     (name: string, template: string): SavedTemplate => {

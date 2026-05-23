@@ -3,9 +3,8 @@ import {
   type ComfyWorkflow,
   type NodeMapping,
 } from "./workflow"
+import { MAX_RANDOM_SEED } from "./constants"
 import type { RenderItem } from "../comfyui/types/renderTypes"
-
-const MAX_RANDOM_SEED = 1_000_000_000
 
 export const parseWorkflow = (json: string): ComfyWorkflow => {
   const parsed = ComfyWorkflowSchema.safeParse(JSON.parse(json))

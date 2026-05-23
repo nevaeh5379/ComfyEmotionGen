@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState } from "react"
+import { createContext, useMemo, useState } from "react"
+import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
   useSavedWorkflows,
@@ -68,10 +69,7 @@ const WorkflowContext = createContext<WorkflowContextValue | null>(null)
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useWorkflowContext(): WorkflowContextValue {
-  const ctx = useContext(WorkflowContext)
-  if (!ctx)
-    throw new Error("useWorkflowContext must be used within WorkflowProvider")
-  return ctx
+  return useContextRequired(WorkflowContext, "useWorkflowContext")
 }
 
 // ---------------------------------------------------------------------------

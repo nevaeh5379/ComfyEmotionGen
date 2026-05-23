@@ -1,4 +1,5 @@
 import type { ComfyWorkflow } from "@/lib/workflow"
+import { GRAPH_LAYER_GAP_X, GRAPH_NODE_GAP_Y } from "@/lib/constants"
 
 export interface GraphEdge {
   source: string
@@ -12,9 +13,6 @@ export interface LayoutResult {
   edges: GraphEdge[]
   layers: number
 }
-
-const LAYER_GAP_X = 280
-const NODE_GAP_Y = 140
 
 function isNodeLink(value: unknown): value is [string, number] {
   return (
@@ -124,11 +122,11 @@ export function computeLayout(workflow: ComfyWorkflow): LayoutResult {
         (adj.get(b)?.length ?? 0) + edges.filter((e) => e.target === b).length
       return connB - connA
     })
-    const yOffset = -((sorted.length - 1) * NODE_GAP_Y) / 2
+    const yOffset = -((sorted.length - 1) * GRAPH_NODE_GAP_Y) / 2
     sorted.forEach((nodeId, i) => {
       positions.set(nodeId, {
-        x: li * LAYER_GAP_X,
-        y: yOffset + i * NODE_GAP_Y,
+        x: li * GRAPH_LAYER_GAP_X,
+        y: yOffset + i * GRAPH_NODE_GAP_Y,
       })
     })
   }

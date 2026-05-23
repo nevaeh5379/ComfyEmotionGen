@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useEffect, useMemo, useState } from "react"
+import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import type { NodeMapping } from "@/lib/workflow"
 import { buildAutoMappings } from "@/lib/workflowUtils"
@@ -67,12 +68,7 @@ const NodeMappingContext = createContext<NodeMappingContextValue | null>(null)
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useNodeMappingContext(): NodeMappingContextValue {
-  const ctx = useContext(NodeMappingContext)
-  if (!ctx)
-    throw new Error(
-      "useNodeMappingContext must be used within NodeMappingProvider"
-    )
-  return ctx
+  return useContextRequired(NodeMappingContext, "useNodeMappingContext")
 }
 
 // ---------------------------------------------------------------------------

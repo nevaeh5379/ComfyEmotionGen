@@ -26,9 +26,7 @@ import {
   applySettingUpdate,
 } from "../../lib/settingsCache"
 import { getSyncQueue } from "../hooks/useSyncedStorage"
-
-const httpToWs = (url: string): string =>
-  url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
+import { httpToWs } from "../../lib/utils"
 
 interface ProviderProps {
   children: React.ReactNode

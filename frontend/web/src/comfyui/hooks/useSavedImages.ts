@@ -10,17 +10,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useEffectLog } from "@/lib/renderLogger"
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { API, HEADERS, DEFAULT_DOWNLOAD_FILENAME } from "@/lib/api"
-import { DEFAULT_SEED_STRATEGY } from "@/lib/constants"
-import { WS_RECONNECT_DELAY_MS } from "@/lib/constants"
+import { DEFAULT_SEED_STRATEGY, WS_RECONNECT_DELAY_MS } from "@/lib/constants"
+import { httpToWs } from "@/lib/utils"
 import type {
   AssetGroup,
   BackendEvent,
   CurationStatus,
   SavedImage,
 } from "../types/Message"
-
-const httpToWs = (url: string): string =>
-  url.replace(/^http:/, "ws:").replace(/^https:/, "wss:")
 
 // const DEFAULT_GROUP_IMG_LIMIT = 10_000 << WTF
 

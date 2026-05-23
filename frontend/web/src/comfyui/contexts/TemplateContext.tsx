@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from "react"
+import { createContext, useState } from "react"
+import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
   useSavedTemplates,
@@ -40,10 +41,7 @@ const TemplateContext = createContext<TemplateContextValue | null>(null)
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useTemplateContext(): TemplateContextValue {
-  const ctx = useContext(TemplateContext)
-  if (!ctx)
-    throw new Error("useTemplateContext must be used within TemplateProvider")
-  return ctx
+  return useContextRequired(TemplateContext, "useTemplateContext")
 }
 
 // ---------------------------------------------------------------------------

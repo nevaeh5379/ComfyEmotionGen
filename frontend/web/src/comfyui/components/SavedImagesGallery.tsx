@@ -118,9 +118,7 @@ import { toast } from "sonner"
 import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
 import { Kbd } from "@/components/ui/kbd"
-
-type GalleryViewMode = "grid" | "compare"
-type GallerySortKey = "createdAt" | "filename" | "sizeBytes"
+import type { GalleryViewMode, GallerySortKey } from "@/comfyui/contexts/GalleryToolbarContext"
 
 /** 1..totalPages를 ellipsis와 함께 압축. 현재 페이지 ±1 표시. */
 function buildPageList(current: number, totalPages: number): (number | "…")[] {

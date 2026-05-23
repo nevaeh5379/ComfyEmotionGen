@@ -1,8 +1,7 @@
-import { useContext } from "react"
 import { ConfirmContext } from "@/comfyui/contexts/ConfirmContext"
+import { useContextRequired } from "@/lib/context"
 
 export function useConfirm() {
-  const ctx = useContext(ConfirmContext)
-  if (!ctx) throw new Error("useConfirm must be used within ConfirmProvider")
+  const ctx = useContextRequired(ConfirmContext, "useConfirm")
   return ctx.confirm
 }

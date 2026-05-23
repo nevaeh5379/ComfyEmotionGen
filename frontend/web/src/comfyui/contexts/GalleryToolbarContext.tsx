@@ -1,11 +1,11 @@
 import {
   createContext,
-  useContext,
   useState,
   useMemo,
   useCallback,
   useRef,
 } from "react"
+import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import { useSettings } from "../hooks/useSettings"
 import { useConfirm } from "../hooks/useConfirm"
@@ -78,12 +78,7 @@ const GalleryToolbarContext = createContext<GalleryToolbarValue | null>(null)
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useGalleryToolbar(): GalleryToolbarValue {
-  const ctx = useContext(GalleryToolbarContext)
-  if (!ctx)
-    throw new Error(
-      "useGalleryToolbar must be used within GalleryToolbarProvider"
-    )
-  return ctx
+  return useContextRequired(GalleryToolbarContext, "useGalleryToolbar")
 }
 
 // ---------------------------------------------------------------------------

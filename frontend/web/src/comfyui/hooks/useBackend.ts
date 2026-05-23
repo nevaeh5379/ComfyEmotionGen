@@ -1,12 +1,8 @@
-import { useContext } from "react"
 import { BackendContext } from "../contexts/BackendContext"
+import { useContextRequired } from "@/lib/context"
 
 export const useBackend = () => {
-  const ctx = useContext(BackendContext)
-  if (!ctx) {
-    throw new Error("useBackend must be used within a WebSocketProvider")
-  }
-  return ctx
+  return useContextRequired(BackendContext, "useBackend")
 }
 
 export const useWebSocket = useBackend
