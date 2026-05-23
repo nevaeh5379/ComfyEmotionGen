@@ -164,8 +164,9 @@ export function TemplateGeneratorPanel({
   }, [combinedTemplates, effectiveSelectedTemplateId])
 
   // activeTemplate이 바뀔 때만 variables/saveName 초기화 (state during render 패턴)
-  if (activeTemplate?.id !== prevActiveTemplateId) {
-    setPrevActiveTemplateId(activeTemplate?.id ?? null)
+  const currentActiveTemplateId = activeTemplate?.id ?? null
+  if (currentActiveTemplateId !== prevActiveTemplateId) {
+    setPrevActiveTemplateId(currentActiveTemplateId)
     const regex =
       /\{\{\s*set\s+([a-zA-Z_-][a-zA-Z0-9_-]*)\s*=\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*\}\}/g
     const foundVars: TemplateVariable[] = []

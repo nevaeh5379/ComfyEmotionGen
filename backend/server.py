@@ -289,7 +289,6 @@ async def _dsl_error_handler(_request, exc: DSLSyntaxError):
 
 # ====== 헬스/파서 ======
 
-_OBJECT_INFO_PATH = Path(__file__).parent.parent / "object_info.json"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
@@ -318,9 +317,24 @@ def list_system_templates():
 
 @app.get("/object_info")
 async def get_object_info():
-    if not _OBJECT_INFO_PATH.exists():
-        raise HTTPException(status_code=404, detail="object_info.json not found")
-    return FileResponse(_OBJECT_INFO_PATH, media_type="application/json")
+    # 1. 워커 프록시 우선 (라이브 데이터)
+    worker = worker_pool.find_idle()
+    if worker is None:
+        for w in worker_pool.all():
+            if w.alive:
+                worker = w
+                break
+    if worker is not None:
+        try:
+            return await worker.get_object_info()
+        except Exception as exc:
+            logger.warning("worker object_info failed: %s", exc)
+
+    # 2. 가용한 워커가 없으면 503 에러 발생 (ComfyUI가 꺼져 있음을 명시)
+    raise HTTPException(
+        status_code=503,
+        detail="no available worker and ComfyUI is offline"
+    )
 
 
 @app.get("/version")
@@ -573,24 +587,6 @@ async def images_upload(file: UploadFile):
         target.write_bytes(data)
     return {"hash": sha, "filename": file.filename, "name": f"{sha}{ext}"}
 
-
-# ====== object_info 프록시 ======
-
-
-@app.get("/object_info")
-async def object_info():
-    worker = worker_pool.find_idle()
-    if worker is None:
-        for w in worker_pool.all():
-            if w.alive:
-                worker = w
-                break
-    if worker is None:
-        raise HTTPException(status_code=503, detail="no available worker")
-    try:
-        return await worker.get_object_info()
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"worker request failed: {exc}")
 
 
 # ====== 영속 이미지 ======
