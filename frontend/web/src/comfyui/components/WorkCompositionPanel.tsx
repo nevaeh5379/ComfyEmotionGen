@@ -122,6 +122,18 @@ export function WorkCompositionPanel({
   const workflow = useWorkflowContext()
   const nodeMapping = useNodeMappingContext()
 
+  // Helper to generate a unique preset/workflow/template name if conflict exists
+  const getUniquePresetName = useCallback((baseName: string, existingNames: string[]) => {
+    const trimmed = baseName.trim()
+    let name = trimmed
+    let counter = 1
+    while (existingNames.includes(name)) {
+      name = `${trimmed} (${counter})`
+      counter++
+    }
+    return name
+  }, [])
+
   // ── File open handler (drag-and-drop / file input) ──
   const handleWorkflowFileOpen = useCallback(
     (content: string, fileName: string) => {
@@ -136,13 +148,51 @@ export function WorkCompositionPanel({
           toast.error("유효한 워크플로우 JSON 파일이 아닙니다.")
           return
         }
-        workflow.setWorkflowJson(JSON.stringify(parsed, null, 2))
-        toast.success(`'${fileName}' 워크플로우를 불러왔습니다.`)
+
+        const formattedJson = JSON.stringify(parsed, null, 2)
+        const baseName = fileName.replace(/\.[^/.]+$/, "")
+        const existingNames = workflow.savedWorkflows.map((w) => w.name)
+        const uniqueName = getUniquePresetName(baseName, existingNames)
+
+        // Save as a new workflow preset automatically
+        const saved = workflow.saveWorkflow(uniqueName, formattedJson)
+
+        // Reset mapping presets and set node mappings to empty
+        nodeMapping.setActiveNodeMappingPresetId(null)
+        nodeMapping.setNodeMappings([])
+
+        // Update workflow context state
+        workflow.setWorkflowJson(formattedJson)
+        workflow.setActiveWorkflowId(saved.id)
+        workflow.setWorkflowResetKey((k) => k + 1)
+
+        toast.success(`'${uniqueName}' 워크플로우 프리셋이 자동으로 저장되었습니다.`)
       } catch {
         toast.error("JSON 파싱에 실패했습니다.")
       }
     },
-    [workflow]
+    [workflow, nodeMapping, getUniquePresetName]
+  )
+
+  const handleTemplateFileOpen = useCallback(
+    (content: string, fileName: string) => {
+      if (!content.trim()) {
+        toast.error("템플릿 내용이 비어 있습니다.")
+        return
+      }
+      const baseName = fileName.replace(/\.[^/.]+$/, "")
+      const existingNames = template.savedTemplates.map((t) => t.name)
+      const uniqueName = getUniquePresetName(baseName, existingNames)
+
+      const saved = template.saveTemplate(uniqueName, content)
+
+      template.setCegTemplate(content)
+      template.setActiveTemplateId(saved.id)
+      template.setTemplateResetKey((k) => k + 1)
+
+      toast.success(`'${uniqueName}' 템플릿 프리셋이 자동으로 저장되었습니다.`)
+    },
+    [template, getUniquePresetName]
   )
 
   // ── Handle download active template as .ceg file ──
@@ -309,6 +359,7 @@ export function WorkCompositionPanel({
                   : undefined
               }
               onDownloadSingle={handleDownloadTemplate}
+              onFileOpen={handleTemplateFileOpen}
             />
           </TabsContent>
 

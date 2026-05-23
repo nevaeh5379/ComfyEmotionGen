@@ -1,11 +1,47 @@
+import { useCallback, useMemo } from "react"
 import * as ResizablePrimitive from "react-resizable-panels"
 
 import { cn } from "@/lib/utils"
 
 function ResizablePanelGroup({
   className,
+  autoSaveId,
+  defaultLayout: defaultLayoutProp,
+  onLayoutChanged: onLayoutChangedProp,
   ...props
-}: ResizablePrimitive.GroupProps) {
+}: ResizablePrimitive.GroupProps & { autoSaveId?: string }) {
+  const defaultLayout = useMemo(() => {
+    if (!autoSaveId) return defaultLayoutProp
+    try {
+      const saved = localStorage.getItem(`resizable-layout:${autoSaveId}`)
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (e) {
+      console.error("Failed to load resizable layout:", e)
+    }
+    return defaultLayoutProp
+  }, [autoSaveId, defaultLayoutProp])
+
+  const handleLayoutChanged = useCallback(
+    (layout: ResizablePrimitive.Layout) => {
+      if (autoSaveId) {
+        try {
+          localStorage.setItem(
+            `resizable-layout:${autoSaveId}`,
+            JSON.stringify(layout)
+          )
+        } catch (e) {
+          console.error("Failed to save resizable layout:", e)
+        }
+      }
+      if (onLayoutChangedProp) {
+        onLayoutChangedProp(layout)
+      }
+    },
+    [autoSaveId, onLayoutChangedProp]
+  )
+
   return (
     <ResizablePrimitive.Group
       data-slot="resizable-panel-group"
@@ -13,6 +49,8 @@ function ResizablePanelGroup({
         "flex h-full w-full aria-[orientation=vertical]:flex-col",
         className
       )}
+      defaultLayout={defaultLayout}
+      onLayoutChanged={handleLayoutChanged}
       {...props}
     />
   )

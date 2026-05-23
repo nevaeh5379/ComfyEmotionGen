@@ -1,5 +1,4 @@
 import { Input } from "@/components/ui/input"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import {
   Table,
   TableBody,
@@ -81,7 +80,7 @@ export const ParserPreviewDialog = ({
           </div>
         </div>
 
-        <ScrollArea className="mt-2 min-h-0 flex-1 rounded-md border shadow-inner">
+        <div className="mt-2 min-h-0 flex-1 overflow-auto rounded-md border shadow-inner">
           <Table className="text-xs">
             <TableHeader className="sticky top-0 z-10 bg-muted/90 shadow-sm backdrop-blur-sm">
               <TableRow className="hover:bg-transparent">
@@ -133,8 +132,7 @@ export const ParserPreviewDialog = ({
               )}
             </TableBody>
           </Table>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
         <div className="mt-2 flex justify-end border-t border-line pt-2">
           <Button
             variant="outline"

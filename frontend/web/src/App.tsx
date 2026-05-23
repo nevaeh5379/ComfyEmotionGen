@@ -1215,6 +1215,7 @@ function AppContent() {
               savedTemplates={template.savedTemplates}
               enableHover={settings.enableHover}
               autoApplyReject={settings.autoApplyReject}
+              hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
               savedWorkflows={workflow.savedWorkflows}
               toolbarState={{
                 selectedAxis: curationSelectedAxis,
@@ -1487,6 +1488,7 @@ function AppContent() {
                               savedTemplates={template.savedTemplates}
                               enableHover={settings.enableHover}
                               autoApplyReject={settings.autoApplyReject}
+                              hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
                               savedWorkflows={workflow.savedWorkflows}
                               toolbarState={{
                                 selectedAxis: curationSelectedAxis,
@@ -1554,6 +1556,7 @@ function AppContent() {
                 return (
                   <ResizablePanelGroup
                     key={panels.map((p) => p.id).join(",")}
+                    autoSaveId={`job-layout-${panels.map((p) => p.id).join(",")}-${jobsLayoutOrientation}`}
                     orientation={jobsLayoutOrientation}
                     className="min-h-0 flex-1 overflow-hidden"
                   >
@@ -1564,6 +1567,7 @@ function AppContent() {
                       items.push(
                         <ResizablePanel
                           key={panel.id}
+                          id={panel.id}
                           defaultSize={defaultSize}
                           minSize={panel.minSize ?? 15}
                           className={cn(
@@ -2227,6 +2231,7 @@ function AppContent() {
               savedTemplates={template.savedTemplates}
               enableHover={settings.enableHover}
               autoApplyReject={settings.autoApplyReject}
+              hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
               savedWorkflows={workflow.savedWorkflows}
               toolbarState={{
                 selectedAxis: curationSelectedAxis,

@@ -13,14 +13,16 @@ interface UseCombinationDataProps {
   backendUrl: string
   activeTemplate: string
   freeGroupMode: FreeGroupBy | null
+  hideEmptyCurationFolders?: boolean
 }
 
 export function useCombinationData({
   backendUrl,
   activeTemplate,
   freeGroupMode,
+  hideEmptyCurationFolders = false,
 }: UseCombinationDataProps) {
-  const [renderItems, setRenderItems] = useState<RenderItem[]>([])
+  const [rawRenderItems, setRawRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +44,7 @@ export function useCombinationData({
           throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
         const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
         setAllImages(imagesData.items)
-        setRenderItems(
+        setRawRenderItems(
           groupSavedImagesAsRenderItems(imagesData.items, freeGroupMode)
         )
       } catch (err) {
@@ -54,7 +56,7 @@ export function useCombinationData({
     }
     if (!activeTemplate.trim()) {
       setError("CEG 템플릿을 먼저 작성해주세요.")
-      setRenderItems([])
+      setRawRenderItems([])
       return
     }
     setLoading(true)
@@ -73,7 +75,7 @@ export function useCombinationData({
         throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
       const renderData = (await renderRes.json()) as { items: RenderItem[] }
       const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
-      setRenderItems(renderData.items)
+      setRawRenderItems(renderData.items)
       setAllImages(imagesData.items)
     } catch (err) {
       setError((err as Error).message)
@@ -94,6 +96,14 @@ export function useCombinationData({
     }
     return map
   }, [allImages, freeGroupMode])
+
+  const renderItems = useMemo(() => {
+    if (!hideEmptyCurationFolders) return rawRenderItems
+    return rawRenderItems.filter((ri) => {
+      const imgs = imagesByFilename.get(ri.filename) ?? []
+      return imgs.length > 0
+    })
+  }, [rawRenderItems, imagesByFilename, hideEmptyCurationFolders])
 
   const doneCount = useMemo(
     () =>
@@ -138,7 +148,7 @@ export function useCombinationData({
 
   const unassignedGroups = useMemo(() => {
     if (freeGroupMode !== null) return new Map<string, SavedImage[]>()
-    const renderFilenames = new Set(renderItems.map((ri) => ri.filename))
+    const renderFilenames = new Set(rawRenderItems.map((ri) => ri.filename))
     const map = new Map<string, SavedImage[]>()
     for (const img of allImages) {
       if (img.status === "trashed") continue
@@ -148,7 +158,7 @@ export function useCombinationData({
       }
     }
     return map
-  }, [allImages, renderItems, freeGroupMode])
+  }, [allImages, rawRenderItems, freeGroupMode])
 
   const unassignedTotalCount = useMemo(
     () =>

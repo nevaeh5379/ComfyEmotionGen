@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
   TooltipContent,
@@ -395,8 +395,13 @@ export function TemplateGeneratorPanel({
     <div className="flex flex-1 flex-col overflow-hidden bg-background">
       {/* 데스크탑 뷰: 기존 좌우 2단 분할 Resizable 패널 */}
       <div className="hidden md:flex min-h-0 flex-1">
-        <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        <ResizablePanelGroup
+          autoSaveId="template-generator-layout"
+          orientation="horizontal"
+          className="min-h-0 flex-1"
+        >
           <ResizablePanel
+            id="template-input-panel"
             defaultSize={65}
             minSize={40}
             className="flex flex-col overflow-y-auto"
@@ -675,6 +680,7 @@ export function TemplateGeneratorPanel({
           <ResizableHandle withHandle />
 
           <ResizablePanel
+            id="template-preview-panel"
             defaultSize={35}
             minSize={20}
             className="flex flex-col overflow-hidden border-l border-line/50"
@@ -763,7 +769,7 @@ export function TemplateGeneratorPanel({
                 </div>
               ) : (
                 // 렌더링 테이블 뷰
-                <ScrollArea className="h-full rounded-md border border-line bg-background/50 shadow-inner">
+                <div className="h-full overflow-auto rounded-md border border-line bg-background/50 shadow-inner">
                   <Table className="text-xs">
                     <TableHeader className="sticky top-0 z-10 bg-muted/95 shadow-sm backdrop-blur-sm">
                       <TableRow className="hover:bg-transparent">
@@ -828,8 +834,7 @@ export function TemplateGeneratorPanel({
                       })}
                     </TableBody>
                   </Table>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                </div>
               )}
             </div>
           </ResizablePanel>
@@ -1153,7 +1158,7 @@ export function TemplateGeneratorPanel({
                   </p>
                 </div>
               ) : (
-                <ScrollArea className="h-full bg-background/50">
+                <div className="h-full overflow-auto bg-background/50">
                   <div className="divide-y divide-line/20">
                     {filteredPreview.map((item, idx) => {
                       const renderedFilename = substitute(item.filename, item)
@@ -1192,8 +1197,7 @@ export function TemplateGeneratorPanel({
                       )
                     })}
                   </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                </div>
               )}
             </div>
           </div>

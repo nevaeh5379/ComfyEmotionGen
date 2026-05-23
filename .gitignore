@@ -24,3 +24,7 @@ node_modules/
 .gemini/
 .serena/
 uploaded_images/
+jobs.db*
+.antigravitycli/
+__pycache__/
+images/

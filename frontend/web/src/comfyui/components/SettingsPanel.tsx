@@ -225,6 +225,18 @@ export function SettingsPanel({
           </SettingRow>
           <Separator />
           <SettingRow
+            label="빈 폴더 숨기기"
+            description="큐레이션 탭에서 생성된 이미지가 없는 빈 폴더(조합)를 목록에서 숨깁니다."
+          >
+            <Switch
+              checked={settings.hideEmptyCurationFolders}
+              onCheckedChange={(v) =>
+                updateSetting("hideEmptyCurationFolders", v === true)
+              }
+            />
+          </SettingRow>
+          <Separator />
+          <SettingRow
             label="내보내기 범위"
             description="갤러리 내보내기 시 다운로드할 이미지 범위를 선택합니다."
           >

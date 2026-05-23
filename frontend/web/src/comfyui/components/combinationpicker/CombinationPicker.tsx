@@ -21,6 +21,7 @@ interface Props {
   savedWorkflows: SavedWorkflow[]
   enableHover?: boolean
   autoApplyReject?: boolean
+  hideEmptyCurationFolders?: boolean
   toolbarState?: CurationToolbarState
 }
 
@@ -31,6 +32,7 @@ export const CombinationPicker = memo(function CombinationPicker({
   savedWorkflows,
   enableHover = true,
   autoApplyReject = true,
+  hideEmptyCurationFolders = false,
   toolbarState,
 }: Props) {
   const [internalAxis, setInternalAxis] = useState<string>(DEFAULT_AXIS)
@@ -59,6 +61,7 @@ export const CombinationPicker = memo(function CombinationPicker({
     backendUrl,
     activeTemplate,
     freeGroupMode,
+    hideEmptyCurationFolders,
   })
 
   useEffect(() => {

@@ -24,6 +24,7 @@ interface CegTemplatePanelProps {
   onDeleteTemplate: (id: string) => void
   onUpdateTemplate: (() => void) | undefined
   onDownloadSingle?: () => void
+  onFileOpen?: (content: string, name: string) => void
 }
 
 export function CegTemplatePanel({
@@ -39,6 +40,7 @@ export function CegTemplatePanel({
   onDeleteTemplate,
   onUpdateTemplate,
   onDownloadSingle,
+  onFileOpen,
 }: CegTemplatePanelProps) {
   const activeName = activeTemplateId
     ? savedTemplates.find((t) => t.id === activeTemplateId)?.name
@@ -103,6 +105,7 @@ export function CegTemplatePanel({
           placeholder="CEG 템플릿 입력 칸"
           value={cegTemplate}
           onChange={setCegTemplate}
+          onFileOpen={onFileOpen}
           minHeight="100px"
           bareWrapper
           className="h-full w-full"

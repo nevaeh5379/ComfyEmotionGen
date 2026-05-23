@@ -25,6 +25,8 @@ export interface AppSettings {
     | "excludeFromDenominator"
   /** 창 모드 기능 사용 여부 */
   useWindowMode: boolean
+  /** 큐레이션 빈 폴더 숨기기 여부 */
+  hideEmptyCurationFolders: boolean
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -38,6 +40,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   updateChannel: "auto",
   progressCalculation: "done",
   useWindowMode: true,
+  hideEmptyCurationFolders: false,
 }
 
 export const useSettings = () => {

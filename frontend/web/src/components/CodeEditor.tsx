@@ -18,7 +18,7 @@ interface CodeEditorProps {
   /** When true, skips the outer wrapper border/background so it can be placed inside an InputGroup */
   bareWrapper?: boolean
   /** Called when a file is dropped or opened via file input */
-  onFileOpen?: (content: string, name: string) => void
+  onFileOpen?: ((content: string, name: string) => void) | undefined
 }
 
 const cegKeywords = /^(?:include|AND)\b/i
@@ -132,7 +132,16 @@ const CodeEditor = ({
 
   const extensions = useMemo(() => {
     const lang = language === "json" ? json() : cegLanguage
-    return [lang, baseTheme, EditorView.lineWrapping]
+    const domHandlers = EditorView.domEventHandlers({
+      drop: (e) => {
+        if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+          e.preventDefault()
+          return true // Prevents CodeMirror's default text insertion
+        }
+        return false
+      },
+    })
+    return [lang, baseTheme, EditorView.lineWrapping, domHandlers]
   }, [language])
 
   return (
