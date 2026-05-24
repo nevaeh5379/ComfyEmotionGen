@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import {
   Copy,
   Download,
@@ -15,14 +15,14 @@ import {
   Layers,
   Shuffle,
   Sparkles,
-  Zap,
   Hash,
   X,
-  GripVertical,
   Braces,
-  ListChecks,
   Eye,
-  Code,
+  ChevronDown,
+  CopyPlus,
+  Settings2,
+  MessageSquare,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
@@ -49,11 +49,10 @@ import {
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   CardDescription,
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Separator } from "@/components/ui/separator"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -75,6 +74,61 @@ interface VisualAxis { id: string; name: string; include: string; entries: Visua
 interface VisualCombine { id: string; expression: string }
 interface VisualExclude { id: string; statement: string }
 interface TemplateItem { id: string; name: string; category: string; code: string; savedAt?: number }
+
+// ── Collapsible Section ────────────────────────────────────────────────
+
+function CollapsibleSection({ value, open, onToggle, icon, label, count, children }: {
+  value: string
+  open: boolean
+  onToggle: (value: string) => void
+  icon: React.ElementType
+  label: string
+  count?: number
+  children: React.ReactNode
+}) {
+  const Icon = icon
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState<number | undefined>(undefined)
+
+  useEffect(() => {
+    if (!open) {
+      setHeight(0)
+      return
+    }
+    const el = contentRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => {
+      setHeight(el.scrollHeight)
+    })
+    observer.observe(el)
+    setHeight(el.scrollHeight)
+    return () => observer.disconnect()
+  }, [open])
+
+  return (
+    <div className="border-b last:border-b-0">
+      <button
+        type="button"
+        onClick={() => onToggle(value)}
+        className="flex w-full items-center gap-2 py-2.5 text-left hover:bg-muted/30 transition-colors rounded-md px-1"
+        aria-expanded={open}
+      >
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-sm font-semibold">{label}</span>
+        {count !== undefined && count > 0 && <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">{count}</Badge>}
+      </button>
+      <div
+        className="overflow-hidden transition-[height] duration-200 ease-in-out"
+        style={{ height: open ? height ?? "auto" : 0 }}
+      >
+        <div ref={contentRef} className="pb-3">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Parser ────────────────────────────────────────────────────────────
 
@@ -109,6 +163,55 @@ function parseCegTemplate(code: string) {
   return { variables, axes, combines, excludes, templateBody, filenameBody }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────
+
+const DUPLICATE_VAR = (v: VisualVariable): VisualVariable => ({ id: `v-${Date.now()}`, name: v.name + "_copy", value: v.value })
+const DUPLICATE_AXIS = (a: VisualAxis): VisualAxis => ({ id: `a-${Date.now()}`, name: a.name + "_copy", include: a.include, entries: a.entries.map((e) => ({ ...e, id: `e-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, properties: e.properties.map((p) => ({ ...p, id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` })) })) })
+
+// ── Sub-components ─────────────────────────────────────────────────────
+
+function AxisBadgeButtons({ axisNames, onInsert }: { axisNames: string[]; onInsert: (text: string) => void }) {
+  if (axisNames.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      <span className="text-[10px] text-muted-foreground mr-1 self-center">축:</span>
+      {axisNames.map((n) => (
+        <Badge
+          key={n}
+          variant="secondary"
+          className="cursor-pointer font-mono text-[10px] hover:bg-primary/10 transition-colors"
+          onClick={() => onInsert(n)}
+        >
+          {n}
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
+function VarBadgeButtons({ variables, axes, onInsertVar, onInsertAxisKey }: { variables: VisualVariable[]; axes: VisualAxis[]; onInsertVar: (name: string) => void; onInsertAxisKey: (name: string) => void }) {
+  if (variables.length === 0 && axes.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      {variables.map((v) => v.name.trim()).filter(Boolean).map((n) => (
+        <Badge key={`v-${n}`} variant="secondary" className="cursor-pointer font-mono text-[10px] hover:bg-primary/10 transition-colors" onClick={() => onInsertVar(n)}>
+          {"{{" + n + "}}"}
+        </Badge>
+      ))}
+      {axes.map((a) => a.name.trim()).filter(Boolean).map((n) => (
+        <span key={`a-${n}`} className="inline-flex gap-0.5">
+          <Badge variant="default" className="cursor-pointer font-mono text-[10px] hover:bg-primary/80 transition-colors" onClick={() => onInsertVar(n)}>
+            {"{{" + n + "}}"}
+          </Badge>
+          <Badge variant="outline" className="cursor-pointer font-mono text-[10px] text-primary border-primary/20 hover:bg-primary/5 transition-colors" onClick={() => onInsertAxisKey(n)}>
+            {"{{" + n + ".key}}"}
+          </Badge>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────
 
 export function TemplateGeneratorPanel({
@@ -130,13 +233,21 @@ export function TemplateGeneratorPanel({
   const [copied, setCopied] = useState(false)
   const [systemTemplates, setSystemTemplates] = useState<TemplateItem[]>([])
   const [prevActiveTemplateId, setPrevActiveTemplateId] = useState<string | null>(null)
-  const [activeSubTab, setActiveSubTab] = useState("variables")
-  const [rightTab, setRightTab] = useState("code")
+  const [accordionValue, setAccordionValue] = useState<Set<string>>(new Set(["axes"]))
   const [mobileTab, setMobileTab] = useState("edit")
   const [parserError, setParserError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [previewFilter, setPreviewFilter] = useState("")
+  const [expandedAxes, setExpandedAxes] = useState<Set<string>>(new Set())
+  const [showAxisAdvanced, setShowAxisAdvanced] = useState<Set<string>>(new Set())
+
+  const lastVarInputRef = useRef<HTMLInputElement | null>(null)
+  const lastEntryInputRef = useRef<HTMLInputElement | null>(null)
+  const combineInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const excludeInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const templateTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const filenameInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     let a = true
@@ -156,15 +267,19 @@ export function TemplateGeneratorPanel({
     else { setVariables([]); setAxes([]); setCombines([]); setExcludes([]); setTemplateBody(""); setFilenameBody(""); setSaveName("") }
   }
 
-  // Handlers (abbreviated for same logic)
+  // Handlers
   const addVar = () => setVariables((p) => [...p, { id: `v-${Date.now()}`, name: `var_${p.length + 1}`, value: "" }])
   const setVarN = (id: string, n: string) => setVariables((p) => p.map((v) => (v.id === id ? { ...v, name: n } : v)))
   const setVarV = (id: string, n: string) => setVariables((p) => p.map((v) => (v.id === id ? { ...v, value: n } : v)))
   const delVar = (id: string) => setVariables((p) => p.filter((v) => v.id !== id))
-  const addAxis = () => setAxes((p) => [...p, { id: `a-${Date.now()}`, name: `axis_${p.length + 1}`, include: "", entries: [] }])
+  const dupVar = (id: string) => { const v = variables.find((x) => x.id === id); if (v) setVariables((p) => [...p, DUPLICATE_VAR(v)]) }
+  const addAxis = () => { const newId = `a-${Date.now()}`; setAxes((p) => [...p, { id: newId, name: `axis_${p.length + 1}`, include: "", entries: [] }]); setExpandedAxes((s) => new Set([...s, newId])) }
   const setAxN = (id: string, n: string) => setAxes((p) => p.map((a) => (a.id === id ? { ...a, name: n } : a)))
   const setAxI = (id: string, n: string) => setAxes((p) => p.map((a) => (a.id === id ? { ...a, include: n } : a)))
   const delAxis = (id: string) => setAxes((p) => p.filter((a) => a.id !== id))
+  const dupAxis = (id: string) => { const a = axes.find((x) => x.id === id); if (a) { const dup = DUPLICATE_AXIS(a); setAxes((p) => [...p, dup]); setExpandedAxes((s) => new Set([...s, dup.id])) } }
+  const toggleAxisExpand = (id: string) => setExpandedAxes((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggleAxisAdvanced = (id: string) => setShowAxisAdvanced((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const addEntry = (axId: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: [...a.entries, { id: `e-${Date.now()}`, key: `val_${a.entries.length + 1}`, value: "", properties: [], isComplex: false }] }))
   const setEKey = (axId: string, eId: string, k: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, key: k } : e)) }))
   const setEVal = (axId: string, eId: string, v: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, value: v } : e)) }))
@@ -180,6 +295,52 @@ export function TemplateGeneratorPanel({
   const addExclude = () => setExcludes((p) => [...p, { id: `ex-${Date.now()}`, statement: "" }])
   const setExclStmt = (id: string, n: string) => setExcludes((p) => p.map((e) => (e.id === id ? { ...e, statement: n } : e)))
   const delExclude = (id: string) => setExcludes((p) => p.filter((e) => e.id !== id))
+
+  const insertToCombine = useCallback((combineId: string, text: string) => {
+    const el = combineInputRefs.current[combineId]
+    if (el) {
+      const start = el.selectionStart ?? el.value.length
+      const end = el.selectionEnd ?? el.value.length
+      const before = el.value.slice(0, start)
+      const after = el.value.slice(end)
+      const needSpace = before.length > 0 && !before.endsWith(" ") && !before.endsWith("*") ? " " : ""
+      const newVal = before + needSpace + text + after
+      setCombExpr(combineId, newVal)
+    } else {
+      setCombExpr(combineId, (combines.find((c) => c.id === combineId)?.expression ?? "") + (combines.find((c) => c.id === combineId)?.expression && !combines.find((c) => c.id === combineId)?.expression.endsWith(" ") ? " " : "") + text)
+    }
+  }, [combines])
+
+  const insertToExclude = useCallback((excludeId: string, text: string) => {
+    const el = excludeInputRefs.current[excludeId]
+    if (el) {
+      const start = el.selectionStart ?? el.value.length
+      const end = el.selectionEnd ?? el.value.length
+      const before = el.value.slice(0, start)
+      const after = el.value.slice(end)
+      const needSpace = before.length > 0 && !before.endsWith(" ") ? " " : ""
+      const newVal = before + needSpace + text + after
+      setExclStmt(excludeId, newVal)
+    } else {
+      setExclStmt(excludeId, (excludes.find((e) => e.id === excludeId)?.statement ?? "") + text)
+    }
+  }, [excludes])
+
+  const insertToTemplate = useCallback((text: string) => {
+    const el = templateTextareaRef.current
+    if (el) {
+      const start = el.selectionStart ?? templateBody.length
+      const end = el.selectionEnd ?? templateBody.length
+      const newBody = templateBody.slice(0, start) + text + templateBody.slice(end)
+      setTemplateBody(newBody)
+    } else {
+      setTemplateBody(templateBody + text)
+    }
+  }, [templateBody])
+
+  const toggleSection = (key: string) => setAccordionValue((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next })
+
+  const axisNames = useMemo(() => axes.map((a) => a.name.trim()).filter(Boolean), [axes])
 
   const generatedCode = useMemo(() => {
     let c = ""
@@ -214,128 +375,241 @@ export function TemplateGeneratorPanel({
 
   const catLabel = (c: string) => (c === "saved" ? "내 저장" : c)
 
-  const subTabs = [
-    { key: "variables", label: "변수", icon: Sliders, count: variables.length },
-    { key: "axes", label: "축", icon: Layers, count: axes.length },
-    { key: "combines", label: "규칙", icon: Shuffle, count: combines.length + excludes.length },
-    { key: "templates", label: "출력", icon: FileCode2 },
-  ]
+  const handleVarKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    if (e.key === "Enter" && idx === variables.length - 1) {
+      e.preventDefault()
+      addVar()
+      setTimeout(() => lastVarInputRef.current?.focus(), 50)
+    }
+  }
 
-  // ── Shared: Visual editor content ──────────────────────────────
-  const editorContent = (
-    <div className="space-y-4">
-      {activeSubTab === "variables" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div><h3 className="text-sm font-semibold">전역 변수</h3><p className="text-xs text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{"{{set name = \"value\"}}"}</code></p></div>
-            <Button variant="outline" size="sm" onClick={addVar} className="gap-1.5"><Plus className="h-3.5 w-3.5" />추가</Button>
+  const handleEntryKeyDown = (e: React.KeyboardEvent, axId: string, idx: number, totalEntries: number) => {
+    if (e.key === "Enter" && idx === totalEntries - 1) {
+      e.preventDefault()
+      addEntry(axId)
+      setTimeout(() => lastEntryInputRef.current?.focus(), 50)
+    }
+  }
+
+  // ── Accordion sections ──────────────────────────────────────────
+
+  const variablesSection = (
+    <div className="space-y-2">
+      {variables.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="text-xs text-muted-foreground">변수를 추가하면 <code className="rounded bg-muted px-1 py-0.5 text-[11px] font-mono">{"{{name}}"}</code>으로 참조할 수 있습니다.</p>
+          <Button variant="outline" size="sm" onClick={addVar} className="mt-3 gap-1.5"><Plus className="h-3.5 w-3.5" />첫 변수 추가</Button>
+        </div>
+      ) : (
+        <div className="space-y-1.5">{variables.map((v, i) => (
+          <div key={v.id} className="flex items-center gap-1.5 group">
+            <Badge variant="outline" className="h-7 shrink-0 rounded-md px-1.5 font-mono text-[11px] text-muted-foreground/60 select-none">{"{{"}</Badge>
+            <Input value={v.name} onChange={(e) => setVarN(v.id, e.target.value)} placeholder="변수명" className="h-8 w-28 shrink-0 font-mono text-sm" onKeyDown={(e) => handleVarKeyDown(e, i)} />
+            <span className="text-sm text-muted-foreground/50 select-none font-mono">=</span>
+            <Input ref={i === variables.length - 1 ? lastVarInputRef : undefined} value={v.value} onChange={(e) => setVarV(v.id, e.target.value)} placeholder="치환될 텍스트" className="h-8 flex-1 text-sm" onKeyDown={(e) => handleVarKeyDown(e, i)} />
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground" onClick={() => dupVar(v.id)}><CopyPlus className="h-3 w-3" /></Button></TooltipTrigger><TooltipContent>복제</TooltipContent></Tooltip>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" onClick={() => delVar(v.id)}><Trash2 className="h-3 w-3" /></Button>
           </div>
-          {variables.length === 0 ? <Card className="border-dashed shadow-none"><CardContent className="py-8 text-center text-sm text-muted-foreground">등록된 변수가 없습니다.</CardContent></Card> : (
-            <div className="space-y-2">{variables.map((v, i) => (
-              <div key={v.id} className="flex items-center gap-2">
-                <Badge variant="outline" className="h-7 w-7 shrink-0 items-center justify-center rounded-md p-0 text-[10px] font-bold tabular-nums">{i + 1}</Badge>
-                <Input value={v.name} onChange={(e) => setVarN(v.id, e.target.value)} placeholder="변수명" className="h-9 w-28 shrink-0 font-mono text-sm" />
-                <Input value={v.value} onChange={(e) => setVarV(v.id, e.target.value)} placeholder="치환될 텍스트" className="h-9 flex-1 text-sm" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delVar(v.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+        ))}</div>
+      )}
+      {variables.length > 0 && (
+        <Button variant="ghost" size="sm" onClick={addVar} className="w-full border border-dashed text-muted-foreground hover:text-foreground gap-1.5 text-xs h-8"><Plus className="h-3 w-3" />변수 추가</Button>
+      )}
+    </div>
+  )
+
+  const axesSection = (
+    <div className="space-y-3">
+      {axes.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="text-xs text-muted-foreground">축을 추가하면 값들이 모든 조합을 생성합니다.</p>
+          <Button variant="outline" size="sm" onClick={addAxis} className="mt-3 gap-1.5"><Plus className="h-3.5 w-3.5" />첫 축 추가</Button>
+        </div>
+      ) : (
+        <div className="space-y-2">{axes.map((axis, ai) => {
+          const isExpanded = expandedAxes.has(axis.id)
+          const showAdvanced = showAxisAdvanced.has(axis.id)
+          return (
+            <div key={axis.id} className={`rounded-lg border transition-all ${isExpanded ? "border-primary/20 bg-primary/[0.02]" : "border-border"}`}>
+              {/* Axis header */}
+              <div className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none" onClick={() => toggleAxisExpand(axis.id)}>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+                <Badge className="h-5 items-center justify-center rounded px-1.5 text-[10px] font-bold">A{ai + 1}</Badge>
+                <Input value={axis.name} onChange={(e) => setAxN(axis.id, e.target.value)} placeholder="축 이름 (예: emotion)" className="h-7 flex-1 border-0 bg-transparent font-mono text-sm font-semibold shadow-none px-1 focus-visible:ring-1" onClick={(e) => e.stopPropagation()} />
+                <Badge variant="secondary" className="text-[9px] shrink-0">{axis.entries.length}값</Badge>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); delAxis(axis.id) }}><Trash2 className="h-3 w-3" /></Button></TooltipTrigger><TooltipContent>축 삭제</TooltipContent></Tooltip>
               </div>
-            ))}</div>
-          )}
-        </div>
-      )}
 
-      {activeSubTab === "axes" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div><h3 className="text-sm font-semibold">조합 축</h3><p className="text-xs text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{"{{axis name}}"}</code> 값들이 모든 조합을 생성합니다.</p></div>
-            <Button variant="outline" size="sm" onClick={addAxis} className="gap-1.5"><Plus className="h-3.5 w-3.5" />축 추가</Button>
-          </div>
-          {axes.length === 0 ? <Card className="border-dashed shadow-none"><CardContent className="py-8 text-center text-sm text-muted-foreground">등록된 축이 없습니다.</CardContent></Card> : (
-            <div className="space-y-4">{axes.map((axis, ai) => (
-              <Card key={axis.id} size="sm">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge className="h-6 items-center justify-center rounded px-1.5 text-[10px] font-bold">A{ai + 1}</Badge>
-                    <Input value={axis.name} onChange={(e) => setAxN(axis.id, e.target.value)} placeholder="축 이름 (예: emotion)" className="h-8 flex-1 font-mono text-sm font-semibold" />
-                    <Input value={axis.include} onChange={(e) => setAxI(axis.id, e.target.value)} placeholder="include 접미사" className="h-8 w-32 text-sm" />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delAxis(axis.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[11px] text-muted-foreground">값 <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[9px]">{axis.entries.length}</Badge></Label>
-                      <Button variant="ghost" size="sm" onClick={() => addEntry(axis.id)} className="h-6 gap-1 text-[11px] text-primary"><Plus className="h-3 w-3" />값 추가</Button>
+              {/* Axis body (collapsible) */}
+              {isExpanded && (
+                <div className="border-t px-3 pb-3 pt-2 space-y-2">
+                  {/* Advanced: include */}
+                  {showAdvanced && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label className="text-[11px] text-muted-foreground shrink-0">include</Label>
+                      <Input value={axis.include} onChange={(e) => setAxI(axis.id, e.target.value)} placeholder="접미사 (예: _detail)" className="h-7 text-xs" />
                     </div>
-                    {axis.entries.length === 0 && <p className="text-xs text-muted-foreground/50 italic py-3 text-center border border-dashed rounded-lg">값을 추가하세요</p>}
-                    {axis.entries.map((entry) => (
-                      <div key={entry.id} className="rounded-lg border overflow-hidden">
-                        <div className="flex items-center gap-2 px-3 py-2">
-                          <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30" />
-                          <Input value={entry.key} onChange={(e) => setEKey(axis.id, entry.id, e.target.value)} placeholder="키" className="h-8 w-20 shrink-0 rounded-md font-mono text-sm" />
-                          {!entry.isComplex ? <Input value={entry.value} onChange={(e) => setEVal(axis.id, entry.id, e.target.value)} placeholder="값" className="h-8 flex-1 rounded-md text-sm" /> : (
-                            <Badge variant="outline" className="gap-1 h-8 px-2.5 font-normal text-xs"><Braces className="h-3 w-3 text-primary/60" />{entry.properties.length} 속성</Badge>
-                          )}
-                          <Button variant={entry.isComplex ? "secondary" : "ghost"} size="sm" onClick={() => toggleCplx(axis.id, entry.id)} className="h-7 shrink-0 text-[11px] gap-1"><Braces className="h-3 w-3" />{entry.isComplex ? "복합" : "단순"}</Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delEntry(axis.id, entry.id)}><Trash2 className="h-3 w-3" /></Button>
-                        </div>
-                        {entry.isComplex && (
-                          <div className="border-t bg-muted/30 px-4 py-2.5 space-y-1.5">
-                            <div className="flex items-center justify-between mb-1"><Label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">속성</Label><Button variant="ghost" size="sm" onClick={() => addProp(axis.id, entry.id)} className="h-5 gap-0.5 text-[10px] text-primary"><Plus className="h-2.5 w-2.5" />추가</Button></div>
-                            {entry.properties.map((prop) => (
-                              <div key={prop.id} className="flex items-center gap-1.5">
-                                <Input value={prop.name} onChange={(e) => setPropN(axis.id, entry.id, prop.id, e.target.value)} placeholder="속성명" className="h-7 w-24 rounded-md text-xs font-mono" />
-                                <Input value={prop.value} onChange={(e) => setPropV(axis.id, entry.id, prop.id, e.target.value)} placeholder="속성값" className="h-7 flex-1 rounded-md text-xs" />
-                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delProp(axis.id, entry.id, prop.id)}><X className="h-3 w-3" /></Button>
-                              </div>
-                            ))}
-                            {entry.properties.length === 0 && <p className="text-[10px] text-muted-foreground/50 italic">속성을 추가해 주세요.</p>}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] text-muted-foreground">값</Label>
+                      <Button variant="ghost" size="sm" className="h-5 gap-0.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => toggleAxisAdvanced(axis.id)}>
+                        <Settings2 className="h-3 w-3" />{showAdvanced ? "고급 숨기기" : "고급"}
+                      </Button>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => addEntry(axis.id)} className="h-6 gap-1 text-[11px] text-primary"><Plus className="h-3 w-3" />값 추가</Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}</div>
-          )}
-        </div>
-      )}
 
-      {activeSubTab === "combines" && (
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">조합 방식</h3><p className="text-xs text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{"{{combine ...}}"}</code> 축 간 연산 관계</p></div><Button variant="outline" size="sm" onClick={addCombine} className="gap-1.5"><Plus className="h-3.5 w-3.5" />추가</Button></div>
-            {combines.length === 0 ? <Card className="border-dashed shadow-none"><CardContent className="py-6 text-center text-sm text-muted-foreground">조합 규칙이 없습니다</CardContent></Card> : (
-              <div className="space-y-2">{combines.map((c, i) => (<div key={c.id} className="flex items-center gap-2"><Badge variant="outline" className="h-7 w-7 shrink-0 items-center justify-center rounded-md p-0 text-[10px] font-bold tabular-nums">{i + 1}</Badge><Input value={c.expression} onChange={(e) => setCombExpr(c.id, e.target.value)} placeholder="예: character * emotion * pose" className="h-9 flex-1 font-mono text-sm" /><Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delCombine(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button></div>))}</div>
-            )}
-          </div>
-          <Separator />
-          <div className="space-y-3">
-            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">제외 규칙</h3><p className="text-xs text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{"{{exclude ...}}"}</code> 특정 조합 배제</p></div><Button variant="outline" size="sm" onClick={addExclude} className="gap-1.5 text-destructive border-destructive/20 hover:bg-destructive/5"><Plus className="h-3.5 w-3.5" />추가</Button></div>
-            {excludes.length === 0 ? <Card className="border-dashed shadow-none"><CardContent className="py-6 text-center text-sm text-muted-foreground">제외 규칙이 없습니다</CardContent></Card> : (
-              <div className="space-y-2">{excludes.map((ex, i) => (<div key={ex.id} className="flex items-center gap-2"><Badge variant="destructive" className="h-7 w-7 shrink-0 items-center justify-center rounded-md p-0 text-[10px] font-bold tabular-nums">{i + 1}</Badge><Input value={ex.statement} onChange={(e) => setExclStmt(ex.id, e.target.value)} placeholder="예: emotion = sad AND pose = smiling" className="h-9 flex-1 font-mono text-sm" /><Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delExclude(ex.id)}><Trash2 className="h-3.5 w-3.5" /></Button></div>))}</div>
-            )}
-          </div>
-          <Card className="border-primary/10 bg-primary/[0.02] shadow-none"><CardContent className="flex items-start gap-3 p-4"><Sparkles className="h-4 w-4 shrink-0 text-primary/50 mt-0.5" /><div className="text-xs text-muted-foreground space-y-1"><p className="font-semibold text-foreground">문법 가이드</p><p><Badge variant="secondary" className="font-mono text-[10px] mr-1">*</Badge>곱연산 (Cartesian product)</p><p><Badge variant="secondary" className="font-mono text-[10px] mr-1">exclude</Badge>특정 조합 배제</p></div></CardContent></Card>
-        </div>
-      )}
+                  {axis.entries.length === 0 && <p className="text-xs text-muted-foreground/50 italic py-2 text-center">값을 추가하세요</p>}
+                  {axis.entries.map((entry, ei) => (
+                    <div key={entry.id} className="rounded-md border overflow-hidden">
+                      <div className="flex items-center gap-1.5 px-2 py-1.5">
+                        <Input value={entry.key} onChange={(e) => setEKey(axis.id, entry.id, e.target.value)} placeholder="키" className="h-7 w-20 shrink-0 font-mono text-xs" onKeyDown={(e) => handleEntryKeyDown(e, axis.id, ei, axis.entries.length)} />
+                        <span className="text-xs text-muted-foreground/40 select-none font-mono">:</span>
+                        {!entry.isComplex ? (
+                          <Input ref={ei === axis.entries.length - 1 ? lastEntryInputRef : undefined} value={entry.value} onChange={(e) => setEVal(axis.id, entry.id, e.target.value)} placeholder="값" className="h-7 flex-1 text-xs" onKeyDown={(e) => handleEntryKeyDown(e, axis.id, ei, axis.entries.length)} />
+                        ) : (
+                          <Badge variant="outline" className="gap-1 h-7 px-2 text-[11px] font-normal"><Braces className="h-3 w-3 text-primary/60" />{entry.properties.length} 속성</Badge>
+                        )}
+                        <Button variant={entry.isComplex ? "secondary" : "ghost"} size="sm" onClick={() => toggleCplx(axis.id, entry.id)} className="h-6 shrink-0 text-[10px] gap-0.5 px-1.5"><Braces className="h-3 w-3" />{entry.isComplex ? "복합" : "단순"}</Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delEntry(axis.id, entry.id)}><X className="h-3 w-3" /></Button>
+                      </div>
+                      {entry.isComplex && (
+                        <div className="border-t bg-muted/30 px-3 py-2 space-y-1.5">
+                          <div className="flex items-center justify-between mb-0.5"><Label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">속성</Label><Button variant="ghost" size="sm" onClick={() => addProp(axis.id, entry.id)} className="h-5 gap-0.5 text-[10px] text-primary"><Plus className="h-2.5 w-2.5" />추가</Button></div>
+                          {entry.properties.map((prop) => (
+                            <div key={prop.id} className="flex items-center gap-1.5">
+                              <Input value={prop.name} onChange={(e) => setPropN(axis.id, entry.id, prop.id, e.target.value)} placeholder="속성명" className="h-6 w-24 rounded-md text-xs font-mono" />
+                              <Input value={prop.value} onChange={(e) => setPropV(axis.id, entry.id, prop.id, e.target.value)} placeholder="속성값" className="h-6 flex-1 rounded-md text-xs" />
+                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delProp(axis.id, entry.id, prop.id)}><X className="h-3 w-3" /></Button>
+                            </div>
+                          ))}
+                          {entry.properties.length === 0 && <p className="text-[10px] text-muted-foreground/50 italic">속성을 추가해 주세요.</p>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
 
-      {activeSubTab === "templates" && (
-        <div className="space-y-4">
-          <div><h3 className="text-sm font-semibold">출력 서식</h3><p className="text-xs text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{"{{template}}"}</code> / <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{"{{filename}}"}</code> 블록 정의</p></div>
-          <Card size="sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-xs font-semibold"><FileCode2 className="h-3.5 w-3.5 text-primary/60" />프롬프트 템플릿</CardTitle></CardHeader><CardContent><textarea value={templateBody} onChange={(e) => setTemplateBody(e.target.value)} placeholder={`1girl, {{character}}, {{emotion}}, {{pose}}...`} rows={6} className="w-full rounded-md border bg-background p-3 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring resize-y" /></CardContent></Card>
-          <Card size="sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-xs font-semibold"><Hash className="h-3.5 w-3.5 text-primary/60" />파일명 템플릿</CardTitle></CardHeader><CardContent><Input value={filenameBody} onChange={(e) => setFilenameBody(e.target.value)} placeholder="img_{{character.key}}_{{emotion.key}}" className="h-9 font-mono text-sm" /></CardContent></Card>
-          {(variables.length > 0 || axes.length > 0) && (
-            <Card className="border-primary/10 bg-primary/[0.02] shadow-none"><CardContent className="flex items-start gap-3 p-4"><Zap className="h-4 w-4 shrink-0 text-primary/50 mt-0.5" /><div className="space-y-2"><p className="text-xs font-semibold text-foreground">사용 가능한 변수</p><div className="flex flex-wrap gap-1.5">{variables.map((v) => v.name).filter(Boolean).map((n) => <Badge key={n} variant="secondary" className="font-mono text-[10px]">{"{{" + n + "}}"}</Badge>)}{axes.map((a) => a.name).filter(Boolean).map((n) => <span key={n} className="flex gap-1"><Badge className="font-mono text-[10px]">{"{{" + n + "}}"}</Badge><Badge variant="outline" className="font-mono text-[10px] text-primary border-primary/20">{"{{" + n + ".key}}"}</Badge></span>)}</div></div></CardContent></Card>
-          )}
-        </div>
+                  <div className="flex gap-1 mt-1">
+                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" onClick={() => dupAxis(axis.id)} className="h-6 gap-1 text-[10px] text-muted-foreground hover:text-foreground"><CopyPlus className="h-3 w-3" />축 복제</Button></TooltipTrigger><TooltipContent>이 축을 복제합니다</TooltipContent></Tooltip>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}</div>
       )}
+      {axes.length > 0 && (
+        <Button variant="ghost" size="sm" onClick={addAxis} className="w-full border border-dashed text-muted-foreground hover:text-foreground gap-1.5 text-xs h-8"><Plus className="h-3 w-3" />축 추가</Button>
+      )}
+    </div>
+  )
+
+  const combinesSection = (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div><h4 className="text-xs font-semibold">조합 방식</h4><p className="text-[10px] text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1 py-0.5 text-[10px]">{"{{combine ...}}"}</code> 축 간 연산 관계</p></div>
+          <Button variant="outline" size="sm" onClick={addCombine} className="gap-1.5 h-7 text-xs"><Plus className="h-3 w-3" />추가</Button>
+        </div>
+        {combines.length === 0 ? <p className="text-xs text-muted-foreground/50 text-center py-3">조합 규칙이 없습니다</p> : (
+          <div className="space-y-1.5">{combines.map((c, i) => (
+            <div key={c.id} className="flex items-center gap-1.5">
+              <Badge variant="outline" className="h-7 w-7 shrink-0 items-center justify-center rounded-md p-0 text-[10px] font-bold tabular-nums">{i + 1}</Badge>
+              <Input ref={(el) => { combineInputRefs.current[c.id] = el }} value={c.expression} onChange={(e) => setCombExpr(c.id, e.target.value)} placeholder="예: character * emotion * pose" className="h-8 flex-1 font-mono text-xs" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delCombine(c.id)}><Trash2 className="h-3 w-3" /></Button>
+            </div>
+          ))}</div>
+        )}
+        <AxisBadgeButtons axisNames={axisNames} onInsert={(text) => {
+          const target = combines.find((c) => !c.expression.trim())
+          if (target) {
+            setCombExpr(target.id, text)
+          } else if (combines.length > 0) {
+            insertToCombine(combines[combines.length - 1]!.id, text)
+          }
+        }} />
+        {combines.length > 0 && axisNames.length > 0 && (
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={() => {
+              const target = combines.find((c) => !c.expression.trim()) || combines[combines.length - 1]
+              if (target) insertToCombine(target.id, " * ")
+            }}><Badge variant="secondary" className="font-mono text-[10px] mr-0.5">×</Badge>곱연산 삽입</Button>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div><h4 className="text-xs font-semibold">제외 규칙</h4><p className="text-[10px] text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1 py-0.5 text-[10px]">{"{{exclude ...}}"}</code> 특정 조합 배제</p></div>
+          <Button variant="outline" size="sm" onClick={addExclude} className="gap-1.5 h-7 text-xs text-destructive border-destructive/20 hover:bg-destructive/5"><Plus className="h-3 w-3" />추가</Button>
+        </div>
+        {excludes.length === 0 ? <p className="text-xs text-muted-foreground/50 text-center py-3">제외 규칙이 없습니다</p> : (
+          <div className="space-y-1.5">{excludes.map((ex, i) => (
+            <div key={ex.id} className="flex items-center gap-1.5">
+              <Badge variant="destructive" className="h-7 w-7 shrink-0 items-center justify-center rounded-md p-0 text-[10px] font-bold tabular-nums">{i + 1}</Badge>
+              <Input ref={(el) => { excludeInputRefs.current[ex.id] = el }} value={ex.statement} onChange={(e) => setExclStmt(ex.id, e.target.value)} placeholder="예: emotion = sad AND pose = smiling" className="h-8 flex-1 font-mono text-xs" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delExclude(ex.id)}><Trash2 className="h-3 w-3" /></Button>
+            </div>
+          ))}</div>
+        )}
+        <AxisBadgeButtons axisNames={axisNames} onInsert={(text) => {
+          const target = excludes.find((e) => !e.statement.trim())
+          if (target) {
+            setExclStmt(target.id, text)
+          } else if (excludes.length > 0) {
+            insertToExclude(excludes[excludes.length - 1]!.id, text)
+          }
+        }} />
+        {excludes.length > 0 && (
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={() => {
+              const target = excludes.find((e) => !e.statement.trim()) || excludes[excludes.length - 1]
+              if (target) insertToExclude(target.id, " AND ")
+            }}><Badge variant="secondary" className="font-mono text-[10px] mr-0.5">AND</Badge>조건 결합</Button>
+            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={() => {
+              const target = excludes.find((e) => !e.statement.trim()) || excludes[excludes.length - 1]
+              if (target) insertToExclude(target.id, " OR ")
+            }}><Badge variant="secondary" className="font-mono text-[10px] mr-0.5">OR</Badge>조건 분기</Button>
+          </div>
+        )}
+      </div>
+
+      <Card className="border-primary/10 bg-primary/[0.02] shadow-none"><CardContent className="flex items-start gap-3 p-3"><Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/50 mt-0.5" /><div className="text-[11px] text-muted-foreground space-y-0.5"><p className="font-semibold text-foreground">문법 가이드</p><p><Badge variant="secondary" className="font-mono text-[10px] mr-1">*</Badge>곱연산 (Cartesian product)</p><p><Badge variant="secondary" className="font-mono text-[10px] mr-1">exclude</Badge>특정 조합 배제</p></div></CardContent></Card>
+    </div>
+  )
+
+  const templatesSection = (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs font-semibold flex items-center gap-1.5"><FileCode2 className="h-3.5 w-3.5 text-primary/60" />프롬프트 템플릿</Label>
+        <p className="text-[10px] text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1 py-0.5 text-[10px]">{"{{template}}"}</code> 블록 — 조합된 값으로 치환됩니다</p>
+        <Textarea ref={templateTextareaRef} value={templateBody} onChange={(e) => setTemplateBody(e.target.value)} placeholder={"1girl, {{character}}, {{emotion}}, {{pose}}..."} rows={6} className="mt-1.5 font-mono text-sm leading-relaxed resize-y" />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold flex items-center gap-1.5"><Hash className="h-3.5 w-3.5 text-primary/60" />파일명 템플릿</Label>
+        <p className="text-[10px] text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1 py-0.5 text-[10px]">{"{{filename}}"}</code> 블록</p>
+        <Input ref={filenameInputRef} value={filenameBody} onChange={(e) => setFilenameBody(e.target.value)} placeholder="img_{{character.key}}_{{emotion.key}}" className="mt-1.5 h-9 font-mono text-sm" />
+      </div>
+      <VarBadgeButtons
+        variables={variables}
+        axes={axes}
+        onInsertVar={(name) => insertToTemplate(`{{${name}}}`)}
+        onInsertAxisKey={(name) => insertToTemplate(`{{${name}.key}}`)}
+      />
     </div>
   )
 
   // ── Shared: Results content ────────────────────────────────────
   const resultsContent = (
     <div className="flex flex-1 flex-col min-h-0">
+      <div className="shrink-0 flex items-center gap-2 border-b px-3 py-1.5 bg-muted/20">
+        <Eye className="h-3 w-3 text-muted-foreground/60" />
+        <span className="text-[10px] text-muted-foreground font-medium">결과</span>
+        {activeQueue.length > 0 && <Badge variant="secondary" className="text-[9px]">{filtered.length}/{activeQueue.length}</Badge>}
+      </div>
       {!dispError && activeQueue.length > 0 && (
         <div className="shrink-0 border-b px-3 py-2">
           <div className="relative w-full"><Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /><Input placeholder="검색..." value={previewFilter} onChange={(e) => setPreviewFilter(e.target.value)} className="h-8 pl-9 text-xs" /></div>
@@ -347,9 +621,8 @@ export function TemplateGeneratorPanel({
         : activeQueue.length === 0 ? <div className="flex h-full items-center justify-center p-6"><Card className="border-dashed shadow-none w-full max-w-sm"><CardContent className="flex flex-col items-center py-10 gap-2"><div className="rounded-xl bg-muted/60 p-3"><Sparkles className="h-6 w-6 text-muted-foreground/40" /></div><p className="text-xs font-semibold text-muted-foreground">결과 없음</p><p className="text-[10px] text-muted-foreground/50 text-center">템플릿을 편집하면 결과가 여기에 표시됩니다.</p></CardContent></Card></div>
         : filtered.length === 0 ? <div className="flex h-full items-center justify-center"><p className="text-xs text-muted-foreground">검색 결과 없음</p></div>
         : <ScrollArea className="h-full"><div className="p-3 space-y-1.5">
-            <p className="text-[10px] text-muted-foreground mb-2">총 <Badge variant="secondary" className="text-[9px]">{filtered.length}</Badge>개</p>
             {filtered.map((item, idx) => { const fn = substitute(item.filename, item); const pr = substitute(item.prompt, item); const k = itemKey(item); return (
-              <div key={`r-${k}-${idx}`} className="rounded-lg border p-3 space-y-1.5 hover:bg-muted/30 transition-colors">
+              <div key={`r-${k}-${idx}`} className="rounded-lg border p-2.5 space-y-1 hover:bg-muted/30 transition-colors">
                 <div className="flex items-start gap-1.5"><span className="font-mono text-[11px] font-semibold break-all select-all leading-tight flex-1">{fn}</span><Badge variant="secondary" className="shrink-0 text-[9px]">{idx + 1}</Badge></div>
                 {Object.keys(item.meta).length > 0 && <div className="flex flex-wrap gap-1">{Object.entries(item.meta).map(([mk, mv]) => <Badge key={mk} variant="outline" className="text-[9px] font-normal">{mk}: {mv}</Badge>)}</div>}
                 <div className="font-mono text-[10px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md p-2 break-words select-all">{pr}</div>
@@ -381,6 +654,12 @@ export function TemplateGeneratorPanel({
   //  RENDER
   // ══════════════════════════════════════════════════════════════════
 
+  const emptyState = (
+    <div className="flex h-full items-center justify-center p-8">
+      <Card className="border-dashed shadow-none w-full max-w-sm"><CardContent className="flex flex-col items-center py-10 gap-2"><div className="rounded-xl bg-muted/60 p-3"><Pencil className="h-6 w-6 text-muted-foreground/40" /></div><p className="text-xs font-semibold text-muted-foreground">템플릿을 선택하세요</p><p className="text-[10px] text-muted-foreground/50 text-center">상단 드롭다운에서 템플릿을 선택하면 편집기가 활성화됩니다.</p></CardContent></Card>
+    </div>
+  )
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* ── TOP BAR ── */}
@@ -393,89 +672,69 @@ export function TemplateGeneratorPanel({
               <SelectContent>{Object.entries(groupedTemplates).map(([cat, ts]) => (<SelectGroup key={cat}><SelectLabel className="text-[10px] font-bold tracking-widest uppercase">{catLabel(cat)}</SelectLabel>{ts.map((t) => (<SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>))}</SelectGroup>))}</SelectContent>
             </Select>
           </div>
-          <Separator orientation="vertical" className="h-5" />
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} disabled={!generatedCode} placeholder="저장 이름..." className="h-8 w-48 text-sm" />
+            <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} disabled={!generatedCode} placeholder="저장 이름..." className="h-8 flex-1 min-w-0 text-sm" />
             <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleSave} disabled={!generatedCode} className="h-8 gap-1.5 shrink-0"><Save className="h-3.5 w-3.5" /><span className="hidden sm:inline">저장</span></Button></TooltipTrigger><TooltipContent>저장</TooltipContent></Tooltip>
           </div>
           <Button onClick={handleApply} disabled={!generatedCode} className="group h-8 shrink-0 gap-1.5 text-sm font-semibold">적용<ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></Button>
         </div>
       </div>
 
-      {/* ═══════ DESKTOP: 2-panel resizable ═══════ */}
+      {/* ═══════ DESKTOP: Left Accordion + Right Code/Results ═══════ */}
       <div className="hidden md:flex min-h-0 flex-1">
-          <ResizablePanelGroup autoSaveId="tg-desktop" orientation="horizontal" className="flex-1 min-h-0">
-
-          {/* ── LEFT: Visual Editor ── */}
+        <ResizablePanelGroup autoSaveId="tg-desktop" orientation="horizontal" className="flex-1 min-h-0">
+          {/* LEFT: Accordion Editor */}
           <ResizablePanel defaultSize={55} minSize={35} className="flex flex-col overflow-hidden">
-            {/* Sub-tab bar */}
-            <div className="shrink-0 border-b px-3 py-1.5 flex items-center gap-1 bg-muted/30 overflow-x-auto">
-              {subTabs.map((tab) => {
-                const Icon = tab.icon
-                const active = activeSubTab === tab.key
-                return (
-                  <Button key={tab.key} variant={active ? "secondary" : "ghost"} size="sm" onClick={() => setActiveSubTab(tab.key)} className={`shrink-0 gap-1.5 text-xs ${active ? "font-semibold" : "text-muted-foreground"}`}>
-                    <Icon className="h-3.5 w-3.5" />{tab.label}
-                    {tab.count !== undefined && tab.count > 0 && <Badge variant="secondary" className="px-1 py-0 text-[9px]">{tab.count}</Badge>}
-                  </Button>
-                )
-              })}
-            </div>
-            {/* Editor content */}
-            {!activeTemplate ? (
-              <div className="flex h-full items-center justify-center p-8">
-                <Card className="border-dashed shadow-none w-full max-w-sm"><CardContent className="flex flex-col items-center py-10 gap-2"><div className="rounded-xl bg-muted/60 p-3"><Pencil className="h-6 w-6 text-muted-foreground/40" /></div><p className="text-xs font-semibold text-muted-foreground">템플릿을 선택하세요</p><p className="text-[10px] text-muted-foreground/50 text-center">상단 드롭다운에서 템플릿을 선택하면 편집기가 활성화됩니다.</p></CardContent></Card>
-              </div>
-            ) : (
-              <ScrollArea className="flex-1"><div className="p-4 lg:p-5">{editorContent}</div></ScrollArea>
+            {!activeTemplate ? emptyState : (
+              <ScrollArea className="flex-1">
+                <div className="p-4 lg:p-5">
+                  <CollapsibleSection value="variables" open={accordionValue.has("variables")} onToggle={toggleSection} icon={Sliders} label="변수" count={variables.length}>{variablesSection}</CollapsibleSection>
+                  <CollapsibleSection value="axes" open={accordionValue.has("axes")} onToggle={toggleSection} icon={Layers} label="축" count={axes.length}>{axesSection}</CollapsibleSection>
+                  <CollapsibleSection value="combines" open={accordionValue.has("combines")} onToggle={toggleSection} icon={Shuffle} label="규칙" count={combines.length + excludes.length}>{combinesSection}</CollapsibleSection>
+                  <CollapsibleSection value="templates" open={accordionValue.has("templates")} onToggle={toggleSection} icon={MessageSquare} label="출력">{templatesSection}</CollapsibleSection>
+                </div>
+              </ScrollArea>
             )}
           </ResizablePanel>
 
           <ResizableHandle withHandle />
 
-          {/* ── RIGHT: Code + Results ── */}
+          {/* RIGHT: Code + Results (always visible, vertical split) */}
           <ResizablePanel defaultSize={45} minSize={25} className="flex flex-col overflow-hidden">
-            <Tabs value={rightTab} onValueChange={setRightTab} className="flex flex-1 flex-col min-h-0">
-              <div className="shrink-0 border-b px-3 py-1">
-                <TabsList className="h-8">
-                  <TabsTrigger value="code" className="gap-1.5 text-xs"><Code className="h-3 w-3" />코드</TabsTrigger>
-                  <TabsTrigger value="results" className="gap-1.5 text-xs"><Eye className="h-3 w-3" />결과{activeQueue.length > 0 && <Badge variant="secondary" className="ml-1 px-1 py-0 text-[9px]">{activeQueue.length}</Badge>}</TabsTrigger>
-                </TabsList>
-              </div>
-              <TabsContent value="code" className="min-h-0 flex-1 mt-0 flex flex-col">{codeContent}</TabsContent>
-              <TabsContent value="results" className="min-h-0 flex-1 mt-0 flex flex-col">{resultsContent}</TabsContent>
-            </Tabs>
+            <ResizablePanelGroup autoSaveId="tg-right" orientation="vertical" className="flex-1 min-h-0">
+              <ResizablePanel defaultSize={55} minSize={20} className="flex flex-col overflow-hidden">
+                {codeContent}
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={45} minSize={15} className="flex flex-col overflow-hidden">
+                {resultsContent}
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
 
-      {/* ═══════ MOBILE: Full-width tabs ═══════ */}
+      {/* ═══════ MOBILE: Accordion + Code+Results tabs ═══════ */}
       <div className="flex md:hidden min-h-0 flex-1 flex-col overflow-hidden">
         <Tabs value={mobileTab} onValueChange={setMobileTab} className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 border-b px-3">
             <TabsList className="w-full">
               <TabsTrigger value="edit" className="gap-1 text-xs"><Sliders className="h-3 w-3" />편집</TabsTrigger>
               <TabsTrigger value="code" className="gap-1 text-xs"><FileCode2 className="h-3 w-3" />코드</TabsTrigger>
-              <TabsTrigger value="results" className="gap-1 text-xs"><ListChecks className="h-3 w-3" />결과{activeQueue.length > 0 && <Badge variant="secondary" className="ml-1 px-1 py-0 text-[9px]">{activeQueue.length}</Badge>}</TabsTrigger>
+              <TabsTrigger value="results" className="gap-1 text-xs"><Eye className="h-3 w-3" />결과{activeQueue.length > 0 && <Badge variant="secondary" className="ml-1 px-1 py-0 text-[9px]">{activeQueue.length}</Badge>}</TabsTrigger>
             </TabsList>
           </div>
 
           <TabsContent value="edit" className="min-h-0 flex-1 overflow-hidden mt-0">
-            {!activeTemplate ? (
-              <div className="flex h-full items-center justify-center p-6">
-                <Card className="border-dashed shadow-none w-full max-w-sm"><CardContent className="flex flex-col items-center py-10 gap-2"><div className="rounded-xl bg-muted/60 p-3"><Pencil className="h-6 w-6 text-muted-foreground/40" /></div><p className="text-xs font-semibold text-muted-foreground">템플릿을 선택하세요</p></CardContent></Card>
-              </div>
-            ) : (
-              <div className="flex h-full flex-col">
-                {/* Mobile: sub-tab bar */}
-                <div className="shrink-0 border-b px-3 py-1.5 flex items-center gap-1 overflow-x-auto bg-muted/30">
-                  {subTabs.map((tab) => {
-                    const Icon = tab.icon; const active = activeSubTab === tab.key
-                    return <Button key={tab.key} variant={active ? "secondary" : "ghost"} size="sm" onClick={() => setActiveSubTab(tab.key)} className={`shrink-0 gap-1 text-[11px] ${active ? "font-semibold" : "text-muted-foreground"}`}><Icon className="h-3.5 w-3.5" />{tab.label}{tab.count !== undefined && tab.count > 0 && <Badge variant="secondary" className="px-1 py-0 text-[9px]">{tab.count}</Badge>}</Button>
-                  })}
+            {!activeTemplate ? emptyState : (
+              <ScrollArea className="flex-1">
+                <div className="p-4">
+                  <CollapsibleSection value="variables" open={accordionValue.has("variables")} onToggle={toggleSection} icon={Sliders} label="변수" count={variables.length}>{variablesSection}</CollapsibleSection>
+                  <CollapsibleSection value="axes" open={accordionValue.has("axes")} onToggle={toggleSection} icon={Layers} label="축" count={axes.length}>{axesSection}</CollapsibleSection>
+                  <CollapsibleSection value="combines" open={accordionValue.has("combines")} onToggle={toggleSection} icon={Shuffle} label="규칙" count={combines.length + excludes.length}>{combinesSection}</CollapsibleSection>
+                  <CollapsibleSection value="templates" open={accordionValue.has("templates")} onToggle={toggleSection} icon={MessageSquare} label="출력">{templatesSection}</CollapsibleSection>
                 </div>
-                <ScrollArea className="flex-1"><div className="p-4">{editorContent}</div></ScrollArea>
-              </div>
+              </ScrollArea>
             )}
           </TabsContent>
 
