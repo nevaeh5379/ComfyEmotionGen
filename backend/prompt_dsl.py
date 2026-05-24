@@ -31,6 +31,7 @@ class Axis:
     name: str
     values: List[AxisValue] = field(default_factory=list)
     include: Optional[str] = None
+    is_optional: bool = False
 
 
 @dataclass
@@ -96,15 +97,18 @@ class _Builder(Transformer):
 
     def axis_def(self, items):
         name = str(items[0])
+        is_optional = False
         include = None
         entries = []
         for item in items[1:]:
-            if isinstance(item, AxisValue):
+            if str(item) == "?":
+                is_optional = True
+            elif isinstance(item, AxisValue):
                 entries.append(item)
             else:
                 # axis_include result: plain string
                 include = str(item)
-        return ("axis", Axis(name=name, include=include, values=entries))
+        return ("axis", Axis(name=name, include=include, values=entries, is_optional=is_optional))
 
     def axis_include(self, items):
         return str(items[0])[1:-1]
@@ -231,7 +235,10 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
                     AxisValue(key=v.key, value=f"{v.value}, {axis.include}", hide_key=v.hide_key)
                     for v in vals
                 ]
-            return [{name: val} for val in vals]
+            res = [{name: val} for val in vals]
+            if getattr(axis, "is_optional", False):
+                res.append({})
+            return res
         elif name in vars:
             return [{name: AxisValue(key=name, value=vars[name])}]
         else:
@@ -410,6 +417,13 @@ def render(prog: Program, *,
     for combo in combos:
         ctx = dict(prog.vars)
         keys = {}
+        
+        # 생략된 선택적 축들에 대해 빈 문자열 기본값 바인딩
+        for name, axis in prog.axes.items():
+            if name not in combo:
+                ctx[name] = ""
+                keys[name] = ""
+                
         for k, v in combo.items():
             ctx[k] = v.value
             if not getattr(v, "hide_key", False):
@@ -425,16 +439,27 @@ def render(prog: Program, *,
             ctx[alias] = c_val
             keys[alias] = c_key
 
+        filename = _substitute(prog.filename, ctx, keys).strip()
+        
+        # clean_filename 옵션이 true(기본값)인 경우에만 다듬기 수행
+        clean_opt = prog.vars.get("clean_filename", "true").lower() == "true"
+        if clean_opt:
+            filename = re.sub(r'__+', '_', filename)
+            filename = re.sub(r'--+', '-', filename)
+            filename = re.sub(r'\.\.+', '.', filename)
+            filename = filename.strip('_-. ')
+
         results.append({
-            "filename": _substitute(prog.filename, ctx, keys).strip(),
+            "filename": filename,
             "prompt": _clean_prompt(_substitute(prog.template, ctx, keys)),
-            "meta": {k: v for k, v in keys.items() if k != prog.combine_alias},
+            "meta": {k: v for k, v in keys.items() if k != prog.combine_alias and keys[k]},
         })
 
     axes_info = {}
     for name, axis in prog.axes.items():
         axes_info[name] = {
             "include": axis.include,
+            "is_optional": getattr(axis, "is_optional", False),
             "values": [
                 {
                     "key": v.key,

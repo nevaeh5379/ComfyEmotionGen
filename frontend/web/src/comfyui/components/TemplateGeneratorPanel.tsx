@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
@@ -157,11 +158,19 @@ function CollapsibleSection({ value, open, onToggle, icon, label, count, childre
 // ── Parser ────────────────────────────────────────────────────────────
 
 function parseCegTemplate(code: string) {
-  const variables: VisualVariable[] = []; const axes: VisualAxis[] = []; const combines: VisualCombine[] = []; const excludes: VisualExclude[] = []; let templateBody = ""; let filenameBody = ""
-  if (!code) return { variables, axes, combines, excludes, templateBody, filenameBody }
+  const variables: VisualVariable[] = []; const axes: VisualAxis[] = []; const combines: VisualCombine[] = []; const excludes: VisualExclude[] = []; let templateBody = ""; let filenameBody = ""; let cleanFilename = true
+  if (!code) return { variables, axes, combines, excludes, templateBody, filenameBody, cleanFilename }
   let match: RegExpExecArray | null
   const setRe = /\{\{\s*set\s+([a-zA-Z_-][a-zA-Z0-9_-]*)\s*=\s*"((?:[^"\\]|\\.)*)"\s*\}\}/g; let vi = 0
-  while ((match = setRe.exec(code)) !== null) variables.push({ id: `var-${vi++}`, name: match[1] || "", value: match[2] || "" })
+  while ((match = setRe.exec(code)) !== null) {
+    const name = match[1] || ""
+    const val = match[2] || ""
+    if (name === "clean_filename") {
+      cleanFilename = val.toLowerCase() === "true"
+    } else {
+      variables.push({ id: `var-${vi++}`, name, value: val })
+    }
+  }
   const axRe = /\{\{\s*axis\s+([a-zA-Z_-][a-zA-Z0-9_-]*)(?:\s+include="((?:[^"\\]|\\.)*)")?\s*\}\}([\s\S]*?)\{\{\s*\/axis\s*\}\}/gi; let ai = 0
   while ((match = axRe.exec(code)) !== null) {
     const entries: VisualAxisEntry[] = []; let ei = 0
@@ -184,7 +193,7 @@ function parseCegTemplate(code: string) {
   while ((match = exRe.exec(code)) !== null) excludes.push({ id: `ex-${xi++}`, statement: (match[1] || "").trim() })
   const tm = /\{\{\s*template\s*\}\}([\s\S]*?)\{\{\s*\/template\s*\}\}/i.exec(code); if (tm) templateBody = tm[1] || ""
   const fn = /\{\{\s*filename\s*\}\}([\s\S]*?)\{\{\s*\/filename\s*\}\}/i.exec(code); if (fn) filenameBody = fn[1] || ""
-  return { variables, axes, combines, excludes, templateBody, filenameBody }
+  return { variables, axes, combines, excludes, templateBody, filenameBody, cleanFilename }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -248,6 +257,7 @@ export function TemplateGeneratorPanel({
   const { savedTemplates, setCegTemplate, saveTemplate, setTemplateResetKey } = useTemplateContext()
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
   const [variables, setVariables] = useState<VisualVariable[]>([])
+  const [cleanFilename, setCleanFilename] = useState<boolean>(true)
   const [axes, setAxes] = useState<VisualAxis[]>([])
   const [combines, setCombines] = useState<VisualCombine[]>([])
   const [excludes, setExcludes] = useState<VisualExclude[]>([])
@@ -287,8 +297,8 @@ export function TemplateGeneratorPanel({
   const curId = activeTemplate?.id ?? null
   if (curId !== prevActiveTemplateId) {
     setPrevActiveTemplateId(curId)
-    if (activeTemplate) { const p = parseCegTemplate(activeTemplate.code); setVariables(p.variables); setAxes(p.axes); setCombines(p.combines); setExcludes(p.excludes); setTemplateBody(p.templateBody); setFilenameBody(p.filenameBody); setSaveName(`${activeTemplate.name} 커스텀`) }
-    else { setVariables([]); setAxes([]); setCombines([]); setExcludes([]); setTemplateBody(""); setFilenameBody(""); setSaveName("") }
+    if (activeTemplate) { const p = parseCegTemplate(activeTemplate.code); setVariables(p.variables); setAxes(p.axes); setCombines(p.combines); setExcludes(p.excludes); setTemplateBody(p.templateBody); setFilenameBody(p.filenameBody); setCleanFilename(p.cleanFilename); setSaveName(`${activeTemplate.name} 커스텀`) }
+    else { setVariables([]); setAxes([]); setCombines([]); setExcludes([]); setTemplateBody(""); setFilenameBody(""); setCleanFilename(true); setSaveName("") }
   }
 
   // Handlers
@@ -368,15 +378,32 @@ export function TemplateGeneratorPanel({
 
   const generatedCode = useMemo(() => {
     let c = ""
+    if (!cleanFilename) {
+      c += `{{set clean_filename = "false"}}\n`
+    }
     variables.forEach((v) => { if (v.name.trim()) c += `{{set ${v.name.trim()} = "${v.value}"}}\n` })
-    if (variables.length) c += "\n"
-    axes.forEach((a) => { if (!a.name.trim()) return; c += `{{axis ${a.name.trim()}${a.include ? ` include="${a.include}"` : ""}}}\n`; a.entries.forEach((e) => { if (!e.key.trim()) return; if (e.isComplex) c += `  ${e.key.trim()} : { ${e.properties.filter((p) => p.name.trim()).map((p) => `${p.name.trim()}: "${p.value}"`).join(", ")} }\n`; else c += `  ${e.key.trim()} : "${e.value}"\n` }); c += `{{/axis}}\n\n` })
-    combines.forEach((cb) => { if (cb.expression.trim()) c += `{{combine ${cb.expression.trim()}}}\n` }); if (combines.length) c += "\n"
-    excludes.forEach((ex) => { if (ex.statement.trim()) c += `{{exclude ${ex.statement.trim()}}}\n` }); if (excludes.length) c += "\n"
-    if (templateBody?.trim()) c += `{{template}}${templateBody}{{/template}}\n\n`
+    if (!cleanFilename || variables.length) c += "\n"
+    axes.forEach((a) => {
+      const incStr = a.include?.trim() ? ` include="${a.include.trim()}"` : ""
+      c += `{{axis ${a.name}${incStr}}}\n`
+      a.entries.forEach((e) => {
+        if (e.isComplex) {
+          const props = e.properties.map((p) => `${p.name}: "${p.value}"`).join(", ")
+          c += `  ${e.key}: { ${props} }\n`
+        } else {
+          c += `  ${e.key}: "${e.value}"\n`
+        }
+      })
+      c += `{{/axis}}\n\n`
+    })
+    combines.forEach((cm) => { if (cm.expression.trim()) c += `{{combine ${cm.expression.trim()}}}\n` })
+    if (combines.length) c += "\n"
+    excludes.forEach((ex) => { if (ex.statement.trim()) c += `{{exclude ${ex.statement.trim()}}}\n` })
+    if (excludes.length) c += "\n"
+    if (templateBody?.trim()) c += `{{template}}\n${templateBody}\n{{/template}}\n\n`
     if (filenameBody?.trim()) c += `{{filename}}${filenameBody}{{/filename}}\n`
-    return c.trim()
-  }, [variables, axes, combines, excludes, templateBody, filenameBody])
+    return c.trim() + "\n"
+  }, [variables, axes, combines, excludes, templateBody, filenameBody, cleanFilename])
 
   const substitute = (text: string, item: RenderItem) => { let r = text || ""; Object.entries(item.meta).forEach(([k, v]) => { r = r.split(`{{${k}}}`).join(v); r = r.split(`{${k}}`).join(v) }); r = r.split("{{input}}").join(item.prompt || ""); r = r.split("{input}").join(item.prompt || ""); return r }
 
@@ -616,6 +643,17 @@ export function TemplateGeneratorPanel({
         <Label className="text-xs font-semibold flex items-center gap-1.5"><Hash className="h-3.5 w-3.5 text-primary/60" />파일명 템플릿</Label>
         <p className="text-[10px] text-muted-foreground mt-0.5"><code className="rounded bg-muted px-1 py-0.5 text-[10px]">{"{{filename}}"}</code> 블록</p>
         <Input ref={filenameInputRef} value={filenameBody} onChange={(e) => setFilenameBody(e.target.value)} placeholder="img_{{character.key}}_{{emotion.key}}" className="mt-1.5 h-9 font-mono text-sm" />
+        <div className="flex items-center justify-between mt-2.5 rounded-lg border border-primary/5 bg-primary/[0.01] p-2">
+          <div className="space-y-0.5">
+            <Label htmlFor="clean-filename" className="text-[11px] font-medium leading-none cursor-pointer">파일명 자동 정규화</Label>
+            <p className="text-[9px] text-muted-foreground">생략된 축으로 인해 발생하는 중복 구분자(__) 자동 제거</p>
+          </div>
+          <Switch
+            id="clean-filename"
+            checked={cleanFilename}
+            onCheckedChange={setCleanFilename}
+          />
+        </div>
       </div>
       <VarBadgeButtons
         variables={variables}

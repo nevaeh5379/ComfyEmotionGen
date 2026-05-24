@@ -71,7 +71,7 @@
     },
     "operators": {
       "name": "keyword.operator.ceg",
-      "match": "[~+*()=:\\[\\]{},]"
+      "match": "[?~+*()=:\\[\\]{},]"
     },
     "numbers": {
       "name": "constant.numeric.ceg",

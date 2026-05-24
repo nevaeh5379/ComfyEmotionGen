@@ -88,7 +88,7 @@ const cegLanguage = StreamLanguage.define<CegState>({
       }
 
       // Operators inside tag
-      if (stream.match(/^[@~+*()=:[\]]/)) {
+      if (stream.match(/^[@~?+*()=:[\]]/)) {
         return "operator"
       }
 

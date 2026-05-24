@@ -12,7 +12,8 @@ from server import app
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 
 @pytest.fixture
@@ -44,7 +45,7 @@ class TestHealth:
     def test_health_returns_ok(self, client):
         r = client.get("/health")
         assert r.status_code == 200
-        assert r.json() == {"status": "ok"}
+        assert r.json()["backend"] == "ok"
 
 
 class TestRender:

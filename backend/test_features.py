@@ -58,3 +58,62 @@ class TestMultiPlaceholder:
         assert injected["negative_node"]["inputs"]["text"] == "low quality, watermark"
 
 
+class TestOptionalAxisAndSubstitution:
+    def test_parse_optional_axis(self):
+        from prompt_dsl import parse, render
+        src = """
+        {{axis mood?}}
+          happy : "happy"
+          sad : "sad"
+        {{/axis}}
+
+        {{combine mood}}
+
+        {{template}}1girl, {{mood}}{{/template}}
+        {{filename}}img_{{mood.key}}{{/filename}}
+        """
+        prog = parse(src)
+        assert prog.axes["mood"].is_optional is True
+        
+        rendered = render(prog)
+        # Combination count should be 3: happy, sad, and omitted
+        assert rendered["total"] == 3
+        
+        # Test exact filenames resolved
+        filenames = {item["filename"] for item in rendered["items"]}
+        assert filenames == {"img_happy", "img_sad", "img"}
+
+    def test_clean_filename_toggle_on_off(self):
+        from prompt_dsl import parse, render
+        # Test clean_filename = "false"
+        src_false = """
+        {{set clean_filename = "false"}}
+        {{axis mood?}}
+          happy : "happy"
+        {{/axis}}
+        {{combine mood}}
+        {{template}}1girl{{/template}}
+        {{filename}}img_{{mood.key}}_tag{{/filename}}
+        """
+        prog_false = parse(src_false)
+        rendered_false = render(prog_false)
+        filenames_false = {item["filename"] for item in rendered_false["items"]}
+        # When clean_filename = "false", double underscore is preserved
+        assert filenames_false == {"img_happy_tag", "img__tag"}
+
+        # Test clean_filename = "true" (default)
+        src_true = """
+        {{axis mood?}}
+          happy : "happy"
+        {{/axis}}
+        {{combine mood}}
+        {{template}}1girl{{/template}}
+        {{filename}}img_{{mood.key}}_tag{{/filename}}
+        """
+        prog_true = parse(src_true)
+        rendered_true = render(prog_true)
+        filenames_true = {item["filename"] for item in rendered_true["items"]}
+        # When clean_filename = "true" (default), double underscore is normalized
+        assert filenames_true == {"img_happy_tag", "img_tag"}
+
+
