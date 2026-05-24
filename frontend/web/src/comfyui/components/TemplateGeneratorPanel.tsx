@@ -75,6 +75,30 @@ interface VisualCombine { id: string; expression: string }
 interface VisualExclude { id: string; statement: string }
 interface TemplateItem { id: string; name: string; category: string; code: string; savedAt?: number }
 
+// ── localStorage helpers ─────────────────────────────────────────────
+
+const STORAGE_KEYS = {
+  accordionSections: "tg-accordion-sections",
+  expandedAxes: "tg-expanded-axes",
+  axisAdvanced: "tg-axis-advanced",
+  mobileTab: "tg-mobile-tab",
+} as const
+
+function loadSet(key: string): Set<string> {
+  try { const raw = localStorage.getItem(key); if (raw) return new Set(JSON.parse(raw) as string[]) } catch { /* ignore */ }
+  return new Set()
+}
+function saveSet(key: string, value: Set<string>) {
+  try { localStorage.setItem(key, JSON.stringify([...value])) } catch { /* ignore */ }
+}
+function loadString(key: string, fallback: string): string {
+  try { const raw = localStorage.getItem(key); if (raw) return raw } catch { /* ignore */ }
+  return fallback
+}
+function saveString(key: string, value: string) {
+  try { localStorage.setItem(key, value) } catch { /* ignore */ }
+}
+
 // ── Collapsible Section ────────────────────────────────────────────────
 
 function CollapsibleSection({ value, open, onToggle, icon, label, count, children }: {
@@ -233,14 +257,14 @@ export function TemplateGeneratorPanel({
   const [copied, setCopied] = useState(false)
   const [systemTemplates, setSystemTemplates] = useState<TemplateItem[]>([])
   const [prevActiveTemplateId, setPrevActiveTemplateId] = useState<string | null>(null)
-  const [accordionValue, setAccordionValue] = useState<Set<string>>(new Set(["axes"]))
-  const [mobileTab, setMobileTab] = useState("edit")
+  const [accordionValue, setAccordionValue] = useState<Set<string>>(() => { const s = loadSet(STORAGE_KEYS.accordionSections); return s.size > 0 ? s : new Set(["axes"]) })
+  const [mobileTab, setMobileTab] = useState(() => loadString(STORAGE_KEYS.mobileTab, "edit"))
   const [parserError, setParserError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [previewFilter, setPreviewFilter] = useState("")
-  const [expandedAxes, setExpandedAxes] = useState<Set<string>>(new Set())
-  const [showAxisAdvanced, setShowAxisAdvanced] = useState<Set<string>>(new Set())
+  const [expandedAxes, setExpandedAxes] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.expandedAxes))
+  const [showAxisAdvanced, setShowAxisAdvanced] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.axisAdvanced))
 
   const lastVarInputRef = useRef<HTMLInputElement | null>(null)
   const lastEntryInputRef = useRef<HTMLInputElement | null>(null)
@@ -278,8 +302,8 @@ export function TemplateGeneratorPanel({
   const setAxI = (id: string, n: string) => setAxes((p) => p.map((a) => (a.id === id ? { ...a, include: n } : a)))
   const delAxis = (id: string) => setAxes((p) => p.filter((a) => a.id !== id))
   const dupAxis = (id: string) => { const a = axes.find((x) => x.id === id); if (a) { const dup = DUPLICATE_AXIS(a); setAxes((p) => [...p, dup]); setExpandedAxes((s) => new Set([...s, dup.id])) } }
-  const toggleAxisExpand = (id: string) => setExpandedAxes((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const toggleAxisAdvanced = (id: string) => setShowAxisAdvanced((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggleAxisExpand = (id: string) => setExpandedAxes((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); saveSet(STORAGE_KEYS.expandedAxes, n); return n })
+  const toggleAxisAdvanced = (id: string) => setShowAxisAdvanced((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); saveSet(STORAGE_KEYS.axisAdvanced, n); return n })
   const addEntry = (axId: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: [...a.entries, { id: `e-${Date.now()}`, key: `val_${a.entries.length + 1}`, value: "", properties: [], isComplex: false }] }))
   const setEKey = (axId: string, eId: string, k: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, key: k } : e)) }))
   const setEVal = (axId: string, eId: string, v: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, value: v } : e)) }))
@@ -338,7 +362,7 @@ export function TemplateGeneratorPanel({
     }
   }, [templateBody])
 
-  const toggleSection = (key: string) => setAccordionValue((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next })
+  const toggleSection = (key: string) => setAccordionValue((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); saveSet(STORAGE_KEYS.accordionSections, next); return next })
 
   const axisNames = useMemo(() => axes.map((a) => a.name.trim()).filter(Boolean), [axes])
 
@@ -716,7 +740,7 @@ export function TemplateGeneratorPanel({
 
       {/* ═══════ MOBILE: Accordion + Code+Results tabs ═══════ */}
       <div className="flex md:hidden min-h-0 flex-1 flex-col overflow-hidden">
-        <Tabs value={mobileTab} onValueChange={setMobileTab} className="flex min-h-0 flex-1 flex-col">
+        <Tabs value={mobileTab} onValueChange={(v) => { setMobileTab(v); saveString(STORAGE_KEYS.mobileTab, v) }} className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 border-b px-3">
             <TabsList className="w-full">
               <TabsTrigger value="edit" className="gap-1 text-xs"><Sliders className="h-3 w-3" />편집</TabsTrigger>
