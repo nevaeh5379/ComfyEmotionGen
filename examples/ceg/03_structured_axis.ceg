@@ -1,0 +1,33 @@
+{{#
+  CEG (ComfyEmotionGen) 구조화된 축(Structured Axis) 및 Include 예제
+  각 축의 옵션에 문자열 대신 중괄호 {}를 사용하여 여러 세부 속성(Property)을 지정하는 고급 문법을 배웁니다.
+  또한, 모든 옵션에 공통적으로 붙이고 싶은 태그를 include="태그"로 한번에 처리하는 방법을 학습합니다.
+#}}
+
+{{set character = "1girl, kasane teto"}}
+{{set base_quality = "masterpiece, best quality"}}
+
+{{#
+  의상별로 입을 옷(clothes)과 어울리는 구도(shot), 표정(mood)을 세분화하여 정의합니다.
+  이와 동시에 Kasane Teto의 고유 캐릭터 외모(red hair, twin drills)를 include 옵션으로 공통 주입합니다.
+#}}
+{{axis outfit include="red hair, twin drills, red eyes"}}
+  default : { clothes: "military mechanical outfit", shot: "full body", mood: "proud" }
+  bikini : { clothes: "red halterneck bikini", shot: "cowboy shot", mood: "playful" }
+  pajamas : { clothes: "pink oversized pajamas", shot: "upper body", mood: "sleepy" }
+{{/axis}}
+
+{{# 의상 축을 활성화합니다. #}}
+{{combine outfit}}
+
+{{#
+  1. {{outfit.속성명}} 형식으로 중괄호 안에 정의했던 개별 세부 속성에 다이렉트로 접근합니다.
+  2. 만약 {{outfit}}을 그냥 호출하면 모든 속성값과 include에 적힌 공통 태그가 쉼표로 연결되어 렌더링됩니다.
+#}}
+{{template}}
+{{character}}, {{base_quality}}, wearing {{outfit.clothes}}, {{outfit.shot}}, looking at viewer, expression is {{outfit.mood}}
+{{/template}}
+
+{{filename}}
+teto_structured_{{outfit.key}}
+{{/filename}}

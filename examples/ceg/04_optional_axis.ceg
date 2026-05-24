@@ -1,0 +1,46 @@
+{{#
+  CEG (ComfyEmotionGen) 선택적 축(Optional Axis) 및 파일명 자동 다듬기 예제
+  축 이름 뒤에 물음표(?)를 붙여서 특정 축을 선택적으로 설정하는 문법을 배웁니다.
+  이를 활용하면 '해당 조건이 적용되지 않은 기본 상태(생략)'를 경우의 수에 포함할 수 있으며,
+  {{set clean_filename = "true"}}를 통해 값이 빈 경우 생기는 지저분한 파일명 구분자(__나 _-)를 자동으로 정리해줍니다.
+#}}
+
+{{set character = "1girl, kasane teto, red hair, twin drills, red eyes"}}
+{{set base_quality = "masterpiece, best quality, highly detailed"}}
+
+{{# 파일명 자동 다듬기 기능을 활성화합니다 (기본값 true). #}}
+{{set clean_filename = "true"}}
+
+{{# 세 종류의 의상을 정의합니다. #}}
+{{axis outfit}}
+  default : "military mechanical outfit"
+  bikini : "red halterneck bikini"
+  pajamas : "pink oversized pajamas"
+{{/axis}}
+
+{{#
+  표정(emotion) 축 뒤에 물음표(?)를 붙여 선택적 축으로 선언합니다.
+  이렇게 하면 happy, angry 외에도 '표정이 생략된 기본 상태'가 조합 경우의 수로 자동 추가됩니다.
+#}}
+{{axis emotion?}}
+  happy : "cheerful smile, laughing"
+  angry : "angry expression, annoyed pout"
+{{/axis}}
+
+{{# 두 개의 축을 조합합니다. 총 3(의상) * 3(표정: happy, angry, 생략) = 9개의 조합이 탄생합니다. #}}
+{{combine outfit * emotion}}
+
+{{#
+  emotion이 생략되는 경우 {{emotion}} 부분은 자동으로 빈 문자열 처리됩니다.
+#}}
+{{template}}
+{{character}}, {{base_quality}}, {{outfit}}, {{emotion}}
+{{/template}}
+
+{{#
+  emotion이 생략되는 경우 파일명이 teto_bikini__shot 처럼 언더바가 연속되어 남지 않고,
+  clean_filename 옵션이 이를 감지하여 teto_bikini_shot으로 깔끔하게 축축 정제해 줍니다.
+#}}
+{{filename}}
+teto_{{outfit.key}}_{{emotion.key}}_shot
+{{/filename}}

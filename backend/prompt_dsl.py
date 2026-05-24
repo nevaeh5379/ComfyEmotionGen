@@ -232,7 +232,7 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
             vals = axis.values
             if axis.include:
                 vals = [
-                    AxisValue(key=v.key, value=f"{v.value}, {axis.include}", hide_key=v.hide_key)
+                    AxisValue(key=v.key, value=f"{v.value}, {axis.include}", hide_key=v.hide_key, props=v.props)
                     for v in vals
                 ]
             res = [{name: val} for val in vals]
@@ -254,7 +254,7 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
         for combo in res:
             new_combo = {}
             for k, v in combo.items():
-                new_combo[k] = AxisValue(key=v.key, value=v.value, hide_key=True)
+                new_combo[k] = AxisValue(key=v.key, value=v.value, hide_key=True, props=v.props)
             new_res.append(new_combo)
         return new_res
 
@@ -428,6 +428,8 @@ def render(prog: Program, *,
             ctx[k] = v.value
             if not getattr(v, "hide_key", False):
                 keys[k] = v.key
+            else:
+                keys[k] = ""
             for prop_name, prop_val in v.props.items():
                 ctx[f"{k}.{prop_name}"] = prop_val
             

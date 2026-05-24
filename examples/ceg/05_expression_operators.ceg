@@ -1,0 +1,53 @@
+{{#
+  CEG (ComfyEmotionGen) 조합 수식 및 키 숨기기 예제
+  축 조합 표현식의 강력한 연산자인 곱셈(*), 덧셈(+), 그리고 키 숨기기 물결(~) 연산자를 배웁니다.
+  이를 통해 조합 수를 적절히 제어하고, 파일명을 항상 깔끔하게 유지할 수 있습니다.
+#}}
+
+{{set character = "1girl, kasane teto, red hair, twin drills, red eyes"}}
+{{set base_quality = "masterpiece, best quality, highly detailed"}}
+
+{{axis outfit}}
+  default : "military mechanical outfit"
+  bikini : "red halterneck bikini"
+  pajamas : "pink oversized pajamas"
+{{/axis}}
+
+{{axis emotion}}
+  happy : "smiling face"
+  angry : "angry expression"
+{{/axis}}
+
+{{# 시간대를 나타내는 축을 정의합니다. #}}
+{{axis timeofday}}
+  day : "bright sunny day, outdoor"
+  night : "moonlit night, dark indoor"
+{{/axis}}
+
+{{#
+  [조합 연산자 설명]
+  1. 곱셈 (*) : 두 축의 모든 상호작용 조합을 만드는 데카르트 곱 (Cartesian Product)
+  2. 덧셈 (+) : 시나리오 A 결과와 시나리오 B 결과를 서로 병렬 연결 (Union).
+     세 가지 축을 모두 곱하면 3 * 2 * 2 = 12 조합이 되지만, 덧셈을 쓰면 특정 관심 시나리오군만 묶을 수 있습니다.
+  3. 물결 (~) : 축의 값은 프롬프트에 들어가지만, 파일명 생성 및 키 매핑에서는 숨김 처리 (Hide Key)
+
+  아래 수식은 '(의상 * 표정)' 6개 조합과 '(의상 * ~시간대)' 6개 조합을 병렬로 합쳐 총 12개의 이미지를 생성합니다.
+  시간대(timeofday)는 파일명에 노출되지 않도록 ~를 붙여 키를 감춥니다.
+#}}
+{{combine (outfit * emotion) + (outfit * ~timeofday)}}
+
+{{#
+  각 조합 시나리오에 따라 활성화된 변수값만 정상 출력되고,
+  현재 조합에 참여하지 않은 변수(예: 앞쪽 6개 조합에서의 timeofday)는 빈 문자열로 처리됩니다.
+#}}
+{{template}}
+{{character}}, {{base_quality}}, {{outfit}}, {{emotion}}, {{timeofday}}
+{{/template}}
+
+{{#
+  ~timeofday에 의해 시간대 조합에서는 시간대 키(day/night)가 파일명에서 제외됩니다.
+  또한 clean_filename 작동 덕분에 빈 값에 의한 연속 언더바(__)도 자동으로 합쳐집니다.
+#}}
+{{filename}}
+teto_expr_{{outfit.key}}_{{emotion.key}}_{{timeofday.key}}
+{{/filename}}

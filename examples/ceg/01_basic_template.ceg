@@ -1,0 +1,19 @@
+{{#
+  CEG (ComfyEmotionGen) 기초 템플릿 예제
+  가장 기본적인 변수 설정({{set}}), 주석 작성법, 템플릿 치환({{template}}), 파일명 지정({{filename}})을 배웁니다.
+  이 파일은 어떠한 조합(axis/combine)도 수행하지 않는 단일 템플릿 렌더링 예제입니다.
+#}}
+
+{{# 캐릭터 고유 외모 태그를 전역 변수로 정의합니다. #}}
+{{set character = "1girl, kasane teto, red hair, twin drills, red eyes"}}
+{{set base_quality = "masterpiece, best quality, highly detailed"}}
+
+{{# 생성될 텍스트 프롬프트 템플릿을 정의합니다. 변수는 {{variable_name}} 형태로 삽입됩니다. #}}
+{{template}}
+{{character}}, {{base_quality}}, smiling, looking at viewer
+{{/template}}
+
+{{# 저장될 이미지 파일의 이름 포맷을 지정합니다. #}}
+{{filename}}
+kasane_teto_basic
+{{/filename}}

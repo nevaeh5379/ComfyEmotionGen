@@ -1,0 +1,28 @@
+{{#
+  CEG (ComfyEmotionGen) 기초 조합 예제
+  축(axis)과 조합(combine)을 사용하여 다중 이미지 배치를 생성하는 원리를 배웁니다.
+  Kasane Teto에게 옷 종류(기본 의상, 비키니, 잠옷)를 적용하여 총 3개의 프롬프트를 자동 생성합니다.
+#}}
+
+{{set character = "1girl, kasane teto, red hair, twin drills, red eyes"}}
+{{set base_quality = "masterpiece, best quality, highly detailed"}}
+
+{{# 의상 종류를 축(axis)으로 정의합니다. (키: "프롬프트 문자열" 형식) #}}
+{{axis outfit}}
+  default : "military-style mechanical outfit, thigh-high boots, arm warmers"
+  bikini : "red halterneck bikini, swim ring, beach side"
+  pajamas : "cute pink oversized pajamas, fluffy slippers, bedroom"
+{{/axis}}
+
+{{# 의상 축을 기준으로 프롬프트를 조합 및 다양화할 것임을 명시합니다. #}}
+{{combine outfit}}
+
+{{# 템플릿 내에서 {{outfit}}은 선택된 의상의 프롬프트 문자열로 자동 치환됩니다. #}}
+{{template}}
+{{character}}, {{base_quality}}, {{outfit}}, standing, full body
+{{/template}}
+
+{{# 파일명 내에서 {{outfit.key}}는 선택된 의상의 키 이름(default, bikini, pajamas)으로 자동 치환됩니다. #}}
+{{filename}}
+teto_{{outfit.key}}
+{{/filename}}

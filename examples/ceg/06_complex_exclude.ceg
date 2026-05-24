@@ -1,0 +1,43 @@
+{{#
+  CEG (ComfyEmotionGen) 복합 제외 조건(Complex Exclude) 예제
+  특정 조합이 논리적/시각적으로 모순되거나 불필요한 경우(예: 잠옷을 입고 해변에 있거나, 비키니를 입고 눈밭에 있는 경우 등)
+  {{exclude}} 구문과 AND/OR, in, not in 연산자를 사용하여 영리하게 필터링하는 방법을 배웁니다.
+#}}
+
+{{set character = "1girl, kasane teto, red hair, twin drills, red eyes"}}
+{{set base_quality = "masterpiece, best quality, highly detailed"}}
+
+{{# 의상 축 정의 #}}
+{{axis outfit}}
+  default : "military mechanical outfit"
+  bikini : "red halterneck bikini"
+  pajamas : "pink oversized pajamas"
+{{/axis}}
+
+{{# 장소 축 정의 #}}
+{{axis location}}
+  beach : "tropical beach, sunny sea side"
+  bedroom : "cosy indoor bedroom, pillows"
+  snow : "snowing winter outdoor, white ground"
+{{/axis}}
+
+{{# 의상과 장소를 곱해 3 * 3 = 9개 조합을 활성화합니다. #}}
+{{combine outfit * location}}
+
+{{#
+  [제외 규칙 정의]
+  1. pajamas(잠옷)를 입고 beach(해변) 또는 snow(눈밭)에 있는 어색한 조합 제외
+  2. bikini(비키니)를 입고 snow(눈밭)에 있는 추운 조합 제외
+
+  AND, OR 및 대괄호를 이용한 리스트 포함 여부 검사(in, not in)를 사용할 수 있어 조합 개수가 복잡해질수록 유용합니다.
+#}}
+{{exclude outfit = pajamas AND location in [beach, snow]}}
+{{exclude outfit = bikini AND location = snow}}
+
+{{template}}
+{{character}}, {{base_quality}}, {{outfit}}, standing, {{location}}
+{{/template}}
+
+{{filename}}
+teto_exclude_{{outfit.key}}_{{location.key}}
+{{/filename}}
