@@ -1,18 +1,14 @@
 import { useRef, useState, useLayoutEffect, useCallback } from "react"
 import {
   FolderIcon,
-  LayoutListIcon,
   LayoutGridIcon,
   Maximize2Icon,
-  ColumnsIcon,
-  SwordsIcon,
   FilterIcon,
   Settings2Icon,
   RefreshCwIcon,
   AlertTriangleIcon,
   DownloadIcon,
   XIcon,
-  SearchIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,7 +16,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
@@ -52,6 +47,8 @@ import {
 } from "@/components/ui/sheet"
 import { LoadingButton } from "./CombinationPickerComponents"
 import { useCurationContext } from "./CurationContext"
+import { TagInputSearch } from "../TagInputSearch"
+import { useCurationToolbar } from "./CurationToolbarTypes"
 import {
   CURRENT_TEMPLATE_ID,
   FREE_GROUP_LABELS,
@@ -135,10 +132,11 @@ export function CombinationPickerToolbar({
     doneCount,
     statusFilter,
     setStatusFilter,
-    filenameFilter,
-    setFilenameFilter,
-    metadataFilter,
-    setMetadataFilter,
+    searchTags,
+    setSearchTags,
+    searchInput,
+    setSearchInput,
+    candidates,
     filteredRenderItems,
     fetchData,
   } = data
@@ -147,7 +145,12 @@ export function CombinationPickerToolbar({
 
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [toolbarHeight, setToolbarHeight] = useState(0)
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false)
+  const {
+    listLayout,
+    setListLayout,
+    gridSubMode,
+    setGridSubMode,
+  } = useCurationToolbar()
   const [isMobile, setIsMobile] = useState(false)
 
   useLayoutEffect(() => {
@@ -175,10 +178,6 @@ export function CombinationPickerToolbar({
     },
     [setFiltersExpanded]
   )
-
-  const handleTabChange = (v: string) => {
-    onViewModeChange(v as ViewMode)
-  }
 
   return (
     <div
@@ -246,96 +245,105 @@ export function CombinationPickerToolbar({
         )}
 
         {/* 뷰 모드 탭 (모바일: 드롭다운, 데스크톱: 탭) */}
-        {/* Mobile dropdown */}
-        <Select value={viewMode} onValueChange={handleTabChange}>
-          <SelectTrigger className="h-8 w-[110px] border-line bg-background px-2 text-[11px] font-bold shadow-none focus:ring-0 sm:hidden">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              value="gallery"
-              className="flex items-center gap-2 text-[12px] font-bold"
-            >
-              <FolderIcon className="mr-2 h-3.5 w-3.5" />
-              갤러리
-            </SelectItem>
-            <SelectItem
-              value="table"
-              className="flex items-center gap-2 text-[12px] font-bold"
-            >
-              <LayoutListIcon className="mr-2 h-3.5 w-3.5" />
-              테이블
-            </SelectItem>
-            <SelectItem
-              value="grid"
-              className="flex items-center gap-2 text-[12px] font-bold"
-              disabled={!selectedFilename}
-            >
-              <Maximize2Icon className="mr-2 h-3.5 w-3.5" />
-              그리드
-            </SelectItem>
-            <SelectItem
-              value="compare"
-              className="flex items-center gap-2 text-[12px] font-bold"
-              disabled={compareImageCount < 2}
-            >
-              <ColumnsIcon className="mr-2 h-3.5 w-3.5" />
-              비교
-            </SelectItem>
-            <SelectItem
-              value="tournament"
-              className="flex items-center gap-2 text-[12px] font-bold"
-              disabled={!selectedFilename}
-            >
-              <SwordsIcon className="mr-2 h-3.5 w-3.5" />
-              토너먼트
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Desktop tabs */}
+        {/* Main Mode Tabs: 목록 / 그리드 */}
         <Tabs
-          value={viewMode}
-          onValueChange={handleTabChange}
-          className="hidden w-full sm:block sm:w-auto"
+          value={
+            viewMode === "gallery" || viewMode === "table"
+              ? "list"
+              : "grid"
+          }
+          onValueChange={(v) => {
+            if (v === "list") {
+              onViewModeChange(listLayout)
+            } else {
+              onViewModeChange(gridSubMode)
+            }
+          }}
+          className="w-full sm:w-auto"
         >
-          <TabsList className="no-scrollbar h-8 w-full justify-start gap-0.5 overflow-x-auto bg-muted/50 p-1 sm:w-auto">
+          <TabsList className="bg-muted/65 p-0.5 h-8 gap-0.5">
             <TabsTrigger
-              value="gallery"
-              className="flex-1 gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background sm:flex-none"
+              value="list"
+              className="px-3.5 py-1 text-xs font-bold gap-1.5 data-[state=active]:bg-background"
             >
               <FolderIcon className="h-3.5 w-3.5" />
+              <span>목록</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="table"
-              className="flex-1 gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background sm:flex-none"
-            >
-              <LayoutListIcon className="h-3.5 w-3.5" />
-            </TabsTrigger>
-            <div className="mx-0.5 hidden h-4 w-px bg-border/60 sm:block" />
             <TabsTrigger
               value="grid"
-              className="flex-1 gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background sm:flex-none"
               disabled={!selectedFilename}
+              className="px-3.5 py-1 text-xs font-bold gap-1.5 data-[state=active]:bg-background"
             >
               <Maximize2Icon className="h-3.5 w-3.5" />
-            </TabsTrigger>
-            <TabsTrigger
-              value="compare"
-              className="flex-1 gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background sm:flex-none"
-              disabled={compareImageCount < 2}
-            >
-              <ColumnsIcon className="h-3.5 w-3.5" />
-            </TabsTrigger>
-            <TabsTrigger
-              value="tournament"
-              className="flex-1 gap-1.5 px-3 text-[11px] font-bold data-[state=active]:bg-background sm:flex-none"
-              disabled={!selectedFilename}
-            >
-              <SwordsIcon className="h-3.5 w-3.5" />
+              <span>그리드</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Sub Mode Selectors (toggled contextually) */}
+        {(viewMode === "gallery" || viewMode === "table") ? (
+          <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-background/50 p-0.5 h-8">
+            <Button
+              variant={listLayout === "gallery" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 text-[11px] font-bold shadow-xs"
+              onClick={() => {
+                setListLayout("gallery")
+                onViewModeChange("gallery")
+              }}
+            >
+              갤러리 보기
+            </Button>
+            <Button
+              variant={listLayout === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 text-[11px] font-bold shadow-xs"
+              onClick={() => {
+                setListLayout("table")
+                onViewModeChange("table")
+              }}
+            >
+              테이블 보기
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-background/50 p-0.5 h-8">
+            <Button
+              variant={gridSubMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 text-[11px] font-bold shadow-xs"
+              onClick={() => {
+                setGridSubMode("grid")
+                onViewModeChange("grid")
+              }}
+            >
+              그리드
+            </Button>
+            <Button
+              variant={gridSubMode === "compare" ? "secondary" : "ghost"}
+              size="sm"
+              disabled={compareImageCount < 2}
+              className="h-7 px-2.5 text-[11px] font-bold shadow-xs"
+              onClick={() => {
+                setGridSubMode("compare")
+                onViewModeChange("compare")
+              }}
+            >
+              비교
+            </Button>
+            <Button
+              variant={gridSubMode === "tournament" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 text-[11px] font-bold shadow-xs"
+              onClick={() => {
+                setGridSubMode("tournament")
+                onViewModeChange("tournament")
+              }}
+            >
+              토너먼트
+            </Button>
+          </div>
+        )}
 
         <div className="hidden h-5 w-px bg-border/60 md:block" />
 
@@ -393,15 +401,13 @@ export function CombinationPickerToolbar({
               variant={
                 filtersExpanded ||
                 statusFilter !== "all" ||
-                filenameFilter ||
-                metadataFilter ||
-                isMobileFilterOpen
+                searchTags.length > 0
                   ? "secondary"
                   : "outline"
               }
               size="sm"
-              className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-              onClick={() => setIsMobileFilterOpen(true)}
+              className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || searchTags.length > 0) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
+              onClick={() => setFiltersExpanded(true)}
             >
               <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
               <span className="hidden sm:inline">필터</span>
@@ -413,14 +419,12 @@ export function CombinationPickerToolbar({
                   variant={
                     filtersExpanded ||
                     statusFilter !== "all" ||
-                    filenameFilter ||
-                    metadataFilter ||
-                    isMobileFilterOpen
+                    searchTags.length > 0
                       ? "secondary"
                       : "outline"
                   }
                   size="sm"
-                  className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
+                  className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || searchTags.length > 0) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
                   onClick={() => setFiltersExpanded(!filtersExpanded)}
                 >
                   <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
@@ -608,39 +612,42 @@ export function CombinationPickerToolbar({
               <SelectItem value="pending">미완료만</SelectItem>
             </SelectContent>
           </Select>
-          {/* 파일명 필터 */}
-          <div className="relative w-full md:w-auto">
-            <SearchIcon className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground md:h-3 md:w-3" />
-            <Input
-              type="text"
-              placeholder="파일명 검색..."
-              value={filenameFilter}
-              onChange={(e) => withExpand(setFilenameFilter, e.target.value)}
-              className="h-9 w-full pl-8 text-sm font-bold md:h-7 md:w-40 md:text-[10px]"
-            />
-          </div>
-          {/* 메타데이터 필터 */}
-          <div className="relative w-full md:w-auto">
-            <SearchIcon className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground md:h-3 md:w-3" />
-            <Input
-              type="text"
-              placeholder="메타데이터 검색..."
-              value={metadataFilter}
-              onChange={(e) => withExpand(setMetadataFilter, e.target.value)}
-              className="h-9 w-full pl-8 text-sm font-bold md:h-7 md:w-44 md:text-[10px]"
+          {/* 통합 검색바 */}
+          <div className="w-[300px] md:w-[320px]">
+            <TagInputSearch
+              value={searchInput}
+              tags={searchTags}
+              candidates={candidates.filter((c) => {
+                const valClean = searchInput
+                  .replace(/^[@$]/, "")
+                  .toLowerCase()
+                return c.value.toLowerCase().includes(valClean)
+              })}
+              placeholder="검색어 입력 (@파일명, $메타데이터)"
+              onValueChange={setSearchInput}
+              onAddTag={(tag) => {
+                if (!searchTags.includes(tag)) {
+                  setSearchTags([...searchTags, tag])
+                }
+                setSearchInput("")
+              }}
+              onRemoveTag={(tag) => {
+                setSearchTags(searchTags.filter((t) => t !== tag))
+              }}
+              size="sm"
             />
           </div>
           {/* 필터 초기화 버튼 */}
           <div className="mt-1 flex w-full items-center justify-between md:mt-0 md:w-auto">
-            {(statusFilter !== "all" || filenameFilter || metadataFilter) && (
+            {(statusFilter !== "all" || searchTags.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-9 text-xs font-bold text-muted-foreground hover:text-foreground active:bg-muted md:h-7 md:text-[10px]"
                 onClick={() => {
                   setStatusFilter("all")
-                  setFilenameFilter("")
-                  setMetadataFilter("")
+                  setSearchTags([])
+                  setSearchInput("")
                 }}
               >
                 <XIcon className="mr-1.5 h-4 w-4 md:h-3 md:w-3" /> 초기화
@@ -655,13 +662,76 @@ export function CombinationPickerToolbar({
 
       {/* 모바일 전용 필터 Drawer (Sheet) */}
       <Sheet open={isMobile && filtersExpanded} onOpenChange={setFiltersExpanded}>
-        <SheetContent side="bottom" className="rounded-t-2xl px-6 pt-6 pb-6 h-[85dvh] max-h-[85dvh] flex flex-col overflow-hidden bg-card border-t border-line">
+        <SheetContent side="bottom" className="rounded-t-2xl px-6 pt-6 pb-6 h-auto max-h-[80dvh] flex flex-col overflow-hidden bg-card border-t border-line">
           <SheetHeader className="mb-4 shrink-0 p-0">
             <SheetTitle className="text-base font-bold text-foreground">큐레이션 설정 & 필터</SheetTitle>
           </SheetHeader>
           
           {/* 스크롤 가능한 상세 필터 및 설정 목록 */}
           <div className="flex-1 overflow-y-auto pr-1 -mr-1 flex flex-col gap-4 pb-4">
+            {/* 보기 형태 및 서브 기능 설정 */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground">상세 보기 형태</label>
+              {(viewMode === "gallery" || viewMode === "table") ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant={listLayout === "gallery" ? "default" : "outline"}
+                    className="h-9 text-xs font-bold"
+                    onClick={() => {
+                      setListLayout("gallery")
+                      onViewModeChange("gallery")
+                    }}
+                  >
+                    갤러리 형식
+                  </Button>
+                  <Button
+                    variant={listLayout === "table" ? "default" : "outline"}
+                    className="h-9 text-xs font-bold"
+                    onClick={() => {
+                      setListLayout("table")
+                      onViewModeChange("table")
+                    }}
+                  >
+                    테이블 형식
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button
+                    variant={gridSubMode === "grid" ? "default" : "outline"}
+                    className="h-9 text-[10px] font-bold px-1"
+                    onClick={() => {
+                      setGridSubMode("grid")
+                      onViewModeChange("grid")
+                    }}
+                  >
+                    그리드
+                  </Button>
+                  <Button
+                    variant={gridSubMode === "compare" ? "default" : "outline"}
+                    disabled={compareImageCount < 2}
+                    className="h-9 text-[10px] font-bold px-1"
+                    onClick={() => {
+                      setGridSubMode("compare")
+                      onViewModeChange("compare")
+                    }}
+                  >
+                    비교
+                  </Button>
+                  <Button
+                    variant={gridSubMode === "tournament" ? "default" : "outline"}
+                    className="h-9 text-[10px] font-bold px-1"
+                    onClick={() => {
+                      setGridSubMode("tournament")
+                      onViewModeChange("tournament")
+                    }}
+                  >
+                    토너먼트
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* 상태 필터 */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-muted-foreground">상태 필터</label>
@@ -682,34 +752,31 @@ export function CombinationPickerToolbar({
               </Select>
             </div>
 
-            {/* 파일명 필터 */}
+            {/* 통합 검색 필터 */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground">파일명 검색</label>
-              <div className="relative w-full">
-                <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="파일명 검색..."
-                  value={filenameFilter}
-                  onChange={(e) => withExpand(setFilenameFilter, e.target.value)}
-                  className="h-10 w-full pl-9 text-sm font-bold bg-background"
-                />
-              </div>
-            </div>
-
-            {/* 메타데이터 필터 */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground">메타데이터 검색</label>
-              <div className="relative w-full">
-                <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="메타데이터 검색..."
-                  value={metadataFilter}
-                  onChange={(e) => withExpand(setMetadataFilter, e.target.value)}
-                  className="h-10 w-full pl-9 text-sm font-bold bg-background"
-                />
-              </div>
+              <label className="text-xs font-bold text-muted-foreground">통합 검색</label>
+              <TagInputSearch
+                value={searchInput}
+                tags={searchTags}
+                candidates={candidates.filter((c) => {
+                  const valClean = searchInput
+                    .replace(/^[@$]/, "")
+                    .toLowerCase()
+                  return c.value.toLowerCase().includes(valClean)
+                })}
+                placeholder="검색어 (@파일명, $메타데이터)"
+                onValueChange={setSearchInput}
+                onAddTag={(tag) => {
+                  if (!searchTags.includes(tag)) {
+                    setSearchTags([...searchTags, tag])
+                  }
+                  setSearchInput("")
+                }}
+                onRemoveTag={(tag) => {
+                  setSearchTags(searchTags.filter((t) => t !== tag))
+                }}
+                size="md"
+              />
             </div>
 
             {/* 썸네일 크기 조절 (모바일용 가로 슬라이더) */}
@@ -793,15 +860,15 @@ export function CombinationPickerToolbar({
               </Button>
 
               <div className="flex items-center justify-between mt-2">
-                {(statusFilter !== "all" || filenameFilter || metadataFilter) ? (
+                {(statusFilter !== "all" || searchTags.length > 0) ? (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted"
                     onClick={() => {
                       setStatusFilter("all")
-                      setFilenameFilter("")
-                      setMetadataFilter("")
+                      setSearchTags([])
+                      setSearchInput("")
                     }}
                   >
                     <XIcon className="mr-1.5 h-3.5 w-3.5" /> 필터 초기화
@@ -815,14 +882,6 @@ export function CombinationPickerToolbar({
               </div>
             </div>
           </div>
-
-          {/* 적용 버튼 (서랍 하단에 항상 고정) */}
-          <Button
-            className="mt-2 w-full h-11 text-sm font-bold shrink-0"
-            onClick={() => setFiltersExpanded(false)}
-          >
-            설정 및 필터 적용
-          </Button>
         </SheetContent>
       </Sheet>
     </div>

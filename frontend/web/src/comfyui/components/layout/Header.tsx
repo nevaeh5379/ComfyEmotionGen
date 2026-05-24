@@ -755,35 +755,6 @@ export function Header(props: HeaderProps) {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={curToolbar.viewMode}
-                onValueChange={(v) =>
-                  curToolbar.setViewMode(
-                    v as "gallery" | "table" | "grid" | "compare" | "tournament"
-                  )
-                }
-              >
-                <SelectTrigger className="!h-7 w-[84px] border-line bg-background px-1.5 !py-1 text-[10px] font-bold shadow-none focus:ring-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gallery" className="text-[11px] font-bold">
-                    갤러리
-                  </SelectItem>
-                  <SelectItem value="table" className="text-[11px] font-bold">
-                    테이블
-                  </SelectItem>
-                  <SelectItem value="grid" className="text-[11px] font-bold">
-                    그리드
-                  </SelectItem>
-                  <SelectItem value="compare" className="text-[11px] font-bold">
-                    비교
-                  </SelectItem>
-                  <SelectItem value="tournament" className="text-[11px] font-bold">
-                    토너
-                  </SelectItem>
-                </SelectContent>
-              </Select>
 
               <Button
                 size="sm"

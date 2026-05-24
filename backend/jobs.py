@@ -20,6 +20,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import random
 import re
 import time
@@ -52,8 +53,28 @@ JobStatus = Literal[
 
 
 RETRY_DELAY = 1.0  # 재시도 간격 (초)
-DEFAULT_IMAGES_DIR = Path("images")
-UPLOAD_IMAGES_DIR = Path("uploaded_images")
+
+# Resolve images directory: CEG_IMAGES_DIR > CEG_DATA_DIR/images > images
+_env_images_dir = os.environ.get("CEG_IMAGES_DIR")
+if _env_images_dir:
+    DEFAULT_IMAGES_DIR = Path(_env_images_dir)
+else:
+    _env_data_dir = os.environ.get("CEG_DATA_DIR")
+    if _env_data_dir:
+        DEFAULT_IMAGES_DIR = Path(_env_data_dir) / "images"
+    else:
+        DEFAULT_IMAGES_DIR = Path("images")
+
+# Resolve upload directory: CEG_UPLOAD_DIR > CEG_DATA_DIR/uploaded_images > uploaded_images
+_env_upload_dir = os.environ.get("CEG_UPLOAD_DIR")
+if _env_upload_dir:
+    UPLOAD_IMAGES_DIR = Path(_env_upload_dir)
+else:
+    _env_data_dir = os.environ.get("CEG_DATA_DIR")
+    if _env_data_dir:
+        UPLOAD_IMAGES_DIR = Path(_env_data_dir) / "uploaded_images"
+    else:
+        UPLOAD_IMAGES_DIR = Path("uploaded_images")
 
 
 class ActiveJobError(Exception):

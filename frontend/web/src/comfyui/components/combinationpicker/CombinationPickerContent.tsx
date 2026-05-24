@@ -82,8 +82,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     unassignedGroups,
     unassignedTotalCount,
     setStatusFilter,
-    setFilenameFilter,
-    setMetadataFilter,
+    setSearchTags,
+    setSearchInput,
     approveImage,
     setAllImages,
   } = data
@@ -761,8 +761,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                       className="mt-4 font-bold"
                       onClick={() => {
                         setStatusFilter("all")
-                        setFilenameFilter("")
-                        setMetadataFilter("")
+                        setSearchTags([])
+                        setSearchInput("")
                       }}
                     >
                       모든 필터 초기화
