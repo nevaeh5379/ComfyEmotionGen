@@ -665,14 +665,21 @@ export function Header(props: HeaderProps) {
                     <SelectValue placeholder="선택..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(generatorToolbarProps.groupedTemplates).map(([cat, ts]) => (
-                      <SelectGroup key={cat}>
-                        <SelectLabel className="text-[9px] font-bold tracking-widest uppercase">{generatorToolbarProps.catLabel(cat)}</SelectLabel>
-                        {ts.map((t) => (
-                          <SelectItem key={t.id} value={t.id} className="text-[11px] font-bold">{t.name}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
+                    <SelectItem value="new" className="text-[11px] font-bold text-primary focus:text-primary-foreground focus:bg-primary/10 cursor-pointer">
+                      + 새 템플릿 만들기
+                    </SelectItem>
+                    <SelectSeparator />
+                    {Object.entries(generatorToolbarProps.groupedTemplates).map(([cat, ts]) => {
+                      if (cat === "new") return null
+                      return (
+                        <SelectGroup key={cat}>
+                          <SelectLabel className="text-[9px] font-bold tracking-widest uppercase">{generatorToolbarProps.catLabel(cat)}</SelectLabel>
+                          {ts.map((t) => (
+                            <SelectItem key={t.id} value={t.id} className="text-[11px] font-bold">{t.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>

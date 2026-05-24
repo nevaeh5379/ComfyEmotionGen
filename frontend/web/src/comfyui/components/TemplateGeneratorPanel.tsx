@@ -280,17 +280,58 @@ export function TemplateGeneratorPanel({
     return () => { a = false }
   }, [backendUrl])
 
-  const combinedTemplates = useMemo<TemplateItem[]>(() => [...savedTemplates.map((t) => ({ id: t.id, name: t.name, category: "saved", code: t.template, savedAt: t.savedAt })), ...systemTemplates], [savedTemplates, systemTemplates])
+  const combinedTemplates = useMemo<TemplateItem[]>(() => [
+    { id: "new", name: "새 템플릿", category: "new", code: "", savedAt: Date.now() },
+    ...savedTemplates.map((t) => ({ id: t.id, name: t.name, category: "saved", code: t.template, savedAt: t.savedAt })),
+    ...systemTemplates
+  ], [savedTemplates, systemTemplates])
   const groupedTemplates = useMemo(() => { const g: Record<string, TemplateItem[]> = {}; for (const t of combinedTemplates) { const c = t.category || "기타"; (g[c] ??= []).push(t) } return g }, [combinedTemplates])
-  const effectiveId = useMemo(() => { if (!combinedTemplates.length) return ""; if (!selectedTemplateId || !combinedTemplates.some((t) => t.id === selectedTemplateId)) return combinedTemplates[0]!.id; return selectedTemplateId }, [selectedTemplateId, combinedTemplates])
+  const effectiveId = useMemo(() => {
+    if (!combinedTemplates.length) return "";
+    if (selectedTemplateId && combinedTemplates.some((t) => t.id === selectedTemplateId)) {
+      return selectedTemplateId;
+    }
+    const defaultTemplate = combinedTemplates.find((t) => t.id !== "new") || combinedTemplates[0];
+    return defaultTemplate!.id;
+  }, [selectedTemplateId, combinedTemplates])
   const activeTemplate = useMemo(() => combinedTemplates.find((t) => t.id === effectiveId) || null, [combinedTemplates, effectiveId])
 
   const curId = activeTemplate?.id ?? null
   if (curId !== prevActiveTemplateId) {
     setPrevActiveTemplateId(curId)
-    if (activeTemplate) { const p = parseCegTemplate(activeTemplate.code); setVariables(p.variables); setAxes(p.axes); setCombines(p.combines); setExcludes(p.excludes); setTemplateBody(p.templateBody); setFilenameBody(p.filenameBody); setCleanFilename(p.cleanFilename); setSaveName(`${activeTemplate.name} 커스텀`) }
-    else { setVariables([]); setAxes([]); setCombines([]); setExcludes([]); setTemplateBody(""); setFilenameBody(""); setCleanFilename(true); setSaveName("") }
+    if (activeTemplate) {
+      if (activeTemplate.id === "new") {
+        setVariables([]);
+        setAxes([]);
+        setCombines([]);
+        setExcludes([]);
+        setTemplateBody("");
+        setFilenameBody("");
+        setCleanFilename(true);
+        setSaveName("새 템플릿");
+      } else {
+        const p = parseCegTemplate(activeTemplate.code);
+        setVariables(p.variables);
+        setAxes(p.axes);
+        setCombines(p.combines);
+        setExcludes(p.excludes);
+        setTemplateBody(p.templateBody);
+        setFilenameBody(p.filenameBody);
+        setCleanFilename(p.cleanFilename);
+        setSaveName(`${activeTemplate.name} 커스텀`);
+      }
+    } else {
+      setVariables([]);
+      setAxes([]);
+      setCombines([]);
+      setExcludes([]);
+      setTemplateBody("");
+      setFilenameBody("");
+      setCleanFilename(true);
+      setSaveName("");
+    }
   }
+
 
 
 
@@ -413,7 +454,16 @@ export function TemplateGeneratorPanel({
   const filtered = useMemo(() => { const n = previewFilter.trim().toLowerCase(); if (!n) return activeQueue; return activeQueue.filter((i) => substitute(i.filename, i).toLowerCase().includes(n) || substitute(i.prompt, i).toLowerCase().includes(n)) }, [activeQueue, previewFilter])
 
   const handleApply = () => { if (!generatedCode) return; setCegTemplate(generatedCode); toast.success("작업 탭에 적용되었습니다."); setActiveTab("jobs") }
-  const handleSave = () => { if (!saveName.trim()) { toast.error("저장할 이름을 입력해 주세요."); return } saveTemplate(saveName, generatedCode); setTemplateResetKey((k) => k + 1); toast.success(`'${saveName}' 저장됨`) }
+  const handleSave = () => {
+    if (!saveName.trim()) {
+      toast.error("저장할 이름을 입력해 주세요.")
+      return
+    }
+    const saved = saveTemplate(saveName, generatedCode)
+    setTemplateResetKey((k) => k + 1)
+    setSelectedTemplateId(saved.id)
+    toast.success(`'${saveName}' 저장됨`)
+  }
   const handleCopy = async () => { try { await navigator.clipboard.writeText(generatedCode); setCopied(true); toast.success("복사됨"); setTimeout(() => setCopied(false), 2000) } catch { toast.error("복사 실패") } }
   const handleDownload = () => { const u = URL.createObjectURL(new Blob([generatedCode], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = u; a.download = `${saveName.replace(/\s+/g, "_") || "template"}.template`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); toast.success("다운로드 완료") }
 
