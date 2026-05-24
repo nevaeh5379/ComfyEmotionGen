@@ -377,7 +377,7 @@ function GalleryGridItem({
                     onSelect(item.filename)
                   }
                 }}
-                className={`group relative rounded-xl border bg-card p-1 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] ${isSelected ? "border-blue-500/80 bg-blue-50/10 shadow-md ring-2 shadow-blue-500/10 ring-blue-500" : "border-border/80 hover:border-primary/50"}`}
+                className={`group relative rounded-xl border bg-card p-0.5 md:p-1 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] ${isSelected ? "border-blue-500/80 bg-blue-50/10 shadow-md ring-2 shadow-blue-500/10 ring-blue-500" : "border-border/80 hover:border-primary/50"}`}
               >
                 <div
                   className="relative overflow-hidden rounded-lg bg-muted"
@@ -412,7 +412,7 @@ function GalleryGridItem({
 
                   {/* 선택 모드 체크박스 */}
                   {selectionMode && (
-                    <div className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded">
+                    <div className="absolute top-1.5 left-1.5 z-10 flex h-8 w-8 items-center justify-center rounded md:top-2 md:left-2 md:h-7 md:w-7">
                       {isSelected ? (
                         <CheckSquareIcon className="h-6 w-6 text-blue-500 drop-shadow-sm" />
                       ) : (
@@ -422,27 +422,27 @@ function GalleryGridItem({
                   )}
 
                   {!selectionMode && (
-                    <div className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded border border-white/10 bg-black/45 text-white opacity-90 shadow-xs backdrop-blur-md transition-transform duration-300 group-hover:scale-105">
-                      <FolderIcon className="h-3 w-3" />
+                    <div className="absolute top-1.5 left-1.5 flex h-7 w-7 items-center justify-center rounded border border-white/10 bg-black/45 text-white opacity-90 shadow-xs backdrop-blur-md transition-transform duration-300 group-hover:scale-105 md:top-2 md:left-2 md:h-6 md:w-6">
+                      <FolderIcon className="h-3.5 w-3.5 md:h-3 md:w-3" />
                     </div>
                   )}
 
                   {isDone && (
-                    <div className="absolute top-2 right-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-green-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
-                      <CheckIcon className="h-3.5 w-3.5 stroke-[3]" />
+                    <div className="absolute top-1.5 right-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-green-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110 md:top-2 md:right-2 md:h-6 md:w-6">
+                      <CheckIcon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={3} />
                     </div>
                   )}
 
                   {/* 장수 배지 - 승인 아이콘이 있으면 왼쪽으로 이동하여 겹치지 않게 처리 */}
                   <div
-                    className={`absolute top-2 z-10 rounded-sm border border-white/5 bg-black/60 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-xs backdrop-blur-md transition-all duration-300 ${isDone ? "right-10" : "right-2"}`}
+                    className={`absolute top-1.5 z-10 rounded-sm border border-white/5 bg-black/60 px-1.5 py-0.5 text-[10px] font-extrabold text-white shadow-xs backdrop-blur-md transition-all duration-300 md:top-2 md:text-[9px] ${isDone ? "right-9 md:right-10" : "right-1.5 md:right-2"}`}
                   >
                     {imgs.length}장
                   </div>
 
                   {/* 파일명 & 태그 오버레이 */}
-                  <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-linear-to-t from-black/85 via-black/55 to-transparent px-2 pt-8 pb-2 text-center">
-                    <div className="truncate font-mono text-[10px] font-black tracking-tight text-white/95">
+                  <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-1 bg-linear-to-t from-black/85 via-black/55 to-transparent px-2.5 pt-6 pb-2.5 text-center md:px-2 md:pb-2">
+                    <div className="truncate font-mono text-[11px] font-black tracking-tight text-white/95 md:text-[10px]">
                       {item.filename}
                     </div>
                     {item.meta && Object.keys(item.meta).length > 0 && (
@@ -452,7 +452,7 @@ function GalleryGridItem({
                           .map((tag, idx) => (
                             <span
                               key={idx}
-                              className="rounded border border-white/5 bg-white/15 px-1 py-0.5 text-[8px] font-extrabold whitespace-nowrap text-white/80 uppercase backdrop-blur-md"
+                              className="rounded border border-white/5 bg-white/15 px-1 py-0.5 text-[9px] font-extrabold whitespace-nowrap text-white/80 uppercase backdrop-blur-md md:text-[8px]"
                             >
                               {tag}
                             </span>
@@ -505,7 +505,7 @@ export function GalleryView({
 
   return (
     <div
-      className="grid items-start gap-4"
+      className="grid items-start gap-2 sm:gap-3 md:gap-4"
       style={{
         gridTemplateColumns: fluidGridLayout
           ? `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`
@@ -554,7 +554,7 @@ export function TableView({
   const { selectionMode, selectedFilenames, toggleSelect } = selection
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <div className="overflow-x-auto rounded-lg border bg-card">
       <table className="w-full text-left text-sm">
         <thead className="border-b bg-muted/50">
           <tr>

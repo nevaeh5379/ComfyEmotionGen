@@ -280,11 +280,11 @@ export function CombinationPickerDetailView({
           </div>
 
           {/* 정보 영역 (모바일: 둘째 줄 / 데스크탑: 중앙) */}
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden md:gap-3">
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 overflow-hidden md:flex-row md:items-center md:gap-3">
             <span className="truncate font-mono text-[13px] font-black text-foreground md:text-[11px]">
               {selectedFilename}
             </span>
-            <div className="no-scrollbar flex-1 overflow-x-auto">
+            <div className="no-scrollbar overflow-x-auto">
               <MetaTags meta={selectedItem?.meta || {}} variant="compact" />
             </div>
           </div>
@@ -442,7 +442,7 @@ export function CombinationPickerDetailView({
                             <Maximize2Icon className="h-5 w-5" />
                           </button>
                           {idx < 9 && (
-                            <div className="absolute top-2 left-2 opacity-100 backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                            <div className="absolute top-2 left-2 hidden backdrop-blur-sm md:block md:opacity-0 md:group-hover:opacity-100">
                               <Kbd className="flex h-6 w-6 items-center justify-center rounded border-white/20 bg-black/60 font-mono text-[11px] font-black text-white select-none">
                                 {idx + 1}
                               </Kbd>

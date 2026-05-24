@@ -705,7 +705,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       />
 
       {/* ── Scrollable Content ── */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-2 sm:p-3 md:p-4">
         {/* 미할당 이미지 관리 패널 */}
         {curationToolbarCtx.showUnassignedPanel && !isFreeMode && (
           <CombinationPickerUnassignedPanel
