@@ -21,12 +21,22 @@ interface CodeEditorProps {
   onFileOpen?: ((content: string, name: string) => void) | undefined
 }
 
-const cegKeywords = /^(?:include|AND)\b/i
-const cegTags = /^\{\{\/?(?:axis|template|filename|set|combine|exclude)\}\}/
+interface CegState {
+  inComment: boolean
+  inBlock: "template" | "filename" | "axis" | null
+  inTag: boolean
+  curlyDepth: number
+}
 
-const cegLanguage = StreamLanguage.define<{ inComment: boolean }>({
-  startState: () => ({ inComment: false }),
-  token: (stream: StringStream, state: { inComment: boolean }) => {
+const cegLanguage = StreamLanguage.define<CegState>({
+  startState: () => ({
+    inComment: false,
+    inBlock: null,
+    inTag: false,
+    curlyDepth: 0,
+  }),
+  token: (stream: StringStream, state: CegState) => {
+    // 1. Handle block comment
     if (state.inComment) {
       if (stream.match(/^[\s\S]*?#\}\}/)) {
         state.inComment = false
@@ -36,24 +46,163 @@ const cegLanguage = StreamLanguage.define<{ inComment: boolean }>({
       return "comment"
     }
     if (stream.match(/^\{\{#/)) {
-      if (stream.match(/^[\s\S]*?#\}\}/)) return "comment"
+      if (stream.match(/^[\s\S]*?#\}\}/)) {
+        return "comment"
+      }
       state.inComment = true
       stream.skipToEnd()
       return "comment"
     }
-    if (stream.match(cegTags)) return "tag"
-    if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\}/)) return "variableName"
-    if (stream.match(/^"(?:[^"\\]|\\.)*"/)) return "string"
-    if (stream.match(/^\d+(?:\.\d+)?\b/)) return "number"
-    if (stream.match(cegKeywords)) return "keyword"
-    if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*(?=\s*:)/)) return "propertyName"
-    if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/)) return "variableName"
-    if (stream.match(/^[@~+*()=:]/)) return "operator"
+
+    // 2. If we are in tag context (inside a double-curly tag)
+    if (state.inTag) {
+      if (stream.match(/^\s+/)) {
+        return null // skip whitespace
+      }
+      if (stream.match(/^\}\}/)) {
+        state.inTag = false
+        return "tag"
+      }
+
+      // Keywords inside tag context
+      if (stream.match(/^(?:set|axis|combine|exclude|include|in|not)\b/i)) {
+        return "keyword"
+      }
+      if (stream.match(/^(?:AND|OR)\b/)) {
+        return "keyword"
+      }
+
+      // Strings inside tag
+      if (stream.match(/^"(?:[^"\\]|\\.)*"/)) {
+        return "string"
+      }
+
+      // Numbers
+      if (stream.match(/^\d+(?:\.\d+)?\b/)) {
+        return "number"
+      }
+
+      // Variable name (allow dashes inside NAME)
+      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*/)) {
+        return "variableName"
+      }
+
+      // Operators inside tag
+      if (stream.match(/^[@~+*()=:[\]]/)) {
+        return "operator"
+      }
+
+      // Fallback
+      stream.next()
+      return null
+    }
+
+    // 3. Match opening tag blocks
+    if (stream.match(/^\{\{template\}\}/)) {
+      state.inBlock = "template"
+      return "tag"
+    }
+    if (stream.match(/^\{\{filename\}\}/)) {
+      state.inBlock = "filename"
+      return "tag"
+    }
+
+    // Closing template/filename blocks
+    if (stream.match(/^\{\{\/template\}\}/)) {
+      state.inBlock = null
+      return "tag"
+    }
+    if (stream.match(/^\{\{\/filename\}\}/)) {
+      state.inBlock = null
+      return "tag"
+    }
+
+    // Axis block tag opening/closing
+    if (stream.match(/^\{\{/)) {
+      if (stream.match(/^\/axis\}\}/)) {
+        state.inBlock = null
+        return "tag"
+      }
+      if (stream.match(/^axis\b/)) {
+        state.inTag = true
+        state.inBlock = "axis"
+        return "tag"
+      }
+      if (stream.match(/^(?:set|combine|exclude)\b/)) {
+        state.inTag = true
+        return "tag"
+      }
+      state.inTag = true
+      return "tag"
+    }
+
+    // 4. If we are inside template/filename blocks, highlight placeholders like {{mood}} or {{mood.key}}
+    if (state.inBlock === "template" || state.inBlock === "filename") {
+      if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)?\}\}/)) {
+        return "variableName"
+      }
+      if (stream.match(/^[^{]+/)) {
+        return null
+      }
+      stream.next()
+      return null
+    }
+
+    // 5. If we are inside axis block, parse entries
+    if (state.inBlock === "axis") {
+      if (stream.match(/^\s+/)) {
+        return null
+      }
+
+      if (stream.match(/^\{/)) {
+        state.curlyDepth++
+        return "operator"
+      }
+      if (stream.match(/^\}/)) {
+        state.curlyDepth = Math.max(0, state.curlyDepth - 1)
+        return "operator"
+      }
+
+      if (stream.match(/^"(?:[^"\\]|\\.)*"/)) {
+        return "string"
+      }
+
+      if (stream.match(/^\d+(?:\.\d+)?\b/)) {
+        return "number"
+      }
+
+      if (state.curlyDepth > 0) {
+        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*(?=\s*:)/)) {
+          return "propertyName"
+        }
+      } else {
+        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*(?=\s*:)/)) {
+          return "variableName"
+        }
+      }
+
+      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*/)) {
+        return "variableName"
+      }
+
+      if (stream.match(/^[:,]/)) {
+        return "operator"
+      }
+
+      stream.next()
+      return null
+    }
+
+    // 6. Default fallback for plain content outside tag/blocks
+    if (stream.match(/^[^{]+/)) {
+      return null
+    }
     stream.next()
     return null
   },
   languageData: { commentTokens: { block: { open: "{{#", close: "#}}" } } },
 })
+
 
 const baseTheme = EditorView.theme({
   "&": { fontSize: "0.875rem" },
