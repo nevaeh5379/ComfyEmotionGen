@@ -1119,7 +1119,7 @@ function AppContent() {
   return (
     <div
       className={`flex flex-col bg-background ${
-        activeTab === "jobs" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
+        activeTab === "jobs" || activeTab === "generator" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
       }`}
     >
       <CurationToolbarProvider
@@ -1179,7 +1179,7 @@ function AppContent() {
 
       <main
         className={`flex w-full flex-1 flex-col ${
-          activeTab === "jobs" ? "overflow-hidden" : ""
+          activeTab === "jobs" || activeTab === "generator" ? "overflow-hidden" : ""
         }`}
       >
         {activeTab === "stats" && (
@@ -1228,7 +1228,7 @@ function AppContent() {
           </div>
         )}
         {activeTab === "generator" && (
-          <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col min-h-0">
             <TemplateGeneratorPanel
               setActiveTab={setActiveTab}
               backendUrl={backendUrl}

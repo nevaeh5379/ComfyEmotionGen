@@ -335,7 +335,7 @@ export function TemplateGeneratorPanel({
 
   // ── Shared: Results content ────────────────────────────────────
   const resultsContent = (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 flex-col min-h-0">
       {!dispError && activeQueue.length > 0 && (
         <div className="shrink-0 border-b px-3 py-2">
           <div className="relative w-full"><Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /><Input placeholder="검색..." value={previewFilter} onChange={(e) => setPreviewFilter(e.target.value)} className="h-8 pl-9 text-xs" /></div>
@@ -363,7 +363,7 @@ export function TemplateGeneratorPanel({
 
   // ── Shared: Code preview ───────────────────────────────────────
   const codeContent = (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 flex-col min-h-0">
       <div className="shrink-0 flex items-center gap-2 border-b px-3 py-1.5 bg-muted/20">
         <FileCode2 className="h-3 w-3 text-muted-foreground/60" />
         <span className="text-[10px] text-muted-foreground font-mono">{activeTemplate?.name || "template"}.template</span>
@@ -404,7 +404,7 @@ export function TemplateGeneratorPanel({
 
       {/* ═══════ DESKTOP: 2-panel resizable ═══════ */}
       <div className="hidden md:flex min-h-0 flex-1">
-        <ResizablePanelGroup autoSaveId="tg-desktop" orientation="horizontal" className="flex-1 min-h-0 h-auto">
+          <ResizablePanelGroup autoSaveId="tg-desktop" orientation="horizontal" className="flex-1 min-h-0">
 
           {/* ── LEFT: Visual Editor ── */}
           <ResizablePanel defaultSize={55} minSize={35} className="flex flex-col overflow-hidden">
@@ -442,8 +442,8 @@ export function TemplateGeneratorPanel({
                   <TabsTrigger value="results" className="gap-1.5 text-xs"><Eye className="h-3 w-3" />결과{activeQueue.length > 0 && <Badge variant="secondary" className="ml-1 px-1 py-0 text-[9px]">{activeQueue.length}</Badge>}</TabsTrigger>
                 </TabsList>
               </div>
-              <TabsContent value="code" className="min-h-0 flex-1 mt-0">{codeContent}</TabsContent>
-              <TabsContent value="results" className="min-h-0 flex-1 mt-0">{resultsContent}</TabsContent>
+              <TabsContent value="code" className="min-h-0 flex-1 mt-0 flex flex-col">{codeContent}</TabsContent>
+              <TabsContent value="results" className="min-h-0 flex-1 mt-0 flex flex-col">{resultsContent}</TabsContent>
             </Tabs>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -479,8 +479,8 @@ export function TemplateGeneratorPanel({
             )}
           </TabsContent>
 
-          <TabsContent value="code" className="min-h-0 flex-1 overflow-hidden mt-0">{codeContent}</TabsContent>
-          <TabsContent value="results" className="min-h-0 flex-1 overflow-hidden mt-0">{resultsContent}</TabsContent>
+          <TabsContent value="code" className="min-h-0 flex-1 overflow-hidden mt-0 flex flex-col">{codeContent}</TabsContent>
+          <TabsContent value="results" className="min-h-0 flex-1 overflow-hidden mt-0 flex flex-col">{resultsContent}</TabsContent>
         </Tabs>
       </div>
     </div>
