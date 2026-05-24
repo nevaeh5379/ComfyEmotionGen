@@ -33,14 +33,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   imagePageSize: 48,
   imageLazyLoad: true,
   autoApplyReject: true,
-  enableHover: true,
+  enableHover: false,
   galleryExportScope: "approved",
   galleryExportStrategy: "hash",
   singleDownloadMode: "newtab",
   updateChannel: "auto",
   progressCalculation: "done",
-  useWindowMode: true,
-  hideEmptyCurationFolders: false,
+  useWindowMode: false,
+  hideEmptyCurationFolders: true,
 }
 
 export const useSettings = () => {
