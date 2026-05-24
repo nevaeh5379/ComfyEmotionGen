@@ -21,6 +21,7 @@ import {
   CopyPlus,
   Settings2,
   MessageSquare,
+  Upload,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -247,6 +248,7 @@ export function TemplateGeneratorPanel({
 }) {
   const { savedTemplates, setCegTemplate, saveTemplate, setTemplateResetKey, setGeneratorToolbarProps } = useTemplateContext()
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
+  const [loadedFileTemplate, setLoadedFileTemplate] = useState<{ name: string; code: string } | null>(null)
   const [variables, setVariables] = useState<VisualVariable[]>([])
   const [cleanFilename, setCleanFilename] = useState<boolean>(true)
   const [axes, setAxes] = useState<VisualAxis[]>([])
@@ -267,6 +269,65 @@ export function TemplateGeneratorPanel({
   const [expandedAxes, setExpandedAxes] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.expandedAxes))
   const [showAxisAdvanced, setShowAxisAdvanced] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.axisAdvanced))
 
+  const [isDragging, setIsDragging] = useState(false)
+  const dragCounter = useRef(0)
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current++
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current--
+    if (dragCounter.current === 0) {
+      setIsDragging(false)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    dragCounter.current = 0
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0]!
+      const name = file.name
+      const ext = name.split(".").pop()?.toLowerCase()
+      if (ext === "ceg" || ext === "template" || ext === "txt") {
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          const content = event.target?.result as string
+          if (content) {
+            try {
+              // Dynamically set the loaded template details
+              setLoadedFileTemplate({ name: file.name, code: content })
+              setSelectedTemplateId("loaded")
+              toast.success(`템플릿 '${name}' 불러오기 완료!`)
+            } catch (err) {
+              toast.error("템플릿 파싱에 실패했습니다.")
+            }
+          }
+        }
+        reader.readAsText(file)
+      } else {
+        toast.error("*.ceg 또는 *.template 파일만 지원합니다.")
+      }
+    }
+  }
+
+
   const lastVarInputRef = useRef<HTMLInputElement | null>(null)
   const lastEntryInputRef = useRef<HTMLInputElement | null>(null)
   const combineInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -280,18 +341,26 @@ export function TemplateGeneratorPanel({
     return () => { a = false }
   }, [backendUrl])
 
-  const combinedTemplates = useMemo<TemplateItem[]>(() => [
-    { id: "new", name: "새 템플릿", category: "new", code: "", savedAt: Date.now() },
-    ...savedTemplates.map((t) => ({ id: t.id, name: t.name, category: "saved", code: t.template, savedAt: t.savedAt })),
-    ...systemTemplates
-  ], [savedTemplates, systemTemplates])
+  const combinedTemplates = useMemo<TemplateItem[]>(() => {
+    const list: TemplateItem[] = [
+      { id: "new", name: "새 템플릿", category: "new", code: "", savedAt: Date.now() }
+    ]
+    if (loadedFileTemplate) {
+      list.push({ id: "loaded", name: `[파일] ${loadedFileTemplate.name}`, category: "loaded", code: loadedFileTemplate.code, savedAt: Date.now() })
+    }
+    return [
+      ...list,
+      ...savedTemplates.map((t) => ({ id: t.id, name: t.name, category: "saved", code: t.template, savedAt: t.savedAt })),
+      ...systemTemplates
+    ]
+  }, [savedTemplates, systemTemplates, loadedFileTemplate])
   const groupedTemplates = useMemo(() => { const g: Record<string, TemplateItem[]> = {}; for (const t of combinedTemplates) { const c = t.category || "기타"; (g[c] ??= []).push(t) } return g }, [combinedTemplates])
   const effectiveId = useMemo(() => {
     if (!combinedTemplates.length) return "";
     if (selectedTemplateId && combinedTemplates.some((t) => t.id === selectedTemplateId)) {
       return selectedTemplateId;
     }
-    const defaultTemplate = combinedTemplates.find((t) => t.id !== "new") || combinedTemplates[0];
+    const defaultTemplate = combinedTemplates.find((t) => t.id !== "new" && t.id !== "loaded") || combinedTemplates[0];
     return defaultTemplate!.id;
   }, [selectedTemplateId, combinedTemplates])
   const activeTemplate = useMemo(() => combinedTemplates.find((t) => t.id === effectiveId) || null, [combinedTemplates, effectiveId])
@@ -309,6 +378,17 @@ export function TemplateGeneratorPanel({
         setFilenameBody("");
         setCleanFilename(true);
         setSaveName("새 템플릿");
+      } else if (activeTemplate.id === "loaded") {
+        const p = parseCegTemplate(activeTemplate.code);
+        setVariables(p.variables);
+        setAxes(p.axes);
+        setCombines(p.combines);
+        setExcludes(p.excludes);
+        setTemplateBody(p.templateBody);
+        setFilenameBody(p.filenameBody);
+        setCleanFilename(p.cleanFilename);
+        const baseName = activeTemplate.name.substring(0, activeTemplate.name.lastIndexOf(".")) || activeTemplate.name;
+        setSaveName(baseName.replace(/^\[파일\]\s*/, ""));
       } else {
         const p = parseCegTemplate(activeTemplate.code);
         setVariables(p.variables);
@@ -455,14 +535,22 @@ export function TemplateGeneratorPanel({
 
   const handleApply = () => { if (!generatedCode) return; setCegTemplate(generatedCode); toast.success("작업 탭에 적용되었습니다."); setActiveTab("jobs") }
   const handleSave = () => {
-    if (!saveName.trim()) {
+    const trimmedName = saveName.trim()
+    if (!trimmedName) {
       toast.error("저장할 이름을 입력해 주세요.")
       return
     }
-    const saved = saveTemplate(saveName, generatedCode)
+    const existing = savedTemplates.find((t) => t.name.toLowerCase() === trimmedName.toLowerCase())
+    if (existing) {
+      if (!activeTemplate || activeTemplate.id !== existing.id) {
+        const ok = window.confirm(`'${trimmedName}' 이름의 템플릿이 이미 존재합니다. 덮어쓰시겠습니까?`)
+        if (!ok) return
+      }
+    }
+    const saved = saveTemplate(trimmedName, generatedCode)
     setTemplateResetKey((k) => k + 1)
     setSelectedTemplateId(saved.id)
-    toast.success(`'${saveName}' 저장됨`)
+    toast.success(`'${trimmedName}' 저장됨`)
   }
   const handleCopy = async () => { try { await navigator.clipboard.writeText(generatedCode); setCopied(true); toast.success("복사됨"); setTimeout(() => setCopied(false), 2000) } catch { toast.error("복사 실패") } }
   const handleDownload = () => { const u = URL.createObjectURL(new Blob([generatedCode], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = u; a.download = `${saveName.replace(/\s+/g, "_") || "template"}.template`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); toast.success("다운로드 완료") }
@@ -843,7 +931,13 @@ export function TemplateGeneratorPanel({
   )
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div
+      className="flex flex-1 flex-col overflow-hidden relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
 
       {/* ═══════ DESKTOP: Left Accordion + Right Code/Results ═══════ */}
       <div className="hidden md:flex min-h-0 flex-1">
@@ -907,6 +1001,21 @@ export function TemplateGeneratorPanel({
           <TabsContent value="results" className="min-h-0 flex-1 overflow-hidden mt-0 flex flex-col">{resultsContent}</TabsContent>
         </Tabs>
       </div>
+
+      {/* Drag & Drop Visual Overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-md p-6 pointer-events-none">
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-primary/40 rounded-2xl w-full h-full max-w-lg max-h-[300px] bg-primary/[0.02] p-8 text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="rounded-2xl bg-primary/10 p-4 mb-4 text-primary animate-bounce">
+              <Upload className="h-10 w-10" />
+            </div>
+            <h3 className="text-sm font-bold text-foreground mb-1">여기에 파일 놓기</h3>
+            <p className="text-xs text-muted-foreground max-w-[280px]">
+              *.ceg 또는 *.template 파일을 드롭하여 템플릿 편집기를 즉시 불러옵니다
+            </p>
+          </div>
+        </div>
+      )}
 
     </div>
   )
