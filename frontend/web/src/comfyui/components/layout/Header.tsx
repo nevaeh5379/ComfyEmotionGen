@@ -15,6 +15,8 @@ import {
   LayoutGrid,
   ChevronDown,
   ExternalLink,
+  Save,
+  ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
@@ -48,6 +50,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { useTemplateContext } from "../../contexts/TemplateContext"
 import { Tabs } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -130,6 +142,8 @@ export function Header(props: HeaderProps) {
   const panel = usePanelLayout()
   const tb = useGalleryToolbar()
   const curToolbar = useCurationToolbar()
+  const { generatorToolbarProps } = useTemplateContext()
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
 
   const tabDragRef = useRef<{
     tabId: "stats" | "curation" | "gallery"
@@ -637,6 +651,50 @@ export function Header(props: HeaderProps) {
                 </DropdownMenu>
               </div>
             )}
+
+          {/* Generator toolbar (unified for both desktop and mobile) */}
+          {props.activeTab === "generator" && generatorToolbarProps && (
+            <div className="flex flex-1 items-center gap-1.5 min-w-0">
+              <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
+              
+              {/* Template selector */}
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <span className="hidden sm:inline text-xs font-semibold text-muted-foreground shrink-0">템플릿</span>
+                <Select value={generatorToolbarProps.effectiveId} onValueChange={generatorToolbarProps.setSelectedTemplateId}>
+                  <SelectTrigger className="!h-7 w-full sm:w-[160px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
+                    <SelectValue placeholder="선택..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(generatorToolbarProps.groupedTemplates).map(([cat, ts]) => (
+                      <SelectGroup key={cat}>
+                        <SelectLabel className="text-[9px] font-bold tracking-widest uppercase">{generatorToolbarProps.catLabel(cat)}</SelectLabel>
+                        {ts.map((t) => (
+                          <SelectItem key={t.id} value={t.id} className="text-[11px] font-bold">{t.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Save Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={() => setIsSaveDialogOpen(true)} disabled={!generatorToolbarProps.generatedCode} className="!h-7 gap-1 shrink-0 px-2 text-[10px] font-bold border-line hover:bg-muted">
+                    <Save className="h-3 w-3" />
+                    <span className="hidden sm:inline">저장</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>템플릿 저장</TooltipContent>
+              </Tooltip>
+
+              {/* Apply Button */}
+              <Button onClick={generatorToolbarProps.handleApply} disabled={!generatorToolbarProps.generatedCode} className="!h-7 shrink-0 gap-1 px-2.5 text-[10px] font-bold">
+                적용
+                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+              </Button>
+            </div>
+          )}
 
           {/* Curation toolbar — desktop (hidden on mobile) */}
           {props.activeTab === "curation" && (
@@ -1529,6 +1587,44 @@ export function Header(props: HeaderProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── SAVE DIALOG ── */}
+      {props.activeTab === "generator" && generatorToolbarProps && (
+        <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold">템플릿 저장</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                현재 작성된 템플릿 구성을 저장합니다. 새로운 이름을 입력해 주세요.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="dialog-save-name" className="text-xs font-semibold text-muted-foreground block mb-2">저장 이름</Label>
+              <Input
+                id="dialog-save-name"
+                value={generatorToolbarProps.saveName}
+                onChange={(e) => generatorToolbarProps.setSaveName(e.target.value)}
+                placeholder="저장 이름 입력..."
+                className="h-9 font-mono text-sm w-full"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    generatorToolbarProps.handleSave();
+                    setIsSaveDialogOpen(false);
+                  }
+                }}
+              />
+            </div>
+            <DialogFooter className="flex flex-row justify-end gap-2 border-t pt-3 mt-2">
+              <Button variant="outline" size="sm" onClick={() => setIsSaveDialogOpen(false)} className="h-8 px-4 text-xs font-semibold">취소</Button>
+              <Button size="sm" onClick={() => {
+                generatorToolbarProps.handleSave();
+                setIsSaveDialogOpen(false);
+              }} disabled={!generatorToolbarProps.saveName.trim() || !generatorToolbarProps.generatedCode} className="h-8 px-4 text-xs font-semibold">저장</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </nav>
   )

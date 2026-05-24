@@ -3,8 +3,6 @@ import {
   Copy,
   Download,
   Check,
-  Save,
-  ArrowRight,
   FileCode2,
   Pencil,
   Search,
@@ -38,15 +36,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 import {
   Card,
   CardContent,
@@ -59,6 +49,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
+
 import CodeEditor from "@/components/CodeEditor"
 import { useTemplateContext } from "../contexts/TemplateContext"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
@@ -254,7 +245,7 @@ export function TemplateGeneratorPanel({
   setActiveTab: (t: "jobs" | "stats" | "gallery" | "curation" | "generator" | "settings") => void
   backendUrl?: string
 }) {
-  const { savedTemplates, setCegTemplate, saveTemplate, setTemplateResetKey } = useTemplateContext()
+  const { savedTemplates, setCegTemplate, saveTemplate, setTemplateResetKey, setGeneratorToolbarProps } = useTemplateContext()
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
   const [variables, setVariables] = useState<VisualVariable[]>([])
   const [cleanFilename, setCleanFilename] = useState<boolean>(true)
@@ -300,6 +291,8 @@ export function TemplateGeneratorPanel({
     if (activeTemplate) { const p = parseCegTemplate(activeTemplate.code); setVariables(p.variables); setAxes(p.axes); setCombines(p.combines); setExcludes(p.excludes); setTemplateBody(p.templateBody); setFilenameBody(p.filenameBody); setCleanFilename(p.cleanFilename); setSaveName(`${activeTemplate.name} 커스텀`) }
     else { setVariables([]); setAxes([]); setCombines([]); setExcludes([]); setTemplateBody(""); setFilenameBody(""); setCleanFilename(true); setSaveName("") }
   }
+
+
 
   // Handlers
   const addVar = () => setVariables((p) => [...p, { id: `v-${Date.now()}`, name: `var_${p.length + 1}`, value: "" }])
@@ -426,6 +419,33 @@ export function TemplateGeneratorPanel({
 
   const catLabel = (c: string) => (c === "saved" ? "내 저장" : c)
 
+  useEffect(() => {
+    if (activeTemplate) {
+      setGeneratorToolbarProps({
+        generatedCode,
+        saveName,
+        setSaveName,
+        handleSave,
+        handleApply,
+        effectiveId,
+        setSelectedTemplateId,
+        groupedTemplates,
+        catLabel,
+      })
+    } else {
+      setGeneratorToolbarProps(null)
+    }
+    return () => setGeneratorToolbarProps(null)
+  }, [
+    activeTemplate,
+    generatedCode,
+    saveName,
+    effectiveId,
+    setSelectedTemplateId,
+    groupedTemplates,
+    setGeneratorToolbarProps,
+  ])
+
   const handleVarKeyDown = (e: React.KeyboardEvent, idx: number) => {
     if (e.key === "Enter" && idx === variables.length - 1) {
       e.preventDefault()
@@ -453,13 +473,47 @@ export function TemplateGeneratorPanel({
         </div>
       ) : (
         <div className="space-y-1.5">{variables.map((v, i) => (
-          <div key={v.id} className="flex items-center gap-1.5 group">
-            <Badge variant="outline" className="h-7 shrink-0 rounded-md px-1.5 font-mono text-[11px] text-muted-foreground/60 select-none">{"{{"}</Badge>
-            <Input value={v.name} onChange={(e) => setVarN(v.id, e.target.value)} placeholder="변수명" className="h-8 w-28 shrink-0 font-mono text-sm" onKeyDown={(e) => handleVarKeyDown(e, i)} />
-            <span className="text-sm text-muted-foreground/50 select-none font-mono">=</span>
-            <Input ref={i === variables.length - 1 ? lastVarInputRef : undefined} value={v.value} onChange={(e) => setVarV(v.id, e.target.value)} placeholder="치환될 텍스트" className="h-8 flex-1 text-sm" onKeyDown={(e) => handleVarKeyDown(e, i)} />
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground" onClick={() => dupVar(v.id)}><CopyPlus className="h-3 w-3" /></Button></TooltipTrigger><TooltipContent>복제</TooltipContent></Tooltip>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" onClick={() => delVar(v.id)}><Trash2 className="h-3 w-3" /></Button>
+          <div key={v.id} className="flex flex-col md:flex-row md:items-center gap-1.5 md:gap-1.5 p-2 md:p-0 rounded-lg md:rounded-none border md:border-0 bg-muted/10 md:bg-transparent group">
+            {/* Top row on mobile: {{ name }} indicator and copy/delete buttons */}
+            <div className="flex items-center gap-1.5 w-full md:w-auto">
+              <Badge variant="outline" className="h-7 shrink-0 rounded-md px-1.5 font-mono text-[11px] text-muted-foreground/60 select-none">{"{{"}</Badge>
+              <Input value={v.name} onChange={(e) => setVarN(v.id, e.target.value)} placeholder="변수명" className="h-8 flex-1 md:w-28 md:flex-initial font-mono text-sm" onKeyDown={(e) => handleVarKeyDown(e, i)} />
+              <Badge variant="outline" className="h-7 shrink-0 rounded-md px-1.5 font-mono text-[11px] text-muted-foreground/60 select-none md:hidden">{"}}"}</Badge>
+              
+              {/* Mobile-only action buttons aligned to the right */}
+              <div className="flex items-center gap-1 ml-auto md:hidden">
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => dupVar(v.id)}>
+                  <CopyPlus className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => delVar(v.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Equals sign - hidden on mobile, visible on desktop */}
+            <span className="hidden md:inline text-sm text-muted-foreground/50 select-none font-mono">=</span>
+
+            {/* Bottom row on mobile: Value input and desktop copy/delete buttons */}
+            <div className="flex items-center gap-1.5 w-full md:flex-1">
+              <span className="md:hidden text-xs text-muted-foreground/60 select-none font-mono font-bold mr-1">=</span>
+              <Input ref={i === variables.length - 1 ? lastVarInputRef : undefined} value={v.value} onChange={(e) => setVarV(v.id, e.target.value)} placeholder="치환될 텍스트" className="h-8 flex-1 text-sm" onKeyDown={(e) => handleVarKeyDown(e, i)} />
+              
+              {/* Desktop Copy/Delete buttons */}
+              <div className="hidden md:flex items-center gap-1 shrink-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground" onClick={() => dupVar(v.id)}>
+                      <CopyPlus className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>복제</TooltipContent>
+                </Tooltip>
+                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" onClick={() => delVar(v.id)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
           </div>
         ))}</div>
       )}
@@ -628,7 +682,23 @@ export function TemplateGeneratorPanel({
         )}
       </div>
 
-      <Card className="border-primary/10 bg-primary/[0.02] shadow-none"><CardContent className="flex items-start gap-3 p-3"><Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/50 mt-0.5" /><div className="text-[11px] text-muted-foreground space-y-0.5"><p className="font-semibold text-foreground">문법 가이드</p><p><Badge variant="secondary" className="font-mono text-[10px] mr-1">*</Badge>곱연산 (Cartesian product)</p><p><Badge variant="secondary" className="font-mono text-[10px] mr-1">exclude</Badge>특정 조합 배제</p></div></CardContent></Card>
+      <div className="rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.02] to-primary/[0.01] p-3 flex items-start gap-2.5 transition-all duration-300 hover:border-primary/20 hover:bg-primary/[0.03] group/guide">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/50 mt-0.5 animate-pulse" />
+        <div className="text-[11px] text-muted-foreground space-y-1.5 flex-1">
+          <p className="font-semibold text-foreground text-xs">문법 가이드</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+            <div className="flex items-center gap-2 bg-background/40 hover:bg-background/80 transition-colors duration-200 rounded-lg p-1.5 border border-primary/5">
+              <Badge variant="secondary" className="font-mono text-[9px] h-4 px-1 shrink-0 bg-primary/5 border border-primary/10 text-primary font-bold shadow-none">*</Badge>
+              <span className="text-foreground/80 font-medium">곱연산 (Cartesian product)</span>
+            </div>
+            <div className="flex items-center gap-2 bg-background/40 hover:bg-background/80 transition-colors duration-200 rounded-lg p-1.5 border border-primary/5">
+              <Badge variant="secondary" className="font-mono text-[9px] h-4 px-1.5 shrink-0 bg-primary/5 border border-primary/10 text-primary font-bold shadow-none">exclude</Badge>
+              <span className="text-foreground/80 font-medium">특정 조합 배제</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   )
 
@@ -724,23 +794,6 @@ export function TemplateGeneratorPanel({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* ── TOP BAR ── */}
-      <div className="shrink-0 border-b bg-card">
-        <div className="flex items-center gap-3 px-4 py-2.5">
-          <div className="flex items-center gap-2 shrink-0">
-            <Label className="text-xs font-semibold text-muted-foreground">템플릿</Label>
-            <Select value={effectiveId} onValueChange={setSelectedTemplateId}>
-              <SelectTrigger className="h-8 w-48 text-sm"><SelectValue placeholder="선택..." /></SelectTrigger>
-              <SelectContent>{Object.entries(groupedTemplates).map(([cat, ts]) => (<SelectGroup key={cat}><SelectLabel className="text-[10px] font-bold tracking-widest uppercase">{catLabel(cat)}</SelectLabel>{ts.map((t) => (<SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>))}</SelectGroup>))}</SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} disabled={!generatedCode} placeholder="저장 이름..." className="h-8 flex-1 min-w-0 text-sm" />
-            <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleSave} disabled={!generatedCode} className="h-8 gap-1.5 shrink-0"><Save className="h-3.5 w-3.5" /><span className="hidden sm:inline">저장</span></Button></TooltipTrigger><TooltipContent>저장</TooltipContent></Tooltip>
-          </div>
-          <Button onClick={handleApply} disabled={!generatedCode} className="group h-8 shrink-0 gap-1.5 text-sm font-semibold">적용<ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></Button>
-        </div>
-      </div>
 
       {/* ═══════ DESKTOP: Left Accordion + Right Code/Results ═══════ */}
       <div className="hidden md:flex min-h-0 flex-1">
@@ -748,7 +801,7 @@ export function TemplateGeneratorPanel({
           {/* LEFT: Accordion Editor */}
           <ResizablePanel defaultSize={55} minSize={35} className="flex flex-col overflow-hidden">
             {!activeTemplate ? emptyState : (
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 min-h-0">
                 <div className="p-4 lg:p-5">
                   <CollapsibleSection value="variables" open={accordionValue.has("variables")} onToggle={toggleSection} icon={Sliders} label="변수" count={variables.length}>{variablesSection}</CollapsibleSection>
                   <CollapsibleSection value="axes" open={accordionValue.has("axes")} onToggle={toggleSection} icon={Layers} label="축" count={axes.length}>{axesSection}</CollapsibleSection>
@@ -787,9 +840,9 @@ export function TemplateGeneratorPanel({
             </TabsList>
           </div>
 
-          <TabsContent value="edit" className="min-h-0 flex-1 overflow-hidden mt-0">
+          <TabsContent value="edit" className="min-h-0 flex-1 overflow-hidden mt-0 flex flex-col">
             {!activeTemplate ? emptyState : (
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 min-h-0">
                 <div className="p-4">
                   <CollapsibleSection value="variables" open={accordionValue.has("variables")} onToggle={toggleSection} icon={Sliders} label="변수" count={variables.length}>{variablesSection}</CollapsibleSection>
                   <CollapsibleSection value="axes" open={accordionValue.has("axes")} onToggle={toggleSection} icon={Layers} label="축" count={axes.length}>{axesSection}</CollapsibleSection>
@@ -804,6 +857,7 @@ export function TemplateGeneratorPanel({
           <TabsContent value="results" className="min-h-0 flex-1 overflow-hidden mt-0 flex flex-col">{resultsContent}</TabsContent>
         </Tabs>
       </div>
+
     </div>
   )
 }

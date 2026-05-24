@@ -12,6 +12,18 @@ import { STORAGE_KEYS } from "@/lib/storageKeys"
 // Types
 // ---------------------------------------------------------------------------
 
+export interface GeneratorToolbarProps {
+  generatedCode: string
+  saveName: string
+  setSaveName: (name: string) => void
+  handleSave: () => void
+  handleApply: () => void
+  effectiveId: string
+  setSelectedTemplateId: (id: string) => void
+  groupedTemplates: Record<string, any[]>
+  catLabel: (c: string) => string
+}
+
 export interface TemplateContextValue {
   cegTemplate: string
   setCegTemplate: (value: string) => void
@@ -31,6 +43,8 @@ export interface TemplateContextValue {
     oldContent: string,
     newContent: string
   ) => boolean | null
+  generatorToolbarProps: GeneratorToolbarProps | null
+  setGeneratorToolbarProps: (props: GeneratorToolbarProps | null) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +84,7 @@ export function TemplateProvider({
     saveTemplate,
     deleteTemplate,
   } = useSavedTemplates()
+  const [generatorToolbarProps, setGeneratorToolbarProps] = useState<GeneratorToolbarProps | null>(null)
 
   return (
     <TemplateContext.Provider
@@ -91,6 +106,8 @@ export function TemplateProvider({
           oldContent: string,
           newContent: string
         ) => handlePendingUpdate(name, type, oldContent, newContent),
+        generatorToolbarProps,
+        setGeneratorToolbarProps,
       }}
     >
       {children}
