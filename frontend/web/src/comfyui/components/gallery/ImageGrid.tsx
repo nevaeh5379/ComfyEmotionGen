@@ -57,6 +57,7 @@ export interface GridProps {
   focusedHash?: string | null
   onFocus?: (hash: string | null) => void
   thumbnailSize?: number
+  fluidGridLayout?: boolean
 }
 
 export function ImageGrid({
@@ -71,9 +72,10 @@ export function ImageGrid({
   togglePin,
   pinnedHashes = [],
   imageLazyLoad = true,
-  focusedHash = null,
+  focusedHash,
   onFocus,
   thumbnailSize,
+  fluidGridLayout = true,
 }: GridProps) {
   const [brokenHashes, setBrokenHashes] = useState<Set<string>>(new Set())
 
@@ -96,7 +98,9 @@ export function ImageGrid({
     <div
       className="grid items-start gap-3 sm:gap-4"
       style={{
-        gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize ?? 180}px)`,
+        gridTemplateColumns: fluidGridLayout
+          ? `repeat(auto-fill, minmax(${thumbnailSize ?? 180}px, 1fr))`
+          : `repeat(auto-fill, ${thumbnailSize ?? 180}px)`,
       }}
     >
       {items.map((img) => {

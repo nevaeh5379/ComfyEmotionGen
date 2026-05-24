@@ -11,6 +11,7 @@ export interface CurationContextValue {
   savedWorkflows: SavedWorkflow[]
   enableHover: boolean
   autoApplyReject: boolean
+  fluidGridLayout: boolean
   thumbnailSize: number
   setThumbnailSize: (v: number) => void
 

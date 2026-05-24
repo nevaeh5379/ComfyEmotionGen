@@ -23,6 +23,7 @@ interface Props {
   autoApplyReject?: boolean
   hideEmptyCurationFolders?: boolean
   toolbarState?: CurationToolbarState
+  fluidGridLayout?: boolean
 }
 
 export const CombinationPicker = memo(function CombinationPicker({
@@ -34,6 +35,7 @@ export const CombinationPicker = memo(function CombinationPicker({
   autoApplyReject = true,
   hideEmptyCurationFolders = false,
   toolbarState,
+  fluidGridLayout = true,
 }: Props) {
   const [internalAxis, setInternalAxis] = useState<string>(DEFAULT_AXIS)
   const selectedAxis = toolbarState?.selectedAxis ?? internalAxis
@@ -81,6 +83,7 @@ export const CombinationPicker = memo(function CombinationPicker({
       savedWorkflows={savedWorkflows}
       enableHover={enableHover}
       autoApplyReject={autoApplyReject}
+      fluidGridLayout={fluidGridLayout}
       thumbnailSize={thumbnailSize}
       setThumbnailSize={setThumbnailSize}
       data={data}

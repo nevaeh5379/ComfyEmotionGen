@@ -85,7 +85,7 @@ export function CombinationPickerDetailView({
   onNavigate,
   onOpenList,
 }: DetailViewProps) {
-  const { backendUrl, enableHover, data, thumbnailSize } = useCurationContext()
+  const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } = useCurationContext()
   const { setStatus, imagesByFilename, renderItems } = data
 
   const selectedItem = renderItems.find(
@@ -136,10 +136,10 @@ export function CombinationPickerDetailView({
   }, [viewMode, visibleImages, focusedIdx, onSelectImage, selectedFilename])
   return (
     <div
-      className={`flex min-w-0 flex-col pb-20 md:pb-0 ${
+      className={`flex min-w-0 flex-col md:pb-0 ${
         viewMode === "tournament"
-          ? "flex-none border-b"
-          : "min-h-[700px] flex-1"
+          ? "pb-2 flex-none border-b"
+          : "pb-20 min-h-[700px] flex-1"
       }`}
     >
       {/* 상세 헤더 (모바일 2단 / 데스크탑 1단) */}
@@ -363,7 +363,9 @@ export function CombinationPickerDetailView({
           <div
             className="grid gap-3 sm:gap-4"
             style={{
-              gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize}px)`,
+              gridTemplateColumns: fluidGridLayout
+                ? `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`
+                : `repeat(auto-fill, ${thumbnailSize}px)`,
             }}
           >
             {visibleImages.map((img, idx) => {
@@ -428,6 +430,16 @@ export function CombinationPickerDetailView({
                             <ColumnsIcon
                               className={`h-5 w-5 md:h-4 md:w-4 ${isPinned ? "" : "opacity-50"}`}
                             />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onSetPreviewHash(img.hash)
+                            }}
+                            className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 md:hidden"
+                          >
+                            <Maximize2Icon className="h-5 w-5" />
                           </button>
                           {idx < 9 && (
                             <div className="absolute top-2 left-2 opacity-100 backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100">

@@ -1204,11 +1204,12 @@ function AppContent() {
                 tb.registerReload(reload)
               }}
               toolbarState={tb}
+              fluidGridLayout={settings.fluidGridLayout}
             />
           </div>
         )}
         {activeTab === "curation" && (
-          <div className="flex flex-col bg-background">
+          <div className="flex flex-1 flex-col bg-background">
             <CombinationPicker
               backendUrl={backendUrl}
               cegTemplate={template.cegTemplate}
@@ -1217,6 +1218,7 @@ function AppContent() {
               autoApplyReject={settings.autoApplyReject}
               hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
               savedWorkflows={workflow.savedWorkflows}
+              fluidGridLayout={settings.fluidGridLayout}
               toolbarState={{
                 selectedAxis: curationSelectedAxis,
                 setSelectedAxis: setCurationSelectedAxis,
@@ -1290,7 +1292,7 @@ function AppContent() {
                 ) : null
 
                 const jobManagerEl = !isJobManagerFloating ? (
-                  <div className="min-h-0 flex-1 overflow-y-auto">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     <JobManagerPanel
                       jobs={jobs}
                       paused={paused}
@@ -1841,7 +1843,7 @@ function AppContent() {
           }
         >
           <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <JobManagerPanel
                 jobs={jobs}
                 paused={paused}

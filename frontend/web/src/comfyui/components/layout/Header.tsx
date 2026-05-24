@@ -7,7 +7,6 @@ import {
   FilterIcon,
   MoreVertical,
   RefreshCwIcon,
-  Settings2Icon,
   DownloadIcon,
   Trash2Icon,
   Sun,
@@ -40,7 +39,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -797,69 +795,6 @@ export function Header(props: HeaderProps) {
               >
                 <FilterIcon className="h-3.5 w-3.5" />
               </Button>
-
-              <Button
-                size="sm"
-                variant="outline"
-                className="!h-7 !w-7 shrink-0 p-0"
-                onClick={curToolbar.handleExport}
-              >
-                <DownloadIcon className="h-3.5 w-3.5" />
-              </Button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="!h-7 !w-7 shrink-0 p-0">
-                    <Settings2Icon className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 p-2">
-                  <DropdownMenuCheckboxItem
-                    checked={curToolbar.hideRejected}
-                    onCheckedChange={(v) => curToolbar.setHideRejected(v)}
-                    className="text-[12px] font-bold"
-                  >
-                    리젝 숨기기
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={curToolbar.autoAdvance}
-                    onCheckedChange={(v) => curToolbar.setAutoAdvance(v)}
-                    className="text-[12px] font-bold"
-                  >
-                    자동 다음 이동
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="text-[12px] font-bold">
-                      중복 전략: {curToolbar.duplicateStrategy === "hash" ? "HASH" : "NUM"}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="w-24 p-1">
-                        <DropdownMenuItem
-                          onClick={() => curToolbar.setDuplicateStrategy("hash")}
-                          className="text-[12px] font-bold"
-                        >
-                          HASH
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => curToolbar.setDuplicateStrategy("number")}
-                          className="text-[12px] font-bold"
-                        >
-                          NUM
-                        </DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={curToolbar.onRefresh}
-                    className="text-[12px] font-bold"
-                  >
-                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
-                    새로고침
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           )}
         </div>

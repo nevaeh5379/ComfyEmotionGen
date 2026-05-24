@@ -177,6 +177,7 @@ interface Props {
   onReloadReady?: (reload: () => void) => void
   /** 단일 이미지 다운로드 방식 */
   singleDownloadMode?: "newtab" | "direct"
+  fluidGridLayout?: boolean
 }
 
 const DEFAULT_PAGE_SIZE = 48
@@ -194,7 +195,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   generalFilters,
   onTokensExtracted,
   onReloadReady,
-  singleDownloadMode,
+  singleDownloadMode = "newtab",
+  fluidGridLayout = true,
 }: Props) {
   useRenderLog("SavedImagesGallery")
   const confirm = useConfirm()
@@ -1965,6 +1967,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                           focusedHash={focusedHash}
                           onFocus={setFocusedHash}
                           thumbnailSize={thumbnailSize}
+                          fluidGridLayout={fluidGridLayout}
                         />
                       )}
                     </div>
@@ -2062,6 +2065,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   focusedHash={focusedHash}
                   onFocus={setFocusedHash}
                   thumbnailSize={thumbnailSize}
+                  fluidGridLayout={fluidGridLayout}
                 />
               </>
             ) : null}

@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import {
@@ -43,6 +44,12 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { LoadingButton } from "./CombinationPickerComponents"
 import { useCurationContext } from "./CurationContext"
 import {
@@ -140,6 +147,15 @@ export function CombinationPickerToolbar({
 
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [toolbarHeight, setToolbarHeight] = useState(0)
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useLayoutEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    handleResize()
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   useLayoutEffect(() => {
     const el = toolbarRef.current
@@ -372,27 +388,48 @@ export function CombinationPickerToolbar({
           )}
 
           {/* 필터 토글 */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={
-                  filtersExpanded ||
-                  statusFilter !== "all" ||
-                  filenameFilter ||
-                  metadataFilter
-                    ? "secondary"
-                    : "outline"
-                }
-                size="sm"
-                className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-                onClick={() => setFiltersExpanded(!filtersExpanded)}
-              >
-                <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
-                <span className="hidden sm:inline">필터</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>필터 토글</TooltipContent>
-          </Tooltip>
+          {isMobile ? (
+            <Button
+              variant={
+                filtersExpanded ||
+                statusFilter !== "all" ||
+                filenameFilter ||
+                metadataFilter ||
+                isMobileFilterOpen
+                  ? "secondary"
+                  : "outline"
+              }
+              size="sm"
+              className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
+              onClick={() => setIsMobileFilterOpen(true)}
+            >
+              <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              <span className="hidden sm:inline">필터</span>
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={
+                    filtersExpanded ||
+                    statusFilter !== "all" ||
+                    filenameFilter ||
+                    metadataFilter ||
+                    isMobileFilterOpen
+                      ? "secondary"
+                      : "outline"
+                  }
+                  size="sm"
+                  className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || filenameFilter || metadataFilter) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
+                  onClick={() => setFiltersExpanded(!filtersExpanded)}
+                >
+                  <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                  <span className="hidden sm:inline">필터</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>필터 토글</TooltipContent>
+            </Tooltip>
+          )}
 
           {/* 설정 드롭다운 */}
           <DropdownMenu>
@@ -552,9 +589,9 @@ export function CombinationPickerToolbar({
         </div>
       )}
 
-      {/* 필터 바 (접이식) */}
+      {/* 필터 바 (접이식) — 데스크톱 전용 */}
       {filtersExpanded && (
-        <div className="flex flex-wrap items-center gap-3 border-t border-dashed bg-muted/5 px-4 py-3">
+        <div className="hidden md:flex flex-wrap items-center gap-3 border-t border-dashed bg-muted/5 px-4 py-3">
           {/* 상태 필터 */}
           <Select
             value={statusFilter}
@@ -615,6 +652,179 @@ export function CombinationPickerToolbar({
           </div>
         </div>
       )}
+
+      {/* 모바일 전용 필터 Drawer (Sheet) */}
+      <Sheet open={isMobile && filtersExpanded} onOpenChange={setFiltersExpanded}>
+        <SheetContent side="bottom" className="rounded-t-2xl px-6 pt-6 pb-6 h-[85dvh] max-h-[85dvh] flex flex-col overflow-hidden bg-card border-t border-line">
+          <SheetHeader className="mb-4 shrink-0 p-0">
+            <SheetTitle className="text-base font-bold text-foreground">큐레이션 설정 & 필터</SheetTitle>
+          </SheetHeader>
+          
+          {/* 스크롤 가능한 상세 필터 및 설정 목록 */}
+          <div className="flex-1 overflow-y-auto pr-1 -mr-1 flex flex-col gap-4 pb-4">
+            {/* 상태 필터 */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground">상태 필터</label>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) =>
+                  withExpand(setStatusFilter, v as "all" | "done" | "pending")
+                }
+              >
+                <SelectTrigger className="h-10 w-full text-sm font-bold bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 상태</SelectItem>
+                  <SelectItem value="done">완료만</SelectItem>
+                  <SelectItem value="pending">미완료만</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 파일명 필터 */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground">파일명 검색</label>
+              <div className="relative w-full">
+                <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="파일명 검색..."
+                  value={filenameFilter}
+                  onChange={(e) => withExpand(setFilenameFilter, e.target.value)}
+                  className="h-10 w-full pl-9 text-sm font-bold bg-background"
+                />
+              </div>
+            </div>
+
+            {/* 메타데이터 필터 */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground">메타데이터 검색</label>
+              <div className="relative w-full">
+                <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="메타데이터 검색..."
+                  value={metadataFilter}
+                  onChange={(e) => withExpand(setMetadataFilter, e.target.value)}
+                  className="h-10 w-full pl-9 text-sm font-bold bg-background"
+                />
+              </div>
+            </div>
+
+            {/* 썸네일 크기 조절 (모바일용 가로 슬라이더) */}
+            {(viewMode === "gallery" || viewMode === "grid" || viewMode === "tournament") && (
+              <div className="space-y-2 border-t border-dashed pt-4">
+                <label className="text-xs font-bold text-muted-foreground flex justify-between">
+                  <span>이미지 크기 조절</span>
+                  <span className="font-mono text-foreground font-black">{thumbnailSize}px</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <LayoutGridIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <input
+                    type="range"
+                    min="120"
+                    max="320"
+                    step="10"
+                    value={thumbnailSize}
+                    onChange={(e) => setThumbnailSize(Number(e.target.value))}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 추가 작동 스위치 옵션 */}
+            <div className="space-y-3 border-t border-dashed pt-4 pb-1">
+              <label className="text-xs font-bold text-muted-foreground">큐레이션 상세 옵션</label>
+              
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">리젝 이미지 숨기기</span>
+                <Switch
+                  checked={hideRejected}
+                  onCheckedChange={setHideRejected}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">선택 시 다음 조합으로 자동 이동</span>
+                <Switch
+                  checked={autoAdvance}
+                  onCheckedChange={setAutoAdvance}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">중복 파일명 구분 전략</span>
+                <Select
+                  value={duplicateStrategy}
+                  onValueChange={(v) => setDuplicateStrategy(v as "hash" | "number")}
+                >
+                  <SelectTrigger className="h-8 w-24 text-xs font-bold bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hash" className="text-xs font-bold">HASH</SelectItem>
+                    <SelectItem value="number" className="text-xs font-bold">NUM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* 데이터 새로고침 및 필터 초기화 버튼 영역 */}
+            <div className="flex flex-col gap-2 border-t border-dashed pt-4">
+              <Button
+                variant="outline"
+                className="w-full h-10 text-xs font-bold gap-2"
+                onClick={fetchData}
+              >
+                <RefreshCwIcon className="h-3.5 w-3.5" />
+                데이터 새로고침
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full h-10 text-xs font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5 active:bg-primary/10"
+                onClick={handleExport}
+                disabled={exportActionIsLoading}
+              >
+                <DownloadIcon className="h-3.5 w-3.5" />
+                큐레이션 내보내기
+              </Button>
+
+              <div className="flex items-center justify-between mt-2">
+                {(statusFilter !== "all" || filenameFilter || metadataFilter) ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={() => {
+                      setStatusFilter("all")
+                      setFilenameFilter("")
+                      setMetadataFilter("")
+                    }}
+                  >
+                    <XIcon className="mr-1.5 h-3.5 w-3.5" /> 필터 초기화
+                  </Button>
+                ) : (
+                  <div />
+                )}
+                <div className="text-[10px] font-black text-muted-foreground tabular-nums">
+                  결과: {filteredRenderItems.length} / {renderItems.length}개
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 적용 버튼 (서랍 하단에 항상 고정) */}
+          <Button
+            className="mt-2 w-full h-11 text-sm font-bold shrink-0"
+            onClick={() => setFiltersExpanded(false)}
+          >
+            설정 및 필터 적용
+          </Button>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -27,6 +27,8 @@ export interface AppSettings {
   useWindowMode: boolean
   /** 큐레이션 빈 폴더 숨기기 여부 */
   hideEmptyCurationFolders: boolean
+  /** 그리드 화면 맞춤(유동형) 여부 */
+  fluidGridLayout: boolean
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -41,6 +43,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   progressCalculation: "done",
   useWindowMode: false,
   hideEmptyCurationFolders: true,
+  fluidGridLayout: true,
 }
 
 export const useSettings = () => {

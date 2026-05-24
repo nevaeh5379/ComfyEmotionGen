@@ -9,7 +9,7 @@ import {
   EmptyTitle,
   EmptyMedia,
 } from "@/components/ui/empty"
-import { AlertTriangleIcon, LayersIcon, SearchXIcon } from "lucide-react"
+import { AlertTriangleIcon, LayersIcon, SearchXIcon, ArrowUpIcon } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -69,7 +69,6 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     autoApplyReject,
     data,
     selection,
-    thumbnailSize,
   } = useCurationContext()
 
   const {
@@ -110,6 +109,23 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [compareImageKeys, setCompareImageKeys] = useState<Set<string>>(
     new Set()
   )
+  const [showScrollTop, setShowScrollTop] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 400) {
+        setShowScrollTop(true)
+      } else {
+        setShowScrollTop(false)
+      }
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
   const compareImageCount = compareImageKeys.size
   const [previewHash, setPreviewHash] = useState<string | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
@@ -651,7 +667,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     )
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-1 flex-col">
       {/* ── Toolbar ── */}
       <CombinationPickerToolbar
         selectedAxis={selectedAxis}
@@ -810,7 +826,6 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                       handleSelectImage(selectedFilename, hash)
                       setViewMode("grid")
                     }}
-                    thumbnailSize={thumbnailSize}
                   />
                 </div>
               )}
@@ -869,6 +884,17 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           isOpen={previewHash !== null}
           onClose={() => setPreviewHash(null)}
         />
+
+        {/* 모바일 화면 상단 이동 플로팅 버튼 */}
+        {showScrollTop && (
+          <Button
+            onClick={scrollToTop}
+            size="sm"
+            className="fixed bottom-6 right-6 z-50 h-10 w-10 rounded-full p-0 shadow-lg border border-border bg-card text-foreground hover:bg-muted active:scale-95 transition-all md:bottom-8 md:right-8"
+          >
+            <ArrowUpIcon className="h-5 w-5" />
+          </Button>
+        )}
       </div>
     </div>
   )

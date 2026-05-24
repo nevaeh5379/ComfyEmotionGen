@@ -394,6 +394,18 @@ export function SettingsPanel({
               }
             />
           </SettingRow>
+          <Separator />
+          <SettingRow
+            label="그리드 화면 맞춤(유동형) 사용"
+            description="그리드의 빈 공간을 가득 채우도록 이미지 카드를 가로로 확장합니다. 비활성화 시 설정된 썸네일 고정 크기대로 렌더링됩니다."
+          >
+            <Switch
+              checked={settings.fluidGridLayout}
+              onCheckedChange={(v) =>
+                updateSetting("fluidGridLayout", v === true)
+              }
+            />
+          </SettingRow>
         </Section>
 
         {/* 알림 설정 */}

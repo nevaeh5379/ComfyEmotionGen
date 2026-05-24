@@ -647,7 +647,7 @@ export const JobTableSection = memo(function JobTableSection({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Desktop Table View */}
       <div className="hidden min-h-0 flex-1 flex-col md:flex">
-        <ScrollArea className="mx-2 mb-2 flex-1 rounded-lg border bg-panel shadow-inner">
+        <ScrollArea className="mx-2 mb-2 flex-1 min-h-0 rounded-lg border bg-panel shadow-inner">
           <Table className="text-xs">
             <TableHeader className="sticky top-0 z-10 bg-panel/95 shadow-sm backdrop-blur">
               <TableRow className="hover:bg-transparent">
@@ -771,7 +771,7 @@ export const JobTableSection = memo(function JobTableSection({
       {/* Mobile Card List View */}
       <div className="flex min-h-0 flex-1 flex-col md:hidden">
         {/* Mobile card list */}
-        <ScrollArea className="mx-2 mb-2 flex-1 rounded-lg bg-panel">
+        <ScrollArea className="mx-2 mb-2 flex-1 min-h-0 rounded-lg bg-panel">
           <div className="space-y-2 py-2">
             {pagedJobs.map((job) => {
               const dur = jobDuration(job)

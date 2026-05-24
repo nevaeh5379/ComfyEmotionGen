@@ -86,11 +86,9 @@ export function Magnifier({
 export function TournamentView({
   images,
   onComplete,
-  thumbnailSize = 180,
 }: {
   images: SavedImage[]
   onComplete: (winnerHash: string) => void
-  thumbnailSize?: number
 }) {
   const { backendUrl } = useCurationContext()
   const [matches, setMatches] = useState<SavedImage[]>(() =>
@@ -196,33 +194,34 @@ export function TournamentView({
   const currentMatchNum = nextRound.length + 1
 
   return (
-    <div className="flex h-full flex-col items-center justify-center p-4">
-      <div className="mb-6 flex flex-col items-center">
-        <h3 className="text-xl font-bold">이상형 월드컵</h3>
-        <span className="text-sm font-medium text-muted-foreground">
+    <div className="flex h-full flex-col items-center justify-center p-2 md:p-4">
+      <div className="mb-2 flex flex-col items-center md:mb-6">
+        <h3 className="text-sm font-black md:text-xl">이상형 월드컵</h3>
+        <span className="text-[11px] font-medium text-muted-foreground md:text-sm">
           라운드 매치: {currentMatchNum} / {totalMatchesThisRound}
         </span>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-1 flex items-center gap-1.5 md:mt-2">
           <Button
             variant="ghost"
             size="xs"
             onClick={handleUndo}
             disabled={history.length === 0}
+            className="h-6 px-2 text-[10px]"
           >
             Z: 되돌리기
           </Button>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-[10px] text-muted-foreground hidden md:inline">
             A/D 또는 방향키로 선택
           </span>
         </div>
       </div>
-      <div className="flex w-full flex-1 flex-col justify-center gap-4 overflow-hidden md:flex-row md:gap-6">
+      <div className="flex w-full flex-1 flex-row justify-center gap-2 overflow-hidden px-1 md:gap-6">
         {[left, right].map((img, idx) => (
           <button
             key={img.hash}
             onClick={() => handlePick(img)}
-            className="group relative w-full flex-1 overflow-hidden rounded-xl border-4 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none"
-            style={{ maxWidth: `${thumbnailSize * 2.2}px` }}
+            className="group relative w-1/2 flex-1 overflow-hidden rounded-xl border-2 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none md:border-4"
+            style={{ maxHeight: "calc(100vh - 280px)" }}
           >
             {/* Blurred Background to eliminate empty margins */}
             <img
@@ -235,8 +234,8 @@ export function TournamentView({
               className="relative z-10 h-full w-full object-contain"
               alt=""
             />
-            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-4 text-center font-bold text-white opacity-100 md:opacity-0 md:group-hover:opacity-100">
-              {idx === 0 ? "왼쪽 (또는 위) 선택" : "오른쪽 (또는 아래) 선택"}
+            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-2 text-center text-xs font-bold text-white opacity-100 md:p-4 md:text-sm md:opacity-0 md:group-hover:opacity-100">
+              {idx === 0 ? "왼쪽 선택" : "오른쪽 선택"}
             </div>
           </button>
         ))}
@@ -499,7 +498,7 @@ export function GalleryView({
   onLongPress: (filename: string) => void
   onRegenerate?: (filename: string) => void
 }) {
-  const { backendUrl, enableHover, data, selection, thumbnailSize } =
+  const { backendUrl, enableHover, data, selection, thumbnailSize, fluidGridLayout } =
     useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
   const { selectionMode, selectedFilenames, toggleSelect } = selection
@@ -508,7 +507,9 @@ export function GalleryView({
     <div
       className="grid items-start gap-4"
       style={{
-        gridTemplateColumns: `repeat(auto-fill, ${thumbnailSize}px)`,
+        gridTemplateColumns: fluidGridLayout
+          ? `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`
+          : `repeat(auto-fill, ${thumbnailSize}px)`,
       }}
     >
       {items.map((item: RenderItem) => {
