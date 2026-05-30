@@ -441,7 +441,7 @@ class JobStore:
                 "eventType": row["event_type"],
                 "timestamp": row["timestamp"],
                 "workerId": row["worker_id"],
-                "details": json.loads(row["details"]),
+                "details": json.loads(row["payload_json"]),
             }
             for row in rows
         ]
