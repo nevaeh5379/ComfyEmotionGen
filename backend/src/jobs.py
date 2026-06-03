@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 import hashlib
 import json
 import logging
@@ -27,12 +28,13 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Literal, Optional
+from typing import Any, Awaitable, Callable, Literal, Optional, overload
 
-from comfy_client import ComfyWorker, WorkerInfo
-from job_store import JobStore
-from worker_pool import WorkerPool
-from prompt_dsl import parse, render
+from backend.src.server import JobItem
+from backend.src.worker.comfyui import ComfyWorker, WorkerInfo
+from backend.src.job_store import JobStore
+from backend.src.worker_pool import WorkerPool
+from backend.src.prompt_dsl import parse, render
 
 
 def _worker_view(info: WorkerInfo) -> dict[str, Any]:
@@ -160,6 +162,31 @@ class Job:
             ceg_template=d.get("cegTemplate", ""),
             image_uploads=d.get("imageUploads", {}),
         )
+    
+    def clone(self) -> "Job":
+        return Job(
+            id=str(uuid.uuid4()),
+            filename=self.filename,
+            prompt=self.prompt,
+            workflow=deepcopy(self.workflow),
+            status=self.status,
+            worker_id=self.worker_id,
+            error=self.error,
+            image_urls=deepcopy(self.image_urls),
+            saved_image_hashes=deepcopy(self.saved_image_hashes),
+            progress_percent=self.progress_percent,
+            current_node_name=self.current_node_name,
+            total_node_count=self.total_node_count,
+            completed_node_count=self.completed_node_count,
+            created_at=time.time(),
+            started_at=None,
+            finished_at=None,
+            retry_count=0,
+            execution_duration_ms=None,
+            meta=deepcopy(self.meta),
+            ceg_template=self.ceg_template,
+            image_uploads=deepcopy(self.image_uploads),
+        )
 
 
 # 정규화된 이벤트 타입
@@ -262,53 +289,59 @@ class JobManager:
                     job.started_at = None
                 self._jobs[job.id] = job
         self._wakeup.set()
-
+    async def _register_job(self, job: Job) -> None:
+        async with self._lock:
+            self._jobs[job.id] = job
+        await self._store.save(job.to_dict())
+        await self._store.save_event(
+        job.id, "created",
+        details={"filename": job.filename, "prompt": job.prompt},
+        )
+        await self._emit({"type": "job.created", "job": job.to_dict()})
     # ---------- public API ----------
+    async def retry(self, items: list[Job]) -> list[Job]:
+        new_jobs = [job.clone() for job in items]
+        
+        for job in new_jobs:
+            await self._register_job(job)
+        self._wakeup.set()
+        return new_jobs
+
+    @overload
+    async def submit(self, items: list[JobItem]) -> list[Job]: ...
+
+    @overload
+    async def submit(self, items: JobItem) -> Job: ...
+
 
     async def submit(
-        self, items: list[dict[str, Any]]
-    ) -> list[Job]:
-        """
-        items: [{filename, prompt, workflow}, ...]
-        프론트가 시드/치환 박은 워크플로우를 그대로 넘겨받는다.
-        """
-        created: list[Job] = []
-        async with self._lock:
-            for item in items:
-                job = Job(
-                    id=str(uuid.uuid4()),
-                    filename=item["filename"],
-                    prompt=item["prompt"],
-                    workflow=item["workflow"],
-                    meta=item.get("meta", {}),
-                    ceg_template=item.get("cegTemplate", ""),
-                    image_uploads=item.get("imageUploads", {}),
-                )
-                self._jobs[job.id] = job
-                created.append(job)
+        self, items: JobItem | list[JobItem]
+    ) -> Job | list[Job]:
+        if isinstance(items, JobItem):
+            return (await self._submit_many([items]))[0]
+        return await self._submit_many(items)
+
+    async def _submit_many(self, items: list[JobItem]) -> list[Job]:
+        created: list[Job] = self._create_jobs(items)
+            
+
         for job in created:
-            await self._store.save(job.to_dict())
-            await self._store.save_event(
-                job.id, "created",
-                details={"filename": job.filename, "prompt": job.prompt},
-            )
-            await self._emit({"type": "job.created", "job": job.to_dict()})
+            await self._register_job(job)
         self._wakeup.set()
         return created
-
-    @property
-    def paused(self) -> bool:
-        return self._paused
-
-    async def set_paused(self, paused: bool) -> None:
-        if self._paused == paused:
-            return
-        self._paused = paused
-        await self._emit({"type": "control.updated", "paused": self._paused})
-        if not paused:
-            # 재개 시 즉시 디스패처 깨움
-            self._wakeup.set()
-
+    def _create_jobs(self, items: list[JobItem]) -> list[Job]:
+        return [
+        Job(
+            id=str(uuid.uuid4()),
+            filename=item.filename,
+            prompt=item.prompt,
+            workflow=item.workflow,
+            meta=item.meta,
+            ceg_template=item.cegTemplate,
+            image_uploads=item.imageUploads,
+        )
+        for item in items
+    ]
     # ---------- worker management ----------
 
     async def add_worker(self, url: str) -> dict[str, Any]:

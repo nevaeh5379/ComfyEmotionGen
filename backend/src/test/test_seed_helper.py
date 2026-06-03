@@ -6,7 +6,7 @@ test_seed_helper.py
 
 from __future__ import annotations
 
-from jobs import _clone_workflow_with_new_seed
+from backend.src.jobs import _clone_workflow_with_new_seed
 
 
 def _wf():

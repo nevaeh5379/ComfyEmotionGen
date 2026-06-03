@@ -15,7 +15,7 @@ import logging
 import os
 from typing import Awaitable, Callable, Iterable, Optional
 
-from comfy_client import ComfyWorker, WorkerInfo
+from backend.src.comfy_client import ComfyWorker, WorkerInfo
 
 logger = logging.getLogger(__name__)
 

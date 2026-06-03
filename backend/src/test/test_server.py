@@ -7,7 +7,7 @@ FastAPI 서버 엔드포인트 테스트.
 import pytest
 from fastapi.testclient import TestClient
 
-from server import app
+from backend.src.server import app
 
 
 @pytest.fixture

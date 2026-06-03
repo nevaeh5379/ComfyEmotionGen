@@ -3,7 +3,7 @@
 from typing import Any, cast
 
 import pytest
-from prompt_dsl import inject_into_workflow
+from backend.src.prompt_dsl import inject_into_workflow
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ class TestMultiPlaceholder:
 
 class TestOptionalAxisAndSubstitution:
     def test_parse_optional_axis(self):
-        from prompt_dsl import parse, render
+        from backend.src.prompt_dsl import parse, render
         src = """
         {{axis mood?}}
           happy : "happy"
@@ -84,7 +84,7 @@ class TestOptionalAxisAndSubstitution:
         assert filenames == {"img_happy", "img_sad", "img"}
 
     def test_clean_filename_toggle_on_off(self):
-        from prompt_dsl import parse, render
+        from backend.src.prompt_dsl import parse, render
         # Test clean_filename = "false"
         src_false = """
         {{set clean_filename = "false"}}

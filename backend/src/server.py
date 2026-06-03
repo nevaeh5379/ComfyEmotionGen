@@ -39,6 +39,7 @@
 from __future__ import annotations
 
 import asyncio
+from enum import Enum, StrEnum, auto
 import hashlib
 import io
 import json
@@ -57,13 +58,13 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
-from worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
-from jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
+from backend.src.prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
+from backend.src.worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
+from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
 from fastapi.staticfiles import StaticFiles
-from job_store import JobStore
-from webhook import WebhookService, WEBHOOK_EVENTS
-from _version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
+from backend.src.job_store import JobStore
+from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
+from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,10 @@ class InjectRequest(BaseModel):
     )
     placeholder: str = "{{input}}"
 
+class WorkerType(StrEnum):
+    COMFYUI = auto()
+    NAI = auto()
+
 
 class JobItem(BaseModel):
     filename: str
@@ -162,6 +167,8 @@ class JobItem(BaseModel):
     meta: Dict[str, str] = Field(default_factory=dict)
     cegTemplate: str = ""
     imageUploads: Dict[str, Dict[str, str]] = Field(default_factory=dict)
+    workerType: WorkerType
+
 
 
 class JobsCreateRequest(BaseModel):
@@ -442,8 +449,8 @@ def inject_endpoint(req: InjectRequest):
 
 @app.post("/jobs")
 async def jobs_create(req: JobsCreateRequest):
-    items = [item.model_dump() for item in req.items]
-    jobs = await job_manager.submit(items)
+    # items = [item.model_dump() for item in req.items]
+    jobs = await job_manager.submit(req.items)
     return {"jobIds": [j.id for j in jobs]}
 
 
@@ -491,13 +498,10 @@ async def jobs_remove(job_id: str):
 
 @app.post("/jobs/{job_id}/retry")
 async def jobs_retry(job_id: str):
-    """동일한 filename/prompt/workflow로 새 잡을 생성한다."""
     job = await job_manager.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    new_jobs = await job_manager.submit([
-        {"filename": job.filename, "prompt": job.prompt, "workflow": job.workflow}
-    ])
+    new_jobs = await job_manager.retry([job])
     return {"jobId": new_jobs[0].id}
 
 
