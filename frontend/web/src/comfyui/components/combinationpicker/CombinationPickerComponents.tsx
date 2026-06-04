@@ -39,16 +39,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { useState, useMemo, useEffect, type ComponentProps } from "react"
+import { useState, useMemo, useEffect, useCallback, type ComponentProps } from "react"
 import type { SavedImage } from "../../types/Message"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
+import { API, HEADERS } from "@/lib/api"
+import { buildAutoMappings, buildWorkflowForItem } from "@/lib/workflowUtils"
+import type { ComfyWorkflow } from "@/lib/workflow"
+import type { RenderItem } from "../../types/renderTypes"
 
-export interface RenderItem {
-  filename: string
-  prompt: string
-  meta: Record<string, string>
-}
+export type { RenderItem }
 
 export interface CombinationViewProps {
   items: RenderItem[]
@@ -343,24 +343,32 @@ export function LoadingButton({
 export interface RegenerateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  filenames: string[]
-  imagesByFilename: Map<string, SavedImage[]>
+  sourceImages: SavedImage[]
+  backendUrl: string
   currentCegTemplate: string
   savedTemplates: SavedTemplate[]
   savedWorkflows: SavedWorkflow[]
-  onRegenerate: (count: number, template: string, workflow?: string) => void
+  onSubmit: (items: Array<{
+    filename: string
+    prompt: string
+    workflow: ComfyWorkflow
+    meta: Record<string, string>
+    cegTemplate: string
+    imageUploads: Record<string, Record<string, string>>
+    workerType: string
+  }>) => Promise<void>
   isLoading: boolean
 }
 
 export function RegenerateDialog({
   open,
   onOpenChange,
-  filenames,
-  imagesByFilename,
+  sourceImages,
+  backendUrl,
   currentCegTemplate,
   savedTemplates,
   savedWorkflows,
-  onRegenerate,
+  onSubmit,
   isLoading,
 }: RegenerateDialogProps) {
   const [count, setCount] = useState(4)
@@ -369,39 +377,33 @@ export function RegenerateDialog({
 
   const historicalTemplates = useMemo(() => {
     const templates = new Set<string>()
-    for (const filename of filenames) {
-      const images = imagesByFilename.get(filename) ?? []
-      for (const img of images) {
-        if (img.cegTemplate) {
-          templates.add(img.cegTemplate)
-        }
+    for (const img of sourceImages) {
+      if (img.cegTemplate) {
+        templates.add(img.cegTemplate)
       }
     }
     return Array.from(templates)
-  }, [filenames, imagesByFilename])
+  }, [sourceImages])
 
   const historicalWorkflows = useMemo(() => {
     const items: { id: string; name: string; workflow: string }[] = []
     const seen = new Set<string>()
     let idx = 0
-    for (const filename of filenames) {
-      const images = imagesByFilename.get(filename) ?? []
-      for (const img of images) {
-        if (!img.workflow) continue
-        const wf = JSON.stringify(img.workflow)
-        if (seen.has(wf)) continue
-        seen.add(wf)
-        idx++
-        const preview = wf.substring(0, 80)
-        items.push({
-          id: `__history_wf__${idx}`,
-          name: `기록 ${idx} (${preview}${wf.length > 80 ? "..." : ""})`,
-          workflow: wf,
-        })
-      }
+    for (const img of sourceImages) {
+      if (!img.workflow) continue
+      const wf = JSON.stringify(img.workflow)
+      if (seen.has(wf)) continue
+      seen.add(wf)
+      idx++
+      const preview = wf.substring(0, 80)
+      items.push({
+        id: `__history_wf__${idx}`,
+        name: `기록 ${idx} (${preview}${wf.length > 80 ? "..." : ""})`,
+        workflow: wf,
+      })
     }
     return items
-  }, [filenames, imagesByFilename])
+  }, [sourceImages])
 
   const selectedWorkflow = useMemo(() => {
     const sw = savedWorkflows.find((w) => w.id === selectedWorkflowId)
@@ -409,19 +411,97 @@ export function RegenerateDialog({
     return historicalWorkflows.find((w) => w.id === selectedWorkflowId)
   }, [selectedWorkflowId, savedWorkflows, historicalWorkflows])
 
+  const sourceFilename = sourceImages[0]?.originalFilename ?? ""
+
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedTemplate(currentCegTemplate || historicalTemplates[0] || "")
       setSelectedWorkflowId("")
     }
   }, [open, currentCegTemplate, historicalTemplates])
 
-  const handleConfirm = () => {
-    onRegenerate(count, selectedTemplate, selectedWorkflow?.workflow)
-  }
+  const handleConfirm = useCallback(async () => {
+    if (isLoading || sourceImages.length === 0) return
 
-  const canConfirm = isLoading
+    const workflowJson =
+      selectedWorkflow?.workflow ??
+      (sourceImages[0]?.workflow
+        ? JSON.stringify(sourceImages[0].workflow)
+        : null)
+    if (!workflowJson) {
+      console.error("No workflow available for regeneration")
+      return
+    }
+
+    const parsedWorkflow: ComfyWorkflow = JSON.parse(workflowJson)
+    const nodeMappings = buildAutoMappings(parsedWorkflow)
+
+    let renderItems: RenderItem[]
+    if (selectedTemplate) {
+      const res = await fetch(`${backendUrl}${API.render}`, {
+        method: "POST",
+        headers: HEADERS.json,
+        body: JSON.stringify({ template: selectedTemplate }),
+      })
+      if (!res.ok) throw new Error(`Render failed: HTTP ${res.status}`)
+      const data = (await res.json()) as { items: RenderItem[] }
+      const matching = data.items.filter(
+        (item) => item.filename === sourceFilename
+      )
+      renderItems = matching.length > 0 ? matching : data.items
+    } else {
+      renderItems = [
+        {
+          filename: sourceFilename,
+          prompt: "",
+          meta: {},
+        },
+      ]
+    }
+
+    const allItems: Array<{
+      filename: string
+      prompt: string
+      workflow: ComfyWorkflow
+      meta: Record<string, string>
+      cegTemplate: string
+      imageUploads: Record<string, Record<string, string>>
+      workerType: string
+    }> = []
+
+    for (let i = 0; i < count; i++) {
+      for (const item of renderItems) {
+        const wf = buildWorkflowForItem(
+          workflowJson,
+          item,
+          nodeMappings,
+          {}
+        )
+        allItems.push({
+          filename: item.filename,
+          prompt: item.prompt,
+          workflow: wf,
+          meta: item.meta,
+          cegTemplate: selectedTemplate || "",
+          imageUploads: {},
+          workerType: "comfyui",
+        })
+      }
+    }
+
+    await onSubmit(allItems)
+  }, [
+    isLoading,
+    sourceImages,
+    selectedWorkflow,
+    selectedTemplate,
+    sourceFilename,
+    count,
+    backendUrl,
+    onSubmit,
+  ])
+
+  const canConfirm = isLoading || !sourceImages[0]?.workflow
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -472,7 +552,7 @@ export function RegenerateDialog({
                 <SelectItem value="__none__">
                   {selectedWorkflowId
                     ? "워크플로우 해제"
-                    : "워크플로우 직접 선택"}
+                    : "소스 이미지의 워크플로우 사용"}
                 </SelectItem>
                 {savedWorkflows.length > 0 && (
                   <>
@@ -566,6 +646,12 @@ export function RegenerateDialog({
               <pre className="max-h-32 overflow-y-auto font-mono text-[11px] leading-tight whitespace-pre-wrap">
                 {selectedTemplate}
               </pre>
+            </div>
+          )}
+
+          {!sourceImages[0]?.workflow && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              소스 이미지에 워크플로우 정보가 없습니다.
             </div>
           )}
         </div>

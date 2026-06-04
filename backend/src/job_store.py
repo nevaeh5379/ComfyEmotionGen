@@ -800,31 +800,6 @@ class JobStore:
             for r in rows
         ]
 
-    async def get_latest_job_by_filename(
-        self, filename: str
-    ) -> Optional[dict[str, Any]]:
-        """같은 filename으로 등록된 가장 최근 Job (워크플로우 재사용용)."""
-        assert self._conn is not None
-        cursor = await self._conn.execute(
-            "SELECT * FROM jobs WHERE filename = ? ORDER BY created_at DESC LIMIT 1",
-            (filename,),
-        )
-        row = await cursor.fetchone()
-        if row is None:
-            return None
-        try:
-            meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
-        except (json.JSONDecodeError, TypeError):
-            meta = {}
-        return {
-            "id": row["id"],
-            "filename": row["filename"],
-            "prompt": row["prompt"],
-            "_workflow": json.loads(row["workflow_json"]),
-            "meta": meta,
-            "cegTemplate": row["ceg_template"] or "",
-        }
-
     # ---------- 통합 로그 조회 ----------
 
     async def get_all_events(

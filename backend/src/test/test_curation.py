@@ -194,35 +194,3 @@ async def test_asset_groups_aggregate(store: JobStore):
     assert by_name["grp_b"]["pendingCount"] == 1
     # sampleHash가 그룹의 어느 하나여야 함
     assert by_name["grp_a"]["sampleHash"] in {"g1", "g2"}
-
-
-@pytest.mark.asyncio
-async def test_get_latest_job_by_filename(store: JobStore):
-    # jobs 테이블에 직접 INSERT (save 사용)
-    base = {
-        "id": "old",
-        "filename": "shared",
-        "prompt": "p1",
-        "_workflow": {"k": "v1"},
-        "status": "done",
-        "workerId": None,
-        "error": None,
-        "imageUrls": [],
-        "progressPercent": 0.0,
-        "currentNodeName": "",
-        "createdAt": time.time() - 100,
-        "startedAt": None,
-        "finishedAt": None,
-        "retryCount": 0,
-        "executionDurationMs": None,
-    }
-    await store.save(base)
-    new = dict(base, id="new", _workflow={"k": "v2"}, createdAt=time.time())
-    await store.save(new)
-
-    latest = await store.get_latest_job_by_filename("shared")
-    assert latest is not None
-    assert latest["id"] == "new"
-    assert latest["_workflow"] == {"k": "v2"}
-
-    assert await store.get_latest_job_by_filename("missing") is None

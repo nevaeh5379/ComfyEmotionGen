@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useEffectLog } from "@/lib/renderLogger"
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { API, HEADERS, DEFAULT_DOWNLOAD_FILENAME } from "@/lib/api"
-import { DEFAULT_SEED_STRATEGY, WS_RECONNECT_DELAY_MS } from "@/lib/constants"
+import { WS_RECONNECT_DELAY_MS } from "@/lib/constants"
 import { httpToWs } from "@/lib/utils"
 import type {
   AssetGroup,
@@ -342,26 +342,6 @@ export const curationApi = {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as { deleted: number }
     return data.deleted
-  },
-  async regenerate(
-    backendUrl: string,
-    filename: string,
-    count: number,
-    seedStrategy: "random" | "increment" = DEFAULT_SEED_STRATEGY,
-    template?: string,
-    workflow?: string
-  ): Promise<string[]> {
-    const res = await fetch(
-      `${backendUrl}${API.assetGroups.regenerate(filename)}`,
-      {
-        method: "POST",
-        headers: HEADERS.json,
-        body: JSON.stringify({ count, seedStrategy, template, workflow }),
-      }
-    )
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = (await res.json()) as { jobIds: string[] }
-    return data.jobIds
   },
   async exportDataset(
     backendUrl: string,

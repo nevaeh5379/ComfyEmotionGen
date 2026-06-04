@@ -100,19 +100,13 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import type { CurationStatus, SavedImage } from "../types/Message"
 import { STATUS_LABEL } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
+import { API, HEADERS } from "@/lib/api"
 import { downloadImagesAsZip, getImageFilename } from "../utils/downloadImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
+import { RegenerateDialog } from "./combinationpicker/CombinationPickerComponents"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import { toast } from "sonner"
 import { ImageGrid } from "./gallery/ImageGrid"
@@ -1120,29 +1114,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }
 
   // 재생성 다이얼로그 상태
-  const [regenTarget, setRegenTarget] = useState<string | null>(null)
-  const [regenCount, setRegenCount] = useState("4")
+  const [regenImages, setRegenImages] = useState<SavedImage[]>([])
 
-  const handleRegenerate = async (filename: string) => {
-    setRegenTarget(filename)
-    setRegenCount("4")
-  }
-
-  const handleRegenConfirm = async () => {
-    if (!regenTarget) return
-    const count = Number(regenCount)
-    if (!Number.isFinite(count) || count < 1) {
-      toast.error("유효한 숫자를 입력해주세요.")
-      return
-    }
-    setRegenTarget(null)
-    try {
-      await curationApi.regenerate(backendUrl, regenTarget, count, "random")
-      toast.success(`'${regenTarget}' 그룹에 ${count}장 생성 요청 완료`)
-    } catch (err) {
-      console.error(err)
-      toast.error("재생성 요청에 실패했습니다.")
-    }
+  const handleRegenerate = (filename: string) => {
+    const images = groupImagesMap.get(filename) ?? []
+    setRegenImages(images)
   }
 
   const toggleSort = useCallback(
@@ -2149,40 +2125,29 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             )}
           </div>
 
-          {/* 재생성 수량 입력 다이얼로그 */}
-          <Dialog
-            open={regenTarget !== null}
+          {/* 재생성 다이얼로그 */}
+          <RegenerateDialog
+            open={regenImages.length > 0}
             onOpenChange={(open) => {
-              if (!open) setRegenTarget(null)
+              if (!open) setRegenImages([])
             }}
-          >
-            <DialogContent className="sm:max-w-[340px]">
-              <DialogHeader>
-                <DialogTitle>추가 생성</DialogTitle>
-                <DialogDescription>
-                  '{regenTarget}' 그룹에 몇 장을 추가 생성할까요?
-                </DialogDescription>
-              </DialogHeader>
-              <Input
-                type="number"
-                min={1}
-                max={100}
-                value={regenCount}
-                onChange={(e) => setRegenCount(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRegenConfirm()
-                }}
-                className="text-center text-lg font-bold"
-                autoFocus
-              />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setRegenTarget(null)}>
-                  취소
-                </Button>
-                <Button onClick={handleRegenConfirm}>생성</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            sourceImages={regenImages}
+            backendUrl={backendUrl}
+            currentCegTemplate=""
+            savedTemplates={[]}
+            savedWorkflows={[]}
+            onSubmit={async (items) => {
+              const res = await fetch(`${backendUrl}${API.jobs.root}`, {
+                method: "POST",
+                headers: HEADERS.json,
+                body: JSON.stringify({ items }),
+              })
+              if (!res.ok) throw new Error(`HTTP ${res.status}`)
+              toast.success(`${items.length}개 작업 생성 완료`)
+              setRegenImages([])
+            }}
+            isLoading={false}
+          />
           <div
             ref={marqueeRef}
             className="pointer-events-none fixed z-[9999] rounded-sm border border-primary/60 bg-primary/10 shadow-xs"

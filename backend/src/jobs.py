@@ -19,10 +19,8 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 import hashlib
-import json
 import logging
 import os
-import random
 import re
 import time
 import uuid
@@ -34,7 +32,6 @@ from backend.src.server import JobItem
 from backend.src.worker.comfyui import ComfyWorker, WorkerInfo
 from backend.src.job_store import JobStore
 from backend.src.worker_pool import WorkerPool
-from backend.src.prompt_dsl import parse, render
 
 
 def _worker_view(info: WorkerInfo) -> dict[str, Any]:
@@ -111,6 +108,7 @@ class Job:
     meta: dict[str, str] = field(default_factory=dict)
     ceg_template: str = ""
     image_uploads: dict[str, dict[str, str]] = field(default_factory=dict)
+    worker_type: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -135,6 +133,7 @@ class Job:
             "meta": self.meta,
             "cegTemplate": self.ceg_template,
             "imageUploads": self.image_uploads,
+            "workerType": self.worker_type,
         }
 
     @classmethod
@@ -161,6 +160,7 @@ class Job:
             meta=d.get("meta", {}),
             ceg_template=d.get("cegTemplate", ""),
             image_uploads=d.get("imageUploads", {}),
+            worker_type=d.get("workerType"),
         )
     
     def clone(self) -> "Job":
@@ -186,6 +186,7 @@ class Job:
             meta=deepcopy(self.meta),
             ceg_template=self.ceg_template,
             image_uploads=deepcopy(self.image_uploads),
+            worker_type=self.worker_type,
         )
 
 
@@ -331,17 +332,30 @@ class JobManager:
         return created
     def _create_jobs(self, items: list[JobItem]) -> list[Job]:
         return [
-        Job(
-            id=str(uuid.uuid4()),
-            filename=item.filename,
-            prompt=item.prompt,
-            workflow=item.workflow,
-            meta=item.meta,
-            ceg_template=item.cegTemplate,
-            image_uploads=item.imageUploads,
-        )
-        for item in items
-    ]
+            Job(
+                id=str(uuid.uuid4()),
+                filename=item.filename,
+                prompt=item.prompt,
+                workflow=item.workflow.root if item.workflow else {},
+                meta=item.meta,
+                ceg_template=item.cegTemplate,
+                image_uploads=item.imageUploads,
+                worker_type=item.workerType.value if item.workerType else None,
+            )
+            for item in items
+        ]
+    def paused(self) -> bool:
+        return self._paused
+
+    async def set_paused(self, paused: bool) -> None:
+        if self._paused == paused:
+            return
+        self._paused = paused
+        await self._emit({"type": "control.updated", "paused": self._paused})
+        if not paused:
+            # 재개 시 즉시 디스패처 깨움
+            self._wakeup.set()
+
     # ---------- worker management ----------
 
     async def add_worker(self, url: str) -> dict[str, Any]:
@@ -956,116 +970,7 @@ class JobManager:
                 await self._emit({"type": "image.deleted", "hash": hash_val})
         return deleted
 
-    # ---------- 재생성 ----------
 
-    async def regenerate_group(
-        self,
-        filename: str,
-        *,
-        count: int,
-        seed_strategy: str = "random",
-        template: str | None = None,
-        workflow: str | None = None,
-    ) -> list[Job]:
-        """같은 filename의 워크플로우를 재사용해 시드만 바꿔 N건 재제출.
-        workflow가 주어지면 직접 파싱해서 사용하고, template이 주어지면 렌더링해서 사용하며,
-        둘 다 없으면 가장 최근 잡의 워크플로우를 사용한다.
-        """
-        if count < 1:
-            return []
-
-        base_workflow: dict[str, Any]
-        prompt: str
-        meta: dict[str, Any]
-        ceg_template: str
-
-        if template:
-            prog = parse(template)
-            rendered = render(prog)
-            target_item = next(
-                (it for it in rendered["items"] if it["filename"] == filename),
-                None
-            )
-            if target_item is None:
-                raise ValueError(f"filename '{filename}' not found in provided template")
-            prompt = target_item["prompt"]
-            meta = target_item.get("meta", {})
-            ceg_template = template
-            if workflow:
-                base_workflow = json.loads(workflow)
-            else:
-                latest = await self._store.get_latest_job_by_filename(filename)
-                if latest is None:
-                    raise ValueError(f"no prior job for filename: {filename}")
-                base_workflow = latest["_workflow"]
-        elif workflow:
-            base_workflow = json.loads(workflow)
-            prompt = ""
-            meta = {}
-            ceg_template = ""
-        else:
-            # 2. 기존 가장 최근 잡에서 정보 추출
-            latest = await self._store.get_latest_job_by_filename(filename)
-            if latest is None:
-                raise ValueError(f"no prior job for filename: {filename}")
-            base_workflow = latest["_workflow"]
-            prompt = latest["prompt"]
-            meta = latest.get("meta", {})
-            ceg_template = latest.get("cegTemplate", "")
-
-        items: list[dict[str, Any]] = []
-        for i in range(count):
-            wf = _clone_workflow_with_new_seed(
-                base_workflow, strategy=seed_strategy, increment_offset=i + 1
-            )
-            items.append({
-                "filename": filename,
-                "prompt": prompt,
-                "workflow": wf,
-                "meta": meta,
-                "cegTemplate": ceg_template,
-            })
-        return await self.submit(items)
-
-
-# ---------- workflow seed helpers ----------
-
-_SEED_KEYS = ("seed", "noise_seed")
-_MAX_SEED = 2**32 - 1
-
-
-def _clone_workflow_with_new_seed(
-    workflow: dict[str, Any],
-    *,
-    strategy: str,
-    increment_offset: int,
-) -> dict[str, Any]:
-    """워크플로우 JSON을 깊은 복사해 seed/noise_seed를 갱신한다.
-
-    KSampler 등 시드를 갖는 모든 노드를 갱신.
-    strategy="random": 새 랜덤 시드.
-    strategy="increment": 기존 시드 + increment_offset (없으면 랜덤).
-    """
-    import copy
-
-    cloned = copy.deepcopy(workflow)
-    if not isinstance(cloned, dict):
-        return cloned
-    for node in cloned.values():
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        for key in _SEED_KEYS:
-            if key not in inputs:
-                continue
-            old = inputs[key]
-            if strategy == "increment" and isinstance(old, int):
-                inputs[key] = (old + increment_offset) & _MAX_SEED
-            else:
-                inputs[key] = random.randint(0, _MAX_SEED)
-    return cloned
 
 
 # ---------- image upload helpers ----------

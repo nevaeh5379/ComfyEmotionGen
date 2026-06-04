@@ -28,8 +28,6 @@ export const API = {
     root: "/asset-groups",
     detail: (filename: string) =>
       `/asset-groups/${encodeURIComponent(filename)}`,
-    regenerate: (filename: string) =>
-      `/asset-groups/${encodeURIComponent(filename)}/regenerate`,
   },
   trash: {
     empty: "/trash/empty",

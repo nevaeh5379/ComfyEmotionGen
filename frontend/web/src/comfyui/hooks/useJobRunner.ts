@@ -122,6 +122,7 @@ export function useJobRunner({
       meta: item.meta,
       cegTemplate: cegTemplate,
       imageUploads,
+      workerType: "comfyui",
     }))
     try {
       const res = await fetch(`${backendUrl}${API.jobs.root}`, {

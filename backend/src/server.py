@@ -26,7 +26,7 @@
     POST /trash/empty                  - 휴지통 비우기 (디스크/DB 영구 삭제)
     GET  /asset-groups                 - filename별 후보군 집계
     GET  /asset-groups/{filename}      - 그룹 내 이미지 전체
-    POST /asset-groups/{filename}/regenerate - 같은 워크플로우 새 시드로 재생성
+
     POST /export                       - 큐레이션 결과 zip 다운로드
     GET  /jobs/{id}/saved-images       - 특정 잡이 만든 영속 이미지 목록
     GET  /object_info                  - ComfyUI 노드 정의 (object_info.json)
@@ -65,6 +65,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.src.job_store import JobStore
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
+from backend.src.workflow_models import ComfyWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,8 @@ class WorkerType(StrEnum):
 class JobItem(BaseModel):
     filename: str
     prompt: str
-    workflow: Dict[str, Any]
+    # workflow: Dict[str, Any]
+    workflow: ComfyWorkflow | None
     meta: Dict[str, str] = Field(default_factory=dict)
     cegTemplate: str = ""
     imageUploads: Dict[str, Dict[str, str]] = Field(default_factory=dict)
@@ -189,13 +191,6 @@ class ExportRequest(BaseModel):
     filenames: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     duplicateStrategy: Literal["hash", "number"] = "hash"
-
-
-class RegenerateRequest(BaseModel):
-    count: int = Field(1, ge=1, le=64)
-    seedStrategy: Literal["random", "increment"] = "random"
-    template: Optional[str] = None
-    workflow: Optional[str] = None
 
 
 class JobsDeleteRequest(BaseModel):
@@ -721,21 +716,6 @@ async def asset_group_detail(filename: str, status: str | None = None):
         limit=10_000, offset=0, filename=filename, status=status
     )
     return {"filename": filename, "items": items}
-
-
-@app.post("/asset-groups/{filename}/regenerate")
-async def asset_group_regenerate(filename: str, body: RegenerateRequest):
-    try:
-        jobs = await job_manager.regenerate_group(
-            filename,
-            count=body.count,
-            seed_strategy=body.seedStrategy,
-            template=body.template,
-            workflow=body.workflow,
-        )
-        return {"jobIds": [j.id for j in jobs]}
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
 
 
 # ====== 데이터셋 익스포트 ======
