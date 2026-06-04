@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Literal, Optional, overload
 
-from backend.src.server import JobItem
+from backend.src.models import JobItem
 from backend.src.worker.comfyui import ComfyWorker, WorkerInfo
 from backend.src.job_store import JobStore
 from backend.src.worker_pool import WorkerPool

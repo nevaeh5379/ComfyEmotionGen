@@ -1,20 +1,13 @@
 from enum import StrEnum, auto
-from typing import  Optional, Union
+from typing import Optional
 
 from pydantic import BaseModel, RootModel
 
 NodeLink = tuple[str, int]
 
-NodeInputValue = Union[
-    str,
-    int,
-    float,
-    bool,
-    None,
-    NodeLink,
-    list["NodeInputValue"],
-    dict[str, "NodeInputValue"]
-]
+type NodeInputValue = (
+    str | int | float | bool | None | NodeLink | list["NodeInputValue"] | dict[str, "NodeInputValue"]
+)
 
 class ComfyNode(BaseModel):
     inputs: dict[str, NodeInputValue]
@@ -40,7 +33,7 @@ class NodeMapping(BaseModel):
     id: str
     node_id: str
     source_type: MappingSourceType
-    seed_value: Optional[int]
-    seed_random: Optional[bool]
-    fixed_value: Optional[str]
-    image_value: Optional[str]
+    seed_value: Optional[int] = None
+    seed_random: Optional[bool] = None
+    fixed_value: Optional[str] = None
+    image_value: Optional[str] = None

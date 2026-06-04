@@ -66,6 +66,7 @@ from backend.src.job_store import JobStore
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 from backend.src.workflow_models import ComfyWorkflow
+from backend.src.models import JobItem, WorkerType
 
 logger = logging.getLogger(__name__)
 
@@ -155,21 +156,6 @@ class InjectRequest(BaseModel):
         ..., description="문자열 또는 {placeholder: value} 매핑"
     )
     placeholder: str = "{{input}}"
-
-class WorkerType(StrEnum):
-    COMFYUI = auto()
-    NAI = auto()
-
-
-class JobItem(BaseModel):
-    filename: str
-    prompt: str
-    # workflow: Dict[str, Any]
-    workflow: ComfyWorkflow | None
-    meta: Dict[str, str] = Field(default_factory=dict)
-    cegTemplate: str = ""
-    imageUploads: Dict[str, Dict[str, str]] = Field(default_factory=dict)
-    workerType: WorkerType
 
 
 
