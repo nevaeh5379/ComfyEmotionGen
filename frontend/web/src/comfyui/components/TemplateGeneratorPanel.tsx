@@ -25,6 +25,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -241,7 +243,7 @@ function VarBadgeButtons({ variables, axes, onInsertVar, onInsertAxisKey }: { va
 
 export function TemplateGeneratorPanel({
   setActiveTab,
-  backendUrl = "http://localhost:8000",
+  backendUrl = DEFAULT_BACKEND_URL,
 }: {
   setActiveTab: (t: "jobs" | "stats" | "gallery" | "curation" | "generator" | "settings") => void
   backendUrl?: string

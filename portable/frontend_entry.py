@@ -64,8 +64,9 @@ def start_frontend_server(port, backend_url):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ComfyEmotionGen Frontend Server')
-    parser.add_argument('--port', type=int, default=8000, help='Port to listen on (default: 8000)')
-    parser.add_argument('--backend-url', type=str, default='',
+    default_port = int(os.environ.get('BACKEND_PORT', '8000'))
+    parser.add_argument('--port', type=int, default=default_port, help=f'Port to listen on (default: {default_port})')
+    parser.add_argument('--backend-url', type=str, default=os.environ.get('BACKEND_URL', ''),
                         help='Backend API URL exposed to the frontend (default: empty)')
     parser.add_argument('--no-browser', action='store_true', help='Do not open browser automatically')
     args = parser.parse_args()

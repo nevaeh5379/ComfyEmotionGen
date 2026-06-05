@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncGenerator, Optional
 
 import httpx
 
@@ -104,10 +104,32 @@ class NAIWorker(BaseWorker):
         """NAI는 진행 중인 요청을 취소하는 API가 없을 수 있음 (best-effort)."""
         logger.warning("NAI worker %s interrupt: no-op (not implemented)", self.id)
 
-    async def stream_output(self, params: dict[str, str]) -> AsyncIterator[bytes]:
+    async def stream_output(self, params: dict[str, str]) -> AsyncGenerator[bytes, None]:
         """NAI 결과 이미지 스트리밍 (TODO: 실제 API에 맞게 구현)."""
         if self._http is None:
             raise RuntimeError(f"NAI worker {self.id} not started")
         # TODO: NAI는 생성 완료 후 이미지 URL을 반환하므로
         # stream_output 대신 결과를 polling 후 다운로드하는 방식 필요
         yield b""
+
+    async def delete_from_queue(self, prompt_id: str) -> None:
+        """NAI는 큐 관리 API가 없으므로 no-op."""
+        pass
+
+    async def clear_queue(self) -> None:
+        """NAI는 큐 관리 API가 없으므로 no-op."""
+        pass
+
+    async def upload_image(
+        self,
+        *,
+        file_data: bytes,
+        filename: str,
+        subfolder: str = "",
+    ) -> str:
+        """NAI 이미지 업로드 (TODO: 실제 API에 맞게 구현)."""
+        raise NotImplementedError("NAI upload_image not yet implemented")
+
+    async def get_object_info(self) -> dict[str, Any]:
+        """NAI는 노드 정의가 없으므로 빈 dict 반환."""
+        return {}

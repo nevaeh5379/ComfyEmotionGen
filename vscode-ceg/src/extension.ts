@@ -1,7 +1,10 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-const BACKEND_URL = "http://localhost:8000";
+function getBackendUrl(): string {
+  const config = vscode.workspace.getConfiguration("ceg");
+  return config.get<string>("backendUrl") || "http://localhost:8000";
+}
 
 interface RenderItem {
   filename: string;
@@ -31,6 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     const template = doc.getText();
+    const BACKEND_URL = getBackendUrl();
 
     // Show loading
     await vscode.window.withProgress(

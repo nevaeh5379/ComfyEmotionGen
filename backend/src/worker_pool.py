@@ -80,7 +80,7 @@ class WorkerPool:
         worker_id = f"worker-{self._next_index}"
         self._next_index += 1
         worker_cls = WORKER_REGISTRY.get(worker_type, ComfyWorker)
-        worker = worker_cls(worker_id, url)
+        worker = worker_cls(worker_id, url, worker_type=worker_type)
         self._apply_handlers(worker)
         self._workers[worker_id] = worker
         return worker

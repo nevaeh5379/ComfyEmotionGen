@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+from typing import Any, AsyncGenerator, AsyncIterator, Awaitable, Callable, Optional
 
 
 @dataclass
@@ -101,9 +101,38 @@ class BaseWorker(ABC):
         ...
 
     @abstractmethod
-    async def stream_output(self, params: dict[str, str]) -> AsyncIterator[bytes]:
+    async def stream_output(self, params: dict[str, str]) -> AsyncGenerator[bytes, None]:
         """생성 결과(이미지 등)를 스트리밍으로 가져오기."""
+        yield ...  # type: ignore[misc]  # 추상 비동기 제너레이터 플레이스홀더
+
+    @abstractmethod
+    async def delete_from_queue(self, prompt_id: str) -> None:
+        """워커의 대기 큐에서 특정 잡 제거 (best-effort)."""
         ...
+
+    @abstractmethod
+    async def clear_queue(self) -> None:
+        """워커의 대기 큐 전체 비우기 (best-effort)."""
+        ...
+
+    @abstractmethod
+    async def upload_image(
+        self,
+        *,
+        file_data: bytes,
+        filename: str,
+        subfolder: str = "",
+    ) -> str:
+        """워커에 이미지 업로드 후 서버측 이름 반환."""
+        ...
+
+    @abstractmethod
+    async def get_object_info(self) -> dict[str, Any]:
+        """워커의 노드 정의(object_info) 조회."""
+        ...
+
+    # 후방 호환 별칭
+    stream_view = stream_output
 
 
 # 백엔드 타입 → 워커 클래스 매핑 (지연 임포트로 순환 참조 방지)

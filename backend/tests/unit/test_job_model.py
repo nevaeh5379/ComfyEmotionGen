@@ -214,13 +214,18 @@ class TestClone:
 
         assert cloned.filename == original.filename
         assert cloned.prompt == original.prompt
-        assert cloned.status == original.status
+        # clone()은 새 잡이므로 상태/진행 정보는 초기화됨
+        assert cloned.status == "pending"
+        assert cloned.worker_id is None
+        assert cloned.error is None
+        assert cloned.saved_image_hashes == []
+        assert cloned.progress_percent == 0.0
+        assert cloned.current_node_name == ""
+        assert cloned.total_node_count == 0
+        assert cloned.completed_node_count == 0
+        # 템플릿/워커 타입 등 설정 정보는 유지
         assert cloned.worker_type == original.worker_type
         assert cloned.ceg_template == original.ceg_template
-        assert cloned.worker_type == original.worker_type
-        assert cloned.progress_percent == original.progress_percent
-        assert cloned.total_node_count == original.total_node_count
-        assert cloned.completed_node_count == original.completed_node_count
 
 
 # ===================================================================

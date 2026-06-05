@@ -170,15 +170,15 @@ class Job:
             filename=self.filename,
             prompt=self.prompt,
             workflow=deepcopy(self.workflow),
-            status=self.status,
-            worker_id=self.worker_id,
-            error=self.error,
+            status="pending",
+            worker_id=None,
+            error=None,
             image_urls=deepcopy(self.image_urls),
-            saved_image_hashes=deepcopy(self.saved_image_hashes),
-            progress_percent=self.progress_percent,
-            current_node_name=self.current_node_name,
-            total_node_count=self.total_node_count,
-            completed_node_count=self.completed_node_count,
+            saved_image_hashes=[],
+            progress_percent=0.0,
+            current_node_name="",
+            total_node_count=0,
+            completed_node_count=0,
             created_at=time.time(),
             started_at=None,
             finished_at=None,
@@ -345,6 +345,7 @@ class JobManager:
             )
             for item in items
         ]
+    @property
     def paused(self) -> bool:
         return self._paused
 

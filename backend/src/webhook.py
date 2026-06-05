@@ -428,7 +428,7 @@ class WebhookService:
         job: Optional[dict[str, Any]],
         batch_info: Optional[dict[str, Any]],
     ) -> None:
-        payload = {
+        payload: dict[str, Any] = {
             "event": event,
             "timestamp": _iso_now(),
         }

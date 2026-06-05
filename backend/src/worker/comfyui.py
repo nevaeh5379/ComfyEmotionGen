@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncGenerator, Optional
 
 import httpx
 import websockets
@@ -130,15 +130,12 @@ class ComfyWorker(BaseWorker):
         except Exception as exc:  # pragma: no cover - best effort
             logger.warning("worker %s clear_queue failed: %s", self.id, exc)
 
-    async def stream_output(self, params: dict[str, str]) -> AsyncIterator[bytes]:
+    async def stream_output(self, params: dict[str, str]) -> AsyncGenerator[bytes, None]:
         """BaseWorker.stream_output의 ComfyUI 구현 (/view 엔드포인트)."""
         async with self._http.stream("GET", "/view", params=params) as resp:
             resp.raise_for_status()
             async for chunk in resp.aiter_bytes():
                 yield chunk
-
-    # 후방 호환 별칭
-    stream_view = stream_output
 
     async def upload_image(
         self,

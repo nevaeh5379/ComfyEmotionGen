@@ -102,6 +102,10 @@ class JobStore:
         await self._migrate_add_column("jobs", "execution_duration_ms", "REAL")
         await self._migrate_add_column("jobs", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
         await self._migrate_add_column("jobs", "ceg_template", "TEXT NOT NULL DEFAULT ''")
+        await self._migrate_add_column("jobs", "saved_image_hashes_json", "TEXT NOT NULL DEFAULT '[]'")
+        await self._migrate_add_column("jobs", "total_node_count", "INTEGER NOT NULL DEFAULT 0")
+        await self._migrate_add_column("jobs", "completed_node_count", "INTEGER NOT NULL DEFAULT 0")
+        await self._migrate_add_column("jobs", "worker_type", "TEXT")
 
         await self._conn.execute(
             """
@@ -247,8 +251,10 @@ class JobStore:
                 id, filename, prompt, workflow_json, status, worker_id,
                 error, image_urls_json, progress_percent, current_node_name,
                 created_at, started_at, finished_at, retry_count,
-                execution_duration_ms, meta_json, ceg_template
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                execution_duration_ms, meta_json, ceg_template,
+                saved_image_hashes_json, total_node_count,
+                completed_node_count, worker_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_dict["id"],
@@ -268,6 +274,10 @@ class JobStore:
                 job_dict.get("executionDurationMs"),
                 json.dumps(job_dict.get("meta", {})),
                 job_dict.get("cegTemplate", ""),
+                json.dumps(job_dict.get("savedImageHashes", [])),
+                job_dict.get("totalNodeCount", 0),
+                job_dict.get("completedNodeCount", 0),
+                job_dict.get("workerType"),
             ),
         )
         await self._conn.commit()
@@ -291,8 +301,11 @@ class JobStore:
             "workerId": row["worker_id"],
             "error": row["error"],
             "imageUrls": json.loads(row["image_urls_json"]),
+            "savedImageHashes": json.loads(row["saved_image_hashes_json"]) if row["saved_image_hashes_json"] else [],
             "progressPercent": row["progress_percent"],
             "currentNodeName": row["current_node_name"],
+            "totalNodeCount": row["total_node_count"] if "total_node_count" in row.keys() else 0,
+            "completedNodeCount": row["completed_node_count"] if "completed_node_count" in row.keys() else 0,
             "createdAt": row["created_at"],
             "startedAt": row["started_at"],
             "finishedAt": row["finished_at"],
@@ -300,6 +313,7 @@ class JobStore:
             "executionDurationMs": row["execution_duration_ms"],
             "meta": meta,
             "cegTemplate": row["ceg_template"] or "",
+            "workerType": row["worker_type"] if "worker_type" in row.keys() else None,
         }
 
     async def load_all(self) -> list[dict[str, Any]]:

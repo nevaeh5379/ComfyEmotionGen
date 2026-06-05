@@ -39,13 +39,11 @@
 from __future__ import annotations
 
 import asyncio
-from enum import Enum, StrEnum, auto
 import hashlib
 import io
 import json
 import logging
 import mimetypes
-import re
 import zipfile
 import os
 from contextlib import asynccontextmanager
@@ -61,7 +59,6 @@ from pydantic import BaseModel, Field
 from backend.src.prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
 from backend.src.worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
 from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
-from fastapi.staticfiles import StaticFiles
 from backend.src.job_store import JobStore
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
@@ -84,7 +81,8 @@ async def broadcast(event: dict[str, Any]) -> None:
     for ws in list(ws_clients):
         try:
             await ws.send_json(event)
-        except Exception:
+        except Exception as exc:
+            logger.warning("WebSocket broadcast 실패, 클라이언트 제거: %s", exc)
             dead.append(ws)
     for ws in dead:
         ws_clients.discard(ws)

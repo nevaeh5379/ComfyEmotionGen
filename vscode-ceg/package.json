@@ -64,7 +64,18 @@
         "key": "ctrl+shift+p",
         "when": "resourceLangId == ceg"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "CEG",
+      "properties": {
+        "ceg.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Backend server URL used by the CEG preview command.",
+          "order": 1
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

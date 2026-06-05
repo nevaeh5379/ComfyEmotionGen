@@ -1,20 +1,21 @@
 /**
  * 서버 설정 저장소 클라이언트.
  *
- * 백엔드 /app-settings API 를 통해 설정 데이터를 저장/조회한다.
+ * 백엔드 /app-settings API 를 통해 설정 데이터를 저장/조회한다
  * 네트워크 에러 시 null 을 반환하고, 호출자가 localStorage 폴백을 처리한다.
  */
 
 import { STORAGE_KEYS } from "../lib/storageKeys"
+import { DEFAULT_BACKEND_URL } from "../lib/runtime"
 import { toast } from "sonner"
 
 const readBackendUrl = (): string => {
   try {
     return (
-      localStorage.getItem(STORAGE_KEYS.backendUrl) || "http://127.0.0.1:8000"
+      localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
     )
   } catch {
-    return "http://127.0.0.1:8000"
+    return DEFAULT_BACKEND_URL
   }
 }
 
