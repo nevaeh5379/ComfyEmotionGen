@@ -184,7 +184,8 @@ class JobsDeleteRequest(BaseModel):
 
 
 class WorkerCreateRequest(BaseModel):
-    url: str = Field(..., description="ComfyUI 서버 URL (http://host:port)")
+    url: str = Field(..., description="워커 서버 URL (http://host:port)")
+    worker_type: str = Field("comfyui", description="워커 백엔드 타입 (comfyui, nai, ...)")
 
 
 # ====== lifespan ======
@@ -195,9 +196,9 @@ async def _resolve_initial_worker_urls(store: JobStore) -> list[str]:
 
     이후 추가/삭제는 DB가 권위. env는 첫 부팅 시 seed로만 사용.
     """
-    urls = await store.list_worker_urls()
-    if urls:
-        return urls
+    entries = await store.list_worker_urls()
+    if entries:
+        return [e["url"] for e in entries]
     env_urls = read_env_worker_urls()
     seed = env_urls or [DEFAULT_COMFYUI_URL]
     for url in seed:
@@ -370,9 +371,9 @@ def workers_list():
 
 @app.post("/workers")
 async def workers_create(req: WorkerCreateRequest):
-    """새 ComfyUI 워커 URL 등록. DB 영속화 + 풀에 추가."""
+    """새 워커 URL 등록. DB 영속화 + 풀에 추가."""
     try:
-        view = await job_manager.add_worker(req.url)
+        view = await job_manager.add_worker(req.url, worker_type=req.worker_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"worker": view}

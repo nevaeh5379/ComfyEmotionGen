@@ -109,6 +109,7 @@ class TestWorkersCreate:
                 alive=True,
                 busy=False,
                 current_job_id=None,
+                worker_type="comfyui",
             )
         )
         pool.add.reset_mock()
@@ -130,16 +131,18 @@ class TestWorkersCreate:
         assert worker["alive"] is True
         assert worker["busy"] is False
         assert worker["currentJobId"] is None
+        assert worker["workerType"] == "comfyui"
 
     def test_create_worker_calls_pool_add(self, client):
         pool = _get_worker_pool()
         client.post("/workers", json={"url": "http://comfyui.local:8188"})
-        pool.add.assert_awaited_once_with("http://comfyui.local:8188")
+        pool.add.assert_awaited_once_with("http://comfyui.local:8188", worker_type="comfyui")
 
     async def test_create_worker_stores_url(self, client):
         store = _get_store()
         client.post("/workers", json={"url": "http://comfyui.local:8188"})
-        urls = await store.list_worker_urls()
+        entries = await store.list_worker_urls()
+        urls = [e["url"] for e in entries]
         assert "http://comfyui.local:8188" in urls
 
     def test_create_duplicate_url_returns_400(self, client):
@@ -171,6 +174,7 @@ class TestWorkersCreate:
                 id="mock-worker-slash",
                 url="http://comfyui.local:8188",
                 alive=True, busy=False, current_job_id=None,
+                worker_type="comfyui",
             )
         )
         pool.has_url.side_effect = None
@@ -178,7 +182,7 @@ class TestWorkersCreate:
 
         resp = client.post("/workers", json={"url": "http://comfyui.local:8188/"})
         assert resp.status_code == 200
-        pool.add.assert_awaited_once_with("http://comfyui.local:8188")
+        pool.add.assert_awaited_once_with("http://comfyui.local:8188", worker_type="comfyui")
 
     def test_create_missing_url_returns_422(self, client):
         """POST without url field should return 422 (validation error)."""
@@ -279,8 +283,8 @@ class TestWorkersDelete:
         resp = client.delete("/workers/mock-worker-1")
         assert resp.status_code == 200
 
-        urls = await store.list_worker_urls()
-        assert "http://comfyui.local:8188" not in urls
+        entries = await store.list_worker_urls()
+        assert "http://comfyui.local:8188" not in [e["url"] for e in entries]
 
 
 # ═══════════════════════════════════════════════════════════════

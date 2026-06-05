@@ -14,31 +14,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+from typing import Any, AsyncIterator, Optional
 
 import httpx
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from backend.src.worker import BaseWorker, WorkerInfo
+
 logger = logging.getLogger(__name__)
 
 
-RawMessageHandler = Callable[["ComfyWorker", dict[str, Any]], Awaitable[None]]
-BinaryMessageHandler = Callable[["ComfyWorker", bytes], Awaitable[None]]
-StatusChangeHandler = Callable[["ComfyWorker"], Awaitable[None]]
-
-
-@dataclass
-class WorkerInfo:
-    id: str
-    url: str
-    alive: bool
-    busy: bool
-    current_job_id: Optional[str]
-
-
-class ComfyWorker:
+class ComfyWorker(BaseWorker):
     """
     단일 ComfyUI 서버에 대한 클라이언트.
 
@@ -54,12 +41,16 @@ class ComfyWorker:
         worker_id: str,
         base_url: str,
         *,
-        on_message: Optional[RawMessageHandler] = None,
-        on_binary: Optional[BinaryMessageHandler] = None,
-        on_status_change: Optional[StatusChangeHandler] = None,
+        on_message=None,
+        on_binary=None,
+        on_status_change=None,
     ) -> None:
-        self.id = worker_id
-        self.base_url = base_url.rstrip("/")
+        super().__init__(
+            worker_id=worker_id,
+            base_url=base_url,
+            worker_type="comfyui",
+        )
+        # 핸들러는 외부(WorkerPool._apply_handlers)에서도 설정됨
         self._on_message = on_message
         self._on_binary = on_binary
         self._on_status_change = on_status_change
@@ -68,33 +59,13 @@ class ComfyWorker:
         self._ws_task: Optional[asyncio.Task[None]] = None
         self._stopping = False
 
-        self._alive = False
         self._sid: Optional[str] = None
-        # busy/current_job_id는 Dispatcher가 관리 (워커는 자기 상태만)
-        self.current_job_id: Optional[str] = None
 
-    # ---------- public state ----------
-
-    @property
-    def alive(self) -> bool:
-        return self._alive
-
-    @property
-    def busy(self) -> bool:
-        return self.current_job_id is not None
+    # ---------- ComfyUI 전용 속성 ----------
 
     @property
     def sid(self) -> Optional[str]:
         return self._sid
-
-    def info(self) -> WorkerInfo:
-        return WorkerInfo(
-            id=self.id,
-            url=self.base_url,
-            alive=self._alive,
-            busy=self.busy,
-            current_job_id=self.current_job_id,
-        )
 
     # ---------- lifecycle ----------
 
@@ -159,12 +130,15 @@ class ComfyWorker:
         except Exception as exc:  # pragma: no cover - best effort
             logger.warning("worker %s clear_queue failed: %s", self.id, exc)
 
-    async def stream_view(self, params: dict[str, str]) -> AsyncIterator[bytes]:
-        """ComfyUI /view 스트리밍 (이미지 프록시용)."""
+    async def stream_output(self, params: dict[str, str]) -> AsyncIterator[bytes]:
+        """BaseWorker.stream_output의 ComfyUI 구현 (/view 엔드포인트)."""
         async with self._http.stream("GET", "/view", params=params) as resp:
             resp.raise_for_status()
             async for chunk in resp.aiter_bytes():
                 yield chunk
+
+    # 후방 호환 별칭
+    stream_view = stream_output
 
     async def upload_image(
         self,

@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Literal, Optional, overload
 
 from backend.src.models import JobItem
-from backend.src.worker.comfyui import ComfyWorker, WorkerInfo
+from backend.src.worker import BaseWorker, WorkerInfo
 from backend.src.job_store import JobStore
 from backend.src.worker_pool import WorkerPool
 
@@ -41,6 +41,7 @@ def _worker_view(info: WorkerInfo) -> dict[str, Any]:
         "alive": info.alive,
         "busy": info.busy,
         "currentJobId": info.current_job_id,
+        "workerType": info.worker_type,
     }
 
 logger = logging.getLogger(__name__)
@@ -227,7 +228,7 @@ class JobManager:
 
         pool.set_handlers(
             on_message=self._on_worker_message,
-            on_binary=None,  # 현재 워크플로우는 SaveImage 가정 (URL 응답)
+            on_binary=self._on_worker_binary,
             on_status_change=self._on_worker_status_change,
         )
 
@@ -358,8 +359,8 @@ class JobManager:
 
     # ---------- worker management ----------
 
-    async def add_worker(self, url: str) -> dict[str, Any]:
-        """새 ComfyUI URL 추가 (영속화 + 풀 등록 + 이벤트 브로드캐스트).
+    async def add_worker(self, url: str, *, worker_type: str = "comfyui") -> dict[str, Any]:
+        """새 워커 URL 추가 (영속화 + 풀 등록 + 이벤트 브로드캐스트).
 
         반환: 새 워커의 info dict. URL 중복이면 ValueError.
         """
@@ -368,8 +369,8 @@ class JobManager:
             raise ValueError("URL is empty")
         if self._pool.has_url(url):
             raise ValueError(f"URL already registered: {url}")
-        worker = await self._pool.add(url)
-        await self._store.add_worker_url(url)
+        worker = await self._pool.add(url, worker_type=worker_type)
+        await self._store.add_worker_url(url, worker_type=worker_type)
         view = _worker_view(worker.info())
         await self._emit({"type": "worker.added", "worker": view})
         # 새 워커가 alive 되면 dispatch loop이 자동 픽업.
@@ -513,7 +514,9 @@ class JobManager:
                 )
                 if pending is None:
                     return
-                worker = self._pool.find_idle()
+                worker = self._pool.find_idle(
+                    worker_type=pending.worker_type or "comfyui"
+                )
                 if worker is None:
                     return
                 pending.status = "queued"
@@ -555,10 +558,24 @@ class JobManager:
                 if was_cancelled:
                     await worker.delete_from_queue(job_id)
 
-    # ---------- ComfyUI raw → 정규화 ----------
+    # ---------- Worker event dispatch ----------
 
     async def _on_worker_message(
-        self, worker: ComfyWorker, payload: dict[str, Any]
+        self, worker: BaseWorker, payload: dict[str, Any]
+    ) -> None:
+        """워커 타입에 따라 이벤트 핸들러를 분기."""
+        wt = worker.worker_type
+        if wt == "comfyui" or wt is None:
+            await self._on_comfyui_message(worker, payload)
+        elif wt == "nai":
+            await self._on_nai_message(worker, payload)
+        else:
+            logger.warning(
+                "unhandled worker_type %s, ignoring message", wt
+            )
+
+    async def _on_comfyui_message(
+        self, worker: BaseWorker, payload: dict[str, Any]
     ) -> None:
         msg_type = payload.get("type")
         data = payload.get("data") or {}
@@ -710,7 +727,7 @@ class JobManager:
                 current_node_name=node_name,
             )
 
-    async def _on_worker_status_change(self, worker: ComfyWorker) -> None:
+    async def _on_worker_status_change(self, worker: BaseWorker) -> None:
         # 워커가 죽었으면 그 워커가 들고 있던 잡을 pending으로 되돌림 (재시도)
         if not worker.alive and worker.current_job_id is not None:
             failed_id = worker.current_job_id
@@ -728,6 +745,16 @@ class JobManager:
         # 워커 살아나면 디스패처 깨우기
         if worker.alive:
             self._wakeup.set()
+
+    async def _on_worker_binary(self, worker: BaseWorker, data: bytes) -> None:
+        """바이너리 메시지 처리 (현재 미사용, 향후 NAI 등에서 활용)."""
+        logger.debug("binary message from %s: %d bytes", worker.id, len(data))
+
+    async def _on_nai_message(
+        self, worker: BaseWorker, payload: dict[str, Any]
+    ) -> None:
+        """NAI 백엔드 이벤트 핸들러 (스켈레톤 — TODO: 실제 NAI 이벤트 스펙에 맞게 구현)."""
+        logger.info("NAI message from %s: %s", worker.id, payload.get("type", "unknown"))
 
     # ---------- internal helpers ----------
 
@@ -830,7 +857,7 @@ class JobManager:
     # ---------- image persistence ----------
 
     async def _persist_image(
-        self, job_id: str, worker: ComfyWorker, img: dict[str, Any]
+        self, job_id: str, worker: BaseWorker, img: dict[str, Any]
     ) -> None:
         """ComfyUI 결과 이미지를 받아 sha256 이름으로 디스크에 저장 + DB 기록."""
         filename = img.get("filename", "")
@@ -845,7 +872,7 @@ class JobManager:
         try:
             try:
                 with tmp_path.open("wb") as f:
-                    async for chunk in worker.stream_view(
+                    async for chunk in worker.stream_output(
                         {"filename": filename, "subfolder": subfolder, "type": type_}
                     ):
                         if not chunk:
@@ -981,7 +1008,7 @@ _UPLOAD_MARKER_RE = re.compile(r"^__upload__([a-f0-9]{64})\.(png|jpg|jpeg|webp)$
 async def _resolve_image_markers(
     workflow: dict[str, Any],
     image_uploads: dict[str, dict[str, str]],
-    worker: ComfyWorker,
+    worker: BaseWorker,
 ) -> dict[str, Any]:
     """워크플로우에서 __upload__{hash}.{ext} 마커를 찾아 워커로 업로드 후 실제 파일명으로 치환.
 

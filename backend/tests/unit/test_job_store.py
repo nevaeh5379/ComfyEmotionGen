@@ -310,8 +310,9 @@ class TestWorkerUrls:
     async def test_add_and_list(self, tmp_store: JobStore) -> None:
         assert await tmp_store.add_worker_url("http://w1:8188") is True
         assert await tmp_store.add_worker_url("http://w2:8188") is True
-        urls = await tmp_store.list_worker_urls()
-        assert urls == ["http://w1:8188", "http://w2:8188"]
+        entries = await tmp_store.list_worker_urls()
+        assert [e["url"] for e in entries] == ["http://w1:8188", "http://w2:8188"]
+        assert all(e["worker_type"] == "comfyui" for e in entries)
 
     async def test_add_duplicate(self, tmp_store: JobStore) -> None:
         assert await tmp_store.add_worker_url("http://w1:8188") is True
@@ -332,8 +333,16 @@ class TestWorkerUrls:
         await tmp_store.add_worker_url("http://c:8188")
         await tmp_store.add_worker_url("http://a:8188")
         await tmp_store.add_worker_url("http://b:8188")
-        urls = await tmp_store.list_worker_urls()
-        assert urls == ["http://c:8188", "http://a:8188", "http://b:8188"]
+        entries = await tmp_store.list_worker_urls()
+        assert [e["url"] for e in entries] == ["http://c:8188", "http://a:8188", "http://b:8188"]
+
+    async def test_worker_type_stored(self, tmp_store: JobStore) -> None:
+        await tmp_store.add_worker_url("http://nai:8188", worker_type="nai")
+        await tmp_store.add_worker_url("http://comfy:8188", worker_type="comfyui")
+        entries = await tmp_store.list_worker_urls()
+        by_url = {e["url"]: e["worker_type"] for e in entries}
+        assert by_url["http://nai:8188"] == "nai"
+        assert by_url["http://comfy:8188"] == "comfyui"
 
 
 # ===================================================================

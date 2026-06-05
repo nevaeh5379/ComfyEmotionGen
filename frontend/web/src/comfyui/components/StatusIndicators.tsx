@@ -100,13 +100,17 @@ export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
     : someAlive
       ? "bg-yellow-500"
       : "bg-red-500"
+  const workerTypes = [...new Set(workers.map((w) => w.workerType ?? "comfyui"))]
+  const typeLabel = workerTypes.length === 1
+    ? workerTypes[0] === "comfyui" ? "ComfyUI 워커" : workerTypes[0]
+    : "워커"
   return (
     <StatusHoverCard
       dotColor={dot}
       title={
         backendAlive ? (
           <div className="flex items-center gap-1.5">
-            <span className="hidden md:inline">ComfyUI 워커</span>
+            <span className="hidden md:inline">{typeLabel}</span>
             <span className="mono">
               {aliveCount}/{total}
             </span>
@@ -130,7 +134,7 @@ export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
         </p>
         {workers.length === 0 && backendAlive && (
           <p className="text-xs text-muted-foreground">
-            등록된 워커가 없습니다. '서버 설정' &gt; 'ComfyUI 워커'에서
+            등록된 워커가 없습니다. '서버 설정' &gt; '워커'에서
             추가하세요.
           </p>
         )}
@@ -140,6 +144,9 @@ export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
             className="flex items-center justify-between gap-2 text-xs"
           >
             <span className="font-mono">{w.id}</span>
+            <span className="rounded bg-muted px-1 text-[10px] uppercase">
+              {w.workerType ?? "comfyui"}
+            </span>
             <span className="truncate text-muted-foreground">{w.url}</span>
             <span
               className={

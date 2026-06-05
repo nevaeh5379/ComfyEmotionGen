@@ -25,13 +25,14 @@ _worker_seq = 0
 
 
 def _make_mock_worker(worker_id: str, base_url: str) -> MagicMock:
-    """Return a MagicMock that behaves like a ComfyWorker instance."""
+    """Return a MagicMock that behaves like a BaseWorker instance."""
     w = MagicMock()
     w.id = worker_id
     w.base_url = base_url.rstrip("/")
     w.alive = False
     w.busy = False
     w.current_job_id = None
+    w.worker_type = "comfyui"
     w._on_message = None
     w._on_binary = None
     w._on_status_change = None
@@ -41,8 +42,8 @@ def _make_mock_worker(worker_id: str, base_url: str) -> MagicMock:
     return w
 
 
-def _mock_comfy_worker_factory(*args, **kwargs):
-    """Drop-in replacement for ComfyWorker(worker_id, base_url)."""
+def _mock_worker_factory(*args, **kwargs):
+    """Drop-in replacement for WORKER_REGISTRY[worker_type](*args, **kwargs)."""
     global _worker_seq
     worker_id = args[0] if args else kwargs.get("worker_id", f"worker-{_worker_seq}")
     base_url = args[1] if len(args) > 1 else kwargs.get("base_url", DEFAULT_COMFYUI_URL)
@@ -61,10 +62,10 @@ def _reset_seq():
 
 @pytest.fixture
 def mock_worker_cls():
-    """Patch ComfyWorker at the import site used by worker_pool.py."""
+    """Patch WORKER_REGISTRY to use mock worker factory."""
     with patch(
-        "backend.src.worker_pool.ComfyWorker",
-        side_effect=_mock_comfy_worker_factory,
+        "backend.src.worker_pool.WORKER_REGISTRY",
+        {"comfyui": MagicMock(side_effect=_mock_worker_factory)},
     ) as m:
         yield m
 

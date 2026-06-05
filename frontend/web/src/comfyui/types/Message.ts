@@ -40,6 +40,7 @@ export interface WorkerView {
   alive: boolean
   busy: boolean
   currentJobId: string | null
+  workerType: string
 }
 
 export type CurationStatus = "pending" | "approved" | "rejected" | "trashed"

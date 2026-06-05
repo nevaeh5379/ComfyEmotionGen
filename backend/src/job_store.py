@@ -201,10 +201,13 @@ class JobStore:
             """
             CREATE TABLE IF NOT EXISTS workers (
                 url TEXT PRIMARY KEY,
+                worker_type TEXT NOT NULL DEFAULT 'comfyui',
                 added_at REAL NOT NULL
             )
             """
         )
+        # 기존 DB 마이그레이션: worker_type 컬럼 추가
+        await self._migrate_add_column("workers", "worker_type", "TEXT NOT NULL DEFAULT 'comfyui'")
 
         await self._conn.execute(
             """
@@ -482,22 +485,23 @@ class JobStore:
         rows = await cursor.fetchall()
         return {row["key"]: row["value"] for row in rows}
 
-    # ---------- workers (persistent ComfyUI URL list) ----------
+    # ---------- workers (persistent worker URL list) ----------
 
-    async def list_worker_urls(self) -> list[str]:
+    async def list_worker_urls(self) -> list[dict[str, Any]]:
+        """워커 URL 목록을 [{url, worker_type}, ...] 형태로 반환."""
         assert self._conn is not None
         cursor = await self._conn.execute(
-            "SELECT url FROM workers ORDER BY added_at ASC"
+            "SELECT url, worker_type FROM workers ORDER BY added_at ASC"
         )
         rows = await cursor.fetchall()
-        return [row["url"] for row in rows]
+        return [{"url": row["url"], "worker_type": row["worker_type"]} for row in rows]
 
-    async def add_worker_url(self, url: str) -> bool:
+    async def add_worker_url(self, url: str, *, worker_type: str = "comfyui") -> bool:
         """URL 추가. 이미 존재하면 False, 새로 추가했으면 True."""
         assert self._conn is not None
         cursor = await self._conn.execute(
-            "INSERT OR IGNORE INTO workers (url, added_at) VALUES (?, ?)",
-            (url, time.time()),
+            "INSERT OR IGNORE INTO workers (url, worker_type, added_at) VALUES (?, ?, ?)",
+            (url, worker_type, time.time()),
         )
         await self._conn.commit()
         return cursor.rowcount > 0

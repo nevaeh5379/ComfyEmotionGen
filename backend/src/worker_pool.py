@@ -15,7 +15,8 @@ import logging
 import os
 from typing import Awaitable, Callable, Iterable, Optional
 
-from backend.src.worker.comfyui import ComfyWorker, WorkerInfo
+from backend.src.worker import BaseWorker, WorkerInfo, WORKER_REGISTRY, DEFAULT_WORKER_TYPE
+from backend.src.worker.comfyui import ComfyWorker
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +37,11 @@ class WorkerPool:
     """워커 컬렉션. 라우팅과 생명주기 관리만 담당 (스케줄링은 Dispatcher)."""
 
     def __init__(self, urls: Optional[Iterable[str]] = None) -> None:
-        self._workers: dict[str, ComfyWorker] = {}
+        self._workers: dict[str, BaseWorker] = {}
         self._next_index = 0
-        self._on_message: Optional[Callable[[ComfyWorker, dict], Awaitable[None]]] = None
-        self._on_binary: Optional[Callable[[ComfyWorker, bytes], Awaitable[None]]] = None
-        self._on_status_change: Optional[Callable[[ComfyWorker], Awaitable[None]]] = None
+        self._on_message: Optional[Callable[[BaseWorker, dict], Awaitable[None]]] = None
+        self._on_binary: Optional[Callable[[BaseWorker, bytes], Awaitable[None]]] = None
+        self._on_status_change: Optional[Callable[[BaseWorker], Awaitable[None]]] = None
 
         url_list: list[str] = list(urls) if urls is not None else read_env_worker_urls()
         if not url_list:
@@ -54,10 +55,14 @@ class WorkerPool:
         self,
         *,
         on_message: Optional[
-            Callable[[ComfyWorker, dict], Awaitable[None]]
+            Callable[[BaseWorker, dict], Awaitable[None]]
         ] = None,
-        on_binary: Optional[Callable[[ComfyWorker, bytes], Awaitable[None]]] = None,
-        on_status_change: Optional[Callable[[ComfyWorker], Awaitable[None]]] = None,
+        on_binary: Optional[
+            Callable[[BaseWorker, bytes], Awaitable[None]]
+        ] = None,
+        on_status_change: Optional[
+            Callable[[BaseWorker], Awaitable[None]]
+        ] = None,
     ) -> None:
         """모든 워커에 동일한 핸들러를 연결. 이후 add()되는 워커에도 자동 적용."""
         self._on_message = on_message
@@ -66,15 +71,16 @@ class WorkerPool:
         for worker in self._workers.values():
             self._apply_handlers(worker)
 
-    def _apply_handlers(self, worker: ComfyWorker) -> None:
+    def _apply_handlers(self, worker: BaseWorker) -> None:
         worker._on_message = self._on_message  # noqa: SLF001
         worker._on_binary = self._on_binary  # noqa: SLF001
         worker._on_status_change = self._on_status_change  # noqa: SLF001
 
-    def _create_worker(self, url: str) -> ComfyWorker:
+    def _create_worker(self, url: str, *, worker_type: str = DEFAULT_WORKER_TYPE) -> BaseWorker:
         worker_id = f"worker-{self._next_index}"
         self._next_index += 1
-        worker = ComfyWorker(worker_id, url)
+        worker_cls = WORKER_REGISTRY.get(worker_type, ComfyWorker)
+        worker = worker_cls(worker_id, url)
         self._apply_handlers(worker)
         self._workers[worker_id] = worker
         return worker
@@ -95,15 +101,15 @@ class WorkerPool:
         normalized = url.rstrip("/")
         return any(w.base_url == normalized for w in self._workers.values())
 
-    async def add(self, url: str) -> ComfyWorker:
+    async def add(self, url: str, *, worker_type: str = DEFAULT_WORKER_TYPE) -> BaseWorker:
         """새 URL로 워커 생성·시작. 중복 URL이면 ValueError."""
         if self.has_url(url):
             raise ValueError(f"URL already registered: {url}")
-        worker = self._create_worker(url)
+        worker = self._create_worker(url, worker_type=worker_type)
         await worker.start()
         return worker
 
-    async def remove(self, worker_id: str) -> Optional[ComfyWorker]:
+    async def remove(self, worker_id: str) -> Optional[BaseWorker]:
         """워커 풀에서 제거하고 WS/HTTP 자원 정리. 반환값으로 제거된 워커."""
         worker = self._workers.pop(worker_id, None)
         if worker is None:
@@ -113,16 +119,18 @@ class WorkerPool:
 
     # ---------- access ----------
 
-    def all(self) -> list[ComfyWorker]:
+    def all(self) -> list[BaseWorker]:
         return list(self._workers.values())
 
-    def get(self, worker_id: str) -> Optional[ComfyWorker]:
+    def get(self, worker_id: str) -> Optional[BaseWorker]:
         return self._workers.get(worker_id)
 
-    def find_idle(self) -> Optional[ComfyWorker]:
-        """첫 번째 alive & idle 워커 반환."""
+    def find_idle(self, *, worker_type: Optional[str] = None) -> Optional[BaseWorker]:
+        """첫 번째 alive & idle 워커 반환. worker_type이 지정되면 해당 타입만."""
         for worker in self._workers.values():
             if worker.alive and not worker.busy:
+                if worker_type and worker.worker_type != worker_type:
+                    continue
                 return worker
         return None
 

@@ -158,9 +158,9 @@ export function SettingsPanel({
 
           <div className="py-4">
             <div className="mb-1 space-y-0.5">
-              <p className="text-sm font-medium">ComfyUI 워커</p>
+              <p className="text-sm font-medium">워커</p>
               <p className="text-sm text-muted-foreground">
-                여러 인스턴스를 추가하면 작업이 idle 워커에 자동 분배됩니다.
+                이미지 생성 백엔드를 추가하면 작업이 idle 워커에 자동 분배됩니다.
               </p>
             </div>
             <div className="mt-3">
