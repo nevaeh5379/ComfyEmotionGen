@@ -32,6 +32,7 @@ class NAIWorker(BaseWorker):
         worker_id: str,
         base_url: str,
         *,
+        worker_type: str = "nai",
         api_key: Optional[str] = None,
         on_message=None,
         on_binary=None,
@@ -40,7 +41,7 @@ class NAIWorker(BaseWorker):
         super().__init__(
             worker_id=worker_id,
             base_url=base_url,
-            worker_type="nai",
+            worker_type=worker_type,
         )
         self._api_key = api_key
         self._on_message = on_message

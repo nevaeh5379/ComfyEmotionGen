@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import type { NodeMapping } from "../../lib/workflow"
 import {
   applyAxisFilters,
   buildWorkflowForItem,
@@ -9,22 +8,19 @@ import {
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
+import { useTemplateContext } from "../contexts/TemplateContext"
+import { useWorkflowContext } from "../contexts/WorkflowContext"
+import { useNodeMappingContext } from "../contexts/NodeMappingContext"
+import { useBackendUrl } from "./useBackendUrl"
+import { useBackendHealth } from "./useBackendHealth"
 
-interface UseJobRunnerParams {
-  cegTemplate: string
-  workflowJson: string
-  nodeMappings: NodeMapping[]
-  backendUrl: string
-  isAliveBackend: boolean
-}
+export function useJobRunner() {
+  const backendUrl = useBackendUrl()
+  const { isAliveBackend } = useBackendHealth()
+  const { cegTemplate } = useTemplateContext()
+  const { workflowJson } = useWorkflowContext()
+  const { nodeMappings } = useNodeMappingContext()
 
-export function useJobRunner({
-  cegTemplate,
-  workflowJson,
-  nodeMappings,
-  backendUrl,
-  isAliveBackend,
-}: UseJobRunnerParams) {
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [parserError, setParserError] = useState<string | null>(null)
   const [axisValueFilter, setAxisValueFilter] = useState<
@@ -249,5 +245,7 @@ export function useJobRunner({
     filteredByAxisSet,
     hasActiveFilter,
     selectedCount,
+    isAliveBackend,
+    backendUrl,
   }
 }

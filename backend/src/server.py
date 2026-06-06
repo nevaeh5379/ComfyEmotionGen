@@ -541,7 +541,7 @@ async def images_view(worker_id: str, filename: str, subfolder: str = "", type: 
         raise HTTPException(status_code=404, detail="unknown worker")
 
     async def stream():
-        async for chunk in worker.stream_view(
+        async for chunk in worker.stream_output(
             {"filename": filename, "subfolder": subfolder, "type": type}
         ):
             yield chunk

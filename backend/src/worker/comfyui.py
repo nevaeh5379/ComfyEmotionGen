@@ -41,6 +41,7 @@ class ComfyWorker(BaseWorker):
         worker_id: str,
         base_url: str,
         *,
+        worker_type: str = "comfyui",
         on_message=None,
         on_binary=None,
         on_status_change=None,
@@ -48,7 +49,7 @@ class ComfyWorker(BaseWorker):
         super().__init__(
             worker_id=worker_id,
             base_url=base_url,
-            worker_type="comfyui",
+            worker_type=worker_type,
         )
         # 핸들러는 외부(WorkerPool._apply_handlers)에서도 설정됨
         self._on_message = on_message

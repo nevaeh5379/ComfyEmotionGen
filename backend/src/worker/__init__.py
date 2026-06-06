@@ -132,7 +132,7 @@ class BaseWorker(ABC):
         ...
 
     # 후방 호환 별칭
-    stream_view = stream_output
+    # stream_view = stream_output
 
 
 # 백엔드 타입 → 워커 클래스 매핑 (지연 임포트로 순환 참조 방지)
