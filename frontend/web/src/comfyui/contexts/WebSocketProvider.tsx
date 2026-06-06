@@ -115,8 +115,37 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       const wsUrl = `${httpToWs(url)}${API.ws.events}`
 
       const connect = () => {
-        console.info("[backend] connecting", wsUrl)
-        const socket = new WebSocket(wsUrl)
+        // 유효하지 않은 URL이면 재연결 타이머만 돌림
+        if (!wsUrl) {
+          console.warn("[backend] invalid URL, skipping connection")
+          if (reconnectTimerRef.current !== null) {
+            clearTimeout(reconnectTimerRef.current)
+          }
+          reconnectTimerRef.current = window.setTimeout(() => {
+            reconnectTimerRef.current = null
+            connect()
+          }, backoff)
+          backoff = Math.min(backoff * 2, WS_MAX_BACKOFF_MS)
+          return
+        }
+
+        let socket: WebSocket
+        try {
+          console.info("[backend] connecting", wsUrl)
+          socket = new WebSocket(wsUrl)
+        } catch (err) {
+          console.error("[backend] failed to create WebSocket:", err)
+          if (reconnectTimerRef.current !== null) {
+            clearTimeout(reconnectTimerRef.current)
+          }
+          reconnectTimerRef.current = window.setTimeout(() => {
+            reconnectTimerRef.current = null
+            connect()
+          }, backoff)
+          backoff = Math.min(backoff * 2, WS_MAX_BACKOFF_MS)
+          return
+        }
+
         socketRef.current = socket
 
         socket.onopen = () => {
