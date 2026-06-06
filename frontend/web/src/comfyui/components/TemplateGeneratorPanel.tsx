@@ -261,7 +261,7 @@ export function TemplateGeneratorPanel({
   const [saveName, setSaveName] = useState("")
   const [copied, setCopied] = useState(false)
   const [systemTemplates, setSystemTemplates] = useState<TemplateItem[]>([])
-  const [prevActiveTemplateId, setPrevActiveTemplateId] = useState<string | null>(null)
+  const prevActiveTemplateIdRef = useRef<string | null>(null)
   const [accordionValue, setAccordionValue] = useState<Set<string>>(() => { const s = loadSet(STORAGE_KEYS.accordionSections); return s.size > 0 ? s : new Set(["axes"]) })
   const [mobileTab, setMobileTab] = useState(() => loadString(STORAGE_KEYS.mobileTab, "edit"))
   const [parserError, setParserError] = useState<string | null>(null)
@@ -368,51 +368,53 @@ export function TemplateGeneratorPanel({
   const activeTemplate = useMemo(() => combinedTemplates.find((t) => t.id === effectiveId) || null, [combinedTemplates, effectiveId])
 
   const curId = activeTemplate?.id ?? null
-  if (curId !== prevActiveTemplateId) {
-    setPrevActiveTemplateId(curId)
+  useEffect(() => {
+    if (curId === prevActiveTemplateIdRef.current) return
+    prevActiveTemplateIdRef.current = curId
     if (activeTemplate) {
       if (activeTemplate.id === "new") {
-        setVariables([]);
-        setAxes([]);
-        setCombines([]);
-        setExcludes([]);
-        setTemplateBody("");
-        setFilenameBody("");
-        setCleanFilename(true);
-        setSaveName("새 템플릿");
+        setVariables([])
+        setAxes([])
+        setCombines([])
+        setExcludes([])
+        setTemplateBody("")
+        setFilenameBody("")
+        setCleanFilename(true)
+        setSaveName("새 템플릿")
       } else if (activeTemplate.id === "loaded") {
-        const p = parseCegTemplate(activeTemplate.code);
-        setVariables(p.variables);
-        setAxes(p.axes);
-        setCombines(p.combines);
-        setExcludes(p.excludes);
-        setTemplateBody(p.templateBody);
-        setFilenameBody(p.filenameBody);
-        setCleanFilename(p.cleanFilename);
-        const baseName = activeTemplate.name.substring(0, activeTemplate.name.lastIndexOf(".")) || activeTemplate.name;
-        setSaveName(baseName.replace(/^\[파일\]\s*/, ""));
+        const p = parseCegTemplate(activeTemplate.code)
+        setVariables(p.variables)
+        setAxes(p.axes)
+        setCombines(p.combines)
+        setExcludes(p.excludes)
+        setTemplateBody(p.templateBody)
+        setFilenameBody(p.filenameBody)
+        setCleanFilename(p.cleanFilename)
+        const baseName = activeTemplate.name.substring(0, activeTemplate.name.lastIndexOf(".")) || activeTemplate.name
+        setSaveName(baseName.replace(/^\[파일\]\s*/, ""))
       } else {
-        const p = parseCegTemplate(activeTemplate.code);
-        setVariables(p.variables);
-        setAxes(p.axes);
-        setCombines(p.combines);
-        setExcludes(p.excludes);
-        setTemplateBody(p.templateBody);
-        setFilenameBody(p.filenameBody);
-        setCleanFilename(p.cleanFilename);
-        setSaveName(`${activeTemplate.name} 커스텀`);
+        const p = parseCegTemplate(activeTemplate.code)
+        setVariables(p.variables)
+        setAxes(p.axes)
+        setCombines(p.combines)
+        setExcludes(p.excludes)
+        setTemplateBody(p.templateBody)
+        setFilenameBody(p.filenameBody)
+        setCleanFilename(p.cleanFilename)
+        setSaveName(`${activeTemplate.name} 커스텀`)
       }
     } else {
-      setVariables([]);
-      setAxes([]);
-      setCombines([]);
-      setExcludes([]);
-      setTemplateBody("");
-      setFilenameBody("");
-      setCleanFilename(true);
-      setSaveName("");
+      setVariables([])
+      setAxes([])
+      setCombines([])
+      setExcludes([])
+      setTemplateBody("")
+      setFilenameBody("")
+      setCleanFilename(true)
+      setSaveName("")
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curId, activeTemplate])
 
 
 

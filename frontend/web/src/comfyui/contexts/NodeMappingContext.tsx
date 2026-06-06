@@ -1,4 +1,4 @@
-import { createContext, useEffect, useMemo, useState } from "react"
+import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import type { NodeMapping } from "@/lib/workflow"
@@ -141,23 +141,26 @@ export function NodeMappingProvider({
     return opts
   }, [parsedWorkflow, nodeMappings])
 
-  const updateMapping = (id: string, patch: Partial<NodeMapping>) =>
-    setNodeMappings((prev) =>
-      prev.map((m) => {
-        if (m.id !== id) return m
-        // sourceType가 image에서 다른 값으로 변경되면 imageValue 초기화
-        if (
-          patch.sourceType !== undefined &&
-          m.sourceType === "image" &&
-          patch.sourceType !== "image"
-        ) {
-          const next = { ...m, ...patch }
-          delete next.imageValue
-          return next
-        }
-        return { ...m, ...patch }
-      })
-    )
+  const updateMapping = useCallback(
+    (id: string, patch: Partial<NodeMapping>) =>
+      setNodeMappings((prev) =>
+        prev.map((m) => {
+          if (m.id !== id) return m
+          // sourceType가 image에서 다른 값으로 변경되면 imageValue 초기화
+          if (
+            patch.sourceType !== undefined &&
+            m.sourceType === "image" &&
+            patch.sourceType !== "image"
+          ) {
+            const next = { ...m, ...patch }
+            delete next.imageValue
+            return next
+          }
+          return { ...m, ...patch }
+        })
+      ),
+    [setNodeMappings]
+  )
 
   const handleAutoMap = () => {
     if (!parsedWorkflow?.success) return

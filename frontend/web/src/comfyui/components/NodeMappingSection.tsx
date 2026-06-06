@@ -1,5 +1,5 @@
 import { AlertTriangle, Dices, Plus, Trash2, Wand2 } from "lucide-react"
-import { useState } from "react"
+import React, { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -112,7 +112,7 @@ const SOURCE_LABELS: Record<MappingSourceType, string> = {
   fixed: "고정값",
 }
 
-export const NodeMappingSection = ({
+export const NodeMappingSection = React.memo(({
   nodeMappings,
   setNodeMappings,
   updateMapping,
@@ -126,10 +126,13 @@ export const NodeMappingSection = ({
   savedNodeMappings,
   activeNodeMappingPresetId,
   nodeMappingResetKey,
+  savedWorkflows,
+  pendingSaveType,
   onSaveNodeMapping,
   onLoadNodeMapping,
   onDeleteNodeMapping,
   onUpdateNodeMapping,
+  onPendingNameConflict,
 }: NodeMappingSectionProps) => {
   const [open, setOpen] = useState(true)
   const hasPromptMapping = nodeMappings.some((m) => m.sourceType === "prompt")
@@ -407,7 +410,7 @@ export const NodeMappingSection = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 text-muted-foreground opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive md:opacity-0 md:group-hover:opacity-100"
+                                  className="h-7 w-7 text-muted-foreground opacity-100 hover:bg-destructive/10 hover:text-destructive md:opacity-0 md:group-hover:opacity-100"
                                   onClick={() =>
                                     setNodeMappings((prev) =>
                                       prev.filter((x) => x.id !== m.id)
@@ -518,4 +521,5 @@ export const NodeMappingSection = ({
       </div>
     </CollapseSection>
   )
-}
+})
+NodeMappingSection.displayName = "NodeMappingSection"

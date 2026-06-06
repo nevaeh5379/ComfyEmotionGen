@@ -337,7 +337,7 @@ class JobManager:
                 id=str(uuid.uuid4()),
                 filename=item.filename,
                 prompt=item.prompt,
-                workflow=item.workflow.root if item.workflow else {},
+                workflow=item.workflow.model_dump() if item.workflow else {},
                 meta=item.meta,
                 ceg_template=item.cegTemplate,
                 image_uploads=item.imageUploads,
