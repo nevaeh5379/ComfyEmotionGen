@@ -640,10 +640,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <h3 className="border-b pb-1.5 text-xs font-black tracking-widest text-muted-foreground uppercase">
                 실행 중인 작업
               </h3>
-              <RunningJobsBanner jobs={runningJobs} />
+              <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} />
             </div>
           )}
-          {mobileTab !== "status" && <RunningJobsBanner jobs={runningJobs} />}
+          {mobileTab !== "status" && (
+            <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} />
+          )}
         </div>
       </ScrollArea>
 

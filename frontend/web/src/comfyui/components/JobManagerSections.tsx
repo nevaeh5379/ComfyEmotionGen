@@ -52,6 +52,13 @@ import { cn } from "@/lib/utils"
 import type { JobStatus, JobView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
+import {
+  estimateRemaining,
+  formatETA,
+  formatDuration,
+  timeAgo,
+  jobDuration,
+} from "../utils/timeEstimation"
 
 // ── props interfaces (keep in sync with JobManagerPanel) ──────────────
 
@@ -79,6 +86,7 @@ export interface ActiveStateInfo {
 
 export interface RunningJobsBannerProps {
   jobs: JobView[]
+  allJobs?: JobView[]
 }
 
 export interface JobStatBarProps {
@@ -121,50 +129,7 @@ export interface JobDetailSheetProps {
   onDelete: () => void
 }
 
-// ── pure helpers (moved from JobManagerPanel) ──────────────────────────
 
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  const m = Math.floor(ms / 60_000)
-  const s = Math.round((ms % 60_000) / 1000)
-  return `${m}m ${s}s`
-}
-
-function timeAgo(epochSec: number): string {
-  const diff = Date.now() - epochSec * 1000
-  if (diff < 60_000) return "방금"
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}분 전`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}시간 전`
-  return `${Math.floor(diff / 86_400_000)}일 전`
-}
-
-function estimateRemaining(
-  startedAtSec: number,
-  progressPercent: number
-): number | null {
-  if (progressPercent <= 0 || progressPercent >= 100) return null
-  const elapsedSec = Date.now() / 1000 - startedAtSec
-  if (elapsedSec <= 0) return null
-  const totalEstimatedSec = (elapsedSec / progressPercent) * 100
-  return totalEstimatedSec - elapsedSec
-}
-
-function formatETA(totalSeconds: number): string {
-  if (totalSeconds <= 0) return "곧 완료"
-  if (totalSeconds < 60) return `${Math.round(totalSeconds)}초`
-  if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)}분`
-  const h = Math.floor(totalSeconds / 3600)
-  const m = Math.round((totalSeconds % 3600) / 60)
-  return `${h}시간 ${m}분`
-}
-
-function jobDuration(job: JobView): number | null {
-  if (job.executionDurationMs != null) return job.executionDurationMs
-  if (job.startedAt != null && job.finishedAt != null)
-    return (job.finishedAt - job.startedAt) * 1000
-  return null
-}
 
 // ── sub-components ──────────────────────────────────────────────────────
 
@@ -430,6 +395,7 @@ export const JobStatBar = memo(function JobStatBar({
 
 export const RunningJobsBanner = memo(function RunningJobsBanner({
   jobs,
+  allJobs,
 }: RunningJobsBannerProps) {
   if (jobs.length === 0) {
     return (
@@ -443,7 +409,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
     <>
       {jobs.map((j) => {
         const rem = j.startedAt
-          ? estimateRemaining(j.startedAt, j.progressPercent)
+          ? estimateRemaining(j.startedAt, j.progressPercent, allJobs)
           : null
         const overallPercent =
           j.totalNodeCount > 0

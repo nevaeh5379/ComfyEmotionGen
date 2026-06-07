@@ -11,30 +11,7 @@ import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import type { JobView } from "../types/Message"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
-
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
-
-function formatETA(totalSeconds: number): string {
-  if (totalSeconds <= 0) return "곧 완료"
-  if (totalSeconds < 60) return `${Math.round(totalSeconds)}초`
-  if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)}분`
-  const h = Math.floor(totalSeconds / 3600)
-  const m = Math.round((totalSeconds % 3600) / 60)
-  return `${h}시간 ${m}분`
-}
-
-function estimateRemaining(
-  startedAtSec: number,
-  progressPercent: number
-): number | null {
-  if (progressPercent <= 0 || progressPercent >= 100) return null
-  const elapsedSec = Date.now() / 1000 - startedAtSec
-  if (elapsedSec <= 0) return null
-  const totalEstimatedSec = (elapsedSec / progressPercent) * 100
-  return totalEstimatedSec - elapsedSec
-}
+import { estimateRemaining, formatETA } from "../utils/timeEstimation"
 
 // ---------------------------------------------------------------------------
 // component
@@ -136,7 +113,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     const progressStr = mainJob ? `${Math.round(mainJob.progressPercent)}%` : ""
     const etaRemaining =
       mainJob && mainJob.startedAt
-        ? estimateRemaining(mainJob.startedAt, mainJob.progressPercent)
+        ? estimateRemaining(mainJob.startedAt, mainJob.progressPercent, jobs)
         : null
 
     return (
@@ -242,7 +219,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           </span>
           {runningJobs.slice(0, 5).map((j) => {
             const remaining = j.startedAt
-              ? estimateRemaining(j.startedAt, j.progressPercent)
+              ? estimateRemaining(j.startedAt, j.progressPercent, jobs)
               : null
             return (
               <div key={j.id} className="space-y-1">
