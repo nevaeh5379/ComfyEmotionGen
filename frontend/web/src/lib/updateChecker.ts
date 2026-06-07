@@ -21,9 +21,13 @@ export async function checkForUpdate(
       `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=20`,
       { headers: { Accept: "application/vnd.github+json" } }
     )
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn("GitHub API 응답 실패:", res.status)
+      return null
+    }
     releases = (await res.json()) as GithubRelease[]
-  } catch {
+  } catch (err) {
+    console.warn("업데이트 확인 실패:", err)
     return null
   }
 

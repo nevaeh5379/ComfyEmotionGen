@@ -85,7 +85,10 @@ class ComfyWorker(BaseWorker):
             except (asyncio.CancelledError, Exception):
                 pass
             self._ws_task = None
-        await self._http.aclose()
+        try:
+            await self._http.aclose()
+        except Exception:
+            logger.warning("worker %s failed to close HTTP client", self.id)
 
     # ---------- HTTP ----------
 
@@ -177,7 +180,10 @@ class ComfyWorker(BaseWorker):
                     async for message in ws:
                         if isinstance(message, (bytes, bytearray)):
                             if self._on_binary is not None:
-                                await self._on_binary(self, bytes(message))
+                                try:
+                                    await self._on_binary(self, bytes(message))
+                                except Exception:
+                                    logger.exception("binary handler error in worker %s", self.id)
                             continue
                         try:
                             payload = json.loads(message)
@@ -192,16 +198,29 @@ class ComfyWorker(BaseWorker):
                         ):
                             self._sid = payload["data"]["sid"]
                         if self._on_message is not None:
-                            await self._on_message(self, payload)
+                            try:
+                                await self._on_message(self, payload)
+                            except Exception:
+                                logger.exception("message handler error in worker %s", self.id)
             except asyncio.CancelledError:
                 raise
-            except (ConnectionClosed, OSError, Exception) as exc:
+            except (ConnectionClosed, OSError) as exc:
                 logger.info(
                     "worker %s ws closed: %s (reconnect in %.1fs)",
                     self.id,
                     exc,
                     backoff,
                 )
+                await self._set_alive(False)
+                if self._stopping:
+                    break
+                try:
+                    await asyncio.sleep(backoff)
+                except asyncio.CancelledError:
+                    break
+                backoff = min(backoff * 2, self.MAX_BACKOFF)
+            except Exception:
+                logger.exception("worker %s ws unexpected error (reconnect in %.1fs)", self.id, backoff)
                 await self._set_alive(False)
                 if self._stopping:
                     break
@@ -220,4 +239,7 @@ class ComfyWorker(BaseWorker):
         if not alive:
             self._sid = None
         if self._on_status_change is not None:
-            await self._on_status_change(self)
+            try:
+                await self._on_status_change(self)
+            except Exception:
+                logger.exception("status_change handler error in worker %s", self.id)

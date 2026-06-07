@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import { useEffectLog } from "@/lib/renderLogger"
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { API, HEADERS, DEFAULT_DOWNLOAD_FILENAME } from "@/lib/api"
@@ -180,6 +181,7 @@ export const useSavedImages = (
           newMap.set(fn, data.items)
         } catch (err) {
           console.error(`fetch group images failed for ${fn}`, err)
+          toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
           newMap.set(fn, [])
         }
       })
@@ -237,8 +239,8 @@ export const useSavedImages = (
               fetchImages()
             }
           }
-        } catch {
-          /* ignore */
+        } catch (parseErr) {
+          console.warn("WS message parse error:", parseErr)
         }
       }
       socket.onclose = () => {

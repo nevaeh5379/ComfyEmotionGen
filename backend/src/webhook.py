@@ -270,7 +270,7 @@ class WebhookService:
             if image_hashes and self._images_dir:
                 sha = image_hashes[0]
                 record = await self._store.get_saved_image(sha)
-                ext = record.get("extension") if record else ".png"
+                ext = (record.get("extension") if record else None) or ".png"
                 path = self._images_dir / f"{sha}{ext}"
                 if path.exists():
                     file_bytes = path.read_bytes()

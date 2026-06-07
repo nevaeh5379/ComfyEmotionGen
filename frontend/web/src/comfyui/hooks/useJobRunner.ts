@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import {
   applyAxisFilters,
   buildWorkflowForItem,
@@ -126,10 +127,11 @@ export function useJobRunner() {
         headers: HEADERS.json,
         body: JSON.stringify({ items }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
       return true
     } catch (error) {
       console.error("Failed to submit jobs:", error)
+      toast.error("작업 제출에 실패했습니다.")
       return false
     }
   }, [backendUrl, workflowJson, nodeMappings, cegTemplate])
@@ -148,14 +150,16 @@ export function useJobRunner() {
       repeatCount > 1
         ? Array.from({ length: repeatCount }, () => items).flat()
         : items
-    await submitJobs(repeated)
+    const ok = await submitJobs(repeated)
+    if (!ok) toast.error("작업 실행에 실패했습니다.")
   }, [workflowJson, isAliveBackend, callParser, axisValueFilter, repeatCount, submitJobs])
 
   const handleRandomRun = useCallback(async (count: number = 1) => {
     if (!workflowJson || !isAliveBackend || axisFilteredItems.length === 0)
       return
     const selected = randomSelect(axisFilteredItems, count)
-    await submitJobs(selected)
+    const ok = await submitJobs(selected)
+    if (!ok) toast.error("랜덤 실행에 실패했습니다.")
   }, [workflowJson, isAliveBackend, axisFilteredItems, submitJobs])
 
   const handleRunSelected = useCallback(async () => {
@@ -169,7 +173,9 @@ export function useJobRunner() {
       repeatCount > 1
         ? Array.from({ length: repeatCount }, () => selected).flat()
         : selected
-    return await submitJobs(repeated)
+    const ok = await submitJobs(repeated)
+    if (!ok) toast.error("선택 작업 실행에 실패했습니다.")
+    return ok
   }, [workflowJson, isAliveBackend, callParser, uncheckedItems, repeatCount, submitJobs])
 
   const toggleItemCheck = useCallback((key: string) => {

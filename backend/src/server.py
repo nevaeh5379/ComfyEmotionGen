@@ -482,6 +482,8 @@ async def jobs_retry(job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
     new_jobs = await job_manager.retry([job])
+    if not new_jobs:
+        raise HTTPException(status_code=500, detail="retry failed: no new job created")
     return {"jobId": new_jobs[0].id}
 
 
@@ -541,10 +543,13 @@ async def images_view(worker_id: str, filename: str, subfolder: str = "", type: 
         raise HTTPException(status_code=404, detail="unknown worker")
 
     async def stream():
-        async for chunk in worker.stream_output(
-            {"filename": filename, "subfolder": subfolder, "type": type}
-        ):
-            yield chunk
+        try:
+            async for chunk in worker.stream_output(
+                {"filename": filename, "subfolder": subfolder, "type": type}
+            ):
+                yield chunk
+        except Exception:
+            logger.exception("stream error for worker %s", worker_id)
 
     media_type = "image/png" if filename.lower().endswith(".png") else "application/octet-stream"
     return StreamingResponse(stream(), media_type=media_type)
@@ -563,12 +568,18 @@ async def images_upload(file: UploadFile):
     if not file.filename:
         raise HTTPException(status_code=400, detail="empty filename")
     ext = Path(file.filename).suffix.lower() or ".png"
-    data = await file.read()
+    try:
+        data = await file.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="failed to read uploaded file")
     sha = hashlib.sha256(data).hexdigest()
     UPLOAD_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     target = UPLOAD_IMAGES_DIR / f"{sha}{ext}"
     if not target.exists():
-        target.write_bytes(data)
+        try:
+            target.write_bytes(data)
+        except OSError:
+            raise HTTPException(status_code=500, detail="failed to save uploaded file to disk")
     return {"hash": sha, "filename": file.filename, "name": f"{sha}{ext}"}
 
 
@@ -728,47 +739,53 @@ async def export_dataset(body: ExportRequest):
         ]
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        manifest_lines: list[str] = []
-        metadata: list[dict[str, Any]] = []
-        used_names: set[str] = set()
-        dup_counters: dict[str, int] = {}
-        for item in items_all:
-            h = item["hash"]
-            ext = item.get("extension") or ".png"
-            disk_path = DEFAULT_IMAGES_DIR / f"{h}{ext}"
-            if not disk_path.exists():
-                continue
-            orig = item.get("originalFilename") or h
-            name = f"{orig}{ext}"
-            if name in used_names:
-                if body.duplicateStrategy == "number":
-                    dup_counters[orig] = dup_counters.get(orig, 0) + 1
-                    name = f"{orig}_{dup_counters[orig]}{ext}"
-                else:
-                    name = f"{orig}_{h[:8]}{ext}"
-            used_names.add(name)
-            zf.write(disk_path, arcname=f"images/{name}")
-            manifest_lines.append(f"{name}\t{item.get('originalFilename','')}")
-            metadata.append(
-                {
-                    "hash": h,
-                    "filename": item.get("originalFilename", ""),
-                    "prompt": item.get("prompt", ""),
-                    "status": item.get("status", ""),
-                    "tags": item.get("tags", []),
-                    "note": item.get("note", ""),
-                    "workerId": item.get("workerId"),
-                    "createdAt": item.get("createdAt"),
-                    "sizeBytes": item.get("sizeBytes", 0),
-                    "extension": ext,
-                }
+    try:
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            manifest_lines: list[str] = []
+            metadata: list[dict[str, Any]] = []
+            used_names: set[str] = set()
+            dup_counters: dict[str, int] = {}
+            for item in items_all:
+                h = item.get("hash", "")
+                if not h:
+                    continue
+                ext = item.get("extension") or ".png"
+                disk_path = DEFAULT_IMAGES_DIR / f"{h}{ext}"
+                if not disk_path.exists():
+                    continue
+                orig = item.get("originalFilename") or h
+                name = f"{orig}{ext}"
+                if name in used_names:
+                    if body.duplicateStrategy == "number":
+                        dup_counters[orig] = dup_counters.get(orig, 0) + 1
+                        name = f"{orig}_{dup_counters[orig]}{ext}"
+                    else:
+                        name = f"{orig}_{h[:8]}{ext}"
+                used_names.add(name)
+                zf.write(disk_path, arcname=f"images/{name}")
+                manifest_lines.append(f"{name}\t{item.get('originalFilename','')}")
+                metadata.append(
+                    {
+                        "hash": h,
+                        "filename": item.get("originalFilename", ""),
+                        "prompt": item.get("prompt", ""),
+                        "status": item.get("status", ""),
+                        "tags": item.get("tags", []),
+                        "note": item.get("note", ""),
+                        "workerId": item.get("workerId"),
+                        "createdAt": item.get("createdAt"),
+                        "sizeBytes": item.get("sizeBytes", 0),
+                        "extension": ext,
+                    }
+                )
+            zf.writestr(
+                "metadata.json",
+                json.dumps(metadata, ensure_ascii=False, indent=2),
             )
-        zf.writestr(
-            "metadata.json",
-            json.dumps(metadata, ensure_ascii=False, indent=2),
-        )
-        zf.writestr("manifest.txt", "\n".join(manifest_lines))
+            zf.writestr("manifest.txt", "\n".join(manifest_lines))
+    except Exception:
+        logger.exception("export dataset failed")
+        raise HTTPException(status_code=500, detail="failed to create export zip")
 
     buf.seek(0)
     headers = {
@@ -853,10 +870,16 @@ async def db_import(file: UploadFile):
         raise HTTPException(status_code=500, detail=f"Failed to write database: {exc}")
     
     # 3. 새로운 DB 커넥션 오픈 및 마이그레이션 실행
-    await job_manager._store.open()
+    try:
+        await job_manager._store.open()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to open imported database: {exc}")
     
     # 4. 메모리 로드 동기화
-    await job_manager.reload_jobs()
+    try:
+        await job_manager.reload_jobs()
+    except Exception as exc:
+        logger.exception("failed to reload jobs after import")
     
     # 5. UI 동기화 이벤트 송출 (모든 클라이언트가 잡 목록을 새로고침할 수 있게 함)
     snapshot = await job_manager.snapshot()
@@ -1013,7 +1036,10 @@ async def webhooks_batch_complete(req: BatchCompleteRequest):
 
 @app.websocket("/ws/events")
 async def ws_events(websocket: WebSocket):
-    await websocket.accept()
+    try:
+        await websocket.accept()
+    except Exception:
+        return
     ws_clients.add(websocket)
     try:
         # 연결 직후 현재 스냅샷 전송
@@ -1042,6 +1068,10 @@ async def ws_events(websocket: WebSocket):
                 await websocket.receive_text()
             except WebSocketDisconnect:
                 break
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.warning("ws_events error for client", exc_info=True)
     finally:
         ws_clients.discard(websocket)
 

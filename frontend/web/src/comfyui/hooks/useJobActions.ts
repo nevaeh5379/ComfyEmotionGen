@@ -14,9 +14,10 @@ export function useJobActions() {
 
   const handleTogglePause = useCallback(async () => {
     try {
-      await fetch(`${backendUrl}${paused ? API.jobs.resume : API.jobs.pause}`, {
+      const res = await fetch(`${backendUrl}${paused ? API.jobs.resume : API.jobs.pause}`, {
         method: "POST",
       })
+      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
@@ -33,9 +34,10 @@ export function useJobActions() {
     )
       return
     try {
-      await fetch(`${backendUrl}${API.jobs.cancelAll}`, {
+      const res = await fetch(`${backendUrl}${API.jobs.cancelAll}`, {
         method: "POST",
       })
+      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
@@ -47,9 +49,10 @@ export function useJobActions() {
     )
     for (const j of failed) {
       try {
-        await fetch(`${backendUrl}${API.jobs.retry(j.id)}`, {
+        const res = await fetch(`${backendUrl}${API.jobs.retry(j.id)}`, {
           method: "POST",
         })
+        if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
       } catch {
         toast.error(`작업 재시도에 실패했습니다: ${j.id.slice(0, 8)}`)
       }
@@ -71,11 +74,12 @@ export function useJobActions() {
     )
       return
     try {
-      await fetch(`${backendUrl}${API.jobs.delete}`, {
+      const res = await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
         headers: HEADERS.json,
         body: JSON.stringify({ job_ids: failed.map((j) => j.id) }),
       })
+      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
     } catch {
       toast.error("실패 작업 삭제 요청에 실패했습니다.")
     }

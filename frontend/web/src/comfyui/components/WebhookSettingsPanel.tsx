@@ -51,6 +51,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     updateConfig,
     deleteConfig,
     testConfig,
+    load,
     allEvents,
   } = useWebhooks(backendUrl)
 
@@ -107,7 +108,23 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
   }
 
   const handleToggleEnabled = async (cfg: WebhookConfig) => {
-    await updateConfig(cfg.id, { enabled: !cfg.enabled })
+    try {
+      const ok = await updateConfig(cfg.id, { enabled: !cfg.enabled })
+      if (!ok) throw new Error("update failed")
+    } catch {
+      toast.error("웹훅 상태 변경에 실패했습니다.")
+      await load()
+    }
+  }
+
+  const handleToggleImage = async (cfg: WebhookConfig) => {
+    try {
+      const ok = await updateConfig(cfg.id, { include_image: !cfg.include_image })
+      if (!ok) throw new Error("update failed")
+    } catch {
+      toast.error("웹훅 이미지 설정 변경에 실패했습니다.")
+      await load()
+    }
   }
 
   const handleDelete = async (cfg: WebhookConfig) => {
@@ -120,20 +137,31 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
       }))
     )
       return
-    const ok = await deleteConfig(cfg.id)
-    if (ok) {
-      toast.success("웹훅이 삭제되었습니다.")
+    try {
+      const ok = await deleteConfig(cfg.id)
+      if (ok) {
+        toast.success("웹훅이 삭제되었습니다.")
+      } else {
+        toast.error("웹훅 삭제에 실패했습니다.")
+      }
+    } catch {
+      toast.error("웹훅 삭제에 실패했습니다.")
     }
   }
 
   const handleTest = async (cfg: WebhookConfig) => {
     setTestingId(cfg.id)
-    const ok = await testConfig(cfg.id)
-    setTestingId(null)
-    if (ok) {
-      toast.success("테스트 알림이 전송되었습니다.")
-    } else {
+    try {
+      const ok = await testConfig(cfg.id)
+      if (ok) {
+        toast.success("테스트 알림이 전송되었습니다.")
+      } else {
+        toast.error("테스트 알림 전송에 실패했습니다.")
+      }
+    } catch {
       toast.error("테스트 알림 전송에 실패했습니다.")
+    } finally {
+      setTestingId(null)
     }
   }
 
@@ -142,10 +170,6 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
       ? cfg.events.filter((e) => e !== event)
       : [...cfg.events, event]
     updateConfig(cfg.id, { events })
-  }
-
-  const handleToggleImage = async (cfg: WebhookConfig) => {
-    await updateConfig(cfg.id, { include_image: !cfg.include_image })
   }
 
   return (

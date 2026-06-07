@@ -31,7 +31,8 @@ export function useLocalStorage<T>(key: string, defaultValue: T) {
     if (isStringDefault) return stored as T
     try {
       return JSON.parse(stored) as T
-    } catch {
+    } catch (err) {
+      console.warn(`useLocalStorage: ${key} 초기값 파싱 실패:`, err)
       return defaultValue
     }
   })
@@ -48,7 +49,8 @@ export function useLocalStorage<T>(key: string, defaultValue: T) {
       } else {
         try {
           setValue(JSON.parse(newValue) as T)
-        } catch {
+        } catch (err) {
+          console.warn(`useLocalStorage: ${key} storage 이벤트 파싱 실패:`, err)
           setValue(defaultValue)
         }
       }

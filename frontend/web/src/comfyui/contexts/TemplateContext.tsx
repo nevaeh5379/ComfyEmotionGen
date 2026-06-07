@@ -7,6 +7,7 @@ import {
 } from "../hooks/useSavedTemplates"
 import { usePendingDialog } from "./PendingDialogContext"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { toast } from "sonner"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,9 +92,14 @@ export function TemplateProvider({
 
   const saveTemplate = useCallback(
     (name: string, templateContent: string) => {
-      const res = originalSaveTemplate(name, templateContent)
-      saveCegToServer()
-      return res
+      try {
+        const res = originalSaveTemplate(name, templateContent)
+        saveCegToServer()
+        return res
+      } catch (err) {
+        toast.error("템플릿 저장에 실패했습니다.")
+        throw err
+      }
     },
     [originalSaveTemplate, saveCegToServer]
   )

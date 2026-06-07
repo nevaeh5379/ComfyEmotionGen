@@ -53,21 +53,33 @@ export function ImageDetail({
   const { saveTemplate } = useTemplateContext()
 
   const saveNote = async () => {
-    await curationApi.patchNote(backendUrl, image.hash, note)
-    onChanged()
+    try {
+      await curationApi.patchNote(backendUrl, image.hash, note)
+      onChanged()
+    } catch {
+      toast.error("태그/노트 저장에 실패했습니다.")
+    }
   }
   const addTag = async () => {
     const t = newTag.trim()
     if (!t) return
-    await curationApi.addTags(backendUrl, image.hash, [t])
-    setNewTag("")
-    setTags((prev) => (prev.includes(t) ? prev : [...prev, t]))
-    onChanged()
+    try {
+      await curationApi.addTags(backendUrl, image.hash, [t])
+      setNewTag("")
+      setTags((prev) => (prev.includes(t) ? prev : [...prev, t]))
+      onChanged()
+    } catch {
+      toast.error("태그/노트 저장에 실패했습니다.")
+    }
   }
   const removeTag = async (tag: string) => {
-    await curationApi.removeTag(backendUrl, image.hash, tag)
-    setTags((prev) => prev.filter((x) => x !== tag))
-    onChanged()
+    try {
+      await curationApi.removeTag(backendUrl, image.hash, tag)
+      setTags((prev) => prev.filter((x) => x !== tag))
+      onChanged()
+    } catch {
+      toast.error("태그/노트 저장에 실패했습니다.")
+    }
   }
 
   const handleSaveWorkflow = () => {

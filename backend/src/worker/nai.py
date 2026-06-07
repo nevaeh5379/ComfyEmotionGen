@@ -70,12 +70,15 @@ class NAIWorker(BaseWorker):
                 await self._set_alive(True)
                 logger.info("NAI worker %s connected to %s", self.id, self.base_url)
         except Exception:
-            logger.warning("NAI worker %s failed health check on %s", self.id, self.base_url)
+            logger.warning("NAI worker %s failed health check on %s", self.id, self.base_url, exc_info=True)
 
     async def stop(self) -> None:
         """HTTP 세션 종료."""
         if self._http is not None:
-            await self._http.aclose()
+            try:
+                await self._http.aclose()
+            except Exception:
+                logger.warning("NAI worker %s failed to close HTTP session", self.id)
             self._http = None
         await self._set_alive(False)
 
@@ -84,7 +87,10 @@ class NAIWorker(BaseWorker):
             return
         self._alive = alive
         if self._on_status_change is not None:
-            await self._on_status_change(self)
+            try:
+                await self._on_status_change(self)
+            except Exception:
+                logger.exception("status_change handler error in NAI worker %s", self.id)
 
     # ---------- abstract method implementations ----------
 
@@ -97,9 +103,7 @@ class NAIWorker(BaseWorker):
         """NAI 이미지 생성 요청 (TODO: 실제 API 스펙에 맞게 구현)."""
         if self._http is None:
             raise RuntimeError(f"NAI worker {self.id} not started")
-        logger.info("NAI worker %s submit_prompt %s (not yet implemented)", self.id, prompt_id)
-        # TODO: 실제 NAI API 엔드포인트 호출
-        # 예: resp = await self._http.post("/ai/generate-image", json={...})
+        raise NotImplementedError("NAI submit_prompt not yet implemented")
 
     async def interrupt(self) -> None:
         """NAI는 진행 중인 요청을 취소하는 API가 없을 수 있음 (best-effort)."""
@@ -109,9 +113,7 @@ class NAIWorker(BaseWorker):
         """NAI 결과 이미지 스트리밍 (TODO: 실제 API에 맞게 구현)."""
         if self._http is None:
             raise RuntimeError(f"NAI worker {self.id} not started")
-        # TODO: NAI는 생성 완료 후 이미지 URL을 반환하므로
-        # stream_output 대신 결과를 polling 후 다운로드하는 방식 필요
-        yield b""
+        raise NotImplementedError("NAI stream_output not yet implemented")
 
     async def delete_from_queue(self, prompt_id: str) -> None:
         """NAI는 큐 관리 API가 없으므로 no-op."""

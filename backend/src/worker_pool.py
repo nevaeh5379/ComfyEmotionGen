@@ -89,11 +89,17 @@ class WorkerPool:
 
     async def start(self) -> None:
         for worker in self._workers.values():
-            await worker.start()
+            try:
+                await worker.start()
+            except Exception:
+                logger.exception("failed to start worker %s", worker.id)
 
     async def stop(self) -> None:
         for worker in self._workers.values():
-            await worker.stop()
+            try:
+                await worker.stop()
+            except Exception:
+                logger.exception("failed to stop worker %s", worker.id)
 
     # ---------- dynamic add/remove ----------
 
@@ -106,7 +112,11 @@ class WorkerPool:
         if self.has_url(url):
             raise ValueError(f"URL already registered: {url}")
         worker = self._create_worker(url, worker_type=worker_type)
-        await worker.start()
+        try:
+            await worker.start()
+        except Exception:
+            self._workers.pop(worker.id, None)
+            raise
         return worker
 
     async def remove(self, worker_id: str) -> Optional[BaseWorker]:
@@ -114,7 +124,10 @@ class WorkerPool:
         worker = self._workers.pop(worker_id, None)
         if worker is None:
             return None
-        await worker.stop()
+        try:
+            await worker.stop()
+        except Exception:
+            logger.exception("failed to stop worker %s during removal", worker_id)
         return worker
 
     # ---------- access ----------

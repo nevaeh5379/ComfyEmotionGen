@@ -74,161 +74,171 @@ class JobStore:
     async def open(self) -> None:
         if self._conn is not None:
             return
-        self._conn = await aiosqlite.connect(str(self._db_path))
+        try:
+            self._conn = await aiosqlite.connect(str(self._db_path))
+        except Exception:
+            logger.exception("failed to open database: %s", self._db_path)
+            raise
         self._conn.row_factory = aiosqlite.Row
-        await self._conn.execute("PRAGMA journal_mode=WAL")
-        await self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS jobs (
-                id TEXT PRIMARY KEY,
-                filename TEXT NOT NULL,
-                prompt TEXT NOT NULL,
-                workflow_json TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending',
-                worker_id TEXT,
-                error TEXT,
-                image_urls_json TEXT NOT NULL DEFAULT '[]',
-                progress_percent REAL NOT NULL DEFAULT 0.0,
-                current_node_name TEXT NOT NULL DEFAULT '',
-                created_at REAL NOT NULL,
-                started_at REAL,
-                finished_at REAL,
-                retry_count INTEGER NOT NULL DEFAULT 0,
-                execution_duration_ms REAL
+        try:
+            await self._conn.execute("PRAGMA journal_mode=WAL")
+            await self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS jobs (
+                    id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    workflow_json TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    worker_id TEXT,
+                    error TEXT,
+                    image_urls_json TEXT NOT NULL DEFAULT '[]',
+                    progress_percent REAL NOT NULL DEFAULT 0.0,
+                    current_node_name TEXT NOT NULL DEFAULT '',
+                    created_at REAL NOT NULL,
+                    started_at REAL,
+                    finished_at REAL,
+                    retry_count INTEGER NOT NULL DEFAULT 0,
+                    execution_duration_ms REAL
+                )
+                """
             )
-            """
-        )
-        # 기존 DB 마이그레이션
-        await self._migrate_add_column("jobs", "execution_duration_ms", "REAL")
-        await self._migrate_add_column("jobs", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
-        await self._migrate_add_column("jobs", "ceg_template", "TEXT NOT NULL DEFAULT ''")
-        await self._migrate_add_column("jobs", "saved_image_hashes_json", "TEXT NOT NULL DEFAULT '[]'")
-        await self._migrate_add_column("jobs", "total_node_count", "INTEGER NOT NULL DEFAULT 0")
-        await self._migrate_add_column("jobs", "completed_node_count", "INTEGER NOT NULL DEFAULT 0")
-        await self._migrate_add_column("jobs", "worker_type", "TEXT")
+            # 기존 DB 마이그레이션
+            await self._migrate_add_column("jobs", "execution_duration_ms", "REAL")
+            await self._migrate_add_column("jobs", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
+            await self._migrate_add_column("jobs", "ceg_template", "TEXT NOT NULL DEFAULT ''")
+            await self._migrate_add_column("jobs", "saved_image_hashes_json", "TEXT NOT NULL DEFAULT '[]'")
+            await self._migrate_add_column("jobs", "total_node_count", "INTEGER NOT NULL DEFAULT 0")
+            await self._migrate_add_column("jobs", "completed_node_count", "INTEGER NOT NULL DEFAULT 0")
+            await self._migrate_add_column("jobs", "worker_type", "TEXT")
 
-        await self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS job_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                job_id TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                timestamp REAL NOT NULL,
-                worker_id TEXT,
-                details TEXT NOT NULL DEFAULT '{}'
+            await self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS job_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    timestamp REAL NOT NULL,
+                    worker_id TEXT,
+                    details TEXT NOT NULL DEFAULT '{}'
+                )
+                """
             )
-            """
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_job_events_job_id ON job_events(job_id)"
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_job_events_timestamp ON job_events(timestamp)"
-        )
-
-        await self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS execution_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                job_id TEXT NOT NULL,
-                worker_id TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                timestamp REAL NOT NULL,
-                payload_json TEXT NOT NULL DEFAULT '{}'
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_job_events_job_id ON job_events(job_id)"
             )
-            """
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_execution_events_job_id ON execution_events(job_id)"
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_execution_events_timestamp ON execution_events(timestamp)"
-        )
-
-        await self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS saved_images (
-                hash TEXT PRIMARY KEY,
-                job_id TEXT NOT NULL,
-                original_filename TEXT NOT NULL DEFAULT '',
-                comfy_filename TEXT NOT NULL DEFAULT '',
-                subfolder TEXT NOT NULL DEFAULT '',
-                type TEXT NOT NULL DEFAULT '',
-                worker_id TEXT,
-                extension TEXT NOT NULL DEFAULT '',
-                size_bytes INTEGER NOT NULL DEFAULT 0,
-                prompt TEXT NOT NULL DEFAULT '',
-                created_at REAL NOT NULL
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_job_events_timestamp ON job_events(timestamp)"
             )
-            """
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_saved_images_job_id ON saved_images(job_id)"
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_saved_images_created_at ON saved_images(created_at)"
-        )
-        # 큐레이션 컬럼 마이그레이션 (NOT NULL DEFAULT는 ALTER로 추가 가능)
-        await self._migrate_add_column(
-            "saved_images", "status", "TEXT NOT NULL DEFAULT 'pending'"
-        )
-        await self._migrate_add_column(
-            "saved_images", "note", "TEXT NOT NULL DEFAULT ''"
-        )
-        await self._migrate_add_column("saved_images", "trashed_at", "REAL")
-        await self._migrate_add_column("saved_images", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
-        await self._migrate_add_column("saved_images", "ceg_template", "TEXT NOT NULL DEFAULT ''")
-        await self._migrate_add_column("saved_images", "workflow_json", "TEXT NOT NULL DEFAULT '{}'")
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_saved_images_status ON saved_images(status)"
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_saved_images_original_filename "
-            "ON saved_images(original_filename)"
-        )
 
-        await self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS image_tags (
-                image_hash TEXT NOT NULL,
-                tag TEXT NOT NULL,
-                created_at REAL NOT NULL,
-                PRIMARY KEY (image_hash, tag)
+            await self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS execution_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL,
+                    worker_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    timestamp REAL NOT NULL,
+                    payload_json TEXT NOT NULL DEFAULT '{}'
+                )
+                """
             )
-            """
-        )
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag)"
-        )
-
-        await self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS workers (
-                url TEXT PRIMARY KEY,
-                worker_type TEXT NOT NULL DEFAULT 'comfyui',
-                added_at REAL NOT NULL
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_execution_events_job_id ON execution_events(job_id)"
             )
-            """
-        )
-        # 기존 DB 마이그레이션: worker_type 컬럼 추가
-        await self._migrate_add_column("workers", "worker_type", "TEXT NOT NULL DEFAULT 'comfyui'")
-
-        await self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL DEFAULT ''
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_execution_events_timestamp ON execution_events(timestamp)"
             )
-            """
-        )
 
-        await self._conn.commit()
+            await self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS saved_images (
+                    hash TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    original_filename TEXT NOT NULL DEFAULT '',
+                    comfy_filename TEXT NOT NULL DEFAULT '',
+                    subfolder TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL DEFAULT '',
+                    worker_id TEXT,
+                    extension TEXT NOT NULL DEFAULT '',
+                    size_bytes INTEGER NOT NULL DEFAULT 0,
+                    prompt TEXT NOT NULL DEFAULT '',
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_saved_images_job_id ON saved_images(job_id)"
+            )
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_saved_images_created_at ON saved_images(created_at)"
+            )
+            # 큐레이션 컬럼 마이그레이션 (NOT NULL DEFAULT는 ALTER로 추가 가능)
+            await self._migrate_add_column(
+                "saved_images", "status", "TEXT NOT NULL DEFAULT 'pending'"
+            )
+            await self._migrate_add_column(
+                "saved_images", "note", "TEXT NOT NULL DEFAULT ''"
+            )
+            await self._migrate_add_column("saved_images", "trashed_at", "REAL")
+            await self._migrate_add_column("saved_images", "meta_json", "TEXT NOT NULL DEFAULT '{}'")
+            await self._migrate_add_column("saved_images", "ceg_template", "TEXT NOT NULL DEFAULT ''")
+            await self._migrate_add_column("saved_images", "workflow_json", "TEXT NOT NULL DEFAULT '{}'")
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_saved_images_status ON saved_images(status)"
+            )
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_saved_images_original_filename "
+                "ON saved_images(original_filename)"
+            )
+
+            await self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS image_tags (
+                    image_hash TEXT NOT NULL,
+                    tag TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    PRIMARY KEY (image_hash, tag)
+                )
+                """
+            )
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag)"
+            )
+
+            await self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS workers (
+                    url TEXT PRIMARY KEY,
+                    worker_type TEXT NOT NULL DEFAULT 'comfyui',
+                    added_at REAL NOT NULL
+                )
+                """
+            )
+            # 기존 DB 마이그레이션: worker_type 컬럼 추가
+            await self._migrate_add_column("workers", "worker_type", "TEXT NOT NULL DEFAULT 'comfyui'")
+
+            await self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL DEFAULT ''
+                )
+                """
+            )
+
+            await self._conn.commit()
+        except Exception:
+            logger.exception("failed to initialize database schema: %s", self._db_path)
+            raise
 
     async def _migrate_add_column(
         self, table: str, column: str, col_type: str
     ) -> None:
         """컬럼이 없으면 ALTER TABLE로 추가."""
-        assert self._conn is not None
+        if self._conn is None:
+            logger.error("_migrate_add_column called with no connection")
+            return
         cursor = await self._conn.execute(f"PRAGMA table_info({table})")
         rows = await cursor.fetchall()
         existing = {row["name"] for row in rows}
@@ -244,7 +254,8 @@ class JobStore:
             self._conn = None
 
     async def save(self, job_dict: dict[str, Any]) -> None:
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
         await self._conn.execute(
             """
             INSERT OR REPLACE INTO jobs (
@@ -283,7 +294,8 @@ class JobStore:
         await self._conn.commit()
 
     async def delete(self, job_id: str) -> None:
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
         await self._conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         await self._conn.commit()
 
@@ -292,16 +304,28 @@ class JobStore:
             meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
         except (json.JSONDecodeError, TypeError):
             meta = {}
+        try:
+            workflow = json.loads(row["workflow_json"])
+        except (json.JSONDecodeError, TypeError):
+            workflow = {}
+        try:
+            image_urls = json.loads(row["image_urls_json"])
+        except (json.JSONDecodeError, TypeError):
+            image_urls = []
+        try:
+            saved_image_hashes = json.loads(row["saved_image_hashes_json"]) if row["saved_image_hashes_json"] else []
+        except (json.JSONDecodeError, TypeError):
+            saved_image_hashes = []
         return {
             "id": row["id"],
             "filename": row["filename"],
             "prompt": row["prompt"],
-            "_workflow": json.loads(row["workflow_json"]),
+            "_workflow": workflow,
             "status": row["status"],
             "workerId": row["worker_id"],
             "error": row["error"],
-            "imageUrls": json.loads(row["image_urls_json"]),
-            "savedImageHashes": json.loads(row["saved_image_hashes_json"]) if row["saved_image_hashes_json"] else [],
+            "imageUrls": image_urls,
+            "savedImageHashes": saved_image_hashes,
             "progressPercent": row["progress_percent"],
             "currentNodeName": row["current_node_name"],
             "totalNodeCount": row["total_node_count"] if "total_node_count" in row.keys() else 0,
@@ -317,7 +341,8 @@ class JobStore:
         }
 
     async def load_all(self) -> list[dict[str, Any]]:
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         cursor = await self._conn.execute("SELECT * FROM jobs ORDER BY created_at ASC")
         rows = await cursor.fetchall()
         return [self._job_row_to_dict(row) for row in rows]
@@ -328,7 +353,8 @@ class JobStore:
         status: Optional[str] = None,
         filename: Optional[str] = None,
     ) -> int:
-        assert self._conn is not None
+        if self._conn is None:
+            return 0
         conditions: list[str] = []
         params: list[Any] = []
         if status is not None:
@@ -352,7 +378,8 @@ class JobStore:
         status: Optional[str] = None,
         filename: Optional[str] = None,
     ) -> list[dict[str, Any]]:
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         conditions: list[str] = []
         params: list[Any] = []
         if status is not None:
@@ -381,7 +408,8 @@ class JobStore:
         details: Optional[dict[str, Any]] = None,
     ) -> None:
         """잡 상태 전환 이벤트를 기록 (INSERT-only)."""
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
         await self._conn.execute(
             """
             INSERT INTO job_events (job_id, event_type, timestamp, worker_id, details)
@@ -399,23 +427,28 @@ class JobStore:
 
     async def get_job_events(self, job_id: str) -> list[dict[str, Any]]:
         """특정 잡의 모든 상태 전환 이력을 시간순으로 반환."""
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         cursor = await self._conn.execute(
             "SELECT * FROM job_events WHERE job_id = ? ORDER BY timestamp ASC",
             (job_id,),
         )
         rows = await cursor.fetchall()
-        return [
-            {
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                details = json.loads(row["details"])
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            results.append({
                 "id": row["id"],
                 "jobId": row["job_id"],
                 "eventType": row["event_type"],
                 "timestamp": row["timestamp"],
                 "workerId": row["worker_id"],
-                "details": json.loads(row["details"]),
-            }
-            for row in rows
-        ]
+                "details": details,
+            })
+        return results
 
     # ---------- execution_events (ComfyUI raw events) ----------
 
@@ -427,7 +460,8 @@ class JobStore:
         payload: dict[str, Any],
     ) -> None:
         """ComfyUI 실행 이벤트를 기록 (INSERT-only)."""
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
         await self._conn.execute(
             """
             INSERT INTO execution_events (job_id, worker_id, event_type, timestamp, payload_json)
@@ -445,29 +479,35 @@ class JobStore:
 
     async def get_execution_events(self, job_id: str) -> list[dict[str, Any]]:
         """특정 잡의 모든 ComfyUI 실행 이벤트를 시간순으로 반환."""
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         cursor = await self._conn.execute(
             "SELECT * FROM execution_events WHERE job_id = ? ORDER BY timestamp ASC",
             (job_id,),
         )
         rows = await cursor.fetchall()
-        return [
-           {
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                details = json.loads(row["payload_json"])
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            results.append({
                 "id": row["id"],
                 "jobId": row["job_id"],
                 "eventType": row["event_type"],
                 "timestamp": row["timestamp"],
                 "workerId": row["worker_id"],
-                "details": json.loads(row["payload_json"]),
-            }
-            for row in rows
-        ]
+                "details": details,
+            })
+        return results
 
     # ---------- settings ----------
 
     async def save_setting(self, key: str, value: str) -> None:
         """키-값 설정 저장 (INSERT OR REPLACE)."""
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
         await self._conn.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             (key, value),
@@ -476,7 +516,8 @@ class JobStore:
 
     async def get_setting(self, key: str) -> Optional[str]:
         """키에 해당하는 설정 값 반환 (없으면 None)."""
-        assert self._conn is not None
+        if self._conn is None:
+            return None
         cursor = await self._conn.execute(
             "SELECT value FROM settings WHERE key = ?", (key,)
         )
@@ -485,7 +526,8 @@ class JobStore:
 
     async def delete_setting(self, key: str) -> bool:
         """설정 삭제. 삭제했으면 True, 없으면 False."""
-        assert self._conn is not None
+        if self._conn is None:
+            return False
         cursor = await self._conn.execute(
             "DELETE FROM settings WHERE key = ?", (key,)
         )
@@ -494,7 +536,8 @@ class JobStore:
 
     async def list_settings(self) -> dict[str, str]:
         """모든 설정을 {key: value} 딕셔너리로 반환."""
-        assert self._conn is not None
+        if self._conn is None:
+            return {}
         cursor = await self._conn.execute("SELECT key, value FROM settings")
         rows = await cursor.fetchall()
         return {row["key"]: row["value"] for row in rows}
@@ -503,7 +546,8 @@ class JobStore:
 
     async def list_worker_urls(self) -> list[dict[str, Any]]:
         """워커 URL 목록을 [{url, worker_type}, ...] 형태로 반환."""
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         cursor = await self._conn.execute(
             "SELECT url, worker_type FROM workers ORDER BY added_at ASC"
         )
@@ -512,7 +556,8 @@ class JobStore:
 
     async def add_worker_url(self, url: str, *, worker_type: str = "comfyui") -> bool:
         """URL 추가. 이미 존재하면 False, 새로 추가했으면 True."""
-        assert self._conn is not None
+        if self._conn is None:
+            return False
         cursor = await self._conn.execute(
             "INSERT OR IGNORE INTO workers (url, worker_type, added_at) VALUES (?, ?, ?)",
             (url, worker_type, time.time()),
@@ -521,7 +566,8 @@ class JobStore:
         return cursor.rowcount > 0
 
     async def remove_worker_url(self, url: str) -> bool:
-        assert self._conn is not None
+        if self._conn is None:
+            return False
         cursor = await self._conn.execute(
             "DELETE FROM workers WHERE url = ?", (url,)
         )
@@ -547,7 +593,8 @@ class JobStore:
         ceg_template: str = "",
         workflow: Optional[dict[str, Any]] = None,
     ) -> None:
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
         await self._conn.execute(
             """
             INSERT OR IGNORE INTO saved_images (
@@ -576,7 +623,8 @@ class JobStore:
         await self._conn.commit()
 
     async def get_saved_image(self, hash: str) -> Optional[dict[str, Any]]:
-        assert self._conn is not None
+        if self._conn is None:
+            return None
         cursor = await self._conn.execute(
             "SELECT * FROM saved_images WHERE hash = ?", (hash,)
         )
@@ -622,7 +670,8 @@ class JobStore:
         filename: Optional[str] = None,
         tag: Optional[str] = None,
     ) -> int:
-        assert self._conn is not None
+        if self._conn is None:
+            return 0
         joins, where, params = self._saved_images_filter_clause(
             job_id=job_id, status=status, filename=filename, tag=tag
         )
@@ -641,7 +690,8 @@ class JobStore:
         filename: Optional[str] = None,
         tag: Optional[str] = None,
     ) -> list[dict[str, Any]]:
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         joins, where, params = self._saved_images_filter_clause(
             job_id=job_id, status=status, filename=filename, tag=tag
         )
@@ -677,7 +727,8 @@ class JobStore:
         note: Optional[str] = None,
     ) -> Optional[dict[str, Any]]:
         """status/note 부분 업데이트. status='trashed'면 trashed_at 동기화."""
-        assert self._conn is not None
+        if self._conn is None:
+            return None
         existing = await self.get_saved_image(hash)
         if existing is None:
             return None
@@ -705,7 +756,8 @@ class JobStore:
 
     async def delete_saved_image(self, hash: str) -> bool:
         """saved_images 행 + 태그 영구 삭제. 디스크 파일은 호출자가 삭제."""
-        assert self._conn is not None
+        if self._conn is None:
+            return False
         cursor = await self._conn.execute(
             "DELETE FROM saved_images WHERE hash = ?", (hash,)
         )
@@ -717,7 +769,8 @@ class JobStore:
 
     async def list_trashed_for_purge(self) -> list[dict[str, Any]]:
         """status='trashed' 항목 전체 (휴지통 비우기에서 디스크 정리에 필요)."""
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         cursor = await self._conn.execute(
             "SELECT hash, extension FROM saved_images WHERE status = 'trashed'"
         )
@@ -727,7 +780,8 @@ class JobStore:
     # ---------- 태그 ----------
 
     async def add_tags(self, hash: str, tags: list[str]) -> list[str]:
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         now = time.time()
         for tag in tags:
             t = tag.strip()
@@ -742,7 +796,8 @@ class JobStore:
         return await self.get_tags(hash)
 
     async def remove_tag(self, hash: str, tag: str) -> list[str]:
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         await self._conn.execute(
             "DELETE FROM image_tags WHERE image_hash = ? AND tag = ?",
             (hash, tag),
@@ -751,7 +806,8 @@ class JobStore:
         return await self.get_tags(hash)
 
     async def get_tags(self, hash: str) -> list[str]:
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         cursor = await self._conn.execute(
             "SELECT tag FROM image_tags WHERE image_hash = ? ORDER BY tag ASC",
             (hash,),
@@ -761,7 +817,8 @@ class JobStore:
 
     async def list_tag_counts(self) -> list[dict[str, Any]]:
         """{tag, count} 리스트 (count 내림차순)."""
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         cursor = await self._conn.execute(
             "SELECT tag, COUNT(*) AS cnt FROM image_tags "
             "GROUP BY tag ORDER BY cnt DESC, tag ASC"
@@ -774,7 +831,8 @@ class JobStore:
     async def list_asset_groups(
         self, *, limit: int = 100, offset: int = 0, sort: str = "latest"
     ) -> list[dict[str, Any]]:
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         if sort == "name":
             order = "filename ASC"
         elif sort == "count":
@@ -829,7 +887,8 @@ class JobStore:
         worker_id: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """필터링된 전체 job_events 목록을 반환."""
-        assert self._conn is not None
+        if self._conn is None:
+            return []
         conditions: list[str] = []
         params: list[Any] = []
 
@@ -865,14 +924,18 @@ class JobStore:
 
         cursor = await self._conn.execute(query, params)
         rows = await cursor.fetchall()
-        return [
-            {
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                details = json.loads(row["details"])
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            results.append({
                 "id": row["id"],
                 "jobId": row["job_id"],
                 "eventType": row["event_type"],
                 "timestamp": row["timestamp"],
                 "workerId": row["worker_id"],
-                "details": json.loads(row["details"]),
-            }
-            for row in rows
-        ]
+                "details": details,
+            })
+        return results

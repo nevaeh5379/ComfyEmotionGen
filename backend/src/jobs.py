@@ -497,11 +497,17 @@ class JobManager:
 
     async def _dispatch_loop(self) -> None:
         while not self._stopping:
-            await self._wakeup.wait()
-            self._wakeup.clear()
-            if self._stopping:
+            try:
+                await self._wakeup.wait()
+                self._wakeup.clear()
+                if self._stopping:
+                    break
+                await self._try_dispatch()
+            except asyncio.CancelledError:
                 break
-            await self._try_dispatch()
+            except Exception:
+                logger.exception("dispatch_loop unexpected error")
+                await asyncio.sleep(1)
 
     async def _try_dispatch(self) -> None:
         """idle 워커가 있는 한 pending 잡을 채워 넣는다 (paused일 땐 스킵)."""

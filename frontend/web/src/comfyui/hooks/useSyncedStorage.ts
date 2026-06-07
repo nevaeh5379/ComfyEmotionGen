@@ -18,7 +18,8 @@ interface PendingSyncItem {
 export function getSyncQueue(): PendingSyncItem[] {
   try {
     return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]")
-  } catch {
+  } catch (err) {
+    console.warn("useSyncedStorage: 동기화 큐 파싱 실패:", err)
     return []
   }
 }
@@ -26,8 +27,8 @@ export function getSyncQueue(): PendingSyncItem[] {
 function setSyncQueue(queue: PendingSyncItem[]): void {
   try {
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue))
-  } catch {
-    // ignore quota errors
+  } catch (err) {
+    console.warn("useSyncedStorage: 동기화 큐 저장 실패:", err)
   }
 }
 
@@ -78,7 +79,8 @@ export function useSyncedStorage<T>(
       const stored = localStorage.getItem(key)
       if (stored === null) return defaultValue
       return isStringDefault ? (stored as T) : (JSON.parse(stored) as T)
-    } catch {
+    } catch (err) {
+      console.warn(`useSyncedStorage: ${key} 초기값 파싱 실패:`, err)
       return defaultValue
     }
   })
@@ -94,8 +96,9 @@ export function useSyncedStorage<T>(
       if (isStringDefault) return raw as unknown as T
       try {
         return JSON.parse(raw) as T
-      } catch {
+      } catch (err) {
         // ✅ useCallback 내부(나중에 실행됨)에서는 Ref 접근이 안전합니다.
+        console.warn(`useSyncedStorage: ${key} 역직렬화 실패:`, err)
         return defaultValueRef.current
       }
     },
@@ -114,8 +117,8 @@ export function useSyncedStorage<T>(
     if (getSyncQueue().some((i) => i.key === key)) {
       try {
         localStorage.setItem(key, serialize(valueRef.current))
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn(`useSyncedStorage: ${key} 충돌 시 localStorage 저장 실패:`, err)
       }
       return true
     }
@@ -163,8 +166,8 @@ export function useSyncedStorage<T>(
     const serialized = serialize(value)
     try {
       localStorage.setItem(key, serialized)
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn(`useSyncedStorage: ${key} localStorage 저장 실패:`, err)
     }
 
     const isCurrentDirty = serialized !== lastServerValueRef.current
@@ -188,7 +191,7 @@ export function useSyncedStorage<T>(
         lastServerValueRef.current = serialized
         setIsDirty(false)
       }
-    })
+    }).catch((err) => console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err))
   }, [key, value, serialize, options?.manual])
 
   const saveToServer = useCallback(() => {

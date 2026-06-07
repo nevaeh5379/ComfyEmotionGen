@@ -16,7 +16,8 @@ const readBackendUrl = (): string => {
     return (
       localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
     )
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 백엔드 URL 읽기 실패:", err)
     return DEFAULT_BACKEND_URL
   }
 }
@@ -35,7 +36,8 @@ export async function fetchAllSettings(): Promise<Record<
       return null
     }
     return res.json() as unknown as Record<string, string>
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 목록 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
@@ -55,7 +57,8 @@ export async function fetchSetting(key: string): Promise<string | null> {
     }
     const data = (await res.json()) as { value: string }
     return data.value
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
@@ -83,7 +86,8 @@ export async function saveSetting(
       return false
     }
     return res.ok
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 저장 실패:", err)
     toast.error("설정 저장 실패: 서버에 연결할 수 없습니다.")
     return false
   }
@@ -106,7 +110,8 @@ export async function deleteSetting(key: string): Promise<boolean> {
       return false
     }
     return res.ok
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 삭제 실패:", err)
     toast.error("설정 삭제 실패: 서버에 연결할 수 없습니다.")
     return false
   }

@@ -14,7 +14,11 @@ import uvicorn
 
 
 async def main():
-    port = int(os.environ.get("BACKEND_PORT", "8000"))
+    try:
+        port = int(os.environ.get("BACKEND_PORT", "8000"))
+    except ValueError:
+        print("WARNING: BACKEND_PORT is not a valid integer, using 8000", file=sys.stderr)
+        port = 8000
     host = os.environ.get("BACKEND_HOST", "127.0.0.1")
     config = uvicorn.Config("backend.src.server:app", host=host, port=port, log_level="info")
     server = uvicorn.Server(config)

@@ -130,7 +130,7 @@ export function WorkflowProvider({
       return { success: false, error: { message: result.error.message } }
     } catch (error) {
       console.error("Workflow parsing error:", error)
-      return undefined
+      return { success: false, error: { message: String(error) } }
     }
   }, [workflowJson])
 

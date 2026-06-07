@@ -36,8 +36,8 @@ export function usePersistedItems<T>(
       if (raw === undefined) return
       try {
         setItems(JSON.parse(raw) as T[])
-      } catch {
-        // ignore parse error
+      } catch (err) {
+        console.warn(`usePersistedItems: ${storageKey} 파싱 실패:`, err)
       }
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
@@ -53,8 +53,8 @@ export function usePersistedItems<T>(
       try {
         const nextValue = raw === null ? [] : (JSON.parse(raw) as T[])
         setItems(nextValue)
-      } catch {
-        // ignore parse error
+      } catch (err) {
+        console.warn(`usePersistedItems: ${storageKey} 업데이트 파싱 실패:`, err)
       }
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
@@ -64,8 +64,8 @@ export function usePersistedItems<T>(
   const persist = useCallback((next: T[]) => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(next))
-    } catch {
-      /* ignore quota errors */
+    } catch (err) {
+      console.warn(`usePersistedItems: ${storageKey} localStorage 저장 실패:`, err)
     }
     setItems(next)
 
@@ -82,7 +82,7 @@ export function usePersistedItems<T>(
       } else {
         clearSyncQueueFor(storageKey)
       }
-    })
+    }).catch((err) => console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err))
   }, [storageKey])
 
   return { items, persist }

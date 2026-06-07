@@ -24,6 +24,7 @@ export function useBackendHealth() {
         const data = await response.json()
         return data["backend"] === "ok"
       } catch (error) {
+        console.warn("Backend health check failed:", error)
         return false
       }
     }

@@ -197,11 +197,16 @@ class _Builder(Transformer):
         return None
 
 
-_parser = Lark(
-    GRAMMAR_PATH.read_text(encoding="utf-8"),
-    parser="lalr",
-    transformer=_Builder(),
-)
+try:
+    _parser = Lark(
+        GRAMMAR_PATH.read_text(encoding="utf-8"),
+        parser="lalr",
+        transformer=_Builder(),
+    )
+except FileNotFoundError:
+    raise ImportError(f"DSL grammar file not found: {GRAMMAR_PATH}")
+except Exception as exc:
+    raise ImportError(f"Failed to load DSL grammar: {exc}") from exc
 
 
 class DSLSyntaxError(Exception):

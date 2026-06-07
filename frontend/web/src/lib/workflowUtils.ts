@@ -7,10 +7,17 @@ import { MAX_RANDOM_SEED } from "./constants"
 import type { RenderItem } from "../comfyui/types/renderTypes"
 
 export const parseWorkflow = (json: string): ComfyWorkflow => {
-  const parsed = ComfyWorkflowSchema.safeParse(JSON.parse(json))
+  let obj: unknown
+  try {
+    obj = JSON.parse(json)
+  } catch (e) {
+    console.error("Workflow JSON parse error:", e)
+    throw new Error("Invalid workflow format: " + (e instanceof Error ? e.message : String(e)))
+  }
+  const parsed = ComfyWorkflowSchema.safeParse(obj)
   if (!parsed.success) {
     console.error("Workflow validation error:", parsed.error)
-    throw new Error("Invalid workflow format")
+    throw new Error("Invalid workflow format: " + parsed.error.message)
   }
   return parsed.data
 }

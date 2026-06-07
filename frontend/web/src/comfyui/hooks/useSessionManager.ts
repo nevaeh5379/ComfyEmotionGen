@@ -99,7 +99,7 @@ export function useSessionManager(): UseSessionManagerReturn {
           setSelectedSessionId(serverActiveState.activeSessionId)
         }
       }
-    )
+    ).catch((err) => console.warn("세션 데이터 로드 실패:", err))
     return () => {
       aborted = true
     }

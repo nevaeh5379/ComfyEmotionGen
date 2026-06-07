@@ -84,7 +84,7 @@ const persistTheme = (key: string, value: Theme) => {
   } catch {
     // ignore quota errors
   }
-  saveSetting(key, value).catch(() => {})
+  saveSetting(key, value).catch((err) => console.warn("테마 저장 실패:", err))
 }
 
 const loadThemeFromServer = async (key: string): Promise<Theme | null> => {
@@ -102,9 +102,13 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
-    const storedTheme = localStorage.getItem(storageKey)
-    if (isTheme(storedTheme)) {
-      return storedTheme
+    try {
+      const storedTheme = localStorage.getItem(storageKey)
+      if (isTheme(storedTheme)) {
+        return storedTheme
+      }
+    } catch {
+      return defaultTheme
     }
 
     return defaultTheme
