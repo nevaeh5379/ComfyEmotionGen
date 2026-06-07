@@ -1,4 +1,4 @@
-import { createContext, useMemo, useState } from "react"
+import { createContext, useMemo, useState, useCallback } from "react"
 import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
@@ -59,6 +59,9 @@ export interface WorkflowContextValue {
     workflowId: string,
     presetId: string
   ) => SavedWorkflow | null
+  isDirty?: boolean
+  saveToServer?: () => Promise<boolean>
+  revert?: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -86,9 +89,10 @@ export function WorkflowProvider({
   const { setPendingSave, handlePendingUpdate, setPendingPresetSelection } =
     usePendingDialog()
 
-  const [workflowJson, setWorkflowJson] = useSyncedStorage(
+  const [workflowJson, setWorkflowJson, { isDirty: isWorkflowDirty, saveToServer: saveWorkflowToServer, revert: revertWorkflow }] = useSyncedStorage(
     STORAGE_KEYS.workflow,
-    ""
+    "",
+    { manual: true }
   )
   const [activeWorkflowId, setActiveWorkflowId] = useSyncedStorage<
     string | null
@@ -96,11 +100,20 @@ export function WorkflowProvider({
   const [workflowResetKey, setWorkflowResetKey] = useState(0)
   const {
     workflows: savedWorkflows,
-    saveWorkflow,
+    saveWorkflow: originalSaveWorkflow,
     deleteWorkflow,
     saveMappingPreset,
     deleteMappingPreset,
   } = useSavedWorkflows()
+
+  const saveWorkflow = useCallback(
+    (name: string, workflowContent: string) => {
+      const res = originalSaveWorkflow(name, workflowContent)
+      saveWorkflowToServer()
+      return res
+    },
+    [originalSaveWorkflow, saveWorkflowToServer]
+  )
 
   const activeWorkflow = useMemo(
     () => savedWorkflows.find((w) => w.id === activeWorkflowId) ?? null,
@@ -163,6 +176,9 @@ export function WorkflowProvider({
         loadWorkflowItem,
         saveMappingPreset,
         deleteMappingPreset,
+        isDirty: isWorkflowDirty,
+        saveToServer: saveWorkflowToServer,
+        revert: revertWorkflow,
       }}
     >
       {children}

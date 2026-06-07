@@ -20,7 +20,7 @@ import { WS_INITIAL_BACKOFF_MS, WS_MAX_BACKOFF_MS } from "../../lib/constants"
 import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
-import { fetchAllSettings } from "../../lib/serverStorage"
+import { fetchAllSettings, CLIENT_ID } from "../../lib/serverStorage"
 import {
   populateSettingsCache,
   applySettingUpdate,
@@ -100,6 +100,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         setJobs((prev) => prev.filter((j) => j.id !== event.jobId))
         break
       case "settings.updated":
+        if (event.sender === CLIENT_ID) break
         if (!getSyncQueue().some((i) => i.key === event.key))
           applySettingUpdate(event.key, event.value)
         break

@@ -50,7 +50,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -897,18 +897,20 @@ async def app_settings_get(key: str):
 
 
 @app.put("/app-settings/{key}")
-async def app_settings_set(key: str, req: SettingValueRequest):
+async def app_settings_set(key: str, req: SettingValueRequest, request: Request):
     """설정 저장."""
+    client_id = request.headers.get("x-client-id")
     await job_manager._store.save_setting(key, req.value)
-    await broadcast({"type": "settings.updated", "key": key, "value": req.value})
+    await broadcast({"type": "settings.updated", "key": key, "value": req.value, "sender": client_id})
     return {"ok": True}
 
 
 @app.delete("/app-settings/{key}")
-async def app_settings_delete(key: str):
+async def app_settings_delete(key: str, request: Request):
     """설정 삭제."""
+    client_id = request.headers.get("x-client-id")
     await job_manager._store.delete_setting(key)
-    await broadcast({"type": "settings.updated", "key": key, "value": None})
+    await broadcast({"type": "settings.updated", "key": key, "value": None, "sender": client_id})
     return {"ok": True}
 
 

@@ -5,6 +5,7 @@ import {
   SETTINGS_UPDATED_EVENT,
   type SettingsUpdatedDetail,
 } from "../../lib/settingsCache"
+import { toast } from "sonner"
 
 const SYNC_QUEUE_KEY = "__ceg_sync_queue"
 
@@ -58,12 +59,17 @@ export function clearSyncQueueFor(key: string): void {
   setSyncQueue(getSyncQueue().filter((i) => i.key !== key))
 }
 
-export function useSyncedStorage<T>(key: string, defaultValue: T) {
+export function useSyncedStorage<T>(
+  key: string,
+  defaultValue: T,
+  options?: { manual?: boolean }
+) {
   const isStringDefault = typeof defaultValue === "string"
   const initializedRef = useRef(false)
   const saveIdRef = useRef(0)
   const defaultValueRef = useRef(defaultValue)
   const lastServerValueRef = useRef<string | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
 
   // [수정 1] 렌더링 단계인 useState 초기화 함수 내부에서는 Ref 접근 금지.
   // 이미 스코프에 존재하는 defaultValue 파라미터를 직접 사용합니다.
@@ -124,6 +130,7 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
 
       const nextValue = deserialize(raw)
       lastServerValueRef.current = serialize(nextValue)
+      setIsDirty(false)
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
@@ -140,6 +147,7 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       const nextValue =
         raw === null ? defaultValueRef.current : deserialize(raw)
       lastServerValueRef.current = serialize(nextValue)
+      setIsDirty(false)
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
@@ -159,7 +167,14 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       // ignore
     }
 
-    if (serialized === lastServerValueRef.current) {
+    const isCurrentDirty = serialized !== lastServerValueRef.current
+    setIsDirty(isCurrentDirty)
+
+    if (options?.manual) {
+      return
+    }
+
+    if (!isCurrentDirty) {
       clearSyncQueueFor(key)
       return
     }
@@ -171,9 +186,35 @@ export function useSyncedStorage<T>(key: string, defaultValue: T) {
       else {
         clearSyncQueueFor(key)
         lastServerValueRef.current = serialized
+        setIsDirty(false)
       }
     })
-  }, [key, value, serialize])
+  }, [key, value, serialize, options?.manual])
 
-  return [value, setValue] as const
+  const saveToServer = useCallback(() => {
+    const serialized = serialize(valueRef.current)
+    const currentId = ++saveIdRef.current
+    return saveSetting(key, serialized).then((ok) => {
+      if (saveIdRef.current !== currentId) return false
+      if (!ok) {
+        enqueueSync(key, serialized)
+        toast.error("서버 저장에 실패했습니다. (오프라인 상태)")
+      } else {
+        clearSyncQueueFor(key)
+        lastServerValueRef.current = serialized
+        setIsDirty(false)
+      }
+      return ok
+    })
+  }, [key, serialize])
+
+  const revert = useCallback(() => {
+    if (lastServerValueRef.current !== null) {
+      const serverValue = deserialize(lastServerValueRef.current)
+      setValue(serverValue)
+      setIsDirty(false)
+    }
+  }, [deserialize])
+
+  return [value, setValue, { isDirty, saveToServer, revert }] as const
 }

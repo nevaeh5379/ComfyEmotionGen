@@ -9,6 +9,8 @@ import { STORAGE_KEYS } from "../lib/storageKeys"
 import { DEFAULT_BACKEND_URL } from "../lib/runtime"
 import { toast } from "sonner"
 
+export const CLIENT_ID = Math.random().toString(36).substring(2) + Date.now().toString(36);
+
 const readBackendUrl = (): string => {
   try {
     return (
@@ -69,7 +71,10 @@ export async function saveSetting(
       `${readBackendUrl()}/app-settings/${encodeURIComponent(key)}`,
       {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Client-Id": CLIENT_ID
+        },
         body: JSON.stringify({ value }),
       }
     )
@@ -89,7 +94,12 @@ export async function deleteSetting(key: string): Promise<boolean> {
   try {
     const res = await fetch(
       `${readBackendUrl()}/app-settings/${encodeURIComponent(key)}`,
-      { method: "DELETE" }
+      {
+        method: "DELETE",
+        headers: {
+          "X-Client-Id": CLIENT_ID
+        }
+      }
     )
     if (!res.ok) {
       toast.error(`설정 삭제 실패: HTTP ${res.status}`)

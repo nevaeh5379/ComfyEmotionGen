@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import CodeMirror from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { StreamLanguage, type StringStream } from "@codemirror/language"
@@ -234,6 +234,49 @@ const CodeEditor = ({
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [localValue, setLocalValue] = useState(value)
+
+  useEffect(() => {
+    setLocalValue(value)
+  }, [value])
+
+  const timerRef = useRef<number | null>(null)
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  const localValueRef = useRef(localValue)
+  useEffect(() => {
+    localValueRef.current = localValue
+  }, [localValue])
+
+  const flushChange = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+      onChangeRef.current(localValueRef.current)
+    }
+  }, [])
+
+  const handleLocalChange = useCallback((val: string) => {
+    setLocalValue(val)
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current)
+    }
+    timerRef.current = window.setTimeout(() => {
+      onChangeRef.current(val)
+    }, 250)
+  }, [])
+
+  // Flush on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current)
+        onChangeRef.current(localValueRef.current)
+      }
+    }
+  }, [])
+
   const handleFile = useCallback(
     (file: File) => {
       const reader = new FileReader()
@@ -302,8 +345,9 @@ const CodeEditor = ({
       onDragOver={handleDragOver}
     >
       <CodeMirror
-        value={value}
-        onChange={onChange}
+        value={localValue}
+        onChange={handleLocalChange}
+        onBlur={flushChange}
         extensions={extensions}
         theme={resolvedTheme}
         {...(placeholder !== undefined ? { placeholder } : {})}

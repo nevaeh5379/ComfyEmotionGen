@@ -1,4 +1,4 @@
-import { createContext, useState } from "react"
+import { createContext, useState, useCallback } from "react"
 import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
@@ -45,6 +45,9 @@ export interface TemplateContextValue {
   ) => boolean | null
   generatorToolbarProps: GeneratorToolbarProps | null
   setGeneratorToolbarProps: (props: GeneratorToolbarProps | null) => void
+  isDirty?: boolean
+  saveToServer?: () => Promise<boolean>
+  revert?: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -71,9 +74,10 @@ export function TemplateProvider({
 }: TemplateProviderProps): React.JSX.Element {
   const { setPendingSave, handlePendingUpdate } = usePendingDialog()
 
-  const [cegTemplate, setCegTemplate] = useSyncedStorage(
+  const [cegTemplate, setCegTemplate, { isDirty: isCegDirty, saveToServer: saveCegToServer, revert: revertCeg }] = useSyncedStorage(
     STORAGE_KEYS.cegTemplate,
-    ""
+    "",
+    { manual: true }
   )
   const [activeTemplateId, setActiveTemplateId] = useSyncedStorage<
     string | null
@@ -81,9 +85,18 @@ export function TemplateProvider({
   const [templateResetKey, setTemplateResetKey] = useState(0)
   const {
     templates: savedTemplates,
-    saveTemplate,
+    saveTemplate: originalSaveTemplate,
     deleteTemplate,
   } = useSavedTemplates()
+
+  const saveTemplate = useCallback(
+    (name: string, templateContent: string) => {
+      const res = originalSaveTemplate(name, templateContent)
+      saveCegToServer()
+      return res
+    },
+    [originalSaveTemplate, saveCegToServer]
+  )
   const [generatorToolbarProps, setGeneratorToolbarProps] = useState<GeneratorToolbarProps | null>(null)
 
   return (
@@ -108,6 +121,9 @@ export function TemplateProvider({
         ) => handlePendingUpdate(name, type, oldContent, newContent),
         generatorToolbarProps,
         setGeneratorToolbarProps,
+        isDirty: isCegDirty,
+        saveToServer: saveCegToServer,
+        revert: revertCeg,
       }}
     >
       {children}
