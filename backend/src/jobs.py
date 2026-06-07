@@ -253,6 +253,11 @@ class JobManager:
 
     async def start(self) -> None:
         await self._store.open()
+        # DB에서 paused 상태 복원
+        paused_value = await self._store.get_setting("dispatch_paused")
+        self._paused = paused_value == "true"
+        if self._paused:
+            logger.info("dispatch paused state restored from database")
         # DB에서 기존 잡 복원
         stored = await self._store.load_all()
         async with self._lock:
@@ -275,8 +280,9 @@ class JobManager:
             self._dispatcher_task = asyncio.create_task(
                 self._dispatch_loop(), name="dispatcher"
             )
-        # 복원된 pending 잡이 있으면 디스패처 깨우기
-        self._wakeup.set()
+        # paused가 아닐 때만 복원된 pending 잡 디스패치
+        if not self._paused:
+            self._wakeup.set()
 
     async def stop(self) -> None:
         self._stopping = True
@@ -370,6 +376,8 @@ class JobManager:
         if self._paused == paused:
             return
         self._paused = paused
+        # paused 상태를 DB에 영속화하여 재시작 시 복원
+        await self._store.save_setting("dispatch_paused", str(paused).lower())
         await self._emit({"type": "control.updated", "paused": self._paused})
         if not paused:
             # 재개 시 즉시 디스패처 깨움
