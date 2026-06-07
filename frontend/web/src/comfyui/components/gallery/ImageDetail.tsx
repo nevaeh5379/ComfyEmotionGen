@@ -1,6 +1,7 @@
 import { useState } from "react"
-import { Download, ImageOff } from "lucide-react"
+import { Copy, Download, ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 import {
   Tooltip,
   TooltipContent,
@@ -13,6 +14,7 @@ import { useWorkflowContext } from "../../contexts/WorkflowContext"
 import { useTemplateContext } from "../../contexts/TemplateContext"
 import { STATUS_LABEL, STATUS_TINT, type SavedImage } from "../../types/Message"
 import { Badge } from "@/components/ui/badge"
+import { triggerBlobDownload, getImageFilename } from "../../utils/downloadImages"
 
 function defaultName(filename: string) {
   return filename.replace(/\.[^/.]+$/, "")
@@ -84,8 +86,9 @@ export function ImageDetail({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 select-text"
       onClick={onClose}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div
         className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-lg bg-background p-4 shadow-xl"
@@ -109,21 +112,21 @@ export function ImageDetail({
                 variant="ghost"
                 className="ml-auto"
                 onClick={async () => {
-                  const url = `${backendUrl}/saved-images/${image.hash}`
+                  const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
+                  const url = `${cleanBackendUrl}/saved-images/${image.hash}`
                   if (singleDownloadMode === "direct") {
                     try {
                       const response = await fetch(url)
+                      if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`)
+                      }
                       const blob = await response.blob()
-                      const blobUrl = URL.createObjectURL(blob)
-                      const a = document.createElement("a")
-                      a.href = blobUrl
-                      a.download = image.originalFilename || image.hash
-                      document.body.appendChild(a)
-                      a.click()
-                      document.body.removeChild(a)
-                      URL.revokeObjectURL(blobUrl)
-                    } catch {
-                      window.open(url, "_blank")
+                      triggerBlobDownload(blob, getImageFilename(image))
+                    } catch (err) {
+                      console.error("Direct download failed:", err)
+                      toast.error(
+                        "이미지 다운로드에 실패했습니다. CORS 정책 또는 네트워크 연결을 확인해주세요."
+                      )
                     }
                   } else {
                     window.open(url, "_blank")
@@ -155,8 +158,26 @@ export function ImageDetail({
           <div className="font-mono text-muted-foreground">
             hash: {image.hash}
           </div>
-          <div>
-            <span className="font-semibold">prompt:</span> {image.prompt}
+          <div className="flex items-start gap-2 bg-muted/30 p-2 rounded-md">
+            <div className="flex-1 break-all select-text">
+              <span className="font-semibold text-muted-foreground select-none mr-1">prompt:</span>
+              {image.prompt}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 shrink-0 gap-1 px-2 text-[10px] font-semibold border-line bg-background shadow-xs hover:bg-accent/50"
+              onClick={() => {
+                navigator.clipboard.writeText(image.prompt || "").then(() => {
+                  toast.success("프롬프트가 클립보드에 복사되었습니다.")
+                }).catch(() => {
+                  toast.error("클립보드 복사에 실패했습니다.")
+                })
+              }}
+            >
+              <Copy className="h-3 w-3" />
+              복사
+            </Button>
           </div>
           <div className="text-muted-foreground">
             {(image.sizeBytes / 1024).toFixed(1)} KB · worker{" "}

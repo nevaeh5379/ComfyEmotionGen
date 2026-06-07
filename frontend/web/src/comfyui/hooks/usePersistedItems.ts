@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { saveSetting } from "@/lib/serverStorage"
 import { clearSyncQueueFor, enqueueSync } from "./useSyncedStorage"
+import {
+  SETTINGS_READY_EVENT,
+  SETTINGS_UPDATED_EVENT,
+  type SettingsUpdatedDetail,
+} from "@/lib/settingsCache"
 
 export interface UsePersistedItemsReturn<T> {
   items: T[]
@@ -23,6 +28,38 @@ export function usePersistedItems<T>(
     return () => window.removeEventListener("storage", onStorage)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const onReady = (e: Event) => {
+      const all = (e as CustomEvent<Record<string, string>>).detail
+      const raw = all[storageKey]
+      if (raw === undefined) return
+      try {
+        setItems(JSON.parse(raw) as T[])
+      } catch {
+        // ignore parse error
+      }
+    }
+    window.addEventListener(SETTINGS_READY_EVENT, onReady)
+    return () => window.removeEventListener(SETTINGS_READY_EVENT, onReady)
+  }, [storageKey])
+
+  useEffect(() => {
+    const onUpdated = (e: Event) => {
+      const { key: updatedKey, value: raw } = (
+        e as CustomEvent<SettingsUpdatedDetail>
+      ).detail
+      if (updatedKey !== storageKey) return
+      try {
+        const nextValue = raw === null ? [] : (JSON.parse(raw) as T[])
+        setItems(nextValue)
+      } catch {
+        // ignore parse error
+      }
+    }
+    window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
+    return () => window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
+  }, [storageKey])
 
   const persist = useCallback((next: T[]) => {
     try {

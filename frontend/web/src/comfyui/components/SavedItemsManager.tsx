@@ -135,6 +135,17 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
           return
         }
       }
+      if (e.key === "Enter" && focusedIndex === -1 && name.trim()) {
+        const exactMatch = filteredItems.find(
+          (item) => item.name.trim().toLowerCase() === name.trim().toLowerCase()
+        )
+        if (exactMatch) {
+          e.preventDefault()
+          onLoad?.(exactMatch)
+          setOpen(false)
+          return
+        }
+      }
     }
     if (!open && hasItems && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault()

@@ -2120,7 +2120,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 image={selected}
                 onClose={() => setSelected(null)}
                 onChanged={reload}
-                {...(singleDownloadMode && { singleDownloadMode })}
+                singleDownloadMode={singleDownloadMode}
               />
             )}
           </div>
