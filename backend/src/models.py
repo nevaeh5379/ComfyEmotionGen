@@ -17,6 +17,15 @@ class WorkerType(StrEnum):
     NAI = auto()
 
 
+class JobStatus(StrEnum):
+    PENDING = "pending"
+    QUEUED = "queued"
+    RUNNING = "running"
+    DONE = "done"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+
 class JobItem(BaseModel):
     filename: str
     prompt: str

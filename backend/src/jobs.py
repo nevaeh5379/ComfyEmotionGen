@@ -28,28 +28,44 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Literal, Optional, overload
 
-from backend.src.models import JobItem
+from backend.src.models import JobItem, JobStatus
 from backend.src.worker import BaseWorker, WorkerInfo
 from backend.src.job_store import JobStore
 from backend.src.worker_pool import WorkerPool
 
 
-def _worker_view(info: WorkerInfo) -> dict[str, Any]:
-    return {
-        "id": info.id,
-        "url": info.url,
-        "alive": info.alive,
-        "busy": info.busy,
-        "currentJobId": info.current_job_id,
-        "workerType": info.worker_type,
-    }
+@dataclass(frozen=True)
+class WorkerView:
+    id: str
+    url: str
+    alive: bool
+    busy: bool
+    current_job_id: Optional[str]
+    worker_type: str
+
+    @classmethod
+    def from_info(cls, info: WorkerInfo) -> "WorkerView":
+        return cls(
+            id=info.id,
+            url=info.url,
+            alive=info.alive,
+            busy=info.busy,
+            current_job_id=info.current_job_id,
+            worker_type=info.worker_type,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "url": self.url,
+            "alive": self.alive,
+            "busy": self.busy,
+            "currentJobId": self.current_job_id,
+            "workerType": self.worker_type,
+        }
+
 
 logger = logging.getLogger(__name__)
-
-
-JobStatus = Literal[
-    "pending", "queued", "running", "done", "error", "cancelled"
-]
 
 
 RETRY_DELAY = 1.0  # 재시도 간격 (초)
@@ -92,7 +108,7 @@ class Job:
     filename: str
     prompt: str
     workflow: dict[str, Any]
-    status: JobStatus = "pending"
+    status: JobStatus = field(default_factory=lambda: JobStatus.PENDING)
     worker_id: Optional[str] = None
     error: Optional[str] = None
     image_urls: list[str] = field(default_factory=list)
@@ -139,12 +155,13 @@ class Job:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Job:
+        raw_status = d.get("status", JobStatus.PENDING)
         return cls(
             id=d["id"],
             filename=d["filename"],
             prompt=d["prompt"],
             workflow=d.get("_workflow", {}),
-            status=d.get("status", "pending"),
+            status=JobStatus(raw_status) if isinstance(raw_status, str) else raw_status,
             worker_id=d.get("workerId"),
             error=d.get("error"),
             image_urls=d.get("imageUrls", []),
@@ -163,14 +180,14 @@ class Job:
             image_uploads=d.get("imageUploads", {}),
             worker_type=d.get("workerType"),
         )
-    
+
     def clone(self) -> "Job":
         return Job(
             id=str(uuid.uuid4()),
             filename=self.filename,
             prompt=self.prompt,
             workflow=deepcopy(self.workflow),
-            status="pending",
+            status=JobStatus.PENDING,
             worker_id=None,
             error=None,
             image_urls=deepcopy(self.image_urls),
@@ -242,8 +259,8 @@ class JobManager:
             for d in stored:
                 job = Job.from_dict(d)
                 # queued/running 상태였던 잡은 pending으로 되돌림 (백엔드 재시작)
-                if job.status in ("queued", "running"):
-                    job.status = "pending"
+                if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
+                    job.status = JobStatus.PENDING
                     job.worker_id = None
                     job.progress_percent = 0.0
                     job.current_node_name = ""
@@ -281,8 +298,8 @@ class JobManager:
             self._jobs.clear()
             for d in stored:
                 job = Job.from_dict(d)
-                if job.status in ("queued", "running"):
-                    job.status = "pending"
+                if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
+                    job.status = JobStatus.PENDING
                     job.worker_id = None
                     job.progress_percent = 0.0
                     job.current_node_name = ""
@@ -372,7 +389,7 @@ class JobManager:
             raise ValueError(f"URL already registered: {url}")
         worker = await self._pool.add(url, worker_type=worker_type)
         await self._store.add_worker_url(url, worker_type=worker_type)
-        view = _worker_view(worker.info())
+        view = WorkerView.from_info(worker.info()).to_dict()
         await self._emit({"type": "worker.added", "worker": view})
         # 새 워커가 alive 되면 dispatch loop이 자동 픽업.
         return view
@@ -406,7 +423,7 @@ class JobManager:
                     (
                         j.id
                         for j in self._jobs.values()
-                        if j.status in ("pending", "queued", "running")
+                        if j.status in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING)
                     ),
                     None,
                 )
@@ -442,10 +459,10 @@ class JobManager:
             job = self._jobs.get(job_id)
             if job is None:
                 return False
-            if job.status in ("done", "error", "cancelled"):
+            if job.status in (JobStatus.DONE, JobStatus.ERROR, JobStatus.CANCELLED):
                 return False
             worker_id = job.worker_id
-            job.status = "cancelled"
+            job.status = JobStatus.CANCELLED
             job.finished_at = time.time()
             job_dict = job.to_dict()
         if worker_id is not None:
@@ -516,7 +533,7 @@ class JobManager:
                 return
             async with self._lock:
                 pending = next(
-                    (j for j in self._jobs.values() if j.status == "pending"),
+                    (j for j in self._jobs.values() if j.status == JobStatus.PENDING),
                     None,
                 )
                 if pending is None:
@@ -526,7 +543,7 @@ class JobManager:
                 )
                 if worker is None:
                     return
-                pending.status = "queued"
+                pending.status = JobStatus.QUEUED
                 pending.worker_id = worker.id
                 worker.current_job_id = pending.id
                 job_dict = pending.to_dict()
@@ -561,7 +578,7 @@ class JobManager:
                 # submit 중 취소됐다면 바로 큐에서 제거
                 async with self._lock:
                     job = self._jobs.get(job_id)
-                    was_cancelled = job is not None and job.status == "cancelled"
+                    was_cancelled = job is not None and job.status == JobStatus.CANCELLED
                 if was_cancelled:
                     await worker.delete_from_queue(job_id)
 
@@ -612,7 +629,7 @@ class JobManager:
                 "[NODE-TRACK] execution_start: %s total_nodes=%d", prompt_id, total_nodes,
             )
             await self._update(
-                prompt_id, status="running", started_at=time.time(),
+                prompt_id, status=JobStatus.RUNNING, started_at=time.time(),
                 total_node_count=total_nodes, completed_node_count=0,
             )
             await self._store.save_event(
@@ -620,7 +637,7 @@ class JobManager:
                 worker_id=worker.id,
             )
         elif msg_type == "execution_success":
-            await self._finish(prompt_id, status="done")
+            await self._finish(prompt_id)
         elif msg_type == "execution_interrupted":
             node_type = data.get("node_type", "?")
             await self._reset_to_pending(
@@ -746,7 +763,7 @@ class JobManager:
         await self._emit(
             {
                 "type": "worker.updated",
-                "worker": _worker_view(worker.info()),
+                "worker": WorkerView.from_info(worker.info()).to_dict(),
             }
         )
         # 워커 살아나면 디스패처 깨우기
@@ -765,28 +782,47 @@ class JobManager:
 
     # ---------- internal helpers ----------
 
-    async def _update(self, job_id: str, **changes: Any) -> None:
+    async def _update(
+        self,
+        job_id: str,
+        *,
+        status: Optional[JobStatus] = None,
+        started_at: Optional[float] = None,
+        total_node_count: Optional[int] = None,
+        completed_node_count: Optional[int] = None,
+        progress_percent: Optional[float] = None,
+        current_node_name: Optional[str] = None,
+        image_urls_append: Optional[list[str]] = None,
+    ) -> None:
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
                 return
-            urls_append = changes.pop("image_urls_append", None)
-            for key, value in changes.items():
-                setattr(job, key, value)
-            if urls_append:
-                job.image_urls.extend(urls_append)
+            if status is not None:
+                job.status = status
+            if started_at is not None:
+                job.started_at = started_at
+            if total_node_count is not None:
+                job.total_node_count = total_node_count
+            if completed_node_count is not None:
+                job.completed_node_count = completed_node_count
+            if progress_percent is not None:
+                job.progress_percent = progress_percent
+            if current_node_name is not None:
+                job.current_node_name = current_node_name
+            if image_urls_append is not None:
+                job.image_urls.extend(image_urls_append)
             payload = job.to_dict()
         await self._store.save(payload)
         await self._emit({"type": "job.updated", "job": payload})
 
-    async def _finish(self, job_id: str, **changes: Any) -> None:
+    async def _finish(self, job_id: str) -> None:
         worker_id_to_clear: Optional[str] = None
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
                 return
-            for key, value in changes.items():
-                setattr(job, key, value)
+            job.status = JobStatus.DONE
             job.finished_at = time.time()
             # 실행 시간 계산 (ms)
             if job.started_at is not None:
@@ -818,11 +854,11 @@ class JobManager:
             job = self._jobs.get(job_id)
             if job is None:
                 return
-            if job.status in ("cancelled", "done"):
+            if job.status in (JobStatus.CANCELLED, JobStatus.DONE):
                 return
             worker_id_to_clear = job.worker_id
             job.retry_count += 1
-            job.status = "pending"
+            job.status = JobStatus.PENDING
             job.worker_id = None
             job.error = f"[retry {job.retry_count}] {error}"
             job.progress_percent = 0.0
@@ -848,11 +884,6 @@ class JobManager:
         # 1초 대기 후 디스패처 깨우기
         await asyncio.sleep(RETRY_DELAY)
         self._wakeup.set()
-
-    async def _get_dict(self, job_id: str) -> dict[str, Any]:
-        async with self._lock:
-            job = self._jobs.get(job_id)
-            return job.to_dict() if job is not None else {"id": job_id}
 
     async def _emit(self, event: NormalizedEvent) -> None:
         for listener in list(self._listeners):
