@@ -241,11 +241,11 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                     </span>
                   )}
                 </div>
-                {j.currentNodeName && (
-                  <div className="truncate text-[10px] text-muted-foreground">
-                    노드: {j.currentNodeName}
-                  </div>
-                )}
+                <div className="truncate text-[10px] text-muted-foreground">
+                  {j.currentNodeName
+                    ? `노드 (${j.currentNodeName}) 처리 중...`
+                    : "노드 처리 중..."}
+                </div>
                 <div className="flex items-center gap-2">
                   <Progress
                     value={j.progressPercent}

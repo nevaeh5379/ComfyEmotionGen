@@ -133,6 +133,21 @@ export interface JobDetailSheetProps {
 
 // ── sub-components ──────────────────────────────────────────────────────
 
+const SortIcon = memo(function SortIcon({
+  isActive,
+  dir,
+}: {
+  isActive: boolean
+  dir: "asc" | "desc"
+}) {
+  if (!isActive) return <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
+  return dir === "asc" ? (
+    <ArrowUp className="h-3 w-3 shrink-0" />
+  ) : (
+    <ArrowDown className="h-3 w-3 shrink-0" />
+  )
+})
+
 export const SessionPopover = memo(function SessionPopover({
   markers,
   sessionJobCounts,
@@ -144,16 +159,7 @@ export const SessionPopover = memo(function SessionPopover({
   onSelectSession,
   onCreateNew,
 }: SessionPickerProps) {
-  if (markers.length === 0) return null
-
-  const sessionButtonLabel = (() => {
-    const m = markers.find((mm) => mm.id === selectedId)
-    const count = sessionJobCounts.get(selectedId) ?? 0
-    return m ? `${m.label} (${count})` : `(${count})`
-  })()
-
-  const isActive = activeState?.activeSessionId
-
+  // Hooks must be called before any early returns
   const ref = useRef<HTMLDivElement>(null)
   const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -170,6 +176,16 @@ export const SessionPopover = memo(function SessionPopover({
       setRect(null)
     }
   }, [isOpen])
+
+  if (markers.length === 0) return null
+
+  const sessionButtonLabel = (() => {
+    const m = markers.find((mm) => mm.id === selectedId)
+    const count = sessionJobCounts.get(selectedId) ?? 0
+    return m ? `${m.label} (${count})` : `(${count})`
+  })()
+
+  const isActive = activeState?.activeSessionId
 
   const dropdownStyle = rect
     ? (() => {
@@ -430,7 +446,9 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
             </div>
             <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
               <span className="truncate">
-                {j.currentNodeName || "노드 처리 중..."}
+                {j.currentNodeName
+                  ? `노드 (${j.currentNodeName}) 처리 중...`
+                  : "노드 처리 중..."}
               </span>
               <span className="mono">{Math.round(j.progressPercent)}%</span>
             </div>
@@ -629,15 +647,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     상태
-                    {sortKey === "status" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "status"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="px-2">
@@ -646,15 +656,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     파일명
-                    {sortKey === "filename" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "filename"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="px-2">
@@ -663,15 +665,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     생성
-                    {sortKey === "createdAt" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "createdAt"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="px-2">
@@ -680,15 +674,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     소요
-                    {sortKey === "duration" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "duration"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="w-12 px-2" />
