@@ -32,8 +32,7 @@ images/
 .hermes/plans
 .plan
 .kdev4
-
-# Python build artifacts
 *.egg-info/
 dist/
 build/
+.codegraph

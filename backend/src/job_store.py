@@ -620,7 +620,143 @@ class JobStore:
                 json.dumps(workflow or {}),
             ),
         )
+        
+        # 템플릿의 축(Axis)에 할당된 실제 생성 값을 추출하여 태그로 저장
+        auto_tags = self._extract_auto_tags(ceg_template, json.dumps(meta or {}))
+
+        now = time.time()
+        for tag in auto_tags:
+            await self._conn.execute(
+                """
+                INSERT OR IGNORE INTO image_tags (image_hash, tag, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (hash, tag, now),
+            )
+
         await self._conn.commit()
+
+    def _extract_auto_tags(self, ceg_template: str, meta_json: str) -> set[str]:
+        ceg_template = ceg_template or ""
+        meta_json = meta_json or ""
+        try:
+            meta = json.loads(meta_json) if meta_json else {}
+        except Exception:
+            meta = {}
+            
+        auto_tags = set()
+        if ceg_template and ceg_template.strip() and meta:
+            try:
+                try:
+                    from backend.src.prompt_dsl import parse
+                except ImportError:
+                    from prompt_dsl import parse
+                
+                prog = parse(ceg_template)
+                axis_names = set(prog.axes.keys())
+                
+                for axis_name in axis_names:
+                    if axis_name in meta:
+                        val = meta[axis_name]
+                        if val and str(val).strip():
+                            auto_tags.add(str(val).strip())
+            except Exception:
+                logger.exception("Failed to auto-generate tags from ceg_template and meta")
+        return auto_tags
+
+    async def auto_generate_tags(self, hash: str) -> Optional[list[str]]:
+        if self._conn is None:
+            return None
+        cursor = await self._conn.execute(
+            "SELECT ceg_template, meta_json FROM saved_images WHERE hash = ?", (hash,)
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        
+        auto_tags = self._extract_auto_tags(row["ceg_template"], row["meta_json"])
+        
+        now = time.time()
+        for tag in auto_tags:
+            await self._conn.execute(
+                """
+                INSERT OR IGNORE INTO image_tags (image_hash, tag, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (hash, tag, now),
+            )
+        await self._conn.commit()
+        
+        return await self.get_tags(hash)
+
+    async def bulk_auto_generate_tags(self, hashes: list[str]) -> dict[str, list[str]]:
+        if self._conn is None or not hashes:
+            return {}
+        
+        placeholders = ",".join("?" for _ in hashes)
+        cursor = await self._conn.execute(
+            f"SELECT hash, ceg_template, meta_json FROM saved_images WHERE hash IN ({placeholders})",
+            hashes,
+        )
+        rows = await cursor.fetchall()
+        
+        now = time.time()
+        updated_hashes = []
+        for row in rows:
+            h = row["hash"]
+            auto_tags = self._extract_auto_tags(row["ceg_template"], row["meta_json"])
+            for tag in auto_tags:
+                await self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO image_tags (image_hash, tag, created_at)
+                    VALUES (?, ?, ?)
+                    """,
+                    (h, tag, now),
+                )
+            updated_hashes.append(h)
+            
+        await self._conn.commit()
+        
+        result = {}
+        for h in updated_hashes:
+            result[h] = await self.get_tags(h)
+        return result
+
+    async def auto_generate_all_empty_tags(self) -> dict[str, list[str]]:
+        if self._conn is None:
+            return {}
+        
+        cursor = await self._conn.execute(
+            """
+            SELECT hash, ceg_template, meta_json FROM saved_images
+            WHERE hash NOT IN (SELECT DISTINCT image_hash FROM image_tags)
+            AND status != 'trashed'
+            """
+        )
+        rows = await cursor.fetchall()
+        
+        now = time.time()
+        updated_hashes = []
+        for row in rows:
+            h = row["hash"]
+            auto_tags = self._extract_auto_tags(row["ceg_template"], row["meta_json"])
+            if auto_tags:
+                for tag in auto_tags:
+                    await self._conn.execute(
+                        """
+                        INSERT OR IGNORE INTO image_tags (image_hash, tag, created_at)
+                        VALUES (?, ?, ?)
+                        """,
+                        (h, tag, now),
+                    )
+                updated_hashes.append(h)
+                
+        await self._conn.commit()
+        
+        result = {}
+        for h in updated_hashes:
+            result[h] = await self.get_tags(h)
+        return result
 
     async def get_saved_image(self, hash: str) -> Optional[dict[str, Any]]:
         if self._conn is None:

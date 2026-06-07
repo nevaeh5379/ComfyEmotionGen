@@ -171,6 +171,10 @@ class TagsAddRequest(BaseModel):
     tags: List[str]
 
 
+class BulkAutoTagsRequest(BaseModel):
+    hashes: List[str]
+
+
 class ExportRequest(BaseModel):
     status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = "approved"
     filenames: Optional[List[str]] = None
@@ -657,6 +661,26 @@ async def saved_image_add_tags(hash: str, body: TagsAddRequest):
     if tags is None:
         raise HTTPException(status_code=404, detail="image not found")
     return {"hash": hash, "tags": tags}
+
+
+@app.post("/saved-images/{hash}/auto-tags")
+async def saved_image_auto_tags(hash: str):
+    tags = await job_manager.auto_generate_image_tags(hash)
+    if tags is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return {"hash": hash, "tags": tags}
+
+
+@app.post("/saved-images/auto-tags/bulk")
+async def saved_images_bulk_auto_tags(body: BulkAutoTagsRequest):
+    result = await job_manager.bulk_auto_generate_image_tags(body.hashes)
+    return {"results": result}
+
+
+@app.post("/saved-images/auto-tags/empty")
+async def saved_images_auto_tags_empty():
+    result = await job_manager.auto_generate_all_empty_image_tags()
+    return {"results": result}
 
 
 @app.delete("/saved-images/{hash}/tags/{tag}")

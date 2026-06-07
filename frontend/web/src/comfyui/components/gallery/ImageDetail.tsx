@@ -39,6 +39,27 @@ export function ImageDetail({
   const [newTag, setNewTag] = useState("")
   const [tags, setTags] = useState<string[]>(image.tags)
   const [imgError, setImgError] = useState(false)
+  const [autoTagLoading, setAutoTagLoading] = useState(false)
+
+  const handleAutoTag = async () => {
+    setAutoTagLoading(true)
+    try {
+      const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
+      const res = await fetch(`${cleanBackendUrl}/saved-images/${image.hash}/auto-tags`, {
+        method: "POST",
+      })
+      if (!res.ok) throw new Error("Auto-tag API failed")
+      const data = (await res.json()) as { hash: string; tags: string[] }
+      setTags(data.tags)
+      onChanged()
+      toast.success("태그가 자동으로 완성되었습니다.")
+    } catch (err) {
+      console.error(err)
+      toast.error("자동 태그 생성에 실패했습니다.")
+    } finally {
+      setAutoTagLoading(false)
+    }
+  }
 
   const [workflowName, setWorkflowName] = useState(
     defaultName(image.originalFilename)
@@ -288,6 +309,17 @@ export function ImageDetail({
                 <TooltipContent>태그 삭제</TooltipContent>
               </Tooltip>
             ))}
+            {tags.length === 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[10px] gap-1 font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
+                onClick={handleAutoTag}
+                disabled={autoTagLoading}
+              >
+                {autoTagLoading ? "생성 중..." : "태그 자동 완성"}
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Input

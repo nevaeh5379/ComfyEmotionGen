@@ -351,4 +351,29 @@ export const curationApi = {
     a.remove()
     URL.revokeObjectURL(url)
   },
+  async bulkAutoTags(
+    backendUrl: string,
+    hashes: string[]
+  ): Promise<Record<string, string[]>> {
+    const cleanUrl = backendUrl.replace(/\/+$/, "")
+    const res = await fetch(`${cleanUrl}/saved-images/auto-tags/bulk`, {
+      method: "POST",
+      headers: HEADERS.json,
+      body: JSON.stringify({ hashes }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = (await res.json()) as { results: Record<string, string[]> }
+    return data.results
+  },
+  async autoTagsAllEmpty(
+    backendUrl: string
+  ): Promise<Record<string, string[]>> {
+    const cleanUrl = backendUrl.replace(/\/+$/, "")
+    const res = await fetch(`${cleanUrl}/saved-images/auto-tags/empty`, {
+      method: "POST",
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = (await res.json()) as { results: Record<string, string[]> }
+    return data.results
+  },
 }

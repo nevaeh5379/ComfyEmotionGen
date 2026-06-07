@@ -560,3 +560,74 @@ class TestSavedImageMeta:
     def test_get_meta_nonexistent_returns_404(self, client):
         resp = client.get("/saved-images/nonexistent555/meta")
         assert resp.status_code == 404
+
+
+# ═══════════════════════════════════════════════════════════════
+#  POST /saved-images/auto-tags/bulk & POST /saved-images/auto-tags/empty
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestSavedImagesBulkAutoTags:
+    """Bulk auto tagging APIs verification."""
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self, client):
+        self.store = _get_store()
+        
+        # Seed test image with templates and meta
+        self.hash1 = await _seed_image(
+            self.store,
+            hash_suffix="B1",
+            filename="bulk_test1.png",
+            ceg_template='{{axis my_axis}}\n  opt1: "val"\n{{/axis}}',
+            meta={"my_axis": "opt1"}
+        )
+        self.hash2 = await _seed_image(
+            self.store,
+            hash_suffix="B2",
+            filename="bulk_test2.png",
+            ceg_template='{{axis another_axis}}\n  opt2: "val"\n{{/axis}}',
+            meta={"another_axis": "opt2"}
+        )
+        # Seed an image that has no templates (should generate empty tags)
+        self.hash3 = await _seed_image(
+            self.store,
+            hash_suffix="B3",
+            filename="bulk_test3.png",
+            ceg_template="",
+            meta={}
+        )
+
+        # Clear generated tags so they are empty for the empty-tag test
+        await self.store._conn.execute(
+            "DELETE FROM image_tags WHERE image_hash IN (?, ?)",
+            (self.hash1, self.hash2),
+        )
+        await self.store._conn.commit()
+
+    def test_bulk_auto_tags_api(self, client):
+        resp = client.post(
+            "/saved-images/auto-tags/bulk",
+            json={"hashes": [self.hash1, self.hash2, self.hash3]}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "results" in data
+        results = data["results"]
+        assert self.hash1 in results
+        assert "opt1" in results[self.hash1]
+        assert self.hash2 in results
+        assert "opt2" in results[self.hash2]
+        assert self.hash3 in results
+        assert results[self.hash3] == []
+
+    def test_auto_tags_empty_api(self, client):
+        resp = client.post("/saved-images/auto-tags/empty")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "results" in data
+        results = data["results"]
+        assert self.hash1 in results
+        assert "opt1" in results[self.hash1]
+        assert self.hash2 in results
+        assert "opt2" in results[self.hash2]

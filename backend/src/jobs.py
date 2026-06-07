@@ -1019,6 +1019,26 @@ class JobManager:
         await self._emit({"type": "image.curation", "hash": hash, "tags": result})
         return result
 
+    async def auto_generate_image_tags(self, hash: str) -> Optional[list[str]]:
+        if await self._store.get_saved_image(hash) is None:
+            return None
+        result = await self._store.auto_generate_tags(hash)
+        if result is not None:
+            await self._emit({"type": "image.curation", "hash": hash, "tags": result})
+        return result
+
+    async def bulk_auto_generate_image_tags(self, hashes: list[str]) -> dict[str, list[str]]:
+        result = await self._store.bulk_auto_generate_tags(hashes)
+        for h, tags in result.items():
+            await self._emit({"type": "image.curation", "hash": h, "tags": tags})
+        return result
+
+    async def auto_generate_all_empty_image_tags(self) -> dict[str, list[str]]:
+        result = await self._store.auto_generate_all_empty_tags()
+        for h, tags in result.items():
+            await self._emit({"type": "image.curation", "hash": h, "tags": tags})
+        return result
+
     async def remove_image_tag(self, hash: str, tag: str) -> Optional[list[str]]:
         if await self._store.get_saved_image(hash) is None:
             return None
