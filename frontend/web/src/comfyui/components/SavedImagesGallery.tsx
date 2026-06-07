@@ -507,65 +507,48 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const effectiveSortKey = toolbarState ? toolbarState.sortKey : sortKey
   const effectiveSortDir = toolbarState ? toolbarState.sortDir : sortDir
 
+
+  // Reset page & groupPage to 1 when any filter changes
+  const lastFiltersRef = useRef<string>("")
+  const currentFiltersStr = JSON.stringify({
+    effectiveFilenameFilter,
+    effectiveTagFilter,
+    effectiveMetadataFilter,
+    effectiveGeneralFilters,
+    breadcrumbTags,
+    effectiveHideRejected,
+  })
+  useEffect(() => {
+    if (lastFiltersRef.current !== currentFiltersStr) {
+      setPage(1)
+      setGroupPage(1)
+      lastFiltersRef.current = currentFiltersStr
+    }
+  }, [currentFiltersStr])
+
   const {
     images,
     groups,
     groupImagesMap,
-    total,
-    groupTotal,
     loading,
     error,
     reload,
   } = useSavedImages({
     backendUrl,
     status: effectiveGroupMode ? "all" : effectiveStatusFilter,
-    filename: filenameFilter || undefined,
-    tag: tagFilter || undefined,
-    page: effectiveGroupMode ? 1 : page,
-    pageSize: effectiveGroupMode ? 500 : imagePageSize,
+    filename: undefined,
+    tag: undefined,
+    page: 1,
+    pageSize: 10000,
     groupMode: effectiveGroupMode,
-    groupPage,
-    groupPageSize: GROUP_PAGE_SIZE,
+    groupPage: 1,
+    groupPageSize: 1000,
   })
 
   // Register reload function for external triggers (Header dropdown, keyboard shortcuts)
   useEffect(() => {
     onReloadReady?.(reload)
   }, [onReloadReady, reload])
-
-  const totalPages = Math.max(1, Math.ceil(total / imagePageSize))
-  const pageList = useMemo(
-    () => buildPageList(page, totalPages),
-    [page, totalPages]
-  )
-
-  const groupTotalPages = Math.max(1, Math.ceil(groupTotal / GROUP_PAGE_SIZE))
-  const groupPageList = useMemo(
-    () => buildPageList(groupPage, groupTotalPages),
-    [groupPage, groupTotalPages]
-  )
-
-  // total 변동으로 현재 page가 범위 밖이면 클램프
-  // (totalPages는 비동기 API 결과에서 파생되므로 렌더 중 파생값으로 처리할 수 없음)
-  const prevTotalPagesRef = useRef(totalPages)
-  useEffect(() => {
-    if (prevTotalPagesRef.current !== totalPages && page > totalPages) {
-      setPage(totalPages)
-    }
-    prevTotalPagesRef.current = totalPages
-  }, [page, totalPages])
-
-  // groupTotal 변동으로 groupPage 범위 밖이면 클램프
-  const prevGroupTotalPagesRef = useRef(groupTotalPages)
-  useEffect(() => {
-    if (
-      prevGroupTotalPagesRef.current !== groupTotalPages &&
-      groupPage > groupTotalPages
-    ) {
-      setGroupPage(groupTotalPages)
-    }
-    prevGroupTotalPagesRef.current = groupTotalPages
-  }, [groupPage, groupTotalPages])
 
   const setStatus = useCallback(
     async (hash: string, status: CurationStatus) => {
@@ -579,17 +562,39 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     [backendUrl, reload]
   )
 
-  // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
-  const metadataFilteredImages = useMemo(() => {
-    if (!effectiveMetadataFilter.trim()) return images
-    const lowerFilter = effectiveMetadataFilter.toLowerCase().trim()
+  // 1. 파일명 필터링 (부분 일치)
+  const filenameFilteredImages = useMemo(() => {
+    if (!effectiveFilenameFilter.trim()) return images
+    const lowerFilter = effectiveFilenameFilter.toLowerCase().trim()
     return images.filter((img) => {
+      const fn = (img.originalFilename || img.comfyFilename || "").toLowerCase()
+      return fn.includes(lowerFilter)
+    })
+  }, [images, effectiveFilenameFilter])
+
+  // 2. 태그 필터링 (부분 일치)
+  const tagFilteredImages = useMemo(() => {
+    if (!effectiveTagFilter.trim()) return filenameFilteredImages
+    const terms = effectiveTagFilter.toLowerCase().trim().split(/\s+/)
+    return filenameFilteredImages.filter((img) => {
+      if (!img.tags || !Array.isArray(img.tags)) return false
+      return terms.every((term) =>
+        img.tags.some((t) => t.toLowerCase().includes(term))
+      )
+    })
+  }, [filenameFilteredImages, effectiveTagFilter])
+
+  // 3. 메타데이터로 필터링된 이미지 (그리드 모드 전용)
+  const metadataFilteredImages = useMemo(() => {
+    if (!effectiveMetadataFilter.trim()) return tagFilteredImages
+    const lowerFilter = effectiveMetadataFilter.toLowerCase().trim()
+    return tagFilteredImages.filter((img) => {
       const prompt = img.prompt.toLowerCase()
       return prompt.includes(lowerFilter)
     })
-  }, [images, effectiveMetadataFilter])
+  }, [tagFilteredImages, effectiveMetadataFilter])
 
-  // 일반 검색어(OR) 필터링 추가
+  // 4. 일반 검색어(OR) 필터링 추가
   const finalFilteredImages = useMemo(() => {
     if (effectiveGeneralFilters.length === 0) return metadataFilteredImages
     return metadataFilteredImages.filter((img) => {
@@ -674,13 +679,28 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const visibleGroups = useMemo(() => {
     if (!effectiveGroupMode) return []
     const lowerMeta = effectiveMetadataFilter.trim().toLowerCase() || null
+    const lowerFilename = effectiveFilenameFilter.trim().toLowerCase() || null
+    const tagTerms = effectiveTagFilter.trim() ? effectiveTagFilter.toLowerCase().trim().split(/\s+/) : null
+
     const result: { name: string; items: SavedImage[] }[] = []
     for (const g of groups) {
+      if (lowerFilename && !g.filename.toLowerCase().includes(lowerFilename)) {
+        continue
+      }
+
       let items = groupImagesMap.get(g.filename) ?? []
       if (effectiveMetadataFilter.trim() && lowerMeta) {
         items = items.filter((img) =>
           img.prompt.toLowerCase().includes(lowerMeta)
         )
+      }
+      if (tagTerms) {
+        items = items.filter((img) => {
+          if (!img.tags || !Array.isArray(img.tags)) return false
+          return tagTerms.every((term) =>
+            img.tags.some((t) => t.toLowerCase().includes(term))
+          )
+        })
       }
       if (effectiveGeneralFilters.length > 0) {
         items = items.filter((img) => {
@@ -736,6 +756,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     effectiveGroupMode,
     groups,
     groupImagesMap,
+    effectiveFilenameFilter,
+    effectiveTagFilter,
     effectiveMetadataFilter,
     effectiveGeneralFilters,
     effectiveHideRejected,
@@ -744,6 +766,52 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     breadcrumbTags,
     getTokens,
   ])
+
+  const totalPages = Math.max(1, Math.ceil(visibleImages.length / imagePageSize))
+  const pageList = useMemo(
+    () => buildPageList(page, totalPages),
+    [page, totalPages]
+  )
+
+  const groupTotalPages = Math.max(1, Math.ceil(visibleGroups.length / GROUP_PAGE_SIZE))
+  const groupPageList = useMemo(
+    () => buildPageList(groupPage, groupTotalPages),
+    [groupPage, groupTotalPages]
+  )
+
+  const paginatedVisibleImages = useMemo(() => {
+    const start = (page - 1) * imagePageSize
+    const end = page * imagePageSize
+    return visibleImages.slice(start, end)
+  }, [visibleImages, page, imagePageSize])
+
+  const paginatedVisibleGroups = useMemo(() => {
+    const start = (groupPage - 1) * GROUP_PAGE_SIZE
+    const end = groupPage * GROUP_PAGE_SIZE
+    return visibleGroups.slice(start, end)
+  }, [visibleGroups, groupPage])
+
+  // total 변동으로 현재 page가 범위 밖이면 클램프
+  // (totalPages는 비동기 API 결과에서 파생되므로 렌더 중 파생값으로 처리할 수 없음)
+  const prevTotalPagesRef = useRef(totalPages)
+  useEffect(() => {
+    if (prevTotalPagesRef.current !== totalPages && page > totalPages) {
+      setPage(totalPages)
+    }
+    prevTotalPagesRef.current = totalPages
+  }, [page, totalPages])
+
+  // groupTotal 변동으로 groupPage 범위 밖이면 클램프
+  const prevGroupTotalPagesRef = useRef(groupTotalPages)
+  useEffect(() => {
+    if (
+      prevGroupTotalPagesRef.current !== groupTotalPages &&
+      groupPage > groupTotalPages
+    ) {
+      setGroupPage(groupTotalPages)
+    }
+    prevGroupTotalPagesRef.current = groupTotalPages
+  }, [groupPage, groupTotalPages])
 
   // 선택 모드 토글
   const toggleSelectHash = useCallback((hash: string) => {
@@ -819,8 +887,69 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         return
       }
 
-      // If detail view is open, do not handle navigation
-      if (selected) return
+      // If detail view is open, handle prev/next image navigation on Left/Right keys
+      if (selected) {
+        if (e.key === "ArrowLeft" || e.key === "h") {
+          e.preventDefault()
+          const currentIndex = navImages.findIndex((img) => img.hash === selected.hash)
+          if (currentIndex > 0) {
+            const prevImg = navImages[currentIndex - 1]
+            if (prevImg) {
+              setSelected(prevImg)
+              setFocusedHash(prevImg.hash)
+              // Sync page / groupPage
+              if (effectiveGroupMode) {
+                const groupIndex = visibleGroups.findIndex((g) =>
+                  g.items.some((img) => img.hash === prevImg.hash)
+                )
+                if (groupIndex !== -1) {
+                  const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                  if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
+                }
+              } else {
+                const newPage = Math.floor((currentIndex - 1) / imagePageSize) + 1
+                if (newPage !== page) setPage(newPage)
+              }
+              setTimeout(() => {
+                const el = document.querySelector(`[class*="ring-blue-500"]`)
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                }
+              }, 50)
+            }
+          }
+        } else if (e.key === "ArrowRight" || e.key === "l") {
+          e.preventDefault()
+          const currentIndex = navImages.findIndex((img) => img.hash === selected.hash)
+          if (currentIndex !== -1 && currentIndex < navImages.length - 1) {
+            const nextImg = navImages[currentIndex + 1]
+            if (nextImg) {
+              setSelected(nextImg)
+              setFocusedHash(nextImg.hash)
+              // Sync page / groupPage
+              if (effectiveGroupMode) {
+                const groupIndex = visibleGroups.findIndex((g) =>
+                  g.items.some((img) => img.hash === nextImg.hash)
+                )
+                if (groupIndex !== -1) {
+                  const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                  if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
+                }
+              } else {
+                const newPage = Math.floor((currentIndex + 1) / imagePageSize) + 1
+                if (newPage !== page) setPage(newPage)
+              }
+              setTimeout(() => {
+                const el = document.querySelector(`[class*="ring-blue-500"]`)
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                }
+              }, 50)
+            }
+          }
+        }
+        return
+      }
 
       const currentIndex = navImages.findIndex(
         (img) => img.hash === focusedHash
@@ -831,6 +960,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           const nextImg = navImages[index]
           if (nextImg) {
             setFocusedHash(nextImg.hash)
+            // Sync page / groupPage
+            if (effectiveGroupMode) {
+              const groupIndex = visibleGroups.findIndex((g) =>
+                g.items.some((img) => img.hash === nextImg.hash)
+              )
+              if (groupIndex !== -1) {
+                const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
+              }
+            } else {
+              const newPage = Math.floor(index / imagePageSize) + 1
+              if (newPage !== page) setPage(newPage)
+            }
             // Gently scroll focused card into view if needed
             setTimeout(() => {
               const el = document.querySelector(`[class*="ring-blue-500"]`)
@@ -975,6 +1117,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     pinnedHashes,
     selected,
     setStatus,
+    page,
+    groupPage,
+    effectiveGroupMode,
+    visibleGroups,
+    imagePageSize,
   ])
 
   // 갤러리 이미지 토큰 실시간 추출 후 상위 컴포넌트 전달
@@ -1029,14 +1176,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   )
 
   const selectAll = useCallback(() => {
-    const allHashes = visibleImages.map((img) => img.hash)
+    const allHashes = paginatedVisibleImages.map((img) => img.hash)
     if (selectedHashes.size === allHashes.length && allHashes.length > 0) {
       setSelectedHashes(new Set())
       setSelectionMode(false)
     } else {
       setSelectedHashes(new Set(allHashes))
     }
-  }, [visibleImages, selectedHashes])
+  }, [paginatedVisibleImages, selectedHashes])
 
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false)
@@ -1889,7 +2036,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </Button>
                   </div>
                 )}
-                {visibleGroups.map(({ name, items }) => {
+                {paginatedVisibleGroups.map(({ name, items }) => {
                   const groupMeta = groups.find((g) => g.filename === name)
                   const isCollapsed = collapsedGroups.has(name)
                   return (
@@ -1953,7 +2100,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 })}
 
                 {/* 그룹 페이지네이션 */}
-                {groupTotal > GROUP_PAGE_SIZE && (
+                {visibleGroups.length > GROUP_PAGE_SIZE && (
                   <div className="flex flex-col items-center gap-2">
                     <Pagination>
                       <PaginationContent>
@@ -2003,8 +2150,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       </PaginationContent>
                     </Pagination>
                     <p className="text-xs text-muted-foreground">
-                      총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages}{" "}
-                      페이지
+                      총 {visibleGroups.length}개 그룹 · {groupPage}/{groupTotalPages} 페이지
                     </p>
                   </div>
                 )}
@@ -2029,7 +2175,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </div>
                   )}
                 <ImageGrid
-                  items={visibleImages}
+                  items={paginatedVisibleImages}
                   backendUrl={backendUrl}
                   setStatus={setStatus}
                   onOpen={setSelected}
@@ -2050,7 +2196,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
             {!effectiveGroupMode &&
               effectiveGalleryViewMode === "grid" &&
-              total > imagePageSize && (
+              visibleImages.length > imagePageSize && (
                 <div className="flex flex-col items-center gap-2">
                   <Pagination>
                     <PaginationContent>
@@ -2095,7 +2241,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </PaginationContent>
                   </Pagination>
                   <p className="text-xs text-muted-foreground">
-                    총 {total}개 · {page}/{totalPages} 페이지
+                    총 {visibleImages.length}개 · {page}/{totalPages} 페이지
                   </p>
                   {selectionMode && (
                     <div className="flex items-center gap-2">
@@ -2105,8 +2251,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         className="h-7 text-[10px] font-bold"
                         onClick={selectAll}
                       >
-                        {selectedHashes.size === visibleImages.length &&
-                        visibleImages.length > 0
+                        {selectedHashes.size === paginatedVisibleImages.length &&
+                        paginatedVisibleImages.length > 0
                           ? "전체 해제"
                           : "전체 선택"}
                       </Button>

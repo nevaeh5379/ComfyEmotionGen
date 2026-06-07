@@ -108,6 +108,13 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         if (!getSyncQueue().some((i) => i.key === event.key))
           applySettingUpdate(event.key, event.value)
         break
+      case "image.saved":
+      case "image.curation":
+      case "image.deleted":
+        window.dispatchEvent(
+          new CustomEvent("ceg-image-event", { detail: event })
+        )
+        break
     }
   }, [])
 
