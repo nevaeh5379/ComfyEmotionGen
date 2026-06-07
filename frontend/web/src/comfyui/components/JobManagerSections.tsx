@@ -53,11 +53,11 @@ import type { JobStatus, JobView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
 import {
-  estimateRemaining,
   formatETA,
   formatDuration,
   timeAgo,
   jobDuration,
+  getOverallProgress,
 } from "../utils/timeEstimation"
 
 // ── props interfaces (keep in sync with JobManagerPanel) ──────────────
@@ -408,14 +408,10 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   return (
     <>
       {jobs.map((j) => {
-        const rem = j.startedAt
-          ? estimateRemaining(j.startedAt, j.progressPercent, allJobs)
-          : null
-        const overallPercent =
-          j.totalNodeCount > 0
-            ? ((j.completedNodeCount + j.progressPercent / 100) /
-                j.totalNodeCount) *
-              100
+        const overallPercent = getOverallProgress(j)
+        const etaStr =
+          j.startedAt && overallPercent > 0 && overallPercent < 100
+            ? formatETA(j.startedAt, overallPercent, allJobs)
             : null
         return (
           <div
@@ -426,9 +422,9 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
               <span className="truncate font-mono text-[13px] font-black text-info">
                 {j.filename}
               </span>
-              {rem != null && (
+              {etaStr != null && (
                 <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
-                  예상 {formatETA(rem)}
+                  {etaStr}
                 </span>
               )}
             </div>
@@ -442,7 +438,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
               value={j.progressPercent}
               className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
             />
-            {overallPercent != null && (
+            {j.totalNodeCount > 0 && (
               <>
                 <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
                   <span className="truncate">

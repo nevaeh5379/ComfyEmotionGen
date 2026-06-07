@@ -15,18 +15,34 @@ export function getAverageCompletedDuration(jobs: JobView[]): number | null {
 }
 
 /**
- * 남은 예상 시간(초)을 계산한다.
+ * 작업의 전체 기준 진행률(0-100)을 계산한다.
+ * completedNodeCount, totalNodeCount, progressPercent를 활용한다.
+ */
+export function getOverallProgress(job: JobView): number {
+  if (job.totalNodeCount <= 0) return job.progressPercent
+  return (
+    ((job.completedNodeCount + job.progressPercent / 100) /
+      job.totalNodeCount) *
+    100
+  )
+}
+
+/**
+ * 전체 예상 소요 시간(초)을 계산한다.
+ *
+ * @param overallPercent - 전체 Job 기준 진행률 (0-100)
+ * @param jobs - 이전 완료 작업 목록 (평균 계산용)
  *
  * 알고리즘:
- * 1. 완료된 작업들의 평균 지속 시간을 기반으로 남은 시간 추정
+ * 1. 완료된 작업들의 평균 지속 시간을 기반으로 전체 시간 추정
  * 2. 데이터가 없으면 기존 선형 외삽(linear extrapolation) 방식으로 폴백
  */
-export function estimateRemaining(
+export function estimateTotalDuration(
   startedAtSec: number,
-  progressPercent: number,
+  overallPercent: number,
   jobs?: JobView[]
 ): number | null {
-  if (progressPercent <= 0 || progressPercent >= 100) return null
+  if (overallPercent <= 0 || overallPercent >= 100) return null
   const elapsedSec = Date.now() / 1000 - startedAtSec
   if (elapsedSec <= 0) return null
 
@@ -34,26 +50,57 @@ export function estimateRemaining(
   if (jobs && jobs.length > 0) {
     const avgDuration = getAverageCompletedDuration(jobs)
     if (avgDuration != null) {
-      const remainingRatio = (100 - progressPercent) / 100
-      return avgDuration * remainingRatio
+      return avgDuration
     }
   }
 
   // 폴백: 단순 선형 외삽
-  const totalEstimatedSec = (elapsedSec / progressPercent) * 100
-  return totalEstimatedSec - elapsedSec
+  return (elapsedSec / overallPercent) * 100
+}
+
+/**
+ * 남은 예상 시간(초)을 계산한다.
+ */
+export function estimateRemaining(
+  startedAtSec: number,
+  overallPercent: number,
+  jobs?: JobView[]
+): number | null {
+  const total = estimateTotalDuration(startedAtSec, overallPercent, jobs)
+  if (total == null) return null
+  const elapsedSec = Date.now() / 1000 - startedAtSec
+  return Math.max(0, total - elapsedSec)
 }
 
 /**
  * 초 단위 시간을 한국어 포맷 문자열로 변환한다.
  */
-export function formatETA(totalSeconds: number): string {
-  if (totalSeconds <= 0) return "곧 완료"
+export function formatTime(totalSeconds: number): string {
+  if (totalSeconds <= 0) return "0초"
   if (totalSeconds < 60) return `${Math.round(totalSeconds)}초`
   if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)}분`
   const h = Math.floor(totalSeconds / 3600)
   const m = Math.round((totalSeconds % 3600) / 60)
   return `${h}시간 ${m}분`
+}
+
+/**
+ * ETA를 "전체 예상 / 흐른 시간" 형식으로 포맷한다.
+ * 예: "1분 30초 / 30초"
+ *
+ * @param overallPercent - 전체 Job 기준 진행률 (0-100)
+ */
+export function formatETA(
+  startedAtSec: number,
+  overallPercent: number,
+  jobs?: JobView[]
+): string | null {
+  const total = estimateTotalDuration(startedAtSec, overallPercent, jobs)
+  if (total == null) return null
+  const elapsedSec = Date.now() / 1000 - startedAtSec
+  if (elapsedSec <= 0) return null
+
+  return `${formatTime(total)} / ${formatTime(elapsedSec)}`
 }
 
 /**
