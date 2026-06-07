@@ -138,7 +138,6 @@ export const buildWorkflowForItem = (
 ): ComfyWorkflow => {
   const workflow = parseWorkflow(workflowJson)
 
-  let firstImageName = ""
   nodeMappings.forEach(
     ({ nodeId, inputKey, sourceType, seedValue, seedRandom, fixedValue }) => {
       if (!workflow[nodeId]) return
@@ -160,7 +159,6 @@ export const buildWorkflowForItem = (
           const name = imageNameMap[`${nodeId}.${inputKey}`]
           if (name) {
             workflow[nodeId]!.inputs[inputKey] = name
-            if (!firstImageName) firstImageName = name
           }
           break
         }
@@ -171,27 +169,5 @@ export const buildWorkflowForItem = (
     }
   )
 
-  // 플레이스홀더 치환: meta 변수 + 내장 변수 + 하위호환 단일중괄호
-  const subs: Record<string, string> = {
-    ...Object.fromEntries(
-      Object.entries(item.meta).map(([k, v]) => [`{{${k}}}`, v])
-    ),
-    "{{input}}": item.prompt,
-    "{{filename}}": item.filename,
-    "{{image}}": firstImageName,
-    "{input}": item.prompt,
-    "{filename}": item.filename,
-  }
-  Object.entries(workflow).forEach(([nodeId, node]) => {
-    Object.entries(node.inputs).forEach(([inputKey, inputValue]) => {
-      if (typeof inputValue === "string") {
-        let v = inputValue
-        for (const [key, val] of Object.entries(subs)) {
-          v = v.split(key).join(val)
-        }
-        workflow[nodeId]!.inputs[inputKey] = v
-      }
-    })
-  })
   return workflow
 }

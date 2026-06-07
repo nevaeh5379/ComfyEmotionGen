@@ -592,7 +592,6 @@ export function WorkCompositionPanel({
                 }
                 nodeMappingResetKey={nodeMapping.nodeMappingResetKey}
                 savedWorkflows={workflow.savedWorkflows}
-                pendingSaveType={null}
                 onSaveNodeMapping={(name) => {
                   const trimmed =
                     name.trim() || format(new Date(), "yyyy-MM-dd HH:mm")
@@ -641,7 +640,6 @@ export function WorkCompositionPanel({
                       nodeMapping.nodeMappings
                     )
                 }}
-                onPendingNameConflict={() => {}}
               />
             )}
           </TabsContent>

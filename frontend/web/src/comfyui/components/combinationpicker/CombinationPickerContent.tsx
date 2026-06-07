@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet"
 import { curationApi } from "../../hooks/useSavedImages"
 import { API, HEADERS } from "@/lib/api"
+import { useSavedWorkflows } from "../../hooks/useSavedWorkflows"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
 import {
   downloadImagesAsZip,
@@ -71,6 +72,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     data,
     selection,
   } = useCurationContext()
+
+  const { saveMappingPreset, deleteMappingPreset } = useSavedWorkflows()
 
   const {
     renderItems,
@@ -848,6 +851,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           currentCegTemplate={activeTemplate}
           savedTemplates={savedTemplates}
           savedWorkflows={savedWorkflows}
+          saveMappingPreset={saveMappingPreset}
+          deleteMappingPreset={deleteMappingPreset}
           onSubmit={async (items) => {
             const result = await regenAction.execute(
               async () => {

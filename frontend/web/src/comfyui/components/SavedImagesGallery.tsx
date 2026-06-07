@@ -104,6 +104,7 @@ import type { CurationStatus, SavedImage } from "../types/Message"
 import { STATUS_LABEL } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
 import { API, HEADERS } from "@/lib/api"
+import { useSavedWorkflows } from "../hooks/useSavedWorkflows"
 import { downloadImagesAsZip, getImageFilename } from "../utils/downloadImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
 import { RegenerateDialog } from "./combinationpicker/CombinationPickerComponents"
@@ -194,6 +195,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 }: Props) {
   useRenderLog("SavedImagesGallery")
   const confirm = useConfirm()
+  const { saveMappingPreset, deleteMappingPreset } = useSavedWorkflows()
   const [statusFilter, setStatusFilterState] = useState<CurationStatus | "all">(
     "pending"
   )
@@ -2136,6 +2138,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             currentCegTemplate=""
             savedTemplates={[]}
             savedWorkflows={[]}
+            saveMappingPreset={saveMappingPreset}
+            deleteMappingPreset={deleteMappingPreset}
             onSubmit={async (items) => {
               const res = await fetch(`${backendUrl}${API.jobs.root}`, {
                 method: "POST",

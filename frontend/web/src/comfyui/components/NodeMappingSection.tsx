@@ -1,5 +1,5 @@
-import { AlertTriangle, Dices, Plus, Trash2, Wand2 } from "lucide-react"
-import React, { useState } from "react"
+import { AlertTriangle, Dices, Plus, Trash2, Wand2, Download } from "lucide-react"
+import React, { useState, useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -52,13 +52,13 @@ interface ImageUploadState {
   previewUrl: string | null
 }
 
-interface NodeMappingSectionProps {
+export interface NodeMappingSectionProps {
   nodeMappings: NodeMapping[]
   setNodeMappings: React.Dispatch<React.SetStateAction<NodeMapping[]>>
   updateMapping: (id: string, patch: Partial<NodeMapping>) => void
-  handleAutoMap: () => void
-  handleImageUpload: (file: File, nodeId: string, inputKey: string) => void
-  imageUploads: Record<string, ImageUploadState>
+  handleAutoMap?: () => void
+  handleImageUpload?: (file: File, nodeId: string, inputKey: string) => void
+  imageUploads?: Record<string, ImageUploadState>
   availableNodeOptions: {
     nodeId: string
     title: string
@@ -68,22 +68,21 @@ interface NodeMappingSectionProps {
   }[]
   parsedWorkflowData: ComfyWorkflow
   objectInfo: ObjectInfo | null
-  activeWorkflowId: string | null
+  activeWorkflowId?: string | null
   savedNodeMappings: {
     id: string
     name: string
     mappings: NodeMapping[]
     savedAt: number
   }[]
-  activeNodeMappingPresetId: string | null
-  nodeMappingResetKey: number
+  activeNodeMappingPresetId?: string | null
+  nodeMappingResetKey?: number
   savedWorkflows: SavedWorkflow[]
-  pendingSaveType: "nodeMapping" | null
   onSaveNodeMapping: (name: string) => boolean
   onLoadNodeMapping: (m: { id: string; mappings: NodeMapping[] }) => void
   onDeleteNodeMapping: (presetId: string) => void
-  onUpdateNodeMapping: () => void
-  onPendingNameConflict: (name: string) => void
+  onUpdateNodeMapping?: () => void
+  onImportFromPreset?: (mappings: NodeMapping[]) => void
 }
 
 const getNodeInputSpec = (
@@ -126,15 +125,16 @@ export const NodeMappingSection = React.memo(({
   savedNodeMappings,
   activeNodeMappingPresetId,
   nodeMappingResetKey,
-  savedWorkflows: _savedWorkflows,
-  pendingSaveType: _pendingSaveType,
+  savedWorkflows,
   onSaveNodeMapping,
   onLoadNodeMapping,
   onDeleteNodeMapping,
   onUpdateNodeMapping,
-  onPendingNameConflict: _onPendingNameConflict,
+  onImportFromPreset,
 }: NodeMappingSectionProps) => {
   const [open, setOpen] = useState(true)
+  const [showImportMenu, setShowImportMenu] = useState(false)
+
   const hasPromptMapping = nodeMappings.some((m) => m.sourceType === "prompt")
   const hasFilenameMapping = nodeMappings.some(
     (m) => m.sourceType === "filename"
@@ -144,6 +144,13 @@ export const NodeMappingSection = React.memo(({
   const activeMappingName = savedNodeMappings.find(
     (p) => p.id === activeNodeMappingPresetId
   )?.name
+
+  const importableWorkflows = useMemo(() => {
+    return savedWorkflows.filter((w: SavedWorkflow) => w.mappingPresets.length > 0)
+  }, [savedWorkflows])
+
+  const safeImageUploads = imageUploads ?? {}
+  const safeHandleImageUpload = handleImageUpload ?? (() => {})
 
   return (
     <CollapseSection
@@ -175,6 +182,8 @@ export const NodeMappingSection = React.memo(({
             </div>
           </div>
         )}
+
+        {/* ── 저장 / 가져오기 바 ───────────────── */}
         <div className="mx-3.5 pb-2">
           {activeWorkflowId ? (
             <SaveInputBar
@@ -191,9 +200,48 @@ export const NodeMappingSection = React.memo(({
               allowEmptySave
             />
           ) : (
-            <p className="rounded-md border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">
-              워크플로우를 저장하거나 불러온 뒤 매핑을 저장할 수 있습니다.
-            </p>
+            <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-1.5">
+              <p className="text-[11px] text-muted-foreground">
+                워크플로우를 저장하거나 불러온 뒤 매핑을 저장할 수 있습니다.
+              </p>
+              {importableWorkflows.length > 0 && onImportFromPreset && (
+                <DropdownMenu open={showImportMenu} onOpenChange={setShowImportMenu}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Download className="size-3.5" />
+                      가져오기
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
+                      다른 워크플로우의 프리셋
+                    </div>
+                    {importableWorkflows.map((w) => (
+                      <DropdownMenuItem
+                        key={w.id}
+                        className="text-[11px]"
+                        onSelect={() => {
+                          setShowImportMenu(false)
+                          const presets = w.mappingPresets
+                          if (presets.length > 0) {
+                            onImportFromPreset?.(presets[0]?.mappings ?? [])
+                          }
+                        }}
+                      >
+                        {w.name}
+                        <span className="ml-auto text-[10px] text-muted-foreground">
+                          {w.mappingPresets.length}개 프리셋
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           )}
         </div>
 
@@ -215,19 +263,21 @@ export const NodeMappingSection = React.memo(({
                         값
                       </TableHead>
                       <TableHead className="h-8 w-14 px-2 text-right">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-                              onClick={handleAutoMap}
-                            >
-                              <Wand2 className="size-3.5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="left">자동 매핑</TooltipContent>
-                        </Tooltip>
+                        {handleAutoMap && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                onClick={handleAutoMap}
+                              >
+                                <Wand2 className="size-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left">자동 매핑</TooltipContent>
+                          </Tooltip>
+                        )}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -243,7 +293,7 @@ export const NodeMappingSection = React.memo(({
                       const enumOptions = Array.isArray(spec?.[0])
                         ? (spec![0] as string[])
                         : null
-                      const upload = imageUploads[`${m.nodeId}.${m.inputKey}`]
+                      const upload = safeImageUploads[`${m.nodeId}.${m.inputKey}`]
                       return (
                         <TableRow
                           key={m.id}
@@ -340,7 +390,7 @@ export const NodeMappingSection = React.memo(({
                                     onChange={(e) => {
                                       const f = e.target.files?.[0]
                                       if (f)
-                                        handleImageUpload(
+                                        safeHandleImageUpload(
                                           f,
                                           m.nodeId,
                                           m.inputKey
@@ -495,29 +545,6 @@ export const NodeMappingSection = React.memo(({
             )}
           </div>
         )}
-
-        {/* ── 저장 바 ──────────────────────────── */}
-        {/* <div className="mt-3 flex items-center justify-between px-3.5">
-          <div className="text-[10px] text-muted-foreground"></div>
-          {activeWorkflowId ? (
-            <SaveInputBar
-              key={nodeMappingResetKey}
-              onSave={onSaveNodeMapping}
-              placeholder="노드 매핑 이름"
-              saveDisabled={nodeMappings.length === 0}
-              activeName={activeMappingName}
-              items={savedNodeMappings}
-              onLoad={onLoadNodeMapping}
-              onDelete={onDeleteNodeMapping}
-              activeItemId={activeNodeMappingPresetId ?? undefined}
-              onUpdate={onUpdateNodeMapping}
-            />
-          ) : (
-            <p className="rounded-md border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">
-              워크플로우를 저장하거나 불러온 뒤 매핑을 저장할 수 있습니다.
-            </p>
-          )}
-        </div> */}
       </div>
     </CollapseSection>
   )
