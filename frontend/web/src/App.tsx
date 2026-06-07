@@ -279,6 +279,7 @@ function AppContent() {
   // ── Job runner ──
   const {
     fakeJobQueue,
+    renderResponse,
     axisValueFilter,
     setAxisValueFilter,
     collapsedAxes,
@@ -679,10 +680,7 @@ function AppContent() {
         <ParserPreviewDialog
           open={isSheetOpen}
           onOpenChange={setIsSheetOpen}
-          fakeJobQueue={fakeJobQueue}
-          previewFilter={previewFilter}
-          onPreviewFilterChange={setPreviewFilter}
-          filteredPreview={filteredPreview}
+          renderResponse={renderResponse}
           filteredByAxisSet={filteredByAxisSet}
         />
 

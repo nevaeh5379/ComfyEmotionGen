@@ -266,8 +266,9 @@ export function TemplateGeneratorPanel({
   const [mobileTab, setMobileTab] = useState(() => loadString(STORAGE_KEYS.mobileTab, "edit"))
   const [parserError, setParserError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
+  const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
   const [previewFilter, setPreviewFilter] = useState("")
+  const [expandedItemKey, setExpandedItemKey] = useState<string | null>(null)
   const [expandedAxes, setExpandedAxes] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.expandedAxes))
   const [showAxisAdvanced, setShowAxisAdvanced] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.axisAdvanced))
 
@@ -526,15 +527,18 @@ export function TemplateGeneratorPanel({
   const substitute = (text: string, item: RenderItem) => { let r = text || ""; Object.entries(item.meta).forEach(([k, v]) => { r = r.split(`{{${k}}}`).join(v); r = r.split(`{${k}}`).join(v) }); r = r.split("{{input}}").join(item.prompt || ""); r = r.split("{input}").join(item.prompt || ""); return r }
 
   useEffect(() => {
-    if (!generatedCode.trim()) return
+    if (!generatedCode.trim()) {
+      setRenderResponse(null)
+      return
+    }
     const ctrl = new AbortController()
-    const t = setTimeout(async () => { setIsLoading(true); setParserError(null); try { const r = await fetch(`${backendUrl}${API.render}`, { method: "POST", headers: HEADERS.json, body: JSON.stringify({ template: generatedCode }), signal: ctrl.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); setFakeJobQueue(((await r.json()) as RenderItemsResponse).items) } catch (e) { if (e instanceof Error && e.name === "AbortError") return; setParserError(e instanceof Error ? e.message : String(e)) } finally { setIsLoading(false) } }, CEG_TEMPLATE_DEBOUNCE_MS)
+    const t = setTimeout(async () => { setIsLoading(true); setParserError(null); try { const r = await fetch(`${backendUrl}${API.render}`, { method: "POST", headers: HEADERS.json, body: JSON.stringify({ template: generatedCode }), signal: ctrl.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); setRenderResponse((await r.json()) as RenderItemsResponse) } catch (e) { if (e instanceof Error && e.name === "AbortError") return; setParserError(e instanceof Error ? e.message : String(e)); setRenderResponse(null) } finally { setIsLoading(false) } }, CEG_TEMPLATE_DEBOUNCE_MS)
     return () => { clearTimeout(t); ctrl.abort() }
   }, [generatedCode, backendUrl])
 
-  const activeQueue = useMemo(() => (generatedCode.trim() ? fakeJobQueue : []), [generatedCode, fakeJobQueue])
-  const dispLoading = generatedCode.trim() ? isLoading : false
-  const dispError = generatedCode.trim() ? parserError : null
+  const activeQueue = useMemo(() => (generatedCode.trim() ? renderResponse?.items ?? [] : []), [generatedCode, renderResponse])
+  const renderAxes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
+  const renderSets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
   const filtered = useMemo(() => { const n = previewFilter.trim().toLowerCase(); if (!n) return activeQueue; return activeQueue.filter((i) => substitute(i.filename, i).toLowerCase().includes(n) || substitute(i.prompt, i).toLowerCase().includes(n)) }, [activeQueue, previewFilter])
 
   const handleApply = () => { if (!generatedCode) return; setCegTemplate(generatedCode); toast.success("작업 탭에 적용되었습니다."); setActiveTab("jobs") }
@@ -884,22 +888,110 @@ export function TemplateGeneratorPanel({
         <span className="text-[10px] text-muted-foreground font-medium">결과</span>
         {activeQueue.length > 0 && <Badge variant="secondary" className="text-[9px]">{filtered.length}/{activeQueue.length}</Badge>}
       </div>
-      {!dispError && activeQueue.length > 0 && (
+      {!parserError && activeQueue.length > 0 && (
         <div className="shrink-0 border-b px-3 py-2">
           <div className="relative w-full"><Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /><Input placeholder="검색..." value={previewFilter} onChange={(e) => setPreviewFilter(e.target.value)} className="h-8 pl-9 text-xs" /></div>
         </div>
       )}
       <div className="min-h-0 flex-1">
-        {dispLoading ? <div className="space-y-3 p-4">{[1, 2, 3].map((i) => <div key={i} className="animate-pulse rounded-lg border p-4 space-y-2"><div className="h-3 w-2/3 rounded bg-muted/50" /><div className="flex gap-2"><div className="h-4 w-12 rounded bg-muted/40" /><div className="h-4 w-16 rounded bg-muted/40" /></div><div className="h-10 w-full rounded bg-muted/30" /></div>)}</div>
-        : dispError ? <div className="flex h-full items-center justify-center p-4"><Card className="w-full border-destructive/20 shadow-none"><CardContent className="flex items-start gap-3 p-5"><div className="shrink-0 rounded-lg bg-destructive/10 p-2"><AlertCircle className="h-4 w-4 text-destructive" /></div><div className="min-w-0 flex-1 space-y-1.5"><h3 className="text-xs font-bold text-destructive">파싱 에러</h3><CardDescription className="text-[11px]">문법 오류로 조합 목록을 생성할 수 없습니다.</CardDescription><div className="mt-2 max-h-36 overflow-auto rounded-md border border-destructive/10 bg-background p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-destructive/80">{dispError}</div></div></CardContent></Card></div>
+        {isLoading ? <div className="space-y-3 p-4">{[1, 2, 3].map((i) => <div key={i} className="animate-pulse rounded-lg border p-4 space-y-2"><div className="h-3 w-2/3 rounded bg-muted/50" /><div className="flex gap-2"><div className="h-4 w-12 rounded bg-muted/40" /><div className="h-4 w-16 rounded bg-muted/40" /></div><div className="h-10 w-full rounded bg-muted/30" /></div>)}</div>
+        : parserError ? <div className="flex h-full items-center justify-center p-4"><Card className="w-full border-destructive/20 shadow-none"><CardContent className="flex items-start gap-3 p-5"><div className="shrink-0 rounded-lg bg-destructive/10 p-2"><AlertCircle className="h-4 w-4 text-destructive" /></div><div className="min-w-0 flex-1 space-y-1.5"><h3 className="text-xs font-bold text-destructive">파싱 에러</h3><CardDescription className="text-[11px]">문법 오류로 조합 목록을 생성할 수 없습니다.</CardDescription><div className="mt-2 max-h-36 overflow-auto rounded-md border border-destructive/10 bg-background p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-destructive/80">{parserError}</div></div></CardContent></Card></div>
         : activeQueue.length === 0 ? <div className="flex h-full items-center justify-center p-6"><Card className="border-dashed shadow-none w-full max-w-sm"><CardContent className="flex flex-col items-center py-10 gap-2"><div className="rounded-xl bg-muted/60 p-3"><Sparkles className="h-6 w-6 text-muted-foreground/40" /></div><p className="text-xs font-semibold text-muted-foreground">결과 없음</p><p className="text-[10px] text-muted-foreground/50 text-center">템플릿을 편집하면 결과가 여기에 표시됩니다.</p></CardContent></Card></div>
         : filtered.length === 0 ? <div className="flex h-full items-center justify-center"><p className="text-xs text-muted-foreground">검색 결과 없음</p></div>
         : <ScrollArea className="h-full"><div className="p-3 space-y-1.5">
-            {filtered.map((item, idx) => { const fn = substitute(item.filename, item); const pr = substitute(item.prompt, item); const k = itemKey(item); return (
-              <div key={`r-${k}-${idx}`} className="rounded-lg border p-2.5 space-y-1 hover:bg-muted/30 transition-colors">
-                <div className="flex items-start gap-1.5"><span className="font-mono text-[11px] font-semibold break-all select-all leading-tight flex-1">{fn}</span><Badge variant="secondary" className="shrink-0 text-[9px]">{idx + 1}</Badge></div>
-                {Object.keys(item.meta).length > 0 && <div className="flex flex-wrap gap-1">{Object.entries(item.meta).map(([mk, mv]) => <Badge key={mk} variant="outline" className="text-[9px] font-normal">{mk}: {mv}</Badge>)}</div>}
-                <div className="font-mono text-[10px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md p-2 break-words select-all">{pr}</div>
+            {filtered.map((item: RenderItem, idx: number) => { const fn = substitute(item.filename, item); const pr = substitute(item.prompt, item); const k = itemKey(item); const isExpanded = expandedItemKey === k; return (
+              <div key={`r-${k}-${idx}`}
+                className={`rounded-lg border p-2.5 space-y-1 hover:bg-muted/30 transition-colors cursor-pointer ${isExpanded ? 'bg-primary/[0.02] border-primary/20' : ''}`}
+                onClick={() => setExpandedItemKey(isExpanded ? null : k)}
+              >
+                {/* Summary view */}
+                <div className="flex items-start gap-1.5">
+                  <span className="font-mono text-[11px] font-semibold break-all select-all leading-tight flex-1">{fn}</span>
+                  <Badge variant="secondary" className="shrink-0 text-[9px]">{idx + 1}</Badge>
+                </div>
+                {Object.keys(item.meta).length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(item.meta).map(([mk, mv]) => (
+                      <Badge key={mk} variant="outline" className="text-[9px] font-normal">{mk}: {mv}</Badge>
+                    ))}
+                  </div>
+                )}
+                {!isExpanded && (
+                  <div className="font-mono text-[10px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md p-2 break-words select-all">{pr}</div>
+                )}
+                {/* Expanded detail view */}
+                {isExpanded && (
+                  <div className="space-y-2 mt-2 pt-2 border-t border-dashed border-primary/10">
+                    {/* Set variables */}
+                    {Object.keys(renderSets).length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+                          <Sliders className="h-3 w-3" />Set 변수
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(renderSets).map(([sk, sv]) => (
+                            <Badge key={sk} variant="secondary" className="text-[9px] font-mono">{sk}: {sv}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Axis combination details */}
+                    {Object.keys(item.meta).length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+                          <Layers className="h-3 w-3" />축 조합
+                        </div>
+                        <div className="grid grid-cols-1 gap-1">
+                          {Object.entries(item.meta).map(([axisName, key]) => {
+                            const axisInfo = renderAxes[axisName]
+                            const matched = axisInfo?.values.find((v) => v.key === key)
+                            const value = matched?.value || ""
+                            const props = matched?.props || {}
+                            const include = axisInfo?.include
+                            return (
+                              <div key={axisName} className="flex items-start gap-2 text-[10px] bg-muted/30 rounded-md p-1.5">
+                                <Badge variant="outline" className="shrink-0 text-[9px] font-semibold">{axisName}</Badge>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <Badge variant="secondary" className="text-[9px] font-mono">{key}</Badge>
+                                    {value && <span className="text-muted-foreground">{value}</span>}
+                                    {include && <Badge variant="outline" className="text-[8px]">include: {include}</Badge>}
+                                  </div>
+                                  {Object.keys(props).length > 0 && (
+                                    <div className="flex flex-wrap gap-0.5 mt-0.5">
+                                      {Object.entries(props).map(([pk, pv]) => (
+                                        <span key={pk} className="text-[9px] text-muted-foreground bg-background rounded px-1 border">{pk}: {pv}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {/* Original templates */}
+                    <div>
+                      <div className="text-[10px] font-semibold text-muted-foreground mb-1">원본 템플릿</div>
+                      <div className="space-y-1.5">
+                        <div>
+                          <div className="text-[9px] text-muted-foreground mb-0.5 font-mono">filename</div>
+                          <div className="font-mono text-[10px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md p-2 break-words select-all">{filenameBody}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-muted-foreground mb-0.5 font-mono">template</div>
+                          <div className="font-mono text-[10px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md p-2 break-words select-all whitespace-pre-wrap">{templateBody}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Final result */}
+                    <div>
+                      <div className="text-[10px] font-semibold text-muted-foreground mb-1">최종 결과</div>
+                      <div className="font-mono text-[10px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md p-2 break-words select-all whitespace-pre-wrap">{pr}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )})}
           </div></ScrollArea>

@@ -146,6 +146,7 @@ class RenderResponse(BaseModel):
     axes: Dict[str, AxisOut] = {}
     sets: Dict[str, str] = {}
     excludes: List[ExcludeRuleOut] = []
+    template_structure: List[dict] = []
 
 
 class InjectRequest(BaseModel):
@@ -415,6 +416,7 @@ def render_endpoint(req: RenderRequest):
         "axes": rendered["axes"],
         "sets": rendered["sets"],
         "excludes": rendered["excludes"],
+        "template_structure": rendered.get("template_structure", []),
     }
 
 

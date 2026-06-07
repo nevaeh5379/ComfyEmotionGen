@@ -32,9 +32,15 @@ export function useJobRunner() {
   const [repeatCount, setRepeatCount] = useState(1)
   const [randomRunCount, setRandomRunCount] = useState(1)
 
+  const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
+
   // CEG 템플릿 변경 시 자동 파싱 (debounce)
   useEffect(() => {
-    if (!isAliveBackend || !cegTemplate.trim()) return
+    if (!isAliveBackend || !cegTemplate.trim()) {
+      setFakeJobQueue([])
+      setRenderResponse(null)
+      return
+    }
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       setParserError(null)
@@ -48,6 +54,7 @@ export function useJobRunner() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = (await res.json()) as RenderItemsResponse
         setFakeJobQueue(data.items)
+        setRenderResponse(data)
         setUncheckedItems(new Set())
         // Discover axes from new data (add new keys/values, preserve existing toggles)
         setAxisValueFilter((prev) => {
@@ -63,6 +70,7 @@ export function useJobRunner() {
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return
         setParserError(err instanceof Error ? err.message : String(err))
+        setRenderResponse(null)
       }
     }, CEG_TEMPLATE_DEBOUNCE_MS)
     return () => {
@@ -237,6 +245,7 @@ export function useJobRunner() {
 
   return {
     fakeJobQueue,
+    renderResponse,
     parserError,
     axisValueFilter,
     setAxisValueFilter,
