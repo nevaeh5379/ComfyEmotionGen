@@ -170,7 +170,7 @@ export function useSessionManager(): UseSessionManagerReturn {
     setSessionPickerOpen(false)
   }, [markers, sessionJobCounts, persistMarkers, persistActiveState])
 
-  return {
+  return useMemo(() => ({
     markers,
     setMarkersRaw,
     activeState,
@@ -186,5 +186,21 @@ export function useSessionManager(): UseSessionManagerReturn {
     sessionPickerOpen,
     setSessionPickerOpen,
     createNewSession,
-  }
+  }), [
+    markers,
+    setMarkersRaw,
+    activeState,
+    setActiveStateRaw,
+    persistMarkers,
+    persistActiveState,
+    sortedMarkers,
+    selectedSessionId,
+    setSelectedSessionId,
+    sessionJobCounts,
+    sessionJobs,
+    sessionCounts,
+    sessionPickerOpen,
+    setSessionPickerOpen,
+    createNewSession,
+  ])
 }

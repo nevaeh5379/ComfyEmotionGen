@@ -162,10 +162,10 @@ export function NodeMappingProvider({
     [setNodeMappings]
   )
 
-  const handleAutoMap = () => {
+  const handleAutoMap = useCallback(() => {
     if (!parsedWorkflow?.success) return
     setNodeMappings(buildAutoMappings(parsedWorkflow.data))
-  }
+  }, [parsedWorkflow, setNodeMappings])
 
   // 워크플로우 로드 시 nodeMappings 자동 감지 (비어있을 때만)
   useEffect(() => {
@@ -197,7 +197,7 @@ export function NodeMappingProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeMappings])
 
-  const handleImageUpload = async (
+  const handleImageUpload = useCallback(async (
     file: File,
     nodeId: string,
     inputKey: string
@@ -245,30 +245,51 @@ export function NodeMappingProvider({
         },
       }))
     }
-  }
+  }, [backendUrl, nodeMappings, updateMapping])
+
+  const value = useMemo<NodeMappingContextValue>(
+    () => ({
+      nodeMappings,
+      setNodeMappings,
+      updateMapping,
+      handleAutoMap,
+      handleImageUpload,
+      imageUploads,
+      availableNodeOptions,
+      objectInfo,
+      setObjectInfo,
+      savedNodeMappings,
+      activeNodeMappingPresetId,
+      setActiveNodeMappingPresetId,
+      activeNodeMappingPreset,
+      nodeMappingResetKey,
+      setNodeMappingResetKey,
+      saveMappingPreset,
+      deleteMappingPreset,
+    }),
+    [
+      nodeMappings,
+      setNodeMappings,
+      updateMapping,
+      handleAutoMap,
+      handleImageUpload,
+      imageUploads,
+      availableNodeOptions,
+      objectInfo,
+      setObjectInfo,
+      savedNodeMappings,
+      activeNodeMappingPresetId,
+      setActiveNodeMappingPresetId,
+      activeNodeMappingPreset,
+      nodeMappingResetKey,
+      setNodeMappingResetKey,
+      saveMappingPreset,
+      deleteMappingPreset,
+    ]
+  )
 
   return (
-    <NodeMappingContext.Provider
-      value={{
-        nodeMappings,
-        setNodeMappings,
-        updateMapping,
-        handleAutoMap,
-        handleImageUpload,
-        imageUploads,
-        availableNodeOptions,
-        objectInfo,
-        setObjectInfo,
-        savedNodeMappings,
-        activeNodeMappingPresetId,
-        setActiveNodeMappingPresetId,
-        activeNodeMappingPreset,
-        nodeMappingResetKey,
-        setNodeMappingResetKey,
-        saveMappingPreset,
-        deleteMappingPreset,
-      }}
-    >
+    <NodeMappingContext.Provider value={value}>
       {children}
     </NodeMappingContext.Provider>
   )

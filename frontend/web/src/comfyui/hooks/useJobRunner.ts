@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   applyAxisFilters,
   buildWorkflowForItem,
@@ -70,7 +70,7 @@ export function useJobRunner() {
     }
   }, [cegTemplate, isAliveBackend, backendUrl])
 
-  const callParser = async (): Promise<RenderItemsResponse | undefined> => {
+  const callParser = useCallback(async (): Promise<RenderItemsResponse | undefined> => {
     try {
       const response = await fetch(`${backendUrl}${API.render}`, {
         method: "POST",
@@ -90,9 +90,9 @@ export function useJobRunner() {
       setParserError(message)
       return undefined
     }
-  }
+  }, [backendUrl, cegTemplate])
 
-  const submitJobs = async (renderItems: RenderItem[]): Promise<boolean> => {
+  const submitJobs = useCallback(async (renderItems: RenderItem[]): Promise<boolean> => {
     if (!workflowJson || renderItems.length === 0) return false
     const imageNameMap: Record<string, string> = {}
     const imageUploads: Record<string, Record<string, string>> = {}
@@ -132,9 +132,14 @@ export function useJobRunner() {
       console.error("Failed to submit jobs:", error)
       return false
     }
-  }
+  }, [backendUrl, workflowJson, nodeMappings, cegTemplate])
 
-  const handleRun = async () => {
+  const axisFilteredItems = useMemo(
+    () => applyAxisFilters(fakeJobQueue, axisValueFilter),
+    [fakeJobQueue, axisValueFilter]
+  )
+
+  const handleRun = useCallback(async () => {
     if (!workflowJson || !isAliveBackend) return
     const parserResult = await callParser()
     if (!parserResult) return
@@ -144,16 +149,16 @@ export function useJobRunner() {
         ? Array.from({ length: repeatCount }, () => items).flat()
         : items
     await submitJobs(repeated)
-  }
+  }, [workflowJson, isAliveBackend, callParser, axisValueFilter, repeatCount, submitJobs])
 
-  const handleRandomRun = async (count: number = 1) => {
+  const handleRandomRun = useCallback(async (count: number = 1) => {
     if (!workflowJson || !isAliveBackend || axisFilteredItems.length === 0)
       return
     const selected = randomSelect(axisFilteredItems, count)
     await submitJobs(selected)
-  }
+  }, [workflowJson, isAliveBackend, axisFilteredItems, submitJobs])
 
-  const handleRunSelected = async () => {
+  const handleRunSelected = useCallback(async () => {
     if (!workflowJson || !isAliveBackend) return false
     const parserResult = await callParser()
     if (!parserResult) return false
@@ -165,28 +170,29 @@ export function useJobRunner() {
         ? Array.from({ length: repeatCount }, () => selected).flat()
         : selected
     return await submitJobs(repeated)
-  }
+  }, [workflowJson, isAliveBackend, callParser, uncheckedItems, repeatCount, submitJobs])
 
-  const toggleItemCheck = (key: string) => {
+  const toggleItemCheck = useCallback((key: string) => {
     setUncheckedItems((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
       return next
     })
-  }
+  }, [])
 
-  const checkAllItems = () => setUncheckedItems(new Set())
-  const uncheckAllItems = () =>
-    setUncheckedItems(new Set(fakeJobQueue.map(itemKey)))
+  const checkAllItems = useCallback(() => setUncheckedItems(new Set()), [])
+  
+  const uncheckAllItems = useCallback(() =>
+    setUncheckedItems(new Set(fakeJobQueue.map(itemKey))), [fakeJobQueue])
 
-  const toggleAxisCollapse = (axis: string) =>
+  const toggleAxisCollapse = useCallback((axis: string) =>
     setCollapsedAxes((prev) => {
       const next = new Set(prev)
       if (next.has(axis)) next.delete(axis)
       else next.add(axis)
       return next
-    })
+    }), [])
 
   const estimatedRunCount = useMemo(
     () =>
@@ -195,8 +201,6 @@ export function useJobRunner() {
         : null,
     [fakeJobQueue, axisValueFilter]
   )
-
-  const axisFilteredItems = applyAxisFilters(fakeJobQueue, axisValueFilter)
 
   const axisExcludedItems = useMemo(() => {
     const includedSet = new Set(axisFilteredItems.map(itemKey))
@@ -208,8 +212,12 @@ export function useJobRunner() {
     return new Set(applyAxisFilters(fakeJobQueue, axisValueFilter).map(itemKey))
   }, [fakeJobQueue, axisValueFilter])
 
-  const hasActiveFilter = Object.values(axisValueFilter).some((vals) =>
-    Object.values(vals).some((v) => !v)
+  const hasActiveFilter = useMemo(
+    () =>
+      Object.values(axisValueFilter).some((vals) =>
+        Object.values(vals).some((v) => !v)
+      ),
+    [axisValueFilter]
   )
 
   const selectedCount = useMemo(

@@ -126,13 +126,13 @@ export const NodeMappingSection = React.memo(({
   savedNodeMappings,
   activeNodeMappingPresetId,
   nodeMappingResetKey,
-  savedWorkflows,
-  pendingSaveType,
+  savedWorkflows: _savedWorkflows,
+  pendingSaveType: _pendingSaveType,
   onSaveNodeMapping,
   onLoadNodeMapping,
   onDeleteNodeMapping,
   onUpdateNodeMapping,
-  onPendingNameConflict,
+  onPendingNameConflict: _onPendingNameConflict,
 }: NodeMappingSectionProps) => {
   const [open, setOpen] = useState(true)
   const hasPromptMapping = nodeMappings.some((m) => m.sourceType === "prompt")

@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react"
 import { API, HEADERS } from "@/lib/api"
 import { toast } from "sonner"
 import { useBackend } from "./useBackend"
@@ -11,7 +12,7 @@ export function useJobActions() {
   const { sessionJobs } = useSessionManager()
   const confirm = useConfirm()
 
-  const handleTogglePause = async () => {
+  const handleTogglePause = useCallback(async () => {
     try {
       await fetch(`${backendUrl}${paused ? API.jobs.resume : API.jobs.pause}`, {
         method: "POST",
@@ -19,9 +20,9 @@ export function useJobActions() {
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
-  }
+  }, [backendUrl, paused])
 
-  const handleCancelAll = async () => {
+  const handleCancelAll = useCallback(async () => {
     if (
       !(await confirm({
         title: "작업 취소",
@@ -38,9 +39,9 @@ export function useJobActions() {
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
-  }
+  }, [backendUrl, confirm])
 
-  const handleRetryAllFailed = async () => {
+  const handleRetryAllFailed = useCallback(async () => {
     const failed = sessionJobs.filter(
       (j) => j.status === "error" || j.status === "cancelled"
     )
@@ -53,9 +54,9 @@ export function useJobActions() {
         toast.error(`작업 재시도에 실패했습니다: ${j.id.slice(0, 8)}`)
       }
     }
-  }
+  }, [backendUrl, sessionJobs])
 
-  const handleDeleteAllFailed = async () => {
+  const handleDeleteAllFailed = useCallback(async () => {
     const failed = sessionJobs.filter(
       (j) => j.status === "error" || j.status === "cancelled"
     )
@@ -78,12 +79,17 @@ export function useJobActions() {
     } catch {
       toast.error("실패 작업 삭제 요청에 실패했습니다.")
     }
-  }
+  }, [backendUrl, sessionJobs, confirm])
 
-  return {
+  return useMemo(() => ({
     handleTogglePause,
     handleCancelAll,
     handleRetryAllFailed,
     handleDeleteAllFailed,
-  }
+  }), [
+    handleTogglePause,
+    handleCancelAll,
+    handleRetryAllFailed,
+    handleDeleteAllFailed,
+  ])
 }

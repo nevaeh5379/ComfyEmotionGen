@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { usePanelLayout } from "../contexts/PanelLayoutContext"
 import type { TabId } from "../components/layout/nav-tabs"
@@ -510,7 +510,7 @@ export function useWindowManager({
     ]
   )
 
-  return {
+  return useMemo(() => ({
     // Exposed panel state for rendering
     isCompositionFloating,
     setIsCompositionFloating,
@@ -565,5 +565,52 @@ export function useWindowManager({
     handleDragProgress,
     handleHeaderDragStart,
     handleNavTabDragStart,
-  }
+  }), [
+    isCompositionFloating,
+    setIsCompositionFloating,
+    compositionFloatingPos,
+    setCompositionFloatingPos,
+    compositionFloatingSize,
+    setCompositionFloatingSize,
+    isJobManagerFloating,
+    setIsJobManagerFloating,
+    jobManagerFloatingPos,
+    setJobManagerFloatingPos,
+    jobManagerFloatingSize,
+    setJobManagerFloatingSize,
+    isGalleryFloating,
+    setIsGalleryFloating,
+    galleryFloatingPos,
+    setGalleryFloatingPos,
+    galleryFloatingSize,
+    setGalleryFloatingSize,
+    isGalleryDocked,
+    setIsGalleryDocked,
+    galleryDockedSide,
+    setGalleryDockedSide,
+    isStatsFloating,
+    setIsStatsFloating,
+    statsFloatingPos,
+    setStatsFloatingPos,
+    statsFloatingSize,
+    setStatsFloatingSize,
+    isStatsDocked,
+    setIsStatsDocked,
+    statsDockedSide,
+    setStatsDockedSide,
+    isCurationFloating,
+    setIsCurationFloating,
+    curationFloatingPos,
+    setCurationFloatingPos,
+    curationFloatingSize,
+    setCurationFloatingSize,
+    isCurationDocked,
+    setIsCurationDocked,
+    curationDockedSide,
+    setCurationDockedSide,
+    snapDockZone,
+    handleDragProgress,
+    handleHeaderDragStart,
+    handleNavTabDragStart,
+  ])
 }
