@@ -28,6 +28,7 @@ import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import { RegenerateDialog } from "./CombinationPickerComponents"
 import { ImageViewer } from "../ImageViewer"
+import { ImageDetail } from "../gallery/ImageDetail"
 import { hasApproved, findApproved } from "../../types/Message"
 import { TournamentView } from "./CombinationPickerViews"
 import { GalleryView, TableView } from "./CombinationPickerViews"
@@ -99,6 +100,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   // ── State ──
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null)
+  const [detailImage, setDetailImage] = useState<SavedImage | null>(null)
 
   const exportAction = useAsyncAction(3000)
   const regenAction = useAsyncAction(3000)
@@ -794,6 +796,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 onCancelApproval={handleCancelApproval}
                 onNavigate={navigateTo}
                 onOpenList={() => setIsMobileSidebarOpen(true)}
+                onOpenDetail={(img) => setDetailImage(img)}
               />
               {viewMode === "tournament" && (
                 <div className="flex-1 overflow-hidden">
@@ -881,6 +884,16 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           isOpen={previewHash !== null}
           onClose={() => setPreviewHash(null)}
         />
+
+        {/* 이미지 상세 정보 모달 */}
+        {detailImage && (
+          <ImageDetail
+            backendUrl={backendUrl}
+            image={detailImage}
+            onClose={() => setDetailImage(null)}
+            onChanged={fetchData}
+          />
+        )}
 
         {/* 모바일 화면 상단 이동 플로팅 버튼 */}
         {showScrollTop && (

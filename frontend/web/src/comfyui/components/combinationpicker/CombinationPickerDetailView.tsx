@@ -9,6 +9,7 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   LayoutListIcon,
+  InfoIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -65,6 +66,7 @@ interface DetailViewProps {
   onCancelApproval: () => void
   onNavigate: (dir: "prev" | "next") => void
   onOpenList?: () => void
+  onOpenDetail?: (img: SavedImage) => void
 }
 
 export function CombinationPickerDetailView({
@@ -84,6 +86,7 @@ export function CombinationPickerDetailView({
   onCancelApproval,
   onNavigate,
   onOpenList,
+  onOpenDetail,
 }: DetailViewProps) {
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } = useCurationContext()
   const { setStatus, imagesByFilename, renderItems } = data
@@ -441,6 +444,16 @@ export function CombinationPickerDetailView({
                           >
                             <Maximize2Icon className="h-5 w-5" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onOpenDetail?.(img)
+                            }}
+                            className="absolute bottom-2 left-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                          >
+                            <InfoIcon className="h-5 w-5 md:h-4 md:w-4" />
+                          </button>
                           {idx < 9 && (
                             <div className="absolute top-2 left-2 hidden backdrop-blur-sm md:block md:opacity-0 md:group-hover:opacity-100">
                               <Kbd className="flex h-6 w-6 items-center justify-center rounded border-white/20 bg-black/60 font-mono text-[11px] font-black text-white select-none">
@@ -476,6 +489,9 @@ export function CombinationPickerDetailView({
                   <ContextMenuContent className="w-44">
                     <ContextMenuItem onClick={() => onSetPreviewHash(img.hash)}>
                       <Maximize2Icon className="h-4 w-4" /> 이미지 보기
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => onOpenDetail?.(img)}>
+                      <InfoIcon className="h-4 w-4" /> 상세 정보
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     {isSelected ? (
