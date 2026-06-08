@@ -18,7 +18,7 @@ import aiosqlite
 
 logger = logging.getLogger(__name__)
 
-# Resolve database path: CEG_DATABASE_PATH/CEG_DB_PATH > CEG_DATA_DIR/jobs.db > jobs.db
+# Resolve database path: CEG_DATABASE_PATH/CEG_DB_PATH > CEG_DATA_DIR/jobs.db > data/jobs.db
 _env_db_path = os.environ.get("CEG_DATABASE_PATH") or os.environ.get("CEG_DB_PATH")
 if _env_db_path:
     DEFAULT_DB_PATH = Path(_env_db_path)
@@ -27,7 +27,7 @@ else:
     if _env_data_dir:
         DEFAULT_DB_PATH = Path(_env_data_dir) / "jobs.db"
     else:
-        DEFAULT_DB_PATH = Path("jobs.db")
+        DEFAULT_DB_PATH = Path("data/jobs.db")
 
 
 def _saved_image_row_to_dict(

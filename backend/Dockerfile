@@ -11,10 +11,6 @@ RUN pip install -r requirements.txt
 
 COPY . ./
 
-# Runtime data (images/, jobs.db) lives in /data. Mount a volume here.
-RUN mkdir -p /data
-WORKDIR /data
-
 ARG CEG_BUNDLE_VERSION=dev
 ARG CEG_COMMIT=
 ENV CEG_BUNDLE_VERSION=${CEG_BUNDLE_VERSION} \

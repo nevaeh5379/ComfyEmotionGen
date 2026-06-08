@@ -70,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 RETRY_DELAY = 1.0  # 재시도 간격 (초)
 
-# Resolve images directory: CEG_IMAGES_DIR > CEG_DATA_DIR/images > images
+# Resolve images directory: CEG_IMAGES_DIR > CEG_DATA_DIR/images > data/images
 _env_images_dir = os.environ.get("CEG_IMAGES_DIR")
 if _env_images_dir:
     DEFAULT_IMAGES_DIR = Path(_env_images_dir)
@@ -79,9 +79,9 @@ else:
     if _env_data_dir:
         DEFAULT_IMAGES_DIR = Path(_env_data_dir) / "images"
     else:
-        DEFAULT_IMAGES_DIR = Path("images")
+        DEFAULT_IMAGES_DIR = Path("data/images")
 
-# Resolve upload directory: CEG_UPLOAD_DIR > CEG_DATA_DIR/uploaded_images > uploaded_images
+# Resolve upload directory: CEG_UPLOAD_DIR > CEG_DATA_DIR/uploaded_images > data/uploaded_images
 _env_upload_dir = os.environ.get("CEG_UPLOAD_DIR")
 if _env_upload_dir:
     UPLOAD_IMAGES_DIR = Path(_env_upload_dir)
@@ -90,7 +90,7 @@ else:
     if _env_data_dir:
         UPLOAD_IMAGES_DIR = Path(_env_data_dir) / "uploaded_images"
     else:
-        UPLOAD_IMAGES_DIR = Path("uploaded_images")
+        UPLOAD_IMAGES_DIR = Path("data/uploaded_images")
 
 
 class ActiveJobError(Exception):

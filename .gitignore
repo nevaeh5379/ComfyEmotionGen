@@ -36,3 +36,5 @@ images/
 dist/
 build/
 .codegraph
+backend/data/
+data/

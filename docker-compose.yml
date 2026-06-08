@@ -18,8 +18,5 @@ services:
     ports:
       - "${PORT:-${FRONTEND_PORT:-6974}}:8000"
     volumes:
-      - ceg-data:/data
+      - ./data:/app/backend/data
     restart: unless-stopped
-
-volumes:
-  ceg-data:
