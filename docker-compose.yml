@@ -1,7 +1,7 @@
 services:
   # Unified container deployment. Run with:
   #   docker compose up
-  ceg:
+  app:
     build:
       context: .
       dockerfile: Dockerfile

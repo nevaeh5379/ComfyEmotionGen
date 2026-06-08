@@ -856,6 +856,34 @@ class SettingValueRequest(BaseModel):
     value: str
 
 
+class ClientLogRequest(BaseModel):
+    level: str = "error"
+    message: str
+    stack: Optional[str] = None
+    url: Optional[str] = None
+    userAgent: Optional[str] = None
+
+
+@app.post("/logs/client")
+async def client_log_endpoint(req: ClientLogRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    log_msg = f"[Client {client_ip}] {req.message}"
+    if req.url:
+        log_msg += f" (URL: {req.url})"
+    if req.userAgent:
+        log_msg += f" (UA: {req.userAgent})"
+    if req.stack:
+        log_msg += f"\nStack Trace:\n{req.stack}"
+
+    if req.level == "info":
+        logger.info(log_msg)
+    elif req.level == "warning":
+        logger.warning(log_msg)
+    else:
+        logger.error(log_msg)
+    return {"ok": True}
+
+
 # ====== 데이터베이스 관리 ======
 
 @app.get("/db/export")
