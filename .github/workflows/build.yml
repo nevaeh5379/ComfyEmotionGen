@@ -264,7 +264,7 @@ jobs:
     needs: version
     runs-on: ubuntu-latest
     env:
-      IMAGE: ${{ env.REGISTRY }}/${{ needs.version.outputs.image }}
+      IMAGE: ghcr.io/${{ needs.version.outputs.image }}
       # Floating channel tag: latest / beta / dev
       CHANNEL: ${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
     steps:
