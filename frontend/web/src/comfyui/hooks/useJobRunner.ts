@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
-import type { NodeMapping } from "../../lib/workflow"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import {
   applyAxisFilters,
   buildWorkflowForItem,
@@ -9,22 +9,20 @@ import {
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
+import type { SavedImage } from "../types/Message"
+import { useTemplateContext } from "../contexts/useTemplateContext"
+import { useWorkflowContext } from "../contexts/WorkflowContext"
+import { useNodeMappingContext } from "../contexts/NodeMappingContext"
+import { useBackendUrl } from "./useBackendUrl"
+import { useBackendHealth } from "./useBackendHealth"
 
-interface UseJobRunnerParams {
-  cegTemplate: string
-  workflowJson: string
-  nodeMappings: NodeMapping[]
-  backendUrl: string
-  isAliveBackend: boolean
-}
+export function useJobRunner() {
+  const backendUrl = useBackendUrl()
+  const { isAliveBackend } = useBackendHealth()
+  const { cegTemplate } = useTemplateContext()
+  const { workflowJson } = useWorkflowContext()
+  const { nodeMappings } = useNodeMappingContext()
 
-export function useJobRunner({
-  cegTemplate,
-  workflowJson,
-  nodeMappings,
-  backendUrl,
-  isAliveBackend,
-}: UseJobRunnerParams) {
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [parserError, setParserError] = useState<string | null>(null)
   const [axisValueFilter, setAxisValueFilter] = useState<
@@ -35,9 +33,13 @@ export function useJobRunner({
   const [repeatCount, setRepeatCount] = useState(1)
   const [randomRunCount, setRandomRunCount] = useState(1)
 
+  const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
+
   // CEG 템플릿 변경 시 자동 파싱 (debounce)
   useEffect(() => {
-    if (!isAliveBackend || !cegTemplate.trim()) return
+    if (!isAliveBackend || !cegTemplate.trim()) {
+      return
+    }
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       setParserError(null)
@@ -51,6 +53,7 @@ export function useJobRunner({
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = (await res.json()) as RenderItemsResponse
         setFakeJobQueue(data.items)
+        setRenderResponse(data)
         setUncheckedItems(new Set())
         // Discover axes from new data (add new keys/values, preserve existing toggles)
         setAxisValueFilter((prev) => {
@@ -66,6 +69,7 @@ export function useJobRunner({
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return
         setParserError(err instanceof Error ? err.message : String(err))
+        setRenderResponse(null)
       }
     }, CEG_TEMPLATE_DEBOUNCE_MS)
     return () => {
@@ -74,7 +78,7 @@ export function useJobRunner({
     }
   }, [cegTemplate, isAliveBackend, backendUrl])
 
-  const callParser = async (): Promise<RenderItemsResponse | undefined> => {
+  const callParser = useCallback(async (): Promise<RenderItemsResponse | undefined> => {
     try {
       const response = await fetch(`${backendUrl}${API.render}`, {
         method: "POST",
@@ -94,9 +98,9 @@ export function useJobRunner({
       setParserError(message)
       return undefined
     }
-  }
+  }, [backendUrl, cegTemplate])
 
-  const submitJobs = async (renderItems: RenderItem[]): Promise<boolean> => {
+  const submitJobs = useCallback(async (renderItems: RenderItem[]): Promise<boolean> => {
     if (!workflowJson || renderItems.length === 0) return false
     const imageNameMap: Record<string, string> = {}
     const imageUploads: Record<string, Record<string, string>> = {}
@@ -122,6 +126,7 @@ export function useJobRunner({
       meta: item.meta,
       cegTemplate: cegTemplate,
       imageUploads,
+      workerType: "comfyui",
     }))
     try {
       const res = await fetch(`${backendUrl}${API.jobs.root}`, {
@@ -129,15 +134,28 @@ export function useJobRunner({
         headers: HEADERS.json,
         body: JSON.stringify({ items }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
       return true
     } catch (error) {
       console.error("Failed to submit jobs:", error)
+      toast.error("작업 제출에 실패했습니다.")
       return false
     }
-  }
+  }, [backendUrl, workflowJson, nodeMappings, cegTemplate])
 
-  const handleRun = async () => {
+  const canUseParsedTemplate = isAliveBackend && cegTemplate.trim()
+  const activeFakeJobQueue = useMemo(
+    () => (canUseParsedTemplate ? fakeJobQueue : []),
+    [canUseParsedTemplate, fakeJobQueue]
+  )
+  const activeRenderResponse = canUseParsedTemplate ? renderResponse : null
+
+  const axisFilteredItems = useMemo(
+    () => applyAxisFilters(activeFakeJobQueue, axisValueFilter),
+    [activeFakeJobQueue, axisValueFilter]
+  )
+
+  const handleRun = useCallback(async () => {
     if (!workflowJson || !isAliveBackend) return
     const parserResult = await callParser()
     if (!parserResult) return
@@ -146,17 +164,19 @@ export function useJobRunner({
       repeatCount > 1
         ? Array.from({ length: repeatCount }, () => items).flat()
         : items
-    await submitJobs(repeated)
-  }
+    const ok = await submitJobs(repeated)
+    if (!ok) toast.error("작업 실행에 실패했습니다.")
+  }, [workflowJson, isAliveBackend, callParser, axisValueFilter, repeatCount, submitJobs])
 
-  const handleRandomRun = async (count: number = 1) => {
+  const handleRandomRun = useCallback(async (count: number = 1) => {
     if (!workflowJson || !isAliveBackend || axisFilteredItems.length === 0)
       return
     const selected = randomSelect(axisFilteredItems, count)
-    await submitJobs(selected)
-  }
+    const ok = await submitJobs(selected)
+    if (!ok) toast.error("랜덤 실행에 실패했습니다.")
+  }, [workflowJson, isAliveBackend, axisFilteredItems, submitJobs])
 
-  const handleRunSelected = async () => {
+  const handleRunSelected = useCallback(async () => {
     if (!workflowJson || !isAliveBackend) return false
     const parserResult = await callParser()
     if (!parserResult) return false
@@ -167,65 +187,139 @@ export function useJobRunner({
       repeatCount > 1
         ? Array.from({ length: repeatCount }, () => selected).flat()
         : selected
-    return await submitJobs(repeated)
-  }
+    const ok = await submitJobs(repeated)
+    if (!ok) toast.error("선택 작업 실행에 실패했습니다.")
+    return ok
+  }, [workflowJson, isAliveBackend, callParser, uncheckedItems, repeatCount, submitJobs])
 
-  const toggleItemCheck = (key: string) => {
+  const fetchApprovedFilenames = useCallback(async (): Promise<Set<string>> => {
+    try {
+      const res = await fetch(`${backendUrl}/saved-images?limit=5000`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = (await res.json()) as { items: SavedImage[] }
+      const approved = data.items.filter(
+        (img) => img.status === "approved"
+      )
+      return new Set(approved.map((img) => img.originalFilename))
+    } catch (err) {
+      console.error("Failed to fetch approved filenames:", err)
+      return new Set<string>()
+    }
+  }, [backendUrl])
+
+  const handleRunUnapproved = useCallback(async () => {
+    if (!workflowJson || !isAliveBackend) return
+    const parserResult = await callParser()
+    if (!parserResult) return
+
+    const approvedSet = await fetchApprovedFilenames()
+    const filtered = parserResult.items.filter(
+      (item) => !approvedSet.has(item.filename)
+    )
+
+    if (filtered.length === 0) {
+      toast.info("실행할 미완료(미선택) 항목이 없습니다.")
+      return
+    }
+
+    toast.info(`축 필터를 제외한 전체 미완료 작업 ${filtered.length}개를 실행합니다.`)
+
+    const repeated =
+      repeatCount > 1
+        ? Array.from({ length: repeatCount }, () => filtered).flat()
+        : filtered
+    const ok = await submitJobs(repeated)
+    if (!ok) toast.error("미완료 항목 실행에 실패했습니다.")
+  }, [
+    workflowJson,
+    isAliveBackend,
+    callParser,
+    fetchApprovedFilenames,
+    repeatCount,
+    submitJobs,
+  ])
+
+  const selectOnlyUnapprovedItems = useCallback(async () => {
+    const approvedSet = await fetchApprovedFilenames()
+    let count = 0
+    const nextUnchecked = new Set(uncheckedItems)
+    activeFakeJobQueue.forEach((item) => {
+      const key = itemKey(item)
+      if (approvedSet.has(item.filename)) {
+        if (!nextUnchecked.has(key)) {
+          nextUnchecked.add(key)
+          count++
+        }
+      }
+    })
+    setUncheckedItems(nextUnchecked)
+    if (count > 0) {
+      toast.success(`큐레이션 통과 항목 ${count}개가 선택 해제되었습니다.`)
+    } else {
+      toast.info("선택 해제할 큐레이션 통과 항목이 없습니다.")
+    }
+  }, [activeFakeJobQueue, fetchApprovedFilenames, uncheckedItems])
+
+  const toggleItemCheck = useCallback((key: string) => {
     setUncheckedItems((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
       return next
     })
-  }
+  }, [])
 
-  const checkAllItems = () => setUncheckedItems(new Set())
-  const uncheckAllItems = () =>
-    setUncheckedItems(new Set(fakeJobQueue.map(itemKey)))
+  const checkAllItems = useCallback(() => setUncheckedItems(new Set()), [])
+  
+  const uncheckAllItems = useCallback(() =>
+    setUncheckedItems(new Set(activeFakeJobQueue.map(itemKey))), [activeFakeJobQueue])
 
-  const toggleAxisCollapse = (axis: string) =>
+  const toggleAxisCollapse = useCallback((axis: string) =>
     setCollapsedAxes((prev) => {
       const next = new Set(prev)
       if (next.has(axis)) next.delete(axis)
       else next.add(axis)
       return next
-    })
+    }), [])
 
   const estimatedRunCount = useMemo(
     () =>
-      fakeJobQueue.length > 0
-        ? applyAxisFilters(fakeJobQueue, axisValueFilter).length
+      activeFakeJobQueue.length > 0
+        ? applyAxisFilters(activeFakeJobQueue, axisValueFilter).length
         : null,
-    [fakeJobQueue, axisValueFilter]
+    [activeFakeJobQueue, axisValueFilter]
   )
-
-  const axisFilteredItems = applyAxisFilters(fakeJobQueue, axisValueFilter)
 
   const axisExcludedItems = useMemo(() => {
     const includedSet = new Set(axisFilteredItems.map(itemKey))
-    return fakeJobQueue.filter((item) => !includedSet.has(itemKey(item)))
-  }, [fakeJobQueue, axisFilteredItems])
+    return activeFakeJobQueue.filter((item) => !includedSet.has(itemKey(item)))
+  }, [activeFakeJobQueue, axisFilteredItems])
 
   const filteredByAxisSet = useMemo(() => {
     if (Object.keys(axisValueFilter).length === 0) return null
-    return new Set(applyAxisFilters(fakeJobQueue, axisValueFilter).map(itemKey))
-  }, [fakeJobQueue, axisValueFilter])
+    return new Set(applyAxisFilters(activeFakeJobQueue, axisValueFilter).map(itemKey))
+  }, [activeFakeJobQueue, axisValueFilter])
 
-  const hasActiveFilter = Object.values(axisValueFilter).some((vals) =>
-    Object.values(vals).some((v) => !v)
+  const hasActiveFilter = useMemo(
+    () =>
+      Object.values(axisValueFilter).some((vals) =>
+        Object.values(vals).some((v) => !v)
+      ),
+    [axisValueFilter]
   )
 
   const selectedCount = useMemo(
     () =>
-      fakeJobQueue.length > 0
-        ? fakeJobQueue.filter((item) => !uncheckedItems.has(itemKey(item)))
+      activeFakeJobQueue.length > 0
+        ? activeFakeJobQueue.filter((item) => !uncheckedItems.has(itemKey(item)))
             .length
         : null,
-    [fakeJobQueue, uncheckedItems]
+    [activeFakeJobQueue, uncheckedItems]
   )
 
   return {
-    fakeJobQueue,
+    fakeJobQueue: activeFakeJobQueue,
+    renderResponse: activeRenderResponse,
     parserError,
     axisValueFilter,
     setAxisValueFilter,
@@ -238,6 +332,8 @@ export function useJobRunner({
     handleRun,
     handleRunSelected,
     handleRandomRun,
+    handleRunUnapproved,
+    selectOnlyUnapprovedItems,
     toggleItemCheck,
     checkAllItems,
     uncheckAllItems,
@@ -248,5 +344,7 @@ export function useJobRunner({
     filteredByAxisSet,
     hasActiveFilter,
     selectedCount,
+    isAliveBackend,
+    backendUrl,
   }
 }

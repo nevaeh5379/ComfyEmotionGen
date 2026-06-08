@@ -20,7 +20,7 @@ import { WS_INITIAL_BACKOFF_MS, WS_MAX_BACKOFF_MS } from "../../lib/constants"
 import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
-import { fetchAllSettings } from "../../lib/serverStorage"
+import { fetchAllSettings, CLIENT_ID } from "../../lib/serverStorage"
 import {
   populateSettingsCache,
   applySettingUpdate,
@@ -37,7 +37,11 @@ interface ProviderProps {
 const readStoredBackendUrl = (): string => {
   // 패키지 모드: 런처 주입 URL 강제. localStorage 무시 (포트가 매 실행마다 바뀜).
   if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL as string
-  return localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
+  try {
+    return localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
+  } catch {
+    return DEFAULT_BACKEND_URL
+  }
 }
 
 export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
@@ -100,8 +104,16 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         setJobs((prev) => prev.filter((j) => j.id !== event.jobId))
         break
       case "settings.updated":
+        if (event.sender === CLIENT_ID) break
         if (!getSyncQueue().some((i) => i.key === event.key))
           applySettingUpdate(event.key, event.value)
+        break
+      case "image.saved":
+      case "image.curation":
+      case "image.deleted":
+        window.dispatchEvent(
+          new CustomEvent("ceg-image-event", { detail: event })
+        )
         break
     }
   }, [])
@@ -115,8 +127,37 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       const wsUrl = `${httpToWs(url)}${API.ws.events}`
 
       const connect = () => {
-        console.info("[backend] connecting", wsUrl)
-        const socket = new WebSocket(wsUrl)
+        // 유효하지 않은 URL이면 재연결 타이머만 돌림
+        if (!wsUrl) {
+          console.warn("[backend] invalid URL, skipping connection")
+          if (reconnectTimerRef.current !== null) {
+            clearTimeout(reconnectTimerRef.current)
+          }
+          reconnectTimerRef.current = window.setTimeout(() => {
+            reconnectTimerRef.current = null
+            connect()
+          }, backoff)
+          backoff = Math.min(backoff * 2, WS_MAX_BACKOFF_MS)
+          return
+        }
+
+        let socket: WebSocket
+        try {
+          console.info("[backend] connecting", wsUrl)
+          socket = new WebSocket(wsUrl)
+        } catch (err) {
+          console.error("[backend] failed to create WebSocket:", err)
+          if (reconnectTimerRef.current !== null) {
+            clearTimeout(reconnectTimerRef.current)
+          }
+          reconnectTimerRef.current = window.setTimeout(() => {
+            reconnectTimerRef.current = null
+            connect()
+          }, backoff)
+          backoff = Math.min(backoff * 2, WS_MAX_BACKOFF_MS)
+          return
+        }
+
         socketRef.current = socket
 
         socket.onopen = () => {
@@ -132,7 +173,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
               )
               populateSettingsCache(filtered)
             }
-          })
+          }).catch((err) => console.warn("[WebSocket] 설정 동기화 실패:", err))
         }
 
         socket.onmessage = (e) => {
@@ -147,6 +188,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
         socket.onerror = () => {
           // close가 따로 호출되니 여기서는 로깅만
+          console.warn("[WebSocket] 에러 발생")
         }
 
         socket.onclose = () => {

@@ -5,12 +5,12 @@
       "name": "Debug Backend (FastAPI)",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/backend/run.py",
+      "program": "${workspaceFolder}/backend/src/run.py",
       "cwd": "${workspaceFolder}/backend",
-      "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/backend/.venv/bin/python",
       "justMyCode": true,
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/backend"
+        "PYTHONPATH": "${workspaceFolder}"
       }
     },
     {

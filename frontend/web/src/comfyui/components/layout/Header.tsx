@@ -59,7 +59,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useTemplateContext } from "../../contexts/TemplateContext"
+import { useTemplateContext } from "../../contexts/useTemplateContext"
 import { Tabs } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -82,7 +82,7 @@ import {
   encodeAxis,
   type FreeGroupBy,
 } from "../combinationpicker/freeCurationGroupers"
-import { useCurationToolbar } from "../combinationpicker/CurationToolbarTypes"
+import { useCurationToolbar } from "../combinationpicker/useCurationToolbar"
 import { usePanelLayout } from "../../contexts/PanelLayoutContext"
 import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
 import { NAV_TABS, type TabId } from "./nav-tabs"
@@ -105,6 +105,7 @@ interface HeaderProps {
   setRepeatCount: (v: number | ((c: number) => number)) => void
   handleRun: () => void
   handleRandomRun: (count: number) => void
+  handleRunUnapproved: () => void
   randomRunCount: number
   setRandomRunCount: (v: number | ((c: number) => number)) => void
   canRun: boolean
@@ -578,6 +579,7 @@ export function Header(props: HeaderProps) {
                 setRepeatCount={props.setRepeatCount}
                 handleRun={props.handleRun}
                 handleRandomRun={props.handleRandomRun}
+                handleRunUnapproved={props.handleRunUnapproved}
                 randomRunCount={props.randomRunCount}
                 setRandomRunCount={props.setRandomRunCount}
                 canRun={props.canRun}

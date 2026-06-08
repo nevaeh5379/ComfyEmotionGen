@@ -1,4 +1,4 @@
-import { createContext, useMemo, useState } from "react"
+import { createContext, useMemo, useState, useCallback } from "react"
 import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
@@ -59,6 +59,9 @@ export interface WorkflowContextValue {
     workflowId: string,
     presetId: string
   ) => SavedWorkflow | null
+  isDirty?: boolean
+  saveToServer?: () => Promise<boolean>
+  revert?: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -86,9 +89,10 @@ export function WorkflowProvider({
   const { setPendingSave, handlePendingUpdate, setPendingPresetSelection } =
     usePendingDialog()
 
-  const [workflowJson, setWorkflowJson] = useSyncedStorage(
+  const [workflowJson, setWorkflowJson, { isDirty: isWorkflowDirty, saveToServer: saveWorkflowToServer, revert: revertWorkflow }] = useSyncedStorage(
     STORAGE_KEYS.workflow,
-    ""
+    "",
+    { manual: true }
   )
   const [activeWorkflowId, setActiveWorkflowId] = useSyncedStorage<
     string | null
@@ -96,11 +100,20 @@ export function WorkflowProvider({
   const [workflowResetKey, setWorkflowResetKey] = useState(0)
   const {
     workflows: savedWorkflows,
-    saveWorkflow,
+    saveWorkflow: originalSaveWorkflow,
     deleteWorkflow,
     saveMappingPreset,
     deleteMappingPreset,
   } = useSavedWorkflows()
+
+  const saveWorkflow = useCallback(
+    (name: string, workflowContent: string) => {
+      const res = originalSaveWorkflow(name, workflowContent)
+      saveWorkflowToServer()
+      return res
+    },
+    [originalSaveWorkflow, saveWorkflowToServer]
+  )
 
   const activeWorkflow = useMemo(
     () => savedWorkflows.find((w) => w.id === activeWorkflowId) ?? null,
@@ -117,11 +130,11 @@ export function WorkflowProvider({
       return { success: false, error: { message: result.error.message } }
     } catch (error) {
       console.error("Workflow parsing error:", error)
-      return undefined
+      return { success: false, error: { message: String(error) } }
     }
   }, [workflowJson])
 
-  const loadWorkflowItem = (
+  const loadWorkflowItem = useCallback((
     w: SavedWorkflow,
     onClearMappings: () => void,
     onSetMappings: (m: NodeMapping[], presetId: string) => void
@@ -135,36 +148,72 @@ export function WorkflowProvider({
     } else {
       setPendingPresetSelection(w)
     }
-  }
+  }, [setWorkflowJson, setActiveWorkflowId, setPendingPresetSelection])
+
+  const onPendingSave = useCallback(
+    (name: string, type: "workflow") => setPendingSave({ name, type }),
+    [setPendingSave]
+  )
+
+  const onPendingUpdate = useCallback(
+    (
+      name: string,
+      type: "workflow",
+      oldContent: string,
+      newContent: string
+    ) => handlePendingUpdate(name, type, oldContent, newContent),
+    [handlePendingUpdate]
+  )
+
+  const value = useMemo<WorkflowContextValue>(
+    () => ({
+      workflowJson,
+      setWorkflowJson,
+      parsedWorkflow,
+      activeWorkflowId,
+      setActiveWorkflowId,
+      activeWorkflow,
+      savedWorkflows,
+      saveWorkflow,
+      deleteWorkflow,
+      workflowResetKey,
+      setWorkflowResetKey,
+      onPendingSave,
+      onPendingUpdate,
+      onPendingPresetSelection: setPendingPresetSelection,
+      loadWorkflowItem,
+      saveMappingPreset,
+      deleteMappingPreset,
+      isDirty: isWorkflowDirty,
+      saveToServer: saveWorkflowToServer,
+      revert: revertWorkflow,
+    }),
+    [
+      workflowJson,
+      setWorkflowJson,
+      parsedWorkflow,
+      activeWorkflowId,
+      setActiveWorkflowId,
+      activeWorkflow,
+      savedWorkflows,
+      saveWorkflow,
+      deleteWorkflow,
+      workflowResetKey,
+      setWorkflowResetKey,
+      onPendingSave,
+      onPendingUpdate,
+      setPendingPresetSelection,
+      loadWorkflowItem,
+      saveMappingPreset,
+      deleteMappingPreset,
+      isWorkflowDirty,
+      saveWorkflowToServer,
+      revertWorkflow,
+    ]
+  )
 
   return (
-    <WorkflowContext.Provider
-      value={{
-        workflowJson,
-        setWorkflowJson,
-        parsedWorkflow,
-        activeWorkflowId,
-        setActiveWorkflowId,
-        activeWorkflow,
-        savedWorkflows,
-        saveWorkflow,
-        deleteWorkflow,
-        workflowResetKey,
-        setWorkflowResetKey,
-        onPendingSave: (name: string, type: "workflow") =>
-          setPendingSave({ name, type }),
-        onPendingUpdate: (
-          name: string,
-          type: "workflow",
-          oldContent: string,
-          newContent: string
-        ) => handlePendingUpdate(name, type, oldContent, newContent),
-        onPendingPresetSelection: setPendingPresetSelection,
-        loadWorkflowItem,
-        saveMappingPreset,
-        deleteMappingPreset,
-      }}
-    >
+    <WorkflowContext.Provider value={value}>
       {children}
     </WorkflowContext.Provider>
   )

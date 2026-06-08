@@ -7,11 +7,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import { useEffectLog } from "@/lib/renderLogger"
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { API, HEADERS, DEFAULT_DOWNLOAD_FILENAME } from "@/lib/api"
-import { DEFAULT_SEED_STRATEGY, WS_RECONNECT_DELAY_MS } from "@/lib/constants"
-import { httpToWs } from "@/lib/utils"
 import type {
   AssetGroup,
   BackendEvent,
@@ -79,12 +78,12 @@ export const useSavedImages = (
   const urlToUse = backendUrl || DEFAULT_BACKEND_URL
 
   // ──── 그리드 모드: 이미지 fetch ────
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (silent = false) => {
     if (groupMode) return
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
-    setLoading(true)
+    if (!silent) setLoading(true)
     setError(null)
     try {
       const offset = Math.max(0, (page - 1) * pageSize)
@@ -109,17 +108,17 @@ export const useSavedImages = (
       if ((err as Error).name === "AbortError") return
       setError((err as Error).message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [groupMode, urlToUse, status, filename, tag, page, pageSize])
 
   // ──── 그룹 모드: 그룹 목록 fetch (페이징) ────
-  const fetchGroups = useCallback(async () => {
+  const fetchGroups = useCallback(async (silent = false) => {
     if (!groupMode) return
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
-    setLoading(true)
+    if (!silent) setLoading(true)
     setError(null)
     try {
       const offset = Math.max(0, (groupPage - 1) * groupPageSize)
@@ -151,7 +150,7 @@ export const useSavedImages = (
       if ((err as Error).name === "AbortError") return
       setError((err as Error).message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [groupMode, urlToUse, groupPage, groupPageSize, groupTotal])
 
@@ -180,6 +179,7 @@ export const useSavedImages = (
           newMap.set(fn, data.items)
         } catch (err) {
           console.error(`fetch group images failed for ${fn}`, err)
+          toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
           newMap.set(fn, [])
         }
       })
@@ -194,9 +194,9 @@ export const useSavedImages = (
     "이미지 fetch",
     () => {
       if (groupMode) {
-        fetchGroups()
+        fetchGroups(false)
       } else {
-        fetchImages()
+        fetchImages(false)
       }
     },
     [fetchImages, fetchGroups, groupMode]
@@ -214,44 +214,27 @@ export const useSavedImages = (
     }
   }, [groups, groupMode, fetchGroupImages, status])
 
-  // ──── WebSocket으로 image.* 이벤트 수신 → 자동 갱신 ────
+  // ──── Global WebSocket 이벤트를 ceg-image-event를 통해 수신 → 백그라운드 silent 갱신 ────
   useEffect(() => {
-    const wsUrl = `${httpToWs(urlToUse)}/ws/events`
-    let socket: WebSocket | null = null
-    let cancelled = false
-
-    const connect = () => {
-      socket = new WebSocket(wsUrl)
-      socket.onmessage = (e) => {
-        if (typeof e.data !== "string") return
-        try {
-          const event = JSON.parse(e.data) as BackendEvent
-          if (
-            event.type === "image.saved" ||
-            event.type === "image.curation" ||
-            event.type === "image.deleted"
-          ) {
-            if (groupMode) {
-              fetchGroups()
-            } else {
-              fetchImages()
-            }
-          }
-        } catch {
-          /* ignore */
+    const handleImageEvent = (e: Event) => {
+      const event = (e as CustomEvent).detail as BackendEvent
+      if (
+        event.type === "image.saved" ||
+        event.type === "image.curation" ||
+        event.type === "image.deleted"
+      ) {
+        if (groupMode) {
+          fetchGroups(true)
+        } else {
+          fetchImages(true)
         }
       }
-      socket.onclose = () => {
-        if (cancelled) return
-        setTimeout(connect, WS_RECONNECT_DELAY_MS)
-      }
     }
-    connect()
+    window.addEventListener("ceg-image-event", handleImageEvent)
     return () => {
-      cancelled = true
-      socket?.close()
+      window.removeEventListener("ceg-image-event", handleImageEvent)
     }
-  }, [urlToUse, fetchImages, fetchGroups, groupMode])
+  }, [fetchImages, fetchGroups, groupMode])
 
   return useMemo(
     () => ({
@@ -262,8 +245,8 @@ export const useSavedImages = (
       groupTotal,
       loading,
       error,
-      reload: groupMode ? fetchGroups : fetchImages,
-      reloadGroups: fetchGroups,
+      reload: () => (groupMode ? fetchGroups(false) : fetchImages(false)),
+      reloadGroups: () => fetchGroups(false),
     }),
     [
       images,
@@ -343,26 +326,6 @@ export const curationApi = {
     const data = (await res.json()) as { deleted: number }
     return data.deleted
   },
-  async regenerate(
-    backendUrl: string,
-    filename: string,
-    count: number,
-    seedStrategy: "random" | "increment" = DEFAULT_SEED_STRATEGY,
-    template?: string,
-    workflow?: string
-  ): Promise<string[]> {
-    const res = await fetch(
-      `${backendUrl}${API.assetGroups.regenerate(filename)}`,
-      {
-        method: "POST",
-        headers: HEADERS.json,
-        body: JSON.stringify({ count, seedStrategy, template, workflow }),
-      }
-    )
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = (await res.json()) as { jobIds: string[] }
-    return data.jobIds
-  },
   async exportDataset(
     backendUrl: string,
     body: {
@@ -387,5 +350,30 @@ export const curationApi = {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
+  },
+  async bulkAutoTags(
+    backendUrl: string,
+    hashes: string[]
+  ): Promise<Record<string, string[]>> {
+    const cleanUrl = backendUrl.replace(/\/+$/, "")
+    const res = await fetch(`${cleanUrl}/saved-images/auto-tags/bulk`, {
+      method: "POST",
+      headers: HEADERS.json,
+      body: JSON.stringify({ hashes }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = (await res.json()) as { results: Record<string, string[]> }
+    return data.results
+  },
+  async autoTagsAllEmpty(
+    backendUrl: string
+  ): Promise<Record<string, string[]>> {
+    const cleanUrl = backendUrl.replace(/\/+$/, "")
+    const res = await fetch(`${cleanUrl}/saved-images/auto-tags/empty`, {
+      method: "POST",
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = (await res.json()) as { results: Record<string, string[]> }
+    return data.results
   },
 }

@@ -51,6 +51,8 @@ import {
   Copy,
   Scissors,
   Eye,
+  Sliders,
+  Sparkles,
 } from "lucide-react"
 import {
   ContextMenu,
@@ -100,19 +102,14 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import type { CurationStatus, SavedImage } from "../types/Message"
 import { STATUS_LABEL } from "../types/Message"
 import { curationApi, useSavedImages } from "../hooks/useSavedImages"
+import { API, HEADERS } from "@/lib/api"
+import { useSavedWorkflows } from "../hooks/useSavedWorkflows"
 import { downloadImagesAsZip, getImageFilename } from "../utils/downloadImages"
 import { Magnifier } from "./combinationpicker/CombinationPickerViews"
+import { RegenerateDialog } from "./combinationpicker/CombinationPickerComponents"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import { toast } from "sonner"
 import { ImageGrid } from "./gallery/ImageGrid"
@@ -200,6 +197,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 }: Props) {
   useRenderLog("SavedImagesGallery")
   const confirm = useConfirm()
+  const { saveMappingPreset, deleteMappingPreset } = useSavedWorkflows()
   const [statusFilter, setStatusFilterState] = useState<CurationStatus | "all">(
     "pending"
   )
@@ -257,6 +255,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   // 선택 모드
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedHashes(new Set())
+  }, [])
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(
     null
@@ -264,27 +266,15 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false)
 
   // ── Breadcrumb tag folder navigation states ──
+  // ── Breadcrumb tag folder navigation states ──
   const [breadcrumbTags, setBreadcrumbTags] = useState<string[]>([])
   const [subTagQuery, setSubTagQuery] = useState("")
+  const [tagSortOrder, setTagSortOrder] = useState<"count" | "name">("count")
+  const [isTagPanelExpanded, setIsTagPanelExpanded] = useState(false)
 
   // Dynamic token extractor
   const getTokens = useCallback((img: SavedImage): string[] => {
-    const tokensSet = new Set<string>()
-    const fn = img.originalFilename || img.comfyFilename || ""
-    const fnWithoutExt = fn.replace(/\.[^/.]+$/, "")
-    fnWithoutExt.split(/[_\s-]+/).forEach((token) => {
-      const t = token.trim().toLowerCase()
-      if (t && t.length >= 2) tokensSet.add(t)
-    })
-    if (img.tags && Array.isArray(img.tags)) {
-      img.tags.forEach((tag) => {
-        tag.split(/[_\s-]+/).forEach((token) => {
-          const t = token.trim().toLowerCase()
-          if (t && t.length >= 2) tokensSet.add(t)
-        })
-      })
-    }
-    return Array.from(tokensSet)
+    return img.tags && Array.isArray(img.tags) ? img.tags : []
   }, [])
 
   // 핀 고정 + 뷰 모드
@@ -511,65 +501,48 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const effectiveSortKey = toolbarState ? toolbarState.sortKey : sortKey
   const effectiveSortDir = toolbarState ? toolbarState.sortDir : sortDir
 
+
+  // Reset page & groupPage to 1 when any filter changes
+  const lastFiltersRef = useRef<string>("")
+  const currentFiltersStr = JSON.stringify({
+    effectiveFilenameFilter,
+    effectiveTagFilter,
+    effectiveMetadataFilter,
+    effectiveGeneralFilters,
+    breadcrumbTags,
+    effectiveHideRejected,
+  })
+  useEffect(() => {
+    if (lastFiltersRef.current !== currentFiltersStr) {
+      setPage(1)
+      setGroupPage(1)
+      lastFiltersRef.current = currentFiltersStr
+    }
+  }, [currentFiltersStr])
+
   const {
     images,
     groups,
     groupImagesMap,
-    total,
-    groupTotal,
     loading,
     error,
     reload,
   } = useSavedImages({
     backendUrl,
     status: effectiveGroupMode ? "all" : effectiveStatusFilter,
-    filename: filenameFilter || undefined,
-    tag: tagFilter || undefined,
-    page: effectiveGroupMode ? 1 : page,
-    pageSize: effectiveGroupMode ? 500 : imagePageSize,
+    filename: undefined,
+    tag: undefined,
+    page: 1,
+    pageSize: 10000,
     groupMode: effectiveGroupMode,
-    groupPage,
-    groupPageSize: GROUP_PAGE_SIZE,
+    groupPage: 1,
+    groupPageSize: 1000,
   })
 
   // Register reload function for external triggers (Header dropdown, keyboard shortcuts)
   useEffect(() => {
     onReloadReady?.(reload)
   }, [onReloadReady, reload])
-
-  const totalPages = Math.max(1, Math.ceil(total / imagePageSize))
-  const pageList = useMemo(
-    () => buildPageList(page, totalPages),
-    [page, totalPages]
-  )
-
-  const groupTotalPages = Math.max(1, Math.ceil(groupTotal / GROUP_PAGE_SIZE))
-  const groupPageList = useMemo(
-    () => buildPageList(groupPage, groupTotalPages),
-    [groupPage, groupTotalPages]
-  )
-
-  // total 변동으로 현재 page가 범위 밖이면 클램프
-  // (totalPages는 비동기 API 결과에서 파생되므로 렌더 중 파생값으로 처리할 수 없음)
-  const prevTotalPagesRef = useRef(totalPages)
-  useEffect(() => {
-    if (prevTotalPagesRef.current !== totalPages && page > totalPages) {
-      setPage(totalPages)
-    }
-    prevTotalPagesRef.current = totalPages
-  }, [page, totalPages])
-
-  // groupTotal 변동으로 groupPage 범위 밖이면 클램프
-  const prevGroupTotalPagesRef = useRef(groupTotalPages)
-  useEffect(() => {
-    if (
-      prevGroupTotalPagesRef.current !== groupTotalPages &&
-      groupPage > groupTotalPages
-    ) {
-      setGroupPage(groupTotalPages)
-    }
-    prevGroupTotalPagesRef.current = groupTotalPages
-  }, [groupPage, groupTotalPages])
 
   const setStatus = useCallback(
     async (hash: string, status: CurationStatus) => {
@@ -583,17 +556,39 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     [backendUrl, reload]
   )
 
-  // 메타데이터로 필터링된 이미지 (그리드 모드 전용)
-  const metadataFilteredImages = useMemo(() => {
-    if (!effectiveMetadataFilter.trim()) return images
-    const lowerFilter = effectiveMetadataFilter.toLowerCase().trim()
+  // 1. 파일명 필터링 (부분 일치)
+  const filenameFilteredImages = useMemo(() => {
+    if (!effectiveFilenameFilter.trim()) return images
+    const lowerFilter = effectiveFilenameFilter.toLowerCase().trim()
     return images.filter((img) => {
+      const fn = (img.originalFilename || img.comfyFilename || "").toLowerCase()
+      return fn.includes(lowerFilter)
+    })
+  }, [images, effectiveFilenameFilter])
+
+  // 2. 태그 필터링 (부분 일치)
+  const tagFilteredImages = useMemo(() => {
+    if (!effectiveTagFilter.trim()) return filenameFilteredImages
+    const terms = effectiveTagFilter.toLowerCase().trim().split(/\s+/)
+    return filenameFilteredImages.filter((img) => {
+      if (!img.tags || !Array.isArray(img.tags)) return false
+      return terms.every((term) =>
+        img.tags.some((t) => t.toLowerCase().includes(term))
+      )
+    })
+  }, [filenameFilteredImages, effectiveTagFilter])
+
+  // 3. 메타데이터로 필터링된 이미지 (그리드 모드 전용)
+  const metadataFilteredImages = useMemo(() => {
+    if (!effectiveMetadataFilter.trim()) return tagFilteredImages
+    const lowerFilter = effectiveMetadataFilter.toLowerCase().trim()
+    return tagFilteredImages.filter((img) => {
       const prompt = img.prompt.toLowerCase()
       return prompt.includes(lowerFilter)
     })
-  }, [images, effectiveMetadataFilter])
+  }, [tagFilteredImages, effectiveMetadataFilter])
 
-  // 일반 검색어(OR) 필터링 추가
+  // 4. 일반 검색어(OR) 필터링 추가
   const finalFilteredImages = useMemo(() => {
     if (effectiveGeneralFilters.length === 0) return metadataFilteredImages
     return metadataFilteredImages.filter((img) => {
@@ -634,16 +629,21 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       })
     })
 
-    const sorted = Array.from(freqMap.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([token, count]) => ({ token, count }))
+    const entries = Array.from(freqMap.entries())
+    if (tagSortOrder === "name") {
+      entries.sort((a, b) => a[0].localeCompare(b[0]))
+    } else {
+      entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    }
+
+    const sorted = entries.map(([token, count]) => ({ token, count }))
 
     if (subTagQuery.trim()) {
       const query = subTagQuery.toLowerCase().trim()
       return sorted.filter((item) => item.token.includes(query))
     }
     return sorted
-  }, [breadcrumbFilteredImages, breadcrumbTags, getTokens, subTagQuery])
+  }, [breadcrumbFilteredImages, breadcrumbTags, getTokens, subTagQuery, tagSortOrder])
 
   // 리젝 숨기기 + 정렬 적용
   const visibleImages = useMemo(() => {
@@ -678,13 +678,28 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const visibleGroups = useMemo(() => {
     if (!effectiveGroupMode) return []
     const lowerMeta = effectiveMetadataFilter.trim().toLowerCase() || null
+    const lowerFilename = effectiveFilenameFilter.trim().toLowerCase() || null
+    const tagTerms = effectiveTagFilter.trim() ? effectiveTagFilter.toLowerCase().trim().split(/\s+/) : null
+
     const result: { name: string; items: SavedImage[] }[] = []
     for (const g of groups) {
+      if (lowerFilename && !g.filename.toLowerCase().includes(lowerFilename)) {
+        continue
+      }
+
       let items = groupImagesMap.get(g.filename) ?? []
       if (effectiveMetadataFilter.trim() && lowerMeta) {
         items = items.filter((img) =>
           img.prompt.toLowerCase().includes(lowerMeta)
         )
+      }
+      if (tagTerms) {
+        items = items.filter((img) => {
+          if (!img.tags || !Array.isArray(img.tags)) return false
+          return tagTerms.every((term) =>
+            img.tags.some((t) => t.toLowerCase().includes(term))
+          )
+        })
       }
       if (effectiveGeneralFilters.length > 0) {
         items = items.filter((img) => {
@@ -740,6 +755,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     effectiveGroupMode,
     groups,
     groupImagesMap,
+    effectiveFilenameFilter,
+    effectiveTagFilter,
     effectiveMetadataFilter,
     effectiveGeneralFilters,
     effectiveHideRejected,
@@ -748,6 +765,52 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     breadcrumbTags,
     getTokens,
   ])
+
+  const totalPages = Math.max(1, Math.ceil(visibleImages.length / imagePageSize))
+  const pageList = useMemo(
+    () => buildPageList(page, totalPages),
+    [page, totalPages]
+  )
+
+  const groupTotalPages = Math.max(1, Math.ceil(visibleGroups.length / GROUP_PAGE_SIZE))
+  const groupPageList = useMemo(
+    () => buildPageList(groupPage, groupTotalPages),
+    [groupPage, groupTotalPages]
+  )
+
+  const paginatedVisibleImages = useMemo(() => {
+    const start = (page - 1) * imagePageSize
+    const end = page * imagePageSize
+    return visibleImages.slice(start, end)
+  }, [visibleImages, page, imagePageSize])
+
+  const paginatedVisibleGroups = useMemo(() => {
+    const start = (groupPage - 1) * GROUP_PAGE_SIZE
+    const end = groupPage * GROUP_PAGE_SIZE
+    return visibleGroups.slice(start, end)
+  }, [visibleGroups, groupPage])
+
+  // total 변동으로 현재 page가 범위 밖이면 클램프
+  // (totalPages는 비동기 API 결과에서 파생되므로 렌더 중 파생값으로 처리할 수 없음)
+  const prevTotalPagesRef = useRef(totalPages)
+  useEffect(() => {
+    if (prevTotalPagesRef.current !== totalPages && page > totalPages) {
+      setPage(totalPages)
+    }
+    prevTotalPagesRef.current = totalPages
+  }, [page, totalPages])
+
+  // groupTotal 변동으로 groupPage 범위 밖이면 클램프
+  const prevGroupTotalPagesRef = useRef(groupTotalPages)
+  useEffect(() => {
+    if (
+      prevGroupTotalPagesRef.current !== groupTotalPages &&
+      groupPage > groupTotalPages
+    ) {
+      setGroupPage(groupTotalPages)
+    }
+    prevGroupTotalPagesRef.current = groupTotalPages
+  }, [groupPage, groupTotalPages])
 
   // 선택 모드 토글
   const toggleSelectHash = useCallback((hash: string) => {
@@ -811,10 +874,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         return
       }
 
-      // Esc: close detail view or clear focus
+      // Esc: close detail view, clear selection, or clear focus
       if (e.key === "Escape") {
         if (selected) {
           setSelected(null)
+          e.preventDefault()
+        } else if (selectionMode) {
+          exitSelectionMode()
           e.preventDefault()
         } else if (focusedHash) {
           setFocusedHash(null)
@@ -823,8 +889,69 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         return
       }
 
-      // If detail view is open, do not handle navigation
-      if (selected) return
+      // If detail view is open, handle prev/next image navigation on Left/Right keys
+      if (selected) {
+        if (e.key === "ArrowLeft" || e.key === "h") {
+          e.preventDefault()
+          const currentIndex = navImages.findIndex((img) => img.hash === selected.hash)
+          if (currentIndex > 0) {
+            const prevImg = navImages[currentIndex - 1]
+            if (prevImg) {
+              setSelected(prevImg)
+              setFocusedHash(prevImg.hash)
+              // Sync page / groupPage
+              if (effectiveGroupMode) {
+                const groupIndex = visibleGroups.findIndex((g) =>
+                  g.items.some((img) => img.hash === prevImg.hash)
+                )
+                if (groupIndex !== -1) {
+                  const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                  if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
+                }
+              } else {
+                const newPage = Math.floor((currentIndex - 1) / imagePageSize) + 1
+                if (newPage !== page) setPage(newPage)
+              }
+              setTimeout(() => {
+                const el = document.querySelector(`[class*="ring-blue-500"]`)
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                }
+              }, 50)
+            }
+          }
+        } else if (e.key === "ArrowRight" || e.key === "l") {
+          e.preventDefault()
+          const currentIndex = navImages.findIndex((img) => img.hash === selected.hash)
+          if (currentIndex !== -1 && currentIndex < navImages.length - 1) {
+            const nextImg = navImages[currentIndex + 1]
+            if (nextImg) {
+              setSelected(nextImg)
+              setFocusedHash(nextImg.hash)
+              // Sync page / groupPage
+              if (effectiveGroupMode) {
+                const groupIndex = visibleGroups.findIndex((g) =>
+                  g.items.some((img) => img.hash === nextImg.hash)
+                )
+                if (groupIndex !== -1) {
+                  const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                  if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
+                }
+              } else {
+                const newPage = Math.floor((currentIndex + 1) / imagePageSize) + 1
+                if (newPage !== page) setPage(newPage)
+              }
+              setTimeout(() => {
+                const el = document.querySelector(`[class*="ring-blue-500"]`)
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                }
+              }, 50)
+            }
+          }
+        }
+        return
+      }
 
       const currentIndex = navImages.findIndex(
         (img) => img.hash === focusedHash
@@ -835,6 +962,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           const nextImg = navImages[index]
           if (nextImg) {
             setFocusedHash(nextImg.hash)
+            // Sync page / groupPage
+            if (effectiveGroupMode) {
+              const groupIndex = visibleGroups.findIndex((g) =>
+                g.items.some((img) => img.hash === nextImg.hash)
+              )
+              if (groupIndex !== -1) {
+                const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
+              }
+            } else {
+              const newPage = Math.floor(index / imagePageSize) + 1
+              if (newPage !== page) setPage(newPage)
+            }
             // Gently scroll focused card into view if needed
             setTimeout(() => {
               const el = document.querySelector(`[class*="ring-blue-500"]`)
@@ -979,6 +1119,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     pinnedHashes,
     selected,
     setStatus,
+    page,
+    groupPage,
+    effectiveGroupMode,
+    visibleGroups,
+    imagePageSize,
+    exitSelectionMode,
   ])
 
   // 갤러리 이미지 토큰 실시간 추출 후 상위 컴포넌트 전달
@@ -1033,19 +1179,15 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   )
 
   const selectAll = useCallback(() => {
-    const allHashes = visibleImages.map((img) => img.hash)
+    const allHashes = paginatedVisibleImages.map((img) => img.hash)
     if (selectedHashes.size === allHashes.length && allHashes.length > 0) {
       setSelectedHashes(new Set())
       setSelectionMode(false)
     } else {
       setSelectedHashes(new Set(allHashes))
     }
-  }, [visibleImages, selectedHashes])
+  }, [paginatedVisibleImages, selectedHashes])
 
-  const exitSelectionMode = useCallback(() => {
-    setSelectionMode(false)
-    setSelectedHashes(new Set())
-  }, [])
 
   // 일괄 상태 변경
   const handleBulkAction = useCallback(
@@ -1072,6 +1214,60 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     },
     [backendUrl, selectedHashes, bulkActionLoading, exitSelectionMode, reload]
   )
+
+  // 일괄 자동 태그 생성
+  const handleBulkAutoTag = useCallback(async () => {
+    if (bulkActionLoading || selectedHashes.size === 0) return
+    setBulkActionLoading(true)
+    setBulkActionMessage("태그 일괄 완성 중...")
+    try {
+      const hashes = Array.from(selectedHashes)
+      const results = await curationApi.bulkAutoTags(backendUrl, hashes)
+      const successCount = Object.keys(results).length
+      toast.success(`${successCount}개 이미지의 자동 태그가 완성되었습니다.`)
+      setBulkActionMessage(`태그 일괄 완성 완료`)
+      exitSelectionMode()
+      setTimeout(() => setBulkActionMessage(null), 3000)
+      reload()
+    } catch (err) {
+      console.error(err)
+      toast.error("일괄 자동 태그 생성에 실패했습니다.")
+      setBulkActionMessage("일괄 태그 완성 실패")
+      setTimeout(() => setBulkActionMessage(null), 3000)
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }, [backendUrl, selectedHashes, bulkActionLoading, exitSelectionMode, reload])
+
+  // 태그가 없는 모든 이미지 일괄 자동 태그 생성
+  const handleAutoTagAllEmpty = useCallback(async () => {
+    if (bulkActionLoading) return
+    if (
+      !(await confirm({
+        title: "태그 없는 모든 이미지 자동 완성",
+        description: "현재 DB에서 아무 태그도 달리지 않은 모든 활성 이미지들에 대해 일괄 자동 태그 분석 및 저장을 진행합니다. 계속하시겠습니까?",
+        variant: "default",
+        confirmText: "실행",
+      }))
+    ) {
+      return
+    }
+
+    setBulkActionLoading(true)
+    setBulkActionMessage("전체 일괄 태그 생성 중...")
+    try {
+      const results = await curationApi.autoTagsAllEmpty(backendUrl)
+      const successCount = Object.keys(results).length
+      toast.success(`${successCount}개 이미지에 자동 태그가 성공적으로 완성되었습니다.`)
+      reload()
+    } catch (err) {
+      console.error(err)
+      toast.error("전체 태그 자동 완성 작업 도중 오류가 발생했습니다.")
+    } finally {
+      setBulkActionLoading(false)
+      setBulkActionMessage(null)
+    }
+  }, [backendUrl, bulkActionLoading, reload, confirm])
 
   // Build combined image lookup from all available sources
   const imageLookup = useMemo(() => {
@@ -1120,29 +1316,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }
 
   // 재생성 다이얼로그 상태
-  const [regenTarget, setRegenTarget] = useState<string | null>(null)
-  const [regenCount, setRegenCount] = useState("4")
+  const [regenImages, setRegenImages] = useState<SavedImage[]>([])
 
-  const handleRegenerate = async (filename: string) => {
-    setRegenTarget(filename)
-    setRegenCount("4")
-  }
-
-  const handleRegenConfirm = async () => {
-    if (!regenTarget) return
-    const count = Number(regenCount)
-    if (!Number.isFinite(count) || count < 1) {
-      toast.error("유효한 숫자를 입력해주세요.")
-      return
-    }
-    setRegenTarget(null)
-    try {
-      await curationApi.regenerate(backendUrl, regenTarget, count, "random")
-      toast.success(`'${regenTarget}' 그룹에 ${count}장 생성 요청 완료`)
-    } catch (err) {
-      console.error(err)
-      toast.error("재생성 요청에 실패했습니다.")
-    }
+  const handleRegenerate = (filename: string) => {
+    const images = groupImagesMap.get(filename) ?? []
+    setRegenImages(images)
   }
 
   const toggleSort = useCallback(
@@ -1334,6 +1512,24 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
                 {/* Right: Filter + More actions */}
                 <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleAutoTagAllEmpty}
+                        disabled={bulkActionLoading}
+                        className="h-8 gap-1 px-2.5 text-xs font-bold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 shadow-none transition-colors"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">태그 없는 이미지 완성</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs font-bold">
+                      아무 태그가 없는 모든 이미지에 대해 자동 태그를 일괄 완성합니다.
+                    </TooltipContent>
+                  </Tooltip>
+
                   {/* 3. Filter button */}
                   <Button
                     size="sm"
@@ -1524,6 +1720,16 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     <DownloadIcon className="h-3.5 w-3.5" />
                     일괄 다운로드
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[10px] font-bold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
+                    onClick={handleBulkAutoTag}
+                    disabled={bulkActionLoading}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    일괄 자동 태그
+                  </Button>
                 </div>
                 <Button
                   variant="ghost"
@@ -1547,221 +1753,338 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           {/* ── Scrollable Content ── */}
           <div className="flex-1 p-4" onMouseDown={handleMouseDown}>
             {/* ── Danbooru Folder-like Breadcrumb tag system ── */}
-            <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
-              {breadcrumbTags.length > 0 ? (
-                <FolderOpen
-                  className="h-4 w-4 shrink-0 text-muted-foreground"
-                  strokeWidth={1.6}
-                />
-              ) : (
-                <Folder
-                  className="h-4 w-4 shrink-0 text-muted-foreground"
-                  strokeWidth={1.6}
-                />
-              )}
-
-              <div className="h-3 w-px shrink-0 bg-border" />
-
-              <Breadcrumb>
-                <BreadcrumbList className="flex-nowrap items-center text-xs font-medium">
-                  <BreadcrumbItem>
-                    <BreadcrumbLink
-                      onClick={() => {
-                        setBreadcrumbTags([])
-                        setPage(1)
-                        setGroupPage(1)
-                      }}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-1 font-medium transition-colors hover:text-foreground",
-                        breadcrumbTags.length === 0
-                          ? "cursor-default font-semibold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Home
-                        className="h-3.5 w-3.5 text-muted-foreground/80"
-                        strokeWidth={1.6}
-                      />
-                      Home
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  {breadcrumbTags.map((tag, idx) => {
-                    const isLast = idx === breadcrumbTags.length - 1
-                    return (
-                      <React.Fragment key={tag}>
-                        <BreadcrumbSeparator />
-                        <BreadcrumbItem>
-                          <ContextMenu>
-                            <ContextMenuTrigger asChild>
-                              {isLast ? (
-                                <span className="block rounded border border-border/40 bg-muted/60 px-2 py-0.5 text-[11px] leading-none font-semibold text-foreground select-none">
-                                  {tag}
-                                </span>
-                              ) : (
-                                <span
-                                  className="block cursor-pointer font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
-                                  onClick={() => {
-                                    setBreadcrumbTags(
-                                      breadcrumbTags.slice(0, idx + 1)
-                                    )
-                                    setPage(1)
-                                    setGroupPage(1)
-                                  }}
-                                >
-                                  {tag}
-                                </span>
-                              )}
-                            </ContextMenuTrigger>
-                            <ContextMenuContent className="w-44">
-                              <ContextMenuItem
-                                onClick={() => {
-                                  setBreadcrumbTags(
-                                    breadcrumbTags.slice(0, idx + 1)
-                                  )
-                                  setPage(1)
-                                  setGroupPage(1)
-                                }}
-                                className="gap-2 font-bold"
-                              >
-                                <Scissors className="h-3.5 w-3.5" />이
-                                위치까지 경로 자르기
-                              </ContextMenuItem>
-                              <ContextMenuItem
-                                onClick={() => {
-                                  setBreadcrumbTags(
-                                    breadcrumbTags.filter((_, i) => i !== idx)
-                                  )
-                                  setPage(1)
-                                  setGroupPage(1)
-                                }}
-                                className="gap-2 font-bold"
-                              >
-                                <Trash2Icon className="h-3.5 w-3.5" />
-                                경로에서 제거
-                              </ContextMenuItem>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem
-                                onClick={() => {
-                                  navigator.clipboard
-                                    .writeText(tag)
-                                    .catch(() => {})
-                                }}
-                                className="gap-2 font-bold"
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                                태그명 복사
-                              </ContextMenuItem>
-                            </ContextMenuContent>
-                          </ContextMenu>
-                        </BreadcrumbItem>
-                      </React.Fragment>
-                    )
-                  })}
-                </BreadcrumbList>
-              </Breadcrumb>
-
-              <div className="h-3 w-px shrink-0 bg-border" />
-
-              {nextAvailableTokens.length > 0 ? (
-                <div className="flex flex-1 gap-2 overflow-x-auto">
-                  {nextAvailableTokens
-                    .slice(0, 30)
-                    .map(({ token, count }) => (
-                      <ContextMenu key={token}>
-                        <ContextMenuTrigger asChild>
-                          <button
-                            onClick={() => {
-                              setBreadcrumbTags([...breadcrumbTags, token])
-                              setSubTagQuery("")
-                              setPage(1)
-                              setGroupPage(1)
-                            }}
-                            className="group flex h-7 shrink-0 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-card px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95"
-                          >
-                            <div className="flex items-center gap-1.5 overflow-hidden">
-                              <Folder
-                                className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
-                                strokeWidth={1.6}
-                              />
-                              <span className="max-w-[100px] truncate leading-none font-medium text-foreground/80 group-hover:text-foreground sm:max-w-[130px]">
-                                {token}
-                              </span>
-                            </div>
-                            <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
-                              {count}
-                            </span>
-                          </button>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent className="w-44">
-                          <ContextMenuItem
-                            onClick={() => {
-                              setBreadcrumbTags([token, ...breadcrumbTags])
-                              setSubTagQuery("")
-                              setPage(1)
-                              setGroupPage(1)
-                            }}
-                            className="gap-2 font-bold"
-                          >
-                            <FolderPlus className="h-3.5 w-3.5" />맨 앞에 경로
-                            추가
-                          </ContextMenuItem>
-                          <ContextMenuSeparator />
-                          <ContextMenuItem
-                            onClick={() => {
-                              navigator.clipboard
-                                .writeText(token)
-                                .catch(() => {})
-                            }}
-                            className="gap-2 font-bold"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            태그명 복사
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    ))}
-                </div>
-              ) : (
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 mb-3 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2 justify-between">
                 <div className="flex items-center gap-2">
                   {breadcrumbTags.length > 0 ? (
-                    <button
-                      onClick={() => {
-                        setBreadcrumbTags(breadcrumbTags.slice(0, -1))
-                        setPage(1)
-                        setGroupPage(1)
-                      }}
-                      className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1 text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground active:scale-95"
-                    >
-                      <ArrowLeft
-                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                        strokeWidth={1.6}
-                      />
-                      <span>뒤로 가기</span>
-                    </button>
+                    <FolderOpen
+                      className="h-4 w-4 shrink-0 text-primary"
+                      strokeWidth={1.8}
+                    />
                   ) : (
-                    <div className="text-xs font-medium text-muted-foreground">
-                      더 이상 하위 폴더가 없습니다.
+                    <Folder
+                      className="h-4 w-4 shrink-0 text-muted-foreground"
+                      strokeWidth={1.8}
+                    />
+                  )}
+
+                  <div className="h-3 w-px shrink-0 bg-border" />
+
+                  <Breadcrumb>
+                    <BreadcrumbList className="flex-nowrap items-center text-xs font-semibold">
+                      <BreadcrumbItem>
+                        <BreadcrumbLink
+                          onClick={() => {
+                            setBreadcrumbTags([])
+                            setPage(1)
+                            setGroupPage(1)
+                          }}
+                          className={cn(
+                            "flex cursor-pointer items-center gap-1 font-medium transition-colors hover:text-foreground",
+                            breadcrumbTags.length === 0
+                              ? "cursor-default font-semibold text-foreground"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          <Home
+                            className="h-3.5 w-3.5 text-muted-foreground/80"
+                            strokeWidth={1.6}
+                          />
+                          Home
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      {breadcrumbTags.map((tag, idx) => {
+                        const isLast = idx === breadcrumbTags.length - 1
+                        return (
+                          <React.Fragment key={tag}>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                              <ContextMenu>
+                                <ContextMenuTrigger asChild>
+                                  {isLast ? (
+                                    <span className="block rounded border border-border/40 bg-muted/60 px-2 py-0.5 text-[11px] leading-none font-semibold text-foreground select-none">
+                                      {tag}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="block cursor-pointer font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
+                                      onClick={() => {
+                                        setBreadcrumbTags(
+                                          breadcrumbTags.slice(0, idx + 1)
+                                        )
+                                        setPage(1)
+                                        setGroupPage(1)
+                                      }}
+                                    >
+                                      {tag}
+                                    </span>
+                                  )}
+                                </ContextMenuTrigger>
+                                <ContextMenuContent className="w-44">
+                                  <ContextMenuItem
+                                    onClick={() => {
+                                      setBreadcrumbTags(
+                                        breadcrumbTags.slice(0, idx + 1)
+                                      )
+                                      setPage(1)
+                                      setGroupPage(1)
+                                    }}
+                                    className="gap-2 font-bold"
+                                  >
+                                    <Scissors className="h-3.5 w-3.5" />이
+                                    위치까지 경로 자르기
+                                  </ContextMenuItem>
+                                  <ContextMenuItem
+                                    onClick={() => {
+                                      setBreadcrumbTags(
+                                        breadcrumbTags.filter((_, i) => i !== idx)
+                                      )
+                                      setPage(1)
+                                      setGroupPage(1)
+                                    }}
+                                    className="gap-2 font-bold"
+                                  >
+                                    <Trash2Icon className="h-3.5 w-3.5" />
+                                    경로에서 제거
+                                  </ContextMenuItem>
+                                  <ContextMenuSeparator />
+                                  <ContextMenuItem
+                                    onClick={() => {
+                                      navigator.clipboard
+                                        .writeText(tag)
+                                        .catch(() => {})
+                                    }}
+                                    className="gap-2 font-bold"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                    태그명 복사
+                                  </ContextMenuItem>
+                                </ContextMenuContent>
+                              </ContextMenu>
+                            </BreadcrumbItem>
+                          </React.Fragment>
+                        )
+                      })}
+                    </BreadcrumbList>
+                  </Breadcrumb>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* 정렬 버튼 */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
+                    onClick={() => setTagSortOrder(tagSortOrder === "count" ? "name" : "count")}
+                  >
+                    <Sliders className="h-3 w-3 text-muted-foreground" />
+                    <span>{tagSortOrder === "count" ? "개수순" : "이름순"}</span>
+                  </Button>
+
+                  {/* 세로 펼침 토글 버튼 */}
+                  <Button
+                    variant={isTagPanelExpanded ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
+                    onClick={() => setIsTagPanelExpanded(!isTagPanelExpanded)}
+                  >
+                    {isTagPanelExpanded ? (
+                      <>
+                        <ChevronUp className="h-3 w-3 text-muted-foreground" />
+                        <span>간단히 보기</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                        <span>전체 펼치기</span>
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="h-4 w-px bg-border hidden sm:block" />
+
+                  {/* 폴더 실시간 검색창 */}
+                  <div className="relative w-36 sm:w-44">
+                    <Search
+                      className="absolute top-1.5 left-2 h-3.5 w-3.5 text-muted-foreground/80"
+                      strokeWidth={1.6}
+                    />
+                    <input
+                      type="text"
+                      placeholder="폴더(태그) 검색..."
+                      value={subTagQuery}
+                      onChange={(e) => setSubTagQuery(e.target.value)}
+                      onContextMenu={(e) => e.stopPropagation()}
+                      className="h-7 w-full rounded-md border border-input bg-transparent pr-2.5 pl-7 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 하위 태그 탐색 영역 ── */}
+              {isTagPanelExpanded ? (
+                /* 1. 세로형 그리드 확장 패널 */
+                <div className="mt-2 border-t border-border/40 pt-2">
+                  {nextAvailableTokens.length > 0 ? (
+                    <div className="max-h-60 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-1.5 p-2 bg-muted/20 rounded-md border border-border/40">
+                      {nextAvailableTokens.map(({ token, count }) => (
+                        <ContextMenu key={token}>
+                          <ContextMenuTrigger asChild>
+                            <button
+                              onClick={() => {
+                                setBreadcrumbTags([...breadcrumbTags, token])
+                                setSubTagQuery("")
+                                setPage(1)
+                                setGroupPage(1)
+                              }}
+                              className="group flex h-7 shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 text-left text-xs transition-all hover:bg-accent hover:text-accent-foreground active:scale-95"
+                            >
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <Folder
+                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
+                                  strokeWidth={1.6}
+                                />
+                                <span className="truncate leading-none font-medium text-foreground/80 group-hover:text-foreground">
+                                  {token}
+                                </span>
+                              </div>
+                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.2 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
+                                {count}
+                              </span>
+                            </button>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-44">
+                            <ContextMenuItem
+                              onClick={() => {
+                                setBreadcrumbTags([token, ...breadcrumbTags])
+                                setSubTagQuery("")
+                                setPage(1)
+                                setGroupPage(1)
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <FolderPlus className="h-3.5 w-3.5" />맨 앞에 경로
+                              추가
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() => {
+                                navigator.clipboard
+                                  .writeText(token)
+                                  .catch(() => {})
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              태그명 복사
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-2 rounded-md bg-muted/10 border border-dashed border-border/40">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        더 이상 하위 폴더가 없습니다.
+                      </div>
+                      {breadcrumbTags.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setBreadcrumbTags(breadcrumbTags.slice(0, -1))
+                            setPage(1)
+                            setGroupPage(1)
+                          }}
+                          className="flex h-6 items-center gap-1 rounded border bg-card px-2 text-[10px] font-semibold transition-all hover:bg-accent active:scale-95"
+                        >
+                          <ArrowLeft className="h-3 w-3" />
+                          <span>뒤로가기</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* 2. 기존 가로 스크롤 패널 */
+                <div className="mt-1 flex items-center gap-2">
+                  {nextAvailableTokens.length > 0 ? (
+                    <div className="flex flex-1 gap-1.5 overflow-x-auto py-1">
+                      {nextAvailableTokens.slice(0, 30).map(({ token, count }) => (
+                        <ContextMenu key={token}>
+                          <ContextMenuTrigger asChild>
+                            <button
+                              onClick={() => {
+                                setBreadcrumbTags([...breadcrumbTags, token])
+                                setSubTagQuery("")
+                                setPage(1)
+                                setGroupPage(1)
+                              }}
+                              className="group flex h-7 shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95"
+                            >
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <Folder
+                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
+                                  strokeWidth={1.6}
+                                />
+                                <span className="max-w-[100px] truncate leading-none font-medium text-foreground/80 group-hover:text-foreground sm:max-w-[130px]">
+                                  {token}
+                                </span>
+                              </div>
+                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
+                                {count}
+                              </span>
+                            </button>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-44">
+                            <ContextMenuItem
+                              onClick={() => {
+                                setBreadcrumbTags([token, ...breadcrumbTags])
+                                setSubTagQuery("")
+                                setPage(1)
+                                setGroupPage(1)
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <FolderPlus className="h-3.5 w-3.5" />맨 앞에 경로
+                              추가
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() => {
+                                navigator.clipboard
+                                  .writeText(token)
+                                  .catch(() => {})
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              태그명 복사
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-1 items-center justify-between py-1">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        더 이상 하위 폴더가 없습니다.
+                      </div>
+                      {breadcrumbTags.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setBreadcrumbTags(breadcrumbTags.slice(0, -1))
+                            setPage(1)
+                            setGroupPage(1)
+                          }}
+                          className="flex h-6 items-center gap-1 rounded border bg-card px-2 text-[10px] font-semibold transition-all hover:bg-accent active:scale-95"
+                        >
+                          <ArrowLeft className="h-3 w-3" />
+                          <span>뒤로가기</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               )}
-
-              <div className="h-3 w-px shrink-0 bg-border" />
-
-              <div className="relative w-32 shrink-0">
-                <Search
-                  className="absolute top-1 left-2.5 h-3.5 w-3.5 text-muted-foreground/80"
-                  strokeWidth={1.6}
-                />
-                <input
-                  type="text"
-                  placeholder="폴더 검색..."
-                  value={subTagQuery}
-                  onChange={(e) => setSubTagQuery(e.target.value)}
-                  onContextMenu={(e) => e.stopPropagation()}
-                  className="h-7 w-full rounded-md border border-input bg-transparent pr-2.5 pl-8 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
             </div>
 
             {error && (
@@ -1911,7 +2234,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </Button>
                   </div>
                 )}
-                {visibleGroups.map(({ name, items }) => {
+                {paginatedVisibleGroups.map(({ name, items }) => {
                   const groupMeta = groups.find((g) => g.filename === name)
                   const isCollapsed = collapsedGroups.has(name)
                   return (
@@ -1975,7 +2298,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 })}
 
                 {/* 그룹 페이지네이션 */}
-                {groupTotal > GROUP_PAGE_SIZE && (
+                {visibleGroups.length > GROUP_PAGE_SIZE && (
                   <div className="flex flex-col items-center gap-2">
                     <Pagination>
                       <PaginationContent>
@@ -2025,8 +2348,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       </PaginationContent>
                     </Pagination>
                     <p className="text-xs text-muted-foreground">
-                      총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages}{" "}
-                      페이지
+                      총 {visibleGroups.length}개 그룹 · {groupPage}/{groupTotalPages} 페이지
                     </p>
                   </div>
                 )}
@@ -2051,7 +2373,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </div>
                   )}
                 <ImageGrid
-                  items={visibleImages}
+                  items={paginatedVisibleImages}
                   backendUrl={backendUrl}
                   setStatus={setStatus}
                   onOpen={setSelected}
@@ -2072,7 +2394,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
             {!effectiveGroupMode &&
               effectiveGalleryViewMode === "grid" &&
-              total > imagePageSize && (
+              visibleImages.length > imagePageSize && (
                 <div className="flex flex-col items-center gap-2">
                   <Pagination>
                     <PaginationContent>
@@ -2117,7 +2439,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </PaginationContent>
                   </Pagination>
                   <p className="text-xs text-muted-foreground">
-                    총 {total}개 · {page}/{totalPages} 페이지
+                    총 {visibleImages.length}개 · {page}/{totalPages} 페이지
                   </p>
                   {selectionMode && (
                     <div className="flex items-center gap-2">
@@ -2127,8 +2449,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         className="h-7 text-[10px] font-bold"
                         onClick={selectAll}
                       >
-                        {selectedHashes.size === visibleImages.length &&
-                        visibleImages.length > 0
+                        {selectedHashes.size === paginatedVisibleImages.length &&
+                        paginatedVisibleImages.length > 0
                           ? "전체 해제"
                           : "전체 선택"}
                       </Button>
@@ -2144,45 +2466,36 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 image={selected}
                 onClose={() => setSelected(null)}
                 onChanged={reload}
-                {...(singleDownloadMode && { singleDownloadMode })}
+                singleDownloadMode={singleDownloadMode}
               />
             )}
           </div>
 
-          {/* 재생성 수량 입력 다이얼로그 */}
-          <Dialog
-            open={regenTarget !== null}
+          {/* 재생성 다이얼로그 */}
+          <RegenerateDialog
+            open={regenImages.length > 0}
             onOpenChange={(open) => {
-              if (!open) setRegenTarget(null)
+              if (!open) setRegenImages([])
             }}
-          >
-            <DialogContent className="sm:max-w-[340px]">
-              <DialogHeader>
-                <DialogTitle>추가 생성</DialogTitle>
-                <DialogDescription>
-                  '{regenTarget}' 그룹에 몇 장을 추가 생성할까요?
-                </DialogDescription>
-              </DialogHeader>
-              <Input
-                type="number"
-                min={1}
-                max={100}
-                value={regenCount}
-                onChange={(e) => setRegenCount(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRegenConfirm()
-                }}
-                className="text-center text-lg font-bold"
-                autoFocus
-              />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setRegenTarget(null)}>
-                  취소
-                </Button>
-                <Button onClick={handleRegenConfirm}>생성</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            sourceImages={regenImages}
+            backendUrl={backendUrl}
+            currentCegTemplate=""
+            savedTemplates={[]}
+            savedWorkflows={[]}
+            saveMappingPreset={saveMappingPreset}
+            deleteMappingPreset={deleteMappingPreset}
+            onSubmit={async (items) => {
+              const res = await fetch(`${backendUrl}${API.jobs.root}`, {
+                method: "POST",
+                headers: HEADERS.json,
+                body: JSON.stringify({ items }),
+              })
+              if (!res.ok) throw new Error(`HTTP ${res.status}`)
+              toast.success(`${items.length}개 작업 생성 완료`)
+              setRegenImages([])
+            }}
+            isLoading={false}
+          />
           <div
             ref={marqueeRef}
             className="pointer-events-none fixed z-[9999] rounded-sm border border-primary/60 bg-primary/10 shadow-xs"
@@ -2243,6 +2556,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           </ContextMenuSubContent>
         </ContextMenuSub>
         <ContextMenuSeparator />
+        {selectionMode && selectedHashes.size > 0 && (
+          <>
+            <ContextMenuItem
+              onClick={handleBulkAutoTag}
+              disabled={bulkActionLoading}
+              className="gap-2 font-bold text-primary"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              선택한 이미지 일괄 자동 태그 ({selectedHashes.size})
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
         <ContextMenuItem onClick={reload} className="gap-2 font-bold">
           <RefreshCwIcon className="h-3.5 w-3.5" />
           경로 새로고침

@@ -448,9 +448,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const handleCancel = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
-      await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, {
+      const res = await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, {
         method: "DELETE",
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
     } catch {
       toast.error("작업 취소 요청에 실패했습니다.")
     }
@@ -459,7 +460,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const handleRetry = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
-      await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, { method: "POST" })
+      const res = await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, { method: "POST" })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
     } catch {
       toast.error("작업 재시도 요청에 실패했습니다.")
     }
@@ -477,11 +479,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     )
       return
     try {
-      await fetch(`${backendUrl}${API.jobs.delete}`, {
+      const res = await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
         headers: HEADERS.json,
         body: JSON.stringify({ job_ids: [jobId] }),
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
     } catch {
       toast.error("작업 삭제 요청에 실패했습니다.")
     }
@@ -499,15 +502,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     )
       return
     try {
-      await fetch(`${backendUrl}${API.jobs.delete}`, {
+      const res = await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
         headers: HEADERS.json,
-        body: JSON.stringify({ job_ids: [...selectedForDelete] }),
+        body: JSON.stringify({ job_ids: Array.from(selectedForDelete) }),
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
     } catch {
-      toast.error("선택 삭제 요청에 실패했습니다.")
+      toast.error("작업 삭제 요청에 실패했습니다.")
     }
-    setSelectedForDelete(new Set())
   }
 
   const toggleSelectForDelete = (jobId: string) => {
@@ -637,10 +640,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <h3 className="border-b pb-1.5 text-xs font-black tracking-widest text-muted-foreground uppercase">
                 실행 중인 작업
               </h3>
-              <RunningJobsBanner jobs={runningJobs} />
+              <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} />
             </div>
           )}
-          {mobileTab !== "status" && <RunningJobsBanner jobs={runningJobs} />}
+          {mobileTab !== "status" && (
+            <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} />
+          )}
         </div>
       </ScrollArea>
 

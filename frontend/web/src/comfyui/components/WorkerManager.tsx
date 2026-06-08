@@ -4,6 +4,13 @@ import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import { API, HEADERS, HTTP_STATUS, DEFAULT_WORKER_URL } from "@/lib/api"
 import type { WorkerView } from "../types/Message"
@@ -20,6 +27,7 @@ interface ActiveJobConflict {
 
 export function WorkerManager({ backendUrl, workers }: Props) {
   const [newUrl, setNewUrl] = useState("")
+  const [newWorkerType, setNewWorkerType] = useState("comfyui")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conflict, setConflict] = useState<ActiveJobConflict | null>(null)
@@ -33,7 +41,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
       const res = await fetch(`${backendUrl}${API.workers.root}`, {
         method: "POST",
         headers: HEADERS.json,
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, worker_type: newWorkerType }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -106,10 +114,11 @@ export function WorkerManager({ backendUrl, workers }: Props) {
       <div className="space-y-1 rounded-md border bg-muted/30 p-2">
         {workers.length === 0 && (
           <p className="px-2 py-1.5 text-xs text-muted-foreground">
-            등록된 워커가 없습니다. 아래에서 ComfyUI URL을 추가하세요.
+            등록된 워커가 없습니다. 아래에서 백엔드 타입을 선택하고 URL을 추가하세요.
           </p>
         )}
         {workers.map((w) => {
+          const wt = w.workerType ?? "comfyui"
           const status = !w.alive
             ? { label: "down", dot: "bg-red-500", text: "text-red-500" }
             : w.busy
@@ -122,6 +131,9 @@ export function WorkerManager({ backendUrl, workers }: Props) {
             >
               <span className="w-14 flex-none font-mono text-xs text-muted-foreground">
                 {w.id}
+              </span>
+              <span className="rounded bg-muted px-1 py-0.5 text-[10px] font-medium uppercase leading-none">
+                {wt}
               </span>
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
                 {w.url}
@@ -145,9 +157,18 @@ export function WorkerManager({ backendUrl, workers }: Props) {
       </div>
 
       <div className="flex gap-2">
+        <Select value={newWorkerType} onValueChange={setNewWorkerType}>
+          <SelectTrigger className="h-8 w-32 shrink-0 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="comfyui">ComfyUI</SelectItem>
+            <SelectItem value="nai">NovelAI</SelectItem>
+          </SelectContent>
+        </Select>
         <Input
           type="url"
-          placeholder={DEFAULT_WORKER_URL}
+          placeholder={newWorkerType === "nai" ? "https://api.novelai.net" : DEFAULT_WORKER_URL}
           value={newUrl}
           onChange={(e) => setNewUrl(e.target.value)}
           onKeyDown={(e) => {

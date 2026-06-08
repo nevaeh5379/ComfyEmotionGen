@@ -1,7 +1,10 @@
 services:
-  backend:
+  # Unified container deployment. Run with:
+  #   docker compose up
+  app:
     build:
-      context: ./backend
+      context: .
+      dockerfile: Dockerfile
       args:
         CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
         CEG_COMMIT: ${CEG_COMMIT:-}
@@ -13,43 +16,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
-    volumes:
-      - ceg-data:/data
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend/web
-      args:
-        CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
-        CEG_COMMIT: ${CEG_COMMIT:-}
-    environment:
-      # URL the browser uses to reach the backend (resolved client-side).
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
-    ports:
-      - "${FRONTEND_PORT:-8080}:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  # Alternative single-container deployment. Run with:
-  #   docker compose --profile aio up
-  # Disables the split backend/frontend services above when used standalone.
-  all-in-one:
-    profiles: ["aio"]
-    build:
-      context: .
-      dockerfile: Dockerfile.all-in-one
-      args:
-        CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
-        CEG_COMMIT: ${CEG_COMMIT:-}
-    environment:
-      COMFYUI_WORKERS: ${COMFYUI_WORKERS:-http://host.docker.internal:8188}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "${AIO_PORT:-8000}:8000"
+      - "${PORT:-${FRONTEND_PORT:-6974}}:8000"
     volumes:
       - ceg-data:/data
     restart: unless-stopped

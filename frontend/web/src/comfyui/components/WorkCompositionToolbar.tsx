@@ -21,6 +21,7 @@ interface WorkCompositionToolbarProps {
   setRepeatCount: (v: number | ((c: number) => number)) => void
   handleRun: () => void
   handleRandomRun: (count: number) => void
+  handleRunUnapproved: () => void
   randomRunCount: number
   setRandomRunCount: (v: number | ((c: number) => number)) => void
   canRun: boolean
@@ -37,6 +38,7 @@ export function WorkCompositionToolbar({
   setRepeatCount,
   handleRun,
   handleRandomRun,
+  handleRunUnapproved,
   randomRunCount,
   setRandomRunCount,
   canRun,
@@ -67,6 +69,9 @@ export function WorkCompositionToolbar({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onSelectionOpen} disabled={!canRun}>
               선택 실행
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleRunUnapproved} disabled={!canRun}>
+              전체 미완료 실행
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleRandomRun(randomRunCount)}

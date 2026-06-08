@@ -24,7 +24,7 @@ import { WebhookSettingsPanel } from "./WebhookSettingsPanel"
 import type { WorkerView } from "../types/Message"
 import { BUNDLE_VERSION, COMMIT, IS_LOCAL_DEV } from "@/version"
 import { useUpdateCheck } from "@/comfyui/hooks/useUpdateCheck"
-import { useTemplateContext } from "@/comfyui/contexts/TemplateContext"
+import { useTemplateContext } from "@/comfyui/contexts/useTemplateContext"
 import { useWorkflowContext } from "@/comfyui/contexts/WorkflowContext"
 import { saveSetting } from "@/lib/serverStorage"
 import type { SavedTemplate } from "@/comfyui/hooks/useSavedTemplates"
@@ -138,7 +138,7 @@ export function SettingsPanel({
               description={
                 IS_PACKAGE_MODE
                   ? "포터블 모드: 런처가 할당한 백엔드 포트에 자동 연결됩니다."
-                  : "CEG 백엔드 서버 주소입니다."
+                  : "CEG 백엔드 서버 주소입니다. (예: http://localhost:8000)"
               }
             >
               <Input
@@ -148,6 +148,12 @@ export function SettingsPanel({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onBackendUrlChange(e.target.value)
                 }
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  const v = e.target.value.trim()
+                  if (!v) {
+                    onBackendUrlChange(DEFAULT_BACKEND_URL)
+                  }
+                }}
                 disabled={IS_PACKAGE_MODE}
                 className="h-8 w-72 text-sm"
               />
@@ -158,9 +164,9 @@ export function SettingsPanel({
 
           <div className="py-4">
             <div className="mb-1 space-y-0.5">
-              <p className="text-sm font-medium">ComfyUI 워커</p>
+              <p className="text-sm font-medium">워커</p>
               <p className="text-sm text-muted-foreground">
-                여러 인스턴스를 추가하면 작업이 idle 워커에 자동 분배됩니다.
+                이미지 생성 백엔드를 추가하면 작업이 idle 워커에 자동 분배됩니다.
               </p>
             </div>
             <div className="mt-3">

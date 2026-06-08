@@ -40,6 +40,7 @@ export interface WorkerView {
   alive: boolean
   busy: boolean
   currentJobId: string | null
+  workerType: string
 }
 
 export type CurationStatus = "pending" | "approved" | "rejected" | "trashed"
@@ -128,4 +129,4 @@ export type BackendEvent =
     }
   | { type: "image.deleted"; hash: string }
   | { type: "job.deleted"; jobId: string }
-  | { type: "settings.updated"; key: string; value: string | null }
+  | { type: "settings.updated"; key: string; value: string | null; sender?: string }

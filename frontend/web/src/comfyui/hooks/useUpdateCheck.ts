@@ -33,7 +33,7 @@ export function useUpdateCheck(
       if (!active) return
       sessionStorage.setItem(cacheKey, info ? JSON.stringify(info) : "")
       setUpdate(info)
-    })
+    }).catch((err) => console.warn("업데이트 확인 실패:", err))
     return () => {
       active = false
     }

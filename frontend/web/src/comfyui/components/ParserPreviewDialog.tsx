@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
 
 import {
   Dialog,
@@ -8,299 +8,305 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { LayersIcon, Copy, Check } from "lucide-react"
-import { TagInputSearch, type Candidate } from "./TagInputSearch"
+import { Badge } from "@/components/ui/badge"
+import { LayersIcon, Copy, Check, Search, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import type { RenderItem } from "../types/renderTypes"
+import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 import { itemKey } from "../../lib/workflowUtils"
 
+/* ---------- types ---------- */
 interface ParserPreviewDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  fakeJobQueue: RenderItem[]
-  previewFilter: string
-  onPreviewFilterChange: (v: string) => void
-  filteredPreview: RenderItem[]
+  renderResponse: RenderItemsResponse | null
   filteredByAxisSet: Set<string> | null
 }
 
+/* ---------- helpers ---------- */
+function substitute(text: string, item: RenderItem) {
+  let res = text || ""
+  Object.entries(item.meta).forEach(([k, v]) => {
+    res = res.split(`{{${k}}}`).join(v)
+    res = res.split(`{${k}}`).join(v)
+  })
+  res = res.split("{{input}}").join(item.prompt || "")
+  res = res.split("{input}").join(item.prompt || "")
+  return res
+}
+
+/* ---------- component ---------- */
 export const ParserPreviewDialog = ({
   open,
   onOpenChange,
-  fakeJobQueue,
-  previewFilter,
+  renderResponse,
   filteredByAxisSet,
 }: ParserPreviewDialogProps) => {
   const [searchInput, setSearchInput] = useState("")
-  const [searchTags, setSearchTags] = useState<string[]>([])
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([])
+  const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null)
 
-  const substitute = (text: string, item: RenderItem) => {
-    let res = text || ""
-    // Meta variables
-    Object.entries(item.meta).forEach(([k, v]) => {
-      res = res.split(`{{${k}}}`).join(v)
-      res = res.split(`{${k}}`).join(v)
-    })
-    // Built-ins
-    res = res.split("{{input}}").join(item.prompt || "")
-    res = res.split("{input}").join(item.prompt || "")
-    return res
-  }
+  const items = useMemo(() => renderResponse?.items ?? [], [renderResponse])
+  const axes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
+  const sets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
+  const lines = useMemo(() => renderResponse?.template_structure ?? [], [renderResponse])
 
-  // Sync initial parent search filter when open
-  useEffect(() => {
-    if (open) {
-      setSearchInput(previewFilter || "")
-      setSearchTags([])
-    }
-  }, [open, previewFilter])
-
-  // Generate unique tag candidates from current queue data
-  const candidates = useMemo<Candidate[]>(() => {
-    const filenameSet = new Set<string>()
-    const metadataSet = new Set<string>()
-    const promptWordSet = new Set<string>()
-
-    fakeJobQueue.forEach((item) => {
-      // Filenames
-      const filenameClean = substitute(item.filename, item)
-      filenameSet.add(filenameClean)
-
-      // Meta parameters
-      Object.entries(item.meta).forEach(([k, v]) => {
-        metadataSet.add(`${k}:${v}`)
-        metadataSet.add(v)
-      })
-
-      // Prompt keywords
-      const promptClean = substitute(item.prompt, item)
-      promptClean.split(/\s+/).forEach((word) => {
-        const cleanWord = word.replace(/[^a-zA-Z가-힣]/g, "")
-        if (cleanWord.length > 2) {
-          promptWordSet.add(cleanWord.toLowerCase())
-        }
-      })
-    })
-
-    const list: Candidate[] = []
-
-    Array.from(filenameSet).slice(0, 15).forEach((f) => {
-      list.push({ value: f, type: "filename" })
-    })
-
-    Array.from(metadataSet).slice(0, 25).forEach((m) => {
-      list.push({ value: m, type: "metadata" })
-    })
-
-    Array.from(promptWordSet).slice(0, 20).forEach((p) => {
-      list.push({ value: p, type: "prompt" })
-    })
-
-    return list
-  }, [fakeJobQueue])
-
-  // Filter items in real-time based on selected tags and search input
-  const filteredPreview = useMemo(() => {
-    if (searchTags.length === 0 && !searchInput.trim()) {
-      return fakeJobQueue
-    }
-
-    return fakeJobQueue.filter((item) => {
-      const renderedFilename = substitute(item.filename, item).toLowerCase()
-      const renderedPrompt = substitute(item.prompt, item).toLowerCase()
-
-      const matchesTags = searchTags.every((tag) => {
-        if (tag.startsWith("@")) {
-          const val = tag.slice(1).toLowerCase()
-          return renderedFilename.includes(val)
-        }
-        if (tag.startsWith("#")) {
-          const val = tag.slice(1).toLowerCase()
-          return renderedPrompt.includes(val)
-        }
-        if (tag.startsWith("$")) {
-          const val = tag.slice(1).toLowerCase()
-          if (val.includes(":")) {
-            const parts = val.split(":")
-            const k = parts[0]
-            const v = parts[1]
-            if (k && v) {
-              return item.meta[k]?.toLowerCase().includes(v)
-            }
-          }
-          return Object.entries(item.meta).some(
-            ([k, v]) => k.toLowerCase().includes(val) || v.toLowerCase().includes(val)
-          )
-        }
-        const val = tag.toLowerCase()
-        return renderedFilename.includes(val) || renderedPrompt.includes(val)
-      })
-
-      const textClean = searchInput.trim().toLowerCase()
-      if (!textClean) return matchesTags
-
-      const matchesInput =
-        renderedFilename.includes(textClean) ||
-        renderedPrompt.includes(textClean) ||
+  const filteredItems = useMemo(() => {
+    if (!searchInput.trim()) return items
+    const needle = searchInput.trim().toLowerCase()
+    return items.filter((item) => {
+      const rf = substitute(item.filename, item).toLowerCase()
+      const rp = substitute(item.prompt, item).toLowerCase()
+      return (
+        rf.includes(needle) ||
+        rp.includes(needle) ||
         Object.entries(item.meta).some(
-          ([k, v]) => k.toLowerCase().includes(textClean) || v.toLowerCase().includes(textClean)
+          ([k, v]) => k.toLowerCase().includes(needle) || v.toLowerCase().includes(needle)
         )
-
-      return matchesTags && matchesInput
+      )
     })
-  }, [fakeJobQueue, searchTags, searchInput])
+  }, [items, searchInput])
 
-  const handleCopyPrompt = (text: string, index: number) => {
+  const handleCopyPrompt = useCallback((text: string, index: number) => {
     navigator.clipboard.writeText(text)
     toast.success("프롬프트가 클립보드에 복사되었습니다.")
     setCopiedIndex(index)
     setTimeout(() => setCopiedIndex(null), 2000)
-  }
+  }, [])
 
+  const isLineHighlighted = useCallback(
+    (lineKeys: string[]) => {
+      if (selectedKeys.length === 0) return false
+      return lineKeys.some((k) => selectedKeys.includes(k))
+    },
+    [selectedKeys]
+  )
+
+  const handleItemClick = useCallback((item: RenderItem) => {
+    const key = itemKey(item)
+    setSelectedItemKey((prev) => {
+      const isSelecting = prev !== key
+      if (isSelecting) {
+        // qualifier만: axisName:valueKey — axis 헤더는 매칭 안 됨
+        const qualifiers = Object.entries(item.meta).map(
+          ([k, v]) => `${k}:${v}`
+        )
+        setSelectedKeys(qualifiers)
+      } else {
+        setSelectedKeys([])
+      }
+      return isSelecting ? key : null
+    })
+  }, [])
+
+  /* ---- render ---- */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-[55vw] sm:max-w-[55vw] flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="flex max-h-[90vh] sm:max-w-[95vw] max-w-[95vw] flex-col overflow-hidden p-0">
+        {/* Header */}
+        <DialogHeader className="shrink-0 border-b px-5 py-3">
+          <DialogTitle className="flex items-center gap-2 text-base">
             <LayersIcon className="size-5 text-primary opacity-60" />
             파서 렌더링 결과
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             작성한 템플릿 문법에 따라 생성될{" "}
-            <strong>{fakeJobQueue.length}개</strong>의 작업 목록입니다.
-            {(searchTags.length > 0 || searchInput) ? ` (검색 결과 ${filteredPreview.length}개)` : ""}
+            <strong>{items.length}개</strong>의 작업 목록입니다.
+            {searchInput.trim() ? ` (검색 결과 ${filteredItems.length}개)` : ""}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Reusing existing TagInputSearch component for premium filtering */}
-        <div className="flex items-center gap-3 rounded-md border border-line/50 bg-muted/30 p-2">
-          <div className="flex-1">
-            <TagInputSearch
-              value={searchInput}
-              tags={searchTags}
-              candidates={candidates.filter((c) => {
-                const valClean = searchInput
-                  .replace(/^[@#$]/, "")
-                  .toLowerCase()
-                return c.value.toLowerCase().includes(valClean)
-              })}
-              placeholder="검색어 입력 (@파일명, #프롬프트키워드, $변수명:값)"
-              onValueChange={setSearchInput}
-              onAddTag={(tag: string) => {
-                if (!searchTags.includes(tag)) {
-                  setSearchTags([...searchTags, tag])
-                }
-                setSearchInput("")
-              }}
-              onRemoveTag={(tag: string) => {
-                setSearchTags(searchTags.filter((t) => t !== tag))
-              }}
-              size="sm"
-            />
-          </div>
-          {(searchTags.length > 0 || searchInput) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 shrink-0 px-2 text-xs font-bold text-muted-foreground hover:bg-background/80 hover:text-foreground"
-              onClick={() => {
-                setSearchTags([])
-                setSearchInput("")
-              }}
-            >
-              초기화
-            </Button>
-          )}
-        </div>
-
-        <div className="mt-2 min-h-0 flex-1 overflow-auto rounded-md border border-line/45 bg-muted/5 p-4 space-y-4 shadow-inner">
-          {filteredPreview.map((item, index) => {
-            const key = itemKey(item)
-            const wouldRun = !filteredByAxisSet || filteredByAxisSet.has(key)
-            const renderedFilename = substitute(item.filename, item)
-            const renderedPrompt = substitute(item.prompt, item)
-
-            return (
-              <div
-                key={`fake-card-${key}-${index}`}
-                className={cn(
-                  "flex flex-col gap-3 rounded-xl border border-line bg-background p-4 shadow-xs transition-all",
-                  !wouldRun && "italic opacity-30 grayscale"
-                )}
-              >
-                {/* 카드 헤더 (인덱스, 파일명 및 파일명 복사, 메타데이터 뱃지 세트) */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/35 pb-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="mono text-[10px] font-black px-1.5 py-0.5 rounded bg-muted text-muted-foreground select-none">
-                      #{index + 1}
-                    </span>
-                    <span className="font-mono text-xs font-black break-all text-foreground select-all leading-tight">
-                      {renderedFilename}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 shrink-0 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
-                      onClick={() => {
-                        navigator.clipboard.writeText(renderedFilename)
-                        toast.success("파일명이 복사되었습니다.")
-                      }}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-
-                  {/* 주입된 치환 변수 세트 */}
-                  {Object.keys(item.meta).length > 0 && (
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {Object.entries(item.meta).map(([k, v]) => (
-                        <span
-                          key={k}
-                          className="font-mono text-[9px] font-bold border border-line bg-muted/40 px-2 py-0.5 rounded text-foreground select-all"
-                        >
-                          {k}: {v}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* 프롬프트 본문 영역 */}
-                <div className="relative group/prompt flex items-start gap-4 rounded-lg border border-line bg-muted/20 p-3.5">
-                  <div className="flex-1 font-mono text-[11.5px] leading-relaxed text-foreground select-all whitespace-pre-wrap break-all">
-                    {renderedPrompt}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-6 w-6 shrink-0 rounded-md border-line/50 opacity-0 group-hover/prompt:opacity-100 hover:bg-muted hover:text-foreground transition-all"
-                    onClick={() => handleCopyPrompt(renderedPrompt, index)}
-                  >
-                    {copiedIndex === index ? (
-                      <Check className="h-3 w-3 text-good" />
-                    ) : (
-                      <Copy className="h-3 w-3 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )
-          })}
-          {filteredPreview.length === 0 && (
-            <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-background p-6 text-center text-muted-foreground text-xs italic">
-              일치하는 검색 결과가 없습니다.
+        {/* Body — split pane */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* ---------- LEFT: Original Template ---------- */}
+          <div className="flex w-[45%] flex-col border-r">
+            <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-2">
+              <span className="text-xs font-semibold text-muted-foreground">원본 템플릿</span>
+              {selectedKeys.length > 0 && (
+                <span className="text-[10px] text-primary font-medium">
+                  {selectedKeys.length}개 변수 강조 중
+                </span>
+              )}
             </div>
-          )}
+            <div className="flex-1 overflow-auto">
+              <div className="font-mono text-[11px] leading-5">
+                {lines.map((ln) => {
+                  const highlighted = isLineHighlighted(ln.keys)
+                  const dimmed = selectedKeys.length > 0 && !highlighted
+                  return (
+                    <div
+                      key={ln.line_num}
+                      className={cn(
+                        "flex gap-2 px-3 py-0.5 transition-colors duration-150",
+                        highlighted && "bg-primary/10 border-l-2 border-primary",
+                        dimmed && "opacity-30",
+                        ln.type === "set-header" && !highlighted && selectedKeys.length === 0 && "bg-emerald-500/5",
+                        ln.type === "axis-header" && !highlighted && selectedKeys.length === 0 && "bg-violet-500/5",
+                        ln.type === "axis-body" && !highlighted && selectedKeys.length === 0 && "bg-violet-500/[0.03]",
+                        ln.type === "axis-end" && !highlighted && selectedKeys.length === 0 && "bg-violet-500/5",
+                        ln.type === "template-header" && !highlighted && selectedKeys.length === 0 && "bg-amber-500/5",
+                        ln.type === "template-body" && !highlighted && selectedKeys.length === 0 && "bg-amber-500/[0.03]",
+                        ln.type === "template-end" && !highlighted && selectedKeys.length === 0 && "bg-amber-500/5",
+                        ln.type === "filename-header" && !highlighted && selectedKeys.length === 0 && "bg-sky-500/5",
+                        ln.type === "filename-body" && !highlighted && selectedKeys.length === 0 && "bg-sky-500/[0.03]",
+                        ln.type === "filename-end" && !highlighted && selectedKeys.length === 0 && "bg-sky-500/5",
+                        ln.type === "end" && !highlighted && selectedKeys.length === 0 && "opacity-50",
+                      )}
+                    >
+                      <span className="w-7 shrink-0 select-none text-right text-muted-foreground/60">
+                        {ln.line_num}
+                      </span>
+                      <span className="whitespace-pre text-foreground/90">{ln.text}</span>
+                    </div>
+                  )
+                })}
+                {lines.length === 0 && (
+                  <div className="p-4 text-xs text-muted-foreground italic">
+                    템플릿이 비어 있습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ---------- RIGHT: Items ---------- */}
+          <div className="flex w-[55%] flex-col">
+            {/* Search */}
+            <div className="flex items-center gap-2 border-b bg-muted/20 px-3 py-2">
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="파일명, 프롬프트, 변수값 검색..."
+                className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+              />
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput("")}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Set summary */}
+            {Object.keys(sets).length > 0 && (
+              <div className="flex flex-wrap gap-1 border-b px-3 py-2">
+                {Object.entries(sets).map(([sk, sv]) => (
+                  <Badge key={sk} variant="secondary" className="text-[10px] font-mono">
+                    set {sk} = {sv}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Items list */}
+            <div className="flex-1 overflow-auto p-3 space-y-2">
+              {filteredItems.map((item, index) => {
+                const key = itemKey(item)
+                const wouldRun = !filteredByAxisSet || filteredByAxisSet.has(key)
+                const rf = substitute(item.filename, item)
+                const rp = substitute(item.prompt, item)
+                const isSelected = selectedItemKey === key
+                const anySelected = selectedItemKey !== null
+
+                return (
+                  <div
+                    key={`item-${key}-${index}`}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleItemClick(item)
+                    }}
+                    className={cn(
+                      "group flex flex-col gap-1.5 rounded-lg border border-line bg-background p-3 shadow-xs transition-all cursor-pointer select-none",
+                      !wouldRun && "opacity-30 grayscale",
+                      anySelected && !isSelected && "opacity-40",
+                      isSelected && "ring-1 ring-primary/40 border-primary/30"
+                    )}
+                  >
+                    {/* filename */}
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-muted text-muted-foreground select-none shrink-0">
+                        #{index + 1}
+                      </span>
+                      <span className="font-mono text-xs font-bold break-all text-foreground leading-tight flex-1">
+                        {rf}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(rf)
+                          toast.success("파일명이 복사되었습니다.")
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+
+                    {/* meta badges */}
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(item.meta).map(([k, v]) => {
+                        const axisInfo = axes[k]
+                        const matched = axisInfo?.values.find((val) => val.key === v)
+                        return (
+                          <span
+                            key={k}
+                            className={cn(
+                              "font-mono text-[9px] font-bold border px-2 py-0.5 rounded transition-colors",
+                              isSelected
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-line bg-muted/40 text-foreground"
+                            )}
+                          >
+                            {k}: {matched?.value || v}
+                          </span>
+                        )
+                      })}
+                    </div>
+
+                    {/* prompt preview */}
+                    <div className="relative group/prompt flex items-start gap-2 rounded-md border border-line bg-muted/20 p-2">
+                      <div className="flex-1 font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap break-all line-clamp-2">
+                        {rp}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-5 w-5 shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCopyPrompt(rp, index)
+                        }}
+                      >
+                        {copiedIndex === index ? (
+                          <Check className="h-3 w-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {filteredItems.length === 0 && (
+                <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-background p-6 text-center text-muted-foreground text-xs italic">
+                  일치하는 검색 결과가 없습니다.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="mt-2 flex justify-end border-t border-line pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            className="font-bold"
-          >
+
+        {/* Footer */}
+        <div className="flex shrink-0 justify-end border-t px-5 py-3">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="font-bold">
             확인
           </Button>
         </div>

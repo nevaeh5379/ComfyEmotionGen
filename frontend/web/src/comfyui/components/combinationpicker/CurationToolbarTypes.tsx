@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useCallback, useMemo, useRef } from "react"
+import { useState, useCallback, useMemo, useRef } from "react"
+
+import { CurationToolbarContext } from "./CurationToolbarContext"
 
 export type CurationViewMode =
   | "gallery"
@@ -49,17 +51,6 @@ export interface CurationToolbarValue {
   setExportHandler: (fn: () => void) => void
   onRefresh: () => void
   setRefreshHandler: (fn: () => void) => void
-}
-
-const CurationToolbarContext = createContext<CurationToolbarValue | null>(null)
-
-export function useCurationToolbar(): CurationToolbarValue {
-  const ctx = useContext(CurationToolbarContext)
-  if (!ctx)
-    throw new Error(
-      "useCurationToolbar must be used within CurationToolbarProvider"
-    )
-  return ctx
 }
 
 export function CurationToolbarProvider({

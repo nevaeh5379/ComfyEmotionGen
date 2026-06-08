@@ -1,20 +1,24 @@
 /**
  * 서버 설정 저장소 클라이언트.
  *
- * 백엔드 /app-settings API 를 통해 설정 데이터를 저장/조회한다.
+ * 백엔드 /app-settings API 를 통해 설정 데이터를 저장/조회한다
  * 네트워크 에러 시 null 을 반환하고, 호출자가 localStorage 폴백을 처리한다.
  */
 
 import { STORAGE_KEYS } from "../lib/storageKeys"
+import { DEFAULT_BACKEND_URL } from "../lib/runtime"
 import { toast } from "sonner"
+
+export const CLIENT_ID = Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 const readBackendUrl = (): string => {
   try {
     return (
-      localStorage.getItem(STORAGE_KEYS.backendUrl) || "http://127.0.0.1:8000"
+      localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
     )
-  } catch {
-    return "http://127.0.0.1:8000"
+  } catch (err) {
+    console.warn("serverStorage: 백엔드 URL 읽기 실패:", err)
+    return DEFAULT_BACKEND_URL
   }
 }
 
@@ -32,7 +36,8 @@ export async function fetchAllSettings(): Promise<Record<
       return null
     }
     return res.json() as unknown as Record<string, string>
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 목록 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
@@ -52,7 +57,8 @@ export async function fetchSetting(key: string): Promise<string | null> {
     }
     const data = (await res.json()) as { value: string }
     return data.value
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
@@ -68,7 +74,10 @@ export async function saveSetting(
       `${readBackendUrl()}/app-settings/${encodeURIComponent(key)}`,
       {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Client-Id": CLIENT_ID
+        },
         body: JSON.stringify({ value }),
       }
     )
@@ -77,7 +86,8 @@ export async function saveSetting(
       return false
     }
     return res.ok
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 저장 실패:", err)
     toast.error("설정 저장 실패: 서버에 연결할 수 없습니다.")
     return false
   }
@@ -88,14 +98,20 @@ export async function deleteSetting(key: string): Promise<boolean> {
   try {
     const res = await fetch(
       `${readBackendUrl()}/app-settings/${encodeURIComponent(key)}`,
-      { method: "DELETE" }
+      {
+        method: "DELETE",
+        headers: {
+          "X-Client-Id": CLIENT_ID
+        }
+      }
     )
     if (!res.ok) {
       toast.error(`설정 삭제 실패: HTTP ${res.status}`)
       return false
     }
     return res.ok
-  } catch {
+  } catch (err) {
+    console.warn("serverStorage: 설정 삭제 실패:", err)
     toast.error("설정 삭제 실패: 서버에 연결할 수 없습니다.")
     return false
   }

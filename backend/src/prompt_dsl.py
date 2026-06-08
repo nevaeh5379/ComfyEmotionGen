@@ -9,14 +9,54 @@ AI 이미지 프롬프트 배치 생성을 위한 DSL.
 from __future__ import annotations
 
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
+from enum import Enum
 from typing import Any, cast, Dict, List, Optional, Union
 import re
 
 from lark import Lark, Transformer, UnexpectedInput
 
 
+# ====== 라인 타입 enum ======
+
+class LineType(Enum):
+    """템플릿 줄의 의미론적 타입."""
+    SET_HEADER = "set-header"
+    AXIS_HEADER = "axis-header"
+    AXIS_BODY = "axis-body"
+    AXIS_INCLUDE = "axis-include"
+    AXIS_END = "axis-end"
+    TEMPLATE_HEADER = "template-header"
+    TEMPLATE_BODY = "template-body"
+    TEMPLATE_END = "template-end"
+    FILENAME_HEADER = "filename-header"
+    FILENAME_BODY = "filename-body"
+    FILENAME_END = "filename-end"
+    COMBINE = "combine"
+    EXCLUDE = "exclude"
+    COMMENT = "comment"
+    END = "end"
+    OTHER = "other"
+
+
 # ====== 데이터 모델 ======
+
+@dataclass
+class TemplateLine:
+    line_num: int
+    text: str
+    keys: List[str] = field(default_factory=list)
+    type: LineType = LineType.OTHER
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON 직렬화용 dict 변환."""
+        return {
+            "line_num": self.line_num,
+            "text": self.text,
+            "keys": self.keys,
+            "type": self.type.value,
+        }
+
 
 @dataclass
 class AxisValue:
@@ -56,6 +96,7 @@ class Program:
     excludes: List[ExcludeRule] = field(default_factory=list)
     template: str = ""
     filename: str = ""
+    template_structure: List[TemplateLine] = field(default_factory=list)
 
 
 # ====== 파서 (Lark 기반) ======
@@ -197,20 +238,184 @@ class _Builder(Transformer):
         return None
 
 
-_parser = Lark(
-    GRAMMAR_PATH.read_text(encoding="utf-8"),
-    parser="lalr",
-    transformer=_Builder(),
-)
+try:
+    _raw_parser = Lark(
+        GRAMMAR_PATH.read_text(encoding="utf-8"),
+        parser="lalr",
+        propagate_positions=True,
+    )
+    _parser = Lark(
+        GRAMMAR_PATH.read_text(encoding="utf-8"),
+        parser="lalr",
+        transformer=_Builder(),
+    )
+except FileNotFoundError:
+    raise ImportError(f"DSL grammar file not found: {GRAMMAR_PATH}")
+except Exception as exc:
+    raise ImportError(f"Failed to load DSL grammar: {exc}") from exc
 
 
 class DSLSyntaxError(Exception):
     """사용자에게 보여줄 친절한 문법 에러."""
 
 
+_TYPE_PRIORITY: Dict[LineType, int] = {
+    LineType.SET_HEADER: 10,
+    LineType.AXIS_HEADER: 10,
+    LineType.TEMPLATE_HEADER: 10,
+    LineType.FILENAME_HEADER: 10,
+    LineType.AXIS_BODY: 9,
+    LineType.TEMPLATE_BODY: 9,
+    LineType.FILENAME_BODY: 9,
+    LineType.AXIS_END: 8,
+    LineType.TEMPLATE_END: 8,
+    LineType.FILENAME_END: 8,
+    LineType.END: 8,
+    LineType.AXIS_INCLUDE: 7,
+    LineType.COMBINE: 5,
+    LineType.EXCLUDE: 5,
+    LineType.COMMENT: 5,
+    LineType.OTHER: 0,
+}
+
+
+class _StructureExtractor:
+    """Lark AST에서 템플릿 줄 번호별 매핑 정보를 추출한다."""
+
+    _REF_PATTERN = re.compile(r"\{\{\s*([a-zA-Z_\-][a-zA-Z0-9_\-]*)\s*\}\}")
+
+    def __init__(self, source: str) -> None:
+        self.lines = source.split("\n")
+        self.n = len(self.lines)
+        self.rows: List[Dict[str, Any]] = [
+            {
+                "line_num": i + 1,
+                "text": self.lines[i],
+                "keys": [],
+                "type": LineType.OTHER,
+                "priority": 0,
+            }
+            for i in range(self.n)
+        ]
+
+    def _tag(self, start: int, end: int, typ: LineType, keys: Optional[List[str]] = None) -> None:
+        pri = _TYPE_PRIORITY.get(typ, 0)
+        for i in range(start - 1, min(end, self.n)):
+            if pri >= self.rows[i]["priority"]:
+                self.rows[i]["type"] = typ
+                self.rows[i]["priority"] = pri
+            if keys:
+                row_keys: List[str] = self.rows[i]["keys"]
+                for k in keys:
+                    if k not in row_keys:
+                        row_keys.append(k)
+
+    def _find_axis_name(self, node) -> Optional[str]:
+        for c in node.children:
+            if hasattr(c, "type") and c.type == "NAME":
+                return str(c)
+        return None
+
+    def _extract_entry_key(self, node) -> Optional[str]:
+        for c2 in node.children:
+            if hasattr(c2, "type") and c2.type == "NAME":
+                return str(c2)
+        return None
+
+    def _collect_body_refs(self, start: int, end: int, typ: LineType) -> None:
+        for i in range(start, end + 1):
+            if i > self.n:
+                break
+            refs = self._REF_PATTERN.findall(self.lines[i - 1])
+            if refs:
+                self._tag(i, i, typ, refs)
+
+    def _dfs(self, node) -> None:
+        if not hasattr(node, "data") or not hasattr(node, "meta"):
+            return
+        rule: str = node.data
+        start: int = getattr(node.meta, "line", 1)
+        end: int = getattr(node.meta, "end_line", start)
+
+        if rule == "set_stmt":
+            self._tag(start, start, LineType.SET_HEADER)
+            name = self._find_axis_name(node)
+            if name:
+                self._tag(start, start, LineType.SET_HEADER, [name])
+        elif rule == "axis_def":
+            self._tag(start, start, LineType.AXIS_HEADER)
+            axis_name = self._find_axis_name(node)
+            if axis_name:
+                self._tag(start, start, LineType.AXIS_HEADER, [axis_name])
+            for c in node.children:
+                if not hasattr(c, "data"):
+                    continue
+                if c.data == "axis_entry":
+                    cs = getattr(c.meta, "line", start)
+                    ce = getattr(c.meta, "end_line", cs)
+                    val_key = self._extract_entry_key(c)
+                    if axis_name and val_key:
+                        self._tag(cs, ce, LineType.AXIS_BODY, [f"{axis_name}:{val_key}"])
+                    else:
+                        self._tag(cs, ce, LineType.AXIS_BODY)
+                elif c.data == "axis_include":
+                    cs = getattr(c.meta, "line", start)
+                    ce = getattr(c.meta, "end_line", cs)
+                    self._tag(cs, ce, LineType.AXIS_INCLUDE)
+                    if axis_name:
+                        self._tag(cs, ce, LineType.AXIS_HEADER, [axis_name])
+            self._tag(end, end, LineType.AXIS_END)
+        elif rule == "template_block":
+            self._tag(start, start, LineType.TEMPLATE_HEADER)
+            body_start = start + 1
+            body_end = end - 1
+            if body_end >= body_start:
+                self._tag(body_start, body_end, LineType.TEMPLATE_BODY)
+                self._collect_body_refs(body_start, body_end, LineType.TEMPLATE_BODY)
+            self._tag(end, end, LineType.TEMPLATE_END)
+        elif rule == "filename_block":
+            self._tag(start, start, LineType.FILENAME_HEADER)
+            body_start = start + 1
+            body_end = end - 1
+            if body_end >= body_start:
+                self._tag(body_start, body_end, LineType.FILENAME_BODY)
+                self._collect_body_refs(body_start, body_end, LineType.FILENAME_BODY)
+            self._tag(end, end, LineType.FILENAME_END)
+        elif rule == "combine_stmt":
+            self._tag(start, end, LineType.COMBINE)
+        elif rule == "exclude_stmt":
+            self._tag(start, end, LineType.EXCLUDE)
+        elif rule == "comment":
+            self._tag(start, end, LineType.COMMENT)
+
+        for c in node.children:
+            if hasattr(c, "data"):
+                self._dfs(c)
+
+    def extract(self, tree) -> List[TemplateLine]:
+        self._dfs(tree)
+        return [
+            TemplateLine(
+                line_num=d["line_num"],
+                text=d["text"],
+                keys=d["keys"],
+                type=d["type"],
+            )
+            for d in self.rows
+        ]
+
+
+def _build_template_structure(tree, source: str) -> List[TemplateLine]:
+    return _StructureExtractor(source).extract(tree)
+
+
 def parse(src: str) -> Program:
     try:
-        return cast(Program, _parser.parse(src))
+        raw_tree = _raw_parser.parse(src)
+        structure = _build_template_structure(raw_tree, src)
+        prog = cast(Program, _parser.parse(src))
+        prog.template_structure = structure
+        return prog
     except UnexpectedInput as e:
         context = e.get_context(src, span=40)
         expected = getattr(e, "expected", None) or getattr(e, "allowed", None)
@@ -332,6 +537,7 @@ def render(prog: Program, *,
             "axes": {},
             "sets": dict(prog.vars),
             "excludes": [],
+            "template_structure": [ln.to_dict() for ln in prog.template_structure],
         }
 
     combos = eval_expr(prog.combine_expr, prog.axes, prog.vars)
@@ -489,6 +695,7 @@ def render(prog: Program, *,
         "axes": axes_info,
         "sets": dict(prog.vars),
         "excludes": excludes_info,
+        "template_structure": [ln.to_dict() for ln in prog.template_structure],
     }
 
 

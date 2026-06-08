@@ -11,30 +11,7 @@ import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import type { JobView } from "../types/Message"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
-
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
-
-function formatETA(totalSeconds: number): string {
-  if (totalSeconds <= 0) return "곧 완료"
-  if (totalSeconds < 60) return `${Math.round(totalSeconds)}초`
-  if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)}분`
-  const h = Math.floor(totalSeconds / 3600)
-  const m = Math.round((totalSeconds % 3600) / 60)
-  return `${h}시간 ${m}분`
-}
-
-function estimateRemaining(
-  startedAtSec: number,
-  progressPercent: number
-): number | null {
-  if (progressPercent <= 0 || progressPercent >= 100) return null
-  const elapsedSec = Date.now() / 1000 - startedAtSec
-  if (elapsedSec <= 0) return null
-  const totalEstimatedSec = (elapsedSec / progressPercent) * 100
-  return totalEstimatedSec - elapsedSec
-}
+import { formatETA, getOverallProgress } from "../utils/timeEstimation"
 
 // ---------------------------------------------------------------------------
 // component
@@ -134,9 +111,10 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   if (!expanded) {
     const mainJob = runningJobs[0]
     const progressStr = mainJob ? `${Math.round(mainJob.progressPercent)}%` : ""
-    const etaRemaining =
-      mainJob && mainJob.startedAt
-        ? estimateRemaining(mainJob.startedAt, mainJob.progressPercent)
+    const mainJobOverall = mainJob ? getOverallProgress(mainJob) : 0
+    const etaStr =
+      mainJob && mainJob.startedAt && mainJobOverall > 0 && mainJobOverall < 100
+        ? formatETA(mainJob.startedAt, mainJobOverall, jobs)
         : null
 
     return (
@@ -161,9 +139,9 @@ export const JobStatusPopup = memo(function JobStatusPopup({
               ? "중지"
               : "대기"}
         </span>
-        {etaRemaining != null && (
+        {etaStr != null && (
           <span className="text-[10px] text-muted-foreground tabular-nums">
-            {formatETA(etaRemaining)}
+            {etaStr}
           </span>
         )}
         <span className="ml-auto text-[10px] text-muted-foreground sm:ml-0">
@@ -241,9 +219,11 @@ export const JobStatusPopup = memo(function JobStatusPopup({
             진행 중 ({runningJobs.length})
           </span>
           {runningJobs.slice(0, 5).map((j) => {
-            const remaining = j.startedAt
-              ? estimateRemaining(j.startedAt, j.progressPercent)
-              : null
+            const overall = getOverallProgress(j)
+            const etaStr =
+              j.startedAt && overall > 0 && overall < 100
+                ? formatETA(j.startedAt, overall, jobs)
+                : null
             return (
               <div key={j.id} className="space-y-1">
                 <div className="flex items-center justify-between gap-2 text-xs">
@@ -255,17 +235,17 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                     </TooltipTrigger>
                     <TooltipContent>{j.filename}</TooltipContent>
                   </Tooltip>
-                  {remaining != null && (
+                  {etaStr != null && (
                     <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
-                      ETA {formatETA(remaining)}
+                      {etaStr}
                     </span>
                   )}
                 </div>
-                {j.currentNodeName && (
-                  <div className="truncate text-[10px] text-muted-foreground">
-                    노드: {j.currentNodeName}
-                  </div>
-                )}
+                <div className="truncate text-[10px] text-muted-foreground">
+                  {j.currentNodeName
+                    ? `노드 (${j.currentNodeName}) 처리 중...`
+                    : "노드 처리 중..."}
+                </div>
                 <div className="flex items-center gap-2">
                   <Progress
                     value={j.progressPercent}

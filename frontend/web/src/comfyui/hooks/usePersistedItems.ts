@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { saveSetting } from "@/lib/serverStorage"
 import { clearSyncQueueFor, enqueueSync } from "./useSyncedStorage"
+import {
+  SETTINGS_READY_EVENT,
+  SETTINGS_UPDATED_EVENT,
+  type SettingsUpdatedDetail,
+} from "@/lib/settingsCache"
 
 export interface UsePersistedItemsReturn<T> {
   items: T[]
@@ -24,11 +29,43 @@ export function usePersistedItems<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    const onReady = (e: Event) => {
+      const all = (e as CustomEvent<Record<string, string>>).detail
+      const raw = all[storageKey]
+      if (raw === undefined) return
+      try {
+        setItems(JSON.parse(raw) as T[])
+      } catch (err) {
+        console.warn(`usePersistedItems: ${storageKey} 파싱 실패:`, err)
+      }
+    }
+    window.addEventListener(SETTINGS_READY_EVENT, onReady)
+    return () => window.removeEventListener(SETTINGS_READY_EVENT, onReady)
+  }, [storageKey])
+
+  useEffect(() => {
+    const onUpdated = (e: Event) => {
+      const { key: updatedKey, value: raw } = (
+        e as CustomEvent<SettingsUpdatedDetail>
+      ).detail
+      if (updatedKey !== storageKey) return
+      try {
+        const nextValue = raw === null ? [] : (JSON.parse(raw) as T[])
+        setItems(nextValue)
+      } catch (err) {
+        console.warn(`usePersistedItems: ${storageKey} 업데이트 파싱 실패:`, err)
+      }
+    }
+    window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
+    return () => window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
+  }, [storageKey])
+
   const persist = useCallback((next: T[]) => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(next))
-    } catch {
-      /* ignore quota errors */
+    } catch (err) {
+      console.warn(`usePersistedItems: ${storageKey} localStorage 저장 실패:`, err)
     }
     setItems(next)
 
@@ -45,7 +82,7 @@ export function usePersistedItems<T>(
       } else {
         clearSyncQueueFor(storageKey)
       }
-    })
+    }).catch((err) => console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err))
   }, [storageKey])
 
   return { items, persist }

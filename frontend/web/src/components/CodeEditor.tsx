@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import CodeMirror from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { StreamLanguage, type StringStream } from "@codemirror/language"
@@ -83,7 +83,7 @@ const cegLanguage = StreamLanguage.define<CegState>({
       }
 
       // Variable name (allow dashes inside NAME)
-      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*/)) {
+      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*/)) {
         return "variableName"
       }
 
@@ -138,7 +138,7 @@ const cegLanguage = StreamLanguage.define<CegState>({
 
     // 4. If we are inside template/filename blocks, highlight placeholders like {{mood}} or {{mood.key}}
     if (state.inBlock === "template" || state.inBlock === "filename") {
-      if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)?\}\}/)) {
+      if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)?\}\}/)) {
         return "variableName"
       }
       if (stream.match(/^[^{]+/)) {
@@ -172,16 +172,16 @@ const cegLanguage = StreamLanguage.define<CegState>({
       }
 
       if (state.curlyDepth > 0) {
-        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*(?=\s*:)/)) {
+        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*(?=\s*:)/)) {
           return "propertyName"
         }
       } else {
-        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*(?=\s*:)/)) {
+        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*(?=\s*:)/)) {
           return "variableName"
         }
       }
 
-      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_\-]*/)) {
+      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*/)) {
         return "variableName"
       }
 
@@ -233,6 +233,41 @@ const CodeEditor = ({
 }: CodeEditorProps) => {
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const timerRef = useRef<number | null>(null)
+  const pendingValueRef = useRef(value)
+
+  useEffect(() => {
+    pendingValueRef.current = value
+  }, [value])
+
+  const flushChange = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+      onChange(pendingValueRef.current)
+    }
+  }, [onChange])
+
+  const handleLocalChange = useCallback((val: string) => {
+    pendingValueRef.current = val
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current)
+    }
+    timerRef.current = window.setTimeout(() => {
+      onChange(val)
+    }, 250)
+  }, [onChange])
+
+  // Flush on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current)
+        onChange(pendingValueRef.current)
+      }
+    }
+  }, [onChange])
 
   const handleFile = useCallback(
     (file: File) => {
@@ -303,7 +338,8 @@ const CodeEditor = ({
     >
       <CodeMirror
         value={value}
-        onChange={onChange}
+        onChange={handleLocalChange}
+        onBlur={flushChange}
         extensions={extensions}
         theme={resolvedTheme}
         {...(placeholder !== undefined ? { placeholder } : {})}

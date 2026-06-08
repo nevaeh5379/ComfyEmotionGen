@@ -39,16 +39,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { useState, useMemo, useEffect, type ComponentProps } from "react"
+import { useState, useMemo, useEffect, useCallback, type ComponentProps } from "react"
 import type { SavedImage } from "../../types/Message"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
+import { API, HEADERS } from "@/lib/api"
+import { toast } from "sonner"
+import { buildWorkflowForItem } from "@/lib/workflowUtils"
+import type { ComfyWorkflow, NodeMapping } from "@/lib/workflow"
+import { NodeMappingSection } from "../NodeMappingSection"
+import type { ObjectInfo } from "../../types/renderTypes"
+import type { RenderItem } from "../../types/renderTypes"
 
-export interface RenderItem {
-  filename: string
-  prompt: string
-  meta: Record<string, string>
-}
+export type { RenderItem }
 
 export interface CombinationViewProps {
   items: RenderItem[]
@@ -343,65 +346,76 @@ export function LoadingButton({
 export interface RegenerateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  filenames: string[]
-  imagesByFilename: Map<string, SavedImage[]>
+  sourceImages: SavedImage[]
+  backendUrl: string
   currentCegTemplate: string
   savedTemplates: SavedTemplate[]
   savedWorkflows: SavedWorkflow[]
-  onRegenerate: (count: number, template: string, workflow?: string) => void
+  saveMappingPreset: (workflowId: string, name: string, mappings: NodeMapping[]) => SavedWorkflow | null
+  deleteMappingPreset: (workflowId: string, presetId: string) => SavedWorkflow | null
+  onSubmit: (items: Array<{
+    filename: string
+    prompt: string
+    workflow: ComfyWorkflow
+    meta: Record<string, string>
+    cegTemplate: string
+    imageUploads: Record<string, Record<string, string>>
+    workerType: string
+  }>) => Promise<void>
   isLoading: boolean
 }
 
 export function RegenerateDialog({
   open,
   onOpenChange,
-  filenames,
-  imagesByFilename,
+  sourceImages,
+  backendUrl,
   currentCegTemplate,
   savedTemplates,
   savedWorkflows,
-  onRegenerate,
+  saveMappingPreset,
+  deleteMappingPreset,
+  onSubmit,
   isLoading,
 }: RegenerateDialogProps) {
   const [count, setCount] = useState(4)
-  const [selectedTemplate, setSelectedTemplate] = useState("")
+  const [selectedTemplateId, setSelectedTemplateId] = useState("")
   const [selectedWorkflowId, setSelectedWorkflowId] = useState("")
+  const [nodeMappings, setNodeMappings] = useState<NodeMapping[]>([])
+  const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
+  const [imageUploads, setImageUploads] = useState({} as Record<string, { uploadedName: string | null; error: string | null; uploading: boolean; previewUrl: string | null }>)
 
   const historicalTemplates = useMemo(() => {
     const templates = new Set<string>()
-    for (const filename of filenames) {
-      const images = imagesByFilename.get(filename) ?? []
-      for (const img of images) {
-        if (img.cegTemplate) {
-          templates.add(img.cegTemplate)
-        }
+    for (const img of sourceImages) {
+      if (img.cegTemplate) {
+        templates.add(img.cegTemplate)
       }
     }
     return Array.from(templates)
-  }, [filenames, imagesByFilename])
+  }, [sourceImages])
 
   const historicalWorkflows = useMemo(() => {
-    const items: { id: string; name: string; workflow: string }[] = []
+    const items: { id: string; name: string; workflow: string; createdAt: number }[] = []
     const seen = new Set<string>()
     let idx = 0
-    for (const filename of filenames) {
-      const images = imagesByFilename.get(filename) ?? []
-      for (const img of images) {
-        if (!img.workflow) continue
-        const wf = JSON.stringify(img.workflow)
-        if (seen.has(wf)) continue
-        seen.add(wf)
-        idx++
-        const preview = wf.substring(0, 80)
-        items.push({
-          id: `__history_wf__${idx}`,
-          name: `기록 ${idx} (${preview}${wf.length > 80 ? "..." : ""})`,
-          workflow: wf,
-        })
-      }
+    for (const img of sourceImages) {
+      if (!img.workflow) continue
+      const wf = JSON.stringify(img.workflow)
+      if (seen.has(wf)) continue
+      seen.add(wf)
+      idx++
+      const d = new Date(img.createdAt)
+      const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
+      items.push({
+        id: `__history_wf__${idx}`,
+        name: `기록 ${idx} · ${dateStr}`,
+        workflow: wf,
+        createdAt: img.createdAt,
+      })
     }
     return items
-  }, [filenames, imagesByFilename])
+  }, [sourceImages])
 
   const selectedWorkflow = useMemo(() => {
     const sw = savedWorkflows.find((w) => w.id === selectedWorkflowId)
@@ -409,23 +423,231 @@ export function RegenerateDialog({
     return historicalWorkflows.find((w) => w.id === selectedWorkflowId)
   }, [selectedWorkflowId, savedWorkflows, historicalWorkflows])
 
-  useEffect(() => {
-    if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedTemplate(currentCegTemplate || historicalTemplates[0] || "")
-      setSelectedWorkflowId("")
+  const parsedWorkflowData = useMemo(() => {
+    const wf =
+      selectedWorkflow?.workflow ??
+      (sourceImages[0]?.workflow
+        ? JSON.stringify(sourceImages[0].workflow)
+        : null)
+    if (!wf) return null
+    try {
+      return JSON.parse(wf) as ComfyWorkflow
+    } catch {
+      return null
     }
-  }, [open, currentCegTemplate, historicalTemplates])
+  }, [selectedWorkflow, sourceImages])
 
-  const handleConfirm = () => {
-    onRegenerate(count, selectedTemplate, selectedWorkflow?.workflow)
-  }
+  const sourceFilename = sourceImages[0]?.originalFilename ?? ""
 
-  const canConfirm = isLoading
+  const resolvedTemplate = useMemo(() => {
+    if (selectedTemplateId === "__current__") return currentCegTemplate
+    if (selectedTemplateId.startsWith("history-")) {
+      const idx = parseInt(selectedTemplateId.replace("history-", ""), 10)
+      return historicalTemplates[idx] ?? ""
+    }
+    const st = savedTemplates.find((t) => t.id === selectedTemplateId)
+    return st?.template ?? ""
+  }, [selectedTemplateId, currentCegTemplate, savedTemplates, historicalTemplates])
+
+  // Fetch object_info when workflow changes
+  useEffect(() => {
+    if (!open || !backendUrl) return
+    fetch(`${backendUrl}/object_info`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setObjectInfo(d))
+      .catch(() => setObjectInfo(null))
+  }, [open, backendUrl])
+
+  const availableNodeOptions = useMemo(() => {
+    if (!parsedWorkflowData) return []
+    const inUse = new Set(nodeMappings.map((m) => `${m.nodeId}.${m.inputKey}`))
+    const opts: { nodeId: string; title: string; inputKey: string; isNumeric: boolean; isLoadImage: boolean }[] = []
+    Object.entries(parsedWorkflowData).forEach(([nodeId, node]) => {
+      Object.entries(node.inputs).forEach(([inputKey, value]) => {
+        if (
+          !inUse.has(`${nodeId}.${inputKey}`) &&
+          (typeof value === "string" || typeof value === "number")
+        ) {
+          opts.push({
+            nodeId,
+            title: node._meta?.title || node.class_type,
+            inputKey,
+            isNumeric: typeof value === "number",
+            isLoadImage:
+              node.class_type === "LoadImage" && inputKey === "image",
+          })
+        }
+      })
+    })
+    return opts
+  }, [parsedWorkflowData, nodeMappings])
+
+  const updateMapping = useCallback(
+    (id: string, patch: Partial<NodeMapping>) =>
+      setNodeMappings((prev) =>
+        prev.map((m) => {
+          if (m.id !== id) return m
+          if (
+            patch.sourceType !== undefined &&
+            m.sourceType === "image" &&
+            patch.sourceType !== "image"
+          ) {
+            const next = { ...m, ...patch }
+            delete (next as NodeMapping & { imageValue?: string }).imageValue
+            return next
+          }
+          return { ...m, ...patch }
+        })
+      ),
+    []
+  )
+
+  const handleImageUpload = useCallback(
+    (file: File, nodeId: string, inputKey: string) => {
+      const key = `${nodeId}.${inputKey}`
+      setImageUploads((prev) => ({
+        ...prev,
+        [key]: { uploading: true, error: null, uploadedName: null, previewUrl: null },
+      }))
+      const formData = new FormData()
+      formData.append("image", file)
+      formData.append("overwrite", "true")
+      fetch(`${backendUrl}/upload/image`, {
+        method: "POST",
+        body: formData,
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`)
+          const data = (await r.json()) as { name: string }
+          setImageUploads((prev) => ({
+            ...prev,
+            [key]: { uploading: false, error: null, uploadedName: data.name, previewUrl: URL.createObjectURL(file) },
+          }))
+          updateMapping(
+            nodeMappings.find((m) => m.nodeId === nodeId && m.inputKey === inputKey)?.id || "",
+            { sourceType: "image", imageValue: data.name }
+          )
+        })
+        .catch((e) => {
+          setImageUploads((prev) => ({
+            ...prev,
+            [key]: { uploading: false, error: e.message, uploadedName: null, previewUrl: null },
+          }))
+        })
+    },
+    [backendUrl, nodeMappings, updateMapping]
+  )
+
+  useEffect(() => {
+    if (!open) return
+    const resetTimer = window.setTimeout(() => {
+      setSelectedTemplateId("__current__")
+      setSelectedWorkflowId("")
+      setNodeMappings([])
+      setImageUploads({})
+    }, 0)
+    return () => window.clearTimeout(resetTimer)
+  }, [open])
+
+  const handleConfirm = useCallback(async () => {
+    if (isLoading || sourceImages.length === 0) return
+
+    const workflowJson =
+      selectedWorkflow?.workflow ??
+      (sourceImages[0]?.workflow
+        ? JSON.stringify(sourceImages[0].workflow)
+        : null)
+    if (!workflowJson) {
+      console.error("No workflow available for regeneration")
+      return
+    }
+
+    if (nodeMappings.length === 0) {
+      toast.error("노드매핑이 설정되지 않았습니다. 매핑을 추가해주세요.")
+      return
+    }
+
+    // Build imageNameMap for buildWorkflowForItem
+    const imageNameMap: Record<string, string> = {}
+    const imageUploadsNested: Record<string, Record<string, string>> = {}
+    for (const m of nodeMappings) {
+      if (m.sourceType === "image" && m.imageValue) {
+        imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
+        imageUploadsNested[m.nodeId] = { ...imageUploadsNested[m.nodeId], [m.inputKey]: m.imageValue }
+      }
+    }
+
+    let renderItems: RenderItem[]
+    if (resolvedTemplate) {
+      const res = await fetch(`${backendUrl}${API.render}`, {
+        method: "POST",
+        headers: HEADERS.json,
+        body: JSON.stringify({ template: resolvedTemplate }),
+      })
+      if (!res.ok) throw new Error(`Render failed: HTTP ${res.status}`)
+      const data = (await res.json()) as { items: RenderItem[] }
+      const matching = data.items.filter(
+        (item) => item.filename === sourceFilename
+      )
+      renderItems = matching.length > 0 ? matching : data.items
+    } else {
+      renderItems = [
+        {
+          filename: sourceFilename,
+          prompt: "",
+          meta: {},
+        },
+      ]
+    }
+
+    const allItems: Array<{
+      filename: string
+      prompt: string
+      workflow: ComfyWorkflow
+      meta: Record<string, string>
+      cegTemplate: string
+      imageUploads: Record<string, Record<string, string>>
+      workerType: string
+    }> = []
+
+    for (let i = 0; i < count; i++) {
+      for (const item of renderItems) {
+        const wf = buildWorkflowForItem(
+          workflowJson,
+          item,
+          nodeMappings,
+          imageNameMap
+        )
+        allItems.push({
+          filename: item.filename,
+          prompt: item.prompt,
+          workflow: wf,
+          meta: item.meta,
+          cegTemplate: resolvedTemplate || "",
+          imageUploads: imageUploadsNested,
+          workerType: "comfyui",
+        })
+      }
+    }
+
+    await onSubmit(allItems)
+  }, [
+    isLoading,
+    sourceImages,
+    selectedWorkflow,
+    nodeMappings,
+    resolvedTemplate,
+    sourceFilename,
+    count,
+    backendUrl,
+    onSubmit,
+  ])
+
+  const canConfirm = isLoading || !sourceImages[0]?.workflow
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RefreshCwIcon className="h-5 w-5" />
@@ -461,18 +683,19 @@ export function RegenerateDialog({
             </Label>
             <Select
               value={selectedWorkflowId || "__none__"}
-              onValueChange={(v) =>
+              onValueChange={(v) =>{
                 setSelectedWorkflowId(v === "__none__" ? "" : v)
-              }
+                setNodeMappings([])
+              }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full max-w-full truncate">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] max-h-60 overflow-y-auto">
                 <SelectItem value="__none__">
                   {selectedWorkflowId
                     ? "워크플로우 해제"
-                    : "워크플로우 직접 선택"}
+                    : "소스 이미지의 워크플로우 사용"}
                 </SelectItem>
                 {savedWorkflows.length > 0 && (
                   <>
@@ -504,15 +727,36 @@ export function RegenerateDialog({
             </Select>
           </div>
 
-          {selectedWorkflow && (
-            <div className="rounded-md bg-muted p-3">
-              <div className="mb-1 text-[10px] font-bold text-muted-foreground uppercase">
-                Workflow Preview
-              </div>
-              <pre className="max-h-32 overflow-y-auto font-mono text-[11px] leading-tight whitespace-pre-wrap">
-                {selectedWorkflow.workflow}
-              </pre>
-            </div>
+          {/* Node Mapping Editor */}
+          {parsedWorkflowData && (
+            <NodeMappingSection
+              nodeMappings={nodeMappings}
+              setNodeMappings={setNodeMappings}
+              updateMapping={updateMapping}
+              availableNodeOptions={availableNodeOptions}
+              parsedWorkflowData={parsedWorkflowData}
+              objectInfo={objectInfo}
+              activeWorkflowId={selectedWorkflow?.id ?? null}
+              savedNodeMappings={
+                savedWorkflows.find((w) => w.id === selectedWorkflow?.id)?.mappingPresets ?? []
+              }
+              savedWorkflows={savedWorkflows}
+              onSaveNodeMapping={(name) => {
+                if (!selectedWorkflow?.id) return false
+                const trimmed = name.trim()
+                const result = saveMappingPreset(selectedWorkflow.id, trimmed, [...nodeMappings])
+                return result !== null
+              }}
+              onLoadNodeMapping={(m) => setNodeMappings(m.mappings)}
+              onDeleteNodeMapping={(presetId) => {
+                if (!selectedWorkflow?.id) return
+                deleteMappingPreset(selectedWorkflow.id, presetId)
+              }}
+              onUpdateNodeMapping={() => {}}
+              onImportFromPreset={(mappings) => setNodeMappings(mappings)}
+              handleImageUpload={handleImageUpload}
+              imageUploads={imageUploads}
+            />
           )}
 
           <div className="flex flex-col gap-2">
@@ -523,32 +767,37 @@ export function RegenerateDialog({
               사용할 템플릿 (CEG Template)
             </Label>
             <Select
-              value={selectedTemplate}
-              onValueChange={setSelectedTemplate}
+              value={selectedTemplateId}
+              onValueChange={setSelectedTemplateId}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full max-w-full truncate">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>현재 환경</SelectLabel>
-                  <SelectItem value={currentCegTemplate}>
-                    현재 편집 중인 템플릿
-                  </SelectItem>
-                  {savedTemplates.map((st) => (
-                    <SelectItem key={st.id} value={st.template}>
-                      프리셋: {st.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
+              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] max-h-60 overflow-y-auto">
+                <SelectItem value="__current__">
+                  현재 편집 중인 템플릿
+                </SelectItem>
+                {savedTemplates.length > 0 && (
+                  <>
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>저장된 프리셋</SelectLabel>
+                      {savedTemplates.map((st) => (
+                        <SelectItem key={st.id} value={st.id}>
+                          {st.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </>
+                )}
                 {historicalTemplates.length > 0 && (
                   <>
                     <SelectSeparator />
                     <SelectGroup>
-                      <SelectLabel>과거 사용 내역 (History)</SelectLabel>
-                      {historicalTemplates.map((t, i) => (
-                        <SelectItem key={i} value={t}>
-                          과거 기록 {i + 1} (길이: {t.length})
+                      <SelectLabel>과거 사용 내역</SelectLabel>
+                      {historicalTemplates.map((_t, i) => (
+                        <SelectItem key={i} value={`history-${i}`}>
+                          기록 {i + 1}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -558,14 +807,20 @@ export function RegenerateDialog({
             </Select>
           </div>
 
-          {selectedTemplate && !selectedWorkflowId && (
+          {resolvedTemplate && !selectedWorkflowId && (
             <div className="rounded-md bg-muted p-3">
               <div className="mb-1 text-[10px] font-bold text-muted-foreground uppercase">
                 Template Preview
               </div>
               <pre className="max-h-32 overflow-y-auto font-mono text-[11px] leading-tight whitespace-pre-wrap">
-                {selectedTemplate}
+                {resolvedTemplate}
               </pre>
+            </div>
+          )}
+
+          {!sourceImages[0]?.workflow && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              소스 이미지에 워크플로우 정보가 없습니다.
             </div>
           )}
         </div>

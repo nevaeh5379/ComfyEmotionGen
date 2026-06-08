@@ -1,12 +1,14 @@
-import { createContext, useState } from "react"
-import { useContextRequired } from "@/lib/context"
+import { useState, useCallback, useMemo } from "react"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
   useSavedTemplates,
   type SavedTemplate,
 } from "../hooks/useSavedTemplates"
+import type { TemplateItem } from "../components/TemplateGeneratorPanel"
 import { usePendingDialog } from "./PendingDialogContext"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { toast } from "sonner"
+import { TemplateContext } from "./TemplateContextObject"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,7 +22,7 @@ export interface GeneratorToolbarProps {
   handleApply: () => void
   effectiveId: string
   setSelectedTemplateId: (id: string) => void
-  groupedTemplates: Record<string, any[]>
+  groupedTemplates: Record<string, TemplateItem[]>
   catLabel: (c: string) => string
 }
 
@@ -45,21 +47,13 @@ export interface TemplateContextValue {
   ) => boolean | null
   generatorToolbarProps: GeneratorToolbarProps | null
   setGeneratorToolbarProps: (props: GeneratorToolbarProps | null) => void
+  isDirty?: boolean
+  saveToServer?: () => Promise<boolean>
+  revert?: () => void
 }
 
 // ---------------------------------------------------------------------------
 // Context
-// ---------------------------------------------------------------------------
-
-const TemplateContext = createContext<TemplateContextValue | null>(null)
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useTemplateContext(): TemplateContextValue {
-  return useContextRequired(TemplateContext, "useTemplateContext")
-}
-
-// ---------------------------------------------------------------------------
-// Provider
 // ---------------------------------------------------------------------------
 
 interface TemplateProviderProps {
@@ -71,9 +65,10 @@ export function TemplateProvider({
 }: TemplateProviderProps): React.JSX.Element {
   const { setPendingSave, handlePendingUpdate } = usePendingDialog()
 
-  const [cegTemplate, setCegTemplate] = useSyncedStorage(
+  const [cegTemplate, setCegTemplate, { isDirty: isCegDirty, saveToServer: saveCegToServer, revert: revertCeg }] = useSyncedStorage(
     STORAGE_KEYS.cegTemplate,
-    ""
+    "",
+    { manual: true }
   )
   const [activeTemplateId, setActiveTemplateId] = useSyncedStorage<
     string | null
@@ -81,35 +76,81 @@ export function TemplateProvider({
   const [templateResetKey, setTemplateResetKey] = useState(0)
   const {
     templates: savedTemplates,
-    saveTemplate,
+    saveTemplate: originalSaveTemplate,
     deleteTemplate,
   } = useSavedTemplates()
+
+  const saveTemplate = useCallback(
+    (name: string, templateContent: string) => {
+      try {
+        const res = originalSaveTemplate(name, templateContent)
+        saveCegToServer()
+        return res
+      } catch (err) {
+        toast.error("템플릿 저장에 실패했습니다.")
+        throw err
+      }
+    },
+    [originalSaveTemplate, saveCegToServer]
+  )
   const [generatorToolbarProps, setGeneratorToolbarProps] = useState<GeneratorToolbarProps | null>(null)
 
+  const onPendingSave = useCallback(
+    (name: string, type: "template") => setPendingSave({ name, type }),
+    [setPendingSave]
+  )
+
+  const onPendingUpdate = useCallback(
+    (
+      name: string,
+      type: "template",
+      oldContent: string,
+      newContent: string
+    ) => handlePendingUpdate(name, type, oldContent, newContent),
+    [handlePendingUpdate]
+  )
+
+  const value = useMemo<TemplateContextValue>(
+    () => ({
+      cegTemplate,
+      setCegTemplate,
+      activeTemplateId,
+      setActiveTemplateId,
+      savedTemplates,
+      saveTemplate,
+      deleteTemplate,
+      templateResetKey,
+      setTemplateResetKey,
+      onPendingSave,
+      onPendingUpdate,
+      generatorToolbarProps,
+      setGeneratorToolbarProps,
+      isDirty: isCegDirty,
+      saveToServer: saveCegToServer,
+      revert: revertCeg,
+    }),
+    [
+      cegTemplate,
+      setCegTemplate,
+      activeTemplateId,
+      setActiveTemplateId,
+      savedTemplates,
+      saveTemplate,
+      deleteTemplate,
+      templateResetKey,
+      setTemplateResetKey,
+      onPendingSave,
+      onPendingUpdate,
+      generatorToolbarProps,
+      setGeneratorToolbarProps,
+      isCegDirty,
+      saveCegToServer,
+      revertCeg,
+    ]
+  )
+
   return (
-    <TemplateContext.Provider
-      value={{
-        cegTemplate,
-        setCegTemplate,
-        activeTemplateId,
-        setActiveTemplateId,
-        savedTemplates,
-        saveTemplate,
-        deleteTemplate,
-        templateResetKey,
-        setTemplateResetKey,
-        onPendingSave: (name: string, type: "template") =>
-          setPendingSave({ name, type }),
-        onPendingUpdate: (
-          name: string,
-          type: "template",
-          oldContent: string,
-          newContent: string
-        ) => handlePendingUpdate(name, type, oldContent, newContent),
-        generatorToolbarProps,
-        setGeneratorToolbarProps,
-      }}
-    >
+    <TemplateContext.Provider value={value}>
       {children}
     </TemplateContext.Provider>
   )

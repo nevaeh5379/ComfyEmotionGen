@@ -52,6 +52,13 @@ import { cn } from "@/lib/utils"
 import type { JobStatus, JobView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
+import {
+  formatETA,
+  formatDuration,
+  timeAgo,
+  jobDuration,
+  getOverallProgress,
+} from "../utils/timeEstimation"
 
 // ── props interfaces (keep in sync with JobManagerPanel) ──────────────
 
@@ -79,6 +86,7 @@ export interface ActiveStateInfo {
 
 export interface RunningJobsBannerProps {
   jobs: JobView[]
+  allJobs?: JobView[]
 }
 
 export interface JobStatBarProps {
@@ -121,52 +129,24 @@ export interface JobDetailSheetProps {
   onDelete: () => void
 }
 
-// ── pure helpers (moved from JobManagerPanel) ──────────────────────────
 
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  const m = Math.floor(ms / 60_000)
-  const s = Math.round((ms % 60_000) / 1000)
-  return `${m}m ${s}s`
-}
-
-function timeAgo(epochSec: number): string {
-  const diff = Date.now() - epochSec * 1000
-  if (diff < 60_000) return "방금"
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}분 전`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}시간 전`
-  return `${Math.floor(diff / 86_400_000)}일 전`
-}
-
-function estimateRemaining(
-  startedAtSec: number,
-  progressPercent: number
-): number | null {
-  if (progressPercent <= 0 || progressPercent >= 100) return null
-  const elapsedSec = Date.now() / 1000 - startedAtSec
-  if (elapsedSec <= 0) return null
-  const totalEstimatedSec = (elapsedSec / progressPercent) * 100
-  return totalEstimatedSec - elapsedSec
-}
-
-function formatETA(totalSeconds: number): string {
-  if (totalSeconds <= 0) return "곧 완료"
-  if (totalSeconds < 60) return `${Math.round(totalSeconds)}초`
-  if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)}분`
-  const h = Math.floor(totalSeconds / 3600)
-  const m = Math.round((totalSeconds % 3600) / 60)
-  return `${h}시간 ${m}분`
-}
-
-function jobDuration(job: JobView): number | null {
-  if (job.executionDurationMs != null) return job.executionDurationMs
-  if (job.startedAt != null && job.finishedAt != null)
-    return (job.finishedAt - job.startedAt) * 1000
-  return null
-}
 
 // ── sub-components ──────────────────────────────────────────────────────
+
+const SortIcon = memo(function SortIcon({
+  isActive,
+  dir,
+}: {
+  isActive: boolean
+  dir: "asc" | "desc"
+}) {
+  if (!isActive) return <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
+  return dir === "asc" ? (
+    <ArrowUp className="h-3 w-3 shrink-0" />
+  ) : (
+    <ArrowDown className="h-3 w-3 shrink-0" />
+  )
+})
 
 export const SessionPopover = memo(function SessionPopover({
   markers,
@@ -179,16 +159,7 @@ export const SessionPopover = memo(function SessionPopover({
   onSelectSession,
   onCreateNew,
 }: SessionPickerProps) {
-  if (markers.length === 0) return null
-
-  const sessionButtonLabel = (() => {
-    const m = markers.find((mm) => mm.id === selectedId)
-    const count = sessionJobCounts.get(selectedId) ?? 0
-    return m ? `${m.label} (${count})` : `(${count})`
-  })()
-
-  const isActive = activeState?.activeSessionId
-
+  // Hooks must be called before any early returns
   const ref = useRef<HTMLDivElement>(null)
   const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -205,6 +176,16 @@ export const SessionPopover = memo(function SessionPopover({
       setRect(null)
     }
   }, [isOpen])
+
+  if (markers.length === 0) return null
+
+  const sessionButtonLabel = (() => {
+    const m = markers.find((mm) => mm.id === selectedId)
+    const count = sessionJobCounts.get(selectedId) ?? 0
+    return m ? `${m.label} (${count})` : `(${count})`
+  })()
+
+  const isActive = activeState?.activeSessionId
 
   const dropdownStyle = rect
     ? (() => {
@@ -430,6 +411,7 @@ export const JobStatBar = memo(function JobStatBar({
 
 export const RunningJobsBanner = memo(function RunningJobsBanner({
   jobs,
+  allJobs,
 }: RunningJobsBannerProps) {
   if (jobs.length === 0) {
     return (
@@ -442,14 +424,10 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   return (
     <>
       {jobs.map((j) => {
-        const rem = j.startedAt
-          ? estimateRemaining(j.startedAt, j.progressPercent)
-          : null
-        const overallPercent =
-          j.totalNodeCount > 0
-            ? ((j.completedNodeCount + j.progressPercent / 100) /
-                j.totalNodeCount) *
-              100
+        const overallPercent = getOverallProgress(j)
+        const etaStr =
+          j.startedAt && overallPercent > 0 && overallPercent < 100
+            ? formatETA(j.startedAt, overallPercent, allJobs)
             : null
         return (
           <div
@@ -460,15 +438,17 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
               <span className="truncate font-mono text-[13px] font-black text-info">
                 {j.filename}
               </span>
-              {rem != null && (
+              {etaStr != null && (
                 <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
-                  예상 {formatETA(rem)}
+                  {etaStr}
                 </span>
               )}
             </div>
             <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
               <span className="truncate">
-                {j.currentNodeName || "노드 처리 중..."}
+                {j.currentNodeName
+                  ? `노드 (${j.currentNodeName}) 처리 중...`
+                  : "노드 처리 중..."}
               </span>
               <span className="mono">{Math.round(j.progressPercent)}%</span>
             </div>
@@ -476,7 +456,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
               value={j.progressPercent}
               className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
             />
-            {overallPercent != null && (
+            {j.totalNodeCount > 0 && (
               <>
                 <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
                   <span className="truncate">
@@ -667,15 +647,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     상태
-                    {sortKey === "status" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "status"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="px-2">
@@ -684,15 +656,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     파일명
-                    {sortKey === "filename" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "filename"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="px-2">
@@ -701,15 +665,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     생성
-                    {sortKey === "createdAt" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "createdAt"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="px-2">
@@ -718,15 +674,7 @@ export const JobTableSection = memo(function JobTableSection({
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     소요
-                    {sortKey === "duration" ? (
-                      sortDir === "asc" ? (
-                        <ArrowUp className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="h-3 w-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20" />
-                    )}
+                    <SortIcon isActive={sortKey === "duration"} dir={sortDir} />
                   </button>
                 </TableHead>
                 <TableHead className="w-12 px-2" />

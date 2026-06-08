@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Columns2,
   Rows2,
+  RotateCcw,
 } from "lucide-react"
 import { useCallback } from "react"
 import { format } from "date-fns"
@@ -27,7 +28,7 @@ import {
 import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
 import { NodeMappingSection } from "./NodeMappingSection"
-import { useTemplateContext } from "../contexts/TemplateContext"
+import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 
@@ -63,6 +64,7 @@ export interface WorkCompositionPanelProps {
   setRepeatCount: (value: number | ((prev: number) => number)) => void
   handleRun: () => void
   handleRandomRun: (count: number) => void
+  handleRunUnapproved: () => void
   randomRunCount: number
   setRandomRunCount: (value: number | ((prev: number) => number)) => void
   estimatedRunCount: number | null
@@ -99,6 +101,7 @@ export function WorkCompositionPanel({
   setRepeatCount,
   handleRun,
   handleRandomRun,
+  handleRunUnapproved,
   randomRunCount,
   setRandomRunCount,
   estimatedRunCount,
@@ -133,6 +136,26 @@ export function WorkCompositionPanel({
     }
     return name
   }, [])
+
+  const handleUpdateWorkflow = useCallback(() => {
+    if (!workflow.activeWorkflow) return
+    if (
+      workflow.activeWorkflow.workflow !== workflow.workflowJson &&
+      workflow.onPendingUpdate
+    ) {
+      workflow.onPendingUpdate(
+        workflow.activeWorkflow.name,
+        "workflow",
+        workflow.activeWorkflow.workflow,
+        workflow.workflowJson
+      )
+    } else {
+      workflow.saveWorkflow(
+        workflow.activeWorkflow.name,
+        workflow.workflowJson
+      )
+    }
+  }, [workflow])
 
   // ── File open handler (drag-and-drop / file input) ──
   const handleWorkflowFileOpen = useCallback(
@@ -241,6 +264,7 @@ export function WorkCompositionPanel({
                 setRepeatCount={setRepeatCount}
                 handleRun={handleRun}
                 handleRandomRun={handleRandomRun}
+                handleRunUnapproved={handleRunUnapproved}
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 canRun={canRun}
@@ -360,6 +384,8 @@ export function WorkCompositionPanel({
               }
               onDownloadSingle={handleDownloadTemplate}
               onFileOpen={handleTemplateFileOpen}
+              isDirty={template.isDirty}
+              onRevert={template.revert}
             />
           </TabsContent>
 
@@ -367,9 +393,13 @@ export function WorkCompositionPanel({
             value="workflow"
             className="mt-0 flex min-h-0 flex-1 flex-col data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
           >
-            {/* Workflow Header */}
             <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-1.5">
-              <Code2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <div className="relative flex items-center justify-center shrink-0">
+                <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
+                {workflow.isDirty && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"></span>
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <SaveInputBar
                   key={workflow.workflowResetKey}
@@ -404,27 +434,7 @@ export function WorkCompositionPanel({
                     workflow.deleteWorkflow(id)
                   }}
                   activeItemId={workflow.activeWorkflowId ?? undefined}
-                  onUpdate={() => {
-                    if (!workflow.activeWorkflow) return
-                    // Check if content changed and show diff
-                    if (
-                      workflow.activeWorkflow.workflow !==
-                        workflow.workflowJson &&
-                      workflow.onPendingUpdate
-                    ) {
-                      workflow.onPendingUpdate(
-                        workflow.activeWorkflow.name,
-                        "workflow",
-                        workflow.activeWorkflow.workflow,
-                        workflow.workflowJson
-                      )
-                    } else {
-                      workflow.saveWorkflow(
-                        workflow.activeWorkflow.name,
-                        workflow.workflowJson
-                      )
-                    }
-                  }}
+                  onUpdate={handleUpdateWorkflow}
                 />
               </div>
               {workflow.parsedWorkflow?.success && (
@@ -433,6 +443,21 @@ export function WorkCompositionPanel({
                 </span>
               )}
               <div className="flex shrink-0 items-center gap-1">
+                {workflow.isDirty && workflow.revert && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        onClick={workflow.revert}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>변경사항 취소 (되돌리기)</TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -520,7 +545,20 @@ export function WorkCompositionPanel({
             </div>
 
             {/* Scrollable Body */}
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div
+              className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+                  e.preventDefault()
+                  if (workflow.activeWorkflow) {
+                    handleUpdateWorkflow()
+                  } else {
+                    const input = e.currentTarget.parentElement?.querySelector("input")
+                    input?.focus()
+                  }
+                }
+              }}
+            >
               <CodeEditor
                 language="json"
                 placeholder="워크플로우 JSON 입력"
@@ -557,7 +595,6 @@ export function WorkCompositionPanel({
                 }
                 nodeMappingResetKey={nodeMapping.nodeMappingResetKey}
                 savedWorkflows={workflow.savedWorkflows}
-                pendingSaveType={null}
                 onSaveNodeMapping={(name) => {
                   const trimmed =
                     name.trim() || format(new Date(), "yyyy-MM-dd HH:mm")
@@ -606,7 +643,6 @@ export function WorkCompositionPanel({
                       nodeMapping.nodeMappings
                     )
                 }}
-                onPendingNameConflict={() => {}}
               />
             )}
           </TabsContent>

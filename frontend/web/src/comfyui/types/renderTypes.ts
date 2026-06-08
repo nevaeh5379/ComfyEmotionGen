@@ -37,10 +37,18 @@ export interface ExcludeRuleOut {
   connective: string
 }
 
+export interface TemplateLine {
+  line_num: number
+  text: string
+  keys: string[]
+  type: string
+}
+
 export interface RenderItemsResponse {
   count: number
   items: RenderItem[]
   axes: Record<string, AxisOut>
   sets: Record<string, string>
   excludes: ExcludeRuleOut[]
+  template_structure: TemplateLine[]
 }

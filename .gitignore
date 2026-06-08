@@ -28,3 +28,11 @@ jobs.db*
 .antigravitycli/
 __pycache__/
 images/
+.hermes/
+.hermes/plans
+.plan
+.kdev4
+*.egg-info/
+dist/
+build/
+.codegraph

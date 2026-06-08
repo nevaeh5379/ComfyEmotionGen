@@ -29,7 +29,7 @@ jobs:
       is_beta: ${{ steps.v.outputs.is_beta }}
       image_backend: ${{ steps.v.outputs.image_backend }}
       image_frontend: ${{ steps.v.outputs.image_frontend }}
-      image_aio: ${{ steps.v.outputs.image_aio }}
+      image_ceg: ${{ steps.v.outputs.image_ceg }}
     steps:
       - uses: actions/checkout@v4
       - id: v
@@ -65,7 +65,7 @@ jobs:
           echo "is_beta=$IS_BETA"             >> $GITHUB_OUTPUT
           echo "image_backend=$REPO_LC/ceg-backend"   >> $GITHUB_OUTPUT
           echo "image_frontend=$REPO_LC/ceg-frontend" >> $GITHUB_OUTPUT
-          echo "image_aio=$REPO_LC/ceg-all-in-one"    >> $GITHUB_OUTPUT
+          echo "image_ceg=$REPO_LC/ceg"               >> $GITHUB_OUTPUT
           echo "Resolved bundle=$BUNDLE  docker_tag=$DOCKER_TAG  release=$IS_RELEASE  repo=$REPO_LC"
 
   portable:
@@ -195,7 +195,7 @@ jobs:
       - uses: actions/setup-python@v5
         if: matrix.variant == 'full' || matrix.variant == 'backend' || matrix.variant == 'frontend-exe'
         with:
-          python-version: '3.11'
+          python-version: '3.14'
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - uses: actions/setup-node@v4
@@ -298,20 +298,20 @@ jobs:
             ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
-      - name: Build & push all-in-one
+      - name: Build & push ceg
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.all-in-one
+          file: ./Dockerfile
           push: true
           build-args: |
             CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
-          cache-from: type=gha,scope=aio
-          cache-to: type=gha,scope=aio,mode=max
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_ceg }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_ceg }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
+          cache-from: type=gha,scope=ceg
+          cache-to: type=gha,scope=ceg,mode=max
 
   release:
     needs: [version, portable, frontend-zip, docker]
@@ -345,4 +345,4 @@ jobs:
             Docker:
             - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}`
             - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}`
-            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_aio }}:${{ needs.version.outputs.docker_tag }}` (single-container)
+            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_ceg }}:${{ needs.version.outputs.docker_tag }}` (single-container)

@@ -14,31 +14,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+from typing import Any, AsyncGenerator, Optional
 
 import httpx
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from backend.src.worker import BaseWorker, WorkerInfo
+
 logger = logging.getLogger(__name__)
 
 
-RawMessageHandler = Callable[["ComfyWorker", dict[str, Any]], Awaitable[None]]
-BinaryMessageHandler = Callable[["ComfyWorker", bytes], Awaitable[None]]
-StatusChangeHandler = Callable[["ComfyWorker"], Awaitable[None]]
-
-
-@dataclass
-class WorkerInfo:
-    id: str
-    url: str
-    alive: bool
-    busy: bool
-    current_job_id: Optional[str]
-
-
-class ComfyWorker:
+class ComfyWorker(BaseWorker):
     """
     단일 ComfyUI 서버에 대한 클라이언트.
 
@@ -54,12 +41,17 @@ class ComfyWorker:
         worker_id: str,
         base_url: str,
         *,
-        on_message: Optional[RawMessageHandler] = None,
-        on_binary: Optional[BinaryMessageHandler] = None,
-        on_status_change: Optional[StatusChangeHandler] = None,
+        worker_type: str = "comfyui",
+        on_message=None,
+        on_binary=None,
+        on_status_change=None,
     ) -> None:
-        self.id = worker_id
-        self.base_url = base_url.rstrip("/")
+        super().__init__(
+            worker_id=worker_id,
+            base_url=base_url,
+            worker_type=worker_type,
+        )
+        # 핸들러는 외부(WorkerPool._apply_handlers)에서도 설정됨
         self._on_message = on_message
         self._on_binary = on_binary
         self._on_status_change = on_status_change
@@ -68,33 +60,13 @@ class ComfyWorker:
         self._ws_task: Optional[asyncio.Task[None]] = None
         self._stopping = False
 
-        self._alive = False
         self._sid: Optional[str] = None
-        # busy/current_job_id는 Dispatcher가 관리 (워커는 자기 상태만)
-        self.current_job_id: Optional[str] = None
 
-    # ---------- public state ----------
-
-    @property
-    def alive(self) -> bool:
-        return self._alive
-
-    @property
-    def busy(self) -> bool:
-        return self.current_job_id is not None
+    # ---------- ComfyUI 전용 속성 ----------
 
     @property
     def sid(self) -> Optional[str]:
         return self._sid
-
-    def info(self) -> WorkerInfo:
-        return WorkerInfo(
-            id=self.id,
-            url=self.base_url,
-            alive=self._alive,
-            busy=self.busy,
-            current_job_id=self.current_job_id,
-        )
 
     # ---------- lifecycle ----------
 
@@ -113,7 +85,10 @@ class ComfyWorker:
             except (asyncio.CancelledError, Exception):
                 pass
             self._ws_task = None
-        await self._http.aclose()
+        try:
+            await self._http.aclose()
+        except Exception:
+            logger.warning("worker %s failed to close HTTP client", self.id)
 
     # ---------- HTTP ----------
 
@@ -159,8 +134,8 @@ class ComfyWorker:
         except Exception as exc:  # pragma: no cover - best effort
             logger.warning("worker %s clear_queue failed: %s", self.id, exc)
 
-    async def stream_view(self, params: dict[str, str]) -> AsyncIterator[bytes]:
-        """ComfyUI /view 스트리밍 (이미지 프록시용)."""
+    async def stream_output(self, params: dict[str, str]) -> AsyncGenerator[bytes, None]:
+        """BaseWorker.stream_output의 ComfyUI 구현 (/view 엔드포인트)."""
         async with self._http.stream("GET", "/view", params=params) as resp:
             resp.raise_for_status()
             async for chunk in resp.aiter_bytes():
@@ -205,7 +180,10 @@ class ComfyWorker:
                     async for message in ws:
                         if isinstance(message, (bytes, bytearray)):
                             if self._on_binary is not None:
-                                await self._on_binary(self, bytes(message))
+                                try:
+                                    await self._on_binary(self, bytes(message))
+                                except Exception:
+                                    logger.exception("binary handler error in worker %s", self.id)
                             continue
                         try:
                             payload = json.loads(message)
@@ -220,16 +198,29 @@ class ComfyWorker:
                         ):
                             self._sid = payload["data"]["sid"]
                         if self._on_message is not None:
-                            await self._on_message(self, payload)
+                            try:
+                                await self._on_message(self, payload)
+                            except Exception:
+                                logger.exception("message handler error in worker %s", self.id)
             except asyncio.CancelledError:
                 raise
-            except (ConnectionClosed, OSError, Exception) as exc:
+            except (ConnectionClosed, OSError) as exc:
                 logger.info(
                     "worker %s ws closed: %s (reconnect in %.1fs)",
                     self.id,
                     exc,
                     backoff,
                 )
+                await self._set_alive(False)
+                if self._stopping:
+                    break
+                try:
+                    await asyncio.sleep(backoff)
+                except asyncio.CancelledError:
+                    break
+                backoff = min(backoff * 2, self.MAX_BACKOFF)
+            except Exception:
+                logger.exception("worker %s ws unexpected error (reconnect in %.1fs)", self.id, backoff)
                 await self._set_alive(False)
                 if self._stopping:
                     break
@@ -248,4 +239,7 @@ class ComfyWorker:
         if not alive:
             self._sid = None
         if self._on_status_change is not None:
-            await self._on_status_change(self)
+            try:
+                await self._on_status_change(self)
+            except Exception:
+                logger.exception("status_change handler error in worker %s", self.id)

@@ -10,6 +10,7 @@ const STATUS_MAP: Record<string, { label: string; fg: string; bg: string }> = {
   active: { label: "진행", fg: "text-info", bg: "bg-info-bg" },
   running: { label: "진행", fg: "text-info", bg: "bg-info-bg" },
   queued: { label: "큐", fg: "text-warn", bg: "bg-warn-bg" },
+  pending: { label: "대기", fg: "text-ink-2", bg: "bg-muted" },
   waiting: { label: "대기", fg: "text-ink-2", bg: "bg-muted" },
   info: { label: "정보", fg: "text-info", bg: "bg-info-bg" },
 }

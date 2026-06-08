@@ -17,39 +17,55 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 import hashlib
-import json
 import logging
 import os
-import random
 import re
 import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Literal, Optional
+from typing import Any, Awaitable, Callable, Literal, Optional, overload
 
-from comfy_client import ComfyWorker, WorkerInfo
-from job_store import JobStore
-from worker_pool import WorkerPool
-from prompt_dsl import parse, render
+from backend.src.models import JobItem, JobStatus
+from backend.src.worker import BaseWorker, WorkerInfo
+from backend.src.job_store import JobStore
+from backend.src.worker_pool import WorkerPool
 
 
-def _worker_view(info: WorkerInfo) -> dict[str, Any]:
-    return {
-        "id": info.id,
-        "url": info.url,
-        "alive": info.alive,
-        "busy": info.busy,
-        "currentJobId": info.current_job_id,
-    }
+@dataclass(frozen=True)
+class WorkerView:
+    id: str
+    url: str
+    alive: bool
+    busy: bool
+    current_job_id: Optional[str]
+    worker_type: str
+
+    @classmethod
+    def from_info(cls, info: WorkerInfo) -> "WorkerView":
+        return cls(
+            id=info.id,
+            url=info.url,
+            alive=info.alive,
+            busy=info.busy,
+            current_job_id=info.current_job_id,
+            worker_type=info.worker_type,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "url": self.url,
+            "alive": self.alive,
+            "busy": self.busy,
+            "currentJobId": self.current_job_id,
+            "workerType": self.worker_type,
+        }
+
 
 logger = logging.getLogger(__name__)
-
-
-JobStatus = Literal[
-    "pending", "queued", "running", "done", "error", "cancelled"
-]
 
 
 RETRY_DELAY = 1.0  # 재시도 간격 (초)
@@ -92,7 +108,7 @@ class Job:
     filename: str
     prompt: str
     workflow: dict[str, Any]
-    status: JobStatus = "pending"
+    status: JobStatus = field(default_factory=lambda: JobStatus.PENDING)
     worker_id: Optional[str] = None
     error: Optional[str] = None
     image_urls: list[str] = field(default_factory=list)
@@ -109,6 +125,7 @@ class Job:
     meta: dict[str, str] = field(default_factory=dict)
     ceg_template: str = ""
     image_uploads: dict[str, dict[str, str]] = field(default_factory=dict)
+    worker_type: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -133,16 +150,18 @@ class Job:
             "meta": self.meta,
             "cegTemplate": self.ceg_template,
             "imageUploads": self.image_uploads,
+            "workerType": self.worker_type,
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Job:
+        raw_status = d.get("status", JobStatus.PENDING)
         return cls(
             id=d["id"],
             filename=d["filename"],
             prompt=d["prompt"],
             workflow=d.get("_workflow", {}),
-            status=d.get("status", "pending"),
+            status=JobStatus(raw_status) if isinstance(raw_status, str) else raw_status,
             worker_id=d.get("workerId"),
             error=d.get("error"),
             image_urls=d.get("imageUrls", []),
@@ -159,6 +178,33 @@ class Job:
             meta=d.get("meta", {}),
             ceg_template=d.get("cegTemplate", ""),
             image_uploads=d.get("imageUploads", {}),
+            worker_type=d.get("workerType"),
+        )
+
+    def clone(self) -> "Job":
+        return Job(
+            id=str(uuid.uuid4()),
+            filename=self.filename,
+            prompt=self.prompt,
+            workflow=deepcopy(self.workflow),
+            status=JobStatus.PENDING,
+            worker_id=None,
+            error=None,
+            image_urls=deepcopy(self.image_urls),
+            saved_image_hashes=[],
+            progress_percent=0.0,
+            current_node_name="",
+            total_node_count=0,
+            completed_node_count=0,
+            created_at=time.time(),
+            started_at=None,
+            finished_at=None,
+            retry_count=0,
+            execution_duration_ms=None,
+            meta=deepcopy(self.meta),
+            ceg_template=self.ceg_template,
+            image_uploads=deepcopy(self.image_uploads),
+            worker_type=self.worker_type,
         )
 
 
@@ -199,7 +245,7 @@ class JobManager:
 
         pool.set_handlers(
             on_message=self._on_worker_message,
-            on_binary=None,  # 현재 워크플로우는 SaveImage 가정 (URL 응답)
+            on_binary=self._on_worker_binary,
             on_status_change=self._on_worker_status_change,
         )
 
@@ -207,14 +253,19 @@ class JobManager:
 
     async def start(self) -> None:
         await self._store.open()
+        # DB에서 paused 상태 복원
+        paused_value = await self._store.get_setting("dispatch_paused")
+        self._paused = paused_value == "true"
+        if self._paused:
+            logger.info("dispatch paused state restored from database")
         # DB에서 기존 잡 복원
         stored = await self._store.load_all()
         async with self._lock:
             for d in stored:
                 job = Job.from_dict(d)
                 # queued/running 상태였던 잡은 pending으로 되돌림 (백엔드 재시작)
-                if job.status in ("queued", "running"):
-                    job.status = "pending"
+                if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
+                    job.status = JobStatus.PENDING
                     job.worker_id = None
                     job.progress_percent = 0.0
                     job.current_node_name = ""
@@ -229,8 +280,9 @@ class JobManager:
             self._dispatcher_task = asyncio.create_task(
                 self._dispatch_loop(), name="dispatcher"
             )
-        # 복원된 pending 잡이 있으면 디스패처 깨우기
-        self._wakeup.set()
+        # paused가 아닐 때만 복원된 pending 잡 디스패치
+        if not self._paused:
+            self._wakeup.set()
 
     async def stop(self) -> None:
         self._stopping = True
@@ -252,8 +304,8 @@ class JobManager:
             self._jobs.clear()
             for d in stored:
                 job = Job.from_dict(d)
-                if job.status in ("queued", "running"):
-                    job.status = "pending"
+                if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
+                    job.status = JobStatus.PENDING
                     job.worker_id = None
                     job.progress_percent = 0.0
                     job.current_node_name = ""
@@ -262,40 +314,60 @@ class JobManager:
                     job.started_at = None
                 self._jobs[job.id] = job
         self._wakeup.set()
-
+    async def _register_job(self, job: Job) -> None:
+        async with self._lock:
+            self._jobs[job.id] = job
+        await self._store.save(job.to_dict())
+        await self._store.save_event(
+        job.id, "created",
+        details={"filename": job.filename, "prompt": job.prompt},
+        )
+        await self._emit({"type": "job.created", "job": job.to_dict()})
     # ---------- public API ----------
+    async def retry(self, items: list[Job]) -> list[Job]:
+        new_jobs = [job.clone() for job in items]
+        
+        for job in new_jobs:
+            await self._register_job(job)
+        self._wakeup.set()
+        return new_jobs
+
+    @overload
+    async def submit(self, items: list[JobItem]) -> list[Job]: ...
+
+    @overload
+    async def submit(self, items: JobItem) -> Job: ...
+
 
     async def submit(
-        self, items: list[dict[str, Any]]
-    ) -> list[Job]:
-        """
-        items: [{filename, prompt, workflow}, ...]
-        프론트가 시드/치환 박은 워크플로우를 그대로 넘겨받는다.
-        """
-        created: list[Job] = []
-        async with self._lock:
-            for item in items:
-                job = Job(
-                    id=str(uuid.uuid4()),
-                    filename=item["filename"],
-                    prompt=item["prompt"],
-                    workflow=item["workflow"],
-                    meta=item.get("meta", {}),
-                    ceg_template=item.get("cegTemplate", ""),
-                    image_uploads=item.get("imageUploads", {}),
-                )
-                self._jobs[job.id] = job
-                created.append(job)
+        self, items: JobItem | list[JobItem]
+    ) -> Job | list[Job]:
+        if isinstance(items, JobItem):
+            return (await self._submit_many([items]))[0]
+        return await self._submit_many(items)
+
+    async def _submit_many(self, items: list[JobItem]) -> list[Job]:
+        created: list[Job] = self._create_jobs(items)
+            
+
         for job in created:
-            await self._store.save(job.to_dict())
-            await self._store.save_event(
-                job.id, "created",
-                details={"filename": job.filename, "prompt": job.prompt},
-            )
-            await self._emit({"type": "job.created", "job": job.to_dict()})
+            await self._register_job(job)
         self._wakeup.set()
         return created
-
+    def _create_jobs(self, items: list[JobItem]) -> list[Job]:
+        return [
+            Job(
+                id=str(uuid.uuid4()),
+                filename=item.filename,
+                prompt=item.prompt,
+                workflow=item.workflow.model_dump() if item.workflow else {},
+                meta=item.meta,
+                ceg_template=item.cegTemplate,
+                image_uploads=item.imageUploads,
+                worker_type=item.workerType.value if item.workerType else None,
+            )
+            for item in items
+        ]
     @property
     def paused(self) -> bool:
         return self._paused
@@ -304,6 +376,8 @@ class JobManager:
         if self._paused == paused:
             return
         self._paused = paused
+        # paused 상태를 DB에 영속화하여 재시작 시 복원
+        await self._store.save_setting("dispatch_paused", str(paused).lower())
         await self._emit({"type": "control.updated", "paused": self._paused})
         if not paused:
             # 재개 시 즉시 디스패처 깨움
@@ -311,8 +385,8 @@ class JobManager:
 
     # ---------- worker management ----------
 
-    async def add_worker(self, url: str) -> dict[str, Any]:
-        """새 ComfyUI URL 추가 (영속화 + 풀 등록 + 이벤트 브로드캐스트).
+    async def add_worker(self, url: str, *, worker_type: str = "comfyui") -> dict[str, Any]:
+        """새 워커 URL 추가 (영속화 + 풀 등록 + 이벤트 브로드캐스트).
 
         반환: 새 워커의 info dict. URL 중복이면 ValueError.
         """
@@ -321,9 +395,9 @@ class JobManager:
             raise ValueError("URL is empty")
         if self._pool.has_url(url):
             raise ValueError(f"URL already registered: {url}")
-        worker = await self._pool.add(url)
-        await self._store.add_worker_url(url)
-        view = _worker_view(worker.info())
+        worker = await self._pool.add(url, worker_type=worker_type)
+        await self._store.add_worker_url(url, worker_type=worker_type)
+        view = WorkerView.from_info(worker.info()).to_dict()
         await self._emit({"type": "worker.added", "worker": view})
         # 새 워커가 alive 되면 dispatch loop이 자동 픽업.
         return view
@@ -357,7 +431,7 @@ class JobManager:
                     (
                         j.id
                         for j in self._jobs.values()
-                        if j.status in ("pending", "queued", "running")
+                        if j.status in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING)
                     ),
                     None,
                 )
@@ -393,10 +467,10 @@ class JobManager:
             job = self._jobs.get(job_id)
             if job is None:
                 return False
-            if job.status in ("done", "error", "cancelled"):
+            if job.status in (JobStatus.DONE, JobStatus.ERROR, JobStatus.CANCELLED):
                 return False
             worker_id = job.worker_id
-            job.status = "cancelled"
+            job.status = JobStatus.CANCELLED
             job.finished_at = time.time()
             job_dict = job.to_dict()
         if worker_id is not None:
@@ -448,11 +522,17 @@ class JobManager:
 
     async def _dispatch_loop(self) -> None:
         while not self._stopping:
-            await self._wakeup.wait()
-            self._wakeup.clear()
-            if self._stopping:
+            try:
+                await self._wakeup.wait()
+                self._wakeup.clear()
+                if self._stopping:
+                    break
+                await self._try_dispatch()
+            except asyncio.CancelledError:
                 break
-            await self._try_dispatch()
+            except Exception:
+                logger.exception("dispatch_loop unexpected error")
+                await asyncio.sleep(1)
 
     async def _try_dispatch(self) -> None:
         """idle 워커가 있는 한 pending 잡을 채워 넣는다 (paused일 땐 스킵)."""
@@ -461,15 +541,17 @@ class JobManager:
                 return
             async with self._lock:
                 pending = next(
-                    (j for j in self._jobs.values() if j.status == "pending"),
+                    (j for j in self._jobs.values() if j.status == JobStatus.PENDING),
                     None,
                 )
                 if pending is None:
                     return
-                worker = self._pool.find_idle()
+                worker = self._pool.find_idle(
+                    worker_type=pending.worker_type or "comfyui"
+                )
                 if worker is None:
                     return
-                pending.status = "queued"
+                pending.status = JobStatus.QUEUED
                 pending.worker_id = worker.id
                 worker.current_job_id = pending.id
                 job_dict = pending.to_dict()
@@ -504,14 +586,28 @@ class JobManager:
                 # submit 중 취소됐다면 바로 큐에서 제거
                 async with self._lock:
                     job = self._jobs.get(job_id)
-                    was_cancelled = job is not None and job.status == "cancelled"
+                    was_cancelled = job is not None and job.status == JobStatus.CANCELLED
                 if was_cancelled:
                     await worker.delete_from_queue(job_id)
 
-    # ---------- ComfyUI raw → 정규화 ----------
+    # ---------- Worker event dispatch ----------
 
     async def _on_worker_message(
-        self, worker: ComfyWorker, payload: dict[str, Any]
+        self, worker: BaseWorker, payload: dict[str, Any]
+    ) -> None:
+        """워커 타입에 따라 이벤트 핸들러를 분기."""
+        wt = worker.worker_type
+        if wt == "comfyui" or wt is None:
+            await self._on_comfyui_message(worker, payload)
+        elif wt == "nai":
+            await self._on_nai_message(worker, payload)
+        else:
+            logger.warning(
+                "unhandled worker_type %s, ignoring message", wt
+            )
+
+    async def _on_comfyui_message(
+        self, worker: BaseWorker, payload: dict[str, Any]
     ) -> None:
         msg_type = payload.get("type")
         data = payload.get("data") or {}
@@ -541,7 +637,7 @@ class JobManager:
                 "[NODE-TRACK] execution_start: %s total_nodes=%d", prompt_id, total_nodes,
             )
             await self._update(
-                prompt_id, status="running", started_at=time.time(),
+                prompt_id, status=JobStatus.RUNNING, started_at=time.time(),
                 total_node_count=total_nodes, completed_node_count=0,
             )
             await self._store.save_event(
@@ -549,7 +645,7 @@ class JobManager:
                 worker_id=worker.id,
             )
         elif msg_type == "execution_success":
-            await self._finish(prompt_id, status="done")
+            await self._finish(prompt_id)
         elif msg_type == "execution_interrupted":
             node_type = data.get("node_type", "?")
             await self._reset_to_pending(
@@ -663,7 +759,7 @@ class JobManager:
                 current_node_name=node_name,
             )
 
-    async def _on_worker_status_change(self, worker: ComfyWorker) -> None:
+    async def _on_worker_status_change(self, worker: BaseWorker) -> None:
         # 워커가 죽었으면 그 워커가 들고 있던 잡을 pending으로 되돌림 (재시도)
         if not worker.alive and worker.current_job_id is not None:
             failed_id = worker.current_job_id
@@ -675,37 +771,66 @@ class JobManager:
         await self._emit(
             {
                 "type": "worker.updated",
-                "worker": _worker_view(worker.info()),
+                "worker": WorkerView.from_info(worker.info()).to_dict(),
             }
         )
         # 워커 살아나면 디스패처 깨우기
         if worker.alive:
             self._wakeup.set()
 
+    async def _on_worker_binary(self, worker: BaseWorker, data: bytes) -> None:
+        """바이너리 메시지 처리 (현재 미사용, 향후 NAI 등에서 활용)."""
+        logger.debug("binary message from %s: %d bytes", worker.id, len(data))
+
+    async def _on_nai_message(
+        self, worker: BaseWorker, payload: dict[str, Any]
+    ) -> None:
+        """NAI 백엔드 이벤트 핸들러 (스켈레톤 — TODO: 실제 NAI 이벤트 스펙에 맞게 구현)."""
+        logger.info("NAI message from %s: %s", worker.id, payload.get("type", "unknown"))
+
     # ---------- internal helpers ----------
 
-    async def _update(self, job_id: str, **changes: Any) -> None:
+    async def _update(
+        self,
+        job_id: str,
+        *,
+        status: Optional[JobStatus] = None,
+        started_at: Optional[float] = None,
+        total_node_count: Optional[int] = None,
+        completed_node_count: Optional[int] = None,
+        progress_percent: Optional[float] = None,
+        current_node_name: Optional[str] = None,
+        image_urls_append: Optional[list[str]] = None,
+    ) -> None:
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
                 return
-            urls_append = changes.pop("image_urls_append", None)
-            for key, value in changes.items():
-                setattr(job, key, value)
-            if urls_append:
-                job.image_urls.extend(urls_append)
+            if status is not None:
+                job.status = status
+            if started_at is not None:
+                job.started_at = started_at
+            if total_node_count is not None:
+                job.total_node_count = total_node_count
+            if completed_node_count is not None:
+                job.completed_node_count = completed_node_count
+            if progress_percent is not None:
+                job.progress_percent = progress_percent
+            if current_node_name is not None:
+                job.current_node_name = current_node_name
+            if image_urls_append is not None:
+                job.image_urls.extend(image_urls_append)
             payload = job.to_dict()
         await self._store.save(payload)
         await self._emit({"type": "job.updated", "job": payload})
 
-    async def _finish(self, job_id: str, **changes: Any) -> None:
+    async def _finish(self, job_id: str) -> None:
         worker_id_to_clear: Optional[str] = None
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
                 return
-            for key, value in changes.items():
-                setattr(job, key, value)
+            job.status = JobStatus.DONE
             job.finished_at = time.time()
             # 실행 시간 계산 (ms)
             if job.started_at is not None:
@@ -737,11 +862,11 @@ class JobManager:
             job = self._jobs.get(job_id)
             if job is None:
                 return
-            if job.status in ("cancelled", "done"):
+            if job.status in (JobStatus.CANCELLED, JobStatus.DONE):
                 return
             worker_id_to_clear = job.worker_id
             job.retry_count += 1
-            job.status = "pending"
+            job.status = JobStatus.PENDING
             job.worker_id = None
             job.error = f"[retry {job.retry_count}] {error}"
             job.progress_percent = 0.0
@@ -768,11 +893,6 @@ class JobManager:
         await asyncio.sleep(RETRY_DELAY)
         self._wakeup.set()
 
-    async def _get_dict(self, job_id: str) -> dict[str, Any]:
-        async with self._lock:
-            job = self._jobs.get(job_id)
-            return job.to_dict() if job is not None else {"id": job_id}
-
     async def _emit(self, event: NormalizedEvent) -> None:
         for listener in list(self._listeners):
             try:
@@ -783,7 +903,7 @@ class JobManager:
     # ---------- image persistence ----------
 
     async def _persist_image(
-        self, job_id: str, worker: ComfyWorker, img: dict[str, Any]
+        self, job_id: str, worker: BaseWorker, img: dict[str, Any]
     ) -> None:
         """ComfyUI 결과 이미지를 받아 sha256 이름으로 디스크에 저장 + DB 기록."""
         filename = img.get("filename", "")
@@ -798,7 +918,7 @@ class JobManager:
         try:
             try:
                 with tmp_path.open("wb") as f:
-                    async for chunk in worker.stream_view(
+                    async for chunk in worker.stream_output(
                         {"filename": filename, "subfolder": subfolder, "type": type_}
                     ):
                         if not chunk:
@@ -899,6 +1019,26 @@ class JobManager:
         await self._emit({"type": "image.curation", "hash": hash, "tags": result})
         return result
 
+    async def auto_generate_image_tags(self, hash: str) -> Optional[list[str]]:
+        if await self._store.get_saved_image(hash) is None:
+            return None
+        result = await self._store.auto_generate_tags(hash)
+        if result is not None:
+            await self._emit({"type": "image.curation", "hash": hash, "tags": result})
+        return result
+
+    async def bulk_auto_generate_image_tags(self, hashes: list[str]) -> dict[str, list[str]]:
+        result = await self._store.bulk_auto_generate_tags(hashes)
+        for h, tags in result.items():
+            await self._emit({"type": "image.curation", "hash": h, "tags": tags})
+        return result
+
+    async def auto_generate_all_empty_image_tags(self) -> dict[str, list[str]]:
+        result = await self._store.auto_generate_all_empty_tags()
+        for h, tags in result.items():
+            await self._emit({"type": "image.curation", "hash": h, "tags": tags})
+        return result
+
     async def remove_image_tag(self, hash: str, tag: str) -> Optional[list[str]]:
         if await self._store.get_saved_image(hash) is None:
             return None
@@ -923,116 +1063,7 @@ class JobManager:
                 await self._emit({"type": "image.deleted", "hash": hash_val})
         return deleted
 
-    # ---------- 재생성 ----------
 
-    async def regenerate_group(
-        self,
-        filename: str,
-        *,
-        count: int,
-        seed_strategy: str = "random",
-        template: str | None = None,
-        workflow: str | None = None,
-    ) -> list[Job]:
-        """같은 filename의 워크플로우를 재사용해 시드만 바꿔 N건 재제출.
-        workflow가 주어지면 직접 파싱해서 사용하고, template이 주어지면 렌더링해서 사용하며,
-        둘 다 없으면 가장 최근 잡의 워크플로우를 사용한다.
-        """
-        if count < 1:
-            return []
-
-        base_workflow: dict[str, Any]
-        prompt: str
-        meta: dict[str, Any]
-        ceg_template: str
-
-        if template:
-            prog = parse(template)
-            rendered = render(prog)
-            target_item = next(
-                (it for it in rendered["items"] if it["filename"] == filename),
-                None
-            )
-            if target_item is None:
-                raise ValueError(f"filename '{filename}' not found in provided template")
-            prompt = target_item["prompt"]
-            meta = target_item.get("meta", {})
-            ceg_template = template
-            if workflow:
-                base_workflow = json.loads(workflow)
-            else:
-                latest = await self._store.get_latest_job_by_filename(filename)
-                if latest is None:
-                    raise ValueError(f"no prior job for filename: {filename}")
-                base_workflow = latest["_workflow"]
-        elif workflow:
-            base_workflow = json.loads(workflow)
-            prompt = ""
-            meta = {}
-            ceg_template = ""
-        else:
-            # 2. 기존 가장 최근 잡에서 정보 추출
-            latest = await self._store.get_latest_job_by_filename(filename)
-            if latest is None:
-                raise ValueError(f"no prior job for filename: {filename}")
-            base_workflow = latest["_workflow"]
-            prompt = latest["prompt"]
-            meta = latest.get("meta", {})
-            ceg_template = latest.get("cegTemplate", "")
-
-        items: list[dict[str, Any]] = []
-        for i in range(count):
-            wf = _clone_workflow_with_new_seed(
-                base_workflow, strategy=seed_strategy, increment_offset=i + 1
-            )
-            items.append({
-                "filename": filename,
-                "prompt": prompt,
-                "workflow": wf,
-                "meta": meta,
-                "cegTemplate": ceg_template,
-            })
-        return await self.submit(items)
-
-
-# ---------- workflow seed helpers ----------
-
-_SEED_KEYS = ("seed", "noise_seed")
-_MAX_SEED = 2**32 - 1
-
-
-def _clone_workflow_with_new_seed(
-    workflow: dict[str, Any],
-    *,
-    strategy: str,
-    increment_offset: int,
-) -> dict[str, Any]:
-    """워크플로우 JSON을 깊은 복사해 seed/noise_seed를 갱신한다.
-
-    KSampler 등 시드를 갖는 모든 노드를 갱신.
-    strategy="random": 새 랜덤 시드.
-    strategy="increment": 기존 시드 + increment_offset (없으면 랜덤).
-    """
-    import copy
-
-    cloned = copy.deepcopy(workflow)
-    if not isinstance(cloned, dict):
-        return cloned
-    for node in cloned.values():
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        for key in _SEED_KEYS:
-            if key not in inputs:
-                continue
-            old = inputs[key]
-            if strategy == "increment" and isinstance(old, int):
-                inputs[key] = (old + increment_offset) & _MAX_SEED
-            else:
-                inputs[key] = random.randint(0, _MAX_SEED)
-    return cloned
 
 
 # ---------- image upload helpers ----------
@@ -1043,7 +1074,7 @@ _UPLOAD_MARKER_RE = re.compile(r"^__upload__([a-f0-9]{64})\.(png|jpg|jpeg|webp)$
 async def _resolve_image_markers(
     workflow: dict[str, Any],
     image_uploads: dict[str, dict[str, str]],
-    worker: ComfyWorker,
+    worker: BaseWorker,
 ) -> dict[str, Any]:
     """워크플로우에서 __upload__{hash}.{ext} 마커를 찾아 워커로 업로드 후 실제 파일명으로 치환.
 

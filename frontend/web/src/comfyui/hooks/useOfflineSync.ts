@@ -15,11 +15,15 @@ export function useOfflineSync() {
 
   useEffect(() => {
     // 마운트 시 즉시 한 번 시도
-    processSyncQueue().catch(() => {})
+    processSyncQueue().catch((err) => {
+      console.warn("Offline sync error:", err)
+    })
 
     // 주기적 재시도
     intervalRef.current = window.setInterval(() => {
-      processSyncQueue().catch(() => {})
+      processSyncQueue().catch((err) => {
+        console.warn("Offline sync error:", err)
+      })
     }, SYNC_INTERVAL_MS)
 
     return () => {

@@ -36,5 +36,7 @@ export default defineConfig({
     __BUNDLE_VERSION__: JSON.stringify(process.env.CEG_BUNDLE_VERSION || "dev"),
     __COMMIT__: JSON.stringify(resolveCommit()),
     __GITHUB_REPO__: JSON.stringify("nevaeh5379/ComfyEmotionGen"),
+    // Default backend port — overridden at build time via VITE_BACKEND_PORT=8080 npm run build
+    __DEFAULT_BACKEND_PORT__: JSON.stringify(process.env.VITE_BACKEND_PORT || "8000"),
   },
 })

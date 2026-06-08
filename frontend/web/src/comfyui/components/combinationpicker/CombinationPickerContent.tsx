@@ -17,6 +17,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { curationApi } from "../../hooks/useSavedImages"
+import { API, HEADERS } from "@/lib/api"
+import { useSavedWorkflows } from "../../hooks/useSavedWorkflows"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
 import {
   downloadImagesAsZip,
@@ -39,7 +41,7 @@ import type {
   CurationToolbarState,
   CurationViewMode,
 } from "./CurationToolbarTypes"
-import { useCurationToolbar } from "./CurationToolbarTypes"
+import { useCurationToolbar } from "./useCurationToolbar"
 import type { FreeGroupBy } from "./freeCurationGroupers"
 
 type ViewMode = CurationViewMode
@@ -70,6 +72,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     data,
     selection,
   } = useCurationContext()
+
+  const { saveMappingPreset, deleteMappingPreset } = useSavedWorkflows()
 
   const {
     renderItems,
@@ -136,8 +140,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // 재생성 다이얼로그 관련 상태
   const [regenDialogState, setRegenDialogState] = useState<{
     open: boolean
-    filenames: string[]
-  }>({ open: false, filenames: [] })
+    sourceImages: SavedImage[]
+  }>({ open: false, sourceImages: [] })
 
   // 미할당 이미지(고아) 관리 관련 상태
   const [unassignedSelectedFilenames, setUnassignedSelectedFilenames] =
@@ -286,7 +290,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const closeUnassignedPanel = useCallback(() => {
     curationToolbarCtx.setShowUnassignedPanel(false)
     setUnassignedSelectedFilenames(new Set())
-  }, [curationToolbarCtx.setShowUnassignedPanel])
+  }, [curationToolbarCtx])
 
   const selectedImages = useMemo(
     () =>
@@ -367,50 +371,18 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const handleContextMenuRegenerate = useCallback(
     (filename: string) => {
       if (isFreeMode && freeGroupMode !== "filename") return
-      setRegenDialogState({ open: true, filenames: [filename] })
+      const images = imagesByFilename.get(filename) ?? []
+      setRegenDialogState({ open: true, sourceImages: images })
     },
-    [isFreeMode, freeGroupMode]
+    [isFreeMode, freeGroupMode, imagesByFilename]
   )
 
-  const performRegenerate = useCallback(
-    async (count: number, template: string, workflow?: string) => {
-      if (regenAction.isLoading || regenDialogState.filenames.length === 0)
-        return
-      const filenames = regenDialogState.filenames
-      const isBulk = filenames.length > 1
-
-      const result = await regenAction.execute(
-        async () => {
-          let totalJobs = 0
-          for (const filename of filenames) {
-            const jobIds = await curationApi.regenerate(
-              backendUrl,
-              filename,
-              count,
-              "random",
-              template || undefined,
-              workflow
-            )
-            totalJobs += jobIds.length
-          }
-          return { count: filenames.length, totalJobs }
-        },
-        ({ count, totalJobs }) =>
-          isBulk
-            ? `${count}개 항목, 총 ${totalJobs}개 작업 생성 완료`
-            : `작업 ${totalJobs}개 추가됨`,
-        "재생성 실패"
-      )
-
-      if (result !== null) {
-        setRegenDialogState({ open: false, filenames: [] })
-        if (isBulk) {
-          exitSelectionMode()
-        }
-      }
-    },
-    [backendUrl, regenAction, regenDialogState.filenames, exitSelectionMode]
-  )
+  const handleRegenDone = useCallback(() => {
+    setRegenDialogState((prev) => ({ ...prev, open: false }))
+    if (regenDialogState.sourceImages.length > 1) {
+      exitSelectionMode()
+    }
+  }, [exitSelectionMode, regenDialogState.sourceImages])
 
   const handleOpen = useCallback(
     (filename: string) => {
@@ -465,11 +437,16 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const handleBulkRegenerate = useCallback(() => {
     if (selectedFilenames.size === 0) return
     if (isFreeMode && freeGroupMode !== "filename") return
+    const allImages: SavedImage[] = []
+    for (const filename of selectedFilenames) {
+      const imgs = imagesByFilename.get(filename) ?? []
+      allImages.push(...imgs)
+    }
     setRegenDialogState({
       open: true,
-      filenames: Array.from(selectedFilenames),
+      sourceImages: allImages,
     })
-  }, [selectedFilenames, isFreeMode, freeGroupMode])
+  }, [selectedFilenames, isFreeMode, freeGroupMode, imagesByFilename])
 
   const handleBulkDownload = useCallback(async () => {
     if (bulkDownloadAction.isLoading || selectedFilenames.size === 0) return
@@ -510,23 +487,23 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // ── Register toolbar handlers with context ──
   useEffect(() => {
     curationToolbarCtx.setExportHandler(handleExport)
-  }, [handleExport, curationToolbarCtx.setExportHandler])
+  }, [curationToolbarCtx, handleExport])
 
   useEffect(() => {
     curationToolbarCtx.setRefreshHandler(fetchData)
-  }, [fetchData, curationToolbarCtx.setRefreshHandler])
+  }, [curationToolbarCtx, fetchData])
 
   useEffect(() => {
     curationToolbarCtx.setUnassignedGroupsSize(unassignedGroups.size)
-  }, [unassignedGroups.size, curationToolbarCtx.setUnassignedGroupsSize])
+  }, [curationToolbarCtx, unassignedGroups.size])
 
   // autoAdvance 초기값을 autoApplyReject prop에서 동기화
   useEffect(() => {
     if (autoApplyReject) {
-      curationToolbarCtx.setAutoAdvance(true)
+      const timer = window.setTimeout(() => curationToolbarCtx.setAutoAdvance(true), 0)
+      return () => window.clearTimeout(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [autoApplyReject, curationToolbarCtx])
 
   // ── Keyboard Handler ──
   useEffect(() => {
@@ -869,12 +846,32 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           onOpenChange={(open) =>
             setRegenDialogState((prev) => ({ ...prev, open }))
           }
-          filenames={regenDialogState.filenames}
-          imagesByFilename={imagesByFilename}
+          sourceImages={regenDialogState.sourceImages}
+          backendUrl={backendUrl}
           currentCegTemplate={activeTemplate}
           savedTemplates={savedTemplates}
           savedWorkflows={savedWorkflows}
-          onRegenerate={performRegenerate}
+          saveMappingPreset={saveMappingPreset}
+          deleteMappingPreset={deleteMappingPreset}
+          onSubmit={async (items) => {
+            const result = await regenAction.execute(
+              async () => {
+                const res = await fetch(`${backendUrl}${API.jobs.root}`, {
+                  method: "POST",
+                  headers: HEADERS.json,
+                  body: JSON.stringify({ items }),
+                })
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                const data = await res.json()
+                return data.jobIds?.length ?? items.length
+              },
+              (count) => `작업 ${count}개 추가됨`,
+              "재생성 실패"
+            )
+            if (result !== null) {
+              handleRegenDone()
+            }
+          }}
           isLoading={regenAction.isLoading}
         />
 

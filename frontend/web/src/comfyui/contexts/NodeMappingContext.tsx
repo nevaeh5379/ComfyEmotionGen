@@ -1,4 +1,4 @@
-import { createContext, useEffect, useMemo, useState } from "react"
+import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import type { NodeMapping } from "@/lib/workflow"
@@ -141,28 +141,31 @@ export function NodeMappingProvider({
     return opts
   }, [parsedWorkflow, nodeMappings])
 
-  const updateMapping = (id: string, patch: Partial<NodeMapping>) =>
-    setNodeMappings((prev) =>
-      prev.map((m) => {
-        if (m.id !== id) return m
-        // sourceType가 image에서 다른 값으로 변경되면 imageValue 초기화
-        if (
-          patch.sourceType !== undefined &&
-          m.sourceType === "image" &&
-          patch.sourceType !== "image"
-        ) {
-          const next = { ...m, ...patch }
-          delete next.imageValue
-          return next
-        }
-        return { ...m, ...patch }
-      })
-    )
+  const updateMapping = useCallback(
+    (id: string, patch: Partial<NodeMapping>) =>
+      setNodeMappings((prev) =>
+        prev.map((m) => {
+          if (m.id !== id) return m
+          // sourceType가 image에서 다른 값으로 변경되면 imageValue 초기화
+          if (
+            patch.sourceType !== undefined &&
+            m.sourceType === "image" &&
+            patch.sourceType !== "image"
+          ) {
+            const next = { ...m, ...patch }
+            delete next.imageValue
+            return next
+          }
+          return { ...m, ...patch }
+        })
+      ),
+    [setNodeMappings]
+  )
 
-  const handleAutoMap = () => {
+  const handleAutoMap = useCallback(() => {
     if (!parsedWorkflow?.success) return
     setNodeMappings(buildAutoMappings(parsedWorkflow.data))
-  }
+  }, [parsedWorkflow, setNodeMappings])
 
   // 워크플로우 로드 시 nodeMappings 자동 감지 (비어있을 때만)
   useEffect(() => {
@@ -194,7 +197,7 @@ export function NodeMappingProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeMappings])
 
-  const handleImageUpload = async (
+  const handleImageUpload = useCallback(async (
     file: File,
     nodeId: string,
     inputKey: string
@@ -242,30 +245,51 @@ export function NodeMappingProvider({
         },
       }))
     }
-  }
+  }, [backendUrl, nodeMappings, updateMapping])
+
+  const value = useMemo<NodeMappingContextValue>(
+    () => ({
+      nodeMappings,
+      setNodeMappings,
+      updateMapping,
+      handleAutoMap,
+      handleImageUpload,
+      imageUploads,
+      availableNodeOptions,
+      objectInfo,
+      setObjectInfo,
+      savedNodeMappings,
+      activeNodeMappingPresetId,
+      setActiveNodeMappingPresetId,
+      activeNodeMappingPreset,
+      nodeMappingResetKey,
+      setNodeMappingResetKey,
+      saveMappingPreset,
+      deleteMappingPreset,
+    }),
+    [
+      nodeMappings,
+      setNodeMappings,
+      updateMapping,
+      handleAutoMap,
+      handleImageUpload,
+      imageUploads,
+      availableNodeOptions,
+      objectInfo,
+      setObjectInfo,
+      savedNodeMappings,
+      activeNodeMappingPresetId,
+      setActiveNodeMappingPresetId,
+      activeNodeMappingPreset,
+      nodeMappingResetKey,
+      setNodeMappingResetKey,
+      saveMappingPreset,
+      deleteMappingPreset,
+    ]
+  )
 
   return (
-    <NodeMappingContext.Provider
-      value={{
-        nodeMappings,
-        setNodeMappings,
-        updateMapping,
-        handleAutoMap,
-        handleImageUpload,
-        imageUploads,
-        availableNodeOptions,
-        objectInfo,
-        setObjectInfo,
-        savedNodeMappings,
-        activeNodeMappingPresetId,
-        setActiveNodeMappingPresetId,
-        activeNodeMappingPreset,
-        nodeMappingResetKey,
-        setNodeMappingResetKey,
-        saveMappingPreset,
-        deleteMappingPreset,
-      }}
-    >
+    <NodeMappingContext.Provider value={value}>
       {children}
     </NodeMappingContext.Provider>
   )

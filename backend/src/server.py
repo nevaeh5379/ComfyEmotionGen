@@ -26,7 +26,7 @@
     POST /trash/empty                  - 휴지통 비우기 (디스크/DB 영구 삭제)
     GET  /asset-groups                 - filename별 후보군 집계
     GET  /asset-groups/{filename}      - 그룹 내 이미지 전체
-    POST /asset-groups/{filename}/regenerate - 같은 워크플로우 새 시드로 재생성
+
     POST /export                       - 큐레이션 결과 zip 다운로드
     GET  /jobs/{id}/saved-images       - 특정 잡이 만든 영속 이미지 목록
     GET  /object_info                  - ComfyUI 노드 정의 (object_info.json)
@@ -44,26 +44,26 @@ import io
 import json
 import logging
 import mimetypes
-import re
 import zipfile
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
-from worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
-from jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
-from fastapi.staticfiles import StaticFiles
-from job_store import JobStore
-from webhook import WebhookService, WEBHOOK_EVENTS
-from _version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
+from backend.src.prompt_dsl import DSLSyntaxError, parse, render, inject_into_workflow
+from backend.src.worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
+from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
+from backend.src.job_store import JobStore
+from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
+from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
+from backend.src.workflow_models import ComfyWorkflow
+from backend.src.models import JobItem, WorkerType
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,8 @@ async def broadcast(event: dict[str, Any]) -> None:
     for ws in list(ws_clients):
         try:
             await ws.send_json(event)
-        except Exception:
+        except Exception as exc:
+            logger.warning("WebSocket broadcast 실패, 클라이언트 제거: %s", exc)
             dead.append(ws)
     for ws in dead:
         ws_clients.discard(ws)
@@ -145,6 +146,7 @@ class RenderResponse(BaseModel):
     axes: Dict[str, AxisOut] = {}
     sets: Dict[str, str] = {}
     excludes: List[ExcludeRuleOut] = []
+    template_structure: List[dict] = []
 
 
 class InjectRequest(BaseModel):
@@ -154,14 +156,6 @@ class InjectRequest(BaseModel):
     )
     placeholder: str = "{{input}}"
 
-
-class JobItem(BaseModel):
-    filename: str
-    prompt: str
-    workflow: Dict[str, Any]
-    meta: Dict[str, str] = Field(default_factory=dict)
-    cegTemplate: str = ""
-    imageUploads: Dict[str, Dict[str, str]] = Field(default_factory=dict)
 
 
 class JobsCreateRequest(BaseModel):
@@ -177,6 +171,10 @@ class TagsAddRequest(BaseModel):
     tags: List[str]
 
 
+class BulkAutoTagsRequest(BaseModel):
+    hashes: List[str]
+
+
 class ExportRequest(BaseModel):
     status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = "approved"
     filenames: Optional[List[str]] = None
@@ -184,19 +182,13 @@ class ExportRequest(BaseModel):
     duplicateStrategy: Literal["hash", "number"] = "hash"
 
 
-class RegenerateRequest(BaseModel):
-    count: int = Field(1, ge=1, le=64)
-    seedStrategy: Literal["random", "increment"] = "random"
-    template: Optional[str] = None
-    workflow: Optional[str] = None
-
-
 class JobsDeleteRequest(BaseModel):
     job_ids: list[str] = Field(..., min_length=1, description="삭제할 잡 ID 목록")
 
 
 class WorkerCreateRequest(BaseModel):
-    url: str = Field(..., description="ComfyUI 서버 URL (http://host:port)")
+    url: str = Field(..., description="워커 서버 URL (http://host:port)")
+    worker_type: str = Field("comfyui", description="워커 백엔드 타입 (comfyui, nai, ...)")
 
 
 # ====== lifespan ======
@@ -207,9 +199,9 @@ async def _resolve_initial_worker_urls(store: JobStore) -> list[str]:
 
     이후 추가/삭제는 DB가 권위. env는 첫 부팅 시 seed로만 사용.
     """
-    urls = await store.list_worker_urls()
-    if urls:
-        return urls
+    entries = await store.list_worker_urls()
+    if entries:
+        return [e["url"] for e in entries]
     env_urls = read_env_worker_urls()
     seed = env_urls or [DEFAULT_COMFYUI_URL]
     for url in seed:
@@ -382,9 +374,9 @@ def workers_list():
 
 @app.post("/workers")
 async def workers_create(req: WorkerCreateRequest):
-    """새 ComfyUI 워커 URL 등록. DB 영속화 + 풀에 추가."""
+    """새 워커 URL 등록. DB 영속화 + 풀에 추가."""
     try:
-        view = await job_manager.add_worker(req.url)
+        view = await job_manager.add_worker(req.url, worker_type=req.worker_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"worker": view}
@@ -428,6 +420,7 @@ def render_endpoint(req: RenderRequest):
         "axes": rendered["axes"],
         "sets": rendered["sets"],
         "excludes": rendered["excludes"],
+        "template_structure": rendered.get("template_structure", []),
     }
 
 
@@ -442,8 +435,8 @@ def inject_endpoint(req: InjectRequest):
 
 @app.post("/jobs")
 async def jobs_create(req: JobsCreateRequest):
-    items = [item.model_dump() for item in req.items]
-    jobs = await job_manager.submit(items)
+    # items = [item.model_dump() for item in req.items]
+    jobs = await job_manager.submit(req.items)
     return {"jobIds": [j.id for j in jobs]}
 
 
@@ -491,13 +484,12 @@ async def jobs_remove(job_id: str):
 
 @app.post("/jobs/{job_id}/retry")
 async def jobs_retry(job_id: str):
-    """동일한 filename/prompt/workflow로 새 잡을 생성한다."""
     job = await job_manager.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    new_jobs = await job_manager.submit([
-        {"filename": job.filename, "prompt": job.prompt, "workflow": job.workflow}
-    ])
+    new_jobs = await job_manager.retry([job])
+    if not new_jobs:
+        raise HTTPException(status_code=500, detail="retry failed: no new job created")
     return {"jobId": new_jobs[0].id}
 
 
@@ -557,10 +549,13 @@ async def images_view(worker_id: str, filename: str, subfolder: str = "", type: 
         raise HTTPException(status_code=404, detail="unknown worker")
 
     async def stream():
-        async for chunk in worker.stream_view(
-            {"filename": filename, "subfolder": subfolder, "type": type}
-        ):
-            yield chunk
+        try:
+            async for chunk in worker.stream_output(
+                {"filename": filename, "subfolder": subfolder, "type": type}
+            ):
+                yield chunk
+        except Exception:
+            logger.exception("stream error for worker %s", worker_id)
 
     media_type = "image/png" if filename.lower().endswith(".png") else "application/octet-stream"
     return StreamingResponse(stream(), media_type=media_type)
@@ -579,12 +574,18 @@ async def images_upload(file: UploadFile):
     if not file.filename:
         raise HTTPException(status_code=400, detail="empty filename")
     ext = Path(file.filename).suffix.lower() or ".png"
-    data = await file.read()
+    try:
+        data = await file.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="failed to read uploaded file")
     sha = hashlib.sha256(data).hexdigest()
     UPLOAD_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     target = UPLOAD_IMAGES_DIR / f"{sha}{ext}"
     if not target.exists():
-        target.write_bytes(data)
+        try:
+            target.write_bytes(data)
+        except OSError:
+            raise HTTPException(status_code=500, detail="failed to save uploaded file to disk")
     return {"hash": sha, "filename": file.filename, "name": f"{sha}{ext}"}
 
 
@@ -662,6 +663,26 @@ async def saved_image_add_tags(hash: str, body: TagsAddRequest):
     return {"hash": hash, "tags": tags}
 
 
+@app.post("/saved-images/{hash}/auto-tags")
+async def saved_image_auto_tags(hash: str):
+    tags = await job_manager.auto_generate_image_tags(hash)
+    if tags is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return {"hash": hash, "tags": tags}
+
+
+@app.post("/saved-images/auto-tags/bulk")
+async def saved_images_bulk_auto_tags(body: BulkAutoTagsRequest):
+    result = await job_manager.bulk_auto_generate_image_tags(body.hashes)
+    return {"results": result}
+
+
+@app.post("/saved-images/auto-tags/empty")
+async def saved_images_auto_tags_empty():
+    result = await job_manager.auto_generate_all_empty_image_tags()
+    return {"results": result}
+
+
 @app.delete("/saved-images/{hash}/tags/{tag}")
 async def saved_image_remove_tag(hash: str, tag: str):
     tags = await job_manager.remove_image_tag(hash, tag)
@@ -719,21 +740,6 @@ async def asset_group_detail(filename: str, status: str | None = None):
     return {"filename": filename, "items": items}
 
 
-@app.post("/asset-groups/{filename}/regenerate")
-async def asset_group_regenerate(filename: str, body: RegenerateRequest):
-    try:
-        jobs = await job_manager.regenerate_group(
-            filename,
-            count=body.count,
-            seed_strategy=body.seedStrategy,
-            template=body.template,
-            workflow=body.workflow,
-        )
-        return {"jobIds": [j.id for j in jobs]}
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-
-
 # ====== 데이터셋 익스포트 ======
 
 
@@ -759,47 +765,53 @@ async def export_dataset(body: ExportRequest):
         ]
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        manifest_lines: list[str] = []
-        metadata: list[dict[str, Any]] = []
-        used_names: set[str] = set()
-        dup_counters: dict[str, int] = {}
-        for item in items_all:
-            h = item["hash"]
-            ext = item.get("extension") or ".png"
-            disk_path = DEFAULT_IMAGES_DIR / f"{h}{ext}"
-            if not disk_path.exists():
-                continue
-            orig = item.get("originalFilename") or h
-            name = f"{orig}{ext}"
-            if name in used_names:
-                if body.duplicateStrategy == "number":
-                    dup_counters[orig] = dup_counters.get(orig, 0) + 1
-                    name = f"{orig}_{dup_counters[orig]}{ext}"
-                else:
-                    name = f"{orig}_{h[:8]}{ext}"
-            used_names.add(name)
-            zf.write(disk_path, arcname=f"images/{name}")
-            manifest_lines.append(f"{name}\t{item.get('originalFilename','')}")
-            metadata.append(
-                {
-                    "hash": h,
-                    "filename": item.get("originalFilename", ""),
-                    "prompt": item.get("prompt", ""),
-                    "status": item.get("status", ""),
-                    "tags": item.get("tags", []),
-                    "note": item.get("note", ""),
-                    "workerId": item.get("workerId"),
-                    "createdAt": item.get("createdAt"),
-                    "sizeBytes": item.get("sizeBytes", 0),
-                    "extension": ext,
-                }
+    try:
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            manifest_lines: list[str] = []
+            metadata: list[dict[str, Any]] = []
+            used_names: set[str] = set()
+            dup_counters: dict[str, int] = {}
+            for item in items_all:
+                h = item.get("hash", "")
+                if not h:
+                    continue
+                ext = item.get("extension") or ".png"
+                disk_path = DEFAULT_IMAGES_DIR / f"{h}{ext}"
+                if not disk_path.exists():
+                    continue
+                orig = item.get("originalFilename") or h
+                name = f"{orig}{ext}"
+                if name in used_names:
+                    if body.duplicateStrategy == "number":
+                        dup_counters[orig] = dup_counters.get(orig, 0) + 1
+                        name = f"{orig}_{dup_counters[orig]}{ext}"
+                    else:
+                        name = f"{orig}_{h[:8]}{ext}"
+                used_names.add(name)
+                zf.write(disk_path, arcname=f"images/{name}")
+                manifest_lines.append(f"{name}\t{item.get('originalFilename','')}")
+                metadata.append(
+                    {
+                        "hash": h,
+                        "filename": item.get("originalFilename", ""),
+                        "prompt": item.get("prompt", ""),
+                        "status": item.get("status", ""),
+                        "tags": item.get("tags", []),
+                        "note": item.get("note", ""),
+                        "workerId": item.get("workerId"),
+                        "createdAt": item.get("createdAt"),
+                        "sizeBytes": item.get("sizeBytes", 0),
+                        "extension": ext,
+                    }
+                )
+            zf.writestr(
+                "metadata.json",
+                json.dumps(metadata, ensure_ascii=False, indent=2),
             )
-        zf.writestr(
-            "metadata.json",
-            json.dumps(metadata, ensure_ascii=False, indent=2),
-        )
-        zf.writestr("manifest.txt", "\n".join(manifest_lines))
+            zf.writestr("manifest.txt", "\n".join(manifest_lines))
+    except Exception:
+        logger.exception("export dataset failed")
+        raise HTTPException(status_code=500, detail="failed to create export zip")
 
     buf.seek(0)
     headers = {
@@ -844,6 +856,34 @@ class SettingValueRequest(BaseModel):
     value: str
 
 
+class ClientLogRequest(BaseModel):
+    level: str = "error"
+    message: str
+    stack: Optional[str] = None
+    url: Optional[str] = None
+    userAgent: Optional[str] = None
+
+
+@app.post("/logs/client")
+async def client_log_endpoint(req: ClientLogRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    log_msg = f"[Client {client_ip}] {req.message}"
+    if req.url:
+        log_msg += f" (URL: {req.url})"
+    if req.userAgent:
+        log_msg += f" (UA: {req.userAgent})"
+    if req.stack:
+        log_msg += f"\nStack Trace:\n{req.stack}"
+
+    if req.level == "info":
+        logger.info(log_msg)
+    elif req.level == "warning":
+        logger.warning(log_msg)
+    else:
+        logger.error(log_msg)
+    return {"ok": True}
+
+
 # ====== 데이터베이스 관리 ======
 
 @app.get("/db/export")
@@ -884,10 +924,16 @@ async def db_import(file: UploadFile):
         raise HTTPException(status_code=500, detail=f"Failed to write database: {exc}")
     
     # 3. 새로운 DB 커넥션 오픈 및 마이그레이션 실행
-    await job_manager._store.open()
+    try:
+        await job_manager._store.open()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to open imported database: {exc}")
     
     # 4. 메모리 로드 동기화
-    await job_manager.reload_jobs()
+    try:
+        await job_manager.reload_jobs()
+    except Exception as exc:
+        logger.exception("failed to reload jobs after import")
     
     # 5. UI 동기화 이벤트 송출 (모든 클라이언트가 잡 목록을 새로고침할 수 있게 함)
     snapshot = await job_manager.snapshot()
@@ -928,18 +974,20 @@ async def app_settings_get(key: str):
 
 
 @app.put("/app-settings/{key}")
-async def app_settings_set(key: str, req: SettingValueRequest):
+async def app_settings_set(key: str, req: SettingValueRequest, request: Request):
     """설정 저장."""
+    client_id = request.headers.get("x-client-id")
     await job_manager._store.save_setting(key, req.value)
-    await broadcast({"type": "settings.updated", "key": key, "value": req.value})
+    await broadcast({"type": "settings.updated", "key": key, "value": req.value, "sender": client_id})
     return {"ok": True}
 
 
 @app.delete("/app-settings/{key}")
-async def app_settings_delete(key: str):
+async def app_settings_delete(key: str, request: Request):
     """설정 삭제."""
+    client_id = request.headers.get("x-client-id")
     await job_manager._store.delete_setting(key)
-    await broadcast({"type": "settings.updated", "key": key, "value": None})
+    await broadcast({"type": "settings.updated", "key": key, "value": None, "sender": client_id})
     return {"ok": True}
 
 
@@ -1042,7 +1090,10 @@ async def webhooks_batch_complete(req: BatchCompleteRequest):
 
 @app.websocket("/ws/events")
 async def ws_events(websocket: WebSocket):
-    await websocket.accept()
+    try:
+        await websocket.accept()
+    except Exception:
+        return
     ws_clients.add(websocket)
     try:
         # 연결 직후 현재 스냅샷 전송
@@ -1071,11 +1122,15 @@ async def ws_events(websocket: WebSocket):
                 await websocket.receive_text()
             except WebSocketDisconnect:
                 break
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.warning("ws_events error for client", exc_info=True)
     finally:
         ws_clients.discard(websocket)
 
 
-# ====== 정적 프론트엔드 서빙 (all-in-one 컨테이너 모드) ======
+# ====== 정적 프론트엔드 서빙 (단일/통합 컨테이너 모드) ======
 # CEG_STATIC_DIR이 설정되면 같은 프로세스에서 프론트 dist를 직접 서빙한다.
 # 이 라우트들은 파일 끝에 두어야 위의 API 라우트가 우선 매칭된다.
 
@@ -1084,7 +1139,7 @@ if _static_dir and Path(_static_dir).is_dir():
 
     @app.get("/config.js")
     def _config_js() -> Response:
-        # All-in-one에선 프론트와 백엔드가 같은 origin. 빈 문자열은 프론트의
+        # 단일 컨테이너에선 프론트와 백엔드가 같은 origin. 빈 문자열은 프론트의
         # `globalConfigUrl || DEFAULT`로 가려지므로 location.origin을 박는다.
         return Response(
             "window.COMFY_EMOTION_GEN_BACKEND_URL = window.location.origin;",

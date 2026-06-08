@@ -29,8 +29,10 @@ from server import app
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ComfyEmotionGen Backend Server')
-    parser.add_argument('--port', type=int, default=8000, help='Port to listen on (default: 8000)')
-    parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to bind to (default: 127.0.0.1)')
+    default_port = int(os.environ.get('BACKEND_PORT', '8000'))
+    default_host = os.environ.get('BACKEND_HOST', '127.0.0.1')
+    parser.add_argument('--port', type=int, default=default_port, help=f'Port to listen on (default: {default_port})')
+    parser.add_argument('--host', type=str, default=default_host, help=f'Host to bind to (default: {default_host})')
     args = parser.parse_args()
 
     print(f"Starting ComfyEmotionGen Backend on {args.host}:{args.port}")
