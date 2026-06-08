@@ -59,7 +59,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useTemplateContext } from "../../contexts/TemplateContext"
+import { useTemplateContext } from "../../contexts/useTemplateContext"
 import { Tabs } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -82,7 +82,7 @@ import {
   encodeAxis,
   type FreeGroupBy,
 } from "../combinationpicker/freeCurationGroupers"
-import { useCurationToolbar } from "../combinationpicker/CurationToolbarTypes"
+import { useCurationToolbar } from "../combinationpicker/useCurationToolbar"
 import { usePanelLayout } from "../../contexts/PanelLayoutContext"
 import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
 import { NAV_TABS, type TabId } from "./nav-tabs"

@@ -160,8 +160,8 @@ export interface JobsTabProps {
   setCurationSelectedAxis: (axis: string) => void
 
   // Template / workflow context values (for curation/gallery panels)
-  cegTemplate: ReturnType<typeof import("../../contexts/TemplateContext").useTemplateContext>["cegTemplate"]
-  savedTemplates: ReturnType<typeof import("../../contexts/TemplateContext").useTemplateContext>["savedTemplates"]
+  cegTemplate: ReturnType<typeof import("../../contexts/useTemplateContext").useTemplateContext>["cegTemplate"]
+  savedTemplates: ReturnType<typeof import("../../contexts/useTemplateContext").useTemplateContext>["savedTemplates"]
   savedWorkflows: ReturnType<typeof import("../../contexts/WorkflowContext").useWorkflowContext>["savedWorkflows"]
 
   // Gallery toolbar

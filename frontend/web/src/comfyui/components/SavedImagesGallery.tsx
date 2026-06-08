@@ -629,7 +629,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       })
     })
 
-    let entries = Array.from(freqMap.entries())
+    const entries = Array.from(freqMap.entries())
     if (tagSortOrder === "name") {
       entries.sort((a, b) => a[0].localeCompare(b[0]))
     } else {

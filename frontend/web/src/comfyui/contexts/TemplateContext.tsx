@@ -1,13 +1,14 @@
-import { createContext, useState, useCallback, useMemo } from "react"
-import { useContextRequired } from "@/lib/context"
+import { useState, useCallback, useMemo } from "react"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import {
   useSavedTemplates,
   type SavedTemplate,
 } from "../hooks/useSavedTemplates"
+import type { TemplateItem } from "../components/TemplateGeneratorPanel"
 import { usePendingDialog } from "./PendingDialogContext"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { toast } from "sonner"
+import { TemplateContext } from "./TemplateContextObject"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,7 +22,7 @@ export interface GeneratorToolbarProps {
   handleApply: () => void
   effectiveId: string
   setSelectedTemplateId: (id: string) => void
-  groupedTemplates: Record<string, any[]>
+  groupedTemplates: Record<string, TemplateItem[]>
   catLabel: (c: string) => string
 }
 
@@ -53,17 +54,6 @@ export interface TemplateContextValue {
 
 // ---------------------------------------------------------------------------
 // Context
-// ---------------------------------------------------------------------------
-
-const TemplateContext = createContext<TemplateContextValue | null>(null)
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useTemplateContext(): TemplateContextValue {
-  return useContextRequired(TemplateContext, "useTemplateContext")
-}
-
-// ---------------------------------------------------------------------------
-// Provider
 // ---------------------------------------------------------------------------
 
 interface TemplateProviderProps {

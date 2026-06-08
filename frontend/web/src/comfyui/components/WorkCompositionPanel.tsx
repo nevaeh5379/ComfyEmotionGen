@@ -28,7 +28,7 @@ import {
 import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
 import { NodeMappingSection } from "./NodeMappingSection"
-import { useTemplateContext } from "../contexts/TemplateContext"
+import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 

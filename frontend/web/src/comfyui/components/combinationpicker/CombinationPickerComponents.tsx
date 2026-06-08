@@ -539,12 +539,14 @@ export function RegenerateDialog({
   )
 
   useEffect(() => {
-    if (open) {
+    if (!open) return
+    const resetTimer = window.setTimeout(() => {
       setSelectedTemplateId("__current__")
       setSelectedWorkflowId("")
       setNodeMappings([])
       setImageUploads({})
-    }
+    }, 0)
+    return () => window.clearTimeout(resetTimer)
   }, [open])
 
   const handleConfirm = useCallback(async () => {

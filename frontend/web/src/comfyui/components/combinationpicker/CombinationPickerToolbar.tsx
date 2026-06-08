@@ -48,7 +48,7 @@ import {
 import { LoadingButton } from "./CombinationPickerComponents"
 import { useCurationContext } from "./CurationContext"
 import { TagInputSearch } from "../TagInputSearch"
-import { useCurationToolbar } from "./CurationToolbarTypes"
+import { useCurationToolbar } from "./useCurationToolbar"
 import {
   CURRENT_TEMPLATE_ID,
   FREE_GROUP_LABELS,

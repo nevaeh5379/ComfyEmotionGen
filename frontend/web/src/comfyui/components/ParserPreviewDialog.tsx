@@ -47,10 +47,10 @@ export const ParserPreviewDialog = ({
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null)
 
-  const items = renderResponse?.items ?? []
-  const axes = renderResponse?.axes ?? {}
-  const sets = renderResponse?.sets ?? {}
-  const lines = renderResponse?.template_structure ?? []
+  const items = useMemo(() => renderResponse?.items ?? [], [renderResponse])
+  const axes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
+  const sets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
+  const lines = useMemo(() => renderResponse?.template_structure ?? [], [renderResponse])
 
   const filteredItems = useMemo(() => {
     if (!searchInput.trim()) return items

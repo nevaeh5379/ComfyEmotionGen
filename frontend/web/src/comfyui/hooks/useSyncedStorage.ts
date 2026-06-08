@@ -102,7 +102,7 @@ export function useSyncedStorage<T>(
         return defaultValueRef.current
       }
     },
-    [isStringDefault]
+    [isStringDefault, key]
   )
 
   const valueRef = useRef<T>(value)

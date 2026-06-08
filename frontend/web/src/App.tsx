@@ -16,7 +16,7 @@ import { useBackendUrl } from "./comfyui/hooks/useBackendUrl"
 
 // ── Contexts ──
 import { CurationToolbarProvider } from "./comfyui/components/combinationpicker/CurationToolbarTypes"
-import { useTemplateContext } from "./comfyui/contexts/TemplateContext"
+import { useTemplateContext } from "./comfyui/contexts/useTemplateContext"
 import { useWorkflowContext } from "./comfyui/contexts/WorkflowContext"
 import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
 import { TemplateProvider } from "./comfyui/contexts/TemplateContext"

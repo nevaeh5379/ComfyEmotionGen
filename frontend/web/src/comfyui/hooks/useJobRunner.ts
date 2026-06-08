@@ -9,7 +9,7 @@ import {
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
-import { useTemplateContext } from "../contexts/TemplateContext"
+import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 import { useBackendUrl } from "./useBackendUrl"
@@ -37,8 +37,6 @@ export function useJobRunner() {
   // CEG 템플릿 변경 시 자동 파싱 (debounce)
   useEffect(() => {
     if (!isAliveBackend || !cegTemplate.trim()) {
-      setFakeJobQueue([])
-      setRenderResponse(null)
       return
     }
     const controller = new AbortController()
@@ -144,9 +142,16 @@ export function useJobRunner() {
     }
   }, [backendUrl, workflowJson, nodeMappings, cegTemplate])
 
+  const canUseParsedTemplate = isAliveBackend && cegTemplate.trim()
+  const activeFakeJobQueue = useMemo(
+    () => (canUseParsedTemplate ? fakeJobQueue : []),
+    [canUseParsedTemplate, fakeJobQueue]
+  )
+  const activeRenderResponse = canUseParsedTemplate ? renderResponse : null
+
   const axisFilteredItems = useMemo(
-    () => applyAxisFilters(fakeJobQueue, axisValueFilter),
-    [fakeJobQueue, axisValueFilter]
+    () => applyAxisFilters(activeFakeJobQueue, axisValueFilter),
+    [activeFakeJobQueue, axisValueFilter]
   )
 
   const handleRun = useCallback(async () => {
@@ -198,7 +203,7 @@ export function useJobRunner() {
   const checkAllItems = useCallback(() => setUncheckedItems(new Set()), [])
   
   const uncheckAllItems = useCallback(() =>
-    setUncheckedItems(new Set(fakeJobQueue.map(itemKey))), [fakeJobQueue])
+    setUncheckedItems(new Set(activeFakeJobQueue.map(itemKey))), [activeFakeJobQueue])
 
   const toggleAxisCollapse = useCallback((axis: string) =>
     setCollapsedAxes((prev) => {
@@ -210,21 +215,21 @@ export function useJobRunner() {
 
   const estimatedRunCount = useMemo(
     () =>
-      fakeJobQueue.length > 0
-        ? applyAxisFilters(fakeJobQueue, axisValueFilter).length
+      activeFakeJobQueue.length > 0
+        ? applyAxisFilters(activeFakeJobQueue, axisValueFilter).length
         : null,
-    [fakeJobQueue, axisValueFilter]
+    [activeFakeJobQueue, axisValueFilter]
   )
 
   const axisExcludedItems = useMemo(() => {
     const includedSet = new Set(axisFilteredItems.map(itemKey))
-    return fakeJobQueue.filter((item) => !includedSet.has(itemKey(item)))
-  }, [fakeJobQueue, axisFilteredItems])
+    return activeFakeJobQueue.filter((item) => !includedSet.has(itemKey(item)))
+  }, [activeFakeJobQueue, axisFilteredItems])
 
   const filteredByAxisSet = useMemo(() => {
     if (Object.keys(axisValueFilter).length === 0) return null
-    return new Set(applyAxisFilters(fakeJobQueue, axisValueFilter).map(itemKey))
-  }, [fakeJobQueue, axisValueFilter])
+    return new Set(applyAxisFilters(activeFakeJobQueue, axisValueFilter).map(itemKey))
+  }, [activeFakeJobQueue, axisValueFilter])
 
   const hasActiveFilter = useMemo(
     () =>
@@ -236,16 +241,16 @@ export function useJobRunner() {
 
   const selectedCount = useMemo(
     () =>
-      fakeJobQueue.length > 0
-        ? fakeJobQueue.filter((item) => !uncheckedItems.has(itemKey(item)))
+      activeFakeJobQueue.length > 0
+        ? activeFakeJobQueue.filter((item) => !uncheckedItems.has(itemKey(item)))
             .length
         : null,
-    [fakeJobQueue, uncheckedItems]
+    [activeFakeJobQueue, uncheckedItems]
   )
 
   return {
-    fakeJobQueue,
-    renderResponse,
+    fakeJobQueue: activeFakeJobQueue,
+    renderResponse: activeRenderResponse,
     parserError,
     axisValueFilter,
     setAxisValueFilter,

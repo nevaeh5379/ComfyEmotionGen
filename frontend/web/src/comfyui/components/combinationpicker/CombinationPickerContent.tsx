@@ -41,7 +41,7 @@ import type {
   CurationToolbarState,
   CurationViewMode,
 } from "./CurationToolbarTypes"
-import { useCurationToolbar } from "./CurationToolbarTypes"
+import { useCurationToolbar } from "./useCurationToolbar"
 import type { FreeGroupBy } from "./freeCurationGroupers"
 
 type ViewMode = CurationViewMode
@@ -290,7 +290,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const closeUnassignedPanel = useCallback(() => {
     curationToolbarCtx.setShowUnassignedPanel(false)
     setUnassignedSelectedFilenames(new Set())
-  }, [curationToolbarCtx.setShowUnassignedPanel])
+  }, [curationToolbarCtx])
 
   const selectedImages = useMemo(
     () =>
@@ -487,23 +487,23 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // ── Register toolbar handlers with context ──
   useEffect(() => {
     curationToolbarCtx.setExportHandler(handleExport)
-  }, [handleExport, curationToolbarCtx.setExportHandler])
+  }, [curationToolbarCtx, handleExport])
 
   useEffect(() => {
     curationToolbarCtx.setRefreshHandler(fetchData)
-  }, [fetchData, curationToolbarCtx.setRefreshHandler])
+  }, [curationToolbarCtx, fetchData])
 
   useEffect(() => {
     curationToolbarCtx.setUnassignedGroupsSize(unassignedGroups.size)
-  }, [unassignedGroups.size, curationToolbarCtx.setUnassignedGroupsSize])
+  }, [curationToolbarCtx, unassignedGroups.size])
 
   // autoAdvance 초기값을 autoApplyReject prop에서 동기화
   useEffect(() => {
     if (autoApplyReject) {
-      curationToolbarCtx.setAutoAdvance(true)
+      const timer = window.setTimeout(() => curationToolbarCtx.setAutoAdvance(true), 0)
+      return () => window.clearTimeout(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [autoApplyReject, curationToolbarCtx])
 
   // ── Keyboard Handler ──
   useEffect(() => {

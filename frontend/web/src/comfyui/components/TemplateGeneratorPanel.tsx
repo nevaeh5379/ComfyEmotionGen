@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/resizable"
 
 import CodeEditor from "@/components/CodeEditor"
-import { useTemplateContext } from "../contexts/TemplateContext"
+import { useTemplateContext } from "../contexts/useTemplateContext"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
@@ -68,7 +68,19 @@ interface VisualAxisEntry { id: string; key: string; value: string; properties: 
 interface VisualAxis { id: string; name: string; include: string; entries: VisualAxisEntry[] }
 interface VisualCombine { id: string; expression: string }
 interface VisualExclude { id: string; statement: string }
-interface TemplateItem { id: string; name: string; category: string; code: string; savedAt?: number }
+export interface TemplateItem { id: string; name: string; category: string; code: string; savedAt?: number }
+interface LoadedFileTemplate { name: string; code: string; savedAt: number }
+interface TemplateDraft {
+  sourceId: string | null
+  variables: VisualVariable[]
+  cleanFilename: boolean
+  axes: VisualAxis[]
+  combines: VisualCombine[]
+  excludes: VisualExclude[]
+  templateBody: string
+  filenameBody: string
+  saveName: string
+}
 
 // ── localStorage helpers ─────────────────────────────────────────────
 
@@ -94,6 +106,20 @@ function saveString(key: string, value: string) {
   try { localStorage.setItem(key, value) } catch { /* ignore */ }
 }
 
+function emptyDraft(sourceId: string | null, saveName = ""): TemplateDraft {
+  return {
+    sourceId,
+    variables: [],
+    cleanFilename: true,
+    axes: [],
+    combines: [],
+    excludes: [],
+    templateBody: "",
+    filenameBody: "",
+    saveName,
+  }
+}
+
 // ── Collapsible Section ────────────────────────────────────────────────
 
 function CollapsibleSection({ value, open, onToggle, icon, label, count, children }: {
@@ -107,22 +133,6 @@ function CollapsibleSection({ value, open, onToggle, icon, label, count, childre
 }) {
   const Icon = icon
   const contentRef = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState<number | undefined>(undefined)
-
-  useEffect(() => {
-    if (!open) {
-      setHeight(0)
-      return
-    }
-    const el = contentRef.current
-    if (!el) return
-    const observer = new ResizeObserver(() => {
-      setHeight(el.scrollHeight)
-    })
-    observer.observe(el)
-    setHeight(el.scrollHeight)
-    return () => observer.disconnect()
-  }, [open])
 
   return (
     <div className="border-b last:border-b-0">
@@ -139,7 +149,7 @@ function CollapsibleSection({ value, open, onToggle, icon, label, count, childre
       </button>
       <div
         className="overflow-hidden transition-[height] duration-200 ease-in-out"
-        style={{ height: open ? height ?? "auto" : 0 }}
+        style={{ height: open ? "auto" : 0 }}
       >
         <div ref={contentRef} className="pb-3">
           {children}
@@ -181,9 +191,9 @@ function parseCegTemplate(code: string) {
     }
     axes.push({ id: `a-${ai++}`, name: match[1] || "", include: match[2] || "", entries })
   }
-  const cbRe = /\{\{\s*combine\s+([^\}]+)\s*\}\}/g; let ci = 0
+  const cbRe = /\{\{\s*combine\s+([^}]+)\s*\}\}/g; let ci = 0
   while ((match = cbRe.exec(code)) !== null) { const e = (match[1] || "").trim(); if (!e.startsWith("/")) combines.push({ id: `c-${ci++}`, expression: e }) }
-  const exRe = /\{\{\s*exclude\s+([^\}]+)\s*\}\}/g; let xi = 0
+  const exRe = /\{\{\s*exclude\s+([^}]+)\s*\}\}/g; let xi = 0
   while ((match = exRe.exec(code)) !== null) excludes.push({ id: `ex-${xi++}`, statement: (match[1] || "").trim() })
   const tm = /\{\{\s*template\s*\}\}([\s\S]*?)\{\{\s*\/template\s*\}\}/i.exec(code); if (tm) templateBody = tm[1] || ""
   const fn = /\{\{\s*filename\s*\}\}([\s\S]*?)\{\{\s*\/filename\s*\}\}/i.exec(code); if (fn) filenameBody = fn[1] || ""
@@ -250,23 +260,15 @@ export function TemplateGeneratorPanel({
 }) {
   const { savedTemplates, setCegTemplate, saveTemplate, setTemplateResetKey, setGeneratorToolbarProps } = useTemplateContext()
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
-  const [loadedFileTemplate, setLoadedFileTemplate] = useState<{ name: string; code: string } | null>(null)
-  const [variables, setVariables] = useState<VisualVariable[]>([])
-  const [cleanFilename, setCleanFilename] = useState<boolean>(true)
-  const [axes, setAxes] = useState<VisualAxis[]>([])
-  const [combines, setCombines] = useState<VisualCombine[]>([])
-  const [excludes, setExcludes] = useState<VisualExclude[]>([])
-  const [templateBody, setTemplateBody] = useState("")
-  const [filenameBody, setFilenameBody] = useState("")
-  const [saveName, setSaveName] = useState("")
+  const [loadedFileTemplate, setLoadedFileTemplate] = useState<LoadedFileTemplate | null>(null)
+  const [draft, setDraft] = useState<TemplateDraft>(() => emptyDraft(null))
   const [copied, setCopied] = useState(false)
   const [systemTemplates, setSystemTemplates] = useState<TemplateItem[]>([])
-  const prevActiveTemplateIdRef = useRef<string | null>(null)
   const [accordionValue, setAccordionValue] = useState<Set<string>>(() => { const s = loadSet(STORAGE_KEYS.accordionSections); return s.size > 0 ? s : new Set(["axes"]) })
   const [mobileTab, setMobileTab] = useState(() => loadString(STORAGE_KEYS.mobileTab, "edit"))
   const [parserError, setParserError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
+  const [parserRenderResponse, setParserRenderResponse] = useState<RenderItemsResponse | null>(null)
   const [previewFilter, setPreviewFilter] = useState("")
   const [expandedItemKey, setExpandedItemKey] = useState<string | null>(null)
   const [expandedAxes, setExpandedAxes] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.expandedAxes))
@@ -315,10 +317,10 @@ export function TemplateGeneratorPanel({
           if (content) {
             try {
               // Dynamically set the loaded template details
-              setLoadedFileTemplate({ name: file.name, code: content })
+              setLoadedFileTemplate({ name: file.name, code: content, savedAt: Date.now() })
               setSelectedTemplateId("loaded")
               toast.success(`템플릿 '${name}' 불러오기 완료!`)
-            } catch (err) {
+            } catch {
               toast.error("템플릿 파싱에 실패했습니다.")
             }
           }
@@ -346,10 +348,10 @@ export function TemplateGeneratorPanel({
 
   const combinedTemplates = useMemo<TemplateItem[]>(() => {
     const list: TemplateItem[] = [
-      { id: "new", name: "새 템플릿", category: "new", code: "", savedAt: Date.now() }
+      { id: "new", name: "새 템플릿", category: "new", code: "", savedAt: 0 }
     ]
     if (loadedFileTemplate) {
-      list.push({ id: "loaded", name: `[파일] ${loadedFileTemplate.name}`, category: "loaded", code: loadedFileTemplate.code, savedAt: Date.now() })
+      list.push({ id: "loaded", name: `[파일] ${loadedFileTemplate.name}`, category: "loaded", code: loadedFileTemplate.code, savedAt: loadedFileTemplate.savedAt })
     }
     return [
       ...list,
@@ -369,56 +371,72 @@ export function TemplateGeneratorPanel({
   const activeTemplate = useMemo(() => combinedTemplates.find((t) => t.id === effectiveId) || null, [combinedTemplates, effectiveId])
 
   const curId = activeTemplate?.id ?? null
-  useEffect(() => {
-    if (curId === prevActiveTemplateIdRef.current) return
-    prevActiveTemplateIdRef.current = curId
-    if (activeTemplate) {
-      if (activeTemplate.id === "new") {
-        setVariables([])
-        setAxes([])
-        setCombines([])
-        setExcludes([])
-        setTemplateBody("")
-        setFilenameBody("")
-        setCleanFilename(true)
-        setSaveName("새 템플릿")
-      } else if (activeTemplate.id === "loaded") {
-        const p = parseCegTemplate(activeTemplate.code)
-        setVariables(p.variables)
-        setAxes(p.axes)
-        setCombines(p.combines)
-        setExcludes(p.excludes)
-        setTemplateBody(p.templateBody)
-        setFilenameBody(p.filenameBody)
-        setCleanFilename(p.cleanFilename)
-        const baseName = activeTemplate.name.substring(0, activeTemplate.name.lastIndexOf(".")) || activeTemplate.name
-        setSaveName(baseName.replace(/^\[파일\]\s*/, ""))
-      } else {
-        const p = parseCegTemplate(activeTemplate.code)
-        setVariables(p.variables)
-        setAxes(p.axes)
-        setCombines(p.combines)
-        setExcludes(p.excludes)
-        setTemplateBody(p.templateBody)
-        setFilenameBody(p.filenameBody)
-        setCleanFilename(p.cleanFilename)
-        setSaveName(`${activeTemplate.name} 커스텀`)
-      }
-    } else {
-      setVariables([])
-      setAxes([])
-      setCombines([])
-      setExcludes([])
-      setTemplateBody("")
-      setFilenameBody("")
-      setCleanFilename(true)
-      setSaveName("")
+  const templateDraft = useMemo<TemplateDraft>(() => {
+    if (!activeTemplate) return emptyDraft(null)
+    if (activeTemplate.id === "new") return emptyDraft(activeTemplate.id, "새 템플릿")
+
+    const parsed = parseCegTemplate(activeTemplate.code)
+    const baseName =
+      activeTemplate.id === "loaded"
+        ? (activeTemplate.name.substring(0, activeTemplate.name.lastIndexOf(".")) || activeTemplate.name).replace(/^\[파일\]\s*/, "")
+        : `${activeTemplate.name} 커스텀`
+
+    return {
+      sourceId: activeTemplate.id,
+      variables: parsed.variables,
+      cleanFilename: parsed.cleanFilename,
+      axes: parsed.axes,
+      combines: parsed.combines,
+      excludes: parsed.excludes,
+      templateBody: parsed.templateBody,
+      filenameBody: parsed.filenameBody,
+      saveName: baseName,
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [curId, activeTemplate])
+  }, [activeTemplate])
 
+  const activeDraft = draft.sourceId === curId ? draft : templateDraft
+  const {
+    variables,
+    cleanFilename,
+    axes,
+    combines,
+    excludes,
+    templateBody,
+    filenameBody,
+    saveName,
+  } = activeDraft
 
+  const updateDraft = useCallback(
+    (updater: (prev: TemplateDraft) => TemplateDraft) => {
+      setDraft((prev) => updater(prev.sourceId === curId ? prev : templateDraft))
+    },
+    [curId, templateDraft]
+  )
 
+  const setVariables: React.Dispatch<React.SetStateAction<VisualVariable[]>> = useCallback((value) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, variables: typeof value === "function" ? value(prev.variables) : value }))
+  }, [curId, updateDraft])
+  const setCleanFilename: React.Dispatch<React.SetStateAction<boolean>> = useCallback((value) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, cleanFilename: typeof value === "function" ? value(prev.cleanFilename) : value }))
+  }, [curId, updateDraft])
+  const setAxes: React.Dispatch<React.SetStateAction<VisualAxis[]>> = useCallback((value) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, axes: typeof value === "function" ? value(prev.axes) : value }))
+  }, [curId, updateDraft])
+  const setCombines: React.Dispatch<React.SetStateAction<VisualCombine[]>> = useCallback((value) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, combines: typeof value === "function" ? value(prev.combines) : value }))
+  }, [curId, updateDraft])
+  const setExcludes: React.Dispatch<React.SetStateAction<VisualExclude[]>> = useCallback((value) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, excludes: typeof value === "function" ? value(prev.excludes) : value }))
+  }, [curId, updateDraft])
+  const setTemplateBody: React.Dispatch<React.SetStateAction<string>> = useCallback((value) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, templateBody: typeof value === "function" ? value(prev.templateBody) : value }))
+  }, [curId, updateDraft])
+  const setFilenameBody: React.Dispatch<React.SetStateAction<string>> = useCallback((value) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, filenameBody: typeof value === "function" ? value(prev.filenameBody) : value }))
+  }, [curId, updateDraft])
+  const setSaveName = useCallback((value: string) => {
+    updateDraft((prev) => ({ ...prev, sourceId: curId, saveName: value }))
+  }, [curId, updateDraft])
 
   // Handlers
   const addVar = () => setVariables((p) => [...p, { id: `v-${Date.now()}`, name: `var_${p.length + 1}`, value: "" }])
@@ -443,10 +461,10 @@ export function TemplateGeneratorPanel({
   const setPropV = (axId: string, eId: string, pId: string, n: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.map((pp) => (pp.id === pId ? { ...pp, value: n } : pp)) }) }))
   const delProp = (axId: string, eId: string, pId: string) => setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.filter((pp) => pp.id !== pId) }) }))
   const addCombine = () => setCombines((p) => [...p, { id: `c-${Date.now()}`, expression: "" }])
-  const setCombExpr = (id: string, n: string) => setCombines((p) => p.map((c) => (c.id === id ? { ...c, expression: n } : c)))
+  const setCombExpr = useCallback((id: string, n: string) => setCombines((p) => p.map((c) => (c.id === id ? { ...c, expression: n } : c))), [setCombines])
   const delCombine = (id: string) => setCombines((p) => p.filter((c) => c.id !== id))
   const addExclude = () => setExcludes((p) => [...p, { id: `ex-${Date.now()}`, statement: "" }])
-  const setExclStmt = (id: string, n: string) => setExcludes((p) => p.map((e) => (e.id === id ? { ...e, statement: n } : e)))
+  const setExclStmt = useCallback((id: string, n: string) => setExcludes((p) => p.map((e) => (e.id === id ? { ...e, statement: n } : e))), [setExcludes])
   const delExclude = (id: string) => setExcludes((p) => p.filter((e) => e.id !== id))
 
   const insertToCombine = useCallback((combineId: string, text: string) => {
@@ -462,7 +480,7 @@ export function TemplateGeneratorPanel({
     } else {
       setCombExpr(combineId, (combines.find((c) => c.id === combineId)?.expression ?? "") + (combines.find((c) => c.id === combineId)?.expression && !combines.find((c) => c.id === combineId)?.expression.endsWith(" ") ? " " : "") + text)
     }
-  }, [combines])
+  }, [combines, setCombExpr])
 
   const insertToExclude = useCallback((excludeId: string, text: string) => {
     const el = excludeInputRefs.current[excludeId]
@@ -477,7 +495,7 @@ export function TemplateGeneratorPanel({
     } else {
       setExclStmt(excludeId, (excludes.find((e) => e.id === excludeId)?.statement ?? "") + text)
     }
-  }, [excludes])
+  }, [excludes, setExclStmt])
 
   const insertToTemplate = useCallback((text: string) => {
     const el = templateTextareaRef.current
@@ -489,7 +507,7 @@ export function TemplateGeneratorPanel({
     } else {
       setTemplateBody(templateBody + text)
     }
-  }, [templateBody])
+  }, [setTemplateBody, templateBody])
 
   const toggleSection = (key: string) => setAccordionValue((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); saveSet(STORAGE_KEYS.accordionSections, next); return next })
 
@@ -528,21 +546,21 @@ export function TemplateGeneratorPanel({
 
   useEffect(() => {
     if (!generatedCode.trim()) {
-      setRenderResponse(null)
       return
     }
     const ctrl = new AbortController()
-    const t = setTimeout(async () => { setIsLoading(true); setParserError(null); try { const r = await fetch(`${backendUrl}${API.render}`, { method: "POST", headers: HEADERS.json, body: JSON.stringify({ template: generatedCode }), signal: ctrl.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); setRenderResponse((await r.json()) as RenderItemsResponse) } catch (e) { if (e instanceof Error && e.name === "AbortError") return; setParserError(e instanceof Error ? e.message : String(e)); setRenderResponse(null) } finally { setIsLoading(false) } }, CEG_TEMPLATE_DEBOUNCE_MS)
+    const t = setTimeout(async () => { setIsLoading(true); setParserError(null); try { const r = await fetch(`${backendUrl}${API.render}`, { method: "POST", headers: HEADERS.json, body: JSON.stringify({ template: generatedCode }), signal: ctrl.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); setParserRenderResponse((await r.json()) as RenderItemsResponse) } catch (e) { if (e instanceof Error && e.name === "AbortError") return; setParserError(e instanceof Error ? e.message : String(e)); setParserRenderResponse(null) } finally { setIsLoading(false) } }, CEG_TEMPLATE_DEBOUNCE_MS)
     return () => { clearTimeout(t); ctrl.abort() }
   }, [generatedCode, backendUrl])
 
+  const renderResponse = generatedCode.trim() ? parserRenderResponse : null
   const activeQueue = useMemo(() => (generatedCode.trim() ? renderResponse?.items ?? [] : []), [generatedCode, renderResponse])
   const renderAxes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
   const renderSets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
   const filtered = useMemo(() => { const n = previewFilter.trim().toLowerCase(); if (!n) return activeQueue; return activeQueue.filter((i) => substitute(i.filename, i).toLowerCase().includes(n) || substitute(i.prompt, i).toLowerCase().includes(n)) }, [activeQueue, previewFilter])
 
-  const handleApply = () => { if (!generatedCode) return; setCegTemplate(generatedCode); toast.success("작업 탭에 적용되었습니다."); setActiveTab("jobs") }
-  const handleSave = () => {
+  const handleApply = useCallback(() => { if (!generatedCode) return; setCegTemplate(generatedCode); toast.success("작업 탭에 적용되었습니다."); setActiveTab("jobs") }, [generatedCode, setActiveTab, setCegTemplate])
+  const handleSave = useCallback(() => {
     const trimmedName = saveName.trim()
     if (!trimmedName) {
       toast.error("저장할 이름을 입력해 주세요.")
@@ -559,11 +577,11 @@ export function TemplateGeneratorPanel({
     setTemplateResetKey((k) => k + 1)
     setSelectedTemplateId(saved.id)
     toast.success(`'${trimmedName}' 저장됨`)
-  }
+  }, [activeTemplate, generatedCode, saveName, saveTemplate, savedTemplates, setTemplateResetKey])
   const handleCopy = async () => { try { await navigator.clipboard.writeText(generatedCode); setCopied(true); toast.success("복사됨"); setTimeout(() => setCopied(false), 2000) } catch { toast.error("복사 실패") } }
   const handleDownload = () => { const u = URL.createObjectURL(new Blob([generatedCode], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = u; a.download = `${saveName.replace(/\s+/g, "_") || "template"}.template`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); toast.success("다운로드 완료") }
 
-  const catLabel = (c: string) => (c === "saved" ? "내 저장" : c)
+  const catLabel = useCallback((c: string) => (c === "saved" ? "내 저장" : c), [])
 
   useEffect(() => {
     if (activeTemplate) {
@@ -586,9 +604,13 @@ export function TemplateGeneratorPanel({
     activeTemplate,
     generatedCode,
     saveName,
+    setSaveName,
     effectiveId,
     setSelectedTemplateId,
     groupedTemplates,
+    handleApply,
+    handleSave,
+    catLabel,
     setGeneratorToolbarProps,
   ])
 
