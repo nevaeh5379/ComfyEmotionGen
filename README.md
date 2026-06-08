@@ -1,9 +1,9 @@
 # ComfyEmotionGen
 
 ## 빠른 시작
-### docker
-- 일반: ```docker run -p 6974:6974 -p 5882:5882 ghcr.io/nevaeh5379/comfyemotiongen:webui```
-- 개발버전: ```docker run -p 6974:6974 -p 5882:5882 ghcr.io/nevaeh5379/comfyemotiongen:webui-dev```
+### Docker
+- 일반: `docker run -p 6974:6974 -p 5882:5882 ghcr.io/nevaeh5379/comfyemotiongen:webui`
+- 개발버전: `docker run -p 6974:6974 -p 5882:5882 ghcr.io/nevaeh5379/comfyemotiongen:webui-dev`
 
 도커 실행 후 http://localhost:6974 접속하기
 
@@ -34,6 +34,6 @@ http://localhost:6974 접속하기
 #### Windows
 ```ps1
 git clone https://github.com/nevaeh5379/ComfyEmotionGen.git
-cd ComfyEmotionGen &&./install.ps1 &&./run.ps1
+cd ComfyEmotionGen; ./install.ps1; ./run.ps1
 ```
 http://localhost:6974 접속하기
