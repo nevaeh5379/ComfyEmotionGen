@@ -5,7 +5,7 @@ server.py ↔ jobs.py 순환 임포트 해결을 위해 분리됨.
 from __future__ import annotations
 
 from enum import StrEnum, auto
-from typing import Dict
+from typing import Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -35,3 +35,4 @@ class JobItem(BaseModel):
     cegTemplate: str = ""
     imageUploads: Dict[str, Dict[str, str]] = Field(default_factory=dict)
     workerType: WorkerType
+    workerId: Optional[str] = Field(None, description="타겟 워커 ID (None이면 자동 배분)")

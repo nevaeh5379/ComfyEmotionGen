@@ -57,6 +57,8 @@ interface JobRunnerState {
   handleRunUnapproved: () => void
   randomRunCount: number
   setRandomRunCount: React.Dispatch<React.SetStateAction<number>>
+  targetWorkerId: string | null
+  setTargetWorkerId: React.Dispatch<React.SetStateAction<string | null>>
 }
 
 /** Window manager state (subset used by JobsTab) */
@@ -276,6 +278,8 @@ export function JobsTab({
     estimatedRunCount,
     fakeJobQueue,
     hasActiveFilter,
+    targetWorkerId,
+    setTargetWorkerId,
   } = runner
 
   const {
@@ -303,6 +307,9 @@ export function JobsTab({
               estimatedRunCount={estimatedRunCount}
               canRun={canRun}
               previewCount={fakeJobQueue.length}
+              workers={workers}
+              targetWorkerId={targetWorkerId}
+              setTargetWorkerId={setTargetWorkerId}
               compositionTab={compositionTab}
               setCompositionTab={setCompositionTab}
               onPreviewOpen={() => setIsSheetOpen(true)}
@@ -643,6 +650,9 @@ export function JobsTab({
               estimatedRunCount={estimatedRunCount}
               canRun={canRun}
               previewCount={fakeJobQueue.length}
+              workers={workers}
+              targetWorkerId={targetWorkerId}
+              setTargetWorkerId={setTargetWorkerId}
               compositionTab={compositionTab}
               setCompositionTab={setCompositionTab}
               onPreviewOpen={() => setIsSheetOpen(true)}

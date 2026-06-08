@@ -31,6 +31,7 @@ import { NodeMappingSection } from "./NodeMappingSection"
 import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
+import type { WorkerView } from "../types/Message"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,23 +71,22 @@ export interface WorkCompositionPanelProps {
   estimatedRunCount: number | null
   canRun: boolean
   previewCount: number
-
+  workers: WorkerView[]
+  targetWorkerId: string | null
+  setTargetWorkerId: (value: string | null) => void
   // Composition tab
   compositionTab: "ceg" | "workflow"
   setCompositionTab: (tab: "ceg" | "workflow") => void
-
   // UI Callbacks
   onPreviewOpen: () => void
   onAxisFilterOpen: () => void
   onSelectionOpen: () => void
   hasActiveFilter: boolean
   onGraphOpen: () => void
-
   // Floating Window controls
   isFloating?: boolean
   onFloatToggle?: () => void
   onHeaderDragStart?: (e: React.MouseEvent) => void
-
   // Layout orientation
   jobsLayoutOrientation?: "horizontal" | "vertical"
   onToggleJobsLayoutOrientation?: () => void
@@ -107,6 +107,9 @@ export function WorkCompositionPanel({
   estimatedRunCount,
   canRun,
   previewCount,
+  workers,
+  targetWorkerId,
+  setTargetWorkerId,
   compositionTab,
   setCompositionTab,
   onPreviewOpen,
@@ -273,6 +276,9 @@ export function WorkCompositionPanel({
                 hasActiveFilter={hasActiveFilter}
                 onAxisFilterOpen={onAxisFilterOpen}
                 onGraphOpen={onGraphOpen}
+                workers={workers}
+                targetWorkerId={targetWorkerId}
+                setTargetWorkerId={setTargetWorkerId}
                 className="hidden md:flex"
               />
               {onToggleJobsLayoutOrientation && jobsLayoutOrientation && (

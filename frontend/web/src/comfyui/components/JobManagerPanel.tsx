@@ -468,7 +468,19 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       toast.error("작업 재시도 요청에 실패했습니다.")
     }
   }
-
+  const handleMoveJob = async (jobId: string, targetWorkerId: string) => {
+    try {
+      const res = await fetch(`${backendUrl}${API.jobs.move(jobId)}`, {
+        method: "POST",
+        headers: HEADERS.json,
+        body: JSON.stringify({ targetWorkerId: targetWorkerId || undefined }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      toast.success("작업이 이동되었습니다.")
+    } catch {
+      toast.error("작업 이동 요청에 실패했습니다.")
+    }
+  }
   const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     if (
@@ -1146,9 +1158,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           fetchedImages={fetchedImages}
           fetchJobImages={(id) => openDetail(id)}
           workers={workers}
+          onMoveJob={handleMoveJob}
         />
       </div>
-
       <JobDetailSheet
         job={selectedJob}
         backendUrl={backendUrl}

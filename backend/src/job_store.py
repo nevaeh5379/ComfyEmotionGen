@@ -111,6 +111,7 @@ class JobStore:
             await self._migrate_add_column("jobs", "total_node_count", "INTEGER NOT NULL DEFAULT 0")
             await self._migrate_add_column("jobs", "completed_node_count", "INTEGER NOT NULL DEFAULT 0")
             await self._migrate_add_column("jobs", "worker_type", "TEXT")
+            await self._migrate_add_column("jobs", "target_worker_id", "TEXT")
 
             await self._conn.execute(
                 """
@@ -264,8 +265,8 @@ class JobStore:
                 created_at, started_at, finished_at, retry_count,
                 execution_duration_ms, meta_json, ceg_template,
                 saved_image_hashes_json, total_node_count,
-                completed_node_count, worker_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                completed_node_count, worker_type, target_worker_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_dict["id"],
@@ -289,6 +290,7 @@ class JobStore:
                 job_dict.get("totalNodeCount", 0),
                 job_dict.get("completedNodeCount", 0),
                 job_dict.get("workerType"),
+                job_dict.get("targetWorkerId"),
             ),
         )
         await self._conn.commit()
@@ -338,6 +340,7 @@ class JobStore:
             "meta": meta,
             "cegTemplate": row["ceg_template"] or "",
             "workerType": row["worker_type"] if "worker_type" in row.keys() else None,
+            "targetWorkerId": row["target_worker_id"] if "target_worker_id" in row.keys() else None,
         }
 
     async def load_all(self) -> list[dict[str, Any]]:

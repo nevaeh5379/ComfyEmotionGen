@@ -32,6 +32,7 @@ export function useJobRunner() {
   const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
   const [repeatCount, setRepeatCount] = useState(1)
   const [randomRunCount, setRandomRunCount] = useState(1)
+  const [targetWorkerId, setTargetWorkerId] = useState<string | null>(null)
 
   const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
 
@@ -127,6 +128,7 @@ export function useJobRunner() {
       cegTemplate: cegTemplate,
       imageUploads,
       workerType: "comfyui",
+      workerId: targetWorkerId || undefined,
     }))
     try {
       const res = await fetch(`${backendUrl}${API.jobs.root}`, {
@@ -141,8 +143,7 @@ export function useJobRunner() {
       toast.error("작업 제출에 실패했습니다.")
       return false
     }
-  }, [backendUrl, workflowJson, nodeMappings, cegTemplate])
-
+  }, [backendUrl, workflowJson, nodeMappings, cegTemplate, targetWorkerId])
   const canUseParsedTemplate = isAliveBackend && cegTemplate.trim()
   const activeFakeJobQueue = useMemo(
     () => (canUseParsedTemplate ? fakeJobQueue : []),
@@ -329,6 +330,8 @@ export function useJobRunner() {
     setRepeatCount,
     randomRunCount,
     setRandomRunCount,
+    targetWorkerId,
+    setTargetWorkerId,
     handleRun,
     handleRunSelected,
     handleRandomRun,

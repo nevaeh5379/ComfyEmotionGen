@@ -126,6 +126,7 @@ class Job:
     ceg_template: str = ""
     image_uploads: dict[str, dict[str, str]] = field(default_factory=dict)
     worker_type: Optional[str] = None
+    target_worker_id: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -151,6 +152,7 @@ class Job:
             "cegTemplate": self.ceg_template,
             "imageUploads": self.image_uploads,
             "workerType": self.worker_type,
+            "targetWorkerId": self.target_worker_id,
         }
 
     @classmethod
@@ -179,6 +181,7 @@ class Job:
             ceg_template=d.get("cegTemplate", ""),
             image_uploads=d.get("imageUploads", {}),
             worker_type=d.get("workerType"),
+            target_worker_id=d.get("targetWorkerId"),
         )
 
     def clone(self) -> "Job":
@@ -205,6 +208,7 @@ class Job:
             ceg_template=self.ceg_template,
             image_uploads=deepcopy(self.image_uploads),
             worker_type=self.worker_type,
+            target_worker_id=self.target_worker_id,
         )
 
 
@@ -365,6 +369,7 @@ class JobManager:
                 ceg_template=item.cegTemplate,
                 image_uploads=item.imageUploads,
                 worker_type=item.workerType.value if item.workerType else None,
+                target_worker_id=item.workerId,
             )
             for item in items
         ]
@@ -546,9 +551,23 @@ class JobManager:
                 )
                 if pending is None:
                     return
-                worker = self._pool.find_idle(
-                    worker_type=pending.worker_type or "comfyui"
-                )
+                worker: Optional[BaseWorker] = None
+                if pending.target_worker_id:
+                    target = self._pool.get(pending.target_worker_id)
+                    if (
+                        target is not None
+                        and target.alive
+                        and not target.busy
+                        and target.worker_type == (pending.worker_type or "comfyui")
+                    ):
+                        worker = target
+                    else:
+                        # 타겟 워커가 사용 불가능하면 이 잡은 스킵하고 다음 잡으로
+                        continue
+                else:
+                    worker = self._pool.find_idle(
+                        worker_type=pending.worker_type or "comfyui"
+                    )
                 if worker is None:
                     return
                 pending.status = JobStatus.QUEUED
@@ -893,6 +912,30 @@ class JobManager:
         await asyncio.sleep(RETRY_DELAY)
         self._wakeup.set()
 
+    async def move_job(self, job_id: str, target_worker_id: str) -> dict[str, Any]:
+        """대기 중인 잡의 타겟 워커를 변경한다 (동일 worker_type만 가능)."""
+        async with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise ValueError("job not found")
+            if job.status != JobStatus.PENDING:
+                raise ValueError("only pending jobs can be moved")
+            target = self._pool.get(target_worker_id)
+            if target is None:
+                raise ValueError("target worker not found")
+            if target.worker_type != (job.worker_type or "comfyui"):
+                raise ValueError("worker type mismatch")
+            job.target_worker_id = target_worker_id
+            payload = job.to_dict()
+        await self._store.save(payload)
+        await self._store.save_event(
+            job_id, "moved",
+            worker_id=target_worker_id,
+            details={"targetWorkerId": target_worker_id},
+        )
+        await self._emit({"type": "job.updated", "job": payload})
+        self._wakeup.set()
+        return payload
     async def _emit(self, event: NormalizedEvent) -> None:
         for listener in list(self._listeners):
             try:

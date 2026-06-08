@@ -47,6 +47,13 @@ import {
 } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
 import type { JobStatus, JobView, WorkerView } from "../types/Message"
@@ -113,12 +120,11 @@ export interface JobTableProps {
   onToggleSelect: (jobId: string) => void
   backendUrl: string
   showPagination: boolean
-  // Hover/fetch
   fetchedImages: Map<string, string[]>
   fetchJobImages: (jobId: string) => void
   workers: WorkerView[]
+  onMoveJob: (jobId: string, targetWorkerId: string) => void
 }
-
 export interface JobDetailSheetProps {
   job: JobView | null
   backendUrl: string
@@ -130,9 +136,6 @@ export interface JobDetailSheetProps {
   onRetry: () => void
   onDelete: () => void
 }
-
-
-
 // ── sub-components ──────────────────────────────────────────────────────
 
 const SortIcon = memo(function SortIcon({
@@ -622,7 +625,6 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
     </div>
   )
 })
-
 export const JobRow = memo(function JobRow({
   job,
   selectedForDelete,
@@ -631,6 +633,7 @@ export const JobRow = memo(function JobRow({
   fetchedImages,
   fetchJobImages,
   workers,
+  onMoveJob,
 }: {
   job: JobView
   selectedForDelete: Set<string>
@@ -639,6 +642,7 @@ export const JobRow = memo(function JobRow({
   fetchedImages: Map<string, string[]>
   fetchJobImages: (jobId: string) => void
   workers: WorkerView[]
+  onMoveJob: (jobId: string, targetWorkerId: string) => void
 }) {
   const isActive =
     job.status === "pending" ||
@@ -789,7 +793,24 @@ export const JobRow = memo(function JobRow({
       </TableCell>
       {workerCell}
       <TableCell onClick={(e) => e.stopPropagation()} className="px-2">
-        {isActive ? (
+        {job.status === "pending" ? (
+          <Select
+            value={job.targetWorkerId || "auto"}
+            onValueChange={(v) => onMoveJob(job.id, v === "auto" ? "" : v)}
+          >
+            <SelectTrigger className="h-6 w-24 text-[10px] px-1 py-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">자동</SelectItem>
+              {workers
+                .filter((w) => (w.workerType === "comfyui" || !w.workerType) && w.alive)
+                .map((w) => (
+                  <SelectItem key={w.id} value={w.id}>{w.id}</SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        ) : isActive ? (
           <span className="text-[10px] text-muted-foreground">진행중</span>
         ) : isFailed ? (
           <span className="text-[10px] text-muted-foreground">실패</span>
@@ -854,6 +875,7 @@ export const JobTableSection = memo(function JobTableSection({
   fetchJobImages,
   showPagination,
   workers,
+  onMoveJob,
 }: JobTableProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -924,6 +946,7 @@ export const JobTableSection = memo(function JobTableSection({
                   fetchedImages={fetchedImages}
                   fetchJobImages={fetchJobImages}
                   workers={workers}
+                  onMoveJob={onMoveJob}
                 />
               ))}
               {pagedJobs.length === 0 && (
@@ -1046,11 +1069,30 @@ export const JobTableSection = memo(function JobTableSection({
 
                   {/* Right side indicator */}
                   <div className="flex shrink-0 items-center gap-1 pl-2 text-muted-foreground/30">
-                    {job.status === "running" && (
+                    {job.status === "pending" ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          value={job.targetWorkerId || "auto"}
+                          onValueChange={(v) => onMoveJob(job.id, v === "auto" ? "" : v)}
+                        >
+                          <SelectTrigger className="h-6 w-20 text-[10px] px-1 py-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">자동</SelectItem>
+                            {workers
+                              .filter((w) => (w.workerType === "comfyui" || !w.workerType) && w.alive)
+                              .map((w) => (
+                                <SelectItem key={w.id} value={w.id}>{w.id.slice(0, 8)}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : job.status === "running" ? (
                       <span className="mr-1 animate-pulse text-[9px] font-black tracking-wider text-info uppercase">
                         Running
                       </span>
-                    )}
+                    ) : null}
                     <ChevronRight className="h-4 w-4" />
                   </div>
                 </div>

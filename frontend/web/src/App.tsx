@@ -293,6 +293,8 @@ function AppContent() {
     selectOnlyUnapprovedItems,
     randomRunCount,
     setRandomRunCount,
+    targetWorkerId,
+    setTargetWorkerId,
     toggleItemCheck,
     checkAllItems,
     uncheckAllItems,
@@ -437,6 +439,8 @@ function AppContent() {
     handleRunUnapproved,
     randomRunCount,
     setRandomRunCount,
+    targetWorkerId,
+    setTargetWorkerId,
   }), [
     fakeJobQueue,
     hasActiveFilter,
@@ -448,6 +452,8 @@ function AppContent() {
     handleRunUnapproved,
     randomRunCount,
     setRandomRunCount,
+    targetWorkerId,
+    setTargetWorkerId,
   ])
 
   const windowManagerProps = useMemo(() => ({
@@ -566,6 +572,8 @@ function AppContent() {
           handleRunUnapproved={handleRunUnapproved}
           randomRunCount={randomRunCount}
           setRandomRunCount={setRandomRunCount}
+          targetWorkerId={targetWorkerId}
+          setTargetWorkerId={setTargetWorkerId}
           canRun={canRun}
           estimatedRunCount={estimatedRunCount}
           setIsSelectionOpen={setIsSelectionOpen}
@@ -826,6 +834,9 @@ function AppContent() {
                 estimatedRunCount={estimatedRunCount}
                 canRun={canRun}
                 previewCount={fakeJobQueue.length}
+                workers={workers}
+                targetWorkerId={targetWorkerId}
+                setTargetWorkerId={setTargetWorkerId}
                 compositionTab={compositionTab}
                 setCompositionTab={setCompositionTab}
                 onPreviewOpen={() => setIsSheetOpen(true)}

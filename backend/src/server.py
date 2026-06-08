@@ -181,15 +181,13 @@ class ExportRequest(BaseModel):
     tags: Optional[List[str]] = None
     duplicateStrategy: Literal["hash", "number"] = "hash"
 
-
 class JobsDeleteRequest(BaseModel):
     job_ids: list[str] = Field(..., min_length=1, description="삭제할 잡 ID 목록")
-
-
 class WorkerCreateRequest(BaseModel):
     url: str = Field(..., description="워커 서버 URL (http://host:port)")
     worker_type: str = Field("comfyui", description="워커 백엔드 타입 (comfyui, nai, ...)")
-
+class JobMoveRequest(BaseModel):
+    targetWorkerId: str = Field(..., description="이동할 대상 워커 ID")
 
 # ====== lifespan ======
 
@@ -481,7 +479,6 @@ async def jobs_remove(job_id: str):
         raise HTTPException(status_code=404, detail="job not found")
     return {"ok": True}
 
-
 @app.post("/jobs/{job_id}/retry")
 async def jobs_retry(job_id: str):
     job = await job_manager.get_job(job_id)
@@ -491,8 +488,14 @@ async def jobs_retry(job_id: str):
     if not new_jobs:
         raise HTTPException(status_code=500, detail="retry failed: no new job created")
     return {"jobId": new_jobs[0].id}
-
-
+@app.post("/jobs/{job_id}/move")
+async def jobs_move(job_id: str, req: JobMoveRequest):
+    """대기 중인 잡을 다른 워커로 이동 (동일 worker_type만 가능)."""
+    try:
+        payload = await job_manager.move_job(job_id, req.targetWorkerId)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "job": payload}
 @app.post("/jobs/pause")
 async def jobs_pause():
     await job_manager.set_paused(True)

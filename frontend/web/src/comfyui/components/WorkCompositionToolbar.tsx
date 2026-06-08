@@ -9,6 +9,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { EllipsisVertical, Play, Shuffle } from "lucide-react"
 import {
   Tooltip,
@@ -31,8 +38,10 @@ interface WorkCompositionToolbarProps {
   onAxisFilterOpen: () => void
   onGraphOpen: () => void
   className?: string
+  workers: { id: string; workerType: string; alive: boolean; busy: boolean }[]
+  targetWorkerId: string | null
+  setTargetWorkerId: (v: string | null) => void
 }
-
 export function WorkCompositionToolbar({
   repeatCount,
   setRepeatCount,
@@ -48,6 +57,9 @@ export function WorkCompositionToolbar({
   onAxisFilterOpen,
   onGraphOpen,
   className,
+  workers,
+  targetWorkerId,
+  setTargetWorkerId,
 }: WorkCompositionToolbarProps) {
   return (
     <div className={` ${className || ""}`}>
@@ -107,6 +119,31 @@ export function WorkCompositionToolbar({
             />
           </DropdownMenuContent>
         </DropdownMenu>
+        {workers.length > 0 && (
+          <Select
+            value={targetWorkerId || "auto"}
+            onValueChange={(v) => setTargetWorkerId(v === "auto" ? null : v)}
+          >
+            <SelectTrigger className="h-8 w-28 text-xs" disabled={!canRun}>
+              <SelectValue placeholder="워커" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">자동</SelectItem>
+              {workers
+                .filter((w) => w.workerType === "comfyui" || !w.workerType)
+                .map((w) => (
+                  <SelectItem key={w.id} value={w.id}>
+                    <span className="flex items-center gap-1">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${w.alive ? "bg-green-500" : "bg-red-500"}`}
+                      />
+                      {w.id}
+                    </span>
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        )}
         <Button variant="outline" onClick={handleRun} disabled={!canRun}>
           <Play /> <p>실행</p>
         </Button>

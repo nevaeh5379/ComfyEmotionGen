@@ -109,6 +109,8 @@ interface HeaderProps {
   handleRunUnapproved: () => void
   randomRunCount: number
   setRandomRunCount: (v: number | ((c: number) => number)) => void
+  targetWorkerId: string | null
+  setTargetWorkerId: (v: string | null) => void
   canRun: boolean
   estimatedRunCount: number | null
   setIsSelectionOpen: (v: boolean) => void
@@ -586,6 +588,9 @@ export function Header(props: HeaderProps) {
                 setRandomRunCount={props.setRandomRunCount}
                 canRun={props.canRun}
                 estimatedRunCount={props.estimatedRunCount}
+                workers={props.workers}
+                targetWorkerId={props.targetWorkerId}
+                setTargetWorkerId={props.setTargetWorkerId}
                 onSelectionOpen={() => props.setIsSelectionOpen(true)}
                 hasActiveFilter={props.hasActiveFilter}
                 onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
