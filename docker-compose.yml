@@ -1,22 +1,36 @@
 services:
-  # Unified container deployment. Run with:
-  #   docker compose up
-  app:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
       args:
         CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
         CEG_COMMIT: ${CEG_COMMIT:-}
     environment:
-      # Comma-separated list of ComfyUI server URLs (one per GPU).
-      # On Docker Desktop (Win/Mac) use host.docker.internal to reach the host.
-      # On Linux either add extra_hosts below or use the host's LAN IP.
       COMFYUI_WORKERS: ${COMFYUI_WORKERS:-http://host.docker.internal:8188}
+      BACKEND_PORT: ${BACKEND_PORT:-5882}
+      BACKEND_HOST: 0.0.0.0
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${PORT:-${FRONTEND_PORT:-6974}}:8000"
+      - "${BACKEND_PORT:-5882}:${BACKEND_PORT:-5882}"
     volumes:
       - ./data:/app/backend/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend/web
+      dockerfile: Dockerfile
+      args:
+        CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}
+        CEG_COMMIT: ${CEG_COMMIT:-}
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-5882}
+      # Override BACKEND_URL if the backend is not on localhost (e.g. remote server).
+      BACKEND_URL: ${BACKEND_URL:-}
+    ports:
+      - "${FRONTEND_PORT:-6974}:80"
+    depends_on:
+      - backend
     restart: unless-stopped

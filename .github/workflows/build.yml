@@ -27,9 +27,7 @@ jobs:
       commit: ${{ steps.v.outputs.commit }}
       is_release: ${{ steps.v.outputs.is_release }}
       is_beta: ${{ steps.v.outputs.is_beta }}
-      image_backend: ${{ steps.v.outputs.image_backend }}
-      image_frontend: ${{ steps.v.outputs.image_frontend }}
-      image_ceg: ${{ steps.v.outputs.image_ceg }}
+      image: ${{ steps.v.outputs.image }}
     steps:
       - uses: actions/checkout@v4
       - id: v
@@ -63,9 +61,10 @@ jobs:
           echo "commit=$SHORT"                >> $GITHUB_OUTPUT
           echo "is_release=$IS_RELEASE"       >> $GITHUB_OUTPUT
           echo "is_beta=$IS_BETA"             >> $GITHUB_OUTPUT
-          echo "image_backend=$REPO_LC/ceg-backend"   >> $GITHUB_OUTPUT
-          echo "image_frontend=$REPO_LC/ceg-frontend" >> $GITHUB_OUTPUT
-          echo "image_ceg=$REPO_LC/ceg"               >> $GITHUB_OUTPUT
+          # Both backend and frontend share the same GHCR package name.
+          # Backend uses plain channel tags (latest/beta/dev).
+          # Frontend uses webui-prefixed channel tags (webui/webui-beta/webui-dev).
+          echo "image=$REPO_LC"              >> $GITHUB_OUTPUT
           echo "Resolved bundle=$BUNDLE  docker_tag=$DOCKER_TAG  release=$IS_RELEASE  repo=$REPO_LC"
 
   portable:
@@ -264,6 +263,10 @@ jobs:
   docker:
     needs: version
     runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ env.REGISTRY }}/${{ needs.version.outputs.image }}
+      # Floating channel tag: latest / beta / dev
+      CHANNEL: ${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -272,6 +275,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Backend → ghcr.io/nevaeh5379/comfyemotiongen:latest  (and versioned tag)
       - name: Build & push backend
         uses: docker/build-push-action@v6
         with:
@@ -281,37 +285,25 @@ jobs:
             CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
+            ${{ env.IMAGE }}:${{ needs.version.outputs.docker_tag }}
+            ${{ env.IMAGE }}:${{ env.CHANNEL }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
-      - name: Build & push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend/web
-          push: true
-          build-args: |
-            CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
-            CEG_COMMIT=${{ needs.version.outputs.commit }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,scope=frontend,mode=max
-      - name: Build & push ceg
+      # WebUI (Backend + Frontend) → ghcr.io/nevaeh5379/comfyemotiongen:webui  (and webui-<versioned> tag)
+      - name: Build & push webui (combined backend + frontend)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ./docker/webui/Dockerfile
           push: true
           build-args: |
             CEG_BUNDLE_VERSION=${{ needs.version.outputs.bundle }}
             CEG_COMMIT=${{ needs.version.outputs.commit }}
           tags: |
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_ceg }}:${{ needs.version.outputs.docker_tag }}
-            ${{ env.REGISTRY }}/${{ needs.version.outputs.image_ceg }}:${{ needs.version.outputs.is_release == 'true' && 'latest' || needs.version.outputs.is_beta == 'true' && 'beta' || 'dev' }}
-          cache-from: type=gha,scope=ceg
-          cache-to: type=gha,scope=ceg,mode=max
+            ${{ env.IMAGE }}:webui-${{ needs.version.outputs.docker_tag }}
+            ${{ env.IMAGE }}:webui${{ env.CHANNEL != 'latest' && format('-{0}', env.CHANNEL) || '' }}
+          cache-from: type=gha,scope=webui
+          cache-to: type=gha,scope=webui,mode=max
 
   release:
     needs: [version, portable, frontend-zip, docker]
@@ -343,6 +335,5 @@ jobs:
             - `ComfyEmotionGen-frontend-dist-${{ needs.version.outputs.docker_tag }}.zip` — static web assets
 
             Docker:
-            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_backend }}:${{ needs.version.outputs.docker_tag }}`
-            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_frontend }}:${{ needs.version.outputs.docker_tag }}`
-            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image_ceg }}:${{ needs.version.outputs.docker_tag }}` (single-container)
+            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image }}:${{ needs.version.outputs.docker_tag }}` — backend API server
+            - `${{ env.REGISTRY }}/${{ needs.version.outputs.image }}:webui-${{ needs.version.outputs.docker_tag }}` — Web UI frontend

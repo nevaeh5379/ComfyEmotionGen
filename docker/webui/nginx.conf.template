@@ -1,0 +1,28 @@
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    server {
+        listen ${PORT} default_server;
+        listen [::]:${PORT} default_server;
+
+        root /app/static;
+        index index.html;
+
+        server_name _;
+
+        # Static backend config injection
+        location = /config.js {
+            add_header Cache-Control "no-store" always;
+        }
+
+        # SPA fallback (No API or WS proxying here!)
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }
+}
