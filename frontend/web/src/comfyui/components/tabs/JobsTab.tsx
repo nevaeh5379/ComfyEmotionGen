@@ -54,6 +54,7 @@ interface JobRunnerState {
   setRepeatCount: React.Dispatch<React.SetStateAction<number>>
   handleRun: () => void
   handleRandomRun: (count: number) => void
+  handleRunUnapproved: () => void
   randomRunCount: number
   setRandomRunCount: React.Dispatch<React.SetStateAction<number>>
 }
@@ -269,6 +270,7 @@ export function JobsTab({
     setRepeatCount,
     handleRun,
     handleRandomRun,
+    handleRunUnapproved,
     randomRunCount,
     setRandomRunCount,
     estimatedRunCount,
@@ -295,6 +297,7 @@ export function JobsTab({
               setRepeatCount={setRepeatCount}
               handleRun={handleRun}
               handleRandomRun={handleRandomRun}
+              handleRunUnapproved={handleRunUnapproved}
               randomRunCount={randomRunCount}
               setRandomRunCount={setRandomRunCount}
               estimatedRunCount={estimatedRunCount}
@@ -633,6 +636,7 @@ export function JobsTab({
               setRepeatCount={setRepeatCount}
               handleRun={handleRun}
               handleRandomRun={handleRandomRun}
+              handleRunUnapproved={handleRunUnapproved}
               randomRunCount={randomRunCount}
               setRandomRunCount={setRandomRunCount}
               estimatedRunCount={estimatedRunCount}

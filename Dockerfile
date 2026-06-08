@@ -14,7 +14,7 @@ COPY frontend/web/ ./
 RUN npm run build
 
 
-FROM python:3.11-slim AS final
+FROM python:3.14-slim AS final
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

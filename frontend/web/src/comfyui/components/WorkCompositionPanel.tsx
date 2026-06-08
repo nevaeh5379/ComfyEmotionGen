@@ -64,6 +64,7 @@ export interface WorkCompositionPanelProps {
   setRepeatCount: (value: number | ((prev: number) => number)) => void
   handleRun: () => void
   handleRandomRun: (count: number) => void
+  handleRunUnapproved: () => void
   randomRunCount: number
   setRandomRunCount: (value: number | ((prev: number) => number)) => void
   estimatedRunCount: number | null
@@ -100,6 +101,7 @@ export function WorkCompositionPanel({
   setRepeatCount,
   handleRun,
   handleRandomRun,
+  handleRunUnapproved,
   randomRunCount,
   setRandomRunCount,
   estimatedRunCount,
@@ -262,6 +264,7 @@ export function WorkCompositionPanel({
                 setRepeatCount={setRepeatCount}
                 handleRun={handleRun}
                 handleRandomRun={handleRandomRun}
+                handleRunUnapproved={handleRunUnapproved}
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 canRun={canRun}

@@ -35,6 +35,7 @@ interface SelectionSheetProps {
   uncheckAllItems: () => void
   toggleItemCheck: (key: string) => void
   onRunSelected: () => Promise<void>
+  onExcludeApproved: () => void
 }
 
 export const SelectionSheet = ({
@@ -51,6 +52,7 @@ export const SelectionSheet = ({
   uncheckAllItems,
   toggleItemCheck,
   onRunSelected,
+  onExcludeApproved,
 }: SelectionSheetProps) => (
   <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent className="flex w-full flex-col gap-4 sm:min-w-[35vw]">
@@ -86,6 +88,14 @@ export const SelectionSheet = ({
             className="h-8 text-xs font-bold"
           >
             전체 해제
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onExcludeApproved}
+            className="h-8 text-xs font-bold text-amber-500 hover:bg-amber-500/10 hover:text-amber-600"
+          >
+            통과 항목 제외
           </Button>
         </div>
       </div>

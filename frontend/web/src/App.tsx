@@ -289,6 +289,8 @@ function AppContent() {
     handleRun,
     handleRunSelected,
     handleRandomRun,
+    handleRunUnapproved,
+    selectOnlyUnapprovedItems,
     randomRunCount,
     setRandomRunCount,
     toggleItemCheck,
@@ -432,6 +434,7 @@ function AppContent() {
     setRepeatCount,
     handleRun,
     handleRandomRun,
+    handleRunUnapproved,
     randomRunCount,
     setRandomRunCount,
   }), [
@@ -442,6 +445,7 @@ function AppContent() {
     setRepeatCount,
     handleRun,
     handleRandomRun,
+    handleRunUnapproved,
     randomRunCount,
     setRandomRunCount,
   ])
@@ -558,6 +562,7 @@ function AppContent() {
           setRepeatCount={setRepeatCount}
           handleRun={handleRun}
           handleRandomRun={handleRandomRun}
+          handleRunUnapproved={handleRunUnapproved}
           randomRunCount={randomRunCount}
           setRandomRunCount={setRandomRunCount}
           canRun={canRun}
@@ -716,6 +721,7 @@ function AppContent() {
             const ok = await handleRunSelected()
             if (ok) setIsSelectionOpen(false)
           }}
+          onExcludeApproved={selectOnlyUnapprovedItems}
         />
 
         {workflow.parsedWorkflow?.success && (
@@ -812,6 +818,7 @@ function AppContent() {
                 setRepeatCount={setRepeatCount}
                 handleRun={handleRun}
                 handleRandomRun={handleRandomRun}
+                handleRunUnapproved={handleRunUnapproved}
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 estimatedRunCount={estimatedRunCount}

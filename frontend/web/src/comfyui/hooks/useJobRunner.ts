@@ -9,6 +9,7 @@ import {
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
+import type { SavedImage } from "../types/Message"
 import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
@@ -191,6 +192,74 @@ export function useJobRunner() {
     return ok
   }, [workflowJson, isAliveBackend, callParser, uncheckedItems, repeatCount, submitJobs])
 
+  const fetchApprovedFilenames = useCallback(async (): Promise<Set<string>> => {
+    try {
+      const res = await fetch(`${backendUrl}/saved-images?limit=5000`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = (await res.json()) as { items: SavedImage[] }
+      const approved = data.items.filter(
+        (img) => img.status === "approved"
+      )
+      return new Set(approved.map((img) => img.originalFilename))
+    } catch (err) {
+      console.error("Failed to fetch approved filenames:", err)
+      return new Set<string>()
+    }
+  }, [backendUrl])
+
+  const handleRunUnapproved = useCallback(async () => {
+    if (!workflowJson || !isAliveBackend) return
+    const parserResult = await callParser()
+    if (!parserResult) return
+
+    const approvedSet = await fetchApprovedFilenames()
+    const filtered = parserResult.items.filter(
+      (item) => !approvedSet.has(item.filename)
+    )
+
+    if (filtered.length === 0) {
+      toast.info("실행할 미완료(미선택) 항목이 없습니다.")
+      return
+    }
+
+    toast.info(`축 필터를 제외한 전체 미완료 작업 ${filtered.length}개를 실행합니다.`)
+
+    const repeated =
+      repeatCount > 1
+        ? Array.from({ length: repeatCount }, () => filtered).flat()
+        : filtered
+    const ok = await submitJobs(repeated)
+    if (!ok) toast.error("미완료 항목 실행에 실패했습니다.")
+  }, [
+    workflowJson,
+    isAliveBackend,
+    callParser,
+    fetchApprovedFilenames,
+    repeatCount,
+    submitJobs,
+  ])
+
+  const selectOnlyUnapprovedItems = useCallback(async () => {
+    const approvedSet = await fetchApprovedFilenames()
+    let count = 0
+    const nextUnchecked = new Set(uncheckedItems)
+    activeFakeJobQueue.forEach((item) => {
+      const key = itemKey(item)
+      if (approvedSet.has(item.filename)) {
+        if (!nextUnchecked.has(key)) {
+          nextUnchecked.add(key)
+          count++
+        }
+      }
+    })
+    setUncheckedItems(nextUnchecked)
+    if (count > 0) {
+      toast.success(`큐레이션 통과 항목 ${count}개가 선택 해제되었습니다.`)
+    } else {
+      toast.info("선택 해제할 큐레이션 통과 항목이 없습니다.")
+    }
+  }, [activeFakeJobQueue, fetchApprovedFilenames, uncheckedItems])
+
   const toggleItemCheck = useCallback((key: string) => {
     setUncheckedItems((prev) => {
       const next = new Set(prev)
@@ -263,6 +332,8 @@ export function useJobRunner() {
     handleRun,
     handleRunSelected,
     handleRandomRun,
+    handleRunUnapproved,
+    selectOnlyUnapprovedItems,
     toggleItemCheck,
     checkAllItems,
     uncheckAllItems,

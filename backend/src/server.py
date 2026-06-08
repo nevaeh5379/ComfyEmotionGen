@@ -1102,7 +1102,7 @@ async def ws_events(websocket: WebSocket):
         ws_clients.discard(websocket)
 
 
-# ====== 정적 프론트엔드 서빙 (all-in-one 컨테이너 모드) ======
+# ====== 정적 프론트엔드 서빙 (단일/통합 컨테이너 모드) ======
 # CEG_STATIC_DIR이 설정되면 같은 프로세스에서 프론트 dist를 직접 서빙한다.
 # 이 라우트들은 파일 끝에 두어야 위의 API 라우트가 우선 매칭된다.
 
@@ -1111,7 +1111,7 @@ if _static_dir and Path(_static_dir).is_dir():
 
     @app.get("/config.js")
     def _config_js() -> Response:
-        # All-in-one에선 프론트와 백엔드가 같은 origin. 빈 문자열은 프론트의
+        # 단일 컨테이너에선 프론트와 백엔드가 같은 origin. 빈 문자열은 프론트의
         # `globalConfigUrl || DEFAULT`로 가려지므로 location.origin을 박는다.
         return Response(
             "window.COMFY_EMOTION_GEN_BACKEND_URL = window.location.origin;",
