@@ -4,11 +4,19 @@ import type { JobView } from "../types/Message"
  * 완료된 작업들의 평균 지속 시간(초)을 계산한다.
  * executionDurationMs 필드를 활용한다.
  */
-export function getAverageCompletedDuration(jobs: JobView[]): number | null {
+export function getAverageCompletedDuration(jobs: JobView[], workerId?: string | null): number | null {
   const completed = jobs.filter(
     (j) => j.status === "done" && j.executionDurationMs != null && j.executionDurationMs > 0
   )
   if (completed.length === 0) return null
+
+  if (workerId) {
+    const workerCompleted = completed.filter((j) => j.workerId === workerId)
+    if (workerCompleted.length > 0) {
+      const totalMs = workerCompleted.reduce((sum, j) => sum + (j.executionDurationMs ?? 0), 0)
+      return totalMs / workerCompleted.length / 1000
+    }
+  }
 
   const totalMs = completed.reduce((sum, j) => sum + (j.executionDurationMs ?? 0), 0)
   return totalMs / completed.length / 1000 // 초 단위로 반환
@@ -32,6 +40,7 @@ export function getOverallProgress(job: JobView): number {
  *
  * @param overallPercent - 전체 Job 기준 진행률 (0-100)
  * @param jobs - 이전 완료 작업 목록 (평균 계산용)
+ * @param workerId - 특정 워커 ID (이 워커의 완료 이력만 필터링하기 위함)
  *
  * 알고리즘:
  * 1. 완료된 작업들의 평균 지속 시간을 기반으로 전체 시간 추정
@@ -40,7 +49,8 @@ export function getOverallProgress(job: JobView): number {
 export function estimateTotalDuration(
   startedAtSec: number,
   overallPercent: number,
-  jobs?: JobView[]
+  jobs?: JobView[],
+  workerId?: string | null
 ): number | null {
   if (overallPercent <= 0 || overallPercent >= 100) return null
   const elapsedSec = Date.now() / 1000 - startedAtSec
@@ -48,7 +58,7 @@ export function estimateTotalDuration(
 
   // 이전 완료 작업 평균을 활용한 예측
   if (jobs && jobs.length > 0) {
-    const avgDuration = getAverageCompletedDuration(jobs)
+    const avgDuration = getAverageCompletedDuration(jobs, workerId)
     if (avgDuration != null) {
       return avgDuration
     }
@@ -64,9 +74,10 @@ export function estimateTotalDuration(
 export function estimateRemaining(
   startedAtSec: number,
   overallPercent: number,
-  jobs?: JobView[]
+  jobs?: JobView[],
+  workerId?: string | null
 ): number | null {
-  const total = estimateTotalDuration(startedAtSec, overallPercent, jobs)
+  const total = estimateTotalDuration(startedAtSec, overallPercent, jobs, workerId)
   if (total == null) return null
   const elapsedSec = Date.now() / 1000 - startedAtSec
   return Math.max(0, total - elapsedSec)
@@ -93,9 +104,10 @@ export function formatTime(totalSeconds: number): string {
 export function formatETA(
   startedAtSec: number,
   overallPercent: number,
-  jobs?: JobView[]
+  jobs?: JobView[],
+  workerId?: string | null
 ): string | null {
-  const total = estimateTotalDuration(startedAtSec, overallPercent, jobs)
+  const total = estimateTotalDuration(startedAtSec, overallPercent, jobs, workerId)
   if (total == null) return null
   const elapsedSec = Date.now() / 1000 - startedAtSec
   if (elapsedSec <= 0) return null
@@ -140,9 +152,9 @@ export function timeAgo(epochSec: number): string {
 
 /**
  * 세션 전체 남은 예상 시간을 계산한다.
- * 남은 작업 수 × 평균 지속 시간으로 추정한다.
+ * 남은 작업 수 × 평균 지속 시간으로 추정하며, 활성 워커 수로 나누어 병렬성을 보정한다.
  */
-export function estimateSessionRemaining(jobs: JobView[]): number | null {
+export function estimateSessionRemaining(jobs: JobView[], activeWorkersCount: number = 1): number | null {
   const avgDuration = getAverageCompletedDuration(jobs)
   if (avgDuration == null) return null
 
@@ -153,5 +165,6 @@ export function estimateSessionRemaining(jobs: JobView[]): number | null {
 
   if (remainingJobs === 0) return 0
 
-  return avgDuration * remainingJobs
+  const activeCount = Math.max(1, activeWorkersCount)
+  return (avgDuration * remainingJobs) / activeCount
 }

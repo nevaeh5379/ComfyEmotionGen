@@ -49,7 +49,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
-import type { JobStatus, JobView } from "../types/Message"
+import type { JobStatus, JobView, WorkerView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
 import {
@@ -87,6 +87,7 @@ export interface ActiveStateInfo {
 export interface RunningJobsBannerProps {
   jobs: JobView[]
   allJobs?: JobView[]
+  workers: WorkerView[]
 }
 
 export interface JobStatBarProps {
@@ -115,6 +116,7 @@ export interface JobTableProps {
   // Hover/fetch
   fetchedImages: Map<string, string[]>
   fetchJobImages: (jobId: string) => void
+  workers: WorkerView[]
 }
 
 export interface JobDetailSheetProps {
@@ -320,26 +322,30 @@ export const JobStatBar = memo(function JobStatBar({
   const done = counts.done
   const error = counts.error
   const cancelled = counts.cancelled
+
+  const runningJobs = sessionJobs.filter((j) => j.status === "running")
+  const runningProgressSum = runningJobs.reduce((sum, j) => sum + getOverallProgress(j), 0) / 100
+
   let numerator: number
   let denominator: number
   switch (progressCalculation) {
     case "doneOrCancelled":
-      numerator = done + cancelled
+      numerator = done + cancelled + runningProgressSum
       denominator = total
       break
     case "doneOrFailed":
-      numerator = done + error
+      numerator = done + error + runningProgressSum
       denominator = total
       break
     case "excludeFromDenominator":
-      numerator = done
+      numerator = done + runningProgressSum
       denominator = Math.max(0, total - error - cancelled)
       break
     default:
-      numerator = done
+      numerator = done + runningProgressSum
       denominator = total
   }
-  const progress = denominator > 0 ? (numerator / denominator) * 100 : 0
+  const progress = denominator > 0 ? Math.min(100, Math.max(0, (numerator / denominator) * 100)) : 0
 
   return (
     <div className="flex flex-col">
@@ -397,7 +403,7 @@ export const JobStatBar = memo(function JobStatBar({
         <div className="flex items-center justify-between text-[11px] font-black uppercase">
           <span className="text-muted-foreground">세션 전체 진행률</span>
           <span className="mono tabular-nums">
-            {numerator}/{denominator} ({Math.round(progress)}% )
+            {numerator % 1 === 0 ? numerator : numerator.toFixed(1)}/{denominator} ({Math.round(progress)}% )
           </span>
         </div>
         <Progress
@@ -412,68 +418,208 @@ export const JobStatBar = memo(function JobStatBar({
 export const RunningJobsBanner = memo(function RunningJobsBanner({
   jobs,
   allJobs,
+  workers,
 }: RunningJobsBannerProps) {
-  if (jobs.length === 0) {
+  if (workers.length === 0) {
+    if (jobs.length === 0) {
+      return (
+        <div className="py-10 text-center text-sm font-bold text-balance text-muted-foreground/40">
+          현재 실행 중인 작업이 없습니다.
+        </div>
+      )
+    }
+    // Fallback: render jobs directly
     return (
-      <div className="py-10 text-center text-sm font-bold text-balance text-muted-foreground/40">
-        현재 실행 중인 작업이 없습니다.
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {jobs.map((j) => {
+          const overallPercent = getOverallProgress(j)
+          const etaStr =
+            j.startedAt && overallPercent > 0 && overallPercent < 100
+              ? formatETA(j.startedAt, overallPercent, allJobs)
+              : null
+          return (
+            <div
+              key={j.id}
+              className="shrink-0 space-y-2 rounded-xl border border-info/20 bg-info/5 p-4 shadow-sm animate-in fade-in-0 duration-300"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-mono text-[13px] font-black text-info">
+                  {j.filename}
+                </span>
+                {etaStr != null && (
+                  <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
+                    {etaStr}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
+                <span className="truncate">
+                  {j.currentNodeName
+                    ? `노드 (${j.currentNodeName}) 처리 중...`
+                    : "노드 처리 중..."}
+                </span>
+                <span className="mono">{Math.round(j.progressPercent)}%</span>
+              </div>
+              <Progress
+                value={j.progressPercent}
+                className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
+              />
+              {j.totalNodeCount > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
+                    <span className="truncate">
+                      전체 노드 {j.completedNodeCount}/{j.totalNodeCount}
+                    </span>
+                    <span className="mono">{Math.round(overallPercent)}%</span>
+                  </div>
+                  <Progress
+                    value={overallPercent}
+                    className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
+                  />
+                </>
+              )}
+            </div>
+          )
+        })}
       </div>
     )
   }
 
+  // Active workers view in grid
   return (
-    <>
-      {jobs.map((j) => {
-        const overallPercent = getOverallProgress(j)
-        const etaStr =
-          j.startedAt && overallPercent > 0 && overallPercent < 100
-            ? formatETA(j.startedAt, overallPercent, allJobs)
-            : null
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {workers.map((w) => {
+        const runningJob = jobs.find(
+          (j) => j.workerId === w.id && j.status === "running"
+        )
+
+        if (!w.alive) {
+          return (
+            <div
+              key={w.id}
+              className="shrink-0 space-y-2.5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 shadow-sm opacity-60 transition-all duration-300"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-destructive/10 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <span className="font-mono text-[12px] font-bold text-destructive">
+                    {w.id}
+                  </span>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground/85 border">
+                    {w.workerType ?? "comfyui"}
+                  </span>
+                </div>
+                <span className="text-[10px] font-black text-destructive uppercase tracking-wider">
+                  오프라인
+                </span>
+              </div>
+              <div className="py-2.5 text-center text-xs font-bold text-muted-foreground/50">
+                워커의 전원이 꺼져있거나 연결이 끊어졌습니다.
+              </div>
+            </div>
+          )
+        }
+
+        if (w.busy && runningJob) {
+          const overallPercent = getOverallProgress(runningJob)
+          const etaStr =
+            runningJob.startedAt && overallPercent > 0 && overallPercent < 100
+              ? formatETA(runningJob.startedAt, overallPercent, allJobs)
+              : null
+
+          return (
+            <div
+              key={w.id}
+              className="shrink-0 space-y-2.5 rounded-xl border border-info/30 bg-info/5 p-4 shadow-sm transition-all duration-300"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-info/10 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(var(--warn),0.5)]" />
+                  <span className="font-mono text-[12px] font-bold text-foreground">
+                    {w.id}
+                  </span>
+                  <span className="rounded bg-info/10 border border-info/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-info">
+                    {w.workerType ?? "comfyui"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {etaStr != null && (
+                    <span className="shrink-0 text-[10px] font-black text-info/80 tabular-nums">
+                      {etaStr}
+                    </span>
+                  )}
+                  <span className="text-[10px] font-black text-info uppercase tracking-wider">
+                    작업 중
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-mono text-[12px] font-black text-foreground/90">
+                    📄 {runningJob.filename}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
+                    <span className="truncate">
+                      {runningJob.currentNodeName
+                        ? `노드 (${runningJob.currentNodeName})`
+                        : "노드 처리 중..."}
+                    </span>
+                    <span className="mono">{Math.round(runningJob.progressPercent)}%</span>
+                  </div>
+                  <Progress
+                    value={runningJob.progressPercent}
+                    className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
+                  />
+                </div>
+                {runningJob.totalNodeCount > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
+                      <span className="truncate">
+                        전체 노드 {runningJob.completedNodeCount}/{runningJob.totalNodeCount}
+                      </span>
+                      <span className="mono">{Math.round(overallPercent)}%</span>
+                    </div>
+                    <Progress
+                      value={overallPercent}
+                      className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        }
+
+        // Idle worker
         return (
           <div
-            key={j.id}
-            className="shrink-0 space-y-2 rounded-xl border border-info/20 bg-info/5 p-4 shadow-sm"
+            key={w.id}
+            className="shrink-0 space-y-2.5 rounded-xl border border-line-strong/30 bg-muted/20 p-4 shadow-sm opacity-80 transition-all duration-300"
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate font-mono text-[13px] font-black text-info">
-                {j.filename}
-              </span>
-              {etaStr != null && (
-                <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
-                  {etaStr}
+            <div className="flex items-center justify-between gap-2 border-b border-line pb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="font-mono text-[12px] font-bold text-muted-foreground">
+                  {w.id}
                 </span>
-              )}
-            </div>
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
-              <span className="truncate">
-                {j.currentNodeName
-                  ? `노드 (${j.currentNodeName}) 처리 중...`
-                  : "노드 처리 중..."}
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground/85 border">
+                  {w.workerType ?? "comfyui"}
+                </span>
+              </div>
+              <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-wider">
+                유휴 상태
               </span>
-              <span className="mono">{Math.round(j.progressPercent)}%</span>
             </div>
-            <Progress
-              value={j.progressPercent}
-              className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
-            />
-            {j.totalNodeCount > 0 && (
-              <>
-                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/80">
-                  <span className="truncate">
-                    전체 노드 {j.completedNodeCount}/{j.totalNodeCount}
-                  </span>
-                  <span className="mono">{Math.round(overallPercent)}%</span>
-                </div>
-                <Progress
-                  value={overallPercent}
-                  className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
-                />
-              </>
-            )}
+            <div className="py-2.5 text-center text-xs font-bold text-muted-foreground/60">
+              새로운 작업을 수행할 준비가 되었습니다.
+            </div>
           </div>
         )
       })}
-    </>
+    </div>
   )
 })
 
@@ -484,6 +630,7 @@ export const JobRow = memo(function JobRow({
   backendUrl,
   fetchedImages,
   fetchJobImages,
+  workers,
 }: {
   job: JobView
   selectedForDelete: Set<string>
@@ -491,6 +638,7 @@ export const JobRow = memo(function JobRow({
   backendUrl: string
   fetchedImages: Map<string, string[]>
   fetchJobImages: (jobId: string) => void
+  workers: WorkerView[]
 }) {
   const isActive =
     job.status === "pending" ||
@@ -516,6 +664,88 @@ export const JobRow = memo(function JobRow({
   }
   const c = (hash & 0x00ffffff).toString(16).toUpperCase()
   const dotColor = "#" + "00000".substring(0, 6 - c.length) + c
+
+  const workerInfo = job.workerId ? workers.find((w) => w.id === job.workerId) : null
+  const workerLabel = job.workerId
+    ? workerInfo
+      ? job.workerId.slice(0, 8)
+      : job.workerId.slice(0, 8)
+    : "—"
+
+  const workerCell = (
+    <TableCell onClick={(e) => e.stopPropagation()} className="px-2 font-mono text-[11px] w-[80px]">
+      {job.workerId ? (
+        <HoverCard openDelay={200} closeDelay={100}>
+          <HoverCardTrigger asChild>
+            <span className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground">
+              {workerLabel}
+            </span>
+          </HoverCardTrigger>
+          <HoverCardContent
+            side="top"
+            align="start"
+            className="w-72 rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md"
+          >
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-1 text-xs">
+                <span className="font-mono font-bold text-foreground">
+                  {job.workerId}
+                </span>
+                {workerInfo && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
+                    {workerInfo.workerType ?? "comfyui"}
+                  </span>
+                )}
+                <span
+                  className={cn(
+                    "font-bold text-[10px]",
+                    workerInfo
+                      ? workerInfo.alive
+                        ? workerInfo.busy
+                          ? "text-yellow-600 dark:text-yellow-400"
+                          : "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {workerInfo
+                    ? workerInfo.alive
+                      ? workerInfo.busy
+                        ? "busy"
+                        : "idle"
+                      : "down"
+                    : "offline"}
+                </span>
+              </div>
+              {workerInfo && (
+                <div className="font-mono text-[10px] text-muted-foreground/80 truncate">
+                  {workerInfo.url}
+                </div>
+              )}
+              {job.status === "running" && (
+                <div className="mt-1 space-y-1 bg-muted/20 rounded p-1.5">
+                  <div className="flex items-center justify-between text-[9px] text-muted-foreground font-semibold">
+                    <span className="truncate max-w-[190px] text-foreground/80">
+                      📄 {job.filename}
+                    </span>
+                    <span className="mono font-bold tabular-nums">
+                      {Math.round(getOverallProgress(job))}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={getOverallProgress(job)}
+                    className="h-1 w-full bg-muted/60 [&>[data-slot=progress-indicator]]:bg-info"
+                  />
+                </div>
+              )}
+            </div>
+          </HoverCardContent>
+        </HoverCard>
+      ) : (
+        <span className="text-muted-foreground/45">—</span>
+      )}
+    </TableCell>
+  )
 
   const row = (
     <TableRow
@@ -557,6 +787,7 @@ export const JobRow = memo(function JobRow({
       <TableCell className="w-16 text-[10px] text-muted-foreground tabular-nums">
         {dur != null ? formatDuration(dur) : "—"}
       </TableCell>
+      {workerCell}
       <TableCell onClick={(e) => e.stopPropagation()} className="px-2">
         {isActive ? (
           <span className="text-[10px] text-muted-foreground">진행중</span>
@@ -622,6 +853,7 @@ export const JobTableSection = memo(function JobTableSection({
   fetchedImages,
   fetchJobImages,
   showPagination,
+  workers,
 }: JobTableProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -677,6 +909,7 @@ export const JobTableSection = memo(function JobTableSection({
                     <SortIcon isActive={sortKey === "duration"} dir={sortDir} />
                   </button>
                 </TableHead>
+                <TableHead className="px-2 font-bold whitespace-nowrap">워커</TableHead>
                 <TableHead className="w-12 px-2" />
               </TableRow>
             </TableHeader>
@@ -690,11 +923,12 @@ export const JobTableSection = memo(function JobTableSection({
                   backendUrl={backendUrl}
                   fetchedImages={fetchedImages}
                   fetchJobImages={fetchJobImages}
+                  workers={workers}
                 />
               ))}
               {pagedJobs.length === 0 && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-80 p-0">
+                  <TableCell colSpan={7} className="h-80 p-0">
                     <Empty className="border-0 bg-transparent shadow-none">
                       <EmptyMedia variant="icon">
                         <div className="size-10 opacity-20" />
@@ -795,6 +1029,14 @@ export const JobTableSection = memo(function JobTableSection({
                             <span className="opacity-40">•</span>
                             <span className="scale-95 rounded bg-muted/80 px-1 font-mono text-foreground/80">
                               {formatDuration(dur)}
+                            </span>
+                          </>
+                        )}
+                        {job.workerId && (
+                          <>
+                            <span className="opacity-40">•</span>
+                            <span className="scale-95 rounded bg-muted/80 px-1 font-mono text-[9px] font-bold text-foreground/80">
+                              {job.workerId.slice(0, 8)}
                             </span>
                           </>
                         )}

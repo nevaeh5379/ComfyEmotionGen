@@ -29,6 +29,8 @@ export interface AppSettings {
   hideEmptyCurationFolders: boolean
   /** 그리드 화면 맞춤(유동형) 여부 */
   fluidGridLayout: boolean
+  /** 최소화 팝업 진행률 순환 표시 여부 */
+  cycleMinimizedProgress: boolean
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -44,6 +46,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   useWindowMode: false,
   hideEmptyCurationFolders: true,
   fluidGridLayout: true,
+  cycleMinimizedProgress: true,
 }
 
 export const useSettings = () => {

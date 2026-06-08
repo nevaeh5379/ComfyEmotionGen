@@ -375,6 +375,18 @@ export function SettingsPanel({
               </SelectContent>
             </Select>
           </SettingRow>
+          <Separator />
+          <SettingRow
+            label="최소화 팝업 진행률 순환 표시"
+            description="멀티 워커 가동 시 최소화된 팝업 내에서 실행 중인 워커들의 진행률을 주기적으로 순환하며 표시합니다."
+          >
+            <Switch
+              checked={settings.cycleMinimizedProgress}
+              onCheckedChange={(v) =>
+                updateSetting("cycleMinimizedProgress", v === true)
+              }
+            />
+          </SettingRow>
         </Section>
 
         {/* UI 기능 */}

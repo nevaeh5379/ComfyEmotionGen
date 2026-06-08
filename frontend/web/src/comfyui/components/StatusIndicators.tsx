@@ -4,7 +4,10 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item"
-import type { WorkerView } from "../types/Message"
+import { cn } from "@/lib/utils"
+import { Progress } from "@/components/ui/progress"
+import { getOverallProgress } from "../utils/timeEstimation"
+import type { WorkerView, JobView } from "../types/Message"
 
 // ---------------------------------------------------------------------------
 // Base
@@ -88,9 +91,10 @@ export const ServerStatus = ({
 interface WorkerStatusProps {
   workers: WorkerView[]
   backendAlive: boolean
+  jobs: JobView[]
 }
 
-export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
+export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps) => {
   const aliveCount = workers.filter((w) => w.alive).length
   const total = workers.length
   const allAlive = backendAlive && total > 0 && aliveCount === total
@@ -122,7 +126,7 @@ export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
       hoverAlign="end"
       hoverWidth="w-72"
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <p className="text-sm font-bold">
           {allAlive
             ? "모든 워커 연결됨"
@@ -138,29 +142,58 @@ export const WorkerStatus = ({ workers, backendAlive }: WorkerStatusProps) => {
             추가하세요.
           </p>
         )}
-        {workers.map((w) => (
-          <div
-            key={w.id}
-            className="flex items-center justify-between gap-2 text-xs"
-          >
-            <span className="font-mono">{w.id}</span>
-            <span className="rounded bg-muted px-1 text-[10px] uppercase">
-              {w.workerType ?? "comfyui"}
-            </span>
-            <span className="truncate text-muted-foreground">{w.url}</span>
-            <span
-              className={
-                w.alive
-                  ? w.busy
-                    ? "text-yellow-600"
-                    : "text-green-600"
-                  : "text-red-600"
-              }
+        {workers.map((w) => {
+          const runningJob = jobs.find(
+            (j) => j.workerId === w.id && j.status === "running"
+          )
+          const overallProgress = runningJob ? getOverallProgress(runningJob) : 0
+
+          return (
+            <div
+              key={w.id}
+              className="flex flex-col gap-1.5 border-b border-line/45 pb-2 last:border-0 last:pb-0"
             >
-              {w.alive ? (w.busy ? "busy" : "idle") : "down"}
-            </span>
-          </div>
-        ))}
+              <div className="flex items-center justify-between gap-1 text-xs">
+                <span className="font-mono font-bold shrink-0">{w.id}</span>
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground shrink-0">
+                  {w.workerType ?? "comfyui"}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-left text-muted-foreground/80 pl-1">
+                  {w.url}
+                </span>
+                <span
+                  className={cn(
+                    "font-bold text-[11px] shrink-0",
+                    w.alive
+                      ? w.busy
+                        ? "text-yellow-600 dark:text-yellow-400"
+                        : "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  )}
+                >
+                  {w.alive ? (w.busy ? "busy" : "idle") : "down"}
+                </span>
+              </div>
+
+              {w.alive && w.busy && runningJob && (
+                <div className="space-y-1.5 pl-2">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground font-semibold">
+                    <span className="truncate max-w-[190px] font-mono text-[10px] text-foreground/80">
+                      📄 {runningJob.filename}
+                    </span>
+                    <span className="mono font-bold tabular-nums">
+                      {Math.round(overallProgress)}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={overallProgress}
+                    className="h-1 w-full bg-muted/60 [&>[data-slot=progress-indicator]]:bg-info"
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </StatusHoverCard>
   )

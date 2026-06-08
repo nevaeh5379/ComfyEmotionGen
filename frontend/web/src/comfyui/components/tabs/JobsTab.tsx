@@ -333,6 +333,7 @@ export function JobsTab({
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <JobManagerPanel
                 jobs={jobs}
+                workers={workers}
                 paused={paused}
                 backendUrl={backendUrl}
                 isAliveBackend={isAliveBackend}
@@ -656,6 +657,7 @@ export function JobsTab({
           <div className="flex min-h-0 flex-1 flex-col bg-panel">
             <JobManagerPanel
               jobs={jobs}
+              workers={workers}
               paused={paused}
               backendUrl={backendUrl}
               isAliveBackend={isAliveBackend}

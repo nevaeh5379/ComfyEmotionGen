@@ -108,11 +108,16 @@ export function JobDetailSheet({
         {job && (
           <div className="mt-2 flex flex-col gap-5">
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusPill status={job.status} />
                 <span className="mono rounded bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
                   ID: {job.id.slice(0, 8)}…
                 </span>
+                {job.workerId && (
+                  <span className="mono rounded bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
+                    작업 워커: {job.workerId}
+                  </span>
+                )}
               </div>
               <p className="font-mono text-sm font-black text-foreground">
                 📄 {job.filename}

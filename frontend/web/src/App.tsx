@@ -553,6 +553,7 @@ function AppContent() {
           isAliveBackend={isAliveBackend}
           backendAlive={backendAlive}
           workers={workers}
+          jobs={jobs}
           jobsCount={jobs.length}
           mobileJobTab={mobileJobTab}
           setMobileJobTab={setMobileJobTab}
@@ -748,6 +749,7 @@ function AppContent() {
             backendUrl={backendUrl}
             isAliveBackend={isAliveBackend}
             onNavigateToJobs={() => setActiveTab("jobs")}
+            cycleMinimizedProgress={settings.cycleMinimizedProgress}
           />
         )}
 
@@ -858,6 +860,7 @@ function AppContent() {
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <JobManagerPanel
                   jobs={jobs}
+                  workers={workers}
                   paused={paused}
                   backendUrl={backendUrl}
                   isAliveBackend={isAliveBackend}

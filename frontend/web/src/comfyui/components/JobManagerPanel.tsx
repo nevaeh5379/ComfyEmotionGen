@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-import type { JobStatus, JobView } from "../types/Message"
+import type { JobStatus, JobView, WorkerView } from "../types/Message"
 import { useRenderLog } from "@/lib/renderLogger"
 import { cn } from "@/lib/utils"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
@@ -112,6 +112,7 @@ interface Props {
   backendUrl: string
   isAliveBackend: boolean
   mobileTab?: "status" | "list"
+  workers: WorkerView[]
 
   // Lifted session state & handler props
   selectedId: string
@@ -147,6 +148,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   isFloating,
   onFloatToggle,
   onHeaderDragStart,
+  workers,
 }: Props) {
   useRenderLog("JobManagerPanel")
   const confirm = useConfirm()
@@ -640,11 +642,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <h3 className="border-b pb-1.5 text-xs font-black tracking-widest text-muted-foreground uppercase">
                 실행 중인 작업
               </h3>
-              <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} />
+              <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} workers={workers} />
             </div>
           )}
           {mobileTab !== "status" && (
-            <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} />
+            <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} workers={workers} />
           )}
         </div>
       </ScrollArea>
@@ -1143,6 +1145,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           showPagination={sortedJobs.length > PAGE_SIZE}
           fetchedImages={fetchedImages}
           fetchJobImages={(id) => openDetail(id)}
+          workers={workers}
         />
       </div>
 

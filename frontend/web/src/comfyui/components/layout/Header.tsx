@@ -69,7 +69,7 @@ import {
 import { CompositionTabsList } from "../CompositionTabsList"
 import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
-import type { WorkerView, CurationStatus } from "../../types/Message"
+import type { WorkerView, CurationStatus, JobView } from "../../types/Message"
 import {
   SessionPopover,
   type SessionMarker,
@@ -95,6 +95,7 @@ interface HeaderProps {
   backendAlive: boolean
   workers: WorkerView[]
   jobsCount: number
+  jobs?: JobView[]
   mobileJobTab: "editor" | "status" | "list"
   setMobileJobTab: (v: "editor" | "status" | "list") => void
   compositionTab: "ceg" | "workflow"
@@ -381,6 +382,7 @@ export function Header(props: HeaderProps) {
                   <WorkerStatus
                     workers={props.workers}
                     backendAlive={props.isAliveBackend}
+                    jobs={props.jobs || []}
                   />
                 </div>
               </div>
@@ -1524,6 +1526,7 @@ export function Header(props: HeaderProps) {
           <WorkerStatus
             workers={props.workers}
             backendAlive={props.isAliveBackend}
+            jobs={props.jobs || []}
           />
           </div>
         </div>

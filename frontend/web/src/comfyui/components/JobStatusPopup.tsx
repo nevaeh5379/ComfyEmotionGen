@@ -23,6 +23,7 @@ interface Props {
   backendUrl: string
   isAliveBackend: boolean
   onNavigateToJobs?: () => void
+  cycleMinimizedProgress?: boolean
 }
 
 export const JobStatusPopup = memo(function JobStatusPopup({
@@ -31,6 +32,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   backendUrl,
   isAliveBackend,
   onNavigateToJobs,
+  cycleMinimizedProgress = true,
 }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [, setTick] = useState(0)
@@ -53,6 +55,23 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     () => jobs.filter((j) => j.status === "running"),
     [jobs]
   )
+
+  // ── minimized progress cycling ──────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(0)
+
+  const itemsPerPage = 4
+  const totalPages = Math.ceil(runningJobs.length / itemsPerPage)
+
+  useEffect(() => {
+    if (!cycleMinimizedProgress || runningJobs.length <= itemsPerPage) {
+      setCurrentPage(0)
+      return
+    }
+    const interval = setInterval(() => {
+      setCurrentPage((prev) => (prev + 1) % totalPages)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [cycleMinimizedProgress, runningJobs.length, totalPages])
 
   const queuedJobs = useMemo(
     () => jobs.filter((j) => j.status === "queued" || j.status === "pending"),
@@ -110,7 +129,14 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 
   if (!expanded) {
     const mainJob = runningJobs[0]
-    const progressStr = mainJob ? `${Math.round(mainJob.progressPercent)}%` : ""
+    const safeCurrentPage = currentPage < totalPages ? currentPage : 0
+    const currentPageJobs = runningJobs.slice(
+      safeCurrentPage * itemsPerPage,
+      (safeCurrentPage + 1) * itemsPerPage
+    )
+    const progressStr = currentPageJobs
+      .map((j) => `${Math.round(j.progressPercent)}%`)
+      .join(" | ")
     const mainJobOverall = mainJob ? getOverallProgress(mainJob) : 0
     const etaStr =
       mainJob && mainJob.startedAt && mainJobOverall > 0 && mainJobOverall < 100
@@ -227,14 +253,21 @@ export const JobStatusPopup = memo(function JobStatusPopup({
             return (
               <div key={j.id} className="space-y-1">
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help truncate font-mono">
-                        {j.filename}
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help truncate font-mono">
+                          {j.filename}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{j.filename}</TooltipContent>
+                    </Tooltip>
+                    {j.workerId && (
+                      <span className="shrink-0 rounded bg-muted/80 px-1 font-mono text-[9px] font-bold text-muted-foreground">
+                        {j.workerId.slice(0, 8)}
                       </span>
-                    </TooltipTrigger>
-                    <TooltipContent>{j.filename}</TooltipContent>
-                  </Tooltip>
+                    )}
+                  </div>
                   {etaStr != null && (
                     <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                       {etaStr}
