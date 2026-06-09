@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useRef } from "react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
 import {
   Dialog,
@@ -47,6 +48,8 @@ export const ParserPreviewDialog = ({
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null)
 
+  const parentRef = useRef<HTMLDivElement>(null)
+
   const items = useMemo(() => renderResponse?.items ?? [], [renderResponse])
   const axes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
   const sets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
@@ -67,6 +70,16 @@ export const ParserPreviewDialog = ({
       )
     })
   }, [items, searchInput])
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 140,
+    overscan: 5,
+  })
+
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const totalSize = rowVirtualizer.getTotalSize()
 
   const handleCopyPrompt = useCallback((text: string, index: number) => {
     navigator.clipboard.writeText(text)
@@ -204,96 +217,122 @@ export const ParserPreviewDialog = ({
             )}
 
             {/* Items list */}
-            <div className="flex-1 overflow-auto p-3 space-y-2">
-              {filteredItems.map((item, index) => {
-                const key = itemKey(item)
-                const wouldRun = !filteredByAxisSet || filteredByAxisSet.has(key)
-                const rf = substitute(item.filename, item)
-                const rp = substitute(item.prompt, item)
-                const isSelected = selectedItemKey === key
-                const anySelected = selectedItemKey !== null
+            <div
+              ref={parentRef}
+              className="flex-1 overflow-auto p-3 scrollbar-thin"
+            >
+              <div
+                style={{
+                  height: `${totalSize}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {virtualItems.map((virtualItem) => {
+                  const item = filteredItems[virtualItem.index]
+                  if (!item) return null
+                  const index = virtualItem.index
+                  const key = itemKey(item)
+                  const wouldRun = !filteredByAxisSet || filteredByAxisSet.has(key)
+                  const rf = substitute(item.filename, item)
+                  const rp = substitute(item.prompt, item)
+                  const isSelected = selectedItemKey === key
+                  const anySelected = selectedItemKey !== null
 
-                return (
-                  <div
-                    key={`item-${key}-${index}`}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleItemClick(item)
-                    }}
-                    className={cn(
-                      "group flex flex-col gap-1.5 rounded-lg border border-line bg-background p-3 shadow-xs transition-all cursor-pointer select-none",
-                      !wouldRun && "opacity-30 grayscale",
-                      anySelected && !isSelected && "opacity-40",
-                      isSelected && "ring-1 ring-primary/40 border-primary/30"
-                    )}
-                  >
-                    {/* filename */}
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-muted text-muted-foreground select-none shrink-0">
-                        #{index + 1}
-                      </span>
-                      <span className="font-mono text-xs font-bold break-all text-foreground leading-tight flex-1">
-                        {rf}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          navigator.clipboard.writeText(rf)
-                          toast.success("파일명이 복사되었습니다.")
-                        }}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-
-                    {/* meta badges */}
-                    <div className="flex flex-wrap gap-1">
-                      {Object.entries(item.meta).map(([k, v]) => {
-                        const axisInfo = axes[k]
-                        const matched = axisInfo?.values.find((val) => val.key === v)
-                        return (
-                          <span
-                            key={k}
-                            className={cn(
-                              "font-mono text-[9px] font-bold border px-2 py-0.5 rounded transition-colors",
-                              isSelected
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-line bg-muted/40 text-foreground"
-                            )}
-                          >
-                            {k}: {matched?.value || v}
-                          </span>
-                        )
-                      })}
-                    </div>
-
-                    {/* prompt preview */}
-                    <div className="relative group/prompt flex items-start gap-2 rounded-md border border-line bg-muted/20 p-2">
-                      <div className="flex-1 font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap break-all line-clamp-2">
-                        {rp}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-5 w-5 shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleCopyPrompt(rp, index)
-                        }}
-                      >
-                        {copiedIndex === index ? (
-                          <Check className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3 w-3 text-muted-foreground" />
+                  return (
+                    <div
+                      key={`item-${key}-${index}`}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleItemClick(item)
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: `${virtualItem.size}px`,
+                        transform: `translateY(${virtualItem.start}px)`,
+                        paddingBottom: "8px",
+                      }}
+                    >
+                      <div
+                        className={cn(
+                          "group flex h-full flex-col gap-1.5 rounded-lg border border-line bg-background p-3 shadow-xs transition-all cursor-pointer select-none",
+                          !wouldRun && "opacity-30 grayscale",
+                          anySelected && !isSelected && "opacity-40",
+                          isSelected && "ring-1 ring-primary/40 border-primary/30"
                         )}
-                      </Button>
+                      >
+                        {/* filename */}
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-muted text-muted-foreground select-none shrink-0">
+                            #{index + 1}
+                          </span>
+                          <span className="font-mono text-xs font-bold break-all text-foreground leading-tight flex-1">
+                            {rf}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigator.clipboard.writeText(rf)
+                              toast.success("파일명이 복사되었습니다.")
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* meta badges */}
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(item.meta).map(([k, v]) => {
+                            const axisInfo = axes[k]
+                            const matched = axisInfo?.values.find((val) => val.key === v)
+                            return (
+                              <span
+                                key={k}
+                                className={cn(
+                                  "font-mono text-[9px] font-bold border px-2 py-0.5 rounded transition-colors",
+                                  isSelected
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-line bg-muted/40 text-foreground"
+                                )}
+                              >
+                                {k}: {matched?.value || v}
+                              </span>
+                            )
+                          })}
+                        </div>
+
+                        {/* prompt preview */}
+                        <div className="relative group/prompt flex items-start gap-2 rounded-md border border-line bg-muted/20 p-2">
+                          <div className="flex-1 font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap break-all line-clamp-2">
+                            {rp}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-5 w-5 shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCopyPrompt(rp, index)
+                            }}
+                          >
+                            {copiedIndex === index ? (
+                              <Check className="h-3 w-3 text-emerald-500" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
 
               {filteredItems.length === 0 && (
                 <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-background p-6 text-center text-muted-foreground text-xs italic">

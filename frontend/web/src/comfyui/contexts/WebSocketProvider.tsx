@@ -19,7 +19,7 @@ import { STORAGE_KEYS } from "../../lib/storageKeys"
 import { WS_INITIAL_BACKOFF_MS, WS_MAX_BACKOFF_MS } from "../../lib/constants"
 import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
-import { BackendContext, type BackendContextValue } from "./BackendContext"
+import { BackendContext, type BackendContextValue, type JobMeta } from "./BackendContext"
 import { fetchAllSettings, CLIENT_ID } from "../../lib/serverStorage"
 import {
   populateSettingsCache,
@@ -50,6 +50,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const url = backendUrl !== undefined ? backendUrl : storedUrl
   const [isConnected, setIsConnected] = useState(false)
   const [jobs, setJobs] = useState<JobView[]>([])
+  const [jobMetas, setJobMetas] = useState<JobMeta[]>([])
   const [workers, setWorkers] = useState<WorkerView[]>([])
   const [paused, setPaused] = useState(false)
   const [sessionStartedAt] = useState<number>(() => Date.now())
@@ -69,18 +70,25 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
   const applyEvent = useCallback((event: BackendEvent) => {
     switch (event.type) {
-      case "snapshot":
-        setJobs(event.jobs)
+      case "snapshot": {
+        const slicedJobs = event.jobs.slice(-1000)
+        setJobs(slicedJobs)
+        setJobMetas(slicedJobs.map((j) => ({ id: j.id, createdAt: j.createdAt })))
         setWorkers(event.workers)
         setPaused(event.paused)
         break
-      case "job.created":
-        setJobs((prev) => [...prev, event.job])
+      }
+      case "job.created": {
+        const newJob = event.job
+        setJobs((prev) => [...prev, newJob].slice(-1000))
+        setJobMetas((prev) => [...prev, { id: newJob.id, createdAt: newJob.createdAt }].slice(-1000))
         break
+      }
       case "job.updated":
-        setJobs((prev) =>
-          prev.map((j) => (j.id === event.job.id ? event.job : j))
-        )
+        setJobs((prev) => {
+          const next = prev.map((j) => (j.id === event.job.id ? event.job : j))
+          return next.slice(-1000)
+        })
         break
       case "worker.updated":
         setWorkers((prev) =>
@@ -100,9 +108,12 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       case "control.updated":
         setPaused(event.paused)
         break
-      case "job.deleted":
-        setJobs((prev) => prev.filter((j) => j.id !== event.jobId))
+      case "job.deleted": {
+        const targetId = event.jobId
+        setJobs((prev) => prev.filter((j) => j.id !== targetId).slice(-1000))
+        setJobMetas((prev) => prev.filter((jm) => jm.id !== targetId).slice(-1000))
         break
+      }
       case "settings.updated":
         if (event.sender === CLIENT_ID) break
         if (!getSyncQueue().some((i) => i.key === event.key))
@@ -238,11 +249,12 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
     () => ({
       isConnected,
       jobs,
+      jobMetas,
       workers,
       paused,
       sessionStartedAt,
     }),
-    [isConnected, jobs, workers, paused, sessionStartedAt]
+    [isConnected, jobs, jobMetas, workers, paused, sessionStartedAt]
   )
 
   return (

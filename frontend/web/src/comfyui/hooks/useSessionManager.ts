@@ -51,7 +51,7 @@ export interface UseSessionManagerReturn {
 }
 
 export function useSessionManager(): UseSessionManagerReturn {
-  const { jobs } = useBackend()
+  const { jobs, jobMetas } = useBackend()
 
   // ── Initialise from local cache synchronously ──
   const initialMarkers = useMemo(() => initMarkers(), [])
@@ -82,7 +82,7 @@ export function useSessionManager(): UseSessionManagerReturn {
   const [selectedSessionId, setSelectedSessionId] = useState<string>(
     () =>
       activeState?.activeSessionId ??
-      initialMarkers.sort((a, b) => b.startAt - a.startAt)[0]!.id
+      [...initialMarkers].sort((a, b) => b.startAt - a.startAt)[0]!.id
   )
 
   // ── Load from server on mount ──
@@ -110,21 +110,29 @@ export function useSessionManager(): UseSessionManagerReturn {
   // ── Derived state ──
   const sessionJobCounts = useMemo(() => {
     const map = new Map<string, number>()
-    for (const j of jobs) {
+    for (const j of jobMetas) {
       const sid = jobSessionId(j.createdAt, sortedMarkers, activeState)
       map.set(sid, (map.get(sid) ?? 0) + 1)
     }
     return map
-  }, [jobs, sortedMarkers, activeState])
+  }, [jobMetas, sortedMarkers, activeState])
+
+  const sessionJobIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const j of jobMetas) {
+      if (
+        jobSessionId(j.createdAt, sortedMarkers, activeState) ===
+        selectedSessionId
+      ) {
+        ids.add(j.id)
+      }
+    }
+    return ids
+  }, [jobMetas, sortedMarkers, activeState, selectedSessionId])
 
   const sessionJobs = useMemo(
-    () =>
-      jobs.filter(
-        (j) =>
-          jobSessionId(j.createdAt, sortedMarkers, activeState) ===
-          selectedSessionId
-      ),
-    [jobs, sortedMarkers, activeState, selectedSessionId]
+    () => jobs.filter((j) => sessionJobIds.has(j.id)),
+    [jobs, sessionJobIds]
   )
 
   const sessionCounts = useMemo(() => {

@@ -1,4 +1,4 @@
-import { memo, useRef, useEffect, useState } from "react"
+import { memo, useRef, useEffect, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import {
   ArrowDown,
@@ -16,11 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card"
+
 import { Progress } from "@/components/ui/progress"
 import {
   Pagination,
@@ -47,13 +43,7 @@ import {
 } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 import { cn } from "@/lib/utils"
 
 import type { JobStatus, JobView, WorkerView } from "../types/Message"
@@ -629,20 +619,24 @@ export const JobRow = memo(function JobRow({
   job,
   selectedForDelete,
   onToggleSelect,
-  backendUrl,
-  fetchedImages,
   fetchJobImages,
   workers,
   onMoveJob,
+  onJobMouseEnter,
+  onJobMouseLeave,
+  onWorkerMouseEnter,
+  onWorkerMouseLeave,
 }: {
   job: JobView
   selectedForDelete: Set<string>
   onToggleSelect: (jobId: string) => void
-  backendUrl: string
-  fetchedImages: Map<string, string[]>
   fetchJobImages: (jobId: string) => void
   workers: WorkerView[]
   onMoveJob: (jobId: string, targetWorkerId: string) => void
+  onJobMouseEnter: (job: JobView, rect: DOMRect) => void
+  onJobMouseLeave: () => void
+  onWorkerMouseEnter: (job: JobView, workerId: string, rect: DOMRect) => void
+  onWorkerMouseLeave: () => void
 }) {
   const isActive =
     job.status === "pending" ||
@@ -669,82 +663,21 @@ export const JobRow = memo(function JobRow({
   const c = (hash & 0x00ffffff).toString(16).toUpperCase()
   const dotColor = "#" + "00000".substring(0, 6 - c.length) + c
 
-  const workerInfo = job.workerId ? workers.find((w) => w.id === job.workerId) : null
-  const workerLabel = job.workerId
-    ? workerInfo
-      ? job.workerId.slice(0, 8)
-      : job.workerId.slice(0, 8)
-    : "—"
+  const workerLabel = job.workerId ? job.workerId.slice(0, 8) : "—"
 
   const workerCell = (
     <TableCell onClick={(e) => e.stopPropagation()} className="px-2 font-mono text-[11px] w-[80px]">
       {job.workerId ? (
-        <HoverCard openDelay={200} closeDelay={100}>
-          <HoverCardTrigger asChild>
-            <span className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground">
-              {workerLabel}
-            </span>
-          </HoverCardTrigger>
-          <HoverCardContent
-            side="top"
-            align="start"
-            className="w-72 rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md"
-          >
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-1 text-xs">
-                <span className="font-mono font-bold text-foreground">
-                  {job.workerId}
-                </span>
-                {workerInfo && (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
-                    {workerInfo.workerType ?? "comfyui"}
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    "font-bold text-[10px]",
-                    workerInfo
-                      ? workerInfo.alive
-                        ? workerInfo.busy
-                          ? "text-yellow-600 dark:text-yellow-400"
-                          : "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {workerInfo
-                    ? workerInfo.alive
-                      ? workerInfo.busy
-                        ? "busy"
-                        : "idle"
-                      : "down"
-                    : "offline"}
-                </span>
-              </div>
-              {workerInfo && (
-                <div className="font-mono text-[10px] text-muted-foreground/80 truncate">
-                  {workerInfo.url}
-                </div>
-              )}
-              {job.status === "running" && (
-                <div className="mt-1 space-y-1 bg-muted/20 rounded p-1.5">
-                  <div className="flex items-center justify-between text-[9px] text-muted-foreground font-semibold">
-                    <span className="truncate max-w-[190px] text-foreground/80">
-                      📄 {job.filename}
-                    </span>
-                    <span className="mono font-bold tabular-nums">
-                      {Math.round(getOverallProgress(job))}%
-                    </span>
-                  </div>
-                  <Progress
-                    value={getOverallProgress(job)}
-                    className="h-1 w-full bg-muted/60 [&>[data-slot=progress-indicator]]:bg-info"
-                  />
-                </div>
-              )}
-            </div>
-          </HoverCardContent>
-        </HoverCard>
+        <span
+          className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground select-none"
+          onMouseEnter={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            onWorkerMouseEnter(job, job.workerId!, rect)
+          }}
+          onMouseLeave={onWorkerMouseLeave}
+        >
+          {workerLabel}
+        </span>
       ) : (
         <span className="text-muted-foreground/45">—</span>
       )}
@@ -756,6 +689,13 @@ export const JobRow = memo(function JobRow({
       key={job.id}
       className="group/row relative cursor-pointer transition-all duration-300 hover:bg-muted/30 hover:shadow-sm"
       onClick={() => fetchJobImages(job.id)} // open detail via click (handled by parent's onClick)
+      onMouseEnter={(e) => {
+        if (job.status === "done") {
+          const rect = e.currentTarget.getBoundingClientRect()
+          onJobMouseEnter(job, rect)
+        }
+      }}
+      onMouseLeave={onJobMouseLeave}
     >
       {selectedForDelete.size > 0 && (
         <TableCell className="px-2 py-4">
@@ -794,22 +734,20 @@ export const JobRow = memo(function JobRow({
       {workerCell}
       <TableCell onClick={(e) => e.stopPropagation()} className="px-2">
         {job.status === "pending" ? (
-          <Select
+          <select
             value={job.targetWorkerId || "auto"}
-            onValueChange={(v) => onMoveJob(job.id, v === "auto" ? "" : v)}
+            onChange={(e) => onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value)}
+            className="h-6 w-24 rounded-md border border-input bg-background px-1.5 py-0.5 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
           >
-            <SelectTrigger className="h-6 w-24 text-[10px] px-1 py-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="auto">자동</SelectItem>
-              {workers
-                .filter((w) => (w.workerType === "comfyui" || !w.workerType) && w.alive)
-                .map((w) => (
-                  <SelectItem key={w.id} value={w.id}>{w.id}</SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+            <option value="auto">자동</option>
+            {workers
+              .filter((w) => (w.workerType === "comfyui" || !w.workerType) && w.alive)
+              .map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.id.slice(0, 8)}
+                </option>
+              ))}
+          </select>
         ) : isActive ? (
           <span className="text-[10px] text-muted-foreground">진행중</span>
         ) : isFailed ? (
@@ -819,43 +757,6 @@ export const JobRow = memo(function JobRow({
     </TableRow>
   )
 
-  if (job.status === "done") {
-    return (
-      <HoverCard openDelay={400} closeDelay={100}>
-        <HoverCardTrigger asChild>{row}</HoverCardTrigger>
-        <HoverCardContent
-          side="left"
-          align="start"
-          className="hidden w-auto animate-in rounded-xl border border-line-strong/60 bg-popover/90 p-2.5 shadow-2xl backdrop-blur-md duration-200 fade-in-0 md:block"
-        >
-          {fetchedImages.get(job.id) &&
-          fetchedImages.get(job.id)!.length > 0 ? (
-            <div className="flex gap-1.5">
-              {fetchedImages
-                .get(job.id)!
-                .slice(0, 6)
-                .map((h, i) => (
-                  <img
-                    key={h}
-                    src={`${backendUrl}/saved-images/${h}`}
-                    alt={`Preview ${i + 1}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-16 w-16 rounded-lg border border-line object-cover transition-transform duration-300 hover:scale-105 hover:shadow-md"
-                  />
-                ))}
-            </div>
-          ) : (
-            <div className="flex gap-1.5">
-              <Skeleton className="h-16 w-16 rounded-lg" />
-              <Skeleton className="h-16 w-16 rounded-lg" />
-              <Skeleton className="h-16 w-16 rounded-lg" />
-            </div>
-          )}
-        </HoverCardContent>
-      </HoverCard>
-    )
-  }
   return row
 })
 
@@ -877,6 +778,166 @@ export const JobTableSection = memo(function JobTableSection({
   workers,
   onMoveJob,
 }: JobTableProps) {
+  const [hoveredJob, setHoveredJob] = useState<{
+    job: JobView
+    rect: DOMRect
+  } | null>(null)
+
+  const [hoveredWorker, setHoveredWorker] = useState<{
+    job: JobView
+    workerId: string
+    rect: DOMRect
+  } | null>(null)
+
+  const jobTimeoutRef = useRef<number | null>(null)
+  const workerTimeoutRef = useRef<number | null>(null)
+
+  const handleJobMouseEnter = useCallback((job: JobView, rect: DOMRect) => {
+    if (jobTimeoutRef.current) clearTimeout(jobTimeoutRef.current)
+    jobTimeoutRef.current = window.setTimeout(() => {
+      setHoveredJob({ job, rect })
+    }, 400)
+  }, [])
+
+  const handleJobMouseLeave = useCallback(() => {
+    if (jobTimeoutRef.current) clearTimeout(jobTimeoutRef.current)
+    setHoveredJob(null)
+  }, [])
+
+  const handleWorkerMouseEnter = useCallback((job: JobView, workerId: string, rect: DOMRect) => {
+    if (workerTimeoutRef.current) clearTimeout(workerTimeoutRef.current)
+    workerTimeoutRef.current = window.setTimeout(() => {
+      setHoveredWorker({ job, workerId, rect })
+    }, 200)
+  }, [])
+
+  const handleWorkerMouseLeave = useCallback(() => {
+    if (workerTimeoutRef.current) clearTimeout(workerTimeoutRef.current)
+    setHoveredWorker(null)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (jobTimeoutRef.current) clearTimeout(jobTimeoutRef.current)
+      if (workerTimeoutRef.current) clearTimeout(workerTimeoutRef.current)
+    }
+  }, [])
+
+  const jobStyle: React.CSSProperties | undefined = hoveredJob ? {
+    left: `${hoveredJob.rect.left - 12}px`,
+    top: `${hoveredJob.rect.top}px`,
+    transform: "translateX(-100%)",
+    pointerEvents: "none",
+  } : undefined
+
+  const workerStyle: React.CSSProperties | undefined = hoveredWorker ? {
+    left: `${hoveredWorker.rect.left}px`,
+    top: `${hoveredWorker.rect.top - 8}px`,
+    transform: "translateY(-100%)",
+    pointerEvents: "none",
+  } : undefined
+
+  const tooltips = createPortal(
+    <>
+      {hoveredJob && (
+        <div
+          className="fixed z-[100] rounded-xl border border-line-strong/60 bg-popover/90 p-2.5 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 pointer-events-none hidden md:block"
+          style={jobStyle}
+        >
+          {fetchedImages.get(hoveredJob.job.id) &&
+          fetchedImages.get(hoveredJob.job.id)!.length > 0 ? (
+            <div className="flex gap-1.5">
+              {fetchedImages
+                .get(hoveredJob.job.id)!
+                .slice(0, 6)
+                .map((h, i) => (
+                  <img
+                    key={h}
+                    src={`${backendUrl}/saved-images/${h}`}
+                    alt={`Preview ${i + 1}`}
+                    className="h-16 w-16 rounded-lg border border-line object-cover"
+                  />
+                ))}
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
+              <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
+              <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {hoveredWorker && (
+        <div
+          className="fixed z-[100] w-72 rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 pointer-events-none"
+          style={workerStyle}
+        >
+          {(() => {
+            const { job, workerId } = hoveredWorker
+            const workerInfo = workers.find((w) => w.id === workerId)
+            const statusColor = workerInfo
+              ? workerInfo.alive
+                ? workerInfo.busy
+                  ? "text-yellow-600 dark:text-yellow-400"
+                  : "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+              : "text-muted-foreground"
+            
+            const statusLabel = workerInfo
+              ? workerInfo.alive
+                ? workerInfo.busy
+                  ? "busy"
+                  : "idle"
+                : "down"
+              : "offline"
+
+            return (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-1 text-xs">
+                  <span className="font-mono font-bold text-foreground">
+                    {workerId}
+                  </span>
+                  {workerInfo && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
+                      {workerInfo.workerType ?? "comfyui"}
+                    </span>
+                  )}
+                  <span className={cn("font-bold text-[10px]", statusColor)}>
+                    {statusLabel}
+                  </span>
+                </div>
+                {workerInfo && (
+                  <div className="font-mono text-[10px] text-muted-foreground/80 truncate">
+                    {workerInfo.url}
+                  </div>
+                )}
+                {job.status === "running" && (
+                  <div className="mt-1 space-y-1 bg-muted/20 rounded p-1.5">
+                    <div className="flex items-center justify-between text-[9px] text-muted-foreground font-semibold">
+                      <span className="truncate max-w-[190px] text-foreground/80">
+                        📄 {job.filename}
+                      </span>
+                      <span className="mono font-bold tabular-nums">
+                        {Math.round(getOverallProgress(job))}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={getOverallProgress(job)}
+                      className="h-1 w-full bg-muted/60 [&>[data-slot=progress-indicator]]:bg-info"
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+        </div>
+      )}
+    </>,
+    document.body
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Desktop Table View */}
@@ -942,11 +1003,13 @@ export const JobTableSection = memo(function JobTableSection({
                   job={j}
                   selectedForDelete={selectedForDelete}
                   onToggleSelect={onToggleSelect}
-                  backendUrl={backendUrl}
-                  fetchedImages={fetchedImages}
                   fetchJobImages={fetchJobImages}
                   workers={workers}
                   onMoveJob={onMoveJob}
+                  onJobMouseEnter={handleJobMouseEnter}
+                  onJobMouseLeave={handleJobMouseLeave}
+                  onWorkerMouseEnter={handleWorkerMouseEnter}
+                  onWorkerMouseLeave={handleWorkerMouseLeave}
                 />
               ))}
               {pagedJobs.length === 0 && (
@@ -1071,22 +1134,18 @@ export const JobTableSection = memo(function JobTableSection({
                   <div className="flex shrink-0 items-center gap-1 pl-2 text-muted-foreground/30">
                     {job.status === "pending" ? (
                       <div onClick={(e) => e.stopPropagation()}>
-                        <Select
+                        <select
                           value={job.targetWorkerId || "auto"}
-                          onValueChange={(v) => onMoveJob(job.id, v === "auto" ? "" : v)}
+                          onChange={(e) => onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value)}
+                          className="h-6 w-20 rounded-md border border-input bg-background px-1 py-0 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
                         >
-                          <SelectTrigger className="h-6 w-20 text-[10px] px-1 py-0">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="auto">자동</SelectItem>
-                            {workers
-                              .filter((w) => (w.workerType === "comfyui" || !w.workerType) && w.alive)
-                              .map((w) => (
-                                <SelectItem key={w.id} value={w.id}>{w.id.slice(0, 8)}</SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
+                          <option value="auto">자동</option>
+                          {workers
+                            .filter((w) => (w.workerType === "comfyui" || !w.workerType) && w.alive)
+                            .map((w) => (
+                              <option key={w.id} value={w.id}>{w.id.slice(0, 8)}</option>
+                            ))}
+                        </select>
                       </div>
                     ) : job.status === "running" ? (
                       <span className="mr-1 animate-pulse text-[9px] font-black tracking-wider text-info uppercase">
@@ -1116,6 +1175,8 @@ export const JobTableSection = memo(function JobTableSection({
           </div>
         </ScrollArea>
       </div>
+
+      {tooltips}
 
       {showPagination && (
         <div className="flex shrink-0 flex-col items-center gap-2 pb-4">
