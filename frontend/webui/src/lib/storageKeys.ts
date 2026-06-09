@@ -19,4 +19,14 @@ export const STORAGE_KEYS = {
   curationSelectedAxis: "comfy.curation.selectedAxis",
   curationThumbnailSize: "comfy.curation.thumbnailSize",
   galleryThumbnailSize: "comfy.gallery.thumbnailSize",
+  activeTab: "ceg_activeTab",
+  regenCount: "ceg_regenCount",
+  regenTemplateId: "ceg_regenTemplateId",
+  regenWorkflowId: "ceg_regenWorkflowId",
+  regenNodeMappings: "ceg_regenNodeMappings",
+  curationSelectedFilename: "comfy.curation.selectedFilename",
+  curationViewMode: "comfy.curation.viewMode",
+  curationListLayout: "comfy.curation.listLayout",
+  curationGridSubMode: "comfy.curation.gridSubMode",
 } as const
+

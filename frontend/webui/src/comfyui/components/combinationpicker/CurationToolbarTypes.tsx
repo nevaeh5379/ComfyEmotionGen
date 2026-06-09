@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo, useRef } from "react"
 
 import { CurationToolbarContext } from "./CurationToolbarContext"
+import { useLocalStorage } from "../../hooks/useLocalStorage"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 export type CurationViewMode =
   | "gallery"
@@ -64,9 +66,18 @@ export function CurationToolbarProvider({
   setSelectedAxis: (v: string) => void
   savedTemplates: { id: string; name: string }[]
 }): React.JSX.Element {
-  const [viewMode, setViewModeState] = useState<CurationViewMode>("gallery")
-  const [listLayout, setListLayoutState] = useState<"gallery" | "table">("gallery")
-  const [gridSubMode, setGridSubModeState] = useState<"grid" | "compare" | "tournament">("grid")
+  const [viewMode, setViewModeState] = useLocalStorage<CurationViewMode>(
+    STORAGE_KEYS.curationViewMode,
+    "gallery"
+  )
+  const [listLayout, setListLayoutState] = useLocalStorage<"gallery" | "table">(
+    STORAGE_KEYS.curationListLayout,
+    "gallery"
+  )
+  const [gridSubMode, setGridSubModeState] = useLocalStorage<"grid" | "compare" | "tournament">(
+    STORAGE_KEYS.curationGridSubMode,
+    "grid"
+  )
   const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [hideRejected, setHideRejected] = useState(false)
   const [autoAdvance, setAutoAdvance] = useState(false)

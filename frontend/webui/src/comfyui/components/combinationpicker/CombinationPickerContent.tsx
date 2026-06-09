@@ -20,6 +20,8 @@ import { curationApi } from "../../hooks/useSavedImages"
 import { API, HEADERS } from "@/lib/api"
 import { useSavedWorkflows } from "../../hooks/useSavedWorkflows"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
+import { useLocalStorage } from "../../hooks/useLocalStorage"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 import {
   downloadImagesAsZip,
   getImageFilename,
@@ -99,7 +101,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const curationToolbarCtx = useCurationToolbar()
 
   // ── State ──
-  const [selectedFilename, setSelectedFilename] = useState<string | null>(null)
+  const [selectedFilename, setSelectedFilename] = useLocalStorage<string | null>(
+    STORAGE_KEYS.curationSelectedFilename,
+    null
+  )
   const [detailImage, setDetailImage] = useState<SavedImage | null>(null)
 
   const exportAction = useAsyncAction(3000)

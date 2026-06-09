@@ -139,6 +139,7 @@ export function CombinationPickerToolbar({
     candidates,
     filteredRenderItems,
     fetchData,
+    loading,
   } = data
 
   const { selectionMode, selectedFilenames, exitSelectionMode } = selection
@@ -434,6 +435,22 @@ export function CombinationPickerToolbar({
               <TooltipContent>필터 토글</TooltipContent>
             </Tooltip>
           )}
+
+          {/* 새로고침 버튼 */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchData}
+                disabled={loading}
+                className="h-9 w-9 p-0 md:h-8 md:w-8 shrink-0"
+              >
+                <RefreshCwIcon className={cn("h-4 w-4 md:h-3.5 md:w-3.5", loading && "animate-spin")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs font-bold">새로고침</TooltipContent>
+          </Tooltip>
 
           {/* 설정 드롭다운 */}
           <DropdownMenu>

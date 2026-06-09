@@ -1530,6 +1530,24 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </TooltipContent>
                   </Tooltip>
 
+                  {/* 새로고침 버튼 */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={reload}
+                        disabled={loading}
+                        className="h-8 w-8 p-0 shrink-0"
+                      >
+                        <RefreshCwIcon className={cn("h-4 w-4", loading && "animate-spin")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs font-bold">
+                      새로고침
+                    </TooltipContent>
+                  </Tooltip>
+
                   {/* 3. Filter button */}
                   <Button
                     size="sm"

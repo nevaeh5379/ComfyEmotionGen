@@ -50,6 +50,8 @@ import type { ComfyWorkflow, NodeMapping } from "@/lib/workflow"
 import { NodeMappingSection } from "../NodeMappingSection"
 import type { ObjectInfo } from "../../types/renderTypes"
 import type { RenderItem } from "../../types/renderTypes"
+import { useLocalStorage } from "../../hooks/useLocalStorage"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 export type { RenderItem }
 
@@ -378,10 +380,10 @@ export function RegenerateDialog({
   onSubmit,
   isLoading,
 }: RegenerateDialogProps) {
-  const [count, setCount] = useState(4)
-  const [selectedTemplateId, setSelectedTemplateId] = useState("")
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState("")
-  const [nodeMappings, setNodeMappings] = useState<NodeMapping[]>([])
+  const [count, setCount] = useLocalStorage<number>(STORAGE_KEYS.regenCount, 4)
+  const [selectedTemplateId, setSelectedTemplateId] = useLocalStorage<string>(STORAGE_KEYS.regenTemplateId, "__current__")
+  const [selectedWorkflowId, setSelectedWorkflowId] = useLocalStorage<string>(STORAGE_KEYS.regenWorkflowId, "")
+  const [nodeMappings, setNodeMappings] = useLocalStorage<NodeMapping[]>(STORAGE_KEYS.regenNodeMappings, [])
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
   const [imageUploads, setImageUploads] = useState({} as Record<string, { uploadedName: string | null; error: string | null; uploading: boolean; previewUrl: string | null }>)
   const dialogActiveRef = useRef(open)
@@ -578,9 +580,6 @@ export function RegenerateDialog({
   useEffect(() => {
     if (!open) return
     const resetTimer = window.setTimeout(() => {
-      setSelectedTemplateId("__current__")
-      setSelectedWorkflowId("")
-      setNodeMappings([])
       revokeAllPreviewUrls()
       setImageUploads({})
     }, 0)

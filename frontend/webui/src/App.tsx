@@ -152,7 +152,10 @@ function AppContent() {
   const nodeMapping = useNodeMappingContext()
 
   // ── UI state ──
-  const [activeTab, setActiveTab] = useState<TabId>("jobs")
+  const [activeTab, setActiveTab] = useLocalStorage<TabId>(
+    STORAGE_KEYS.activeTab,
+    "jobs"
+  )
   const [compositionTab, setCompositionTab] = useState<"ceg" | "workflow">(
     "ceg"
   )
