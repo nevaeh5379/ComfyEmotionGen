@@ -1,9 +1,7 @@
-import { useState, useCallback, useMemo, useEffect } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { curationApi } from "../../hooks/useSavedImages"
 import { hasApproved } from "../../types/Message"
-import type { SavedImage, BackendEvent } from "../../types/Message"
-import { httpToWs } from "@/lib/utils"
-import { WS_RECONNECT_DELAY_MS } from "@/lib/constants"
+import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import {
   groupSavedImagesAsRenderItems,
@@ -284,117 +282,27 @@ export function useCombinationData({
     [backendUrl, imagesByFilename]
   )
 
-  // ──── WebSocket으로 image.* 이벤트 수신 → 증분 업데이트 ────
-  useEffect(() => {
-    const wsUrl = `${httpToWs(backendUrl)}/ws/events`
-    let socket: WebSocket | null = null
-    let cancelled = false
-
-    const connect = () => {
-      socket = new WebSocket(wsUrl)
-      socket.onmessage = (e) => {
-        if (typeof e.data !== "string") return
-        try {
-          const event = JSON.parse(e.data) as BackendEvent
-
-          if (event.type === "image.saved" && !cancelled) {
-            // 새 이미지: hash로 단일 이미지만 fetch하여 추가
-            const { hash } = event
-            fetch(`${backendUrl}/saved-images/${hash}`)
-              .then((res) => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`)
-                return res.json() as Promise<SavedImage>
-              })
-              .then((img) => {
-                setAllImages((prev) => {
-                  // 이미 있으면 중복 추가 방지
-                  if (prev.some((i) => i.hash === img.hash)) return prev
-                  return [...prev, img]
-                })
-              })
-              .catch((err) => {
-                console.warn("Failed to fetch new image:", err)
-              })
-          }
-
-          if (event.type === "image.curation" && !cancelled) {
-            // 큐레이션 상태 변경: 이벤트에 포함된 이미지로 직접 업데이트
-            if (event.image) {
-              setAllImages((prev) =>
-                prev.map((img) =>
-                  img.hash === event.image!.hash ? event.image! : img
-                )
-              )
-            }
-          }
-
-          if (event.type === "image.deleted" && !cancelled) {
-            // 삭제: 상태에서 제거
-            const { hash } = event
-            setAllImages((prev) => prev.filter((img) => img.hash !== hash))
-          }
-        } catch (parseErr) {
-          console.warn("WS message parse error:", parseErr)
-        }
-      }
-      socket.onclose = () => {
-        if (cancelled) return
-        setTimeout(connect, WS_RECONNECT_DELAY_MS)
-      }
-    }
-    connect()
-    return () => {
-      cancelled = true
-      socket?.close()
-    }
-  }, [backendUrl])
-
-  return useMemo(
-    () => ({
-      renderItems,
-      allImages,
-      setAllImages,
-      loading,
-      error,
-      fetchData,
-      imagesByFilename,
-      doneCount,
-      filteredRenderItems,
-      unassignedGroups,
-      unassignedTotalCount,
-      statusFilter,
-      setStatusFilter,
-      searchTags,
-      setSearchTags,
-      searchInput,
-      setSearchInput,
-      candidates,
-      setStatus,
-      batchUpdateStatus,
-      approveImage,
-    }),
-    [
-      renderItems,
-      allImages,
-      setAllImages,
-      loading,
-      error,
-      fetchData,
-      imagesByFilename,
-      doneCount,
-      filteredRenderItems,
-      unassignedGroups,
-      unassignedTotalCount,
-      statusFilter,
-      setStatusFilter,
-      searchTags,
-      setSearchTags,
-      searchInput,
-      setSearchInput,
-      candidates,
-      setStatus,
-      batchUpdateStatus,
-      approveImage,
-    ]
-  )
+  return {
+    renderItems,
+    allImages,
+    setAllImages,
+    loading,
+    error,
+    fetchData,
+    imagesByFilename,
+    doneCount,
+    filteredRenderItems,
+    unassignedGroups,
+    unassignedTotalCount,
+    statusFilter,
+    setStatusFilter,
+    searchTags,
+    setSearchTags,
+    searchInput,
+    setSearchInput,
+    candidates,
+    setStatus,
+    batchUpdateStatus,
+    approveImage,
+  }
 }

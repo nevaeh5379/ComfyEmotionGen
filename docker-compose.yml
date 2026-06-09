@@ -18,9 +18,9 @@ services:
       - ./data:/app/backend/data
     restart: unless-stopped
 
-  frontend:
+  webui:
     build:
-      context: ./frontend/web
+      context: ./frontend/webui
       dockerfile: Dockerfile
       args:
         CEG_BUNDLE_VERSION: ${CEG_BUNDLE_VERSION:-dev}

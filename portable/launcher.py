@@ -46,7 +46,7 @@ else:
     
     # Try multiple common locations in development:
     # 1. portable/frontend_dist (where build.ps1 stages it)
-    # 2. frontend/web/dist (where Vite builds it directly)
+    # 2. frontend/webui/dist (where Vite builds it directly)
     # 3. frontend_dist in project root
     paths_to_try = [
         os.path.join(portable_dir, 'frontend_dist'),

@@ -14,7 +14,7 @@ if (-not (Test-Path $VenvPy)) {
   Write-Error "Backend venv missing. Run .\install.ps1 first."
   exit 1
 }
-if (-not (Test-Path "$Root\frontend\web\dist")) {
+if (-not (Test-Path "$Root\frontend\webui\dist")) {
   Write-Error "Frontend build missing. Run .\install.ps1 first."
   exit 1
 }
@@ -30,7 +30,7 @@ $backend = Start-Process -FilePath $VenvPy `
 Write-Host "==> Starting frontend on :${FrontendPort}" -ForegroundColor Cyan
 $frontend = Start-Process -FilePath "npm" `
     -ArgumentList "run","preview","--","--host","--port",$FrontendPort `
-    -WorkingDirectory "$Root\frontend\web" `
+    -WorkingDirectory "$Root\frontend\webui" `
     -PassThru -NoNewWindow
 
 Write-Host ""

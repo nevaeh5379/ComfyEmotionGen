@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 
 $PortableDir = $PSScriptRoot
 $ProjectRoot = (Get-Item $PortableDir).Parent.FullName
-$FrontendDir = Join-Path $ProjectRoot "frontend/web"
+$FrontendDir = Join-Path $ProjectRoot "frontend/webui"
 $BackendDir = Join-Path $ProjectRoot "backend"
 $DistDir = Join-Path $PortableDir "frontend_dist"
 

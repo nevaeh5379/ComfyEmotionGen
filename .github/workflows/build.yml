@@ -202,7 +202,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/web/package-lock.json
+          cache-dependency-path: frontend/webui/package-lock.json
       - name: Install backend deps + PyInstaller
         if: matrix.variant == 'full' || matrix.variant == 'backend'
         run: |
@@ -244,15 +244,15 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/web/package-lock.json
+          cache-dependency-path: frontend/webui/package-lock.json
       - name: Build frontend
         run: |
-          cd frontend/web
+          cd frontend/webui
           npm ci
           npm run build
       - name: Create ZIP
         run: |
-          cd frontend/web/dist
+          cd frontend/webui/dist
           zip -r ../../../frontend-dist.zip .
       - uses: actions/upload-artifact@v4
         with:

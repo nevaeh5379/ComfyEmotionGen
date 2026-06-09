@@ -14,7 +14,7 @@ if [[ ! -x "$ROOT/backend/.venv/bin/python" ]]; then
   echo "Backend venv missing. Run ./install.sh first." >&2
   exit 1
 fi
-if [[ ! -d "$ROOT/frontend/web/dist" ]]; then
+if [[ ! -d "$ROOT/frontend/webui/dist" ]]; then
   echo "Frontend build missing. Run ./install.sh first." >&2
   exit 1
 fi
@@ -27,11 +27,11 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "==> Starting backend on :${BACKEND_PORT}"
-(cd "$ROOT/backend" && BACKEND_PORT="$BACKEND_PORT" BACKEND_HOST="$BACKEND_HOST" "$ROOT/backend/.venv/bin/python" run.py) &
+(cd "$ROOT/backend/src" && BACKEND_PORT="$BACKEND_PORT" BACKEND_HOST="$BACKEND_HOST" "$ROOT/backend/.venv/bin/python" run.py) &
 BACKEND_PID=$!
 
 echo "==> Starting frontend on :${FRONTEND_PORT}"
-(cd "$ROOT/frontend/web" && FRONTEND_PORT="$FRONTEND_PORT" npm run preview -- --host --port "$FRONTEND_PORT") &
+(cd "$ROOT/frontend/webui" && FRONTEND_PORT="$FRONTEND_PORT" npm run preview -- --host --port "$FRONTEND_PORT") &
 FRONTEND_PID=$!
 
 echo

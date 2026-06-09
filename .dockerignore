@@ -5,8 +5,8 @@ backend/__pycache__/
 example_frontend/public
 example_frontend/node_modules
 example_frontend/dist
-frontend/web/node_modules
-frontend/web/dist
+frontend/webui/node_modules
+frontend/webui/dist
 tools/dumps
 vscode-ceg/node_modules
 vscode-ceg/out

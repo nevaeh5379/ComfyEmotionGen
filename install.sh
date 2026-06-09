@@ -14,10 +14,10 @@ echo "==> Installing backend dependencies"
 "$ROOT/backend/.venv/bin/pip" install -r "$ROOT/backend/requirements.txt"
 
 echo "==> Installing frontend dependencies"
-(cd "$ROOT/frontend/web" && npm install)
+(cd "$ROOT/frontend/webui" && npm install)
 
 echo "==> Building frontend"
-(cd "$ROOT/frontend/web" && npm run build)
+(cd "$ROOT/frontend/webui" && npm run build)
 
 echo
 echo "✅ Install complete. Run ./run.sh to start."

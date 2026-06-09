@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-FRONTEND_DIR="$PROJECT_ROOT/frontend/web"
+FRONTEND_DIR="$PROJECT_ROOT/frontend/webui"
 DIST_DIR="$SCRIPT_DIR/frontend_dist"
 
 echo "Building ComfyEmotionGen Frontend Executable..."

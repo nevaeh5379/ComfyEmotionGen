@@ -18,7 +18,7 @@
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/frontend/web",
+      "webRoot": "${workspaceFolder}/frontend/webui",
       "preLaunchTask": "Run Frontend (Vite)",
       "sourceMapPathOverrides": {
         "webpack:///src/*": "${webRoot}/src/*"

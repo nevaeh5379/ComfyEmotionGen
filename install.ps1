@@ -15,7 +15,7 @@ Write-Host "==> Installing backend dependencies" -ForegroundColor Cyan
 & $VenvPy -m pip install -r "$Root\backend\requirements.txt"
 
 Write-Host "==> Installing frontend dependencies" -ForegroundColor Cyan
-Push-Location "$Root\frontend\web"
+Push-Location "$Root\frontend\webui"
 try {
     npm install
     Write-Host "==> Building frontend" -ForegroundColor Cyan

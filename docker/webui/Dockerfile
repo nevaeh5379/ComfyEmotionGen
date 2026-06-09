@@ -7,9 +7,9 @@ ARG CEG_BUNDLE_VERSION=dev
 ARG CEG_COMMIT=
 ENV CEG_BUNDLE_VERSION=${CEG_BUNDLE_VERSION} \
     CEG_COMMIT=${CEG_COMMIT}
-COPY frontend/web/package.json frontend/web/package-lock.json ./
+COPY frontend/webui/package.json frontend/webui/package-lock.json ./
 RUN npm ci
-COPY frontend/web/ ./
+COPY frontend/webui/ ./
 RUN npm run build
 
 

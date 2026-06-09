@@ -21,7 +21,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/frontend/web"
+        "cwd": "${workspaceFolder}/frontend/webui"
       },
       "isBackground": true,
       "presentation": {
