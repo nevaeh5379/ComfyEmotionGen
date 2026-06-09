@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import type { JobView } from "@/comfyui/types/Message"
 import type { JobStatus } from "@/comfyui/types/Message"
 import { useBackend } from "./useBackend"
+import { STORAGE_KEYS } from "@/lib/storageKeys"
 import {
   type SessionMarkerRaw,
   type ActiveStateRaw,
@@ -51,20 +52,16 @@ export interface UseSessionManagerReturn {
   refetchStats: () => void
 }
 
-export function useSessionManager(): UseSessionManagerReturn {
+export function useSessionManager(backendUrlProp?: string): UseSessionManagerReturn {
   const { jobs } = useBackend()
   const backendUrl = useMemo(() => {
-    // 런타임 backendUrl을 BackendContext 등에서 읽어오거나 
-    // WebSocketProvider와 동일하게 로컬스토리지 등에서 파싱할 수 있으나,
-    // 일반적으로 useBackend에서 backendUrl 설정 정보가 제공되지 않으므로 
-    // localStorage의 backendUrl 키를 직접 파싱하거나 useBackend()의 다른 파츠를 볼 수 있다.
-    // fetch에 사용할 백엔드 주소를 가져오기 위해 basic fallback을 적용한다.
+    if (backendUrlProp) return backendUrlProp
     try {
-      return localStorage.getItem("ceg_backend_url") || "http://127.0.0.1:8188"
+      return localStorage.getItem(STORAGE_KEYS.backendUrl) || "http://127.0.0.1:8188"
     } catch {
       return "http://127.0.0.1:8188"
     }
-  }, [])
+  }, [backendUrlProp])
 
   // ── Initialise from local cache synchronously ──
   const initialMarkers = useMemo(() => initMarkers(), [])

@@ -232,7 +232,7 @@ function AppContent() {
   })
 
   // ── Session manager ──
-  const session = useSessionManager()
+  const session = useSessionManager(backendUrl)
 
   // ── Job completion notification ──
   const prevActiveCount = useRef<number | null>(null)
