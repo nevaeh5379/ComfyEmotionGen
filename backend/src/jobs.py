@@ -1005,6 +1005,22 @@ class JobManager:
         self, job_id: str, worker: BaseWorker, img: dict[str, Any]
     ) -> None:
         """ComfyUI 결과 이미지를 받아 sha256 이름으로 디스크에 저장 + DB 기록."""
+        # A. 비동기 다운로드 시작 전에 즉시 메모리에서 잡 정보 캡처 (Race Condition 방지)
+        async with self._lock:
+            job_mem = self._jobs.get(job_id)
+            if job_mem:
+                original_filename = job_mem.filename
+                prompt = job_mem.prompt
+                meta = job_mem.meta
+                ceg_template = job_mem.ceg_template
+                workflow = job_mem.workflow
+            else:
+                original_filename = ""
+                prompt = ""
+                meta = {}
+                ceg_template = ""
+                workflow = {}
+
         filename = img.get("filename", "")
         subfolder = img.get("subfolder", "")
         type_ = img.get("type", "output") or "output"
@@ -1035,13 +1051,15 @@ class JobManager:
             else:
                 tmp_path.replace(target)
 
-            async with self._lock:
-                job = self._jobs.get(job_id)
-                original_filename = job.filename if job else ""
-                prompt = job.prompt if job else ""
-                meta = job.meta if job else {}
-                ceg_template = job.ceg_template if job else ""
-                workflow = job.workflow if job else {}
+            # B. 시작 시점에 메모리에 없었다면 DB에서 조회 (Fallback)
+            if not job_mem:
+                job_db = await self._store.get_job(job_id)
+                if job_db:
+                    original_filename = job_db.get("filename") or ""
+                    prompt = job_db.get("prompt") or ""
+                    meta = job_db.get("meta") or {}
+                    ceg_template = job_db.get("cegTemplate") or ""
+                    workflow = job_db.get("_workflow") or {}
 
             await self._store.save_image_record(
                 hash=sha,
@@ -1075,8 +1093,22 @@ class JobManager:
                 if job:
                     job.saved_image_hashes.append(sha)
                     payload = job.to_dict()
-                    await self._store.save(payload)
-                    await self._emit({"type": "job.updated", "job": payload})
+                else:
+                    payload = None
+
+            if payload:
+                await self._store.save(payload)
+                await self._emit({"type": "job.updated", "job": payload})
+            else:
+                # DB Fallback: update stored job with the new hash
+                job_db = await self._store.get_job(job_id)
+                if job_db:
+                    hashes = job_db.get("savedImageHashes") or []
+                    if sha not in hashes:
+                        hashes.append(sha)
+                        job_db["savedImageHashes"] = hashes
+                        await self._store.save(job_db)
+                        await self._emit({"type": "job.updated", "job": job_db})
         except Exception:
             logger.exception(
                 "persist image failed: job=%s filename=%s", job_id, filename
