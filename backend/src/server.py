@@ -39,6 +39,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import hashlib
 import io
 import json
@@ -46,6 +47,7 @@ import logging
 import mimetypes
 import zipfile
 import os
+import tracemalloc
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -67,6 +69,11 @@ from backend.src.models import JobItem, WorkerType
 
 logger = logging.getLogger(__name__)
 
+try:
+    import resource
+except ImportError:  # pragma: no cover - Windows portable builds
+    resource = None
+
 
 # ====== 전역 상태 (lifespan에서 초기화) ======
 
@@ -74,6 +81,9 @@ worker_pool: WorkerPool
 job_manager: JobManager
 webhook_service: WebhookService
 ws_clients: set[WebSocket] = set()
+
+if os.environ.get("CEG_MEMORY_DEBUG") == "1":
+    tracemalloc.start()
 
 
 async def broadcast(event: dict[str, Any]) -> None:
@@ -350,6 +360,54 @@ def health():
             }
             for info in worker_pool.info()
         ],
+    }
+
+
+@app.get("/debug/memory")
+async def debug_memory():
+    """Runtime counters for leak triage. Enable tracemalloc with CEG_MEMORY_DEBUG=1."""
+    gc_counts = gc.get_count()
+    tasks = asyncio.all_tasks()
+    current = peak = None
+    top_allocations: list[dict[str, Any]] = []
+    if tracemalloc.is_tracing():
+        current, peak = tracemalloc.get_traced_memory()
+        snapshot = tracemalloc.take_snapshot()
+        top_allocations = [
+            {
+                "file": stat.traceback[0].filename,
+                "line": stat.traceback[0].lineno,
+                "sizeBytes": stat.size,
+                "count": stat.count,
+            }
+            for stat in snapshot.statistics("lineno")[:10]
+        ]
+    max_rss_kb = (
+        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        if resource is not None
+        else None
+    )
+    return {
+        "process": {
+            "maxRssKb": max_rss_kb,
+            "gcCounts": {
+                "gen0": gc_counts[0],
+                "gen1": gc_counts[1],
+                "gen2": gc_counts[2],
+            },
+            "tracemalloc": {
+                "enabled": tracemalloc.is_tracing(),
+                "currentBytes": current,
+                "peakBytes": peak,
+                "topAllocations": top_allocations,
+            },
+        },
+        "runtime": {
+            "asyncioTasks": len(tasks),
+            "webSocketClients": len(ws_clients),
+            "workers": len(worker_pool.all()),
+        },
+        "jobs": await job_manager.diagnostics_snapshot(),
     }
 
 

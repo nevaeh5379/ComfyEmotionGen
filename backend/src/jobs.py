@@ -497,6 +497,27 @@ class JobManager:
         async with self._lock:
             return [j.to_dict() for j in self._jobs.values()]
 
+    async def diagnostics_snapshot(self) -> dict[str, Any]:
+        async with self._lock:
+            job_counts: dict[str, int] = {}
+            for job in self._jobs.values():
+                key = str(job.status)
+                job_counts[key] = job_counts.get(key, 0) + 1
+            dispatcher_done = (
+                self._dispatcher_task.done()
+                if self._dispatcher_task is not None
+                else None
+            )
+            return {
+                "jobsTotal": len(self._jobs),
+                "jobsByStatus": job_counts,
+                "listeners": len(self._listeners),
+                "persistTasks": len(self._persist_tasks),
+                "dispatcherTaskDone": dispatcher_done,
+                "stopping": self._stopping,
+                "paused": self._paused,
+            }
+
     async def query_jobs(
         self,
         *,
@@ -545,30 +566,33 @@ class JobManager:
             if self._paused:
                 return
             async with self._lock:
-                pending = next(
-                    (j for j in self._jobs.values() if j.status == JobStatus.PENDING),
-                    None,
-                )
-                if pending is None:
-                    return
+                pending: Optional[Job] = None
                 worker: Optional[BaseWorker] = None
-                if pending.target_worker_id:
-                    target = self._pool.get(pending.target_worker_id)
-                    if (
-                        target is not None
-                        and target.alive
-                        and not target.busy
-                        and target.worker_type == (pending.worker_type or "comfyui")
-                    ):
-                        worker = target
-                    else:
-                        # 타겟 워커가 사용 불가능하면 이 잡은 스킵하고 다음 잡으로
+                for candidate in self._jobs.values():
+                    if candidate.status != JobStatus.PENDING:
                         continue
-                else:
-                    worker = self._pool.find_idle(
-                        worker_type=pending.worker_type or "comfyui"
+                    if candidate.target_worker_id:
+                        target = self._pool.get(candidate.target_worker_id)
+                        if (
+                            target is not None
+                            and target.alive
+                            and not target.busy
+                            and target.worker_type == (candidate.worker_type or "comfyui")
+                        ):
+                            pending = candidate
+                            worker = target
+                            break
+                        # A targeted job must wait for its target, but must not
+                        # spin forever and block later dispatchable jobs.
+                        continue
+                    idle = self._pool.find_idle(
+                        worker_type=candidate.worker_type or "comfyui"
                     )
-                if worker is None:
+                    if idle is not None:
+                        pending = candidate
+                        worker = idle
+                        break
+                if pending is None:
                     return
                 pending.status = JobStatus.QUEUED
                 pending.worker_id = worker.id

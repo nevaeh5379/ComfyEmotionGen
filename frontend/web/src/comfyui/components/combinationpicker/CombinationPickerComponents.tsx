@@ -39,7 +39,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { useState, useMemo, useEffect, useCallback, type ComponentProps } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef, type ComponentProps } from "react"
 import type { SavedImage } from "../../types/Message"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
@@ -384,6 +384,28 @@ export function RegenerateDialog({
   const [nodeMappings, setNodeMappings] = useState<NodeMapping[]>([])
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
   const [imageUploads, setImageUploads] = useState({} as Record<string, { uploadedName: string | null; error: string | null; uploading: boolean; previewUrl: string | null }>)
+  const dialogActiveRef = useRef(open)
+  const previewUrlsRef = useRef(new Set<string>())
+
+  const revokePreviewUrl = useCallback((url: string | null | undefined) => {
+    if (!url) return
+    URL.revokeObjectURL(url)
+    previewUrlsRef.current.delete(url)
+  }, [])
+
+  const revokeAllPreviewUrls = useCallback(() => {
+    for (const url of previewUrlsRef.current) {
+      URL.revokeObjectURL(url)
+    }
+    previewUrlsRef.current.clear()
+  }, [])
+
+  useEffect(() => {
+    dialogActiveRef.current = open
+    return () => {
+      dialogActiveRef.current = false
+    }
+  }, [open])
 
   const historicalTemplates = useMemo(() => {
     const templates = new Set<string>()
@@ -452,10 +474,15 @@ export function RegenerateDialog({
   // Fetch object_info when workflow changes
   useEffect(() => {
     if (!open || !backendUrl) return
-    fetch(`${backendUrl}/object_info`)
+    const controller = new AbortController()
+    fetch(`${backendUrl}/object_info`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setObjectInfo(d))
-      .catch(() => setObjectInfo(null))
+      .catch((e) => {
+        if (e instanceof Error && e.name === "AbortError") return
+        setObjectInfo(null)
+      })
+    return () => controller.abort()
   }, [open, backendUrl])
 
   const availableNodeOptions = useMemo(() => {
@@ -519,23 +546,33 @@ export function RegenerateDialog({
         .then(async (r) => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`)
           const data = (await r.json()) as { name: string }
-          setImageUploads((prev) => ({
-            ...prev,
-            [key]: { uploading: false, error: null, uploadedName: data.name, previewUrl: URL.createObjectURL(file) },
-          }))
+          if (!dialogActiveRef.current) return
+          const previewUrl = URL.createObjectURL(file)
+          previewUrlsRef.current.add(previewUrl)
+          setImageUploads((prev) => {
+            revokePreviewUrl(prev[key]?.previewUrl)
+            return {
+              ...prev,
+              [key]: { uploading: false, error: null, uploadedName: data.name, previewUrl },
+            }
+          })
           updateMapping(
             nodeMappings.find((m) => m.nodeId === nodeId && m.inputKey === inputKey)?.id || "",
             { sourceType: "image", imageValue: data.name }
           )
         })
         .catch((e) => {
-          setImageUploads((prev) => ({
-            ...prev,
-            [key]: { uploading: false, error: e.message, uploadedName: null, previewUrl: null },
-          }))
+          if (!dialogActiveRef.current) return
+          setImageUploads((prev) => {
+            revokePreviewUrl(prev[key]?.previewUrl)
+            return {
+              ...prev,
+              [key]: { uploading: false, error: e.message, uploadedName: null, previewUrl: null },
+            }
+          })
         })
     },
-    [backendUrl, nodeMappings, updateMapping]
+    [backendUrl, nodeMappings, revokePreviewUrl, updateMapping]
   )
 
   useEffect(() => {
@@ -544,10 +581,13 @@ export function RegenerateDialog({
       setSelectedTemplateId("__current__")
       setSelectedWorkflowId("")
       setNodeMappings([])
+      revokeAllPreviewUrls()
       setImageUploads({})
     }, 0)
     return () => window.clearTimeout(resetTimer)
-  }, [open])
+  }, [open, revokeAllPreviewUrls])
+
+  useEffect(() => revokeAllPreviewUrls, [revokeAllPreviewUrls])
 
   const handleConfirm = useCallback(async () => {
     if (isLoading || sourceImages.length === 0) return
