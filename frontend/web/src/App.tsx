@@ -892,6 +892,7 @@ function AppContent() {
                   handleCancelAll={jobActions.handleCancelAll}
                   handleRetryAllFailed={jobActions.handleRetryAllFailed}
                   handleDeleteAllFailed={jobActions.handleDeleteAllFailed}
+                  refetchStats={session.refetchStats}
                   isFloating={true}
                   onFloatToggle={() => setIsJobManagerFloating(false)}
                 />

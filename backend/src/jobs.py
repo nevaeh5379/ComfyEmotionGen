@@ -316,7 +316,8 @@ class JobManager:
                     job.total_node_count = 0
                     job.completed_node_count = 0
                     job.started_at = None
-                self._jobs[job.id] = job
+                if job.status in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING):
+                    self._jobs[job.id] = job
         self._wakeup.set()
     async def _register_job(self, job: Job) -> None:
         async with self._lock:
@@ -490,6 +491,8 @@ class JobManager:
             worker_id=worker_id,
         )
         await self._emit({"type": "job.updated", "job": job_dict})
+        async with self._lock:
+            self._jobs.pop(job_id, None)
         self._wakeup.set()
         return True
 
@@ -523,18 +526,45 @@ class JobManager:
         *,
         limit: int = 100,
         offset: int = 0,
-        status: str | None = None,
-        filename: str | None = None,
+        statuses: Optional[list[str]] = None,
+        search_tags: Optional[list[str]] = None,
+        created_at_from: Optional[float] = None,
+        created_at_to: Optional[float] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
     ) -> dict[str, Any]:
-        total = await self._store.count_jobs(status=status, filename=filename)
-        items = await self._store.query_jobs(
-            limit=limit, offset=offset, status=status, filename=filename
+        total = await self._store.count_jobs(
+            statuses=statuses,
+            search_tags=search_tags,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
         )
+        items = await self._store.query_jobs(
+            limit=limit,
+            offset=offset,
+            statuses=statuses,
+            search_tags=search_tags,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        async with self._lock:
+            for i in range(len(items)):
+                jid = items[i]["id"]
+                if jid in self._jobs:
+                    items[i] = self._jobs[jid].to_dict()
         return {"total": total, "items": items, "limit": limit, "offset": offset}
 
     async def get_job(self, job_id: str) -> Optional[Job]:
         async with self._lock:
-            return self._jobs.get(job_id)
+            job = self._jobs.get(job_id)
+        if job is not None:
+            return job
+        job_dict = await self._store.get_job(job_id)
+        if job_dict is not None:
+            return Job.from_dict(job_dict)
+        return None
 
     def subscribe(self, listener: EventListener) -> Callable[[], None]:
         self._listeners.add(listener)
@@ -896,6 +926,8 @@ class JobManager:
             },
         )
         await self._emit({"type": "job.updated", "job": payload})
+        async with self._lock:
+            self._jobs.pop(job_id, None)
         self._wakeup.set()
 
     async def _reset_to_pending(self, job_id: str, error: str) -> None:

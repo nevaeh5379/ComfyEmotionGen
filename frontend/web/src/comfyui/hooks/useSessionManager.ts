@@ -11,7 +11,6 @@ import {
   saveMarkers,
   saveActiveState,
   genId,
-  jobSessionId,
   makeSessionLabel,
   loadMarkersFromServer,
   loadActiveStateFromServer,
@@ -38,7 +37,7 @@ export interface UseSessionManagerReturn {
   setSelectedSessionId: React.Dispatch<React.SetStateAction<string>>
   /** Map of sessionId -> job count */
   sessionJobCounts: Map<string, number>
-  /** Jobs belonging to the currently selected session */
+  /** Jobs belonging to the currently selected session (now returned as empty since managed via paginated API) */
   sessionJobs: JobView[]
   /** Status counts for the current session */
   sessionCounts: Record<JobStatus | "active", number>
@@ -48,10 +47,24 @@ export interface UseSessionManagerReturn {
   setSessionPickerOpen: React.Dispatch<React.SetStateAction<boolean>>
   /** Create a new session, cleaning up empty markers */
   createNewSession: () => void
+  /** Trigger a manual refetch of stats */
+  refetchStats: () => void
 }
 
 export function useSessionManager(): UseSessionManagerReturn {
-  const { jobs, jobMetas } = useBackend()
+  const { jobs } = useBackend()
+  const backendUrl = useMemo(() => {
+    // 런타임 backendUrl을 BackendContext 등에서 읽어오거나 
+    // WebSocketProvider와 동일하게 로컬스토리지 등에서 파싱할 수 있으나,
+    // 일반적으로 useBackend에서 backendUrl 설정 정보가 제공되지 않으므로 
+    // localStorage의 backendUrl 키를 직접 파싱하거나 useBackend()의 다른 파츠를 볼 수 있다.
+    // fetch에 사용할 백엔드 주소를 가져오기 위해 basic fallback을 적용한다.
+    try {
+      return localStorage.getItem("ceg_backend_url") || "http://127.0.0.1:8188"
+    } catch {
+      return "http://127.0.0.1:8188"
+    }
+  }, [])
 
   // ── Initialise from local cache synchronously ──
   const initialMarkers = useMemo(() => initMarkers(), [])
@@ -107,55 +120,65 @@ export function useSessionManager(): UseSessionManagerReturn {
 
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
 
-  // ── Derived state ──
-  const sessionJobCounts = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const j of jobMetas) {
-      const sid = jobSessionId(j.createdAt, sortedMarkers, activeState)
-      map.set(sid, (map.get(sid) ?? 0) + 1)
-    }
-    return map
-  }, [jobMetas, sortedMarkers, activeState])
+  // ── Async Stats State ──
+  const [sessionJobCounts, setSessionJobCounts] = useState<Map<string, number>>(new Map())
+  const [sessionCounts, setSessionCounts] = useState<Record<JobStatus | "active", number>>({
+    pending: 0,
+    queued: 0,
+    running: 0,
+    done: 0,
+    error: 0,
+    cancelled: 0,
+    active: 0,
+  })
+  const [statsTick, setStatsTick] = useState(0)
+  const refetchStats = useCallback(() => setStatsTick((t) => t + 1), [])
 
-  const sessionJobIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const j of jobMetas) {
-      if (
-        jobSessionId(j.createdAt, sortedMarkers, activeState) ===
-        selectedSessionId
-      ) {
-        ids.add(j.id)
+  // 활성 잡들의 상태 변화가 생기면 실시간 카운트 리프레시
+  const activeJobsKey = useMemo(() => jobs.map((j) => `${j.id}:${j.status}`).join(","), [jobs])
+
+  useEffect(() => {
+    let aborted = false
+    if (markers.length === 0) return
+
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/jobs/session-stats`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            markers,
+            activeState,
+            selectedSessionId,
+          }),
+        })
+        if (!res.ok) throw new Error("Stats load failed")
+        const data = await res.json()
+        if (aborted) return
+
+        const map = new Map<string, number>()
+        if (data.sessionJobCounts) {
+          for (const [k, v] of Object.entries(data.sessionJobCounts)) {
+            map.set(k, v as number)
+          }
+        }
+        setSessionJobCounts(map)
+        if (data.selectedSessionCounts) {
+          setSessionCounts(data.selectedSessionCounts)
+        }
+      } catch (err) {
+        console.warn("세션 통계 로드 실패:", err)
       }
     }
-    return ids
-  }, [jobMetas, sortedMarkers, activeState, selectedSessionId])
 
-  const sessionJobs = useMemo(
-    () => jobs.filter((j) => sessionJobIds.has(j.id)),
-    [jobs, sessionJobIds]
-  )
+    fetchStats()
 
-  const sessionCounts = useMemo(() => {
-    const c: Record<JobStatus | "active", number> = {
-      pending: 0,
-      queued: 0,
-      running: 0,
-      done: 0,
-      error: 0,
-      cancelled: 0,
-      active: 0,
+    return () => {
+      aborted = true
     }
-    for (const j of sessionJobs) {
-      c[j.status]++
-      if (
-        j.status === "pending" ||
-        j.status === "queued" ||
-        j.status === "running"
-      )
-        c.active++
-    }
-    return c
-  }, [sessionJobs])
+  }, [markers, activeState, selectedSessionId, backendUrl, activeJobsKey, statsTick])
 
   const createNewSession = useCallback(() => {
     const nonEmpty = markers.filter(
@@ -178,6 +201,8 @@ export function useSessionManager(): UseSessionManagerReturn {
     setSessionPickerOpen(false)
   }, [markers, sessionJobCounts, persistMarkers, persistActiveState])
 
+  const sessionJobs = useMemo<JobView[]>(() => [], [])
+
   return useMemo(() => ({
     markers,
     setMarkersRaw,
@@ -194,6 +219,7 @@ export function useSessionManager(): UseSessionManagerReturn {
     sessionPickerOpen,
     setSessionPickerOpen,
     createNewSession,
+    refetchStats,
   }), [
     markers,
     setMarkersRaw,
@@ -210,5 +236,6 @@ export function useSessionManager(): UseSessionManagerReturn {
     sessionPickerOpen,
     setSessionPickerOpen,
     createNewSession,
+    refetchStats,
   ])
 }

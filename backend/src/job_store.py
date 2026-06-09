@@ -350,22 +350,66 @@ class JobStore:
         rows = await cursor.fetchall()
         return [self._job_row_to_dict(row) for row in rows]
 
+    async def get_job(self, job_id: str) -> Optional[dict[str, Any]]:
+        if self._conn is None:
+            return None
+        cursor = await self._conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return self._job_row_to_dict(row)
+
+    async def get_all_jobs_minimal(self) -> list[dict[str, Any]]:
+        if self._conn is None:
+            return []
+        cursor = await self._conn.execute("SELECT id, status, created_at FROM jobs")
+        rows = await cursor.fetchall()
+        return [{"id": r["id"], "status": r["status"], "createdAt": r["created_at"]} for r in rows]
+
     async def count_jobs(
         self,
         *,
-        status: Optional[str] = None,
-        filename: Optional[str] = None,
+        statuses: Optional[list[str]] = None,
+        search_tags: Optional[list[str]] = None,
+        created_at_from: Optional[float] = None,
+        created_at_to: Optional[float] = None,
     ) -> int:
         if self._conn is None:
             return 0
         conditions: list[str] = []
         params: list[Any] = []
-        if status is not None:
-            conditions.append("status = ?")
-            params.append(status)
-        if filename is not None:
-            conditions.append("filename LIKE ?")
-            params.append(f"%{filename}%")
+
+        if statuses:
+            placeholders = ",".join("?" for _ in statuses)
+            conditions.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+
+        if search_tags:
+            tag_conds = []
+            for tag in search_tags:
+                lower_tag = tag.lower()
+                if lower_tag.startswith("@"):
+                    tag_conds.append("filename LIKE ?")
+                    params.append(f"%{tag[1:]}%")
+                elif lower_tag.startswith("#"):
+                    tag_conds.append("prompt LIKE ?")
+                    params.append(f"%{tag[1:]}%")
+                elif lower_tag.startswith("$"):
+                    tag_conds.append("error LIKE ?")
+                    params.append(f"%{tag[1:]}%")
+                else:
+                    tag_conds.append("(filename LIKE ? OR prompt LIKE ? OR error LIKE ? OR meta_json LIKE ?)")
+                    params.extend([f"%{tag}%", f"%{tag}%", f"%{tag}%", f"%{tag}%"])
+            if tag_conds:
+                conditions.append(f"({' OR '.join(tag_conds)})")
+
+        if created_at_from is not None:
+            conditions.append("created_at >= ?")
+            params.append(created_at_from)
+        if created_at_to is not None:
+            conditions.append("created_at <= ?")
+            params.append(created_at_to)
+
         where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
         cursor = await self._conn.execute(
             f"SELECT COUNT(*) AS c FROM jobs{where}", params
@@ -378,23 +422,64 @@ class JobStore:
         *,
         limit: int = 100,
         offset: int = 0,
-        status: Optional[str] = None,
-        filename: Optional[str] = None,
+        statuses: Optional[list[str]] = None,
+        search_tags: Optional[list[str]] = None,
+        created_at_from: Optional[float] = None,
+        created_at_to: Optional[float] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
     ) -> list[dict[str, Any]]:
         if self._conn is None:
             return []
         conditions: list[str] = []
         params: list[Any] = []
-        if status is not None:
-            conditions.append("status = ?")
-            params.append(status)
-        if filename is not None:
-            conditions.append("filename LIKE ?")
-            params.append(f"%{filename}%")
+
+        if statuses:
+            placeholders = ",".join("?" for _ in statuses)
+            conditions.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+
+        if search_tags:
+            tag_conds = []
+            for tag in search_tags:
+                lower_tag = tag.lower()
+                if lower_tag.startswith("@"):
+                    tag_conds.append("filename LIKE ?")
+                    params.append(f"%{tag[1:]}%")
+                elif lower_tag.startswith("#"):
+                    tag_conds.append("prompt LIKE ?")
+                    params.append(f"%{tag[1:]}%")
+                elif lower_tag.startswith("$"):
+                    tag_conds.append("error LIKE ?")
+                    params.append(f"%{tag[1:]}%")
+                else:
+                    tag_conds.append("(filename LIKE ? OR prompt LIKE ? OR error LIKE ? OR meta_json LIKE ?)")
+                    params.extend([f"%{tag}%", f"%{tag}%", f"%{tag}%", f"%{tag}%"])
+            if tag_conds:
+                conditions.append(f"({' OR '.join(tag_conds)})")
+
+        if created_at_from is not None:
+            conditions.append("created_at >= ?")
+            params.append(created_at_from)
+        if created_at_to is not None:
+            conditions.append("created_at <= ?")
+            params.append(created_at_to)
+
         where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+
+        sort_column_map = {
+            "createdat": "created_at",
+            "created_at": "created_at",
+            "filename": "filename",
+            "status": "status",
+            "duration": "execution_duration_ms",
+        }
+        sort_column = sort_column_map.get(sort_by.lower(), "created_at")
+        order_dir = "ASC" if sort_order.lower() == "asc" else "DESC"
+
         params.extend([limit, offset])
         cursor = await self._conn.execute(
-            f"SELECT * FROM jobs{where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            f"SELECT * FROM jobs{where} ORDER BY {sort_column} {order_dir} LIMIT ? OFFSET ?",
             params,
         )
         rows = await cursor.fetchall()

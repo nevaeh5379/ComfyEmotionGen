@@ -52,7 +52,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -166,6 +166,23 @@ class InjectRequest(BaseModel):
     )
     placeholder: str = "{{input}}"
 
+
+
+class SessionMarker(BaseModel):
+    id: str
+    startAt: int
+    label: str
+
+
+class ActiveState(BaseModel):
+    activeSessionId: str
+    activatedAt: int
+
+
+class SessionStatsRequest(BaseModel):
+    markers: List[SessionMarker]
+    activeState: Optional[ActiveState] = None
+    selectedSessionId: str
 
 
 class JobsCreateRequest(BaseModel):
@@ -500,12 +517,78 @@ async def jobs_create(req: JobsCreateRequest):
 async def jobs_list(
     limit: int = 100,
     offset: int = 0,
-    status: str | None = None,
-    filename: str | None = None,
+    status: List[str] = Query(None),
+    search: List[str] = Query(None),
+    created_at_from: Optional[float] = None,
+    created_at_to: Optional[float] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
 ):
     return await job_manager.query_jobs(
-        limit=limit, offset=offset, status=status, filename=filename
+        limit=limit,
+        offset=offset,
+        statuses=status,
+        search_tags=search,
+        created_at_from=created_at_from,
+        created_at_to=created_at_to,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
+
+
+@app.post("/jobs/session-stats")
+async def jobs_session_stats(req: SessionStatsRequest):
+    # 1. DB에서 minimal job list 로드
+    jobs_minimal = await job_manager._store.get_all_jobs_minimal()
+
+    # 2. 인메모리(활성 잡) 상태 병합
+    async with job_manager._lock:
+        for job_dict in jobs_minimal:
+            jid = job_dict["id"]
+            if jid in job_manager._jobs:
+                job_dict["status"] = job_manager._jobs[jid].status
+
+    # 3. 세션 매칭 및 카운팅
+    sorted_markers = sorted(req.markers, key=lambda x: x.startAt, reverse=True)
+
+    session_job_counts = {}
+    selected_session_counts = {
+        "pending": 0,
+        "queued": 0,
+        "running": 0,
+        "done": 0,
+        "error": 0,
+        "cancelled": 0,
+        "active": 0,
+    }
+
+    for job in jobs_minimal:
+        t = job["createdAt"] * 1000  # seconds to ms
+
+        sid = ""
+        if req.activeState and t >= req.activeState.activatedAt:
+            sid = req.activeState.activeSessionId
+        else:
+            for m in sorted_markers:
+                if t >= m.startAt:
+                    sid = m.id
+                    break
+            if not sid and sorted_markers:
+                sid = sorted_markers[-1].id
+
+        if sid:
+            session_job_counts[sid] = session_job_counts.get(sid, 0) + 1
+            if sid == req.selectedSessionId:
+                status = job["status"]
+                if status in selected_session_counts:
+                    selected_session_counts[status] += 1
+                if status in ("pending", "queued", "running"):
+                    selected_session_counts["active"] += 1
+
+    return {
+        "sessionJobCounts": session_job_counts,
+        "selectedSessionCounts": selected_session_counts,
+    }
 
 
 @app.delete("/jobs/{job_id}")

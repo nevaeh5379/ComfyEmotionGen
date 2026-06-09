@@ -43,6 +43,7 @@ interface SessionManagerState {
   sessionPickerOpen: boolean
   setSessionPickerOpen: React.Dispatch<React.SetStateAction<boolean>>
   createNewSession: () => void
+  refetchStats?: () => void
 }
 
 /** Job runner state returned from useJobRunner */
@@ -265,6 +266,7 @@ export function JobsTab({
     sessionPickerOpen,
     setSessionPickerOpen,
     createNewSession,
+    refetchStats,
   } = session
 
   const {
@@ -361,6 +363,7 @@ export function JobsTab({
                 handleCancelAll={handleCancelAll}
                 handleRetryAllFailed={handleRetryAllFailed}
                 handleDeleteAllFailed={handleDeleteAllFailed}
+                refetchStats={refetchStats}
                 isFloating={false}
                 {...(useWindowMode
                   ? {
@@ -689,6 +692,7 @@ export function JobsTab({
               handleCancelAll={handleCancelAll}
               handleRetryAllFailed={handleRetryAllFailed}
               handleDeleteAllFailed={handleDeleteAllFailed}
+              refetchStats={refetchStats}
             />
           </div>
         )}

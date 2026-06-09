@@ -311,7 +311,13 @@ export const JobStatBar = memo(function JobStatBar({
   sessionJobs,
   progressCalculation,
 }: JobStatBarProps) {
-  const total = sessionJobs.length
+  const total =
+    counts.pending +
+    counts.queued +
+    counts.running +
+    counts.done +
+    counts.error +
+    counts.cancelled
   const done = counts.done
   const error = counts.error
   const cancelled = counts.cancelled

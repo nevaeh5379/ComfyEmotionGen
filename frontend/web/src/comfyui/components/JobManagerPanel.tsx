@@ -62,34 +62,16 @@ import { JobDetailSheet } from "./JobDetailSheet"
 import { TagInputSearch } from "./TagInputSearch"
 import { useSettings } from "../hooks/useSettings"
 
-// Session utilities (extracted to sessionUtils.ts)
+// Session utilities
 import type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
 
 const PAGE_SIZE = JOB_PAGE_SIZE
-
-// ── other types & constants ───────────────────────────────────────────
-
-const STATUS_ORDER: Record<JobStatus, number> = {
-  running: 0,
-  queued: 1,
-  pending: 2,
-  done: 3,
-  error: 4,
-  cancelled: 5,
-}
 
 type SortKey = "filename" | "status" | "createdAt" | "duration"
 type SortDir = "asc" | "desc"
 type FilterTab = "all" | "active" | "done" | "failed"
 
 // ── pure helpers ──────────────────────────────────────────────────────
-
-function jobDuration(job: JobView): number | null {
-  if (job.executionDurationMs != null) return job.executionDurationMs
-  if (job.startedAt != null && job.finishedAt != null)
-    return (job.finishedAt - job.startedAt) * MS_PER_SECOND
-  return null
-}
 
 function dateToEpochStart(s: string): number {
   const d = new Date(s)
@@ -101,10 +83,6 @@ function dateToEpochEnd(s: string): number {
   d.setHours(23, 59, 59, 999)
   return d.getTime() / 1000
 }
-
-// ── tag input with autocomplete ──────────────────────────────────────
-
-// ── main component ────────────────────────────────────────────────────
 
 interface Props {
   jobs: JobView[]
@@ -127,11 +105,12 @@ interface Props {
   sessionJobCounts: Map<string, number>
   sortedMarkers: SessionMarkerRaw[]
   counts: Record<JobStatus | "active", number>
-  sessionJobs: JobView[]
+  sessionJobs: JobView[] // 하위호환 유지용
   handleTogglePause: () => void
   handleCancelAll: () => void
   handleRetryAllFailed: () => void
   handleDeleteAllFailed: () => void
+  refetchStats?: (() => void) | undefined
 
   // Floating Window controls
   isFloating?: boolean
@@ -140,15 +119,19 @@ interface Props {
 }
 
 export const JobManagerPanel = memo(function JobManagerPanel({
-  jobs,
+  jobs, // 웹소켓 활성 잡 목록
   backendUrl,
   mobileTab = "list",
   counts,
-  sessionJobs,
   isFloating,
   onFloatToggle,
   onHeaderDragStart,
   workers,
+  selectedId,
+  activeState,
+  sessionJobCounts,
+  sortedMarkers,
+  refetchStats,
 }: Props) {
   useRenderLog("JobManagerPanel")
   const confirm = useConfirm()
@@ -179,6 +162,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   // ── pagination state ────────────────────────────────────────────────
   const [desiredPage, setPage] = useState(1)
 
+  // ── Async Paginated Jobs State ──────────────────────────────────────
+  const [pageJobs, setPageJobs] = useState<JobView[]>([])
+  const [totalJobsCount, setTotalJobsCount] = useState(0)
+  const [, setIsLoading] = useState(false)
+  const [refetchTick, setRefetchTick] = useState(0)
+
+  const triggerRefetchJobs = useCallback(() => setRefetchTick((t) => t + 1), [])
+
   // 필터 변경 시 page를 1로 함께 초기화하는 래퍼
   const setFilterTab = (v: FilterTab) => {
     setFilterTabState(v)
@@ -208,40 +199,129 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   )
   const [, setTick] = useState(0)
 
-  // ── filter pipeline ─────────────────────────────────────────────────
+  // ── 세션 시간 범위 계산 ───────────────────────────────────────────
+  const sessionRange = useMemo(() => {
+    if (sortedMarkers.length === 0 || !selectedId) return { from: null, to: null }
+    const targetIdx = sortedMarkers.findIndex((m) => m.id === selectedId)
+    if (targetIdx === -1) return { from: null, to: null }
 
-  const tabFiltered = useMemo(() => {
-    switch (filterTab) {
-      case "active":
-        return sessionJobs.filter(
-          (j) =>
-            j.status === "pending" ||
-            j.status === "queued" ||
-            j.status === "running"
-        )
-      case "done":
-        return sessionJobs.filter((j) => j.status === "done")
-      case "failed":
-        return sessionJobs.filter(
-          (j) => j.status === "error" || j.status === "cancelled"
-        )
-      default:
-        return sessionJobs
+    const target = sortedMarkers[targetIdx]
+    if (!target) return { from: null, to: null }
+
+    const isCurrentActive = activeState && selectedId === activeState.activeSessionId
+
+    if (isCurrentActive) {
+      return {
+        from: activeState.activatedAt / 1000,
+        to: null,
+      }
     }
-  }, [sessionJobs, filterTab])
 
-  const dateFiltered = useMemo(() => {
-    const from = dateFrom ? dateToEpochStart(dateFrom) : null
-    const to = dateTo ? dateToEpochEnd(dateTo) : null
-    if (from === null && to === null) return tabFiltered
-    return tabFiltered.filter((j) => {
-      if (from !== null && j.createdAt < from) return false
-      if (to !== null && j.createdAt > to) return false
-      return true
+    const from = target.startAt / 1000
+    let to: number | null = null
+
+    if (targetIdx > 0) {
+      const prevMarker = sortedMarkers[targetIdx - 1]
+      if (prevMarker) {
+        to = prevMarker.startAt / 1000
+      }
+    } else if (activeState && selectedId !== activeState.activeSessionId) {
+      to = activeState.activatedAt / 1000
+    }
+
+    return { from, to }
+  }, [sortedMarkers, selectedId, activeState])
+
+  // ── 비동기 작업 목록 로딩 ──
+  useEffect(() => {
+    let aborted = false
+    setIsLoading(true)
+
+    const limit = PAGE_SIZE
+    const offset = (desiredPage - 1) * PAGE_SIZE
+
+    const params = new URLSearchParams()
+    params.append("limit", String(limit))
+    params.append("offset", String(offset))
+
+    if (filterTab === "active") {
+      params.append("status", "pending")
+      params.append("status", "queued")
+      params.append("status", "running")
+    } else if (filterTab === "done") {
+      params.append("status", "done")
+    } else if (filterTab === "failed") {
+      params.append("status", "error")
+      params.append("status", "cancelled")
+    }
+
+    searchTags.forEach((tag) => {
+      params.append("search", tag)
     })
-  }, [tabFiltered, dateFrom, dateTo])
 
-  // Cached token sets from all session jobs categorized by source (only recomputes when job list changes)
+    let fromVal = sessionRange.from
+    if (dateFrom) {
+      const dfEpoch = dateToEpochStart(dateFrom)
+      fromVal = fromVal !== null ? Math.max(fromVal, dfEpoch) : dfEpoch
+    }
+    if (fromVal !== null) {
+      params.append("created_at_from", String(fromVal))
+    }
+
+    let toVal = sessionRange.to
+    if (dateTo) {
+      const dtEpoch = dateToEpochEnd(dateTo)
+      toVal = toVal !== null ? Math.min(toVal, dtEpoch) : dtEpoch
+    }
+    if (toVal !== null) {
+      params.append("created_at_to", String(toVal))
+    }
+
+    params.append("sort_by", sortKey)
+    params.append("sort_order", sortDir)
+
+    fetch(`${backendUrl}/jobs?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("jobs fetch failed")
+        return res.json()
+      })
+      .then((data) => {
+        if (aborted) return
+        setPageJobs(data.items || [])
+        setTotalJobsCount(data.total || 0)
+        setIsLoading(false)
+      })
+      .catch((err) => {
+        console.warn("작업 목록 조회 실패:", err)
+        if (aborted) return
+        setIsLoading(false)
+      })
+
+    return () => {
+      aborted = true
+    }
+  }, [
+    desiredPage,
+    filterTab,
+    searchTags,
+    sessionRange,
+    dateFrom,
+    dateTo,
+    sortKey,
+    sortDir,
+    backendUrl,
+    refetchTick,
+  ])
+
+  // 실시간 활성 잡 정보 병합
+  const mergedJobs = useMemo(() => {
+    return pageJobs.map((pj) => {
+      const active = jobs.find((aj) => aj.id === pj.id)
+      return active ? active : pj
+    })
+  }, [pageJobs, jobs])
+
+  // ── token caching for autocomplete ──
   const cachedTokens = useMemo(() => {
     const filenames = new Set<string>()
     const prompts = new Set<string>()
@@ -260,7 +340,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         .filter((t) => t.length >= 2)
     }
 
-    sessionJobs.forEach((j) => {
+    pageJobs.forEach((j) => {
       tokenize(j.filename).forEach((t) => filenames.add(t))
       if (j.prompt) {
         tokenize(j.prompt).forEach((t) => prompts.add(t))
@@ -271,43 +351,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     })
 
     return { filenames, prompts, errors }
-  }, [sessionJobs])
-
-  const searchFiltered = useMemo(() => {
-    if (searchTags.length === 0) return dateFiltered
-    return dateFiltered.filter((j) => {
-      return searchTags.some((tag) => {
-        const lowerTag = tag.toLowerCase()
-        if (lowerTag.startsWith("@")) {
-          // File name targeting search
-          const query = lowerTag.slice(1)
-          return j.filename.toLowerCase().includes(query)
-        } else if (lowerTag.startsWith("#")) {
-          // Prompt targeting search
-          const query = lowerTag.slice(1)
-          return (j.prompt ?? "").toLowerCase().includes(query)
-        } else if (lowerTag.startsWith("$")) {
-          // Error targeting search
-          const query = lowerTag.slice(1)
-          return (j.error ?? "").toLowerCase().includes(query)
-        } else {
-          // Full fields integration search
-          const filename = j.filename.toLowerCase()
-          const prompt = (j.prompt ?? "").toLowerCase()
-          const error = (j.error ?? "").toLowerCase()
-          const meta = j.meta
-            ? Object.values(j.meta).join(" ").toLowerCase()
-            : ""
-          return (
-            filename.includes(lowerTag) ||
-            prompt.includes(lowerTag) ||
-            error.includes(lowerTag) ||
-            meta.includes(lowerTag)
-          )
-        }
-      })
-    })
-  }, [dateFiltered, searchTags])
+  }, [pageJobs])
 
   const autocompleteCandidates = useMemo(() => {
     const trimmed = tagInput.trim()
@@ -327,7 +371,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       query = query.slice(1)
     }
 
-    // 1. Filenames matching query
     const matchedFilenames =
       filterType === "all" || filterType === "filename"
         ? [...cachedTokens.filenames]
@@ -343,7 +386,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             .map((t) => ({ value: t, type: "filename" as const }))
         : []
 
-    // 2. Prompts matching query (and not already in filenames)
     const matchedPrompts =
       filterType === "all" || filterType === "prompt"
         ? [...cachedTokens.prompts]
@@ -360,7 +402,6 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             .map((t) => ({ value: t, type: "prompt" as const }))
         : []
 
-    // 3. Errors matching query
     const matchedErrors =
       filterType === "all" || filterType === "error"
         ? [...cachedTokens.errors]
@@ -384,49 +425,25 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     )
   }, [tagInput, cachedTokens, searchTags])
 
-  const sortedJobs = useMemo(() => {
-    const arr = [...searchFiltered]
-    const dir = sortDir === "asc" ? 1 : -1
-    arr.sort((a, b) => {
-      switch (sortKey) {
-        case "filename":
-          return dir * a.filename.localeCompare(b.filename)
-        case "status":
-          return dir * (STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
-        case "createdAt":
-          return dir * (a.createdAt - b.createdAt)
-        case "duration": {
-          const da =
-            jobDuration(a) ?? (sortDir === "asc" ? Infinity : -Infinity)
-          const db =
-            jobDuration(b) ?? (sortDir === "asc" ? Infinity : -Infinity)
-          return dir * (da - db)
-        }
-      }
-    })
-    return arr
-  }, [searchFiltered, sortKey, sortDir])
-
   // ── pagination computed ─────────────────────────────────────────────
 
-  const totalPages = Math.max(1, Math.ceil(sortedJobs.length / PAGE_SIZE))
-  const page = Math.min(desiredPage, totalPages)
-  const pagedJobs = useMemo(
-    () => sortedJobs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [sortedJobs, page]
-  )
+  const totalPages = Math.max(1, Math.ceil(totalJobsCount / PAGE_SIZE))
+  const page = desiredPage
+  const pagedJobs = mergedJobs
 
   // ── misc computed ───────────────────────────────────────────────────
 
   const selectedJob = selectedJobId
-    ? (jobs.find((j) => j.id === selectedJobId) ?? null)
+    ? (jobs.find((j) => j.id === selectedJobId) ??
+       pageJobs.find((j) => j.id === selectedJobId) ??
+       null)
     : null
   const hasDateFilter = dateFrom !== "" || dateTo !== ""
   const hasAnyFilter = searchTags.length > 0 || dateFrom !== "" || dateTo !== ""
 
   const runningJobs = useMemo(
-    () => sessionJobs.filter((j) => j.status === "running"),
-    [sessionJobs]
+    () => jobs.filter((j) => j.status === "running"),
+    [jobs]
   )
 
   // ── effects ─────────────────────────────────────────────────────────
@@ -454,6 +471,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         method: "DELETE",
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      triggerRefetchJobs()
+      refetchStats?.()
     } catch {
       toast.error("작업 취소 요청에 실패했습니다.")
     }
@@ -464,10 +483,13 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     try {
       const res = await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, { method: "POST" })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      triggerRefetchJobs()
+      refetchStats?.()
     } catch {
       toast.error("작업 재시도 요청에 실패했습니다.")
     }
   }
+
   const handleMoveJob = async (jobId: string, targetWorkerId: string) => {
     try {
       const res = await fetch(`${backendUrl}${API.jobs.move(jobId)}`, {
@@ -477,10 +499,13 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       toast.success("작업이 이동되었습니다.")
+      triggerRefetchJobs()
+      refetchStats?.()
     } catch {
       toast.error("작업 이동 요청에 실패했습니다.")
     }
   }
+
   const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     if (
@@ -499,6 +524,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         body: JSON.stringify({ job_ids: [jobId] }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      triggerRefetchJobs()
+      refetchStats?.()
     } catch {
       toast.error("작업 삭제 요청에 실패했습니다.")
     }
@@ -522,6 +549,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         body: JSON.stringify({ job_ids: Array.from(selectedForDelete) }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setSelectedForDelete(new Set())
+      triggerRefetchJobs()
+      refetchStats?.()
     } catch {
       toast.error("작업 삭제 요청에 실패했습니다.")
     }
@@ -538,7 +568,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const selectAllFailed = () => {
     const failedIds = new Set(
-      dateFiltered
+      pageJobs
         .filter((j) => j.status === "error" || j.status === "cancelled")
         .map((j) => j.id)
     )
@@ -632,6 +662,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
+  const currentSessionJobCount = sessionJobCounts.get(selectedId) ?? 0
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
@@ -646,7 +678,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         <div className={cn(mobileTab === "status" ? "space-y-5 p-3" : "")}>
           <JobStatBar
             counts={counts}
-            sessionJobs={sessionJobs}
+            sessionJobs={jobs} // 실시간 웹소켓 잡들 전달
             progressCalculation={settings.progressCalculation}
           />
           {mobileTab === "status" && (
@@ -654,11 +686,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <h3 className="border-b pb-1.5 text-xs font-black tracking-widest text-muted-foreground uppercase">
                 실행 중인 작업
               </h3>
-              <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} workers={workers} />
+              <RunningJobsBanner jobs={runningJobs} allJobs={pageJobs} workers={workers} />
             </div>
           )}
           {mobileTab !== "status" && (
-            <RunningJobsBanner jobs={runningJobs} allJobs={sessionJobs} workers={workers} />
+            <RunningJobsBanner jobs={runningJobs} allJobs={pageJobs} workers={workers} />
           )}
         </div>
       </ScrollArea>
@@ -689,7 +721,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <SelectItem value="all" className="text-[11px] font-bold">
                 <span className="flex items-center gap-1.5">
                   <List className="h-3.5 w-3.5" />
-                  전체 ({sessionJobs.length})
+                  전체 ({currentSessionJobCount})
                 </span>
               </SelectItem>
               <SelectItem
@@ -941,7 +973,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 <List className="mr-1 h-3.5 w-3.5" />
                 전체{" "}
                 <span className="mono ml-1 opacity-50">
-                  {sessionJobs.length}
+                  {currentSessionJobCount}
                 </span>
               </TabsTrigger>
               <TabsTrigger
@@ -1154,7 +1186,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           selectedForDelete={selectedForDelete}
           onToggleSelect={toggleSelectForDelete}
           backendUrl={backendUrl}
-          showPagination={sortedJobs.length > PAGE_SIZE}
+          showPagination={totalJobsCount > PAGE_SIZE}
           fetchedImages={fetchedImages}
           fetchJobImages={(id) => openDetail(id)}
           workers={workers}
