@@ -545,11 +545,16 @@ class JobManager:
 
     async def remove_batch(self, job_ids: list[str]) -> int:
         """Permanently delete multiple jobs. Returns count of actually removed."""
-        count = 0
+        if not job_ids:
+            return 0
+        async with self._lock:
+            for jid in job_ids:
+                self._jobs.pop(jid, None)
+        await self._store.delete_batch(job_ids)
         for jid in job_ids:
-            if await self.remove(jid):
-                count += 1
-        return count
+            await self._emit({"type": "job.deleted", "jobId": jid})
+        self._wakeup.set()
+        return len(job_ids)
 
     async def cancel(self, job_id: str) -> bool:
         async with self._lock:

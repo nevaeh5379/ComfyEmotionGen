@@ -301,6 +301,19 @@ class JobStore:
         await self._conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         await self._conn.commit()
 
+    async def delete_batch(self, job_ids: list[str]) -> None:
+        """여러 잡을 일괄 삭제합니다 (단일 트랜잭션)."""
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
+        if not job_ids:
+            return
+        placeholders = ",".join("?" for _ in job_ids)
+        await self._conn.execute(
+            f"DELETE FROM jobs WHERE id IN ({placeholders})",
+            job_ids
+        )
+        await self._conn.commit()
+
     async def cancel_batch(self, job_updates: list[dict[str, Any]]) -> None:
         """여러 잡을 일괄 취소 상태로 변경하고 이벤트를 기록합니다 (단일 트랜잭션)."""
         if self._conn is None:

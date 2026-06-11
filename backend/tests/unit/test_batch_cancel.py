@@ -144,3 +144,49 @@ class TestBatchCancel:
         worker1.interrupt.assert_awaited_once()
         worker1.delete_from_queue.assert_awaited_once_with("job-running")
         worker1.clear_queue.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_job_store_delete_batch(self, tmp_store: JobStore) -> None:
+        # 1. Seed database
+        j1 = _make_job_dict(id="del-1")
+        j2 = _make_job_dict(id="del-2")
+        j3 = _make_job_dict(id="del-3")
+        await tmp_store.save(j1)
+        await tmp_store.save(j2)
+        await tmp_store.save(j3)
+
+        # 2. Delete batch
+        await tmp_store.delete_batch(["del-1", "del-2"])
+
+        # 3. Verify
+        loaded = await tmp_store.load_all()
+        assert len(loaded) == 1
+        assert loaded[0]["id"] == "del-3"
+
+    @pytest.mark.asyncio
+    async def test_job_manager_remove_batch(self, tmp_store: JobStore, tmp_path) -> None:
+        mock_pool = MagicMock(spec=WorkerPool)
+        mock_pool.all.return_value = []
+
+        manager = JobManager(pool=mock_pool, store=tmp_store, images_dir=tmp_path / "images")
+        await manager.start()
+
+        j1 = _make_job_dict(id="del-mgr-1")
+        j2 = _make_job_dict(id="del-mgr-2")
+        await tmp_store.save(j1)
+        await tmp_store.save(j2)
+
+        async with manager._lock:
+            manager._jobs["del-mgr-1"] = Job.from_dict(j1)
+
+        # Remove batch
+        removed = await manager.remove_batch(["del-mgr-1", "del-mgr-2"])
+        assert removed == 2
+
+        # Verify memory
+        assert "del-mgr-1" not in manager._jobs
+
+        # Verify DB
+        loaded = await tmp_store.load_all()
+        assert len(loaded) == 0
+

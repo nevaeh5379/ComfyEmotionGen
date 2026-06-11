@@ -170,6 +170,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const triggerRefetchJobs = useCallback(() => setRefetchTick((t) => t + 1), [])
 
+  useEffect(() => {
+    const handleRefetch = () => {
+      triggerRefetchJobs()
+    }
+    window.addEventListener("ceg-refetch-jobs", handleRefetch)
+    return () => window.removeEventListener("ceg-refetch-jobs", handleRefetch)
+  }, [triggerRefetchJobs])
+
   // 필터 변경 시 page를 1로 함께 초기화하는 래퍼
   const setFilterTab = (v: FilterTab) => {
     setFilterTabState(v)
