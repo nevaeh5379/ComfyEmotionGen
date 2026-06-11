@@ -410,7 +410,11 @@ export function ImageViewer({
   /* lock body scroll when open */
   useEffect(() => {
     if (isOpen) {
-      const originalStyle = window.getComputedStyle(document.body).overflow
+      const computedOverflow = window.getComputedStyle(document.body).overflow
+      if (computedOverflow === "hidden") {
+        return
+      }
+      const originalStyle = document.body.style.overflow
       document.body.style.overflow = "hidden"
       return () => {
         document.body.style.overflow = originalStyle

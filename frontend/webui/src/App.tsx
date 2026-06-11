@@ -354,10 +354,17 @@ function AppContent() {
           workflow.activeWorkflow.name,
           workflow.workflowJson
         )
-        workflow.setWorkflowResetKey((k) => k + 1)
       }
     }
   }, [compositionTab, template, workflow])
+
+  // ── Tab Change Scroll Lock Cleanup ──
+  useEffect(() => {
+    // Reset body style modifications (e.g. from Radix UI Dialogs/Sheets or ImageViewer)
+    // to ensure scrolling and clicking work correctly when switching tabs.
+    document.body.style.overflow = ""
+    document.body.style.pointerEvents = ""
+  }, [activeTab])
 
   // ── Global keyboard shortcuts ──
   useGlobalShortcuts({
