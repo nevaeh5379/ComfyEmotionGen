@@ -301,7 +301,7 @@ export function Header(props: HeaderProps) {
               {/* Header */}
               <div className="flex items-center justify-between border-b border-line px-5 py-4">
                 <span className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[15px] font-black tracking-tighter text-transparent">
-                  ComfyEmotionGen
+                  ComfyEmotionGen WebUI
                 </span>
                 <SheetClose asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">

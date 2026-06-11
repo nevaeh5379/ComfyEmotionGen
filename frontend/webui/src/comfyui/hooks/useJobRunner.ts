@@ -19,7 +19,7 @@ import { useBackendHealth } from "./useBackendHealth"
 export function useJobRunner() {
   const backendUrl = useBackendUrl()
   const { isAliveBackend } = useBackendHealth()
-  const { cegTemplate } = useTemplateContext()
+  const { cegTemplate, activeTemplateId } = useTemplateContext()
   const { workflowJson } = useWorkflowContext()
   const { nodeMappings } = useNodeMappingContext()
 
@@ -35,6 +35,33 @@ export function useJobRunner() {
   const [targetWorkerId, setTargetWorkerId] = useState<string | null>(null)
 
   const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
+
+  // Load uncheckedItems from localStorage when activeTemplateId changes
+  useEffect(() => {
+    const key = `ceg_unchecked_items_${activeTemplateId || "default"}`
+    try {
+      const saved = localStorage.getItem(key)
+      if (saved) {
+        const arr = JSON.parse(saved) as string[]
+        setUncheckedItems(new Set(arr))
+      } else {
+        setUncheckedItems(new Set())
+      }
+    } catch (e) {
+      console.warn("Failed to load unchecked items", e)
+      setUncheckedItems(new Set())
+    }
+  }, [activeTemplateId])
+
+  // Save uncheckedItems to localStorage when it changes
+  useEffect(() => {
+    const key = `ceg_unchecked_items_${activeTemplateId || "default"}`
+    try {
+      localStorage.setItem(key, JSON.stringify(Array.from(uncheckedItems)))
+    } catch (e) {
+      console.warn("Failed to save unchecked items", e)
+    }
+  }, [uncheckedItems, activeTemplateId])
 
   // CEG 템플릿 변경 시 자동 파싱 (debounce)
   useEffect(() => {
@@ -55,7 +82,6 @@ export function useJobRunner() {
         const data = (await res.json()) as RenderItemsResponse
         setFakeJobQueue(data.items)
         setRenderResponse(data)
-        setUncheckedItems(new Set())
         // Discover axes from new data (add new keys/values, preserve existing toggles)
         setAxisValueFilter((prev) => {
           const next = { ...prev }

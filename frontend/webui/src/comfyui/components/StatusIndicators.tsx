@@ -144,8 +144,8 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
         )}
         {workers.map((w) => {
           const runningJob = jobs.find(
-            (j) => j.workerId === w.id && j.status === "running"
-          )
+            (j) => j.workerId === w.id && (j.status === "running" || j.status === "queued")
+          ) || (w.currentJobId ? jobs.find((j) => j.id === w.currentJobId) : undefined)
           const overallProgress = runningJob ? getOverallProgress(runningJob) : 0
 
           return (
@@ -175,11 +175,11 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
                 </span>
               </div>
 
-              {w.alive && w.busy && runningJob && (
+              {w.alive && w.busy && (
                 <div className="space-y-1.5 pl-2">
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground font-semibold">
                     <span className="truncate max-w-[190px] font-mono text-[10px] text-foreground/80">
-                      📄 {runningJob.filename}
+                      📄 {runningJob ? runningJob.filename : "작업 요청 처리 중..."}
                     </span>
                     <span className="mono font-bold tabular-nums">
                       {Math.round(overallProgress)}%

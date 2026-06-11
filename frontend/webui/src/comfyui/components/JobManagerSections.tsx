@@ -489,8 +489,8 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {workers.map((w) => {
         const runningJob = jobs.find(
-          (j) => j.workerId === w.id && j.status === "running"
-        )
+          (j) => j.workerId === w.id && (j.status === "running" || j.status === "queued")
+        ) || (w.currentJobId ? jobs.find((j) => j.id === w.currentJobId) : undefined)
 
         if (!w.alive) {
           return (
@@ -519,10 +519,10 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
           )
         }
 
-        if (w.busy && runningJob) {
-          const overallPercent = getOverallProgress(runningJob)
+        if (w.busy) {
+          const overallPercent = runningJob ? getOverallProgress(runningJob) : 0
           const etaStr =
-            runningJob.startedAt && overallPercent > 0 && overallPercent < 100
+            runningJob?.startedAt && overallPercent > 0 && overallPercent < 100
               ? formatETA(runningJob.startedAt, overallPercent, allJobs)
               : null
 
@@ -548,7 +548,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     </span>
                   )}
                   <span className="text-[10px] font-black text-info uppercase tracking-wider">
-                    작업 중
+                    {runningJob?.status === "queued" ? "대기 중" : "작업 중"}
                   </span>
                 </div>
               </div>
@@ -556,24 +556,26 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-mono text-[12px] font-black text-foreground/90">
-                    📄 {runningJob.filename}
+                    📄 {runningJob ? runningJob.filename : "작업 요청 처리 중..."}
                   </span>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
                     <span className="truncate">
-                      {runningJob.currentNodeName
+                      {runningJob?.currentNodeName
                         ? `노드 (${runningJob.currentNodeName})`
+                        : runningJob?.status === "queued"
+                        ? "작업 준비 중..."
                         : "노드 처리 중..."}
                     </span>
-                    <span className="mono">{Math.round(runningJob.progressPercent)}%</span>
+                    <span className="mono">{runningJob ? Math.round(runningJob.progressPercent) : 0}%</span>
                   </div>
                   <Progress
-                    value={runningJob.progressPercent}
+                    value={runningJob ? runningJob.progressPercent : 0}
                     className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
                   />
                 </div>
-                {runningJob.totalNodeCount > 0 && (
+                {runningJob && runningJob.totalNodeCount > 0 && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
                       <span className="truncate">
@@ -919,7 +921,7 @@ export const JobTableSection = memo(function JobTableSection({
                     {workerInfo.url}
                   </div>
                 )}
-                {job.status === "running" && (
+                {(job.status === "running" || job.status === "queued") && (
                   <div className="mt-1 space-y-1 bg-muted/20 rounded p-1.5">
                     <div className="flex items-center justify-between text-[9px] text-muted-foreground font-semibold">
                       <span className="truncate max-w-[190px] text-foreground/80">
@@ -1153,9 +1155,9 @@ export const JobTableSection = memo(function JobTableSection({
                             ))}
                         </select>
                       </div>
-                    ) : job.status === "running" ? (
+                    ) : job.status === "running" || job.status === "queued" ? (
                       <span className="mr-1 animate-pulse text-[9px] font-black tracking-wider text-info uppercase">
-                        Running
+                        {job.status === "queued" ? "Queued" : "Running"}
                       </span>
                     ) : null}
                     <ChevronRight className="h-4 w-4" />

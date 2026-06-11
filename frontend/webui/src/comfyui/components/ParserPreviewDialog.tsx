@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 
 import {
@@ -48,7 +48,7 @@ export const ParserPreviewDialog = ({
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null)
 
-  const parentRef = useRef<HTMLDivElement>(null)
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
 
   const items = useMemo(() => renderResponse?.items ?? [], [renderResponse])
   const axes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
@@ -73,7 +73,7 @@ export const ParserPreviewDialog = ({
 
   const rowVirtualizer = useVirtualizer({
     count: filteredItems.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => 140,
     overscan: 5,
   })
@@ -218,7 +218,7 @@ export const ParserPreviewDialog = ({
 
             {/* Items list */}
             <div
-              ref={parentRef}
+              ref={setScrollElement}
               className="flex-1 overflow-auto p-3 scrollbar-thin"
             >
               <div

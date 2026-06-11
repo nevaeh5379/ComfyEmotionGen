@@ -484,6 +484,12 @@ class JobManager:
             if worker is not None and worker.current_job_id == job_id:
                 await worker.interrupt()
                 worker.current_job_id = None
+                await self._emit(
+                    {
+                        "type": "worker.updated",
+                        "worker": WorkerView.from_info(worker.info()).to_dict(),
+                    }
+                )
                 await worker.delete_from_queue(job_id)
         await self._store.save(job_dict)
         await self._store.save_event(
@@ -627,6 +633,10 @@ class JobManager:
                 pending.status = JobStatus.QUEUED
                 pending.worker_id = worker.id
                 worker.current_job_id = pending.id
+                worker_updated_payload = {
+                    "type": "worker.updated",
+                    "worker": WorkerView.from_info(worker.info()).to_dict(),
+                }
                 job_dict = pending.to_dict()
                 workflow = pending.workflow
                 image_uploads = pending.image_uploads
@@ -637,6 +647,7 @@ class JobManager:
                 worker_id=worker.id,
                 details={"worker_url": worker.base_url},
             )
+            await self._emit(worker_updated_payload)
             await self._emit({"type": "job.updated", "job": job_dict})
 
             # 이미지 마커 치환 (워커로 업로드 후 실제 파일명으로 교체)
@@ -651,6 +662,12 @@ class JobManager:
                 logger.exception("worker %s submit failed", worker.id)
                 if worker.current_job_id == job_id:
                     worker.current_job_id = None
+                    await self._emit(
+                        {
+                            "type": "worker.updated",
+                            "worker": WorkerView.from_info(worker.info()).to_dict(),
+                        }
+                    )
                 await self._reset_to_pending(
                     job_id,
                     error=f"submit failed: {exc}",
@@ -916,6 +933,12 @@ class JobManager:
             worker = self._pool.get(worker_id_to_clear)
             if worker is not None and worker.current_job_id == job_id:
                 worker.current_job_id = None
+                await self._emit(
+                    {
+                        "type": "worker.updated",
+                        "worker": WorkerView.from_info(worker.info()).to_dict(),
+                    }
+                )
         await self._store.save(payload)
         await self._store.save_event(
             job_id, "completed",
@@ -954,6 +977,12 @@ class JobManager:
             worker = self._pool.get(worker_id_to_clear)
             if worker is not None and worker.current_job_id == job_id:
                 worker.current_job_id = None
+                await self._emit(
+                    {
+                        "type": "worker.updated",
+                        "worker": WorkerView.from_info(worker.info()).to_dict(),
+                    }
+                )
         await self._store.save(payload)
         await self._store.save_event(
             job_id, "retrying",

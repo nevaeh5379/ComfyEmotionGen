@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils"
 import type { RenderItem } from "../types/renderTypes"
 import { itemKey } from "../../lib/workflowUtils"
-import { useRef } from "react"
+import { useState } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 
 interface SelectionSheetProps {
@@ -54,11 +54,11 @@ export const SelectionSheet = ({
   onRunSelected,
   onExcludeApproved,
 }: SelectionSheetProps) => {
-  const parentRef = useRef<HTMLDivElement>(null)
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
 
   const rowVirtualizer = useVirtualizer({
     count: filteredPreview.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => 45,
     overscan: 10,
   })
@@ -113,7 +113,7 @@ export const SelectionSheet = ({
           </div>
         </div>
         <div
-          ref={parentRef}
+          ref={setScrollElement}
           className="min-h-0 flex-1 overflow-auto rounded-md border shadow-inner scrollbar-thin"
         >
           <Table className="text-xs flex flex-col w-full relative">

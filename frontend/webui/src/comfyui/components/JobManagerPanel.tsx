@@ -313,6 +313,22 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     refetchTick,
   ])
 
+  // 실시간 잡 갱신 감지 및 목록 리프레시 트리거
+  const prevActiveJobCountRef = useRef(jobs.length)
+  const prevActiveJobStatusesRef = useRef(jobs.map((j) => `${j.id}:${j.status}`).join(","))
+
+  useEffect(() => {
+    const currentStatuses = jobs.map((j) => `${j.id}:${j.status}`).join(",")
+    if (
+      jobs.length !== prevActiveJobCountRef.current ||
+      currentStatuses !== prevActiveJobStatusesRef.current
+    ) {
+      prevActiveJobCountRef.current = jobs.length
+      prevActiveJobStatusesRef.current = currentStatuses
+      triggerRefetchJobs()
+    }
+  }, [jobs, triggerRefetchJobs])
+
   // 실시간 활성 잡 정보 병합
   const mergedJobs = useMemo(() => {
     return pageJobs.map((pj) => {
@@ -442,7 +458,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const hasAnyFilter = searchTags.length > 0 || dateFrom !== "" || dateTo !== ""
 
   const runningJobs = useMemo(
-    () => jobs.filter((j) => j.status === "running"),
+    () => jobs.filter((j) => j.status === "running" || j.status === "queued"),
     [jobs]
   )
 
