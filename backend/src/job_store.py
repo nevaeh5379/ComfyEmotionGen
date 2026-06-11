@@ -301,6 +301,40 @@ class JobStore:
         await self._conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         await self._conn.commit()
 
+    async def cancel_batch(self, job_updates: list[dict[str, Any]]) -> None:
+        """여러 잡을 일괄 취소 상태로 변경하고 이벤트를 기록합니다 (단일 트랜잭션)."""
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
+        if not job_updates:
+            return
+
+        # 1. jobs 테이블 업데이트
+        await self._conn.executemany(
+            "UPDATE jobs SET status = 'cancelled', finished_at = ? WHERE id = ?",
+            [(u["finished_at"], u["id"]) for u in job_updates],
+        )
+
+        # 2. job_events 기록
+        event_tuples = [
+            (
+                u["id"],
+                "cancelled",
+                u["finished_at"],
+                u.get("worker_id"),
+                json.dumps({}),
+            )
+            for u in job_updates
+        ]
+        await self._conn.executemany(
+            """
+            INSERT INTO job_events (job_id, event_type, timestamp, worker_id, details)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            event_tuples,
+        )
+        await self._conn.commit()
+
+
     def _job_row_to_dict(self, row: Any) -> dict[str, Any]:
         try:
             meta = json.loads(row["meta_json"]) if row["meta_json"] else {}

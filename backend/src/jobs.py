@@ -430,24 +430,107 @@ class JobManager:
 
     async def cancel_all(self) -> int:
         """pending/queued/running 잡 전부 취소. 취소된 잡 개수 반환."""
-        count = 0
-        while True:
-            async with self._lock:
-                target = next(
-                    (
-                        j.id
-                        for j in self._jobs.values()
-                        if j.status in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING)
-                    ),
-                    None,
+        now = time.time()
+        job_updates = []
+        workers_to_interrupt = []
+
+        async with self._lock:
+            # 1. 메모리상 활성 잡 식별 및 상태 업데이트
+            targets = [
+                j for j in self._jobs.values()
+                if j.status in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING)
+            ]
+
+            for job in targets:
+                worker_id = job.worker_id
+                job.status = JobStatus.CANCELLED
+                job.finished_at = now
+
+                # 실행 중인 워커 식별 및 current_job_id 클리어
+                if worker_id is not None:
+                    worker = self._pool.get(worker_id)
+                    if worker is not None and worker.current_job_id == job.id:
+                        workers_to_interrupt.append((worker, job.id))
+                        worker.current_job_id = None
+
+                job_updates.append({
+                    "id": job.id,
+                    "finished_at": now,
+                    "worker_id": worker_id,
+                    "dict": job.to_dict(),
+                })
+                # 메모리(활성 잡 목록)에서 즉시 제거하여 디스패처 레이스 방지
+                self._jobs.pop(job.id, None)
+
+        # 2. DB에서만 활성 상태로 남아있을 수 있는 오펀 잡들도 백업 취소 처리
+        try:
+            db_jobs = await self._store.get_all_jobs_minimal()
+            cancelled_ids = {u["id"] for u in job_updates}
+            for db_job in db_jobs:
+                jid = db_job["id"]
+                if jid not in cancelled_ids and db_job["status"] in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING):
+                    job_updates.append({
+                        "id": jid,
+                        "finished_at": now,
+                        "worker_id": None,
+                        "dict": {
+                            "id": jid,
+                            "status": JobStatus.CANCELLED,
+                            "finishedAt": now,
+                        }
+                    })
+        except Exception:
+            logger.exception("Failed to query orphan active jobs from database during cancel_all")
+
+        if not job_updates:
+            return 0
+
+        # 3. DB 일괄 저장
+        await self._store.cancel_batch(job_updates)
+
+        # 4. WebSocket 이벤트 방출
+        # 4a. 워커 정보 갱신 이벤트 방출
+        for worker, _ in workers_to_interrupt:
+            try:
+                await self._emit(
+                    {
+                        "type": "worker.updated",
+                        "worker": WorkerView.from_info(worker.info()).to_dict(),
+                    }
                 )
-            if target is None:
-                break
-            if await self.cancel(target):
-                count += 1
+            except Exception:
+                logger.exception("Failed to emit worker update event during cancel_all")
+
+        # 4b. 잡 갱신 이벤트 방출
+        for item in job_updates:
+            try:
+                await self._emit({"type": "job.updated", "job": item["dict"]})
+            except Exception:
+                logger.exception("Failed to emit job update event during cancel_all")
+
+        # 5. 비동기 워커 인터럽트 및 큐 정리 병렬 실행
+        async def interrupt_and_clear_worker_queue(w, jid):
+            try:
+                await w.interrupt()
+            except Exception:
+                logger.warning("worker %s interrupt failed during cancel_all", w.id)
+            try:
+                await w.delete_from_queue(jid)
+            except Exception:
+                logger.warning("worker %s delete_from_queue(%s) failed during cancel_all", w.id, jid)
+
+        tasks = []
+        for worker, jid in workers_to_interrupt:
+            tasks.append(asyncio.create_task(interrupt_and_clear_worker_queue(worker, jid)))
+
         for worker in self._pool.all():
-            await worker.clear_queue()
-        return count
+            tasks.append(asyncio.create_task(worker.clear_queue()))
+
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        self._wakeup.set()
+        return len(job_updates)
 
     async def remove(self, job_id: str) -> bool:
         """Permanently delete a job from memory and store."""
