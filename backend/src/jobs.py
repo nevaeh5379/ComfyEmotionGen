@@ -50,6 +50,12 @@ from backend.src.worker_pool import WorkerPool
 
 @dataclass(frozen=True)
 class WorkerView:
+    """워커의 읽기 전용 뷰 (API 응답용 불변 데이터 클래스).
+    Immutable read-only view of a worker, used for API responses.
+
+    WorkerInfo 내부 상태를 외부에 노출할 때 스냅샷으로 사용한다.
+    Acts as a snapshot of WorkerInfo's internal state for external exposure.
+    """
     id: str
     url: str
     alive: bool
@@ -59,6 +65,9 @@ class WorkerView:
 
     @classmethod
     def from_info(cls, info: WorkerInfo) -> "WorkerView":
+        """WorkerInfo 객체로부터 WorkerView 인스턴스를 생성한다.
+        Creates a WorkerView instance from a WorkerInfo object.
+        """
         return cls(
             id=info.id,
             url=info.url,
@@ -69,6 +78,9 @@ class WorkerView:
         )
 
     def to_dict(self) -> dict[str, JSONValue]:
+        """워커 뷰를 JSON 직렬화 가능한 딕셔너리로 변환한다.
+        Converts the worker view to a JSON-serializable dictionary.
+        """
         return {
             "id": self.id,
             "url": self.url,
@@ -79,6 +91,9 @@ class WorkerView:
         }
 
     def to_response(self) -> WorkerViewResponse:
+        """워커 뷰를 API 응답 모델(WorkerViewResponse)로 변환한다.
+        Converts the worker view to an API response model (WorkerViewResponse).
+        """
         return WorkerViewResponse(
             id=self.id,
             url=self.url,
@@ -118,15 +133,34 @@ else:
 
 
 class ActiveJobError(Exception):
-    """워커에 진행 중인 잡이 있는데 force=False로 삭제 시도한 경우."""
+    """워커에 진행 중인 잡이 있는데 force=False로 삭제 시도한 경우.
+    Raised when attempting to remove a worker with an active job and force=False.
+
+    워커를 강제 제거하려면 force=True를 사용해야 한다.
+    Use force=True to forcefully remove a worker with an active job.
+    """
 
     def __init__(self, worker_id: str, job_id: str) -> None:
+        """에러 초기화. / Initialize with worker and job IDs.
+
+        Args:
+            worker_id: 활성 잡이 있는 워커 ID / The worker ID that has an active job.
+            job_id: 해당 워커에서 실행 중인 잡 ID / The active job ID on that worker.
+        """
         super().__init__(f"worker {worker_id} has active job {job_id}")
         self.worker_id = worker_id
         self.job_id = job_id
 
 
 class Job(BaseModel):
+    """단일 이미지 생성 작업을 나타내는 잡 모델.
+    Pydantic model representing a single image generation job.
+
+    상태(status), 진행률(progress), 워크플로우(workflow), 결과 이미지 URL 등
+    잡의 전체 라이프사이클 데이터를 포함한다.
+    Contains the full lifecycle data of a job including status, progress,
+    workflow, result image URLs, and metadata.
+    """
     model_config = ConfigDict(populate_by_name=True)
 
     id: str
@@ -154,9 +188,15 @@ class Job(BaseModel):
     target_worker_id: Optional[str] = Field(None, alias="targetWorkerId")
 
     def to_dict(self) -> dict[str, Any]:
+        """잡을 JSON 직렬화 가능한 딕셔너리로 변환 (alias 키 사용).
+        Converts the job to a JSON-serializable dict using aliased field names.
+        """
         return self.model_dump(by_alias=True, mode="json")
 
     def to_response(self) -> JobResponse:
+        """잡을 API 응답 모델(JobResponse)로 변환한다.
+        Converts the job to an API response model (JobResponse).
+        """
         return JobResponse(
             id=self.id,
             filename=self.filename,
@@ -185,6 +225,14 @@ class Job(BaseModel):
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Job:
+        """딕셔너리로부터 Job 인스턴스를 생성한다 (DB 복원 시 사용).
+        Creates a Job instance from a dictionary (used when restoring from DB).
+
+        'workflow' 키를 '_workflow' alias로 자동 매핑하며,
+        누락된 워크플로우는 빈 객체로 초기화한다.
+        Automatically maps the 'workflow' key to the '_workflow' alias,
+        and initializes missing workflows as empty objects.
+        """
         d_copy = dict(d)
         if "workflow" in d_copy and "_workflow" not in d_copy:
             d_copy["_workflow"] = d_copy.pop("workflow")
@@ -193,6 +241,14 @@ class Job(BaseModel):
         return cls.model_validate(d_copy)
 
     def clone(self) -> "Job":
+        """현재 잡의 설정을 복제하여 새 잡을 생성한다 (재시도용).
+        Clones the current job's configuration into a new job (for retries).
+
+        새 UUID를 할당하고, 상태를 PENDING으로 초기화하며,
+        진행 관련 필드를 모두 리셋한다. 워크플로우·메타데이터는 깊은 복사한다.
+        Assigns a new UUID, resets status to PENDING, clears all progress fields,
+        and deep-copies the workflow and metadata.
+        """
         return Job.model_validate({
             "id": str(uuid.uuid4()),
             "filename": self.filename,
@@ -226,14 +282,21 @@ EventListener = Callable[[NormalizedEvent], Awaitable[None]]
 
 
 class JobManager:
-    """
-    잡 저장소 + 디스패처 + ComfyUI 메시지 라우터를 한곳에 묶음.
+    """잡 저장소 + 디스패처 + ComfyUI 메시지 라우터를 한곳에 묶음.
+    Central manager combining job storage, dispatcher, and ComfyUI message router.
 
-    외부에서는:
-        - submit(items) → 잡 N개 생성 후 디스패치 트리거
-        - cancel(job_id)
-        - snapshot() → 현재 모든 잡 dict 리스트
-        - subscribe(listener) → 정규화 이벤트 수신
+    외부에서는 / Public API:
+        - submit(items) → 잡 N개 생성 후 디스패치 트리거 / Create N jobs and trigger dispatch
+        - cancel(job_id) → 잡 취소 / Cancel a job
+        - snapshot() → 현재 모든 활성 잡 리스트 / List all active jobs
+        - subscribe(listener) → 정규화 이벤트 수신 / Subscribe to normalized events
+
+    내부적으로는 워커 풀(WorkerPool)과 잡 저장소(JobStore)를 조율하여
+    pending 잡을 idle 워커에 배정하고, ComfyUI WebSocket 이벤트를
+    수신하여 잡 상태를 갱신한다.
+    Internally coordinates the WorkerPool and JobStore to dispatch pending
+    jobs to idle workers, and processes ComfyUI WebSocket events to update
+    job states.
     """
 
     def __init__(
@@ -242,6 +305,14 @@ class JobManager:
         store: Optional[JobStore] = None,
         images_dir: Optional[Path] = None,
     ) -> None:
+        """JobManager 초기화.
+        Initialize the JobManager.
+
+        Args:
+            pool: 워커 풀 인스턴스 / Worker pool instance for managing workers.
+            store: 잡 영속화 저장소 (기본: 인메모리 JobStore) / Job persistence store (default: in-memory JobStore).
+            images_dir: 결과 이미지 저장 디렉토리 / Directory for saving result images.
+        """
         self._pool = pool
         self._store = store or JobStore()
         self._jobs: dict[str, Job] = {}
@@ -265,6 +336,13 @@ class JobManager:
     # ---------- lifecycle ----------
 
     async def start(self) -> None:
+        """매니저 시작: DB 연결, 잡 복원, 워커 풀 시작, 디스패처 루프 생성.
+        Start the manager: open DB, restore jobs, start worker pool, launch dispatcher loop.
+
+        재시작 시 queued/running 상태였던 잡을 pending으로 되돌려
+        다시 디스패치될 수 있도록 한다.
+        On restart, resets queued/running jobs back to pending so they can be re-dispatched.
+        """
         await self._store.open()
         # DB에서 paused 상태 복원
         paused_value = await self._store.get_setting("dispatch_paused")
@@ -299,6 +377,9 @@ class JobManager:
             self._wakeup.set()
 
     async def stop(self) -> None:
+        """매니저 종료: 디스패처 취소, 워커 풀 종료, 이미지 저장 태스크 대기, DB 닫기.
+        Stop the manager: cancel dispatcher, stop worker pool, await image persistence tasks, close DB.
+        """
         self._stopping = True
         self._wakeup.set()
         if self._dispatcher_task is not None:
@@ -315,7 +396,12 @@ class JobManager:
         await self._store.close()
 
     async def reload_jobs(self) -> None:
-        """데이터베이스 로드 및 인메모리 잡 목록을 동기화합니다."""
+        """데이터베이스에서 잡을 다시 로드하고 인메모리 목록과 동기화한다.
+        Reload jobs from the database and synchronize with the in-memory job list.
+
+        queued/running 상태의 잡은 pending으로 되돌린다.
+        Resets queued/running jobs back to pending.
+        """
         stored = await self._store.load_all()
         async with self._lock:
             self._jobs.clear()
@@ -333,6 +419,9 @@ class JobManager:
                     self._jobs[job.id] = job
         self._wakeup.set()
     async def _register_job(self, job: Job) -> None:
+        """새 잡을 인메모리 저장소와 DB에 등록하고 생성 이벤트를 발행한다.
+        Register a new job in both in-memory storage and DB, then emit a creation event.
+        """
         async with self._lock:
             self._jobs[job.id] = job
         await self._store.save(job.to_dict())
@@ -343,6 +432,15 @@ class JobManager:
         await self._emit({"type": "job.created", "job": job.to_dict()})
     # ---------- public API ----------
     async def retry(self, items: list[Job]) -> list[Job]:
+        """기존 잡들을 복제(clone)하여 새 잡으로 재시도한다.
+        Retry existing jobs by cloning them into new jobs.
+
+        Args:
+            items: 재시도할 원본 잡 리스트 / List of original jobs to retry.
+
+        Returns:
+            새로 생성된 잡 리스트 / List of newly created cloned jobs.
+        """
         new_jobs = [job.clone() for job in items]
         
         for job in new_jobs:
@@ -360,11 +458,24 @@ class JobManager:
     async def submit(
         self, items: JobItem | list[JobItem]
     ) -> Job | list[Job]:
+        """잡 아이템을 제출한다 (단일 또는 다건).
+        Submit job item(s) for processing (single or batch).
+
+        Args:
+            items: 단일 JobItem 또는 리스트 / A single JobItem or a list of JobItems.
+
+        Returns:
+            단일 제출 시 Job, 다건 제출 시 list[Job].
+            A single Job for single submission, list[Job] for batch.
+        """
         if isinstance(items, JobItem):
             return (await self._submit_many([items]))[0]
         return await self._submit_many(items)
 
     async def _submit_many(self, items: list[JobItem]) -> list[Job]:
+        """여러 JobItem을 Job으로 생성하고 등록한 뒤 디스패처를 깨운다.
+        Create Jobs from multiple JobItems, register them, and wake the dispatcher.
+        """
         created: list[Job] = self._create_jobs(items)
             
 
@@ -373,6 +484,9 @@ class JobManager:
         self._wakeup.set()
         return created
     def _create_jobs(self, items: list[JobItem]) -> list[Job]:
+        """JobItem 리스트를 Job 인스턴스 리스트로 변환한다 (UUID 자동 생성).
+        Convert a list of JobItems into Job instances with auto-generated UUIDs.
+        """
         return [
             Job.model_validate({
                 "id": str(uuid.uuid4()),
@@ -389,9 +503,18 @@ class JobManager:
         ]
     @property
     def paused(self) -> bool:
+        """디스패처가 일시정지 상태인지 반환한다.
+        Returns whether the dispatcher is currently paused.
+        """
         return self._paused
 
     async def set_paused(self, paused: bool) -> None:
+        """디스패처 일시정지/재개 상태를 설정한다 (DB에 영속화).
+        Set the dispatcher paused/resumed state (persisted to DB).
+
+        재개 시 대기 중인 잡을 즉시 디스패치하기 위해 디스패처를 깨운다.
+        On resume, wakes the dispatcher to immediately dispatch pending jobs.
+        """
         if self._paused == paused:
             return
         self._paused = paused
@@ -405,9 +528,18 @@ class JobManager:
     # ---------- worker management ----------
 
     async def add_worker(self, url: str, *, worker_type: str = "comfyui") -> WorkerViewResponse:
-        """새 워커 URL 추가 (영속화 + 풀 등록 + 이벤트 브로드캐스트).
+        """새 워커 URL을 등록한다 (DB 영속화 + 풀 등록 + 이벤트 브로드캐스트).
+        Register a new worker URL (persisted to DB, added to pool, event broadcasted).
 
-        반환: 새 워커의 info dict. URL 중복이면 ValueError.
+        Args:
+            url: 워커의 HTTP URL / The worker's HTTP URL.
+            worker_type: 워커 타입 (기본 'comfyui') / Worker type (default 'comfyui').
+
+        Returns:
+            새 워커의 WorkerViewResponse / The new worker's WorkerViewResponse.
+
+        Raises:
+            ValueError: URL이 비어있거나 이미 등록된 경우 / If URL is empty or already registered.
         """
         url = url.strip().rstrip("/")
         if not url:
@@ -422,9 +554,20 @@ class JobManager:
         return response
 
     async def remove_worker(self, worker_id: str, *, force: bool = False) -> bool:
-        """워커 제거. 진행 중인 잡이 있으면 force=False 시 ValueError.
+        """워커를 풀에서 제거한다.
+        Remove a worker from the pool.
 
-        force=True면 잡을 취소(pending으로 되돌림)하고 워커를 제거한다.
+        진행 중인 잡이 있으면 force=False 시 ActiveJobError를 발생시킨다.
+        force=True면 활성 잡을 취소하고 워커를 제거한다.
+        If the worker has an active job and force=False, raises ActiveJobError.
+        If force=True, cancels the active job and removes the worker.
+
+        Args:
+            worker_id: 제거할 워커 ID / ID of the worker to remove.
+            force: 강제 제거 여부 / Whether to forcefully remove.
+
+        Returns:
+            제거 성공 시 True, 워커가 없으면 False / True if removed, False if worker not found.
         """
         worker = self._pool.get(worker_id)
         if worker is None:
@@ -442,7 +585,17 @@ class JobManager:
         return True
 
     async def cancel_all(self) -> int:
-        """pending/queued/running 잡 전부 취소. 취소된 잡 개수 반환."""
+        """모든 활성 잡(pending/queued/running)을 일괄 취소한다.
+        Cancel all active jobs (pending/queued/running) in batch.
+
+        메모리 내 잡뿐 아니라 DB에만 남아있는 고아(orphan) 잡도 함께 취소한다.
+        워커 인터럽트 및 큐 정리를 비동기 병렬로 수행한다.
+        Also cancels orphan jobs that exist only in the DB.
+        Worker interrupts and queue cleanup are performed in parallel.
+
+        Returns:
+            취소된 잡의 총 개수 / Total number of cancelled jobs.
+        """
         now = time.time()
         job_updates: list[dict[str, JSONValue]] = []
         workers_to_interrupt = []
@@ -523,6 +676,9 @@ class JobManager:
 
         # 5. 비동기 워커 인터럽트 및 큐 정리 병렬 실행
         async def interrupt_and_clear_worker_queue(w: BaseWorker, jid: str) -> None:
+            """워커에 인터럽트를 보내고 큐에서 잡을 제거한다 (실패 무시).
+            Send interrupt to worker and remove job from queue (failures ignored).
+            """
             try:
                 await w.interrupt()
             except Exception:
@@ -546,7 +702,15 @@ class JobManager:
         return len(job_updates)
 
     async def remove(self, job_id: str) -> bool:
-        """Permanently delete a job from memory and store."""
+        """잡을 메모리와 DB에서 영구 삭제한다.
+        Permanently delete a job from both memory and the persistent store.
+
+        Args:
+            job_id: 삭제할 잡 ID / ID of the job to delete.
+
+        Returns:
+            삭제 성공 시 True, 잡이 없으면 False / True if deleted, False if job not found.
+        """
         async with self._lock:
             job = self._jobs.pop(job_id, None)
             if job is None:
@@ -557,7 +721,15 @@ class JobManager:
         return True
 
     async def remove_batch(self, job_ids: list[str]) -> int:
-        """Permanently delete multiple jobs. Returns count of actually removed."""
+        """여러 잡을 일괄 영구 삭제한다.
+        Permanently delete multiple jobs in batch.
+
+        Args:
+            job_ids: 삭제할 잡 ID 리스트 / List of job IDs to delete.
+
+        Returns:
+            실제 삭제된 잡 개수 / Count of actually removed jobs.
+        """
         if not job_ids:
             return 0
         async with self._lock:
@@ -570,6 +742,20 @@ class JobManager:
         return len(job_ids)
 
     async def cancel(self, job_id: str) -> bool:
+        """단일 잡을 취소한다.
+        Cancel a single job.
+
+        이미 완료/에러/취소 상태인 잡은 취소할 수 없다.
+        실행 중인 워커가 있으면 인터럽트를 보내고 큐에서 제거한다.
+        Jobs in done/error/cancelled state cannot be cancelled.
+        If a worker is executing the job, sends an interrupt and removes from queue.
+
+        Args:
+            job_id: 취소할 잡 ID / ID of the job to cancel.
+
+        Returns:
+            취소 성공 시 True, 불가능하면 False / True if cancelled, False otherwise.
+        """
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
@@ -604,10 +790,16 @@ class JobManager:
         return True
 
     async def snapshot(self) -> list[JobResponse]:
+        """현재 인메모리에 있는 모든 활성 잡의 스냅샷을 반환한다.
+        Returns a snapshot of all currently active in-memory jobs.
+        """
         async with self._lock:
             return [j.to_response() for j in self._jobs.values()]
 
     async def diagnostics_snapshot(self) -> DiagnosticsSnapshotResponse:
+        """시스템 진단 정보 스냅샷을 반환한다 (잡 수, 리스너 수, 디스패처 상태 등).
+        Returns a diagnostics snapshot (job counts, listener count, dispatcher state, etc.).
+        """
         async with self._lock:
             job_counts: dict[str, int] = {}
             for job in self._jobs.values():
@@ -640,6 +832,27 @@ class JobManager:
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> JobQueryResponse:
+        """필터·정렬·페이지네이션을 적용하여 잡을 조회한다.
+        Query jobs with filtering, sorting, and pagination.
+
+        인메모리에 있는 활성 잡은 최신 상태를 반영하고,
+        나머지는 DB에서 복원한다.
+        Active in-memory jobs reflect the latest state;
+        others are restored from the DB.
+
+        Args:
+            limit: 페이지당 최대 잡 수 / Max jobs per page.
+            offset: 건너뛸 잡 수 / Number of jobs to skip.
+            statuses: 상태 필터 / Status filter list.
+            search_tags: 태그 검색 필터 / Tag search filter.
+            created_at_from: 생성 시각 하한 (Unix timestamp) / Created-at lower bound.
+            created_at_to: 생성 시각 상한 (Unix timestamp) / Created-at upper bound.
+            sort_by: 정렬 기준 필드 / Sort field.
+            sort_order: 정렬 방향 ('asc' 또는 'desc') / Sort direction.
+
+        Returns:
+            페이지네이션된 잡 응답 / Paginated job query response.
+        """
         total = await self._store.count_jobs(
             statuses=statuses,
             search_tags=search_tags,
@@ -667,6 +880,15 @@ class JobManager:
         return JobQueryResponse(total=total, items=response_items, limit=limit, offset=offset)
 
     async def get_job(self, job_id: str) -> Optional[Job]:
+        """ID로 잡을 조회한다 (인메모리 → DB 순서로 탐색).
+        Look up a job by ID (checks in-memory first, then falls back to DB).
+
+        Args:
+            job_id: 조회할 잡 ID / The job ID to look up.
+
+        Returns:
+            찾은 Job 또는 None / The Job if found, otherwise None.
+        """
         async with self._lock:
             job = self._jobs.get(job_id)
         if job is not None:
@@ -677,6 +899,15 @@ class JobManager:
         return None
 
     def subscribe(self, listener: EventListener) -> Callable[[], None]:
+        """정규화된 이벤트 리스너를 구독하고, 구독 해제 함수를 반환한다.
+        Subscribe a normalized event listener and return an unsubscribe function.
+
+        Args:
+            listener: 이벤트를 수신할 비동기 콜백 / Async callback to receive events.
+
+        Returns:
+            호출 시 구독을 해제하는 함수 / A function that unsubscribes when called.
+        """
         self._listeners.add(listener)
 
         def unsubscribe() -> None:
@@ -687,6 +918,12 @@ class JobManager:
     # ---------- dispatcher ----------
 
     async def _dispatch_loop(self) -> None:
+        """디스패처 메인 루프: wakeup 시그널을 기다리며 잡-워커 매칭을 시도한다.
+        Main dispatcher loop: waits for wakeup signals and attempts job-worker matching.
+
+        stopping 플래그가 설정되면 종료한다.
+        Exits when the stopping flag is set.
+        """
         while not self._stopping:
             try:
                 await self._wakeup.wait()
@@ -701,7 +938,14 @@ class JobManager:
                 await asyncio.sleep(1)
 
     async def _try_dispatch(self) -> None:
-        """idle 워커가 있는 한 pending 잡을 채워 넣는다 (paused일 땐 스킵)."""
+        """idle 워커가 있는 한 pending 잡을 매칭하여 디스패치한다.
+        Match and dispatch pending jobs to idle workers as long as workers are available.
+
+        paused 상태일 때는 스킵한다. target_worker_id가 지정된 잡은
+        해당 워커만 대기하고, 그 외 잡은 동일 타입의 임의 idle 워커에 배정된다.
+        Skips when paused. Jobs with target_worker_id wait for that specific
+        worker; others are assigned to any idle worker of the same type.
+        """
         while True:
             if self._paused:
                 return
@@ -799,7 +1043,11 @@ class JobManager:
     async def _on_worker_message(
         self, worker: BaseWorker, payload: dict[str, JSONValue]
     ) -> None:
-        """워커 타입에 따라 이벤트 핸들러를 분기."""
+        """워커 타입에 따라 이벤트 핸들러를 분기한다.
+        Routes incoming worker messages to the appropriate handler based on worker type.
+
+        comfyui → _on_comfyui_message, nai → _on_nai_message.
+        """
         wt = worker.worker_type
         if wt == "comfyui" or wt is None:
             await self._on_comfyui_message(worker, payload)
@@ -813,6 +1061,20 @@ class JobManager:
     async def _on_comfyui_message(
         self, worker: BaseWorker, payload: dict[str, JSONValue]
     ) -> None:
+        """ComfyUI 워커의 WebSocket 메시지를 처리한다.
+        Handles WebSocket messages from a ComfyUI worker.
+
+        처리하는 이벤트 타입 / Handled event types:
+        - execution_start: 실행 시작 → 상태를 RUNNING으로 전환
+        - execution_success: 실행 성공 → 잡 완료 처리
+        - execution_interrupted: 인터럽트 → pending으로 재시도
+        - execution_error: 에러 → pending으로 재시도
+        - executing: 노드 실행 → 완료 노드 카운트 증가
+        - execution_cached: 캐시된 노드 → 완료 카운트에 반영
+        - progress_state: 상태 업데이트 → 완료 노드 수 동기화
+        - executed: 노드 출력 결과 → 이미지 URL 추출 및 저장
+        - progress: 진행률 → 퍼센트 및 현재 노드명 갱신
+        """
         msg_type_val = payload.get("type")
         msg_type = str(msg_type_val) if msg_type_val else ""
         data_val = payload.get("data")
@@ -979,6 +1241,14 @@ class JobManager:
             )
 
     async def _on_worker_status_change(self, worker: BaseWorker) -> None:
+        """워커의 alive 상태 변경 시 호출되는 핸들러.
+        Handler called when a worker's alive status changes.
+
+        워커가 죽으면 해당 워커의 활성 잡을 pending으로 되돌리고
+        미리보기 캐시를 제거한다. 워커가 살아나면 디스패처를 깨운다.
+        When a worker dies, resets its active job to pending and clears
+        preview cache. When a worker comes alive, wakes the dispatcher.
+        """
         # 워커가 죽었으면 그 워커가 들고 있던 잡을 pending으로 되돌림 (재시도)
         if not worker.alive and worker.current_job_id is not None:
             failed_id = worker.current_job_id
@@ -1001,7 +1271,17 @@ class JobManager:
             self._wakeup.set()
 
     async def _on_worker_binary(self, worker: BaseWorker, data: bytes) -> None:
-        """ComfyUI 바이너리 메시지 처리 (미리보기 이미지 파싱)."""
+        """ComfyUI 워커의 바이너리 WebSocket 메시지를 처리한다 (미리보기 이미지).
+        Handles binary WebSocket messages from a ComfyUI worker (preview images).
+
+        지원하는 이벤트 타입 / Supported event types:
+        - 1: PREVIEW_IMAGE (JPEG/PNG, 8바이트 헤더)
+        - 2: UNENCODED_PREVIEW_IMAGE (4바이트 헤더)
+        - 4: PREVIEW_IMAGE_WITH_METADATA (가변 메타데이터 헤더)
+
+        파싱된 이미지 바이트를 워커별 캐시에 저장하고 worker.preview 이벤트를 발행한다.
+        Stores parsed image bytes in per-worker cache and emits a worker.preview event.
+        """
         total_len = len(data)
         logger.debug("[PREVIEW-DEBUG] _on_worker_binary: worker=%s total=%d bytes", worker.id, total_len)
         if total_len < 4:
@@ -1049,17 +1329,29 @@ class JobManager:
     async def _on_nai_message(
         self, worker: BaseWorker, payload: dict[str, JSONValue]
     ) -> None:
-        """NAI 백엔드 이벤트 핸들러 (스켈레톤 — TODO: 실제 NAI 이벤트 스펙에 맞게 구현)."""
+        """NAI(NovelAI) 워커 이벤트 핸들러 (스켈레톤 — 미구현).
+        NAI (NovelAI) worker event handler (skeleton — not yet implemented).
+
+        TODO: 실제 NAI 이벤트 스펙에 맞게 구현 필요.
+        TODO: Implement according to actual NAI event specification.
+        """
         logger.info("NAI message from %s: %s", worker.id, payload.get("type", "unknown"))
 
     # ---------- worker preview ----------
 
     def get_worker_preview(self, worker_id: str) -> Optional[bytes]:
-        """워커의 최신 미리보기 이미지 바이트 반환 (없으면 None)."""
+        """워커의 최신 미리보기 이미지 바이트를 반환한다 (없으면 None).
+        Returns the latest preview image bytes for a worker (None if not available).
+
+        Args:
+            worker_id: 미리보기를 조회할 워커 ID / Worker ID to get preview for.
+        """
         return self._worker_previews.get(worker_id)
 
     def _clear_worker_preview(self, worker_id: str) -> None:
-        """워커 미리보기 캐시 제거."""
+        """워커의 미리보기 캐시를 제거한다.
+        Clears the preview cache for a specific worker.
+        """
         self._worker_previews.pop(worker_id, None)
 
     # ---------- internal helpers ----------
@@ -1076,6 +1368,12 @@ class JobManager:
         current_node_name: Optional[str] = None,
         image_urls_append: Optional[list[str]] = None,
     ) -> None:
+        """잡의 필드를 선택적으로 업데이트하고 DB 저장 + 이벤트 발행한다.
+        Selectively update job fields, persist to DB, and emit an update event.
+
+        None이 아닌 인자만 업데이트된다. image_urls_append는 기존 URL 리스트에 추가된다.
+        Only non-None arguments are applied. image_urls_append extends the existing URL list.
+        """
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
@@ -1099,6 +1397,12 @@ class JobManager:
         await self._emit({"type": "job.updated", "job": payload})
 
     async def _finish(self, job_id: str) -> None:
+        """잡을 성공(DONE) 상태로 전환하고, 실행 시간을 계산하며, 워커를 해제한다.
+        Transition a job to DONE status, calculate execution duration, and release the worker.
+
+        완료된 잡은 인메모리 목록에서 제거되고 디스패처를 깨운다.
+        Finished jobs are removed from the in-memory list and the dispatcher is woken up.
+        """
         worker_id_to_clear: Optional[str] = None
         async with self._lock:
             job = self._jobs.get(job_id)
@@ -1138,7 +1442,18 @@ class JobManager:
         self._wakeup.set()
 
     async def _reset_to_pending(self, job_id: str, error: str) -> None:
-        """오류 발생 시 잡을 pending으로 되돌리되, 최대 3회 초과 시 최종 에러 처리."""
+        """오류 발생 시 잡을 pending으로 되돌려 재시도한다 (최대 3회).
+        Reset a job to pending for retry on error (max 3 retries).
+
+        재시도 횟수가 3회를 초과하면 ERROR 상태로 전환하고 인메모리에서 제거한다.
+        재시도 시에는 1초 대기 후 디스패처를 깨운다.
+        If retry count exceeds 3, transitions to ERROR and removes from memory.
+        On retry, waits 1 second before waking the dispatcher.
+
+        Args:
+            job_id: 되돌릴 잡 ID / ID of the job to reset.
+            error: 에러 메시지 / Error message describing the failure.
+        """
         worker_id_to_clear: Optional[str] = None
         is_permanent_failure = False
         async with self._lock:
@@ -1203,7 +1518,23 @@ class JobManager:
             self._wakeup.set()
 
     async def move_job(self, job_id: str, target_worker_id: str) -> JobResponse:
-        """대기 중인 잡의 타겟 워커를 변경한다 (동일 worker_type만 가능)."""
+        """대기 중(pending)인 잡의 타겟 워커를 변경한다.
+        Change the target worker of a pending job.
+
+        동일한 worker_type의 워커만 지정할 수 있다.
+        Only workers of the same worker_type can be assigned.
+
+        Args:
+            job_id: 이동할 잡 ID / ID of the job to move.
+            target_worker_id: 새 타겟 워커 ID / New target worker ID.
+
+        Returns:
+            갱신된 잡 응답 / Updated job response.
+
+        Raises:
+            ValueError: 잡이 없거나, pending이 아니거나, 워커가 없거나, 타입 불일치 시.
+                        If job not found, not pending, worker not found, or type mismatch.
+        """
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
@@ -1228,6 +1559,14 @@ class JobManager:
         self._wakeup.set()
         return response
     async def _emit(self, event: NormalizedEvent | dict[str, JSONValue]) -> None:
+        """정규화된 이벤트를 모든 구독 리스너에게 발행한다.
+        Emit a normalized event to all subscribed listeners.
+
+        dict가 전달되면 NormalizedEvent로 검증(validate) 후 발행한다.
+        검증 실패 시 경고 로그를 남기고 무시한다.
+        Validates dict input as NormalizedEvent before emitting.
+        Logs a warning and skips if validation fails.
+        """
         try:
             if isinstance(event, dict):
                 validated_event = event_adapter.validate_python(event)
@@ -1248,7 +1587,19 @@ class JobManager:
     async def _persist_image(
         self, job_id: str, worker: BaseWorker, img: dict[str, JSONValue]
     ) -> None:
-        """ComfyUI 결과 이미지를 받아 sha256 이름으로 디스크에 저장 + DB 기록."""
+        """ComfyUI 결과 이미지를 워커에서 다운로드하여 디스크에 영구 저장한다.
+        Download a ComfyUI result image from the worker and persist it to disk.
+
+        이미지 내용의 SHA-256 해시를 파일명으로 사용하여 중복을 방지한다.
+        저장 후 DB에 이미지 레코드를 기록하고, 잡에 해시를 연결한다.
+        Uses SHA-256 hash of image content as filename for deduplication.
+        After saving, records the image in DB and links the hash to the job.
+
+        Args:
+            job_id: 이미지가 속한 잡 ID / ID of the job this image belongs to.
+            worker: 이미지를 제공한 워커 / Worker that produced the image.
+            img: ComfyUI 이미지 메타데이터 (filename, subfolder, type) / ComfyUI image metadata.
+        """
         # A. 비동기 다운로드 시작 전에 즉시 메모리에서 잡 정보 캡처 (Race Condition 방지)
         async with self._lock:
             job_mem = self._jobs.get(job_id)
@@ -1382,6 +1733,20 @@ class JobManager:
         status: Optional[str] = None,
         note: Optional[str] = None,
     ) -> Optional[SavedImageResponse]:
+        """저장된 이미지의 큐레이션 상태/노트를 업데이트한다.
+        Update the curation status and/or note of a saved image.
+
+        상태가 변경되면 curation_changed 이벤트를 기록한다.
+        Records a curation_changed event if the status changes.
+
+        Args:
+            hash: 이미지 해시 / Image hash.
+            status: 새 큐레이션 상태 (예: 'approved', 'trashed') / New curation status.
+            note: 큐레이션 노트 / Curation note.
+
+        Returns:
+            업데이트된 이미지 응답 또는 None / Updated image response, or None if not found.
+        """
         existing = await self._store.get_saved_image(hash)
         if existing is None:
             return None
@@ -1405,6 +1770,16 @@ class JobManager:
         return updated
 
     async def add_image_tags(self, hash: str, tags: list[str]) -> Optional[list[str]]:
+        """저장된 이미지에 태그를 추가한다.
+        Add tags to a saved image.
+
+        Args:
+            hash: 이미지 해시 / Image hash.
+            tags: 추가할 태그 리스트 / List of tags to add.
+
+        Returns:
+            갱신된 전체 태그 리스트 또는 None / Updated full tag list, or None if image not found.
+        """
         if await self._store.get_saved_image(hash) is None:
             return None
         result = await self._store.add_tags(hash, tags)
@@ -1412,6 +1787,15 @@ class JobManager:
         return result
 
     async def auto_generate_image_tags(self, hash: str) -> Optional[list[str]]:
+        """저장된 이미지에 대해 태그를 자동 생성한다.
+        Auto-generate tags for a saved image.
+
+        Args:
+            hash: 이미지 해시 / Image hash.
+
+        Returns:
+            생성된 태그 리스트 또는 None / Generated tag list, or None if image not found.
+        """
         if await self._store.get_saved_image(hash) is None:
             return None
         result = await self._store.auto_generate_tags(hash)
@@ -1420,18 +1804,43 @@ class JobManager:
         return result
 
     async def bulk_auto_generate_image_tags(self, hashes: list[str]) -> dict[str, list[str]]:
+        """여러 이미지에 대해 태그를 일괄 자동 생성한다.
+        Auto-generate tags for multiple images in bulk.
+
+        Args:
+            hashes: 이미지 해시 리스트 / List of image hashes.
+
+        Returns:
+            해시별 태그 딕셔너리 / Dictionary mapping hashes to generated tag lists.
+        """
         result = await self._store.bulk_auto_generate_tags(hashes)
         for h, tags in result.items():
             await self._emit({"type": "image.curation", "hash": h, "tags": cast(JSONValue, tags)})
         return result
 
     async def auto_generate_all_empty_image_tags(self) -> dict[str, list[str]]:
+        """태그가 없는 모든 이미지에 대해 태그를 자동 생성한다.
+        Auto-generate tags for all images that currently have no tags.
+
+        Returns:
+            해시별 태그 딕셔너리 / Dictionary mapping hashes to generated tag lists.
+        """
         result = await self._store.auto_generate_all_empty_tags()
         for h, tags in result.items():
             await self._emit({"type": "image.curation", "hash": h, "tags": cast(JSONValue, tags)})
         return result
 
     async def remove_image_tag(self, hash: str, tag: str) -> Optional[list[str]]:
+        """저장된 이미지에서 특정 태그를 제거한다.
+        Remove a specific tag from a saved image.
+
+        Args:
+            hash: 이미지 해시 / Image hash.
+            tag: 제거할 태그 / Tag to remove.
+
+        Returns:
+            갱신된 전체 태그 리스트 또는 None / Updated full tag list, or None if image not found.
+        """
         if await self._store.get_saved_image(hash) is None:
             return None
         result = await self._store.remove_tag(hash, tag)
@@ -1439,7 +1848,12 @@ class JobManager:
         return result
 
     async def empty_trash(self) -> int:
-        """status='trashed' 이미지의 디스크 파일 + DB 행 영구 삭제."""
+        """'trashed' 상태의 이미지를 디스크 파일과 DB에서 영구 삭제한다.
+        Permanently delete disk files and DB records of images with 'trashed' status.
+
+        Returns:
+            삭제된 이미지 수 / Number of images deleted.
+        """
         targets = await self._store.list_trashed_for_purge()
         deleted = 0
         for item in targets:
@@ -1468,10 +1882,20 @@ async def _resolve_image_markers(
     image_uploads: dict[str, dict[str, str]],
     worker: BaseWorker,
 ) -> ComfyWorkflow:
-    """워크플로우에서 __upload__{hash}.{ext} 마커를 찾아 워커로 업로드 후 실제 파일명으로 치환.
+    """워크플로우에서 __upload__{hash}.{ext} 마커를 찾아 워커로 업로드 후 실제 파일명으로 치환한다.
+    Finds __upload__{hash}.{ext} markers in the workflow, uploads the corresponding
+    images to the worker, and replaces the markers with actual filenames.
+
+    디스패치 전에 사용자가 업로드한 이미지를 ComfyUI 워커로 전송하기 위한 헬퍼.
+    Helper for sending user-uploaded images to a ComfyUI worker before dispatch.
+
+    Args:
+        workflow: 마커를 포함한 원본 워크플로우 / Original workflow containing markers.
+        image_uploads: 해시 → 메타데이터 매핑 / Hash → metadata mapping for uploads.
+        worker: 이미지를 업로드할 대상 워커 / Target worker to upload images to.
 
     Returns:
-        치환된 워크플로우 (깊은 복사)
+        마커가 치환된 깊은 복사 워크플로우 / Deep-copied workflow with markers replaced.
     """
     import copy
 
