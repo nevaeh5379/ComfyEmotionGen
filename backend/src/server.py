@@ -117,7 +117,7 @@ async def broadcast(event: NormalizedEvent) -> None:
 
 
 class RenderRequest(BaseModel):
-    template: str = Field(..., description="DSL 템플릿 소스")
+    template: str = Field(..., description="CEG 템플릿 소스")
     only: Optional[Dict[str, List[str]]] = Field(None, description="특정 axis 값만 포함 (예: {\"emotion\": [\"happy\",\"sad\"]})")
     fix: Optional[Dict[str, str]] = Field(None, description="특정 axis를 단일 값으로 고정 (예: {\"emotion\": \"happy\"})")
     skip_excludes: bool = Field(False, description="DSL 내 exclude 규칙 무시")

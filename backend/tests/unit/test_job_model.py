@@ -293,3 +293,70 @@ class TestDefaultStatus:
         d = {"id": "j", "filename": "f.png", "prompt": "p"}
         job = Job.from_dict(d)
         assert job.status == "pending"
+
+
+# ===================================================================
+# Event and Response Validation
+# ===================================================================
+
+
+class TestJobEventValidation:
+    """Tests to verify that event validation (event_adapter) and JobResponse handle both '_workflow' and 'workflow' keys correctly."""
+
+    def test_job_response_workflow_alias(self) -> None:
+        from backend.src.models import JobResponse
+
+        # Test validation with standard "workflow" field
+        d_std = {
+            "id": "job-1",
+            "filename": "f.png",
+            "prompt": "prompt",
+            "status": "pending",
+            "createdAt": 12345.0,
+            "workflow": {"3": {"class_type": "KSampler", "inputs": {}}},
+        }
+        res1 = JobResponse.model_validate(d_std)
+        assert res1.workflow.root["3"].class_type == "KSampler"
+
+        # Test validation with alias "_workflow" field
+        d_alias = {
+            "id": "job-1",
+            "filename": "f.png",
+            "prompt": "prompt",
+            "status": "pending",
+            "createdAt": 12345.0,
+            "_workflow": {"3": {"class_type": "KSampler", "inputs": {}}},
+        }
+        res2 = JobResponse.model_validate(d_alias)
+        assert res2.workflow.root["3"].class_type == "KSampler"
+
+    def test_event_adapter_job_events(self) -> None:
+        from backend.src.jobs import event_adapter
+
+        # Simulate job.to_dict() which uses "_workflow"
+        job_dict = {
+            "id": "job-1",
+            "filename": "f.png",
+            "prompt": "prompt",
+            "status": "pending",
+            "createdAt": 12345.0,
+            "_workflow": {"3": {"class_type": "KSampler", "inputs": {}}},
+        }
+
+        # 1. job.created event validation
+        created_event = {
+            "type": "job.created",
+            "job": job_dict,
+        }
+        validated_created = event_adapter.validate_python(created_event)
+        assert validated_created.type == "job.created"
+        assert validated_created.job.workflow.root["3"].class_type == "KSampler"
+
+        # 2. job.updated event validation
+        updated_event = {
+            "type": "job.updated",
+            "job": job_dict,
+        }
+        validated_updated = event_adapter.validate_python(updated_event)
+        assert validated_updated.type == "job.updated"
+        assert validated_updated.job.workflow.root["3"].class_type == "KSampler"

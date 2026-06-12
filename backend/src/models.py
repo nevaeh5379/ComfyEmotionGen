@@ -7,7 +7,7 @@ from __future__ import annotations
 from enum import StrEnum, auto
 from typing import Dict, Optional, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 
 from backend.src.workflow_models import ComfyWorkflow
 
@@ -31,7 +31,7 @@ class JobStatus(StrEnum):
 class JobItem(BaseModel):
     filename: str
     prompt: str
-    workflow: ComfyWorkflow | None
+    workflow: ComfyWorkflow | None = Field(default=None, validation_alias=AliasChoices("workflow", "_workflow"))
     workerType: WorkerType
     meta: Dict[str, str] = Field(default_factory=dict)
     cegTemplate: str = ""
@@ -43,7 +43,7 @@ class JobResponse(BaseModel):
     id: str
     filename: str
     prompt: str
-    workflow: ComfyWorkflow
+    workflow: ComfyWorkflow = Field(..., validation_alias=AliasChoices("workflow", "_workflow"))
     status: JobStatus
     createdAt: float
     workerId: Optional[str] = None
@@ -159,7 +159,7 @@ class SavedImageResponse(BaseModel):
     createdAt: float
     status: str
     note: str
-    workflow: ComfyWorkflow
+    workflow: ComfyWorkflow = Field(..., validation_alias=AliasChoices("workflow", "_workflow"))
     trashedAt: Optional[float] = None
     tags: list[str] = Field(default_factory=list)
     meta: dict[str, str] = Field(default_factory=dict)

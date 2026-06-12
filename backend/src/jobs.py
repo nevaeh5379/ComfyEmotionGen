@@ -26,7 +26,7 @@ import struct
 import time
 import urllib.parse
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast, Awaitable, Callable, Optional, overload, Any
 
@@ -770,7 +770,7 @@ class JobManager:
                     continue  # 취소되었으므로 제출 중단
 
             try:
-                await worker.submit_prompt(prompt=workflow.model_dump(), prompt_id=job_id)
+                await worker.submit_prompt(prompt=workflow, prompt_id=job_id)
             except Exception as exc:
                 logger.exception("worker %s submit failed", worker.id)
                 if worker.current_job_id == job_id:

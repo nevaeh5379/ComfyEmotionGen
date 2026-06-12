@@ -8,7 +8,7 @@ NovelAI (NAI) 워커 클라이언트 — 스켈레톤.
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncGenerator, Optional
+from typing import AsyncGenerator, Optional
 
 import httpx
 
