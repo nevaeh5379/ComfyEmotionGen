@@ -672,27 +672,37 @@ def list_system_templates() -> list[dict[str, str]]:
 
 
 @app.get("/object_info")
-async def get_object_info() -> dict[str, JSONValue]:
+async def get_object_info(worker_id: Optional[str] = None) -> dict[str, JSONValue]:
     """ComfyUI 노드 정의(object_info.json)를 반환한다.
     가용 워커를 찾아 프록시하며, 워커가 없으면 503 에러.
 
     Returns ComfyUI node definitions (object_info).
     Proxies through an available worker. Returns 503 if no worker is reachable.
     """
-    # 1. 워커 프록시 우선 (라이브 데이터 / Proxy live data from worker first)
-    worker = worker_pool.find_idle()
-    if worker is None:
-        for w in worker_pool.all():
-            if w.alive:
-                worker = w
-                break
+    # 1. 특정 워커 지정 시 해당 워커 조회
+    if worker_id:
+        worker = worker_pool.get(worker_id)
+        if worker is None or not worker.alive:
+            raise HTTPException(
+                status_code=400,
+                detail=f"worker {worker_id} not found or offline"
+            )
+    else:
+        # 2. 워커 프록시 우선 (라이브 데이터)
+        worker = worker_pool.find_idle()
+        if worker is None:
+            for w in worker_pool.all():
+                if w.alive:
+                    worker = w
+                    break
+
     if worker is not None:
         try:
             return await worker.get_object_info()
         except Exception as exc:
             logger.warning("worker object_info failed: %s", exc)
 
-    # 2. 가용한 워커가 없으면 503 에러 발생 (ComfyUI가 꺼져 있음을 명시)
+    # 3. 가용한 워커가 없으면 503 에러 발생 (ComfyUI가 꺼져 있음을 명시)
     # No available worker → 503 (ComfyUI is offline)
     raise HTTPException(
         status_code=503,

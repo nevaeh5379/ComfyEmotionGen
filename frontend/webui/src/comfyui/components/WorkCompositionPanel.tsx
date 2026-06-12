@@ -9,8 +9,9 @@ import {
   Columns2,
   Rows2,
   RotateCcw,
+  SlidersHorizontal,
 } from "lucide-react"
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
 
@@ -28,6 +29,7 @@ import {
 import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
 import { NodeMappingSection } from "./NodeMappingSection"
+import { WorkflowFormEditor } from "./WorkflowFormEditor"
 import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
@@ -127,6 +129,19 @@ export function WorkCompositionPanel({
   const template = useTemplateContext()
   const workflow = useWorkflowContext()
   const nodeMapping = useNodeMappingContext()
+
+  const [viewMode, setViewMode] = useState<"code" | "form">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("workflow_editor_view_mode")
+      if (saved === "code" || saved === "form") return saved
+    }
+    return "code"
+  })
+
+  const handleSetViewMode = useCallback((mode: "code" | "form") => {
+    setViewMode(mode)
+    localStorage.setItem("workflow_editor_view_mode", mode)
+  }, [])
 
   // Helper to generate a unique preset/workflow/template name if conflict exists
   const getUniquePresetName = useCallback((baseName: string, existingNames: string[]) => {
@@ -444,10 +459,34 @@ export function WorkCompositionPanel({
                 />
               </div>
               {workflow.parsedWorkflow?.success && (
-                <span className="mono shrink-0 text-[10px] text-muted-foreground">
+                <span className="mono shrink-0 text-[10px] text-muted-foreground mr-1">
                   {Object.keys(workflow.parsedWorkflow.data).length} Nodes
                 </span>
               )}
+
+              <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-muted/65 p-0.5 border border-line/40 select-none">
+                <Button
+                  variant={viewMode === "code" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-6 px-2 text-[10px] font-extrabold shadow-xs cursor-pointer"
+                  onClick={() => handleSetViewMode("code")}
+                >
+                  <Code2 className="h-3 w-3 mr-1 text-muted-foreground" />
+                  코드
+                </Button>
+                <Button
+                  variant={viewMode === "form" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-6 px-2 text-[10px] font-extrabold shadow-xs cursor-pointer"
+                  onClick={() => handleSetViewMode("form")}
+                >
+                  <SlidersHorizontal className="h-3 w-3 mr-1 text-muted-foreground" />
+                  속성 편집
+                </Button>
+              </div>
+
+              <div className="h-4 w-px bg-line/65 shrink-0" />
+
               <div className="flex shrink-0 items-center gap-1">
                 {workflow.isDirty && workflow.revert && (
                   <Tooltip>
@@ -565,16 +604,32 @@ export function WorkCompositionPanel({
                 }
               }}
             >
-              <CodeEditor
-                language="json"
-                placeholder="워크플로우 JSON 입력"
-                value={workflow.workflowJson}
-                onChange={workflow.setWorkflowJson}
-                onFileOpen={handleWorkflowFileOpen}
-                minHeight="80px"
-                bareWrapper
-                className="h-full min-h-0 w-full flex-1"
-              />
+              {viewMode === "code" ? (
+                <CodeEditor
+                  language="json"
+                  placeholder="워크플로우 JSON 입력"
+                  value={workflow.workflowJson}
+                  onChange={workflow.setWorkflowJson}
+                  onFileOpen={handleWorkflowFileOpen}
+                  minHeight="80px"
+                  bareWrapper
+                  className="h-full min-h-0 w-full flex-1"
+                />
+              ) : (
+                <WorkflowFormEditor
+                  workflowJson={workflow.workflowJson}
+                  onChangeWorkflowJson={workflow.setWorkflowJson}
+                  parsedWorkflowData={
+                    workflow.parsedWorkflow?.success
+                      ? workflow.parsedWorkflow.data
+                      : null
+                  }
+                  objectInfo={nodeMapping.objectInfo}
+                  onBackToCode={() => handleSetViewMode("code")}
+                  workers={workers}
+                  setObjectInfo={nodeMapping.setObjectInfo}
+                />
+              )}
             </div>
 
             {workflow.parsedWorkflow && !workflow.parsedWorkflow.success && (
