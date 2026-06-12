@@ -32,10 +32,10 @@ class JobItem(BaseModel):
     filename: str
     prompt: str
     workflow: ComfyWorkflow | None
+    workerType: WorkerType
     meta: Dict[str, str] = Field(default_factory=dict)
     cegTemplate: str = ""
     imageUploads: Dict[str, Dict[str, str]] = Field(default_factory=dict)
-    workerType: WorkerType
     workerId: Optional[str] = Field(None, description="타겟 워커 ID (None이면 자동 배분)")
 
 
@@ -45,6 +45,7 @@ class JobResponse(BaseModel):
     prompt: str
     workflow: ComfyWorkflow
     status: JobStatus
+    createdAt: float
     workerId: Optional[str] = None
     error: Optional[str] = None
     imageUrls: list[str] = Field(default_factory=list)
@@ -53,7 +54,6 @@ class JobResponse(BaseModel):
     currentNodeName: str = ""
     totalNodeCount: int = 0
     completedNodeCount: int = 0
-    createdAt: float
     startedAt: Optional[float] = None
     finishedAt: Optional[float] = None
     retryCount: int = 0
@@ -159,10 +159,10 @@ class SavedImageResponse(BaseModel):
     createdAt: float
     status: str
     note: str
+    workflow: ComfyWorkflow
     trashedAt: Optional[float] = None
     tags: list[str] = Field(default_factory=list)
     meta: dict[str, str] = Field(default_factory=dict)
-    workflow: ComfyWorkflow
 
 
 class SavedImagesListResponse(BaseModel):

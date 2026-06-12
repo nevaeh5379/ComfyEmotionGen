@@ -28,9 +28,9 @@ import urllib.parse
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast, Awaitable, Callable, Optional, overload
+from typing import cast, Awaitable, Callable, Optional, overload, Any
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, BaseModel, Field, ConfigDict
 from backend.src.models import (
     JobItem,
     JobStatus,
@@ -126,62 +126,35 @@ class ActiveJobError(Exception):
         self.job_id = job_id
 
 
-@dataclass
-class Job:
+class Job(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     filename: str
     prompt: str
-    workflow: ComfyWorkflow
-    status: JobStatus = field(default_factory=lambda: JobStatus.PENDING)
-    worker_id: Optional[str] = None
+    workflow: ComfyWorkflow = Field(default_factory=lambda: ComfyWorkflow.model_validate({}), alias="_workflow")
+    status: JobStatus = JobStatus.PENDING
+    worker_id: Optional[str] = Field(None, alias="workerId")
     error: Optional[str] = None
-    image_urls: list[str] = field(default_factory=list)
-    saved_image_hashes: list[str] = field(default_factory=list)
-    progress_percent: float = 0.0
-    current_node_name: str = ""
-    total_node_count: int = 0
-    completed_node_count: int = 0
-    created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    finished_at: Optional[float] = None
-    retry_count: int = 0
-    execution_duration_ms: Optional[float] = None
-    meta: dict[str, str] = field(default_factory=dict)
-    ceg_template: str = ""
-    image_uploads: dict[str, dict[str, str]] = field(default_factory=dict)
-    worker_type: Optional[str] = None
-    target_worker_id: Optional[str] = None
+    image_urls: list[str] = Field(default_factory=list, alias="imageUrls")
+    saved_image_hashes: list[str] = Field(default_factory=list, alias="savedImageHashes")
+    progress_percent: float = Field(0.0, alias="progressPercent")
+    current_node_name: str = Field("", alias="currentNodeName")
+    total_node_count: int = Field(0, alias="totalNodeCount")
+    completed_node_count: int = Field(0, alias="completedNodeCount")
+    created_at: float = Field(default_factory=time.time, alias="createdAt")
+    started_at: Optional[float] = Field(None, alias="startedAt")
+    finished_at: Optional[float] = Field(None, alias="finishedAt")
+    retry_count: int = Field(0, alias="retryCount")
+    execution_duration_ms: Optional[float] = Field(None, alias="executionDurationMs")
+    meta: dict[str, str] = Field(default_factory=dict)
+    ceg_template: str = Field("", alias="cegTemplate")
+    image_uploads: dict[str, dict[str, str]] = Field(default_factory=dict, alias="imageUploads")
+    worker_type: Optional[str] = Field(None, alias="workerType")
+    target_worker_id: Optional[str] = Field(None, alias="targetWorkerId")
 
-    def __post_init__(self) -> None:
-        if isinstance(self.workflow, dict):
-            self.workflow = ComfyWorkflow.model_validate(self.workflow)
-
-    def to_dict(self) -> dict[str, JSONValue]:
-        return {
-            "id": self.id,
-            "filename": self.filename,
-            "prompt": self.prompt,
-            "_workflow": self.workflow.model_dump(exclude_none=True) if isinstance(self.workflow, ComfyWorkflow) else self.workflow,
-            "status": self.status,
-            "workerId": self.worker_id,
-            "error": self.error,
-            "imageUrls": self.image_urls,
-            "savedImageHashes": self.saved_image_hashes,
-            "progressPercent": self.progress_percent,
-            "currentNodeName": self.current_node_name,
-            "totalNodeCount": self.total_node_count,
-            "completedNodeCount": self.completed_node_count,
-            "createdAt": self.created_at,
-            "startedAt": self.started_at,
-            "finishedAt": self.finished_at,
-            "retryCount": self.retry_count,
-            "executionDurationMs": self.execution_duration_ms,
-            "meta": self.meta,
-            "cegTemplate": self.ceg_template,
-            "imageUploads": self.image_uploads,
-            "workerType": self.worker_type,
-            "targetWorkerId": self.target_worker_id,
-        }
+    def to_dict(self) -> dict[str, Any]:
+        return self.model_dump(by_alias=True, mode="json")
 
     def to_response(self) -> JobResponse:
         return JobResponse(
@@ -211,68 +184,40 @@ class Job:
         )
 
     @classmethod
-    def from_dict(cls, d: dict[str, JSONValue]) -> Job:
-        raw_status = d.get("status", JobStatus.PENDING)
-        raw_workflow = d.get("_workflow")
-        if isinstance(raw_workflow, dict):
-            workflow = ComfyWorkflow.model_validate(raw_workflow)
-        elif isinstance(raw_workflow, ComfyWorkflow):
-            workflow = raw_workflow
-        else:
-            workflow = ComfyWorkflow.model_validate({})
-
-        return cls(
-            id=cast(str, d["id"]),
-            filename=cast(str, d["filename"]),
-            prompt=cast(str, d["prompt"]),
-            workflow=workflow,
-            status=JobStatus(raw_status) if isinstance(raw_status, str) else cast(JobStatus, raw_status),
-            worker_id=cast(Optional[str], d.get("workerId")),
-            error=cast(Optional[str], d.get("error")),
-            image_urls=cast(list[str], d.get("imageUrls", [])),
-            saved_image_hashes=cast(list[str], d.get("savedImageHashes", [])),
-            progress_percent=cast(float, d.get("progressPercent", 0.0)),
-            current_node_name=cast(str, d.get("currentNodeName", "")),
-            total_node_count=cast(int, d.get("totalNodeCount", 0)),
-            completed_node_count=cast(int, d.get("completedNodeCount", 0)),
-            created_at=cast(float, d.get("createdAt", time.time())),
-            started_at=cast(Optional[float], d.get("startedAt")),
-            finished_at=cast(Optional[float], d.get("finishedAt")),
-            retry_count=cast(int, d.get("retryCount", 0)),
-            execution_duration_ms=cast(Optional[float], d.get("executionDurationMs")),
-            meta=cast(dict[str, str], d.get("meta", {})),
-            ceg_template=cast(str, d.get("cegTemplate", "")),
-            image_uploads=cast(dict[str, dict[str, str]], d.get("imageUploads", {})),
-            worker_type=cast(Optional[str], d.get("workerType")),
-            target_worker_id=cast(Optional[str], d.get("targetWorkerId")),
-        )
+    def from_dict(cls, d: dict[str, Any]) -> Job:
+        d_copy = dict(d)
+        if "workflow" in d_copy and "_workflow" not in d_copy:
+            d_copy["_workflow"] = d_copy.pop("workflow")
+        if "_workflow" not in d_copy or d_copy["_workflow"] is None:
+            d_copy["_workflow"] = {}
+        return cls.model_validate(d_copy)
 
     def clone(self) -> "Job":
-        return Job(
-            id=str(uuid.uuid4()),
-            filename=self.filename,
-            prompt=self.prompt,
-            workflow=deepcopy(self.workflow),
-            status=JobStatus.PENDING,
-            worker_id=None,
-            error=None,
-            image_urls=[],
-            saved_image_hashes=[],
-            progress_percent=0.0,
-            current_node_name="",
-            total_node_count=0,
-            completed_node_count=0,
-            created_at=time.time(),
-            started_at=None,
-            finished_at=None,
-            retry_count=0,
-            execution_duration_ms=None,
-            meta=deepcopy(self.meta),
-            ceg_template=self.ceg_template,
-            image_uploads=deepcopy(self.image_uploads),
-            worker_type=self.worker_type,
-            target_worker_id=self.target_worker_id,
-        )
+        return Job.model_validate({
+            "id": str(uuid.uuid4()),
+            "filename": self.filename,
+            "prompt": self.prompt,
+            "_workflow": deepcopy(self.workflow),
+            "status": JobStatus.PENDING,
+            "workerId": None,
+            "error": None,
+            "imageUrls": [],
+            "savedImageHashes": [],
+            "progressPercent": 0.0,
+            "currentNodeName": "",
+            "totalNodeCount": 0,
+            "completedNodeCount": 0,
+            "createdAt": time.time(),
+            "startedAt": None,
+            "finishedAt": None,
+            "retryCount": 0,
+            "executionDurationMs": None,
+            "meta": deepcopy(self.meta),
+            "cegTemplate": self.ceg_template,
+            "imageUploads": deepcopy(self.image_uploads),
+            "workerType": self.worker_type,
+            "targetWorkerId": self.target_worker_id,
+        })
 
 
 # 정규화된 이벤트 타입
@@ -429,17 +374,17 @@ class JobManager:
         return created
     def _create_jobs(self, items: list[JobItem]) -> list[Job]:
         return [
-            Job(
-                id=str(uuid.uuid4()),
-                filename=item.filename,
-                prompt=item.prompt,
-                workflow=item.workflow if item.workflow else ComfyWorkflow.model_validate({}),
-                meta=item.meta,
-                ceg_template=item.cegTemplate,
-                image_uploads=item.imageUploads,
-                worker_type=item.workerType.value if item.workerType else None,
-                target_worker_id=item.workerId,
-            )
+            Job.model_validate({
+                "id": str(uuid.uuid4()),
+                "filename": item.filename,
+                "prompt": item.prompt,
+                "_workflow": item.workflow if item.workflow else ComfyWorkflow.model_validate({}),
+                "meta": item.meta,
+                "cegTemplate": item.cegTemplate,
+                "imageUploads": item.imageUploads,
+                "workerType": item.workerType.value if item.workerType else None,
+                "targetWorkerId": item.workerId,
+            })
             for item in items
         ]
     @property
@@ -533,7 +478,7 @@ class JobManager:
         # 2. DB에서만 활성 상태로 남아있을 수 있는 오펀 잡들도 백업 취소 처리
         try:
             db_jobs = await self._store.get_all_jobs_minimal()
-            cancelled_ids = {u["id"] for u in job_updates}
+            cancelled_ids = {str(u["id"]) for u in job_updates}
             for db_job in db_jobs:
                 jid = db_job["id"]
                 if jid not in cancelled_ids and db_job["status"] in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING):

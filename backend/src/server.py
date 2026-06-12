@@ -50,7 +50,7 @@ import os
 import tracemalloc
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union, AsyncGenerator
 
 from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,6 +75,10 @@ from backend.src.models import (
     SavedImageResponse,
     SavedImagesListResponse,
     JobSavedImagesResponse,
+    JSONValue,
+    JobQueryResponse,
+    WorkerViewResponse,
+    JobResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -227,6 +231,67 @@ class WorkerCreateRequest(BaseModel):
 class JobMoveRequest(BaseModel):
     targetWorkerId: str = Field(..., description="이동할 대상 워커 ID")
 
+
+class WorkerCreateResponse(BaseModel):
+    worker: WorkerViewResponse
+
+
+class JobMoveResponse(BaseModel):
+    ok: bool
+    job: JobResponse
+
+
+class JobEventsResponse(BaseModel):
+    jobId: str
+    events: list[dict[str, JSONValue]]
+
+
+class JobExecutionEventsResponse(BaseModel):
+    jobId: str
+    events: list[dict[str, JSONValue]]
+
+
+class LogsResponse(BaseModel):
+    events: list[dict[str, JSONValue]]
+    limit: int
+    offset: int
+
+
+class TrashListResponse(BaseModel):
+    items: list[dict[str, JSONValue]]
+    limit: int
+    offset: int
+
+
+class AssetGroupsListResponse(BaseModel):
+    groups: list[dict[str, JSONValue]]
+    limit: int
+    offset: int
+    sort: str
+
+
+class AssetGroupDetailResponse(BaseModel):
+    filename: str
+    items: list[dict[str, JSONValue]]
+
+
+class WebhookConfigResponse(BaseModel):
+    id: str
+    name: str
+    channel_type: str
+    url: str
+    events: list[str]
+    enabled: bool
+    include_image: bool
+
+
+class WebhooksListResponse(BaseModel):
+    configs: list[WebhookConfigResponse]
+
+
+class WebhookDetailResponse(BaseModel):
+    config: WebhookConfigResponse
+
 # ====== lifespan ======
 
 
@@ -246,7 +311,7 @@ async def _resolve_initial_worker_urls(store: JobStore) -> list[str]:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global worker_pool, job_manager, webhook_service
     store = JobStore()
     await store.open()
@@ -307,7 +372,7 @@ app.mount("/uploaded_images", StaticFiles(directory=str(UPLOAD_IMAGES_DIR)), nam
 
 
 @app.exception_handler(DSLSyntaxError)
-async def _dsl_error_handler(_request, exc: DSLSyntaxError):
+async def _dsl_error_handler(_request: Request, exc: DSLSyntaxError) -> JSONResponse:
     return JSONResponse(
         status_code=400,
         content={"error": "DSLSyntaxError", "message": str(exc)},
@@ -320,7 +385,7 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
 @app.get("/templates")
-def list_system_templates():
+def list_system_templates() -> list[dict[str, str]]:
     _TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
     templates = []
     for path in sorted(_TEMPLATES_DIR.glob("*.template")):
@@ -343,7 +408,7 @@ def list_system_templates():
 
 
 @app.get("/object_info")
-async def get_object_info():
+async def get_object_info() -> dict[str, JSONValue]:
     # 1. 워커 프록시 우선 (라이브 데이터)
     worker = worker_pool.find_idle()
     if worker is None:
@@ -365,7 +430,7 @@ async def get_object_info():
 
 
 @app.get("/version")
-def version():
+def version() -> dict[str, str | None]:
     return {
         "backend": BACKEND_VERSION,
         "bundle": BUNDLE_VERSION,
@@ -374,7 +439,7 @@ def version():
 
 
 @app.get("/health")
-def health():
+def health() -> dict[str, JSONValue]:
     return {
         "backend": "ok",
         "workers": [
@@ -391,12 +456,12 @@ def health():
 
 
 @app.get("/debug/memory")
-async def debug_memory():
+async def debug_memory() -> dict[str, JSONValue]:
     """Runtime counters for leak triage. Enable tracemalloc with CEG_MEMORY_DEBUG=1."""
     gc_counts = gc.get_count()
     tasks = asyncio.all_tasks()
     current = peak = None
-    top_allocations: list[dict[str, Any]] = []
+    top_allocations: list[JSONValue] = []
     if tracemalloc.is_tracing():
         current, peak = tracemalloc.get_traced_memory()
         snapshot = tracemalloc.take_snapshot()
@@ -414,6 +479,18 @@ async def debug_memory():
         if resource is not None
         else None
     )
+
+    snap = await job_manager.diagnostics_snapshot()
+    jobs_dict: dict[str, JSONValue] = {
+        "jobsTotal": snap.jobsTotal,
+        "jobsByStatus": {k: v for k, v in snap.jobsByStatus.items()},
+        "listeners": snap.listeners,
+        "persistTasks": snap.persistTasks,
+        "dispatcherTaskDone": snap.dispatcherTaskDone,
+        "stopping": snap.stopping,
+        "paused": snap.paused,
+    }
+
     return {
         "process": {
             "maxRssKb": max_rss_kb,
@@ -434,12 +511,12 @@ async def debug_memory():
             "webSocketClients": len(ws_clients),
             "workers": len(worker_pool.all()),
         },
-        "jobs": await job_manager.diagnostics_snapshot(),
+        "jobs": jobs_dict,
     }
 
 
 @app.get("/workers")
-def workers_list():
+def workers_list() -> dict[str, list[dict[str, JSONValue]]]:
     """현재 등록된 ComfyUI 워커 스냅샷."""
     return {
         "workers": [
@@ -455,18 +532,18 @@ def workers_list():
     }
 
 
-@app.post("/workers")
-async def workers_create(req: WorkerCreateRequest):
+@app.post("/workers", response_model=WorkerCreateResponse)
+async def workers_create(req: WorkerCreateRequest) -> WorkerCreateResponse:
     """새 워커 URL 등록. DB 영속화 + 풀에 추가."""
     try:
         view = await job_manager.add_worker(req.url, worker_type=req.worker_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    return {"worker": view}
+    return WorkerCreateResponse(worker=view)
 
 
 @app.delete("/workers/{worker_id}")
-async def workers_delete(worker_id: str, force: bool = False):
+async def workers_delete(worker_id: str, force: bool = False) -> dict[str, bool]:
     """워커 제거. force=False일 때 진행 중인 잡이 있으면 409로 차단."""
     try:
         removed = await job_manager.remove_worker(worker_id, force=force)
@@ -486,7 +563,7 @@ async def workers_delete(worker_id: str, force: bool = False):
 
 
 @app.get("/workers/{worker_id}/preview")
-async def worker_preview(worker_id: str):
+async def worker_preview(worker_id: str) -> Response:
     """워커의 최신 미리보기 이미지 반환 (ComfyUI 실시간 preview)."""
     preview_bytes = job_manager.get_worker_preview(worker_id)
     if preview_bytes is None:
@@ -495,7 +572,7 @@ async def worker_preview(worker_id: str):
 
 
 @app.post("/render", response_model=RenderResponse)
-def render_endpoint(req: RenderRequest):
+def render_endpoint(req: RenderRequest) -> dict[str, JSONValue]:
     prog = parse(req.template)
     rendered = render(
         prog,
@@ -517,7 +594,7 @@ def render_endpoint(req: RenderRequest):
 
 
 @app.post("/workflow/inject")
-def inject_endpoint(req: InjectRequest):
+def inject_endpoint(req: InjectRequest) -> dict[str, JSONValue]:
     injected = inject_into_workflow(req.workflow, req.prompt, req.placeholder)
     return {"workflow": injected}
 
@@ -526,7 +603,7 @@ def inject_endpoint(req: InjectRequest):
 
 
 @app.post("/jobs")
-async def jobs_create(req: JobsCreateRequest):
+async def jobs_create(req: JobsCreateRequest) -> dict[str, list[str]]:
     # items = [item.model_dump() for item in req.items]
     jobs = await job_manager.submit(req.items)
     return {"jobIds": [j.id for j in jobs]}
@@ -542,7 +619,7 @@ async def jobs_list(
     created_at_to: Optional[float] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-):
+) -> JobQueryResponse:
     return await job_manager.query_jobs(
         limit=limit,
         offset=offset,
@@ -556,7 +633,7 @@ async def jobs_list(
 
 
 @app.post("/jobs/session-stats")
-async def jobs_session_stats(req: SessionStatsRequest):
+async def jobs_session_stats(req: SessionStatsRequest) -> dict[str, JSONValue]:
     # 1. DB에서 minimal job list 로드
     jobs_minimal = await job_manager._store.get_all_jobs_minimal()
 
@@ -570,8 +647,8 @@ async def jobs_session_stats(req: SessionStatsRequest):
     # 3. 세션 매칭 및 카운팅
     sorted_markers = sorted(req.markers, key=lambda x: x.startAt, reverse=True)
 
-    session_job_counts: dict[str, int] = {}
-    selected_session_counts = {
+    session_job_counts: dict[str, JSONValue] = {}
+    selected_session_counts: dict[str, JSONValue] = {
         "pending": 0,
         "queued": 0,
         "running": 0,
@@ -598,13 +675,16 @@ async def jobs_session_stats(req: SessionStatsRequest):
                 sid = sorted_markers[-1].id
 
         if sid:
-            session_job_counts[sid] = session_job_counts.get(sid, 0) + 1
+            val = session_job_counts.get(sid, 0)
+            session_job_counts[sid] = (val if isinstance(val, int) else 0) + 1
             if sid == req.selectedSessionId:
                 status = job["status"]
                 if status in selected_session_counts:
-                    selected_session_counts[status] += 1
+                    val_stat = selected_session_counts[status]
+                    selected_session_counts[status] = (val_stat if isinstance(val_stat, int) else 0) + 1
                 if status in ("pending", "queued", "running"):
-                    selected_session_counts["active"] += 1
+                    val_act = selected_session_counts["active"]
+                    selected_session_counts["active"] = (val_act if isinstance(val_act, int) else 0) + 1
 
     return {
         "sessionJobCounts": session_job_counts,
@@ -613,7 +693,7 @@ async def jobs_session_stats(req: SessionStatsRequest):
 
 
 @app.delete("/jobs/{job_id}")
-async def jobs_cancel(job_id: str):
+async def jobs_cancel(job_id: str) -> dict[str, bool]:
     ok = await job_manager.cancel(job_id)
     if not ok:
         raise HTTPException(status_code=404, detail="job not found or already finished")
@@ -621,20 +701,20 @@ async def jobs_cancel(job_id: str):
 
 
 @app.post("/jobs/cancel-all")
-async def jobs_cancel_all():
+async def jobs_cancel_all() -> dict[str, int]:
     count = await job_manager.cancel_all()
     return {"cancelled": count}
 
 
 @app.post("/jobs/delete")
-async def jobs_delete(req: JobsDeleteRequest):
+async def jobs_delete(req: JobsDeleteRequest) -> dict[str, int]:
     """잡 영구 삭제 (DB + 메모리에서 제거)."""
     count = await job_manager.remove_batch(req.job_ids)
     return {"deleted": count}
 
 
 @app.delete("/jobs/{job_id}/remove")
-async def jobs_remove(job_id: str):
+async def jobs_remove(job_id: str) -> dict[str, bool]:
     """단일 잡 영구 삭제."""
     ok = await job_manager.remove(job_id)
     if not ok:
@@ -642,7 +722,7 @@ async def jobs_remove(job_id: str):
     return {"ok": True}
 
 @app.post("/jobs/{job_id}/retry")
-async def jobs_retry(job_id: str):
+async def jobs_retry(job_id: str) -> dict[str, str]:
     job = await job_manager.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
@@ -650,22 +730,22 @@ async def jobs_retry(job_id: str):
     if not new_jobs:
         raise HTTPException(status_code=500, detail="retry failed: no new job created")
     return {"jobId": new_jobs[0].id}
-@app.post("/jobs/{job_id}/move")
-async def jobs_move(job_id: str, req: JobMoveRequest):
+@app.post("/jobs/{job_id}/move", response_model=JobMoveResponse)
+async def jobs_move(job_id: str, req: JobMoveRequest) -> JobMoveResponse:
     """대기 중인 잡을 다른 워커로 이동 (동일 worker_type만 가능)."""
     try:
         payload = await job_manager.move_job(job_id, req.targetWorkerId)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    return {"ok": True, "job": payload}
+    return JobMoveResponse(ok=True, job=payload)
 @app.post("/jobs/pause")
-async def jobs_pause():
+async def jobs_pause() -> dict[str, bool]:
     await job_manager.set_paused(True)
     return {"paused": True}
 
 
 @app.post("/jobs/resume")
-async def jobs_resume():
+async def jobs_resume() -> dict[str, bool]:
     await job_manager.set_paused(False)
     return {"paused": False}
 
@@ -673,27 +753,27 @@ async def jobs_resume():
 # ====== 잡 로그 ======
 
 
-@app.get("/jobs/{job_id}/events")
-async def job_events(job_id: str):
+@app.get("/jobs/{job_id}/events", response_model=JobEventsResponse)
+async def job_events(job_id: str) -> JobEventsResponse:
     """특정 잡의 상태 전환 이력 (audit log)을 반환."""
     events = await job_manager._store.get_job_events(job_id)
-    return {"jobId": job_id, "events": events}
+    return JobEventsResponse(jobId=job_id, events=events)
 
 
-@app.get("/jobs/{job_id}/execution-events")
-async def job_execution_events(job_id: str):
+@app.get("/jobs/{job_id}/execution-events", response_model=JobExecutionEventsResponse)
+async def job_execution_events(job_id: str) -> JobExecutionEventsResponse:
     """특정 잡의 ComfyUI 실행 이벤트를 반환."""
     events = await job_manager._store.get_execution_events(job_id)
-    return {"jobId": job_id, "events": events}
+    return JobExecutionEventsResponse(jobId=job_id, events=events)
 
 
-@app.get("/logs")
+@app.get("/logs", response_model=LogsResponse)
 async def logs_all(
     limit: int = 100,
     offset: int = 0,
     status: str | None = None,
     worker_id: str | None = None,
-):
+) -> LogsResponse:
     """필터링된 전체 job_events 목록을 반환."""
     events = await job_manager._store.get_all_events(
         limit=limit,
@@ -701,19 +781,24 @@ async def logs_all(
         status=status,
         worker_id=worker_id,
     )
-    return {"events": events, "limit": limit, "offset": offset}
+    return LogsResponse(events=events, limit=limit, offset=offset)
 
 
 # ====== 이미지 프록시 ======
 
 
 @app.get("/images/{worker_id}/view")
-async def images_view(worker_id: str, filename: str, subfolder: str = "", type: str = "output"):
+async def images_view(
+    worker_id: str,
+    filename: str,
+    subfolder: str = "",
+    type: str = "output",
+) -> StreamingResponse:
     worker = worker_pool.get(worker_id)
     if worker is None:
         raise HTTPException(status_code=404, detail="unknown worker")
 
-    async def stream():
+    async def stream() -> AsyncGenerator[bytes, None]:
         try:
             async for chunk in worker.stream_output(
                 {"filename": filename, "subfolder": subfolder, "type": type}
@@ -730,7 +815,7 @@ async def images_view(worker_id: str, filename: str, subfolder: str = "", type: 
 
 
 @app.post("/images/upload")
-async def images_upload(file: UploadFile):
+async def images_upload(file: UploadFile) -> dict[str, str]:
     """클라이언트에서 이미지를 업로드. SHA-256 해시로 저장 후 해시 반환.
 
     디스패치 시 이 이미지를 워커의 /upload/image로 전달하고
@@ -766,8 +851,8 @@ async def saved_images_list(
     status: str | None = None,
     filename: str | None = None,
     tag: str | None = None,
-):
-    items = await job_manager._store.list_saved_images(
+) -> SavedImagesListResponse:
+    items_raw = await job_manager._store.list_saved_images(
         limit=limit,
         offset=offset,
         job_id=job_id,
@@ -778,19 +863,21 @@ async def saved_images_list(
     total = await job_manager._store.count_saved_images(
         job_id=job_id, status=status, filename=filename, tag=tag
     )
-    return {"items": items, "limit": limit, "offset": offset, "total": total}
+    items = [SavedImageResponse.model_validate(it) for it in items_raw]
+    return SavedImagesListResponse(items=items, limit=limit, offset=offset, total=total)
 
 
 @app.get("/jobs/{job_id}/saved-images", response_model=JobSavedImagesResponse)
-async def saved_images_for_job(job_id: str):
-    items = await job_manager._store.list_saved_images(
+async def saved_images_for_job(job_id: str) -> JobSavedImagesResponse:
+    items_raw = await job_manager._store.list_saved_images(
         limit=10_000, offset=0, job_id=job_id
     )
-    return {"jobId": job_id, "items": items}
+    items = [SavedImageResponse.model_validate(it) for it in items_raw]
+    return JobSavedImagesResponse(jobId=job_id, items=items)
 
 
 @app.get("/saved-images/{hash}")
-async def saved_image_serve(hash: str):
+async def saved_image_serve(hash: str) -> FileResponse:
     record = await job_manager._store.get_saved_image(hash)
     if record is None:
         raise HTTPException(status_code=404, detail="image not found")
@@ -803,15 +890,15 @@ async def saved_image_serve(hash: str):
 
 
 @app.get("/saved-images/{hash}/meta", response_model=SavedImageResponse)
-async def saved_image_meta(hash: str):
+async def saved_image_meta(hash: str) -> SavedImageResponse:
     record = await job_manager._store.get_saved_image(hash)
     if record is None:
         raise HTTPException(status_code=404, detail="image not found")
-    return record
+    return SavedImageResponse.model_validate(record)
 
 
 @app.patch("/saved-images/{hash}")
-async def saved_image_patch(hash: str, body: CurationPatch):
+async def saved_image_patch(hash: str, body: CurationPatch) -> SavedImageResponse:
     updated = await job_manager.update_curation(
         hash, status=body.status, note=body.note
     )
@@ -821,7 +908,7 @@ async def saved_image_patch(hash: str, body: CurationPatch):
 
 
 @app.post("/saved-images/{hash}/tags")
-async def saved_image_add_tags(hash: str, body: TagsAddRequest):
+async def saved_image_add_tags(hash: str, body: TagsAddRequest) -> dict[str, str | list[str]]:
     tags = await job_manager.add_image_tags(hash, body.tags)
     if tags is None:
         raise HTTPException(status_code=404, detail="image not found")
@@ -829,7 +916,7 @@ async def saved_image_add_tags(hash: str, body: TagsAddRequest):
 
 
 @app.post("/saved-images/{hash}/auto-tags")
-async def saved_image_auto_tags(hash: str):
+async def saved_image_auto_tags(hash: str) -> dict[str, str | list[str]]:
     tags = await job_manager.auto_generate_image_tags(hash)
     if tags is None:
         raise HTTPException(status_code=404, detail="image not found")
@@ -837,19 +924,19 @@ async def saved_image_auto_tags(hash: str):
 
 
 @app.post("/saved-images/auto-tags/bulk")
-async def saved_images_bulk_auto_tags(body: BulkAutoTagsRequest):
+async def saved_images_bulk_auto_tags(body: BulkAutoTagsRequest) -> dict[str, dict[str, list[str]]]:
     result = await job_manager.bulk_auto_generate_image_tags(body.hashes)
     return {"results": result}
 
 
 @app.post("/saved-images/auto-tags/empty")
-async def saved_images_auto_tags_empty():
+async def saved_images_auto_tags_empty() -> dict[str, dict[str, list[str]]]:
     result = await job_manager.auto_generate_all_empty_image_tags()
     return {"results": result}
 
 
 @app.delete("/saved-images/{hash}/tags/{tag}")
-async def saved_image_remove_tag(hash: str, tag: str):
+async def saved_image_remove_tag(hash: str, tag: str) -> dict[str, str | list[str]]:
     tags = await job_manager.remove_image_tag(hash, tag)
     if tags is None:
         raise HTTPException(status_code=404, detail="image not found")
@@ -857,7 +944,7 @@ async def saved_image_remove_tag(hash: str, tag: str):
 
 
 @app.post("/saved-images/{hash}/restore")
-async def saved_image_restore(hash: str):
+async def saved_image_restore(hash: str) -> SavedImageResponse:
     updated = await job_manager.update_curation(hash, status="pending")
     if updated is None:
         raise HTTPException(status_code=404, detail="image not found")
@@ -865,23 +952,23 @@ async def saved_image_restore(hash: str):
 
 
 @app.get("/tags")
-async def tags_list():
+async def tags_list() -> dict[str, list[dict[str, JSONValue]]]:
     return {"tags": await job_manager._store.list_tag_counts()}
 
 
 # ====== 휴지통 ======
 
 
-@app.get("/trash")
-async def trash_list(limit: int = 200, offset: int = 0):
+@app.get("/trash", response_model=TrashListResponse)
+async def trash_list(limit: int = 200, offset: int = 0) -> TrashListResponse:
     items = await job_manager._store.list_saved_images(
         limit=limit, offset=offset, status="trashed"
     )
-    return {"items": items, "limit": limit, "offset": offset}
+    return TrashListResponse(items=items, limit=limit, offset=offset)
 
 
 @app.post("/trash/empty")
-async def trash_empty():
+async def trash_empty() -> dict[str, int]:
     deleted = await job_manager.empty_trash()
     return {"deleted": deleted}
 
@@ -889,27 +976,31 @@ async def trash_empty():
 # ====== filename 그룹 ======
 
 
-@app.get("/asset-groups")
-async def asset_groups_list(limit: int = 100, offset: int = 0, sort: str = "latest"):
+@app.get("/asset-groups", response_model=AssetGroupsListResponse)
+async def asset_groups_list(
+    limit: int = 100,
+    offset: int = 0,
+    sort: str = "latest",
+) -> AssetGroupsListResponse:
     groups = await job_manager._store.list_asset_groups(
         limit=limit, offset=offset, sort=sort
     )
-    return {"groups": groups, "limit": limit, "offset": offset, "sort": sort}
+    return AssetGroupsListResponse(groups=groups, limit=limit, offset=offset, sort=sort)
 
 
-@app.get("/asset-groups/{filename}")
-async def asset_group_detail(filename: str, status: str | None = None):
+@app.get("/asset-groups/{filename}", response_model=AssetGroupDetailResponse)
+async def asset_group_detail(filename: str, status: str | None = None) -> AssetGroupDetailResponse:
     items = await job_manager._store.list_saved_images(
         limit=10_000, offset=0, filename=filename, status=status
     )
-    return {"filename": filename, "items": items}
+    return AssetGroupDetailResponse(filename=filename, items=items)
 
 
 # ====== 데이터셋 익스포트 ======
 
 
 @app.post("/export")
-async def export_dataset(body: ExportRequest):
+async def export_dataset(body: ExportRequest) -> StreamingResponse:
     items_all: list[dict[str, Any]] = []
     if body.filenames:
         for fn in body.filenames:
@@ -1030,7 +1121,7 @@ class ClientLogRequest(BaseModel):
 
 
 @app.post("/logs/client")
-async def client_log_endpoint(req: ClientLogRequest, request: Request):
+async def client_log_endpoint(req: ClientLogRequest, request: Request) -> dict[str, bool]:
     client_ip = request.client.host if request.client else "unknown"
     log_msg = f"[Client {client_ip}] {req.message}"
     if req.url:
@@ -1052,7 +1143,7 @@ async def client_log_endpoint(req: ClientLogRequest, request: Request):
 # ====== 데이터베이스 관리 ======
 
 @app.get("/db/export")
-async def db_export():
+async def db_export() -> FileResponse:
     """SQLite jobs.db 데이터베이스 파일을 직접 내보냅니다."""
     db_path = job_manager._store._db_path
     if not db_path.exists():
@@ -1069,7 +1160,7 @@ async def db_export():
 
 
 @app.post("/db/import")
-async def db_import(file: UploadFile):
+async def db_import(file: UploadFile) -> dict[str, bool]:
     """SQLite jobs.db 데이터베이스 파일을 업로드받아 덮어쓰고 복원합니다."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="empty filename")
@@ -1126,13 +1217,13 @@ async def db_import(file: UploadFile):
 # ====== App Settings (client-side localStorage → server storage) ======
 
 @app.get("/app-settings")
-async def app_settings_list():
+async def app_settings_list() -> dict[str, str]:
     """모든 클라이언트 설정 반환."""
     return await job_manager._store.list_settings()
 
 
 @app.get("/app-settings/{key}")
-async def app_settings_get(key: str):
+async def app_settings_get(key: str) -> dict[str, str]:
     """단일 설정 조회."""
     v = await job_manager._store.get_setting(key)
     if v is None:
@@ -1141,7 +1232,11 @@ async def app_settings_get(key: str):
 
 
 @app.put("/app-settings/{key}")
-async def app_settings_set(key: str, req: SettingValueRequest, request: Request):
+async def app_settings_set(
+    key: str,
+    req: SettingValueRequest,
+    request: Request,
+) -> dict[str, bool]:
     """설정 저장."""
     client_id = request.headers.get("x-client-id")
     await job_manager._store.save_setting(key, req.value)
@@ -1157,7 +1252,7 @@ async def app_settings_set(key: str, req: SettingValueRequest, request: Request)
 
 
 @app.delete("/app-settings/{key}")
-async def app_settings_delete(key: str, request: Request):
+async def app_settings_delete(key: str, request: Request) -> dict[str, bool]:
     """설정 삭제."""
     client_id = request.headers.get("x-client-id")
     await job_manager._store.delete_setting(key)
@@ -1172,13 +1267,25 @@ async def app_settings_delete(key: str, request: Request):
     return {"ok": True}
 
 
-@app.get("/webhooks")
-async def webhooks_list():
-    return {"configs": webhook_service.list_configs()}
+@app.get("/webhooks", response_model=WebhooksListResponse)
+async def webhooks_list() -> WebhooksListResponse:
+    configs = [
+        WebhookConfigResponse(
+            id=c.id,
+            name=c.name,
+            channel_type=c.channel_type,
+            url=c.url,
+            events=c.events,
+            enabled=c.enabled,
+            include_image=c.include_image,
+        )
+        for c in webhook_service._configs
+    ]
+    return WebhooksListResponse(configs=configs)
 
 
-@app.post("/webhooks")
-async def webhooks_create(req: WebhookCreateRequest):
+@app.post("/webhooks", response_model=WebhookDetailResponse)
+async def webhooks_create(req: WebhookCreateRequest) -> WebhookDetailResponse:
     cfg = await webhook_service.add_config(
         name=req.name,
         channel_type=req.channel_type,
@@ -1187,19 +1294,24 @@ async def webhooks_create(req: WebhookCreateRequest):
         enabled=req.enabled,
         include_image=req.include_image,
     )
-    return {"config": {
-        "id": cfg.id,
-        "name": cfg.name,
-        "channel_type": cfg.channel_type,
-        "url": cfg.url,
-        "events": cfg.events,
-        "enabled": cfg.enabled,
-        "include_image": cfg.include_image,
-    }}
+    return WebhookDetailResponse(
+        config=WebhookConfigResponse(
+            id=cfg.id,
+            name=cfg.name,
+            channel_type=cfg.channel_type,
+            url=cfg.url,
+            events=cfg.events,
+            enabled=cfg.enabled,
+            include_image=cfg.include_image,
+        )
+    )
 
 
-@app.put("/webhooks/{config_id}")
-async def webhooks_update(config_id: str, req: WebhookUpdateRequest):
+@app.put("/webhooks/{config_id}", response_model=WebhookDetailResponse)
+async def webhooks_update(
+    config_id: str,
+    req: WebhookUpdateRequest,
+) -> WebhookDetailResponse:
     cfg = await webhook_service.update_config(
         config_id,
         name=req.name,
@@ -1211,19 +1323,21 @@ async def webhooks_update(config_id: str, req: WebhookUpdateRequest):
     )
     if cfg is None:
         raise HTTPException(status_code=404, detail="webhook not found")
-    return {"config": {
-        "id": cfg.id,
-        "name": cfg.name,
-        "channel_type": cfg.channel_type,
-        "url": cfg.url,
-        "events": cfg.events,
-        "enabled": cfg.enabled,
-        "include_image": cfg.include_image,
-    }}
+    return WebhookDetailResponse(
+        config=WebhookConfigResponse(
+            id=cfg.id,
+            name=cfg.name,
+            channel_type=cfg.channel_type,
+            url=cfg.url,
+            events=cfg.events,
+            enabled=cfg.enabled,
+            include_image=cfg.include_image,
+        )
+    )
 
 
 @app.delete("/webhooks/{config_id}")
-async def webhooks_delete(config_id: str):
+async def webhooks_delete(config_id: str) -> dict[str, bool]:
     ok = await webhook_service.delete_config(config_id)
     if not ok:
         raise HTTPException(status_code=404, detail="webhook not found")
@@ -1231,7 +1345,7 @@ async def webhooks_delete(config_id: str):
 
 
 @app.post("/webhooks/{config_id}/test")
-async def webhooks_test(config_id: str):
+async def webhooks_test(config_id: str) -> dict[str, bool]:
     """테스트 알림 전송."""
     found = False
     for cfg in webhook_service._configs:
@@ -1253,7 +1367,7 @@ async def webhooks_test(config_id: str):
 
 
 @app.post("/webhooks/batch-complete")
-async def webhooks_batch_complete(req: BatchCompleteRequest):
+async def webhooks_batch_complete(req: BatchCompleteRequest) -> dict[str, bool]:
     """배치 완료 알림 전송."""
     await webhook_service.notify(
         "batch_completed",
@@ -1270,7 +1384,7 @@ async def webhooks_batch_complete(req: BatchCompleteRequest):
 
 
 @app.websocket("/ws/events")
-async def ws_events(websocket: WebSocket):
+async def ws_events(websocket: WebSocket) -> None:
     try:
         await websocket.accept()
     except Exception:
