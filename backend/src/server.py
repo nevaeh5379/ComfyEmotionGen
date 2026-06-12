@@ -50,7 +50,7 @@ import os
 import tracemalloc
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union, AsyncGenerator
+from typing import Dict, List, Literal, Optional, Union, AsyncGenerator
 
 from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -121,7 +121,7 @@ class RenderRequest(BaseModel):
     only: Optional[Dict[str, List[str]]] = Field(None, description="특정 axis 값만 포함 (예: {\"emotion\": [\"happy\",\"sad\"]})")
     fix: Optional[Dict[str, str]] = Field(None, description="특정 axis를 단일 값으로 고정 (예: {\"emotion\": \"happy\"})")
     skip_excludes: bool = Field(False, description="DSL 내 exclude 규칙 무시")
-    extra_excludes: Optional[List[Dict[str, Any]]] = Field(None, description="추가 제외 규칙")
+    extra_excludes: Optional[List[Dict[str, JSONValue]]] = Field(None, description="추가 제외 규칙")
     limit: int = Field(0, ge=0, description="페이지 크기 (0=전체)")
     offset: int = Field(0, ge=0, description="오프셋")
 
@@ -171,11 +171,11 @@ class RenderResponse(BaseModel):
     axes: Dict[str, AxisOut] = {}
     sets: Dict[str, str] = {}
     excludes: List[ExcludeRuleOut] = []
-    template_structure: List[Dict[str, Any]] = []
+    template_structure: List[Dict[str, JSONValue]] = []
 
 
 class InjectRequest(BaseModel):
-    workflow: Dict[str, Any]
+    workflow: Dict[str, JSONValue]
     prompt: Union[str, Dict[str, str]] = Field(
         ..., description="문자열 또는 {placeholder: value} 매핑"
     )
@@ -291,6 +291,33 @@ class WebhooksListResponse(BaseModel):
 
 class WebhookDetailResponse(BaseModel):
     config: WebhookConfigResponse
+
+
+class WorkerHealthInfo(BaseModel):
+    id: str
+    url: str
+    alive: bool
+    busy: bool
+    currentJobId: Optional[str] = None
+    workerType: str = "comfyui"
+
+
+class HealthResponse(BaseModel):
+    backend: str
+    workers: list[WorkerHealthInfo]
+
+
+class WorkersListResponse(BaseModel):
+    workers: list[WorkerHealthInfo]
+
+
+class InjectResponse(BaseModel):
+    workflow: dict[str, JSONValue]
+
+
+class SessionStatsResponse(BaseModel):
+    sessionJobCounts: dict[str, int]
+    selectedSessionCounts: dict[str, int]
 
 # ====== lifespan ======
 
@@ -438,21 +465,20 @@ def version() -> dict[str, str | None]:
     }
 
 
-@app.get("/health")
-def health() -> dict[str, JSONValue]:
-    return {
-        "backend": "ok",
-        "workers": [
-            {
-                "id": info.id,
-                "url": info.url,
-                "alive": info.alive,
-                "busy": info.busy,
-                "currentJobId": info.current_job_id,
-            }
-            for info in worker_pool.info()
-        ],
-    }
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    workers = [
+        WorkerHealthInfo(
+            id=info.id,
+            url=info.url,
+            alive=info.alive,
+            busy=info.busy,
+            currentJobId=info.current_job_id,
+            workerType=getattr(info, "worker_type", "comfyui"),
+        )
+        for info in worker_pool.info()
+    ]
+    return HealthResponse(backend="ok", workers=workers)
 
 
 @app.get("/debug/memory")
@@ -515,21 +541,21 @@ async def debug_memory() -> dict[str, JSONValue]:
     }
 
 
-@app.get("/workers")
-def workers_list() -> dict[str, list[dict[str, JSONValue]]]:
+@app.get("/workers", response_model=WorkersListResponse)
+def workers_list() -> WorkersListResponse:
     """현재 등록된 ComfyUI 워커 스냅샷."""
-    return {
-        "workers": [
-            {
-                "id": info.id,
-                "url": info.url,
-                "alive": info.alive,
-                "busy": info.busy,
-                "currentJobId": info.current_job_id,
-            }
-            for info in worker_pool.info()
-        ],
-    }
+    workers = [
+        WorkerHealthInfo(
+            id=info.id,
+            url=info.url,
+            alive=info.alive,
+            busy=info.busy,
+            currentJobId=info.current_job_id,
+            workerType=getattr(info, "worker_type", "comfyui"),
+        )
+        for info in worker_pool.info()
+    ]
+    return WorkersListResponse(workers=workers)
 
 
 @app.post("/workers", response_model=WorkerCreateResponse)
@@ -593,10 +619,11 @@ def render_endpoint(req: RenderRequest) -> dict[str, JSONValue]:
     }
 
 
-@app.post("/workflow/inject")
-def inject_endpoint(req: InjectRequest) -> dict[str, JSONValue]:
+@app.post("/workflow/inject", response_model=InjectResponse)
+def inject_endpoint(req: InjectRequest) -> InjectResponse:
     injected = inject_into_workflow(req.workflow, req.prompt, req.placeholder)
-    return {"workflow": injected}
+    injected_dict = injected if isinstance(injected, dict) else {}
+    return InjectResponse(workflow=injected_dict)
 
 
 # ====== 잡 ======
@@ -632,8 +659,8 @@ async def jobs_list(
     )
 
 
-@app.post("/jobs/session-stats")
-async def jobs_session_stats(req: SessionStatsRequest) -> dict[str, JSONValue]:
+@app.post("/jobs/session-stats", response_model=SessionStatsResponse)
+async def jobs_session_stats(req: SessionStatsRequest) -> SessionStatsResponse:
     # 1. DB에서 minimal job list 로드
     jobs_minimal = await job_manager._store.get_all_jobs_minimal()
 
@@ -641,14 +668,14 @@ async def jobs_session_stats(req: SessionStatsRequest) -> dict[str, JSONValue]:
     async with job_manager._lock:
         for job_dict in jobs_minimal:
             jid = job_dict["id"]
-            if jid in job_manager._jobs:
+            if isinstance(jid, str) and jid in job_manager._jobs:
                 job_dict["status"] = job_manager._jobs[jid].status
 
     # 3. 세션 매칭 및 카운팅
     sorted_markers = sorted(req.markers, key=lambda x: x.startAt, reverse=True)
 
-    session_job_counts: dict[str, JSONValue] = {}
-    selected_session_counts: dict[str, JSONValue] = {
+    session_job_counts: dict[str, int] = {}
+    selected_session_counts: dict[str, int] = {
         "pending": 0,
         "queued": 0,
         "running": 0,
@@ -675,21 +702,19 @@ async def jobs_session_stats(req: SessionStatsRequest) -> dict[str, JSONValue]:
                 sid = sorted_markers[-1].id
 
         if sid:
-            val = session_job_counts.get(sid, 0)
-            session_job_counts[sid] = (val if isinstance(val, int) else 0) + 1
+            session_job_counts[sid] = session_job_counts.get(sid, 0) + 1
             if sid == req.selectedSessionId:
-                status = job["status"]
+                status_val = job.get("status")
+                status = str(status_val) if status_val is not None else ""
                 if status in selected_session_counts:
-                    val_stat = selected_session_counts[status]
-                    selected_session_counts[status] = (val_stat if isinstance(val_stat, int) else 0) + 1
+                    selected_session_counts[status] += 1
                 if status in ("pending", "queued", "running"):
-                    val_act = selected_session_counts["active"]
-                    selected_session_counts["active"] = (val_act if isinstance(val_act, int) else 0) + 1
+                    selected_session_counts["active"] += 1
 
-    return {
-        "sessionJobCounts": session_job_counts,
-        "selectedSessionCounts": selected_session_counts,
-    }
+    return SessionStatsResponse(
+        sessionJobCounts=session_job_counts,
+        selectedSessionCounts=selected_session_counts,
+    )
 
 
 @app.delete("/jobs/{job_id}")
@@ -1001,7 +1026,7 @@ async def asset_group_detail(filename: str, status: str | None = None) -> AssetG
 
 @app.post("/export")
 async def export_dataset(body: ExportRequest) -> StreamingResponse:
-    items_all: list[dict[str, Any]] = []
+    items_all: list[dict[str, JSONValue]] = []
     if body.filenames:
         for fn in body.filenames:
             items_all.extend(
@@ -1016,26 +1041,34 @@ async def export_dataset(body: ExportRequest) -> StreamingResponse:
 
     if body.tags:
         required = set(body.tags)
-        items_all = [
-            it for it in items_all if required.issubset(set(it.get("tags") or []))
-        ]
+        filtered_items: list[dict[str, JSONValue]] = []
+        for it in items_all:
+            tags_val = it.get("tags")
+            tags_list = tags_val if isinstance(tags_val, list) else []
+            tags_set = {str(t) for t in tags_list}
+            if required.issubset(tags_set):
+                filtered_items.append(it)
+        items_all = filtered_items
 
     buf = io.BytesIO()
     try:
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             manifest_lines: list[str] = []
-            metadata: list[dict[str, Any]] = []
+            metadata: list[dict[str, JSONValue]] = []
             used_names: set[str] = set()
             dup_counters: dict[str, int] = {}
             for item in items_all:
-                h = item.get("hash", "")
+                h_val = item.get("hash")
+                h = str(h_val) if h_val is not None else ""
                 if not h:
                     continue
-                ext = item.get("extension") or ".png"
+                ext_val = item.get("extension")
+                ext = str(ext_val) if ext_val is not None else ".png"
                 disk_path = DEFAULT_IMAGES_DIR / f"{h}{ext}"
                 if not disk_path.exists():
                     continue
-                orig = item.get("originalFilename") or h
+                orig_val = item.get("originalFilename")
+                orig = str(orig_val) if orig_val is not None else h
                 name = f"{orig}{ext}"
                 if name in used_names:
                     if body.duplicateStrategy == "number":
@@ -1045,11 +1078,11 @@ async def export_dataset(body: ExportRequest) -> StreamingResponse:
                         name = f"{orig}_{h[:8]}{ext}"
                 used_names.add(name)
                 zf.write(disk_path, arcname=f"images/{name}")
-                manifest_lines.append(f"{name}\t{item.get('originalFilename','')}")
+                manifest_lines.append(f"{name}\t{orig}")
                 metadata.append(
                     {
                         "hash": h,
-                        "filename": item.get("originalFilename", ""),
+                        "filename": orig,
                         "prompt": item.get("prompt", ""),
                         "status": item.get("status", ""),
                         "tags": item.get("tags", []),
