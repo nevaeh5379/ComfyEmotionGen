@@ -1955,24 +1955,22 @@ async def ws_events(websocket: WebSocket) -> None:
     try:
         # 연결 직후 현재 스냅샷 전송
         snapshot = await job_manager.snapshot()
-        worker_infos = [
-            {
-                "id": info.id,
-                "url": info.url,
-                "alive": info.alive,
-                "busy": info.busy,
-                "currentJobId": info.current_job_id,
-            }
-            for info in worker_pool.info()
-        ]
-        await websocket.send_json(
-            {
-                "type": "snapshot",
-                "jobs": snapshot,
-                "workers": worker_infos,
-                "paused": job_manager.paused,
-            }
+        event = SnapshotEvent(
+            type="snapshot",
+            jobs=snapshot,
+            workers=[
+                SnapshotWorker(
+                    id=info.id,
+                    url=info.url,
+                    alive=info.alive,
+                    busy=info.busy,
+                    currentJobId=info.current_job_id,
+                )
+                for info in worker_pool.info()
+            ],
+            paused=job_manager.paused,
         )
+        await websocket.send_json(event.model_dump())
         # 클라이언트가 보내는 메시지는 현재는 무시 (keepalive)
         while True:
             try:
