@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from backend.src.job_store import JobStore
-from backend.src.jobs import JobManager, JobStatus, WorkerView, Job
-from backend.src.models import JobItem, WorkerType
+from backend.src.jobs import JobManager, Job
 from backend.src.worker_pool import WorkerPool
 from backend.src.worker import BaseWorker
 

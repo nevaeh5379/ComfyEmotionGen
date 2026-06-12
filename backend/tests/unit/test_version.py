@@ -1,6 +1,5 @@
 """Unit tests for backend/src/_version.py."""
 
-import os
 import importlib
 import re
 

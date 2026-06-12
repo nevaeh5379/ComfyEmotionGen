@@ -7,7 +7,6 @@ NovelAI (NAI) 워커 클라이언트 — 스켈레톤.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any, AsyncGenerator, Optional
 
@@ -114,6 +113,7 @@ class NAIWorker(BaseWorker):
         if self._http is None:
             raise RuntimeError(f"NAI worker {self.id} not started")
         raise NotImplementedError("NAI stream_output not yet implemented")
+        yield b""
 
     async def delete_from_queue(self, prompt_id: str) -> None:
         """NAI는 큐 관리 API가 없으므로 no-op."""

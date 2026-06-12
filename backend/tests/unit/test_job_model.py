@@ -6,10 +6,7 @@ we inject mock modules temporarily via patch.dict in a with block.
 """
 from __future__ import annotations
 
-import time
-from unittest.mock import MagicMock, patch
 
-import pytest
 
 from backend.src.jobs import ActiveJobError, Job
 

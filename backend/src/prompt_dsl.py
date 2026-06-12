@@ -9,7 +9,7 @@ AI 이미지 프롬프트 배치 생성을 위한 DSL.
 from __future__ import annotations
 
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, cast, Dict, List, Optional, Union
 import re

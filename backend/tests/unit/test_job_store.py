@@ -6,7 +6,6 @@ import json
 import time
 from typing import Any
 
-import pytest
 
 from backend.src.job_store import JobStore, _saved_image_row_to_dict
 

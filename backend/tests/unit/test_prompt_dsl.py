@@ -7,9 +7,7 @@ import pytest
 from backend.src.prompt_dsl import (
     Axis,
     AxisValue,
-    Condition,
     DSLSyntaxError,
-    ExcludeRule,
     Program,
     _clean_prompt,
     eval_expr,

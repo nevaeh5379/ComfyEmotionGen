@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, AsyncIterator, Awaitable, Callable, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Optional
 
 
 @dataclass

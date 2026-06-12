@@ -785,7 +785,7 @@ class JobStore:
                 try:
                     from backend.src.prompt_dsl import parse
                 except ImportError:
-                    from prompt_dsl import parse
+                    from prompt_dsl import parse  # type: ignore[import-not-found, no-redef]
                 
                 prog = parse(ceg_template)
                 axis_names = set(prog.axes.keys())

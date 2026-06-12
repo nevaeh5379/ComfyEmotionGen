@@ -7,14 +7,12 @@ so no real network access occurs.
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
-import pytest
 import pytest_asyncio
 
 from backend.src.webhook import (
     WEBHOOK_EVENTS,
-    WebhookConfig,
     WebhookService,
     _iso_now,
     _tg_escape,
@@ -45,7 +43,7 @@ class TestIsoNow:
         # ISO 8601 format: must contain 'T' and end with '+00:00' or 'Z' or offset
         assert "T" in result
         # Must be parseable
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         dt = datetime.fromisoformat(result)
         assert dt.tzinfo is not None

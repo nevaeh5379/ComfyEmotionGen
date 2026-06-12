@@ -64,8 +64,7 @@ from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPL
 from backend.src.job_store import JobStore
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
-from backend.src.workflow_models import ComfyWorkflow
-from backend.src.models import JobItem, WorkerType
+from backend.src.models import JobItem
 
 logger = logging.getLogger(__name__)
 
@@ -1085,7 +1084,7 @@ async def db_import(file: UploadFile):
     # 4. 메모리 로드 동기화
     try:
         await job_manager.reload_jobs()
-    except Exception as exc:
+    except Exception:
         logger.exception("failed to reload jobs after import")
     
     # 5. UI 동기화 이벤트 송출 (모든 클라이언트가 잡 목록을 새로고침할 수 있게 함)

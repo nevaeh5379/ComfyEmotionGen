@@ -27,7 +27,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Literal, Optional, overload
+from typing import Any, Awaitable, Callable, Optional, overload
 
 from backend.src.models import JobItem, JobStatus
 from backend.src.worker import BaseWorker, WorkerInfo
@@ -718,7 +718,7 @@ class JobManager:
                         pending = candidate
                         worker = idle
                         break
-                if pending is None:
+                if pending is None or worker is None:
                     return
                 pending.status = JobStatus.QUEUED
                 pending.worker_id = worker.id
@@ -859,7 +859,7 @@ class JobManager:
         elif msg_type == "execution_cached":
             cached = data.get("nodes") or []
             if cached:
-                job_dict: dict[str, Any] | None = None
+                job_dict = None
                 async with self._lock:
                     job = self._jobs.get(prompt_id)
                     if job is not None:
@@ -876,7 +876,7 @@ class JobManager:
         elif msg_type == "progress_state":
             nodes = data.get("nodes") or {}
             if nodes:
-                job_dict: dict[str, Any] | None = None
+                job_dict = None
                 async with self._lock:
                     job = self._jobs.get(prompt_id)
                     if job is not None:

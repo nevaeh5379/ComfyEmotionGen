@@ -20,7 +20,7 @@ import httpx
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from backend.src.worker import BaseWorker, WorkerInfo
+from backend.src.worker import BaseWorker
 
 logger = logging.getLogger(__name__)
 
@@ -193,8 +193,6 @@ class ComfyWorker(BaseWorker):
                         except json.JSONDecodeError:
                             logger.warning("worker %s non-json message", self.id)
                             continue
-                        msg_type = payload.get("type", "?")
-             
                         # status 메시지에서 sid 추출
                         if (
                             payload.get("type") == "status"
