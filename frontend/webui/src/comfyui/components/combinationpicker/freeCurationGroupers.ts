@@ -139,8 +139,8 @@ export function groupSavedImagesAsRenderItems(
     prompt: "",
     meta:
       key === NO_TEMPLATE_KEY
-        ? { template: NO_TEMPLATE_KEY, count: String(files.size) }
-        : { templateHash: key, count: String(files.size) },
+        ? ({ template: NO_TEMPLATE_KEY, count: String(files.size) } as Record<string, string>)
+        : ({ templateHash: key, count: String(files.size) } as Record<string, string>),
   }))
 }
 

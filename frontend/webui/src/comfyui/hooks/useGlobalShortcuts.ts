@@ -67,6 +67,7 @@ export function useGlobalShortcuts({
         const tabIndex = parseInt(e.key) - 1
         const tabs: TabId[] = [
           "jobs",
+          "editor",
           "stats",
           "gallery",
           "curation",
@@ -78,6 +79,7 @@ export function useGlobalShortcuts({
           setActiveTab(targetTab)
           const tabNames: Record<TabId, string> = {
             jobs: "작업",
+            editor: "워크플로우 에디터",
             stats: "통계",
             gallery: "갤러리",
             curation: "큐레이션",

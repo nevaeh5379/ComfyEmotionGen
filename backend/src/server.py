@@ -710,6 +710,39 @@ async def get_object_info(worker_id: Optional[str] = None) -> dict[str, JSONValu
     )
 
 
+@app.get("/extensions")
+async def get_extensions(worker_id: Optional[str] = None) -> list[str]:
+    """ComfyUI 익스텐션 목록을 반환한다.
+    가용 워커를 찾아 프록시하며, 워커가 없으면 빈 리스트.
+
+    Returns ComfyUI custom node extensions list.
+    Proxies through an available worker. Returns empty list if no worker is reachable.
+    """
+    if worker_id:
+        worker = worker_pool.get(worker_id)
+        if worker is None or not worker.alive:
+            raise HTTPException(
+                status_code=400,
+                detail=f"worker {worker_id} not found or offline"
+            )
+    else:
+        worker = worker_pool.find_idle()
+        if worker is None:
+            for w in worker_pool.all():
+                if w.alive:
+                    worker = w
+                    break
+
+    if worker is not None:
+        try:
+            return await worker.get_extensions()
+        except Exception as exc:
+            logger.warning("worker extensions failed: %s", exc)
+
+    # 익스텐션은 필수가 아니므로 워커가 없어도 빈 리스트 반환
+    return []
+
+
 @app.get("/version")
 def version() -> dict[str, str | None]:
     """백엔드/번들 버전 및 커밋 해시를 반환한다.

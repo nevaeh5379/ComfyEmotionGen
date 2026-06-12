@@ -5,10 +5,12 @@ import {
   Layers,
   Sparkles,
   Settings,
+  GitGraph,
 } from "lucide-react"
 
 export const NAV_TABS = [
   { id: "jobs", label: "작업", icon: ClipboardList },
+  { id: "editor", label: "워크플로우 에디터", icon: GitGraph },
   { id: "stats", label: "통계", icon: BarChart3 },
   { id: "gallery", label: "갤러리", icon: ImageIcon },
   { id: "curation", label: "큐레이션", icon: Layers },

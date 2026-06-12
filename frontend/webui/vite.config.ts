@@ -26,10 +26,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@comfy-graph": path.resolve(__dirname, "./src/lib/comfy-graph"),
+      "@/lib/litegraph/src": path.resolve(__dirname, "./src/lib/comfy-graph/core"),
+      "@/renderer": path.resolve(__dirname, "./src/lib/comfy-graph/core"),
+      "@/utils": path.resolve(__dirname, "./src/lib/comfy-graph/core/utils"),
     },
-  },
-  optimizeDeps: {
-    include: ["litegraph.js"],
   },
   define: {
     __FRONTEND_VERSION__: JSON.stringify(pkg.version),
@@ -38,5 +39,21 @@ export default defineConfig({
     __GITHUB_REPO__: JSON.stringify("nevaeh5379/ComfyEmotionGen"),
     // Default backend port — overridden at build time via VITE_BACKEND_PORT=8080 npm run build
     __DEFAULT_BACKEND_PORT__: JSON.stringify(process.env.VITE_BACKEND_PORT || "8000"),
+  },
+  server: {
+    proxy: {
+      "/object_info": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/extensions": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/ws": {
+        target: "ws://localhost:8000",
+        ws: true,
+      },
+    },
   },
 })

@@ -58,6 +58,7 @@ import { CurationTab } from "./comfyui/components/tabs/CurationTab"
 import { StatsTab } from "./comfyui/components/tabs/StatsTab"
 import { GeneratorTab } from "./comfyui/components/tabs/GeneratorTab"
 import { SettingsTab } from "./comfyui/components/tabs/SettingsTab"
+import { EditorTab } from "./comfyui/components/tabs/EditorTab"
 
 // ── Dialog Components ──
 import { ParserPreviewDialog } from "./comfyui/components/ParserPreviewDialog"
@@ -618,7 +619,9 @@ function AppContent() {
 
         <main
           className={`flex w-full flex-1 flex-col ${
-            activeTab === "jobs" || activeTab === "generator" ? "overflow-hidden" : ""
+            activeTab === "jobs" || activeTab === "generator" || activeTab === "editor"
+              ? "overflow-hidden"
+              : ""
           }`}
         >
           {/* ── Tab Routing ── */}
@@ -651,6 +654,7 @@ function AppContent() {
           {activeTab === "generator" && (
             <GeneratorTab setActiveTab={setActiveTab} backendUrl={backendUrl} />
           )}
+          {activeTab === "editor" && <EditorTab />}
           {activeTab === "settings" && (
             <SettingsTab
               settings={settings}

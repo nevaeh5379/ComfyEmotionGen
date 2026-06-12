@@ -1,5 +1,11 @@
 {
   "devDependencies": {
     "shadcn": "^4.7.0"
+  },
+  "dependencies": {
+    "@vueuse/core": "^14.3.0",
+    "dompurify": "^3.4.10",
+    "vue": "^3.5.38",
+    "zustand": "^5.0.14"
   }
 }

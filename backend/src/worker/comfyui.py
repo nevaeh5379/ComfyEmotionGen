@@ -173,6 +173,18 @@ class ComfyWorker(BaseWorker):
             return cast(dict[str, JSONValue], data)
         return {}
 
+    async def get_extensions(self) -> list[str]:
+        """GET /extensions from the ComfyUI server."""
+        try:
+            resp = await self._http.get("/extensions")
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list):
+                return cast(list[str], data)
+        except Exception as exc:
+            logger.warning("worker %s get_extensions failed: %s", self.id, exc)
+        return []
+
     # ---------- WebSocket loop ----------
 
     async def _ws_loop(self) -> None:
