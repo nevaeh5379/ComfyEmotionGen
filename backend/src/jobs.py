@@ -22,6 +22,7 @@ import hashlib
 import logging
 import os
 import re
+import struct
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -246,6 +247,7 @@ class JobManager:
         self._images_dir = images_dir or DEFAULT_IMAGES_DIR
         self._images_dir.mkdir(parents=True, exist_ok=True)
         self._persist_tasks: set[asyncio.Task[None]] = set()
+        self._worker_previews: dict[str, bytes] = {}  # worker_id → latest preview image bytes
 
         pool.set_handlers(
             on_message=self._on_worker_message,
@@ -946,6 +948,9 @@ class JobManager:
                 failed_id,
                 error=f"worker {worker.id} disconnected",
             )
+        # 워커 죽으면 미리보기 캐시 제거
+        if not worker.alive:
+            self._clear_worker_preview(worker.id)
         await self._emit(
             {
                 "type": "worker.updated",
@@ -957,14 +962,66 @@ class JobManager:
             self._wakeup.set()
 
     async def _on_worker_binary(self, worker: BaseWorker, data: bytes) -> None:
-        """바이너리 메시지 처리 (현재 미사용, 향후 NAI 등에서 활용)."""
-        logger.debug("binary message from %s: %d bytes", worker.id, len(data))
+        """ComfyUI 바이너리 메시지 처리 (미리보기 이미지 파싱)."""
+        total_len = len(data)
+        print(f"[PREVIEW-DEBUG] _on_worker_binary: worker={worker.id} total={total_len} bytes", flush=True)
+        if total_len < 4:
+            return
+        try:
+            event_type = struct.unpack(">I", data[:4])[0]
+        except struct.error:
+            return
+
+        image_bytes: bytes | None = None
+
+        if event_type == 1:  # PREVIEW_IMAGE
+            if total_len < 8:
+                return
+            img_fmt = struct.unpack(">I", data[4:8])[0]
+            image_bytes = data[8:]
+            print(f"[PREVIEW-DEBUG] PREVIEW_IMAGE: fmt={'JPEG' if img_fmt==1 else 'PNG'} img={len(image_bytes)} bytes", flush=True)
+        elif event_type == 2:  # UNENCODED_PREVIEW_IMAGE
+            image_bytes = data[4:]
+            print(f"[PREVIEW-DEBUG] UNENCODED_PREVIEW: img={len(image_bytes)} bytes", flush=True)
+        elif event_type == 4:  # PREVIEW_IMAGE_WITH_METADATA
+            if total_len < 8:
+                return
+            try:
+                meta_len = struct.unpack(">I", data[4:8])[0]
+            except struct.error:
+                return
+            image_bytes = data[8 + meta_len:]
+            print(f"[PREVIEW-DEBUG] PREVIEW_WITH_META: meta={meta_len} img={len(image_bytes)} bytes", flush=True)
+        else:
+            print(f"[PREVIEW-DEBUG] unknown event_type={event_type}", flush=True)
+            return
+
+        if image_bytes and len(image_bytes) > 0:
+            self._worker_previews[worker.id] = image_bytes
+            print(f"[PREVIEW-DEBUG] stored preview for {worker.id}: {len(image_bytes)} bytes", flush=True)
+            await self._emit({
+                "type": "worker.preview",
+                "workerId": worker.id,
+            })
+            print(f"[PREVIEW-DEBUG] emitted worker.preview for {worker.id}", flush=True)
+        else:
+            logger.warning("[PREVIEW-DEBUG] no image_bytes extracted")
 
     async def _on_nai_message(
         self, worker: BaseWorker, payload: dict[str, Any]
     ) -> None:
         """NAI 백엔드 이벤트 핸들러 (스켈레톤 — TODO: 실제 NAI 이벤트 스펙에 맞게 구현)."""
         logger.info("NAI message from %s: %s", worker.id, payload.get("type", "unknown"))
+
+    # ---------- worker preview ----------
+
+    def get_worker_preview(self, worker_id: str) -> Optional[bytes]:
+        """워커의 최신 미리보기 이미지 바이트 반환 (없으면 None)."""
+        return self._worker_previews.get(worker_id)
+
+    def _clear_worker_preview(self, worker_id: str) -> None:
+        """워커 미리보기 캐시 제거."""
+        self._worker_previews.pop(worker_id, None)
 
     # ---------- internal helpers ----------
 

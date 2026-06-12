@@ -173,23 +173,28 @@ class ComfyWorker(BaseWorker):
 
         while not self._stopping:
             try:
-                logger.info("worker %s connecting %s", self.id, ws_url)
+               
                 async with websockets.connect(ws_url, max_size=None) as ws:
                     await self._set_alive(True)
                     backoff = self.INITIAL_BACKOFF
+                   
                     async for message in ws:
                         if isinstance(message, (bytes, bytearray)):
+                       
                             if self._on_binary is not None:
                                 try:
                                     await self._on_binary(self, bytes(message))
                                 except Exception:
                                     logger.exception("binary handler error in worker %s", self.id)
+                  
                             continue
                         try:
                             payload = json.loads(message)
                         except json.JSONDecodeError:
                             logger.warning("worker %s non-json message", self.id)
                             continue
+                        msg_type = payload.get("type", "?")
+             
                         # status 메시지에서 sid 추출
                         if (
                             payload.get("type") == "status"

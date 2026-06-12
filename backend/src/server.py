@@ -475,6 +475,15 @@ async def workers_delete(worker_id: str, force: bool = False):
     return {"ok": True}
 
 
+@app.get("/workers/{worker_id}/preview")
+async def worker_preview(worker_id: str):
+    """워커의 최신 미리보기 이미지 반환 (ComfyUI 실시간 preview)."""
+    preview_bytes = job_manager.get_worker_preview(worker_id)
+    if preview_bytes is None:
+        raise HTTPException(status_code=404, detail="no preview available")
+    return Response(content=preview_bytes, media_type="image/png")
+
+
 @app.post("/render", response_model=RenderResponse)
 def render_endpoint(req: RenderRequest):
     prog = parse(req.template)

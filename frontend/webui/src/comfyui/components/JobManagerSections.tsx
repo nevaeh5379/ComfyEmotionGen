@@ -46,6 +46,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 import { cn } from "@/lib/utils"
 
+import { useBackend } from "../hooks/useBackend"
 import type { JobStatus, JobView, WorkerView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
@@ -419,6 +420,8 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   allJobs,
   workers,
 }: RunningJobsBannerProps) {
+  const { workerPreviews, backendUrl } = useBackend()
+
   if (workers.length === 0) {
     if (jobs.length === 0) {
       return (
@@ -553,41 +556,50 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-[12px] font-black text-foreground/90">
-                    📄 {runningJob ? runningJob.filename : "작업 요청 처리 중..."}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
-                    <span className="truncate">
-                      {runningJob?.currentNodeName
-                        ? `노드 (${runningJob.currentNodeName})`
-                        : runningJob?.status === "queued"
-                        ? "작업 준비 중..."
-                        : "노드 처리 중..."}
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-2 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-[12px] font-black text-foreground/90">
+                      📄 {runningJob ? runningJob.filename : "작업 요청 처리 중..."}
                     </span>
-                    <span className="mono">{runningJob ? Math.round(runningJob.progressPercent) : 0}%</span>
                   </div>
-                  <Progress
-                    value={runningJob ? runningJob.progressPercent : 0}
-                    className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
-                  />
-                </div>
-                {runningJob && runningJob.totalNodeCount > 0 && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
                       <span className="truncate">
-                        전체 노드 {runningJob.completedNodeCount}/{runningJob.totalNodeCount}
+                        {runningJob?.currentNodeName
+                          ? `노드 (${runningJob.currentNodeName})`
+                          : runningJob?.status === "queued"
+                          ? "작업 준비 중..."
+                          : "노드 처리 중..."}
                       </span>
-                      <span className="mono">{Math.round(overallPercent)}%</span>
+                      <span className="mono">{runningJob ? Math.round(runningJob.progressPercent) : 0}%</span>
                     </div>
                     <Progress
-                      value={overallPercent}
-                      className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
+                      value={runningJob ? runningJob.progressPercent : 0}
+                      className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
                     />
                   </div>
+                  {runningJob && runningJob.totalNodeCount > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
+                        <span className="truncate">
+                          전체 노드 {runningJob.completedNodeCount}/{runningJob.totalNodeCount}
+                        </span>
+                        <span className="mono">{Math.round(overallPercent)}%</span>
+                      </div>
+                      <Progress
+                        value={overallPercent}
+                        className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
+                      />
+                    </div>
+                  )}
+                </div>
+                {w.workerType === "comfyui" && workerPreviews[w.id] && (
+                  <img
+                    src={`${backendUrl}/workers/${w.id}/preview?t=${workerPreviews[w.id]}`}
+                    alt={`preview ${w.id}`}
+                    className="h-80 flex-none rounded-lg border border-info/20 object-cover shadow-sm"
+                  />
                 )}
               </div>
             </div>

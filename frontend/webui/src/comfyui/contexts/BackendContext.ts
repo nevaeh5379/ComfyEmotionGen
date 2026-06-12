@@ -7,6 +7,8 @@ export interface BackendContextValue {
   workers: WorkerView[]
   paused: boolean
   sessionStartedAt: number
+  workerPreviews: Record<string, number>
+  backendUrl: string
 }
 
 export const BackendContext = createContext<BackendContextValue | null>(null)

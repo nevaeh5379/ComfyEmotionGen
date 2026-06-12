@@ -53,6 +53,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const [workers, setWorkers] = useState<WorkerView[]>([])
   const [paused, setPaused] = useState(false)
   const [sessionStartedAt] = useState<number>(() => Date.now())
+  const [workerPreviews, setWorkerPreviews] = useState<Record<string, number>>({})
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -105,6 +106,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         break
       case "worker.removed":
         setWorkers((prev) => prev.filter((w) => w.id !== event.workerId))
+        break
+      case "worker.preview":
+        setWorkerPreviews((prev) => ({ ...prev, [event.workerId]: Date.now() }))
         break
       case "control.updated":
         setPaused(event.paused)
@@ -252,8 +256,10 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       workers,
       paused,
       sessionStartedAt,
+      workerPreviews,
+      backendUrl: url,
     }),
-    [isConnected, jobs, workers, paused, sessionStartedAt]
+    [isConnected, jobs, workers, paused, sessionStartedAt, workerPreviews, url]
   )
 
   return (
