@@ -192,7 +192,7 @@ export class ComfyAppService {
 
     for (const node of this.graph.nodes) {
       const nodeData: ComfyWorkflowNode = {
-        id: node.id,
+        id: Number(node.id),
         type: node.type,
         pos: node.pos,
         size: node.size,
@@ -237,9 +237,9 @@ export class ComfyAppService {
     for (const [, link] of this.graph.links) {
       links.push({
         id: link.id,
-        origin_id: link.origin_id,
+        origin_id: Number(link.origin_id),
         origin_slot: link.origin_slot,
-        target_id: link.target_id,
+        target_id: Number(link.target_id),
         target_slot: link.target_slot,
         type: link.type as string,
       })

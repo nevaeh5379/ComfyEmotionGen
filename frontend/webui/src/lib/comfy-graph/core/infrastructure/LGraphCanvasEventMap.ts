@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraph } from '../LGraph'
 import type { LGraphButton } from '../LGraphButton'
 import type { LGraphGroup } from '../LGraphGroup'

@@ -1,5 +1,4 @@
-// @ts-nocheck
-import dompurify from 'dompurify'
+import dompurifyFactory from 'dompurify'
 
 import type {
   ContextMenuDivElement,
@@ -7,6 +6,10 @@ import type {
   IContextMenuValue
 } from './interfaces'
 import { LiteGraph } from './litegraph'
+
+const dompurify = typeof window !== 'undefined'
+  ? ((dompurifyFactory as any).addHook ? dompurifyFactory : (dompurifyFactory as any)(window))
+  : ((dompurifyFactory as any).addHook ? dompurifyFactory : (dompurifyFactory as any)({}))
 
 const ALLOWED_TAGS = ['span', 'b', 'i', 'em', 'strong']
 const ALLOWED_STYLE_PROPS = new Set([
@@ -17,12 +20,12 @@ const ALLOWED_STYLE_PROPS = new Set([
   'border-left'
 ])
 
-dompurify.addHook('uponSanitizeAttribute', (_node, data) => {
+dompurify.addHook('uponSanitizeAttribute', (_node: any, data: any) => {
   if (data.attrName === 'style') {
     const sanitizedStyle = data.attrValue
       .split(';')
-      .map((s) => s.trim())
-      .filter((s) => {
+      .map((s: string) => s.trim())
+      .filter((s: string) => {
         const colonIdx = s.indexOf(':')
         if (colonIdx === -1) return false
         const prop = s.slice(0, colonIdx).trim().toLowerCase()

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 // oxlint-disable no-empty-pattern
 import { test as baseTest } from 'vitest'
 

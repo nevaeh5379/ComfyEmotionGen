@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { Rectangle } from './infrastructure/Rectangle'
 import type { CanvasColour } from './interfaces'
 import { LiteGraph } from './litegraph'

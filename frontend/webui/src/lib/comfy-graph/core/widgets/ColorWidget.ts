@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { IColorWidget } from '../types/widgets'
 import type { DrawWidgetOptions, WidgetEventOptions } from './BaseWidget'
 import { BaseWidget } from './BaseWidget'

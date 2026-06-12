@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { ISlotType } from './litegraph'
 
 export function parseSlotTypes(type: ISlotType): string[] {

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 export interface SpaceRequest {
   minSize: number
   maxSize?: number

@@ -1,6 +1,5 @@
-// @ts-nocheck
-// TODO: CEG port - removed import: @/core/graph/subgraph/promotedWidgetTypes
-// import type { PromotedWidgetSource } from '@/core/graph/subgraph/promotedWidgetTypes'
+
+import type { PromotedWidgetSource } from '../external/promotedWidgetView'
 
 type ViewManagerEntry = PromotedWidgetSource & {
   viewKey?: string

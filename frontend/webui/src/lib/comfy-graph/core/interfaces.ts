@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { Rectangle } from './infrastructure/Rectangle'
 import type { CanvasPointerEvent } from './types/events'
 import type { TWidgetValue } from './types/widgets'

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 // TODO: CEG port - replaced import: @/renderer/core/layout/operations/layoutMutations
 import { useLayoutMutations } from './external/layoutMutations'
 // import { useLayoutMutations } from '@/renderer/core/layout/operations/layoutMutations'
@@ -425,8 +425,7 @@ export class Reroute
     layoutMutations.setSource(LayoutSource.Canvas)
     layoutMutations.moveReroute(
       this.id,
-      { x: this.posInternal[0], y: this.posInternal[1] },
-      previousPos
+      [this.posInternal[0], this.posInternal[1]]
     )
   }
 

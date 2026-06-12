@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 /**
  * Temporary workaround until downstream consumers migrate to Map.
  * A brittle wrapper with many flaws, but should be fine for simple maps using int indexes.

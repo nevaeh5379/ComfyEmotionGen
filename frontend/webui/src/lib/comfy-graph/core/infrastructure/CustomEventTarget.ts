@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { NeverNever, PickNevers } from '../types/utility'
 
 type EventListeners<T> = {

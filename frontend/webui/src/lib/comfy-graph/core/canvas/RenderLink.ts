@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { CustomEventTarget } from '../infrastructure/CustomEventTarget'
 import type { LinkConnectorEventMap } from '../infrastructure/LinkConnectorEventMap'

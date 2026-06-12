@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 /**
  * Error thrown when infinite recursion is detected.
  */

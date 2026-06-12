@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { toString } from 'es-toolkit/compat'
 
 import {
@@ -21,7 +21,7 @@ import { useWidgetValueStore } from './external/widgetStores'
 // TODO: CEG port - replaced import: @/stores/widgetValueStore
 // import { useWidgetValueStore } from '@/stores/widgetValueStore'
 // TODO: CEG port - removed import: @/utils/graphTraversalUtil
-// import { forEachNode } from '@/utils/graphTraversalUtil'
+import { forEachNode } from './utils/graphTraversalUtil'
 
 import {
   groupLinksByTuple,
@@ -365,7 +365,6 @@ export class LGraph
     node: LGraphNode
   ): void
 
-  // @ts-expect-error - Private property type needs fixing
   private _input_nodes?: LGraphNode[]
 
   /**

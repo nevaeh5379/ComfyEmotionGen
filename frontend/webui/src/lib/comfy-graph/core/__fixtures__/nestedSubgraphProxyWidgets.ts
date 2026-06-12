@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { SerialisableGraph } from '../types/serialisation'
 
 /**

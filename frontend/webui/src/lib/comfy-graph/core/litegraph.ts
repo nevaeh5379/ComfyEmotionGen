@@ -1,7 +1,13 @@
-// @ts-nocheck
-import type { ContextMenu } from './ContextMenu'
-import type { LGraphNode } from './LGraphNode'
 import { LiteGraphGlobal } from './LiteGraphGlobal'
+import { ContextMenu } from './ContextMenu'
+import { CurveEditor } from './CurveEditor'
+import { DragAndScale } from './DragAndScale'
+import { LGraph } from './LGraph'
+import { LGraphCanvas } from './LGraphCanvas'
+import { LGraphGroup } from './LGraphGroup'
+import { LGraphNode } from './LGraphNode'
+import { LLink } from './LLink'
+import { Reroute } from './Reroute'
 import type {
   ConnectingLink,
   IContextMenuOptions,
@@ -16,6 +22,17 @@ import type { RenderShape, TitleMode } from './types/globalEnums'
 export { Subgraph } from './subgraph/Subgraph'
 
 export const LiteGraph = new LiteGraphGlobal()
+
+// 런타임 클래스 바인딩 (지연 바인딩 패턴)
+LiteGraph.LGraph = LGraph
+LiteGraph.LLink = LLink
+LiteGraph.LGraphNode = LGraphNode
+LiteGraph.LGraphGroup = LGraphGroup
+LiteGraph.DragAndScale = DragAndScale
+LiteGraph.LGraphCanvas = LGraphCanvas
+LiteGraph.ContextMenu = ContextMenu
+LiteGraph.CurveEditor = CurveEditor
+LiteGraph.Reroute = Reroute
 
 // Load legacy polyfills
 loadPolyfills()

@@ -1,0 +1,372 @@
+
+> ceg-webui@0.0.1 typecheck
+> tsc -p tsconfig.app.json --noEmit
+
+src/lib/comfy-graph/core/CurveEditor.ts(49,5): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraph.ts(368,3): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraph.ts(398,44): error TS2554: Expected 0 arguments, but got 1.
+src/lib/comfy-graph/core/LGraph.ts(399,40): error TS2554: Expected 0 arguments, but got 1.
+src/lib/comfy-graph/core/LGraph.ts(1039,7): error TS2304: Cannot find name 'forEachNode'.
+src/lib/comfy-graph/core/LGraph.ts(1039,35): error TS7006: Parameter 'innerNode' implicitly has an 'any' type.
+src/lib/comfy-graph/core/LGraph.ts(1118,9): error TS2304: Cannot find name 'forEachNode'.
+src/lib/comfy-graph/core/LGraph.ts(1118,37): error TS7006: Parameter 'innerNode' implicitly has an 'any' type.
+src/lib/comfy-graph/core/LGraph.ts(1539,7): error TS2554: Expected 2 arguments, but got 4.
+src/lib/comfy-graph/core/LGraph.ts(1692,52): error TS2339: Property 'convertToNodes' does not exist on type 'LGraphNode'.
+src/lib/comfy-graph/core/LGraph.ts(1694,33): error TS2339: Property 'convertToNodes' does not exist on type 'LGraphNode'.
+src/lib/comfy-graph/core/LGraph.ts(1784,45): error TS2339: Property 'onGraphConfigured' does not exist on type 'LGraphNode | SubgraphNode'.
+  Property 'onGraphConfigured' does not exist on type 'LGraphNode'.
+src/lib/comfy-graph/core/LGraph.ts(1785,45): error TS2339: Property 'onAfterGraphConfigured' does not exist on type 'LGraphNode | SubgraphNode'.
+  Property 'onAfterGraphConfigured' does not exist on type 'LGraphNode'.
+src/lib/comfy-graph/core/LGraph.ts(2374,11): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphCanvas.ts(2002,9): error TS2304: Cannot find name 'isMiddleButtonEvent'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(2328,16): error TS2304: Cannot find name 'isMiddleButtonEvent'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(2925,68): error TS2339: Property 'onClick' does not exist on type 'LGraphBadge | (() => LGraphBadge)'.
+  Property 'onClick' does not exist on type '() => LGraphBadge'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(2926,44): error TS2339: Property 'boundingRect' does not exist on type 'LGraphBadge | (() => LGraphBadge)'.
+  Property 'boundingRect' does not exist on type '() => LGraphBadge'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(2927,35): error TS2339: Property 'onClick' does not exist on type 'LGraphBadge | (() => LGraphBadge)'.
+  Property 'onClick' does not exist on type '() => LGraphBadge'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(3439,27): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(3456,25): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(3483,23): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(3879,16): error TS2304: Cannot find name 'isMiddleButtonEvent'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(4332,52): error TS2304: Cannot find name 'LayoutSource'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(4341,31): error TS2304: Cannot find name 'useLayoutMutations'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(4347,5): error TS2304: Cannot find name 'forEachNode'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(4347,25): error TS7006: Parameter 'n' implicitly has an 'any' type.
+src/lib/comfy-graph/core/LGraphCanvas.ts(4348,5): error TS2304: Cannot find name 'forEachNode'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(4348,25): error TS7006: Parameter 'n' implicitly has an 'any' type.
+src/lib/comfy-graph/core/LGraphCanvas.ts(5227,27): error TS2339: Property 'renderDraggingLink' does not exist on type 'LitegraphLinkAdapter'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6055,13): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6067,17): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6099,15): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6126,13): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6225,13): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6246,13): error TS2304: Cannot find name 'getSlotPosition'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6420,37): error TS2304: Cannot find name 'LinkRenderContext'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(6487,25): error TS2339: Property 'renderLinkDirect' does not exist on type 'LitegraphLinkAdapter'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(9121,3): error TS2304: Cannot find name 'forEachNode'.
+src/lib/comfy-graph/core/LGraphCanvas.ts(9121,27): error TS7006: Parameter 'node' implicitly has an 'any' type.
+src/lib/comfy-graph/core/LGraphNode.ts(109,15): error TS2552: Cannot find name 'NodeId'. Did you mean 'Node'?
+src/lib/comfy-graph/core/LGraphNode.ts(285,7): error TS2552: Cannot find name 'NodeId'. Did you mean 'Node'?
+src/lib/comfy-graph/core/LGraphNode.ts(972,7): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(1030,5): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(1426,7): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(1429,7): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(1436,9): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(1460,7): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(1463,7): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(1469,9): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/LGraphNode.ts(2008,23): error TS2345: Argument of type 'TPlainWidget | WidgetTypeMap[TPlainWidget["type"]]' is not assignable to parameter of type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+  Type 'WidgetTypeMap[TPlainWidget["type"]]' is not assignable to type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+    Type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>' is not assignable to type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+      Index signature for type 'symbol' is missing in type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>'.
+src/lib/comfy-graph/core/LGraphNode.ts(2055,12): error TS2339: Property 'onRemove' does not exist on type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+src/lib/comfy-graph/core/LGraphNode.ts(2164,66): error TS2339: Property 'onClick' does not exist on type 'LGraphBadge | (() => LGraphBadge)'.
+  Property 'onClick' does not exist on type '() => LGraphBadge'.
+src/lib/comfy-graph/core/LGraphNode.ts(2165,60): error TS2339: Property 'boundingRect' does not exist on type 'LGraphBadge | (() => LGraphBadge)'.
+  Property 'boundingRect' does not exist on type '() => LGraphBadge'.
+src/lib/comfy-graph/core/LGraphNode.ts(3134,37): error TS18048: 'link_info' is possibly 'undefined'.
+src/lib/comfy-graph/core/LGraphNode.ts(3141,24): error TS18048: 'link_info' is possibly 'undefined'.
+src/lib/comfy-graph/core/LGraphNode.ts(3143,21): error TS18048: 'link_info' is possibly 'undefined'.
+src/lib/comfy-graph/core/LGraphNode.ts(3148,9): error TS18048: 'link_info' is possibly 'undefined'.
+src/lib/comfy-graph/core/LGraphNode.ts(3154,11): error TS18048: 'link_info' is possibly 'undefined'.
+src/lib/comfy-graph/core/LGraphNode.ts(3421,7): error TS2353: Object literal may only specify known properties, and 'nodeWidth' does not exist in type 'SlotPositionContext'.
+src/lib/comfy-graph/core/Reroute.ts(429,7): error TS2554: Expected 2 arguments, but got 3.
+src/lib/comfy-graph/core/__fixtures__/testExtensions.ts(3,34): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+src/lib/comfy-graph/core/__fixtures__/testExtensions.ts(29,28): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/__fixtures__/testExtensions.ts(44,35): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/__fixtures__/testExtensions.ts(52,36): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/canvas/FloatingRenderLink.ts(201,5): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/canvas/FloatingRenderLink.ts(218,5): error TS2578: Unused '@ts-expect-error' directive.
+src/lib/comfy-graph/core/canvas/InputIndicators.ts(77,23): error TS2304: Cannot find name 'isMiddleButtonHeld'.
+src/lib/comfy-graph/core/node/NodeSlot.ts(186,21): error TS2304: Cannot find name 'MAX_MULTITYPE_SLICES'.
+src/lib/comfy-graph/core/subgraph/PromotedWidgetViewManager.ts(5,25): error TS2304: Cannot find name 'PromotedWidgetSource'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(72,29): error TS2304: Cannot find name 'PromotedWidgetSource'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(101,35): error TS2304: Cannot find name 'PromotedWidgetView'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(109,12): error TS2304: Cannot find name 'PromotedWidgetView'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(116,6): error TS2304: Cannot find name 'PromotedWidgetSource'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(213,32): error TS2304: Cannot find name 'PromotedWidgetView'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(249,11): error TS2554: Expected 4 arguments, but got 5.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(629,37): error TS2339: Property 'hydrateHostValue' does not exist on type 'PromotedWidgetView'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(636,7): error TS2304: Cannot find name 'parseProxyWidgetErrorQuarantine'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(640,37): error TS7031: Binding element 'sourceNodeId' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(640,51): error TS7031: Binding element 'name' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(640,58): error TS7031: Binding element 'hostValue' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(679,26): error TS2304: Cannot find name 'parsePreviewExposures'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(681,13): error TS2339: Property 'setExposures' does not exist on type '{ clearGraph: () => void; expose: (widgetId: string) => void; unexpose: (widgetId: string) => void; isExposed: (widgetId: string) => boolean; }'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(685,13): error TS2339: Property 'setExposures' does not exist on type '{ clearGraph: () => void; expose: (widgetId: string) => void; unexpose: (widgetId: string) => void; isExposed: (widgetId: string) => boolean; }'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(688,23): error TS2304: Cannot find name 'createNodeLocatorId'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(689,26): error TS2339: Property 'getExposures' does not exist on type '{ clearGraph: () => void; expose: (widgetId: string) => void; unexpose: (widgetId: string) => void; isExposed: (widgetId: string) => boolean; }'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(691,13): error TS2339: Property 'setExposures' does not exist on type '{ clearGraph: () => void; expose: (widgetId: string) => void; unexpose: (widgetId: string) => void; isExposed: (widgetId: string) => boolean; }'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(694,11): error TS2339: Property 'setExposures' does not exist on type '{ clearGraph: () => void; expose: (widgetId: string) => void; unexpose: (widgetId: string) => void; isExposed: (widgetId: string) => boolean; }'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(785,11): error TS2554: Expected 4 arguments, but got 5.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(891,12): error TS4113: This member cannot have an 'override' modifier because it is not declared in the base class 'LGraphNode'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(943,42): error TS2304: Cannot find name 'PromotedWidgetView'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(944,22): error TS2304: Cannot find name 'resolveConcretePromotedWidget'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(957,27): error TS2339: Property 'clearPositionOverride' does not exist on type '{ clearGraph: () => void; registerWidget: (id: string, widget: unknown) => void; unregisterWidget: (id: string) => void; }'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(961,37): error TS2304: Cannot find name 'PromotedWidgetView'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(1068,56): error TS2339: Property 'getExposures' does not exist on type '{ clearGraph: () => void; expose: (widgetId: string) => void; unexpose: (widgetId: string) => void; isExposed: (widgetId: string) => boolean; }'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(1072,67): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(1076,24): error TS2304: Cannot find name 'parseProxyWidgetErrorQuarantine'.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(1083,10): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/SubgraphNode.ts(1106,21): error TS2304: Cannot find name 'readWidgetValue'.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(10,36): error TS2307: Cannot find module '@pinia/testing' or its corresponding type declarations.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(11,32): error TS2307: Cannot find module 'pinia' or its corresponding type declarations.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(24,16): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(83,29): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(94,30): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(105,31): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(123,30): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(134,32): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphFixtures.ts(158,28): error TS7006: Parameter 'use' implicitly has an 'any' type.
+src/lib/comfy-graph/core/subgraph/__fixtures__/subgraphHelpers.ts(9,24): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+src/lib/comfy-graph/core/types/widgets.ts(329,55): error TS2304: Cannot find name 'Bounds'.
+src/lib/comfy-graph/core/types/widgets.ts(331,10): error TS2304: Cannot find name 'Bounds'.
+src/lib/comfy-graph/core/types/widgets.ts(335,57): error TS2304: Cannot find name 'Bounds'.
+src/lib/comfy-graph/core/types/widgets.ts(337,10): error TS2304: Cannot find name 'Bounds'.
+src/lib/comfy-graph/core/types/widgets.ts(340,51): error TS2304: Cannot find name 'CurveData'.
+src/lib/comfy-graph/core/types/widgets.ts(342,10): error TS2304: Cannot find name 'CurveData'.
+src/lib/comfy-graph/core/types/widgets.ts(406,23): error TS2304: Cannot find name 'WidgetEntityId'.
+src/lib/comfy-graph/core/widgets/AssetWidget.ts(8,14): error TS2420: Class 'AssetWidget' incorrectly implements interface 'IAssetWidget'.
+  Index signature for type 'symbol' is missing in type 'AssetWidget'.
+src/lib/comfy-graph/core/widgets/AssetWidget.ts(58,28): error TS2345: Argument of type 'this' is not assignable to parameter of type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+  Type 'AssetWidget' is not assignable to type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+    Index signature for type 'symbol' is missing in type 'AssetWidget'.
+src/lib/comfy-graph/core/widgets/BaseWidget.ts(56,23): error TS2420: Class 'BaseWidget<TWidget>' incorrectly implements interface 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+  Index signature for type 'symbol' is missing in type 'BaseWidget<TWidget>'.
+src/lib/comfy-graph/core/widgets/BaseWidget.ts(95,24): error TS2304: Cannot find name 'WidgetState'.
+src/lib/comfy-graph/core/widgets/BaseWidget.ts(96,18): error TS2304: Cannot find name 'WidgetState'.
+src/lib/comfy-graph/core/widgets/BaseWidget.ts(142,19): error TS2304: Cannot find name 'WidgetEntityId'.
+src/lib/comfy-graph/core/widgets/BaseWidget.ts(146,12): error TS2304: Cannot find name 'widgetEntityId'.
+src/lib/comfy-graph/core/widgets/BaseWidget.ts(332,20): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/BaseWidget.ts(441,58): error TS2345: Argument of type 'this' is not assignable to parameter of type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+  Type 'BaseWidget<TWidget>' is not assignable to type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+    Index signature for type 'symbol' is missing in type 'BaseWidget<TWidget>'.
+src/lib/comfy-graph/core/widgets/BooleanWidget.ts(7,14): error TS2420: Class 'BooleanWidget' incorrectly implements interface 'IBooleanWidget'.
+  Index signature for type 'symbol' is missing in type 'BooleanWidget'.
+src/lib/comfy-graph/core/widgets/BoundingBoxWidget.ts(10,14): error TS2420: Class 'BoundingBoxWidget' incorrectly implements interface 'IBoundingBoxWidget'.
+  Index signature for type 'symbol' is missing in type 'BoundingBoxWidget'.
+src/lib/comfy-graph/core/widgets/ButtonWidget.ts(8,14): error TS2420: Class 'ButtonWidget' incorrectly implements interface 'IButtonWidget'.
+  Index signature for type 'symbol' is missing in type 'ButtonWidget'.
+src/lib/comfy-graph/core/widgets/ChartWidget.ts(13,14): error TS2420: Class 'ChartWidget' incorrectly implements interface 'IChartWidget'.
+  Index signature for type 'symbol' is missing in type 'ChartWidget'.
+src/lib/comfy-graph/core/widgets/ChartWidget.ts(36,28): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/ColorWidget.ts(26,14): error TS2420: Class 'ColorWidget' incorrectly implements interface 'IColorWidget'.
+  Index signature for type 'symbol' is missing in type 'ColorWidget'.
+src/lib/comfy-graph/core/widgets/ComboWidget.ts(30,14): error TS2420: Class 'ComboWidget' incorrectly implements interface 'IComboWidget'.
+  Index signature for type 'symbol' is missing in type 'ComboWidget'.
+src/lib/comfy-graph/core/widgets/ComboWidget.ts(64,50): error TS2345: Argument of type 'this' is not assignable to parameter of type 'IComboWidget | undefined'.
+  Type 'ComboWidget' is not assignable to type 'IComboWidget'.
+    Index signature for type 'symbol' is missing in type 'ComboWidget'.
+      Type 'this' is not assignable to type 'IComboWidget'.
+        Type 'ComboWidget' is not assignable to type 'IComboWidget'.
+          Index signature for type 'symbol' is missing in type 'ComboWidget'.
+src/lib/comfy-graph/core/widgets/CurveWidget.ts(6,14): error TS2420: Class 'CurveWidget' incorrectly implements interface 'ICurveWidget'.
+  Index signature for type 'symbol' is missing in type 'CurveWidget'.
+src/lib/comfy-graph/core/widgets/FileUploadWidget.ts(13,14): error TS2420: Class 'FileUploadWidget' incorrectly implements interface 'IFileUploadWidget'.
+  Index signature for type 'symbol' is missing in type 'FileUploadWidget'.
+src/lib/comfy-graph/core/widgets/FileUploadWidget.ts(36,33): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/GalleriaWidget.ts(13,14): error TS2420: Class 'GalleriaWidget' incorrectly implements interface 'IGalleriaWidget'.
+  Index signature for type 'symbol' is missing in type 'GalleriaWidget'.
+src/lib/comfy-graph/core/widgets/GalleriaWidget.ts(36,31): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/GradientSliderWidget.ts(9,14): error TS2420: Class 'GradientSliderWidget' incorrectly implements interface 'IGradientSliderWidget'.
+  Index signature for type 'symbol' is missing in type 'GradientSliderWidget'.
+src/lib/comfy-graph/core/widgets/ImageCompareWidget.ts(13,14): error TS2420: Class 'ImageCompareWidget' incorrectly implements interface 'IImageCompareWidget'.
+  Index signature for type 'symbol' is missing in type 'ImageCompareWidget'.
+src/lib/comfy-graph/core/widgets/ImageCompareWidget.ts(36,35): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/ImageCropWidget.ts(10,14): error TS2420: Class 'ImageCropWidget' incorrectly implements interface 'IImageCropWidget'.
+  Index signature for type 'symbol' is missing in type 'ImageCropWidget'.
+src/lib/comfy-graph/core/widgets/KnobWidget.ts(10,14): error TS2420: Class 'KnobWidget' incorrectly implements interface 'IKnobWidget'.
+  Index signature for type 'symbol' is missing in type 'KnobWidget'.
+src/lib/comfy-graph/core/widgets/LegacyWidget.ts(15,14): error TS2420: Class 'LegacyWidget<TWidget>' incorrectly implements interface 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+  Index signature for type 'symbol' is missing in type 'LegacyWidget<TWidget>'.
+src/lib/comfy-graph/core/widgets/LegacyWidget.ts(19,12): error TS4113: This member cannot have an 'override' modifier because it is not declared in the base class 'BaseWidget<TWidget>'.
+src/lib/comfy-graph/core/widgets/MarkdownWidget.ts(13,14): error TS2420: Class 'MarkdownWidget' incorrectly implements interface 'IMarkdownWidget'.
+  Index signature for type 'symbol' is missing in type 'MarkdownWidget'.
+src/lib/comfy-graph/core/widgets/MarkdownWidget.ts(36,31): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/MultiSelectWidget.ts(13,14): error TS2420: Class 'MultiSelectWidget' incorrectly implements interface 'IMultiSelectWidget'.
+  Index signature for type 'symbol' is missing in type 'MultiSelectWidget'.
+src/lib/comfy-graph/core/widgets/MultiSelectWidget.ts(36,34): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/NumberWidget.ts(8,14): error TS2420: Class 'NumberWidget' incorrectly implements interface 'INumericWidget'.
+  Index signature for type 'symbol' is missing in type 'NumberWidget'.
+src/lib/comfy-graph/core/widgets/PainterWidget.ts(10,14): error TS2420: Class 'PainterWidget' incorrectly implements interface 'IPainterWidget'.
+  Index signature for type 'symbol' is missing in type 'PainterWidget'.
+src/lib/comfy-graph/core/widgets/RangeWidget.ts(6,14): error TS2420: Class 'RangeWidget' incorrectly implements interface 'IRangeWidget'.
+  Index signature for type 'symbol' is missing in type 'RangeWidget'.
+src/lib/comfy-graph/core/widgets/SelectButtonWidget.ts(13,14): error TS2420: Class 'SelectButtonWidget' incorrectly implements interface 'ISelectButtonWidget'.
+  Index signature for type 'symbol' is missing in type 'SelectButtonWidget'.
+src/lib/comfy-graph/core/widgets/SelectButtonWidget.ts(36,35): error TS2304: Cannot find name 't'.
+src/lib/comfy-graph/core/widgets/SliderWidget.ts(9,14): error TS2420: Class 'SliderWidget' incorrectly implements interface 'ISliderWidget'.
+  Index signature for type 'symbol' is missing in type 'SliderWidget'.
+src/lib/comfy-graph/core/widgets/TextWidget.ts(8,14): error TS2420: Class 'TextWidget' incorrectly implements interface 'IStringWidget'.
+  Index signature for type 'symbol' is missing in type 'TextWidget'.
+src/lib/comfy-graph/core/widgets/TextareaWidget.ts(10,14): error TS2420: Class 'TextareaWidget' incorrectly implements interface 'ITextareaWidget'.
+  Index signature for type 'symbol' is missing in type 'TextareaWidget'.
+src/lib/comfy-graph/core/widgets/TreeSelectWidget.ts(10,14): error TS2420: Class 'TreeSelectWidget' incorrectly implements interface 'ITreeSelectWidget'.
+  Index signature for type 'symbol' is missing in type 'TreeSelectWidget'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(99,7): error TS2322: Type 'IButtonWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IButtonWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(99,22): error TS2345: Argument of type 'typeof ButtonWidget' is not assignable to parameter of type 'new (instance: IButtonWidget, args_0: LGraphNode) => IButtonWidget'.
+  Types of construct signatures are incompatible.
+    Type 'new (widget: IButtonWidget, node: LGraphNode) => ButtonWidget' is not assignable to type 'new (instance: IButtonWidget, args_0: LGraphNode) => IButtonWidget'.
+      Type 'ButtonWidget' is not assignable to type 'IButtonWidget'.
+        Index signature for type 'symbol' is missing in type 'ButtonWidget'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(101,7): error TS2322: Type 'IBooleanWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IBooleanWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(101,22): error TS2345: Argument of type 'typeof BooleanWidget' is not assignable to parameter of type 'new (instance: IBooleanWidget, args_0: LGraphNode) => IBooleanWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IBooleanWidget' is not assignable to type 'IBooleanWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IBooleanWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(103,7): error TS2322: Type 'ISliderWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'ISliderWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(103,22): error TS2345: Argument of type 'typeof SliderWidget' is not assignable to parameter of type 'new (instance: ISliderWidget, args_0: LGraphNode) => ISliderWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'ISliderWidget' is not assignable to type 'ISliderWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'ISliderWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(105,7): error TS2322: Type 'IGradientSliderWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IGradientSliderWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(105,22): error TS2345: Argument of type 'typeof GradientSliderWidget' is not assignable to parameter of type 'new (instance: IGradientSliderWidget, args_0: LGraphNode) => IGradientSliderWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IGradientSliderWidget' is not assignable to type 'IGradientSliderWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IGradientSliderWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(107,7): error TS2322: Type 'IKnobWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IKnobWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(107,22): error TS2345: Argument of type 'typeof KnobWidget' is not assignable to parameter of type 'new (instance: IKnobWidget, args_0: LGraphNode) => IKnobWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IKnobWidget' is not assignable to type 'IKnobWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IKnobWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(109,7): error TS2322: Type 'IComboWidget | IStringComboWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]] | undefined'.
+  Type 'IComboWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+    Type 'IComboWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(109,22): error TS2345: Argument of type 'typeof ComboWidget' is not assignable to parameter of type 'new (instance: IComboWidget | IStringComboWidget, args_0: LGraphNode) => IComboWidget | IStringComboWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IComboWidget | IStringComboWidget' is not assignable to type '(IComboWidget | IStringComboWidget) & { node: LGraphNode; }'.
+      Type 'IComboWidget' is not assignable to type '(IComboWidget | IStringComboWidget) & { node: LGraphNode; }'.
+        Type 'IComboWidget' is not assignable to type 'IStringComboWidget & { node: LGraphNode; }'.
+          Type 'IComboWidget' is not assignable to type 'IStringComboWidget'.
+            Types of property 'value' are incompatible.
+              Type 'string | number' is not assignable to type 'string'.
+                Type 'number' is not assignable to type 'string'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(111,7): error TS2322: Type 'INumericWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'INumericWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(111,22): error TS2345: Argument of type 'typeof NumberWidget' is not assignable to parameter of type 'new (instance: INumericWidget, args_0: LGraphNode) => INumericWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'INumericWidget' is not assignable to type 'INumericWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'INumericWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(113,7): error TS2322: Type 'IStringWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IStringWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(113,22): error TS2345: Argument of type 'typeof TextWidget' is not assignable to parameter of type 'new (instance: IStringWidget, args_0: LGraphNode) => IStringWidget'.
+  Types of construct signatures are incompatible.
+    Type 'new (widget: IStringWidget, node: LGraphNode) => TextWidget' is not assignable to type 'new (instance: IStringWidget, args_0: LGraphNode) => IStringWidget'.
+      Type 'TextWidget' is not assignable to type 'IStringWidget'.
+        Index signature for type 'symbol' is missing in type 'TextWidget'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(115,7): error TS2322: Type 'IStringWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IStringWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(115,22): error TS2345: Argument of type 'typeof TextWidget' is not assignable to parameter of type 'new (instance: IStringWidget, args_0: LGraphNode) => IStringWidget'.
+  Types of construct signatures are incompatible.
+    Type 'new (widget: IStringWidget, node: LGraphNode) => TextWidget' is not assignable to type 'new (instance: IStringWidget, args_0: LGraphNode) => IStringWidget'.
+      Type 'TextWidget' is not assignable to type 'IStringWidget'.
+        Index signature for type 'symbol' is missing in type 'TextWidget'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(117,7): error TS2322: Type 'IFileUploadWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IFileUploadWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(117,22): error TS2345: Argument of type 'typeof FileUploadWidget' is not assignable to parameter of type 'new (instance: IFileUploadWidget, args_0: LGraphNode) => IFileUploadWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IFileUploadWidget' is not assignable to type 'IFileUploadWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IFileUploadWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(119,7): error TS2322: Type 'IColorWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IColorWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(119,22): error TS2345: Argument of type 'typeof ColorWidget' is not assignable to parameter of type 'new (instance: IColorWidget, args_0: LGraphNode) => IColorWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IColorWidget' is not assignable to type 'IColorWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IColorWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(121,7): error TS2322: Type 'IMarkdownWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IMarkdownWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(121,22): error TS2345: Argument of type 'typeof MarkdownWidget' is not assignable to parameter of type 'new (instance: IMarkdownWidget, args_0: LGraphNode) => IMarkdownWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IMarkdownWidget' is not assignable to type 'IMarkdownWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IMarkdownWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(123,7): error TS2322: Type 'ITreeSelectWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'ITreeSelectWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(123,22): error TS2345: Argument of type 'typeof TreeSelectWidget' is not assignable to parameter of type 'new (instance: ITreeSelectWidget, args_0: LGraphNode) => ITreeSelectWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'ITreeSelectWidget' is not assignable to type 'ITreeSelectWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'ITreeSelectWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(125,7): error TS2322: Type 'IMultiSelectWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IMultiSelectWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(125,22): error TS2345: Argument of type 'typeof MultiSelectWidget' is not assignable to parameter of type 'new (instance: IMultiSelectWidget, args_0: LGraphNode) => IMultiSelectWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IMultiSelectWidget' is not assignable to type 'IMultiSelectWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IMultiSelectWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(127,7): error TS2322: Type 'IChartWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IChartWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(127,22): error TS2345: Argument of type 'typeof ChartWidget' is not assignable to parameter of type 'new (instance: IChartWidget, args_0: LGraphNode) => IChartWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IChartWidget' is not assignable to type 'IChartWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IChartWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(129,7): error TS2322: Type 'IGalleriaWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IGalleriaWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(129,22): error TS2345: Argument of type 'typeof GalleriaWidget' is not assignable to parameter of type 'new (instance: IGalleriaWidget, args_0: LGraphNode) => IGalleriaWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IGalleriaWidget' is not assignable to type 'IGalleriaWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IGalleriaWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(131,7): error TS2322: Type 'IImageCompareWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IImageCompareWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(131,22): error TS2345: Argument of type 'typeof ImageCompareWidget' is not assignable to parameter of type 'new (instance: IImageCompareWidget, args_0: LGraphNode) => IImageCompareWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IImageCompareWidget' is not assignable to type 'IImageCompareWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IImageCompareWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(133,7): error TS2322: Type 'ISelectButtonWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'ISelectButtonWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(133,22): error TS2345: Argument of type 'typeof SelectButtonWidget' is not assignable to parameter of type 'new (instance: ISelectButtonWidget, args_0: LGraphNode) => ISelectButtonWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'ISelectButtonWidget' is not assignable to type 'ISelectButtonWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'ISelectButtonWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(135,7): error TS2322: Type 'ITextareaWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'ITextareaWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(135,22): error TS2345: Argument of type 'typeof TextareaWidget' is not assignable to parameter of type 'new (instance: ITextareaWidget, args_0: LGraphNode) => ITextareaWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'ITextareaWidget' is not assignable to type 'ITextareaWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'ITextareaWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(137,7): error TS2322: Type 'IAssetWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IAssetWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(137,22): error TS2345: Argument of type 'typeof AssetWidget' is not assignable to parameter of type 'new (instance: IAssetWidget, args_0: LGraphNode) => IAssetWidget'.
+  Types of construct signatures are incompatible.
+    Type 'new (widget: IAssetWidget, node: LGraphNode) => AssetWidget' is not assignable to type 'new (instance: IAssetWidget, args_0: LGraphNode) => IAssetWidget'.
+      Type 'AssetWidget' is not assignable to type 'IAssetWidget'.
+        Index signature for type 'symbol' is missing in type 'AssetWidget'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(139,7): error TS2322: Type 'IImageCropWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IImageCropWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(139,22): error TS2345: Argument of type 'typeof ImageCropWidget' is not assignable to parameter of type 'new (instance: IImageCropWidget, args_0: LGraphNode) => IImageCropWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IImageCropWidget' is not assignable to type 'IImageCropWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IImageCropWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(141,7): error TS2322: Type 'IBoundingBoxWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IBoundingBoxWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(141,22): error TS2345: Argument of type 'typeof BoundingBoxWidget' is not assignable to parameter of type 'new (instance: IBoundingBoxWidget, args_0: LGraphNode) => IBoundingBoxWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IBoundingBoxWidget' is not assignable to type 'IBoundingBoxWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IBoundingBoxWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(143,7): error TS2322: Type 'ICurveWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'ICurveWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(143,22): error TS2345: Argument of type 'typeof CurveWidget' is not assignable to parameter of type 'new (instance: ICurveWidget, args_0: LGraphNode) => ICurveWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'ICurveWidget' is not assignable to type 'ICurveWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'ICurveWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(145,7): error TS2322: Type 'IPainterWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IPainterWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(145,22): error TS2345: Argument of type 'typeof PainterWidget' is not assignable to parameter of type 'new (instance: IPainterWidget, args_0: LGraphNode) => IPainterWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IPainterWidget' is not assignable to type 'IPainterWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IPainterWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(147,7): error TS2322: Type 'IRangeWidget' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IRangeWidget' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(147,22): error TS2345: Argument of type 'typeof RangeWidget' is not assignable to parameter of type 'new (instance: IRangeWidget, args_0: LGraphNode) => IRangeWidget'.
+  Types of parameters 'widget' and 'instance' are incompatible.
+    Type 'IRangeWidget' is not assignable to type 'IRangeWidget & { node: LGraphNode; }'.
+      Property 'node' is missing in type 'IRangeWidget' but required in type '{ node: LGraphNode; }'.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(149,30): error TS2322: Type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>' is not assignable to type 'WidgetTypeMap[TWidget["type"]]'.
+  Type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>' is missing the following properties from type 'BaseWidget<IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>>': _node, node, _state, setNodeId, and 17 more.
+src/lib/comfy-graph/core/widgets/widgetMap.ts(149,45): error TS2345: Argument of type 'typeof LegacyWidget' is not assignable to parameter of type 'new (instance: IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>, args_0: LGraphNode) => IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<...>>'.
+  Type 'LegacyWidget<any>' is not assignable to type 'IBaseWidget<string | number | boolean | object | undefined, string, IWidgetOptions<unknown>>'.
+    Index signature for type 'symbol' is missing in type 'LegacyWidget<any>'.

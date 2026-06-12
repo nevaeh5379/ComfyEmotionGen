@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { INumericWidget } from '../types/widgets'
 import { evaluateInput, getWidgetStep } from '../utils/widget'
 

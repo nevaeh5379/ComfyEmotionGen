@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { ISerialisedGraph } from '../../types/serialisation'
 
 export const subgraphComplexPromotion1 = {

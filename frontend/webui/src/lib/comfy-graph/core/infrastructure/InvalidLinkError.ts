@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 export class InvalidLinkError extends Error {
   constructor(
     message: string = 'Attempted to access a link that was invalid.',

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { Point, ReadOnlyRect, Rect } from './interfaces'
 import { EaseFunction, Rectangle } from './litegraph'
 

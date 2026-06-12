@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { IStringWidget } from '../types/widgets'
 

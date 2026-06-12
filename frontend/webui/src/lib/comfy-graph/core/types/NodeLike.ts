@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { NodeId } from '../LGraphNode'
 import type {
   INodeInputSlot,

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { Subgraph } from '../subgraph/Subgraph'
 import type { SubgraphInput } from '../subgraph/SubgraphInput'
 import type { SubgraphNode } from '../subgraph/SubgraphNode'

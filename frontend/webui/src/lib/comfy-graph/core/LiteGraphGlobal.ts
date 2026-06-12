@@ -1,13 +1,12 @@
-// @ts-nocheck
-import { ContextMenu } from './ContextMenu'
-import { CurveEditor } from './CurveEditor'
-import { DragAndScale } from './DragAndScale'
-import { LGraph } from './LGraph'
-import { LGraphCanvas } from './LGraphCanvas'
-import { LGraphGroup } from './LGraphGroup'
-import { LGraphNode } from './LGraphNode'
-import { LLink } from './LLink'
-import { Reroute } from './Reroute'
+import type { ContextMenu } from './ContextMenu'
+import type { CurveEditor } from './CurveEditor'
+import type { DragAndScale } from './DragAndScale'
+import type { LGraph } from './LGraph'
+import type { LGraphCanvas } from './LGraphCanvas'
+import type { LGraphGroup } from './LGraphGroup'
+import type { LGraphNode } from './LGraphNode'
+import type { LLink } from './LLink'
+import type { Reroute } from './Reroute'
 import { InputIndicators } from './canvas/InputIndicators'
 import { LabelPosition, SlotDirection, SlotShape, SlotType } from './draw'
 import { Rectangle } from './infrastructure/Rectangle'
@@ -360,15 +359,15 @@ export class LiteGraphGlobal {
   nodeLightness: number | undefined = undefined
 
   // TODO: Remove legacy accessors
-  LGraph = LGraph
-  LLink = LLink
-  LGraphNode = LGraphNode
-  LGraphGroup = LGraphGroup
-  DragAndScale = DragAndScale
-  LGraphCanvas = LGraphCanvas
-  ContextMenu = ContextMenu
-  CurveEditor = CurveEditor
-  Reroute = Reroute
+  LGraph!: typeof LGraph
+  LLink!: typeof LLink
+  LGraphNode!: typeof LGraphNode
+  LGraphGroup!: typeof LGraphGroup
+  DragAndScale!: typeof DragAndScale
+  LGraphCanvas!: typeof LGraphCanvas
+  ContextMenu!: typeof ContextMenu
+  CurveEditor!: typeof CurveEditor
+  Reroute!: typeof Reroute
 
   constructor() {
     Object.defineProperty(this, 'Classes', { writable: false })
@@ -418,9 +417,9 @@ export class LiteGraphGlobal {
     base_class.title ||= classname
 
     // extend class
-    for (const i in LGraphNode.prototype) {
+    for (const i in this.LGraphNode.prototype) {
       // @ts-expect-error #576 This functionality is deprecated and should be removed.
-      base_class.prototype[i] ||= LGraphNode.prototype[i]
+      base_class.prototype[i] ||= this.LGraphNode.prototype[i]
     }
 
     const prev = this.registered_node_types[type]

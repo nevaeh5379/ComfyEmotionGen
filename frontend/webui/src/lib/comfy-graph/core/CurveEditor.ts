@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { clamp } from 'es-toolkit/compat'
 
 import type { Point, Rect } from './interfaces'
@@ -46,7 +46,6 @@ export class CurveEditor {
   draw(
     ctx: CanvasRenderingContext2D,
     size: Rect,
-    // @ts-expect-error - LGraphCanvas parameter type needs fixing
     graphcanvas?: LGraphCanvas,
     background_color?: string,
     line_color?: string,

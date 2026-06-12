@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from './LGraphNode'
 
 function isRecord(value: unknown): value is Record<string, unknown> {

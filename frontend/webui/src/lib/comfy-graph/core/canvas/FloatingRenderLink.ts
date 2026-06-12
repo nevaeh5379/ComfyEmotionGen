@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode, NodeId } from '../LGraphNode'
 import type { LLink } from '../LLink'
 import type { Reroute } from '../Reroute'
@@ -198,7 +198,6 @@ export class FloatingRenderLink implements RenderLink {
   }
 
   connectToRerouteInput(
-    // @ts-expect-error - Reroute type needs fixing
     reroute: Reroute,
     { node: inputNode, input }: { node: LGraphNode; input: INodeInputSlot },
     events: CustomEventTarget<LinkConnectorEventMap>
@@ -215,7 +214,6 @@ export class FloatingRenderLink implements RenderLink {
   }
 
   connectToRerouteOutput(
-    // @ts-expect-error - Reroute type needs fixing
     reroute: Reroute,
     outputNode: LGraphNode,
     output: INodeOutputSlot,

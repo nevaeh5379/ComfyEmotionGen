@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { LinkId } from '../LLink'
 import { LabelPosition } from '../draw'

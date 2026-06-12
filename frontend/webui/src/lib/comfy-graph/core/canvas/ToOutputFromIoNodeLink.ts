@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { Reroute } from '../Reroute'
 import type { CustomEventTarget } from '../infrastructure/CustomEventTarget'

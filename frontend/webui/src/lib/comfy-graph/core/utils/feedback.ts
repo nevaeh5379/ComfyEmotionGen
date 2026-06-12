@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { LiteGraph } from '../litegraph'
 
 /** Guard against unbound allocation. */

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { IWidgetOptions } from '../types/widgets'
 import type { UUID } from '../../utils/uuid'

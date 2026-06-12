@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 /**
  * Polyfill for disposable type; symbol already registered in modern browsers.
  */

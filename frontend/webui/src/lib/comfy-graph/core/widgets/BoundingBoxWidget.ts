@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { IBoundingBoxWidget } from '../types/widgets'
 import { BaseWidget } from './BaseWidget'
 import type { DrawWidgetOptions, WidgetEventOptions } from './BaseWidget'

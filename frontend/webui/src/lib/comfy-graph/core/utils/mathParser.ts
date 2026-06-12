@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 type Token = { type: 'number'; value: number } | { type: 'op'; value: string }
 
 function tokenize(input: string): Token[] | undefined {

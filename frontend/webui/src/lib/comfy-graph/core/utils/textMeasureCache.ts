@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 const cache = new Map<string, number>()
 
 export function cachedMeasureText(

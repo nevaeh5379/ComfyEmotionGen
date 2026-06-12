@@ -54,7 +54,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const selected = new Set<number>()
     for (const node of canvas.graph.nodes) {
       if (node.is_selected) {
-        selected.add(node.id)
+        selected.add(Number(node.id))
       }
     }
     set({ selectedNodes: selected })

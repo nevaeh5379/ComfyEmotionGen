@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode, NodeId } from './LGraphNode'
 import type { LLink, LinkId } from './LLink'
 

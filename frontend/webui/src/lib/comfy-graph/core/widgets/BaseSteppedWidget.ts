@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { IBaseWidget } from '../types/widgets'
 
 import { BaseWidget } from './BaseWidget'

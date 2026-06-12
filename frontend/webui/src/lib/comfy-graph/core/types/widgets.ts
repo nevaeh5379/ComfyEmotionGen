@@ -1,10 +1,33 @@
-// @ts-nocheck
-// TODO: CEG port - removed import: @/renderer/core/layout/types
-// import type { Bounds } from '@/renderer/core/layout/types'
-// TODO: CEG port - removed import: @/components/curve/types
-// import type { CurveData } from '@/components/curve/types'
-// TODO: CEG port - removed import: @/world/entityIds
-// import type { WidgetEntityId } from '@/world/entityIds'
+
+import type { Bounds } from '../external/layoutStore'
+export type CurveData = Point[]
+export type WidgetEntityId = string
+
+export interface RangeValue {
+  min: number
+  max: number
+  midpoint?: number
+}
+
+export interface ChartData {
+  labels?: string[]
+  datasets?: Array<{
+    label?: string
+    data?: number[]
+  }>
+}
+
+export type WidgetObjectValue =
+  | Bounds
+  | CurveData
+  | RangeValue
+  | ChartData
+  | string[]
+  | number[]
+  | boolean[]
+  | PreviewExposureEntry[]
+  | ProxyQuarantineEntry[]
+  | null
 
 import type {
   CanvasColour,
@@ -231,9 +254,9 @@ export interface IButtonWidget extends IBaseWidget<
 }
 
 /** A custom widget - accepts any value and has no built-in special handling */
-interface ICustomWidget extends IBaseWidget<string | object, 'custom'> {
+interface ICustomWidget extends IBaseWidget<string | WidgetObjectValue, 'custom'> {
   type: 'custom'
-  value: string | object
+  value: string | WidgetObjectValue
 }
 
 /** File upload widget for selecting and uploading files */
@@ -280,9 +303,9 @@ export interface IMultiSelectWidget extends IBaseWidget<
 }
 
 /** Chart widget for displaying data visualizations */
-export interface IChartWidget extends IBaseWidget<object, 'chart'> {
+export interface IChartWidget extends IBaseWidget<ChartData, 'chart'> {
   type: 'chart'
-  value: object
+  value: ChartData
 }
 
 /** Gallery widget for displaying multiple images */
@@ -347,11 +370,7 @@ export interface IPainterWidget extends IBaseWidget<string, 'painter'> {
   value: string
 }
 
-export interface RangeValue {
-  min: number
-  max: number
-  midpoint?: number
-}
+
 
 export interface IWidgetRangeOptions extends IWidgetOptions {
   display?: 'plain' | 'gradient' | 'histogram'
@@ -395,13 +414,14 @@ export function isWidgetValue(value: unknown): value is TWidgetValue {
  * @see IWidget
  */
 export interface IBaseWidget<
-  TValue = boolean | number | string | object | undefined,
+  TValue = boolean | number | string | WidgetObjectValue | undefined,
   TType extends string = string,
   TOptions extends IWidgetOptions = IWidgetOptions
 > {
   [symbol: symbol]: boolean
 
   linkedWidgets?: IBaseWidget[]
+  onRemove?: () => void
 
   readonly entityId?: WidgetEntityId
 
@@ -553,4 +573,28 @@ export interface IBaseWidget<
     node: LGraphNode,
     canvas: LGraphCanvas
   ): boolean
+}
+
+export interface WidgetState {
+  nodeId?: NodeId
+  label?: string
+  disabled?: boolean
+  value?: string | number | boolean | WidgetObjectValue
+  name?: string
+  type?: TWidgetType
+  serialize?: boolean
+  options?: IWidgetOptions
+}
+
+export interface PreviewExposureEntry {
+  name: string
+  sourceNodeId: string
+  sourcePreviewName: string
+}
+
+export interface ProxyQuarantineEntry {
+  originalEntry: [string | number, string]
+  reason: string
+  hostValue?: TWidgetValue
+  attemptedAtVersion: 1
 }

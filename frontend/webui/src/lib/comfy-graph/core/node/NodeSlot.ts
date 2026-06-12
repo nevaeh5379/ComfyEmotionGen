@@ -1,6 +1,5 @@
-// @ts-nocheck
-// TODO: CEG port - removed import: @/constants/slotColors
-// import { MAX_MULTITYPE_SLICES } from '@/constants/slotColors'
+
+const MAX_MULTITYPE_SLICES = 3
 import type { LGraphNode } from '../LGraphNode'
 import { LabelPosition, SlotShape, SlotType } from '../draw'
 import type {

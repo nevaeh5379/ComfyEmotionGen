@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { CanvasColour, ISlotType } from '../interfaces'
 import { LiteGraph } from '../litegraph'
 

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraph } from '../LGraph'
 import type { NodeId } from '../LGraphNode'
 import type { LLink, ResolvedConnection } from '../LLink'

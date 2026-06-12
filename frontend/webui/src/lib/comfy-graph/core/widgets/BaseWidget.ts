@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 // TODO: CEG port - removed import: @/i18n
 // import { t } from '@/i18n'
 import { drawTextInArea } from '../draw'
@@ -18,16 +18,19 @@ import type { CanvasPointerEvent } from '../types/events'
 import type {
   IBaseWidget,
   NodeBindable,
-  TWidgetType
+  TWidgetType,
+  WidgetObjectValue,
+  WidgetEntityId,
+  WidgetState
 } from '../types/widgets'
-// TODO: CEG port - removed import: @/stores/widgetValueStore
-// import type { WidgetState } from '@/stores/widgetValueStore'
-// TODO: CEG port - removed import: @/stores/widgetValueStore
-// import { useWidgetValueStore } from '@/stores/widgetValueStore'
-// TODO: CEG port - removed import: @/world/entityIds
-// import type { WidgetEntityId } from '@/world/entityIds'
-// TODO: CEG port - removed import: @/world/entityIds
-// import { widgetEntityId } from '@/world/entityIds'
+
+export function widgetEntityId(graphId: string | number, nodeId: string | number, widgetName: string): string {
+  return `${graphId}-${nodeId}-${widgetName}`
+}
+
+export function t(key: string): string {
+  return key
+}
 
 export interface DrawWidgetOptions {
   /** The width of the node where this widget will be displayed. */
@@ -56,6 +59,7 @@ export interface WidgetEventOptions {
 export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
   implements IBaseWidget, NodeBindable
 {
+  [symbol: symbol]: boolean
   /** From node edge to widget edge */
   static margin = 15
   /** From widget edge to tip of arrow button */

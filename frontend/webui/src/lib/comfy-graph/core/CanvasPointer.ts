@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { CompassCorners } from './interfaces'
 import { dist2 } from './measure'
 import type { CanvasPointerEvent } from './types/events'

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { LGraphBadge } from './LGraphBadge'
 import type { LGraphBadgeOptions } from './LGraphBadge'
 import { Rectangle } from './infrastructure/Rectangle'

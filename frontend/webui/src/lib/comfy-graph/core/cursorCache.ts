@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 export function createCursorCache(element: HTMLElement) {
   let lastCursor = ''
   return function setCursor(cursor: string) {

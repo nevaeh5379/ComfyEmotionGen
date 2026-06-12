@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { clamp } from 'es-toolkit/compat'
 
 import type { IKnobWidget } from '../types/widgets'

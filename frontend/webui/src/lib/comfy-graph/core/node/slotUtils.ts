@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type {
   IWidgetInputSlot,
   SharedIntersection

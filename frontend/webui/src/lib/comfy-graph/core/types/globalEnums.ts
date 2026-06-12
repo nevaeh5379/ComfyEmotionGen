@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 /** Node slot type - input or output */
 export enum NodeSlotType {
   INPUT = 1,

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 export interface LGraphIconOptions {
   unicode?: string
   fontFamily?: string

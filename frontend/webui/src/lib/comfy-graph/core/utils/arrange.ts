@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { Direction, IBoundaryNodes, NewNodePosition } from '../interfaces'
 

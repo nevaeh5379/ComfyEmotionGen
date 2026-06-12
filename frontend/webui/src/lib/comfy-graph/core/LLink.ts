@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import {
   SUBGRAPH_INPUT_ID,
   SUBGRAPH_OUTPUT_ID

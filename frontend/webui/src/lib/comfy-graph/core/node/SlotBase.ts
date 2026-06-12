@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LLink } from '../LLink'
 import { Rectangle } from '../infrastructure/Rectangle'
 import type {

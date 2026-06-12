@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 export function createBitmapCache(svg: HTMLImageElement, bitmapSize: number) {
   let bitmap: HTMLCanvasElement | null = null
 

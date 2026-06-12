@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { without } from 'es-toolkit'
 
 import type { IColorable, ISlotType } from '../interfaces'

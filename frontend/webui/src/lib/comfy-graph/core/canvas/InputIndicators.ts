@@ -1,6 +1,5 @@
-// @ts-nocheck
-// TODO: CEG port - removed import: @/base/pointerUtils
-// import { isMiddleButtonHeld } from '@/base/pointerUtils'
+
+import { isMiddleButtonHeld } from '../utils/pointerUtils'
 import type { LGraphCanvas } from '../LGraphCanvas'
 
 /**

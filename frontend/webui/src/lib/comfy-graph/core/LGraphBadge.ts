@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { ReadOnlyRect } from './interfaces'
 import { LGraphIcon } from './LGraphIcon'
 import type { LGraphIconOptions } from './LGraphIcon'

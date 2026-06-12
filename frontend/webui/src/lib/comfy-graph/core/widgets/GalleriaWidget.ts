@@ -1,6 +1,5 @@
-// @ts-nocheck
-// TODO: CEG port - removed import: @/i18n
-// import { t } from '@/i18n'
+
+import { t } from './BaseWidget'
 
 import type { IGalleriaWidget } from '../types/widgets'
 import { BaseWidget } from './BaseWidget'

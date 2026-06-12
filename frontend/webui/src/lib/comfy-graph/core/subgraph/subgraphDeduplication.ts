@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphState } from '../LGraph'
 import type { NodeId } from '../LGraphNode'
 import type {
@@ -207,7 +207,10 @@ function patchProxyWidgets(
       if (!Array.isArray(entry)) continue
       const oldId = Number(entry[0]) as NodeId
       const newId = remappedIds.get(oldId)
-      if (newId !== undefined) entry[0] = String(newId)
+      if (newId !== undefined) {
+        const entryArray = entry as (string | number)[]
+        entryArray[0] = String(newId)
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { HasBoundingRect, Point, ReadOnlyRect, Rect } from './interfaces'
 import { Alignment, LinkDirection, hasFlag } from './types/globalEnums'
 

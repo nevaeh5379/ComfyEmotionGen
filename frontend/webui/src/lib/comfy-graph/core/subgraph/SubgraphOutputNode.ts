@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { CanvasPointer } from '../CanvasPointer'
 import type { LGraphNode, NodeId } from '../LGraphNode'
 import type { LLink } from '../LLink'

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { toValue } from './external/vueShim'
 
 import { LGraphNodeProperties } from './LGraphNodeProperties'
@@ -91,7 +91,8 @@ import type {
   IBaseWidget,
   IWidgetOptions,
   TWidgetType,
-  TWidgetValue
+  TWidgetValue,
+  WidgetObjectValue
 } from './types/widgets'
 import { findFreeSlotOfType } from './utils/collections'
 import { warnDeprecated } from './utils/feedback'
@@ -101,14 +102,9 @@ import { BaseWidget } from './widgets/BaseWidget'
 import { toConcreteWidget } from './widgets/widgetMap'
 import type { WidgetTypeMap } from './widgets/widgetMap'
 
-// TODO: CEG port - removed import: @/world/entityIds
-// import type { NodeId } from '@/world/entityIds'
+export type NodeId = string | number
 
-// #region Types
-
-export type { NodeId }
-
-export type NodeProperty = string | number | boolean | object
+export type NodeProperty = string | number | boolean | WidgetObjectValue | null
 
 interface INodePropertyInfo {
   name?: string
@@ -633,6 +629,9 @@ export class LGraphNode
   onInputAdded?(this: LGraphNode, input: INodeInputSlot): void
   onOutputAdded?(this: LGraphNode, output: INodeOutputSlot): void
   onConfigure?(this: LGraphNode, serialisedNode: ISerialisedNode): void
+  onGraphConfigured?(this: LGraphNode): void
+  onAfterGraphConfigured?(this: LGraphNode): void
+  convertToNodes?(): LGraphNode[]
   onSerialize?(this: LGraphNode, serialised: ISerialisedNode): void
   onExecute?(
     this: LGraphNode,
@@ -969,7 +968,6 @@ export class LGraphNode
     if (this.inputs)
       o.inputs = this.inputs.map((input) => inputAsSerialisable(input))
     if (this.outputs)
-      // @ts-expect-error - Output serialization type mismatch
       o.outputs = this.outputs.map((output) => outputAsSerialisable(output))
 
     if (this.title && this.title != this.constructor.title) o.title = this.title
@@ -2161,7 +2159,7 @@ export class LGraphNode
   isPointInside(x: number, y: number): boolean {
     if (isInRect(x, y, this.boundingRect)) return true
 
-    for (const badge of this.badges.map(toValue).filter((b) => b.onClick)) {
+    for (const badge of this.badges.map((badge) => typeof badge === 'function' ? badge() : badge).filter((b) => b.onClick)) {
       if (isInRect(x - this.pos[0], y - this.pos[1], badge.boundingRect))
         return true
     }
@@ -2957,9 +2955,9 @@ export class LGraphNode
     layoutMutations.setSource(LayoutSource.Canvas)
     layoutMutations.createLink(
       link.id,
-      this.id,
+      Number(this.id),
       outputIndex,
-      inputNode.id,
+      Number(inputNode.id),
       inputIndex
     )
 
@@ -3126,7 +3124,7 @@ export class LGraphNode
 
       for (const [i, link_id] of links.entries()) {
         const link_info = graph._links.get(link_id)
-        if (link_info?.target_id != target.id) continue
+        if (!link_info || link_info.target_id != target.id) continue
 
         // is the link we are searching for...
         // remove here

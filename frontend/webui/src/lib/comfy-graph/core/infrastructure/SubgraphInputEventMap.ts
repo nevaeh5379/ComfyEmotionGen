@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { INodeInputSlot } from '../litegraph'
 import type { SubgraphInput } from '../subgraph/SubgraphInput'

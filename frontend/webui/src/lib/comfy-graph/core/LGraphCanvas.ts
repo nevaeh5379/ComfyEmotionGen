@@ -1,29 +1,17 @@
-// @ts-nocheck
+
 import { toString } from 'es-toolkit/compat'
 import { toValue } from './external/vueShim'
 
-// TODO: CEG port - removed import: @/base/pointerUtils
-// import { isMiddleButtonEvent } from '@/base/pointerUtils'
+import { isMiddleButtonEvent } from './utils/pointerUtils'
 import { MovingInputLink } from './canvas/MovingInputLink'
 import type { RenderLink } from './canvas/RenderLink'
-// TODO: CEG port - removed import: @/renderer/core/canvas/useAutoPan
-// import { AutoPanController } from '@/renderer/core/canvas/useAutoPan'
-// TODO: CEG port - replaced import: @/renderer/core/canvas/litegraph/litegraphLinkAdapter
+import { AutoPanController } from './canvas/useAutoPan'
 import { LitegraphLinkAdapter } from './external/litegraphLinkAdapter'
-// TODO: CEG port - removed import: @/renderer/core/canvas/litegraph/litegraphLinkAdapter
-// import { LitegraphLinkAdapter } from '@/renderer/core/canvas/litegraph/litegraphLinkAdapter'
-// TODO: CEG port - removed import: @/renderer/core/canvas/litegraph/litegraphLinkAdapter
-// import type { LinkRenderContext } from '@/renderer/core/canvas/litegraph/litegraphLinkAdapter'
-// TODO: CEG port - removed import: @/renderer/core/canvas/litegraph/slotCalculations
-// import { getSlotPosition } from '@/renderer/core/canvas/litegraph/slotCalculations'
-// TODO: CEG port - removed import: @/renderer/core/layout/operations/layoutMutations
-// import { useLayoutMutations } from '@/renderer/core/layout/operations/layoutMutations'
-// TODO: CEG port - replaced import: @/renderer/core/layout/store/layoutStore
-import { layoutStore } from './external/layoutStore'
-// TODO: CEG port - removed import: @/renderer/core/layout/types
-// import { LayoutSource } from '@/renderer/core/layout/types'
-// TODO: CEG port - removed import: @/utils/graphTraversalUtil
-// import { forEachNode } from '@/utils/graphTraversalUtil'
+import type { LinkRenderContext } from './external/litegraphLinkAdapter'
+import { getSlotPosition } from './external/slotCalculations'
+import { useLayoutMutations } from './external/layoutMutations'
+import { layoutStore, LayoutSource } from './external/layoutStore'
+import { forEachNode } from './utils/graphTraversalUtil'
 
 import { CanvasPointer } from './CanvasPointer'
 import type { ContextMenu } from './ContextMenu'
@@ -2923,7 +2911,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
           }
         }
       }
-      for (const badge of node.badges.map(toValue).filter((b) => b.onClick)) {
+      for (const badge of node.badges.map((badge) => typeof badge === 'function' ? badge() : badge).filter((b) => b.onClick)) {
         if (isInRect(pos[0], pos[1], badge.boundingRect)) {
           pointer.onClick = badge.onClick
           return
@@ -9081,7 +9069,10 @@ function remapProxyWidgets(
     if (typeof nodeId !== 'string' || nodeId === '-1') continue
 
     const remappedNodeId = remapNodeId(nodeId, remappedIds)
-    if (remappedNodeId !== undefined) entry[0] = String(remappedNodeId)
+    if (remappedNodeId !== undefined) {
+      const entryArray = entry as (string | number)[]
+      entryArray[0] = String(remappedNodeId)
+    }
   }
 }
 

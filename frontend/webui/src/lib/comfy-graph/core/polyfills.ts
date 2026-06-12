@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 // @ts-expect-error Polyfill
 Symbol.dispose ??= Symbol('Symbol.dispose')
 // @ts-expect-error Polyfill

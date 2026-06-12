@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import { LiteGraph } from '../litegraph'
 import type { IBaseWidget } from '../types/widgets'
@@ -16,7 +16,7 @@ export class LegacyWidget<TWidget extends IBaseWidget = IBaseWidget>
   extends BaseWidget<TWidget>
   implements IBaseWidget
 {
-  override draw?(
+  draw?(
     ctx: CanvasRenderingContext2D,
     node: LGraphNode,
     widget_width: number,

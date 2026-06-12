@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { BaseLGraph, LGraph, SubgraphId } from '../LGraph'
 import type { LGraphButton } from '../LGraphButton'
 import type { LGraphCanvas } from '../LGraphCanvas'
@@ -31,33 +31,37 @@ import type {
 import { NodeSlotType } from '../types/globalEnums'
 import type {
   IBaseWidget,
-  TWidgetValue
+  TWidgetValue,
+  PreviewExposureEntry,
+  ProxyQuarantineEntry
 } from '../types/widgets'
 import { isWidgetValue } from '../types/widgets'
-// TODO: CEG port - replaced import: @/core/graph/subgraph/promotedWidgetView
 import {
   createPromotedWidgetView,
-  isPromotedWidgetView
+  isPromotedWidgetView,
+  resolveConcretePromotedWidget
 } from '../external/promotedWidgetView'
-// TODO: CEG port - removed import: @/core/graph/subgraph/promotedWidgetView
-// import type { PromotedWidgetView } from '@/core/graph/subgraph/promotedWidgetView'
-// TODO: CEG port - removed import: @/core/graph/subgraph/promotedWidgetTypes
-// import type { PromotedWidgetSource } from '@/core/graph/subgraph/promotedWidgetTypes'
-// TODO: CEG port - removed import: @/core/graph/subgraph/resolveConcretePromotedWidget
-// import { resolveConcretePromotedWidget } from '@/core/graph/subgraph/resolveConcretePromotedWidget'
-// TODO: CEG port - removed import: @/core/schemas/previewExposureSchema
-// import { parsePreviewExposures } from '@/core/schemas/previewExposureSchema'
-// TODO: CEG port - removed import: @/core/schemas/proxyWidgetQuarantineSchema
-// import { parseProxyWidgetErrorQuarantine } from '@/core/schemas/proxyWidgetQuarantineSchema'
-// TODO: CEG port - removed import: @/stores/domWidgetStore
-// import { useDomWidgetStore } from '@/stores/domWidgetStore'
-// TODO: CEG port - replaced import: @/stores/previewExposureStore
+import type {
+  PromotedWidgetView,
+  PromotedWidgetSource
+} from '../external/promotedWidgetView'
 import { usePreviewExposureStore, useDomWidgetStore } from '../external/widgetStores'
-// import { usePreviewExposureStore } from '@/stores/previewExposureStore'
-// TODO: CEG port - removed import: @/types/nodeIdentification
-// import { createNodeLocatorId } from '@/types/nodeIdentification'
-// TODO: CEG port - removed import: @/world/widgetValueIO
-// import { readWidgetValue } from '@/world/widgetValueIO'
+
+function createNodeLocatorId(graphId: string | number, nodeId: string | number): string {
+  return `${graphId}-${nodeId}`
+}
+
+function parsePreviewExposures(data: PreviewExposureEntry[] | null | undefined): PreviewExposureEntry[] {
+  return Array.isArray(data) ? data : []
+}
+
+function parseProxyWidgetErrorQuarantine(data: ProxyQuarantineEntry[] | null | undefined): ProxyQuarantineEntry[] {
+  return Array.isArray(data) ? data : []
+}
+
+function readWidgetValue(entityId: string | undefined): string | number | boolean | null | undefined {
+  return undefined
+}
 
 import { ExecutableNodeDTO } from './ExecutableNodeDTO'
 import type { ExecutableLGraphNode, ExecutionId } from './ExecutableNodeDTO'
@@ -245,7 +249,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
           this,
           entry.sourceNodeId,
           entry.sourceWidgetName,
-          entry.viewKey ? displayNameByViewKey.get(entry.viewKey) : undefined,
+          (entry.viewKey ? displayNameByViewKey.get(entry.viewKey) : undefined) ?? "",
           entry.slotName
         )
     )
@@ -626,19 +630,20 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
       const value =
         quarantineValuesByInputName.get(input.name) ??
         widgetValues?.[valueIndex]
-      if (value !== undefined) view.hydrateHostValue(value)
+      if (value !== undefined) view.hydrateHostValue?.(value)
       valueIndex += 1
     }
   }
 
   private _readQuarantineHostValuesByName(): Map<string, TWidgetValue> {
+    const quarantine = parseProxyWidgetErrorQuarantine(
+      this.properties.proxyWidgetErrorQuarantine as ProxyQuarantineEntry[] | undefined
+    )
     return new Map(
-      parseProxyWidgetErrorQuarantine(
-        this.properties.proxyWidgetErrorQuarantine
-      )
-        .toReversed()
+      [...quarantine]
+        .reverse()
         .flatMap(({ originalEntry: [sourceNodeId, name], hostValue }) =>
-          sourceNodeId === '-1' &&
+          String(sourceNodeId) === '-1' &&
           hostValue !== undefined &&
           isWidgetValue(hostValue)
             ? [[name, hostValue] as const]
@@ -674,7 +679,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
     const store = usePreviewExposureStore()
     const rootGraphId = this.rootGraph.id
     const hostLocator = String(this.id)
-    const rawProperty = this.properties.previewExposures
+    const rawProperty = this.properties.previewExposures as PreviewExposureEntry[] | undefined
     const hasExplicitProperty = Array.isArray(rawProperty)
     const fromProperty = parsePreviewExposures(rawProperty)
     if (fromProperty.length) {
@@ -888,7 +893,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
     )
   }
 
-  override getInnerNodes(
+  getInnerNodes(
     executableNodes: Map<ExecutionId, ExecutableLGraphNode>,
     subgraphNodePath: readonly NodeId[] = [],
     nodes: ExecutableLGraphNode[] = [],
@@ -948,7 +953,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
     )
     if (resolved.status !== 'resolved') return
 
-    const interiorWidget = resolved.resolved.widget
+    const interiorWidget = resolved.resolved?.widget
     if (
       interiorWidget &&
       'id' in interiorWidget &&
@@ -1074,7 +1079,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
     }))
 
     const quarantine = parseProxyWidgetErrorQuarantine(
-      this.properties.proxyWidgetErrorQuarantine
+      this.properties.proxyWidgetErrorQuarantine as ProxyQuarantineEntry[] | undefined
     )
     if (quarantine.length === 0) {
       delete serializedProperties.proxyWidgetErrorQuarantine

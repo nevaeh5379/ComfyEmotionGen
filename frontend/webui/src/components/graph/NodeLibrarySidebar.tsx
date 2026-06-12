@@ -94,9 +94,9 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
                 </button>
                 {isExpanded && (
                   <div className="ml-2">
-                    {defs.map((def) => (
+                    {defs.map((def, idx) => (
                       <button
-                        key={def.name}
+                        key={`${category}-${def.name}-${idx}`}
                         className="flex items-center w-full px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors group"
                         onClick={() => onAddNode?.(def.name)}
                         title={`${def.display_name || def.name} (${def.name})`}

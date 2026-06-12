@@ -36,7 +36,7 @@ export function NodePropertiesPanel({ className = "" }: NodePropertiesPanelProps
       if (selected.length === 1) {
         const node = selected[0]
         setSelectedNode({
-          id: node.id,
+          id: Number(node.id),
           // @ts-ignore
           title: node.title || node.type || "Node",
           type: node.type || "unknown",

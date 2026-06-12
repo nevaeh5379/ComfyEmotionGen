@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import type { LGraphNode } from '../LGraphNode'
 import type { LLink } from '../LLink'
 import type { RerouteId } from '../Reroute'
