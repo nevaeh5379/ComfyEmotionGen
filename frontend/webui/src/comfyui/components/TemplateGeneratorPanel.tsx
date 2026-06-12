@@ -22,6 +22,7 @@ import {
   Settings2,
   MessageSquare,
   Upload,
+  Star,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -55,6 +56,9 @@ import {
 
 import CodeEditor from "@/components/CodeEditor"
 import { useTemplateContext } from "../contexts/useTemplateContext"
+import { useJobRunner } from "../hooks/useJobRunner"
+import { InlineImagePreview } from "./InlineImagePreview"
+import { QuickTestPopover } from "./QuickTestPopover"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
@@ -259,6 +263,7 @@ export function TemplateGeneratorPanel({
   backendUrl?: string
 }) {
   const { savedTemplates, setCegTemplate, saveTemplate, setTemplateResetKey, setGeneratorToolbarProps } = useTemplateContext()
+  const { handleRunSingle } = useJobRunner()
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
   const [loadedFileTemplate, setLoadedFileTemplate] = useState<LoadedFileTemplate | null>(null)
   const [draft, setDraft] = useState<TemplateDraft>(() => emptyDraft(null))
@@ -273,6 +278,24 @@ export function TemplateGeneratorPanel({
   const [expandedItemKey, setExpandedItemKey] = useState<string | null>(null)
   const [expandedAxes, setExpandedAxes] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.expandedAxes))
   const [showAxisAdvanced, setShowAxisAdvanced] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.axisAdvanced))
+  const [favoriteCombinations, setFavoriteCombinations] = useState<Set<string>>(() => loadSet("ceg_favorite_combinations"))
+
+  const toggleFavorite = useCallback((key: string) => {
+    setFavoriteCombinations((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      saveSet("ceg_favorite_combinations", next)
+      return next
+    })
+  }, [])
+
+  const handleRunTestFromPopover = useCallback((item: RenderItem) => {
+    handleRunSingle(item)
+    const k = itemKey(item)
+    setPreviewFilter(k)
+    setExpandedItemKey(k)
+  }, [handleRunSingle, setPreviewFilter, setExpandedItemKey])
 
   const [isDragging, setIsDragging] = useState(false)
   const dragCounter = useRef(0)
@@ -666,6 +689,15 @@ export function TemplateGeneratorPanel({
             <div className="flex items-center gap-1.5 w-full md:flex-1">
               <span className="md:hidden text-xs text-muted-foreground/60 select-none font-mono font-bold mr-1">=</span>
               <Input ref={i === variables.length - 1 ? lastVarInputRef : undefined} value={v.value} onChange={(e) => setVarV(v.id, e.target.value)} placeholder="치환될 텍스트" className="h-8 flex-1 text-sm" onKeyDown={(e) => handleVarKeyDown(e, i)} />
+              <QuickTestPopover
+                factorType="variable"
+                factorName={v.name}
+                factorValue={v.value}
+                activeQueue={activeQueue}
+                favoriteCombinations={favoriteCombinations}
+                onRunTest={handleRunTestFromPopover}
+                onToggleFavorite={toggleFavorite}
+              />
               
               {/* Desktop Copy/Delete buttons */}
               <div className="hidden md:flex items-center gap-1 shrink-0">
@@ -745,6 +777,15 @@ export function TemplateGeneratorPanel({
                           <Badge variant="outline" className="gap-1 h-7 px-2 text-[11px] font-normal"><Braces className="h-3 w-3 text-primary/60" />{entry.properties.length} 속성</Badge>
                         )}
                         <Button variant={entry.isComplex ? "secondary" : "ghost"} size="sm" onClick={() => toggleCplx(axis.id, entry.id)} className="h-6 shrink-0 text-[10px] gap-0.5 px-1.5"><Braces className="h-3 w-3" />{entry.isComplex ? "복합" : "단순"}</Button>
+                        <QuickTestPopover
+                          factorType="axis"
+                          factorName={axis.name}
+                          factorValue={entry.key}
+                          activeQueue={activeQueue}
+                          favoriteCombinations={favoriteCombinations}
+                          onRunTest={handleRunTestFromPopover}
+                          onToggleFavorite={toggleFavorite}
+                        />
                         <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => delEntry(axis.id, entry.id)}><X className="h-3 w-3" /></Button>
                       </div>
                       {entry.isComplex && (
@@ -1009,8 +1050,30 @@ export function TemplateGeneratorPanel({
                     </div>
                     {/* Final result */}
                     <div>
-                      <div className="text-[10px] font-semibold text-muted-foreground mb-1">최종 결과</div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-[10px] font-semibold text-muted-foreground">최종 결과</div>
+                        <div className="flex gap-1">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-yellow-500"
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(k) }}
+                          >
+                            <Star className={`h-3 w-3 ${favoriteCombinations.has(k) ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            className="h-6 text-[10px] gap-1"
+                            onClick={(e) => { e.stopPropagation(); handleRunSingle(item) }}
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            테스트 생성
+                          </Button>
+                        </div>
+                      </div>
                       <div className="font-mono text-[10px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md p-2 break-words select-all whitespace-pre-wrap">{pr}</div>
+                      <InlineImagePreview filename={fn} backendUrl={backendUrl} />
                     </div>
                   </div>
                 )}

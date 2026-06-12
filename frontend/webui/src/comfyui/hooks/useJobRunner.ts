@@ -265,6 +265,14 @@ export function useJobRunner() {
     return ok
   }, [callParser, submitJobs])
 
+  const handleRunSingle = useCallback(async (item: RenderItem) => {
+    if (!workflowJsonRef.current || !isAliveBackendRef.current) return false
+    const ok = await submitJobs([item])
+    if (!ok) toast.error("테스트 실행에 실패했습니다.")
+    else toast.success("테스트가 큐에 추가되었습니다.")
+    return ok
+  }, [submitJobs])
+
   const handleRunUnapproved = useCallback(async () => {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return
     const parserResult = await callParser()
@@ -399,5 +407,6 @@ export function useJobRunner() {
     selectedCount,
     isAliveBackend,
     backendUrl,
+    handleRunSingle,
   }
 }
