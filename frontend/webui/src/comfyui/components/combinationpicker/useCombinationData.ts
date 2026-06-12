@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react"
 import { curationApi } from "../../hooks/useSavedImages"
+import { useLatestRef } from "../../hooks/useLatestRef"
 import { hasApproved } from "../../types/Message"
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
@@ -34,18 +35,23 @@ export function useCombinationData({
   const [searchTags, setSearchTags] = useState<string[]>([])
   const [searchInput, setSearchInput] = useState("")
 
+  // ── Refs for latest values ────────────────────────────────────────
+  const backendUrlRef = useLatestRef(backendUrl)
+  const activeTemplateRef = useLatestRef(activeTemplate)
+  const freeGroupModeRef = useLatestRef(freeGroupMode)
+
   const fetchData = useCallback(async () => {
-    if (freeGroupMode !== null) {
+    if (freeGroupModeRef.current !== null) {
       setLoading(true)
       setError(null)
       try {
-        const imagesRes = await fetch(`${backendUrl}/saved-images?limit=5000`)
+        const imagesRes = await fetch(`${backendUrlRef.current}/saved-images?limit=5000`)
         if (!imagesRes.ok)
           throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
         const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
         setAllImages(imagesData.items)
         setRawRenderItems(
-          groupSavedImagesAsRenderItems(imagesData.items, freeGroupMode)
+          groupSavedImagesAsRenderItems(imagesData.items, freeGroupModeRef.current)
         )
       } catch (err) {
         setError((err as Error).message)
@@ -54,7 +60,7 @@ export function useCombinationData({
       }
       return
     }
-    if (!activeTemplate.trim()) {
+    if (!activeTemplateRef.current.trim()) {
       setError("CEG 템플릿을 먼저 작성해주세요.")
       setRawRenderItems([])
       return
@@ -63,12 +69,12 @@ export function useCombinationData({
     setError(null)
     try {
       const [renderRes, imagesRes] = await Promise.all([
-        fetch(`${backendUrl}/render`, {
+        fetch(`${backendUrlRef.current}/render`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ template: activeTemplate }),
+          body: JSON.stringify({ template: activeTemplateRef.current }),
         }),
-        fetch(`${backendUrl}/saved-images?limit=5000`),
+        fetch(`${backendUrlRef.current}/saved-images?limit=5000`),
       ])
       if (!renderRes.ok) throw new Error(`렌더 실패: HTTP ${renderRes.status}`)
       if (!imagesRes.ok)
@@ -82,7 +88,7 @@ export function useCombinationData({
     } finally {
       setLoading(false)
     }
-  }, [backendUrl, activeTemplate, freeGroupMode])
+  }, [])
 
   const imagesByFilename = useMemo(() => {
     if (freeGroupMode !== null) {

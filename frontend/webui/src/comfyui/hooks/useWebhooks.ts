@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+
+import { useLatestRef } from "./useLatestRef"
 import { toast } from "sonner"
 
 import { API } from "@/lib/api"
@@ -30,6 +32,97 @@ async function fetchWebhooks(backendUrl: string): Promise<WebhookConfig[]> {
   }
 }
 
+// ── Async internals (no useCallback) ──────────────────────────────
+
+async function addConfigInternal(
+  backendUrl: string,
+  payload: {
+    name: string
+    channel_type: ChannelType
+    url: string
+    events: string[]
+    enabled: boolean
+    include_image: boolean
+  }
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${backendUrl}${API.webhooks.root}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+    return true
+  } catch (err) {
+    console.error("Failed to add webhook config:", err)
+    toast.error("웹훅 추가에 실패했습니다.")
+    return false
+  }
+}
+
+async function updateConfigInternal(
+  backendUrl: string,
+  id: string,
+  payload: {
+    name?: string
+    channel_type?: ChannelType
+    url?: string
+    events?: string[]
+    enabled?: boolean
+    include_image?: boolean
+  }
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${backendUrl}${API.webhooks.detail(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+    return true
+  } catch (err) {
+    console.error("Failed to update webhook config:", err)
+    toast.error("웹훅 수정에 실패했습니다.")
+    return false
+  }
+}
+
+async function deleteConfigInternal(
+  backendUrl: string,
+  id: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${backendUrl}${API.webhooks.detail(id)}`, {
+      method: "DELETE",
+    })
+    if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+    return true
+  } catch (err) {
+    console.error("Failed to delete webhook config:", err)
+    toast.error("웹훅 삭제에 실패했습니다.")
+    return false
+  }
+}
+
+async function testConfigInternal(
+  backendUrl: string,
+  id: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${backendUrl}${API.webhooks.test(id)}`, {
+      method: "POST",
+    })
+    if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+    return true
+  } catch (err) {
+    console.error("Failed to test webhook config:", err)
+    toast.error("웹훅 테스트에 실패했습니다.")
+    return false
+  }
+}
+
+// ── Sync callbacks (useCallback + async internal) ────────────────
+
 export const useWebhooks = (backendUrl: string) => {
   const [configs, setConfigs] = useState<WebhookConfig[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -41,9 +134,11 @@ export const useWebhooks = (backendUrl: string) => {
     fetchWebhooks(backendUrl).then(setConfigs)
   }, [backendUrl])
 
+  const backendUrlRef = useLatestRef(backendUrl)
+
   const load = useCallback(async () => {
-    setConfigs(await fetchWebhooks(backendUrl))
-  }, [backendUrl])
+    setConfigs(await fetchWebhooks(backendUrlRef.current))
+  }, [])
 
   const addConfig = useCallback(
     async (payload: {
@@ -54,22 +149,11 @@ export const useWebhooks = (backendUrl: string) => {
       enabled: boolean
       include_image: boolean
     }) => {
-      try {
-        const res = await fetch(`${backendUrl}${API.webhooks.root}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-        if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-        await load()
-        return true
-      } catch (err) {
-        console.error("Failed to add webhook config:", err)
-        toast.error("웹훅 추가에 실패했습니다.")
-        return false
-      }
+      const ok = await addConfigInternal(backendUrlRef.current, payload)
+      if (ok) await load()
+      return ok
     },
-    [backendUrl, load]
+    [load]
   )
 
   const updateConfig = useCallback(
@@ -84,61 +168,33 @@ export const useWebhooks = (backendUrl: string) => {
         include_image?: boolean
       }
     ) => {
-      try {
-        const res = await fetch(`${backendUrl}${API.webhooks.detail(id)}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-        if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-        await load()
-        return true
-      } catch (err) {
-        console.error("Failed to update webhook config:", err)
-        toast.error("웹훅 수정에 실패했습니다.")
-        return false
-      }
+      const ok = await updateConfigInternal(backendUrlRef.current, id, payload)
+      if (ok) await load()
+      return ok
     },
-    [backendUrl, load]
+    [load]
   )
 
   const deleteConfig = useCallback(
     async (id: string) => {
-      try {
-        const res = await fetch(`${backendUrl}${API.webhooks.detail(id)}`, {
-          method: "DELETE",
-        })
-        if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-        await load()
-        return true
-      } catch (err) {
-        console.error("Failed to delete webhook config:", err)
-        toast.error("웹훅 삭제에 실패했습니다.")
-        return false
-      }
+      const ok = await deleteConfigInternal(backendUrlRef.current, id)
+      if (ok) await load()
+      return ok
     },
-    [backendUrl, load]
+    [load]
   )
 
-  const testConfig = useCallback(
-    async (id: string) => {
-      setIsLoading(true)
-      try {
-        const res = await fetch(`${backendUrl}${API.webhooks.test(id)}`, {
-          method: "POST",
-        })
-        if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-        return true
-      } catch (err) {
-        console.error("Failed to test webhook config:", err)
-        toast.error("웹훅 테스트에 실패했습니다.")
-        return false
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [backendUrl]
-  )
+  const testConfig = useCallback(async (id: string) => {
+    setIsLoading(true)
+    try {
+      const ok = await testConfigInternal(backendUrlRef.current, id)
+      return ok
+    } catch {
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   return {
     configs,

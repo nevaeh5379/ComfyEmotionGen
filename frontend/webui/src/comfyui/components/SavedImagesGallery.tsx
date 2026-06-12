@@ -112,6 +112,7 @@ import { Magnifier } from "./combinationpicker/CombinationPickerViews"
 import { RegenerateDialog } from "./combinationpicker/CombinationPickerComponents"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import { toast } from "sonner"
+import { useLatestRef } from "../hooks/useLatestRef"
 import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
 import { Kbd } from "@/components/ui/kbd"
@@ -1215,20 +1216,28 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     [backendUrl, selectedHashes, bulkActionLoading, exitSelectionMode, reload]
   )
 
+  // ── Refs for latest values ────────────────────────────────────────
+  const backendUrlRef = useLatestRef(backendUrl)
+  const selectedHashesRef = useLatestRef(selectedHashes)
+  const bulkActionLoadingRef = useLatestRef(bulkActionLoading)
+  const exitSelectionModeRef = useLatestRef(exitSelectionMode)
+  const reloadRef = useLatestRef(reload)
+  const confirmRef = useLatestRef(confirm)
+
   // 일괄 자동 태그 생성
   const handleBulkAutoTag = useCallback(async () => {
-    if (bulkActionLoading || selectedHashes.size === 0) return
+    if (bulkActionLoadingRef.current || selectedHashesRef.current.size === 0) return
     setBulkActionLoading(true)
     setBulkActionMessage("태그 일괄 완성 중...")
     try {
-      const hashes = Array.from(selectedHashes)
-      const results = await curationApi.bulkAutoTags(backendUrl, hashes)
+      const hashes = Array.from(selectedHashesRef.current)
+      const results = await curationApi.bulkAutoTags(backendUrlRef.current, hashes)
       const successCount = Object.keys(results).length
       toast.success(`${successCount}개 이미지의 자동 태그가 완성되었습니다.`)
       setBulkActionMessage(`태그 일괄 완성 완료`)
-      exitSelectionMode()
+      exitSelectionModeRef.current()
       setTimeout(() => setBulkActionMessage(null), 3000)
-      reload()
+      reloadRef.current()
     } catch (err) {
       console.error(err)
       toast.error("일괄 자동 태그 생성에 실패했습니다.")
@@ -1237,13 +1246,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     } finally {
       setBulkActionLoading(false)
     }
-  }, [backendUrl, selectedHashes, bulkActionLoading, exitSelectionMode, reload])
+  }, [])
 
   // 태그가 없는 모든 이미지 일괄 자동 태그 생성
   const handleAutoTagAllEmpty = useCallback(async () => {
-    if (bulkActionLoading) return
+    if (bulkActionLoadingRef.current) return
     if (
-      !(await confirm({
+      !(await confirmRef.current({
         title: "태그 없는 모든 이미지 자동 완성",
         description: "현재 DB에서 아무 태그도 달리지 않은 모든 활성 이미지들에 대해 일괄 자동 태그 분석 및 저장을 진행합니다. 계속하시겠습니까?",
         variant: "default",
@@ -1256,10 +1265,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     setBulkActionLoading(true)
     setBulkActionMessage("전체 일괄 태그 생성 중...")
     try {
-      const results = await curationApi.autoTagsAllEmpty(backendUrl)
+      const results = await curationApi.autoTagsAllEmpty(backendUrlRef.current)
       const successCount = Object.keys(results).length
       toast.success(`${successCount}개 이미지에 자동 태그가 성공적으로 완성되었습니다.`)
-      reload()
+      reloadRef.current()
     } catch (err) {
       console.error(err)
       toast.error("전체 태그 자동 완성 작업 도중 오류가 발생했습니다.")
@@ -1267,7 +1276,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       setBulkActionLoading(false)
       setBulkActionMessage(null)
     }
-  }, [backendUrl, bulkActionLoading, reload, confirm])
+  }, [])
 
   // Build combined image lookup from all available sources
   const imageLookup = useMemo(() => {
@@ -1279,21 +1288,23 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     return map
   }, [images, groupImagesMap])
 
+  const imageLookupRef = useLatestRef(imageLookup)
+
   const handleBulkDownload = useCallback(async () => {
-    if (selectedHashes.size === 0) return
+    if (selectedHashesRef.current.size === 0) return
     setBulkDownloadLoading(true)
     try {
       const downloads: Array<{ url: string; filename: string }> = []
-      for (const hash of selectedHashes) {
-        const img = imageLookup.get(hash)
+      for (const hash of selectedHashesRef.current) {
+        const img = imageLookupRef.current.get(hash)
         const filename = img ? getImageFilename(img) : `${hash}.png`
-        downloads.push({ url: `${backendUrl}/saved-images/${hash}`, filename })
+        downloads.push({ url: `${backendUrlRef.current}/saved-images/${hash}`, filename })
       }
       await downloadImagesAsZip(downloads, "gallery-images.zip")
     } finally {
       setBulkDownloadLoading(false)
     }
-  }, [backendUrl, selectedHashes, imageLookup])
+  }, [])
 
   const handleEmptyTrash = async () => {
     if (

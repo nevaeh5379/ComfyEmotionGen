@@ -21,6 +21,7 @@ import { API, HEADERS } from "@/lib/api"
 import { useSavedWorkflows } from "../../hooks/useSavedWorkflows"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
+import { useLatestRef } from "../../hooks/useLatestRef"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import {
   downloadImagesAsZip,
@@ -160,9 +161,15 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [checkingTemplates, setCheckingTemplates] = useState(false)
   const bulkTrashAction = useAsyncAction(4000)
 
+  // ── Refs for latest values ────────────────────────────────────────
+  const checkingTemplatesRef = useLatestRef(checkingTemplates)
+  const savedTemplatesRef = useLatestRef(savedTemplates)
+  const activeTemplateRef = useLatestRef(activeTemplate)
+  const backendUrlRef = useLatestRef(backendUrl)
+
   // 템플릿 소속 확인 함수 (lazy: 사용자가 패널 열었을 때)
   const checkTemplateAffiliation = useCallback(async () => {
-    if (checkingTemplates || savedTemplates.length === 0) return
+    if (checkingTemplatesRef.current || savedTemplatesRef.current.length === 0) return
     setCheckingTemplates(true)
     const cache = new Map<string, string[]>()
     try {
@@ -174,9 +181,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         {
           id: "__current__",
           name: "현재 편집 중인 템플릿",
-          template: activeTemplate,
+          template: activeTemplateRef.current,
         },
-        ...savedTemplates.map((st) => ({
+        ...savedTemplatesRef.current.map((st) => ({
           id: st.id,
           name: st.name,
           template: st.template,
@@ -185,7 +192,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       for (const spec of allTemplateSpecs) {
         if (!spec.template.trim()) continue
         try {
-          const res = await fetch(`${backendUrl}/render`, {
+          const res = await fetch(`${backendUrlRef.current}/render`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ template: spec.template }),
@@ -207,7 +214,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     } finally {
       setCheckingTemplates(false)
     }
-  }, [backendUrl, savedTemplates, activeTemplate, checkingTemplates])
+  }, [])
 
   // 미할당 패널 열릴 때 템플릿 소속 확인 실행
   useEffect(() => {

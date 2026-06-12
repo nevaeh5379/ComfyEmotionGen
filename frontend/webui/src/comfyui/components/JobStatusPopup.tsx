@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import type { JobView } from "../types/Message"
 import { useConfirm } from "@/comfyui/hooks/useConfirm"
 import { formatETA, getOverallProgress } from "../utils/timeEstimation"
+import { useLatestRef } from "../hooks/useLatestRef"
 
 // ---------------------------------------------------------------------------
 // component
@@ -92,21 +93,26 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     return () => clearInterval(id)
   }, [runningJobs])
 
+  // ── Refs for latest values ────────────────────────────────────────
+  const backendUrlRef = useLatestRef(backendUrl)
+  const pausedRef = useLatestRef(paused)
+  const confirmRef = useLatestRef(confirm)
+
   // ── actions ────────────────────────────────────────────────────────────
 
   const handleTogglePause = useCallback(async () => {
     try {
-      await fetch(`${backendUrl}/jobs/${paused ? "resume" : "pause"}`, {
+      await fetch(`${backendUrlRef.current}/jobs/${pausedRef.current ? "resume" : "pause"}`, {
         method: "POST",
       })
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
-  }, [backendUrl, paused])
+  }, [])
 
   const handleCancelAll = useCallback(async () => {
     if (
-      !(await confirm({
+      !(await confirmRef.current({
         title: "작업 취소",
         description: "진행 중인 모든 작업을 취소하시겠습니까?",
         variant: "destructive",
@@ -115,11 +121,11 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     )
       return
     try {
-      await fetch(`${backendUrl}/jobs/cancel-all`, { method: "POST" })
+      await fetch(`${backendUrlRef.current}/jobs/cancel-all`, { method: "POST" })
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
-  }, [backendUrl, confirm])
+  }, [])
 
   // ── no active jobs → don't render ──────────────────────────────────────
 

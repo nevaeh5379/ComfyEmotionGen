@@ -7,6 +7,7 @@ import {
 } from "react"
 import { useContextRequired } from "@/lib/context"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
+import { useLatestRef } from "../hooks/useLatestRef"
 import { useSettings } from "../hooks/useSettings"
 import { useConfirm } from "../hooks/useConfirm"
 import { curationApi } from "../hooks/useSavedImages"
@@ -150,6 +151,11 @@ export function GalleryToolbarProvider({
   // Reload ref
   const reloadRef = useRef<(() => void) | null>(null)
 
+  // ── Refs for latest values ────────────────────────────────────────
+  const backendUrlRef = useLatestRef(backendUrl)
+  const settingsRef = useLatestRef(settings)
+  const confirmRef = useLatestRef(confirm)
+
   const registerReload = useCallback((fn: (() => void) | null) => {
     reloadRef.current = fn
   }, [])
@@ -161,17 +167,17 @@ export function GalleryToolbarProvider({
   // Actions
   const handleExport = useCallback(async () => {
     try {
-      await curationApi.exportDataset(backendUrl, {
-        ...(settings.galleryExportScope === "approved"
+      await curationApi.exportDataset(backendUrlRef.current, {
+        ...(settingsRef.current.galleryExportScope === "approved"
           ? { status: "approved" }
           : {}),
-        duplicateStrategy: settings.galleryExportStrategy,
+        duplicateStrategy: settingsRef.current.galleryExportStrategy,
       })
       toast.success("내보내기가 완료되었습니다.")
     } catch {
       toast.error("내보내기 요청에 실패했습니다.")
     }
-  }, [backendUrl, settings.galleryExportScope, settings.galleryExportStrategy])
+  }, [])
 
   const handleRefresh = useCallback(() => {
     reloadRef.current?.()
@@ -179,7 +185,7 @@ export function GalleryToolbarProvider({
 
   const handleEmptyTrash = useCallback(async () => {
     if (
-      !(await confirm({
+      !(await confirmRef.current({
         title: "휴지통 비우기",
         description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",
         variant: "destructive",
@@ -188,13 +194,13 @@ export function GalleryToolbarProvider({
     )
       return
     try {
-      const n = await curationApi.emptyTrash(backendUrl)
+      const n = await curationApi.emptyTrash(backendUrlRef.current)
       toast.success(`${n}개 영구 삭제됨`)
       reloadRef.current?.()
     } catch {
       toast.error("휴지통 비우기에 실패했습니다.")
     }
-  }, [backendUrl, confirm])
+  }, [])
 
   const clearAllFilters = useCallback(() => {
     setSearchTags([])

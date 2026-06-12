@@ -51,6 +51,7 @@ import { NodeMappingSection } from "../NodeMappingSection"
 import type { ObjectInfo } from "../../types/renderTypes"
 import type { RenderItem } from "../../types/renderTypes"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
+import { useLatestRef } from "../../hooks/useLatestRef"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 export type { RenderItem }
@@ -588,20 +589,31 @@ export function RegenerateDialog({
 
   useEffect(() => revokeAllPreviewUrls, [revokeAllPreviewUrls])
 
+  // ── Refs for latest values ────────────────────────────────────────
+  const isLoadingRef = useLatestRef(isLoading)
+  const sourceImagesRef = useLatestRef(sourceImages)
+  const selectedWorkflowRef = useLatestRef(selectedWorkflow)
+  const nodeMappingsRef = useLatestRef(nodeMappings)
+  const resolvedTemplateRef = useLatestRef(resolvedTemplate)
+  const sourceFilenameRef = useLatestRef(sourceFilename)
+  const countRef = useLatestRef(count)
+  const backendUrlRef = useLatestRef(backendUrl)
+  const onSubmitRef = useLatestRef(onSubmit)
+
   const handleConfirm = useCallback(async () => {
-    if (isLoading || sourceImages.length === 0) return
+    if (isLoadingRef.current || sourceImagesRef.current.length === 0) return
 
     const workflowJson =
-      selectedWorkflow?.workflow ??
-      (sourceImages[0]?.workflow
-        ? JSON.stringify(sourceImages[0].workflow)
+      selectedWorkflowRef.current?.workflow ??
+      (sourceImagesRef.current[0]?.workflow
+        ? JSON.stringify(sourceImagesRef.current[0].workflow)
         : null)
     if (!workflowJson) {
       console.error("No workflow available for regeneration")
       return
     }
 
-    if (nodeMappings.length === 0) {
+    if (nodeMappingsRef.current.length === 0) {
       toast.error("노드매핑이 설정되지 않았습니다. 매핑을 추가해주세요.")
       return
     }
@@ -609,7 +621,7 @@ export function RegenerateDialog({
     // Build imageNameMap for buildWorkflowForItem
     const imageNameMap: Record<string, string> = {}
     const imageUploadsNested: Record<string, Record<string, string>> = {}
-    for (const m of nodeMappings) {
+    for (const m of nodeMappingsRef.current) {
       if (m.sourceType === "image" && m.imageValue) {
         imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
         imageUploadsNested[m.nodeId] = { ...imageUploadsNested[m.nodeId], [m.inputKey]: m.imageValue }
@@ -617,22 +629,22 @@ export function RegenerateDialog({
     }
 
     let renderItems: RenderItem[]
-    if (resolvedTemplate) {
-      const res = await fetch(`${backendUrl}${API.render}`, {
+    if (resolvedTemplateRef.current) {
+      const res = await fetch(`${backendUrlRef.current}${API.render}`, {
         method: "POST",
         headers: HEADERS.json,
-        body: JSON.stringify({ template: resolvedTemplate }),
+        body: JSON.stringify({ template: resolvedTemplateRef.current }),
       })
       if (!res.ok) throw new Error(`Render failed: HTTP ${res.status}`)
       const data = (await res.json()) as { items: RenderItem[] }
       const matching = data.items.filter(
-        (item) => item.filename === sourceFilename
+        (item) => item.filename === sourceFilenameRef.current
       )
       renderItems = matching.length > 0 ? matching : data.items
     } else {
       renderItems = [
         {
-          filename: sourceFilename,
+          filename: sourceFilenameRef.current,
           prompt: "",
           meta: {},
         },
@@ -649,12 +661,12 @@ export function RegenerateDialog({
       workerType: string
     }> = []
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < countRef.current; i++) {
       for (const item of renderItems) {
         const wf = buildWorkflowForItem(
           workflowJson,
           item,
-          nodeMappings,
+          nodeMappingsRef.current,
           imageNameMap
         )
         allItems.push({
@@ -662,25 +674,15 @@ export function RegenerateDialog({
           prompt: item.prompt,
           workflow: wf,
           meta: item.meta,
-          cegTemplate: resolvedTemplate || "",
+          cegTemplate: resolvedTemplateRef.current || "",
           imageUploads: imageUploadsNested,
           workerType: "comfyui",
         })
       }
     }
 
-    await onSubmit(allItems)
-  }, [
-    isLoading,
-    sourceImages,
-    selectedWorkflow,
-    nodeMappings,
-    resolvedTemplate,
-    sourceFilename,
-    count,
-    backendUrl,
-    onSubmit,
-  ])
+    await onSubmitRef.current(allItems)
+  }, [])
 
   const canConfirm = isLoading || !sourceImages[0]?.workflow
 
