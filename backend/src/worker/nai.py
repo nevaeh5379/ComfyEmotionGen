@@ -12,7 +12,9 @@ from typing import Any, AsyncGenerator, Optional
 
 import httpx
 
-from backend.src.worker import BaseWorker
+from backend.src.worker import BaseWorker, RawMessageHandler, BinaryMessageHandler, StatusChangeHandler
+from backend.src.models import JSONValue
+from backend.src.workflow_models import ComfyWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +35,9 @@ class NAIWorker(BaseWorker):
         *,
         worker_type: str = "nai",
         api_key: Optional[str] = None,
-        on_message=None,
-        on_binary=None,
-        on_status_change=None,
+        on_message: Optional[RawMessageHandler] = None,
+        on_binary: Optional[BinaryMessageHandler] = None,
+        on_status_change: Optional[StatusChangeHandler] = None,
     ) -> None:
         super().__init__(
             worker_id=worker_id,
@@ -96,7 +98,7 @@ class NAIWorker(BaseWorker):
     async def submit_prompt(
         self,
         *,
-        prompt: dict[str, Any],
+        prompt: ComfyWorkflow,
         prompt_id: str,
     ) -> None:
         """NAI 이미지 생성 요청 (TODO: 실제 API 스펙에 맞게 구현)."""
@@ -133,6 +135,6 @@ class NAIWorker(BaseWorker):
         """NAI 이미지 업로드 (TODO: 실제 API에 맞게 구현)."""
         raise NotImplementedError("NAI upload_image not yet implemented")
 
-    async def get_object_info(self) -> dict[str, Any]:
-        """NAI는 노드 정의가 없으므로 빈 dict 반환."""
+    async def get_object_info(self) -> dict[str, JSONValue]:
+        """NAI는 커스텀 노드가 없으므로 빈 오브젝트 반환."""
         return {}

@@ -131,7 +131,7 @@ class TestFromDictDefaults:
             "filename": "a.png",
             "prompt": "p",
         })
-        assert job.workflow == {}
+        assert job.workflow.root == {}
 
 
 # ===================================================================
@@ -178,8 +178,8 @@ class TestClone:
         cloned = original.clone()
 
         assert cloned.workflow == original.workflow
-        cloned.workflow["3"]["inputs"]["seed"] = 999
-        assert original.workflow["3"]["inputs"]["seed"] == 42
+        cloned.workflow.root["3"].inputs["seed"] = 999
+        assert original.workflow.root["3"].inputs["seed"] == 42
 
     def test_clone_deep_copies_meta(self) -> None:
         original = _sample_job()
@@ -189,12 +189,11 @@ class TestClone:
         cloned.meta["new_key"] = "new_val"
         assert "new_key" not in original.meta
 
-    def test_clone_deep_copies_image_urls(self) -> None:
+    def test_clone_resets_image_urls(self) -> None:
         original = _sample_job()
         cloned = original.clone()
 
-        assert cloned.image_urls == original.image_urls
-        cloned.image_urls.append("http://img/extra.png")
+        assert cloned.image_urls == []
         assert len(original.image_urls) == 2
 
     def test_clone_deep_copies_image_uploads(self) -> None:

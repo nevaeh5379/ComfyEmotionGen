@@ -24,12 +24,25 @@ import os
 import re
 import struct
 import time
+import urllib.parse
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional, overload
+from typing import cast, Awaitable, Callable, Optional, overload
 
-from backend.src.models import JobItem, JobStatus
+from pydantic import TypeAdapter
+from backend.src.models import (
+    JobItem,
+    JobStatus,
+    JobResponse,
+    WorkerViewResponse,
+    DiagnosticsSnapshotResponse,
+    JobQueryResponse,
+    NormalizedEvent,
+    SavedImageResponse,
+    JSONValue,
+)
+from backend.src.workflow_models import ComfyWorkflow
 from backend.src.worker import BaseWorker, WorkerInfo
 from backend.src.job_store import JobStore
 from backend.src.worker_pool import WorkerPool
@@ -55,7 +68,7 @@ class WorkerView:
             worker_type=info.worker_type,
         )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, JSONValue]:
         return {
             "id": self.id,
             "url": self.url,
@@ -64,6 +77,16 @@ class WorkerView:
             "currentJobId": self.current_job_id,
             "workerType": self.worker_type,
         }
+
+    def to_response(self) -> WorkerViewResponse:
+        return WorkerViewResponse(
+            id=self.id,
+            url=self.url,
+            alive=self.alive,
+            busy=self.busy,
+            currentJobId=self.current_job_id,
+            workerType=self.worker_type,
+        )
 
 
 logger = logging.getLogger(__name__)
@@ -108,7 +131,7 @@ class Job:
     id: str
     filename: str
     prompt: str
-    workflow: dict[str, Any]
+    workflow: ComfyWorkflow
     status: JobStatus = field(default_factory=lambda: JobStatus.PENDING)
     worker_id: Optional[str] = None
     error: Optional[str] = None
@@ -129,12 +152,16 @@ class Job:
     worker_type: Optional[str] = None
     target_worker_id: Optional[str] = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def __post_init__(self) -> None:
+        if isinstance(self.workflow, dict):
+            self.workflow = ComfyWorkflow.model_validate(self.workflow)
+
+    def to_dict(self) -> dict[str, JSONValue]:
         return {
             "id": self.id,
             "filename": self.filename,
             "prompt": self.prompt,
-            "_workflow": self.workflow,
+            "_workflow": self.workflow.model_dump(exclude_none=True) if isinstance(self.workflow, ComfyWorkflow) else self.workflow,
             "status": self.status,
             "workerId": self.worker_id,
             "error": self.error,
@@ -156,33 +183,68 @@ class Job:
             "targetWorkerId": self.target_worker_id,
         }
 
+    def to_response(self) -> JobResponse:
+        return JobResponse(
+            id=self.id,
+            filename=self.filename,
+            prompt=self.prompt,
+            workflow=self.workflow,
+            status=self.status,
+            workerId=self.worker_id,
+            error=self.error,
+            imageUrls=self.image_urls,
+            savedImageHashes=self.saved_image_hashes,
+            progressPercent=self.progress_percent,
+            currentNodeName=self.current_node_name,
+            totalNodeCount=self.total_node_count,
+            completedNodeCount=self.completed_node_count,
+            createdAt=self.created_at,
+            startedAt=self.started_at,
+            finishedAt=self.finished_at,
+            retryCount=self.retry_count,
+            executionDurationMs=self.execution_duration_ms,
+            meta=self.meta,
+            cegTemplate=self.ceg_template,
+            imageUploads=self.image_uploads,
+            workerType=self.worker_type,
+            targetWorkerId=self.target_worker_id,
+        )
+
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> Job:
+    def from_dict(cls, d: dict[str, JSONValue]) -> Job:
         raw_status = d.get("status", JobStatus.PENDING)
+        raw_workflow = d.get("_workflow")
+        if isinstance(raw_workflow, dict):
+            workflow = ComfyWorkflow.model_validate(raw_workflow)
+        elif isinstance(raw_workflow, ComfyWorkflow):
+            workflow = raw_workflow
+        else:
+            workflow = ComfyWorkflow.model_validate({})
+
         return cls(
-            id=d["id"],
-            filename=d["filename"],
-            prompt=d["prompt"],
-            workflow=d.get("_workflow", {}),
-            status=JobStatus(raw_status) if isinstance(raw_status, str) else raw_status,
-            worker_id=d.get("workerId"),
-            error=d.get("error"),
-            image_urls=d.get("imageUrls", []),
-            saved_image_hashes=d.get("savedImageHashes", []),
-            progress_percent=d.get("progressPercent", 0.0),
-            current_node_name=d.get("currentNodeName", ""),
-            total_node_count=d.get("totalNodeCount", 0),
-            completed_node_count=d.get("completedNodeCount", 0),
-            created_at=d.get("createdAt", time.time()),
-            started_at=d.get("startedAt"),
-            finished_at=d.get("finishedAt"),
-            retry_count=d.get("retryCount", 0),
-            execution_duration_ms=d.get("executionDurationMs"),
-            meta=d.get("meta", {}),
-            ceg_template=d.get("cegTemplate", ""),
-            image_uploads=d.get("imageUploads", {}),
-            worker_type=d.get("workerType"),
-            target_worker_id=d.get("targetWorkerId"),
+            id=cast(str, d["id"]),
+            filename=cast(str, d["filename"]),
+            prompt=cast(str, d["prompt"]),
+            workflow=workflow,
+            status=JobStatus(raw_status) if isinstance(raw_status, str) else cast(JobStatus, raw_status),
+            worker_id=cast(Optional[str], d.get("workerId")),
+            error=cast(Optional[str], d.get("error")),
+            image_urls=cast(list[str], d.get("imageUrls", [])),
+            saved_image_hashes=cast(list[str], d.get("savedImageHashes", [])),
+            progress_percent=cast(float, d.get("progressPercent", 0.0)),
+            current_node_name=cast(str, d.get("currentNodeName", "")),
+            total_node_count=cast(int, d.get("totalNodeCount", 0)),
+            completed_node_count=cast(int, d.get("completedNodeCount", 0)),
+            created_at=cast(float, d.get("createdAt", time.time())),
+            started_at=cast(Optional[float], d.get("startedAt")),
+            finished_at=cast(Optional[float], d.get("finishedAt")),
+            retry_count=cast(int, d.get("retryCount", 0)),
+            execution_duration_ms=cast(Optional[float], d.get("executionDurationMs")),
+            meta=cast(dict[str, str], d.get("meta", {})),
+            ceg_template=cast(str, d.get("cegTemplate", "")),
+            image_uploads=cast(dict[str, dict[str, str]], d.get("imageUploads", {})),
+            worker_type=cast(Optional[str], d.get("workerType")),
+            target_worker_id=cast(Optional[str], d.get("targetWorkerId")),
         )
 
     def clone(self) -> "Job":
@@ -194,7 +256,7 @@ class Job:
             status=JobStatus.PENDING,
             worker_id=None,
             error=None,
-            image_urls=deepcopy(self.image_urls),
+            image_urls=[],
             saved_image_hashes=[],
             progress_percent=0.0,
             current_node_name="",
@@ -214,7 +276,7 @@ class Job:
 
 
 # 정규화된 이벤트 타입
-NormalizedEvent = dict[str, Any]
+event_adapter: TypeAdapter[NormalizedEvent] = TypeAdapter(NormalizedEvent)
 EventListener = Callable[[NormalizedEvent], Awaitable[None]]
 
 
@@ -278,7 +340,8 @@ class JobManager:
                     job.total_node_count = 0
                     job.completed_node_count = 0
                     job.started_at = None
-                self._jobs[job.id] = job
+                if job.status in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING):
+                    self._jobs[job.id] = job
         if stored:
             logger.info("restored %d jobs from %s", len(stored), self._store._db_path)
         await self._pool.start()
@@ -301,6 +364,9 @@ class JobManager:
                 pass
             self._dispatcher_task = None
         await self._pool.stop()
+        if self._persist_tasks:
+            logger.info("Waiting for %d background image persistence tasks to complete...", len(self._persist_tasks))
+            await asyncio.gather(*self._persist_tasks, return_exceptions=True)
         await self._store.close()
 
     async def reload_jobs(self) -> None:
@@ -367,7 +433,7 @@ class JobManager:
                 id=str(uuid.uuid4()),
                 filename=item.filename,
                 prompt=item.prompt,
-                workflow=item.workflow.model_dump() if item.workflow else {},
+                workflow=item.workflow if item.workflow else ComfyWorkflow.model_validate({}),
                 meta=item.meta,
                 ceg_template=item.cegTemplate,
                 image_uploads=item.imageUploads,
@@ -393,7 +459,7 @@ class JobManager:
 
     # ---------- worker management ----------
 
-    async def add_worker(self, url: str, *, worker_type: str = "comfyui") -> dict[str, Any]:
+    async def add_worker(self, url: str, *, worker_type: str = "comfyui") -> WorkerViewResponse:
         """새 워커 URL 추가 (영속화 + 풀 등록 + 이벤트 브로드캐스트).
 
         반환: 새 워커의 info dict. URL 중복이면 ValueError.
@@ -405,10 +471,10 @@ class JobManager:
             raise ValueError(f"URL already registered: {url}")
         worker = await self._pool.add(url, worker_type=worker_type)
         await self._store.add_worker_url(url, worker_type=worker_type)
-        view = WorkerView.from_info(worker.info()).to_dict()
-        await self._emit({"type": "worker.added", "worker": view})
+        response = WorkerView.from_info(worker.info()).to_response()
+        await self._emit({"type": "worker.added", "worker": response.model_dump()})
         # 새 워커가 alive 되면 dispatch loop이 자동 픽업.
-        return view
+        return response
 
     async def remove_worker(self, worker_id: str, *, force: bool = False) -> bool:
         """워커 제거. 진행 중인 잡이 있으면 force=False 시 ValueError.
@@ -433,7 +499,7 @@ class JobManager:
     async def cancel_all(self) -> int:
         """pending/queued/running 잡 전부 취소. 취소된 잡 개수 반환."""
         now = time.time()
-        job_updates = []
+        job_updates: list[dict[str, JSONValue]] = []
         workers_to_interrupt = []
 
         async with self._lock:
@@ -511,7 +577,7 @@ class JobManager:
                 logger.exception("Failed to emit job update event during cancel_all")
 
         # 5. 비동기 워커 인터럽트 및 큐 정리 병렬 실행
-        async def interrupt_and_clear_worker_queue(w, jid):
+        async def interrupt_and_clear_worker_queue(w: BaseWorker, jid: str) -> None:
             try:
                 await w.interrupt()
             except Exception:
@@ -592,11 +658,11 @@ class JobManager:
         self._wakeup.set()
         return True
 
-    async def snapshot(self) -> list[dict[str, Any]]:
+    async def snapshot(self) -> list[JobResponse]:
         async with self._lock:
-            return [j.to_dict() for j in self._jobs.values()]
+            return [j.to_response() for j in self._jobs.values()]
 
-    async def diagnostics_snapshot(self) -> dict[str, Any]:
+    async def diagnostics_snapshot(self) -> DiagnosticsSnapshotResponse:
         async with self._lock:
             job_counts: dict[str, int] = {}
             for job in self._jobs.values():
@@ -607,15 +673,15 @@ class JobManager:
                 if self._dispatcher_task is not None
                 else None
             )
-            return {
-                "jobsTotal": len(self._jobs),
-                "jobsByStatus": job_counts,
-                "listeners": len(self._listeners),
-                "persistTasks": len(self._persist_tasks),
-                "dispatcherTaskDone": dispatcher_done,
-                "stopping": self._stopping,
-                "paused": self._paused,
-            }
+            return DiagnosticsSnapshotResponse(
+                jobsTotal=len(self._jobs),
+                jobsByStatus=job_counts,
+                listeners=len(self._listeners),
+                persistTasks=len(self._persist_tasks),
+                dispatcherTaskDone=dispatcher_done,
+                stopping=self._stopping,
+                paused=self._paused,
+            )
 
     async def query_jobs(
         self,
@@ -628,7 +694,7 @@ class JobManager:
         created_at_to: Optional[float] = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
-    ) -> dict[str, Any]:
+    ) -> JobQueryResponse:
         total = await self._store.count_jobs(
             statuses=statuses,
             search_tags=search_tags,
@@ -645,12 +711,15 @@ class JobManager:
             sort_by=sort_by,
             sort_order=sort_order,
         )
+        response_items: list[JobResponse] = []
         async with self._lock:
-            for i in range(len(items)):
-                jid = items[i]["id"]
+            for item in items:
+                jid = item["id"]
                 if jid in self._jobs:
-                    items[i] = self._jobs[jid].to_dict()
-        return {"total": total, "items": items, "limit": limit, "offset": offset}
+                    response_items.append(self._jobs[jid].to_response())
+                else:
+                    response_items.append(Job.from_dict(item).to_response())
+        return JobQueryResponse(total=total, items=response_items, limit=limit, offset=offset)
 
     async def get_job(self, job_id: str) -> Optional[Job]:
         async with self._lock:
@@ -723,9 +792,9 @@ class JobManager:
                 pending.status = JobStatus.QUEUED
                 pending.worker_id = worker.id
                 worker.current_job_id = pending.id
-                worker_updated_payload = {
+                worker_updated_payload: dict[str, JSONValue] = {
                     "type": "worker.updated",
-                    "worker": WorkerView.from_info(worker.info()).to_dict(),
+                    "worker": cast(JSONValue, WorkerView.from_info(worker.info()).to_dict()),
                 }
                 job_dict = pending.to_dict()
                 workflow = pending.workflow
@@ -742,12 +811,21 @@ class JobManager:
 
             # 이미지 마커 치환 (워커로 업로드 후 실제 파일명으로 교체)
             if image_uploads:
+                async with self._lock:
+                    job = self._jobs.get(job_id)
+                    if job is None or job.status == JobStatus.CANCELLED:
+                        continue  # 취소되었으므로 진행 중단
                 workflow = await _resolve_image_markers(
                     workflow, image_uploads, worker
                 )
 
+            async with self._lock:
+                job = self._jobs.get(job_id)
+                if job is None or job.status == JobStatus.CANCELLED:
+                    continue  # 취소되었으므로 제출 중단
+
             try:
-                await worker.submit_prompt(prompt=workflow, prompt_id=job_id)
+                await worker.submit_prompt(prompt=workflow.model_dump(), prompt_id=job_id)
             except Exception as exc:
                 logger.exception("worker %s submit failed", worker.id)
                 if worker.current_job_id == job_id:
@@ -766,14 +844,15 @@ class JobManager:
                 # submit 중 취소됐다면 바로 큐에서 제거
                 async with self._lock:
                     job = self._jobs.get(job_id)
-                    was_cancelled = job is not None and job.status == JobStatus.CANCELLED
+                    # cancel() 등에서 pop되어 None이 된 경우도 취소 상태로 판별
+                    was_cancelled = job is None or job.status == JobStatus.CANCELLED
                 if was_cancelled:
                     await worker.delete_from_queue(job_id)
 
     # ---------- Worker event dispatch ----------
 
     async def _on_worker_message(
-        self, worker: BaseWorker, payload: dict[str, Any]
+        self, worker: BaseWorker, payload: dict[str, JSONValue]
     ) -> None:
         """워커 타입에 따라 이벤트 핸들러를 분기."""
         wt = worker.worker_type
@@ -787,11 +866,14 @@ class JobManager:
             )
 
     async def _on_comfyui_message(
-        self, worker: BaseWorker, payload: dict[str, Any]
+        self, worker: BaseWorker, payload: dict[str, JSONValue]
     ) -> None:
-        msg_type = payload.get("type")
-        data = payload.get("data") or {}
-        prompt_id = data.get("prompt_id")
+        msg_type_val = payload.get("type")
+        msg_type = str(msg_type_val) if msg_type_val else ""
+        data_val = payload.get("data")
+        data = data_val if isinstance(data_val, dict) else {}
+        prompt_id_val = data.get("prompt_id")
+        prompt_id = str(prompt_id_val) if prompt_id_val else ""
         if msg_type == "status":
             return  # sid는 워커가 자체 처리
         if not prompt_id:
@@ -811,8 +893,8 @@ class JobManager:
             async with self._lock:
                 job = self._jobs.get(prompt_id)
                 total_nodes = 0
-                if job is not None and job.workflow:
-                    total_nodes = len(job.workflow)
+                if job is not None and job.workflow and job.workflow.root:
+                    total_nodes = len(job.workflow.root)
             logger.info(
                 "[NODE-TRACK] execution_start: %s total_nodes=%d", prompt_id, total_nodes,
             )
@@ -827,21 +909,22 @@ class JobManager:
         elif msg_type == "execution_success":
             await self._finish(prompt_id)
         elif msg_type == "execution_interrupted":
-            node_type = data.get("node_type", "?")
+            node_type = str(data.get("node_type") or "?")
             await self._reset_to_pending(
                 prompt_id,
                 error=f"interrupted at {node_type}",
             )
         elif msg_type == "execution_error":
-            error_msg = data.get("exception_message", "unknown error")
+            error_msg = str(data.get("exception_message") or "unknown error")
             await self._reset_to_pending(
                 prompt_id,
                 error=f"execution error: {error_msg}",
             )
         elif msg_type == "executing":
-            node_id = data.get("node")
+            node_id_val = data.get("node")
+            node_id = str(node_id_val) if node_id_val is not None else None
             if node_id is not None:
-                job_dict: dict[str, Any] | None = None
+                job_dict: dict[str, JSONValue] | None = None
                 # Node transition: increment completed count
                 async with self._lock:
                     job = self._jobs.get(prompt_id)
@@ -857,7 +940,8 @@ class JobManager:
                     await self._store.save(job_dict)
                     await self._emit({"type": "job.updated", "job": job_dict})
         elif msg_type == "execution_cached":
-            cached = data.get("nodes") or []
+            cached_val = data.get("nodes")
+            cached = cached_val if isinstance(cached_val, list) else []
             if cached:
                 job_dict = None
                 async with self._lock:
@@ -874,8 +958,8 @@ class JobManager:
                     await self._store.save(job_dict)
                     await self._emit({"type": "job.updated", "job": job_dict})
         elif msg_type == "progress_state":
-            nodes = data.get("nodes") or {}
-            if nodes:
+            nodes = data.get("nodes")
+            if isinstance(nodes, dict):
                 job_dict = None
                 async with self._lock:
                     job = self._jobs.get(prompt_id)
@@ -902,37 +986,47 @@ class JobManager:
                     await self._store.save(job_dict)
                     await self._emit({"type": "job.updated", "job": job_dict})
         elif msg_type == "executed":
-            output = data.get("output") or {}
-            images = output.get("images") or []
-            urls = [
-                f"/images/{worker.id}/view"
-                f"?filename={img.get('filename','')}"
-                f"&subfolder={img.get('subfolder','')}"
-                f"&type={img.get('type','')}"
-                for img in images
-            ]
+            output = cast(dict[str, JSONValue], data.get("output") or {})
+            images = output.get("images")
+            urls = []
+            if isinstance(images, list):
+                for img in images:
+                    if isinstance(img, dict):
+                        filename = str(img.get("filename", ""))
+                        subfolder = str(img.get("subfolder", ""))
+                        img_type = str(img.get("type", ""))
+                        urls.append(
+                            f"/images/{worker.id}/view"
+                            f"?filename={urllib.parse.quote(filename)}"
+                            f"&subfolder={urllib.parse.quote(subfolder)}"
+                            f"&type={urllib.parse.quote(img_type)}"
+                        )
             if urls:
                 await self._update(prompt_id, image_urls_append=urls)
-            for img in images:
-                task = asyncio.create_task(
-                    self._persist_image(prompt_id, worker, img),
-                    name=f"persist:{prompt_id}",
-                )
-                self._persist_tasks.add(task)
-                task.add_done_callback(self._persist_tasks.discard)
+            if isinstance(images, list):
+                for img in images:
+                    if isinstance(img, dict):
+                        task = asyncio.create_task(
+                            self._persist_image(prompt_id, worker, img),
+                            name=f"persist:{prompt_id}",
+                        )
+                        self._persist_tasks.add(task)
+                        task.add_done_callback(self._persist_tasks.discard)
         elif msg_type == "progress":
-            value = data.get("value", 0)
-            maximum = data.get("max") or 1
-            node_id = data.get("node", "")
-            percent = (value / maximum) * 100 if maximum else 0
+            value_val = data.get("value")
+            value = float(value_val) if isinstance(value_val, (int, float)) else 0.0
+            max_val = data.get("max")
+            maximum = float(max_val) if isinstance(max_val, (int, float)) and max_val != 0 else 1.0
+            node_id_val = data.get("node", "")
+            node_id = str(node_id_val) if isinstance(node_id_val, str) else ""
+            percent = (value / maximum) * 100
             node_name = ""
             async with self._lock:
                 job = self._jobs.get(prompt_id)
                 if job is not None:
-                    node = job.workflow.get(node_id) if isinstance(node_id, str) else None
-                    if isinstance(node, dict):
-                        meta = node.get("_meta") or {}
-                        node_name = meta.get("title", "") if isinstance(meta, dict) else ""
+                    node = job.workflow.root.get(node_id) if node_id else None
+                    if node is not None and node.meta:
+                        node_name = node.meta.get("title", "")
             await self._update(
                 prompt_id,
                 progress_percent=percent,
@@ -964,7 +1058,7 @@ class JobManager:
     async def _on_worker_binary(self, worker: BaseWorker, data: bytes) -> None:
         """ComfyUI 바이너리 메시지 처리 (미리보기 이미지 파싱)."""
         total_len = len(data)
-        print(f"[PREVIEW-DEBUG] _on_worker_binary: worker={worker.id} total={total_len} bytes", flush=True)
+        logger.debug("[PREVIEW-DEBUG] _on_worker_binary: worker=%s total=%d bytes", worker.id, total_len)
         if total_len < 4:
             return
         try:
@@ -979,10 +1073,10 @@ class JobManager:
                 return
             img_fmt = struct.unpack(">I", data[4:8])[0]
             image_bytes = data[8:]
-            print(f"[PREVIEW-DEBUG] PREVIEW_IMAGE: fmt={'JPEG' if img_fmt==1 else 'PNG'} img={len(image_bytes)} bytes", flush=True)
+            logger.debug("[PREVIEW-DEBUG] PREVIEW_IMAGE: fmt=%s img=%d bytes", 'JPEG' if img_fmt==1 else 'PNG', len(image_bytes))
         elif event_type == 2:  # UNENCODED_PREVIEW_IMAGE
             image_bytes = data[4:]
-            print(f"[PREVIEW-DEBUG] UNENCODED_PREVIEW: img={len(image_bytes)} bytes", flush=True)
+            logger.debug("[PREVIEW-DEBUG] UNENCODED_PREVIEW: img=%d bytes", len(image_bytes))
         elif event_type == 4:  # PREVIEW_IMAGE_WITH_METADATA
             if total_len < 8:
                 return
@@ -991,24 +1085,24 @@ class JobManager:
             except struct.error:
                 return
             image_bytes = data[8 + meta_len:]
-            print(f"[PREVIEW-DEBUG] PREVIEW_WITH_META: meta={meta_len} img={len(image_bytes)} bytes", flush=True)
+            logger.debug("[PREVIEW-DEBUG] PREVIEW_WITH_META: meta=%d img=%d bytes", meta_len, len(image_bytes))
         else:
-            print(f"[PREVIEW-DEBUG] unknown event_type={event_type}", flush=True)
+            logger.debug("[PREVIEW-DEBUG] unknown event_type=%d", event_type)
             return
 
         if image_bytes and len(image_bytes) > 0:
             self._worker_previews[worker.id] = image_bytes
-            print(f"[PREVIEW-DEBUG] stored preview for {worker.id}: {len(image_bytes)} bytes", flush=True)
+            logger.debug("[PREVIEW-DEBUG] stored preview for %s: %d bytes", worker.id, len(image_bytes))
             await self._emit({
                 "type": "worker.preview",
                 "workerId": worker.id,
             })
-            print(f"[PREVIEW-DEBUG] emitted worker.preview for {worker.id}", flush=True)
+            logger.debug("[PREVIEW-DEBUG] emitted worker.preview for %s", worker.id)
         else:
             logger.warning("[PREVIEW-DEBUG] no image_bytes extracted")
 
     async def _on_nai_message(
-        self, worker: BaseWorker, payload: dict[str, Any]
+        self, worker: BaseWorker, payload: dict[str, JSONValue]
     ) -> None:
         """NAI 백엔드 이벤트 핸들러 (스켈레톤 — TODO: 실제 NAI 이벤트 스펙에 맞게 구현)."""
         logger.info("NAI message from %s: %s", worker.id, payload.get("type", "unknown"))
@@ -1090,7 +1184,7 @@ class JobManager:
             worker_id=worker_id_to_clear,
             details={
                 "executionDurationMs": payload.get("executionDurationMs"),
-                "imageCount": len(payload.get("imageUrls", [])),
+                "imageCount": len(cast(list[JSONValue], payload.get("imageUrls") or [])),
             },
         )
         await self._emit({"type": "job.updated", "job": payload})
@@ -1099,24 +1193,31 @@ class JobManager:
         self._wakeup.set()
 
     async def _reset_to_pending(self, job_id: str, error: str) -> None:
-        """오류 발생 시 잡을 pending으로 되돌림. 성공할 때까지 무한 재시도."""
+        """오류 발생 시 잡을 pending으로 되돌리되, 최대 3회 초과 시 최종 에러 처리."""
         worker_id_to_clear: Optional[str] = None
+        is_permanent_failure = False
         async with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
                 return
-            if job.status in (JobStatus.CANCELLED, JobStatus.DONE):
+            if job.status in (JobStatus.CANCELLED, JobStatus.DONE, JobStatus.ERROR):
                 return
             worker_id_to_clear = job.worker_id
             job.retry_count += 1
-            job.status = JobStatus.PENDING
-            job.worker_id = None
-            job.error = f"[retry {job.retry_count}] {error}"
-            job.progress_percent = 0.0
-            job.current_node_name = ""
-            job.total_node_count = 0
-            job.completed_node_count = 0
-            job.started_at = None
+            if job.retry_count > 3:
+                is_permanent_failure = True
+                job.status = JobStatus.ERROR
+                job.finished_at = time.time()
+                job.error = f"[failed after {job.retry_count} retries] {error}"
+            else:
+                job.status = JobStatus.PENDING
+                job.worker_id = None
+                job.error = f"[retry {job.retry_count}] {error}"
+                job.progress_percent = 0.0
+                job.current_node_name = ""
+                job.total_node_count = 0
+                job.completed_node_count = 0
+                job.started_at = None
             payload = job.to_dict()
         if worker_id_to_clear:
             worker = self._pool.get(worker_id_to_clear)
@@ -1129,20 +1230,34 @@ class JobManager:
                     }
                 )
         await self._store.save(payload)
-        await self._store.save_event(
-            job_id, "retrying",
-            worker_id=worker_id_to_clear,
-            details={
-                "retryCount": job.retry_count,
-                "error": error,
-            },
-        )
-        await self._emit({"type": "job.updated", "job": payload})
-        # 1초 대기 후 디스패처 깨우기
-        await asyncio.sleep(RETRY_DELAY)
-        self._wakeup.set()
+        if is_permanent_failure:
+            await self._store.save_event(
+                job_id, "failed",
+                worker_id=worker_id_to_clear,
+                details={
+                    "retryCount": job.retry_count,
+                    "error": error,
+                },
+            )
+            await self._emit({"type": "job.updated", "job": payload})
+            async with self._lock:
+                self._jobs.pop(job_id, None)
+            self._wakeup.set()
+        else:
+            await self._store.save_event(
+                job_id, "retrying",
+                worker_id=worker_id_to_clear,
+                details={
+                    "retryCount": job.retry_count,
+                    "error": error,
+                },
+            )
+            await self._emit({"type": "job.updated", "job": payload})
+            # 1초 대기 후 디스패처 깨우기
+            await asyncio.sleep(RETRY_DELAY)
+            self._wakeup.set()
 
-    async def move_job(self, job_id: str, target_worker_id: str) -> dict[str, Any]:
+    async def move_job(self, job_id: str, target_worker_id: str) -> JobResponse:
         """대기 중인 잡의 타겟 워커를 변경한다 (동일 worker_type만 가능)."""
         async with self._lock:
             job = self._jobs.get(job_id)
@@ -1157,26 +1272,36 @@ class JobManager:
                 raise ValueError("worker type mismatch")
             job.target_worker_id = target_worker_id
             payload = job.to_dict()
+            response = job.to_response()
         await self._store.save(payload)
         await self._store.save_event(
             job_id, "moved",
             worker_id=target_worker_id,
             details={"targetWorkerId": target_worker_id},
         )
-        await self._emit({"type": "job.updated", "job": payload})
+        await self._emit({"type": "job.updated", "job": response.model_dump()})
         self._wakeup.set()
-        return payload
-    async def _emit(self, event: NormalizedEvent) -> None:
+        return response
+    async def _emit(self, event: NormalizedEvent | dict[str, JSONValue]) -> None:
+        try:
+            if isinstance(event, dict):
+                validated_event = event_adapter.validate_python(event)
+            else:
+                validated_event = event
+        except Exception:
+            logger.exception("Failed to validate event schema: %s", event)
+            return
+
         for listener in list(self._listeners):
             try:
-                await listener(event)
+                await listener(validated_event)
             except Exception:
                 logger.exception("listener failed")
 
     # ---------- image persistence ----------
 
     async def _persist_image(
-        self, job_id: str, worker: BaseWorker, img: dict[str, Any]
+        self, job_id: str, worker: BaseWorker, img: dict[str, JSONValue]
     ) -> None:
         """ComfyUI 결과 이미지를 받아 sha256 이름으로 디스크에 저장 + DB 기록."""
         # A. 비동기 다운로드 시작 전에 즉시 메모리에서 잡 정보 캡처 (Race Condition 방지)
@@ -1193,11 +1318,11 @@ class JobManager:
                 prompt = ""
                 meta = {}
                 ceg_template = ""
-                workflow = {}
+                workflow = ComfyWorkflow.model_validate({})
 
-        filename = img.get("filename", "")
-        subfolder = img.get("subfolder", "")
-        type_ = img.get("type", "output") or "output"
+        filename = str(img.get("filename") or "")
+        subfolder = str(img.get("subfolder") or "")
+        type_ = str(img.get("type") or "output")
         if not filename:
             return
         ext = Path(filename).suffix.lower() or ".png"
@@ -1206,34 +1331,48 @@ class JobManager:
         size = 0
         try:
             try:
-                with tmp_path.open("wb") as f:
-                    async for chunk in worker.stream_output(
-                        {"filename": filename, "subfolder": subfolder, "type": type_}
-                    ):
-                        if not chunk:
-                            continue
-                        hasher.update(chunk)
-                        f.write(chunk)
-                        size += len(chunk)
+                buffer = bytearray()
+                async for chunk in worker.stream_output(
+                    {"filename": filename, "subfolder": subfolder, "type": type_}
+                ):
+                    if not chunk:
+                        continue
+                    hasher.update(chunk)
+                    buffer.extend(chunk)
+                    size += len(chunk)
+
+                def _write_and_replace() -> str:
+                    with tmp_path.open("wb") as f:
+                        f.write(buffer)
+                    sha_val = hasher.hexdigest()
+                    target_path = self._images_dir / f"{sha_val}{ext}"
+                    if target_path.exists():
+                        tmp_path.unlink(missing_ok=True)
+                    else:
+                        tmp_path.replace(target_path)
+                    return sha_val
+
+                sha = await asyncio.to_thread(_write_and_replace)
             except Exception:
-                tmp_path.unlink(missing_ok=True)
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
                 raise
-            sha = hasher.hexdigest()
-            target = self._images_dir / f"{sha}{ext}"
-            if target.exists():
-                tmp_path.unlink(missing_ok=True)
-            else:
-                tmp_path.replace(target)
 
             # B. 시작 시점에 메모리에 없었다면 DB에서 조회 (Fallback)
             if not job_mem:
                 job_db = await self._store.get_job(job_id)
                 if job_db:
-                    original_filename = job_db.get("filename") or ""
-                    prompt = job_db.get("prompt") or ""
-                    meta = job_db.get("meta") or {}
-                    ceg_template = job_db.get("cegTemplate") or ""
-                    workflow = job_db.get("_workflow") or {}
+                    original_filename = str(job_db.get("filename") or "")
+                    prompt = str(job_db.get("prompt") or "")
+                    meta_val = job_db.get("meta")
+                    meta = cast(dict[str, str], meta_val) if isinstance(meta_val, dict) else {}
+                    ceg_template = str(job_db.get("cegTemplate") or "")
+                    raw_wf = job_db.get("_workflow")
+                    if isinstance(raw_wf, dict):
+                        workflow = ComfyWorkflow.model_validate(raw_wf)
+                    elif isinstance(raw_wf, ComfyWorkflow):
+                        workflow = raw_wf
+                    else:
+                        workflow = ComfyWorkflow.model_validate({})
 
             await self._store.save_image_record(
                 hash=sha,
@@ -1248,7 +1387,7 @@ class JobManager:
                 prompt=prompt,
                 meta=meta,
                 ceg_template=ceg_template,
-                workflow=workflow,
+                workflow=workflow.model_dump(),
             )
             await self._emit(
                 {
@@ -1277,10 +1416,11 @@ class JobManager:
                 # DB Fallback: update stored job with the new hash
                 job_db = await self._store.get_job(job_id)
                 if job_db:
-                    hashes = job_db.get("savedImageHashes") or []
+                    hashes_val = job_db.get("savedImageHashes")
+                    hashes = cast(list[str], hashes_val) if isinstance(hashes_val, list) else []
                     if sha not in hashes:
                         hashes.append(sha)
-                        job_db["savedImageHashes"] = hashes
+                        job_db["savedImageHashes"] = cast(JSONValue, hashes)
                         await self._store.save(job_db)
                         await self._emit({"type": "job.updated", "job": job_db})
         except Exception:
@@ -1296,17 +1436,19 @@ class JobManager:
         *,
         status: Optional[str] = None,
         note: Optional[str] = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> Optional[SavedImageResponse]:
         existing = await self._store.get_saved_image(hash)
         if existing is None:
             return None
-        old_status = existing.get("status")
-        updated = await self._store.update_curation(hash, status=status, note=note)
-        if updated is None:
+        old_status = str(existing.get("status") or "")
+        updated_dict = await self._store.update_curation(hash, status=status, note=note)
+        if updated_dict is None:
             return None
+
+        updated = SavedImageResponse.model_validate(updated_dict)
         if status is not None and status != old_status:
             await self._store.save_event(
-                updated.get("jobId", ""),
+                updated.jobId,
                 "curation_changed",
                 details={
                     "hash": hash,
@@ -1314,14 +1456,14 @@ class JobManager:
                     "newStatus": status,
                 },
             )
-        await self._emit({"type": "image.curation", "image": updated})
+        await self._emit({"type": "image.curation", "image": cast(JSONValue, updated.model_dump())})
         return updated
 
     async def add_image_tags(self, hash: str, tags: list[str]) -> Optional[list[str]]:
         if await self._store.get_saved_image(hash) is None:
             return None
         result = await self._store.add_tags(hash, tags)
-        await self._emit({"type": "image.curation", "hash": hash, "tags": result})
+        await self._emit({"type": "image.curation", "hash": hash, "tags": cast(JSONValue, result)})
         return result
 
     async def auto_generate_image_tags(self, hash: str) -> Optional[list[str]]:
@@ -1329,26 +1471,26 @@ class JobManager:
             return None
         result = await self._store.auto_generate_tags(hash)
         if result is not None:
-            await self._emit({"type": "image.curation", "hash": hash, "tags": result})
+            await self._emit({"type": "image.curation", "hash": hash, "tags": cast(JSONValue, result)})
         return result
 
     async def bulk_auto_generate_image_tags(self, hashes: list[str]) -> dict[str, list[str]]:
         result = await self._store.bulk_auto_generate_tags(hashes)
         for h, tags in result.items():
-            await self._emit({"type": "image.curation", "hash": h, "tags": tags})
+            await self._emit({"type": "image.curation", "hash": h, "tags": cast(JSONValue, tags)})
         return result
 
     async def auto_generate_all_empty_image_tags(self) -> dict[str, list[str]]:
         result = await self._store.auto_generate_all_empty_tags()
         for h, tags in result.items():
-            await self._emit({"type": "image.curation", "hash": h, "tags": tags})
+            await self._emit({"type": "image.curation", "hash": h, "tags": cast(JSONValue, tags)})
         return result
 
     async def remove_image_tag(self, hash: str, tag: str) -> Optional[list[str]]:
         if await self._store.get_saved_image(hash) is None:
             return None
         result = await self._store.remove_tag(hash, tag)
-        await self._emit({"type": "image.curation", "hash": hash, "tags": result})
+        await self._emit({"type": "image.curation", "hash": hash, "tags": cast(JSONValue, result)})
         return result
 
     async def empty_trash(self) -> int:
@@ -1356,8 +1498,8 @@ class JobManager:
         targets = await self._store.list_trashed_for_purge()
         deleted = 0
         for item in targets:
-            hash_val = item["hash"]
-            ext = item["extension"] or ".png"
+            hash_val = str(item["hash"])
+            ext = str(item.get("extension") or ".png")
             path = self._images_dir / f"{hash_val}{ext}"
             try:
                 path.unlink(missing_ok=True)
@@ -1377,10 +1519,10 @@ _UPLOAD_MARKER_RE = re.compile(r"^__upload__([a-f0-9]{64})\.(png|jpg|jpeg|webp)$
 
 
 async def _resolve_image_markers(
-    workflow: dict[str, Any],
+    workflow: ComfyWorkflow,
     image_uploads: dict[str, dict[str, str]],
     worker: BaseWorker,
-) -> dict[str, Any]:
+) -> ComfyWorkflow:
     """워크플로우에서 __upload__{hash}.{ext} 마커를 찾아 워커로 업로드 후 실제 파일명으로 치환.
 
     Returns:
@@ -1391,13 +1533,8 @@ async def _resolve_image_markers(
     resolved = copy.deepcopy(workflow)
     uploaded: dict[str, str] = {}
 
-    for node in resolved.values():
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        for key, value in list(inputs.items()):
+    for node in resolved.root.values():
+        for key, value in list(node.inputs.items()):
             if not isinstance(value, str):
                 continue
             m = _UPLOAD_MARKER_RE.match(value)
@@ -1405,7 +1542,7 @@ async def _resolve_image_markers(
                 continue
             sha, ext = m.group(1), m.group(2)
             if sha in uploaded:
-                inputs[key] = uploaded[sha]
+                node.inputs[key] = uploaded[sha]
                 continue
             meta = image_uploads.get(sha)
             if meta is None:
@@ -1426,7 +1563,7 @@ async def _resolve_image_markers(
                     file_data=src.read_bytes(),
                     filename=meta.get("filename", f"{sha}.{ext}"),
                 )
-                inputs[key] = name
+                node.inputs[key] = name
                 uploaded[sha] = name
             except Exception:
                 logger.exception(

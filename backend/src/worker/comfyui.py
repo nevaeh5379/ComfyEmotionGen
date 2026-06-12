@@ -14,13 +14,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Optional, cast
 
 import httpx
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from backend.src.worker import BaseWorker
+from backend.src.worker import BaseWorker, RawMessageHandler, BinaryMessageHandler, StatusChangeHandler
+from backend.src.models import JSONValue
+from backend.src.workflow_models import ComfyWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +44,9 @@ class ComfyWorker(BaseWorker):
         base_url: str,
         *,
         worker_type: str = "comfyui",
-        on_message=None,
-        on_binary=None,
-        on_status_change=None,
+        on_message: Optional[RawMessageHandler] = None,
+        on_binary: Optional[BinaryMessageHandler] = None,
+        on_status_change: Optional[StatusChangeHandler] = None,
     ) -> None:
         super().__init__(
             worker_id=worker_id,
@@ -95,7 +97,7 @@ class ComfyWorker(BaseWorker):
     async def submit_prompt(
         self,
         *,
-        prompt: dict[str, Any],
+        prompt: ComfyWorkflow,
         prompt_id: str,
     ) -> None:
         """ComfyUI /prompt 호출. client_id는 워커 ws sid 사용."""
@@ -104,7 +106,7 @@ class ComfyWorker(BaseWorker):
         resp = await self._http.post(
             "/prompt",
             json={
-                "prompt": prompt,
+                "prompt": prompt.model_dump(exclude_none=True),
                 "client_id": self._sid,
                 "prompt_id": prompt_id,
             },
@@ -155,13 +157,21 @@ class ComfyWorker(BaseWorker):
             files={"image": (filename, file_data)},
         )
         resp.raise_for_status()
-        return resp.json().get("name", filename)
+        data = resp.json()
+        if isinstance(data, dict):
+            name = data.get("name")
+            if isinstance(name, str):
+                return name
+        return filename
 
-    async def get_object_info(self) -> dict[str, Any]:
+    async def get_object_info(self) -> dict[str, JSONValue]:
         """GET /object_info from the ComfyUI server."""
         resp = await self._http.get("/object_info")
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        if isinstance(data, dict):
+            return cast(dict[str, JSONValue], data)
+        return {}
 
     # ---------- WebSocket loop ----------
 

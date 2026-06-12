@@ -21,7 +21,7 @@ def _make_job_dict(
         "id": id,
         "filename": f"{id}.png",
         "prompt": "prompt text",
-        "_workflow": {"1": {"class_type": "KSampler"}},
+        "_workflow": {"1": {"class_type": "KSampler", "inputs": {}}},
         "status": status,
         "workerId": worker_id,
         "error": None,

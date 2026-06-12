@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Awaitable, Callable, Iterable, Optional
+from typing import Awaitable, Callable, Iterable, Optional, Any
 
 from backend.src.worker import BaseWorker, WorkerInfo, WORKER_REGISTRY, DEFAULT_WORKER_TYPE
 from backend.src.worker.comfyui import ComfyWorker
@@ -39,7 +39,7 @@ class WorkerPool:
     def __init__(self, urls: Optional[Iterable[str]] = None) -> None:
         self._workers: dict[str, BaseWorker] = {}
         self._next_index = 0
-        self._on_message: Optional[Callable[[BaseWorker, dict], Awaitable[None]]] = None
+        self._on_message: Optional[Callable[[BaseWorker, dict[str, Any]], Awaitable[None]]] = None
         self._on_binary: Optional[Callable[[BaseWorker, bytes], Awaitable[None]]] = None
         self._on_status_change: Optional[Callable[[BaseWorker], Awaitable[None]]] = None
 
@@ -55,7 +55,7 @@ class WorkerPool:
         self,
         *,
         on_message: Optional[
-            Callable[[BaseWorker, dict], Awaitable[None]]
+            Callable[[BaseWorker, dict[str, Any]], Awaitable[None]]
         ] = None,
         on_binary: Optional[
             Callable[[BaseWorker, bytes], Awaitable[None]]

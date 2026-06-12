@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Awaitable, Callable, Optional
+from typing import AsyncGenerator, Awaitable, Callable, Optional
+
+from backend.src.models import JSONValue
+from backend.src.workflow_models import ComfyWorkflow
 
 
 @dataclass
@@ -23,7 +26,7 @@ class WorkerInfo:
 
 
 # 타입 별칭 — 핸들러 시그니처
-RawMessageHandler = Callable[["BaseWorker", dict[str, Any]], Awaitable[None]]
+RawMessageHandler = Callable[["BaseWorker", dict[str, JSONValue]], Awaitable[None]]
 BinaryMessageHandler = Callable[["BaseWorker", bytes], Awaitable[None]]
 StatusChangeHandler = Callable[["BaseWorker"], Awaitable[None]]
 
@@ -89,7 +92,7 @@ class BaseWorker(ABC):
     async def submit_prompt(
         self,
         *,
-        prompt: dict[str, Any],
+        prompt: ComfyWorkflow,
         prompt_id: str,
     ) -> None:
         """잡을 워커에 제출."""
@@ -127,7 +130,7 @@ class BaseWorker(ABC):
         ...
 
     @abstractmethod
-    async def get_object_info(self) -> dict[str, Any]:
+    async def get_object_info(self) -> dict[str, JSONValue]:
         """워커의 노드 정의(object_info) 조회."""
         ...
 

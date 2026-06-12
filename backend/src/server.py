@@ -64,14 +64,25 @@ from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPL
 from backend.src.job_store import JobStore
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
-from backend.src.models import JobItem
+from backend.src.models import (
+    JobItem,
+    NormalizedEvent,
+    JobUpdatedEvent,
+    JobStatus,
+    SnapshotWorker,
+    SnapshotEvent,
+    SettingsUpdatedEvent,
+    SavedImageResponse,
+    SavedImagesListResponse,
+    JobSavedImagesResponse,
+)
 
 logger = logging.getLogger(__name__)
 
 try:
     import resource
 except ImportError:  # pragma: no cover - Windows portable builds
-    resource = None
+    resource = None  # type: ignore[assignment]
 
 
 # ====== 전역 상태 (lifespan에서 초기화) ======
@@ -85,11 +96,12 @@ if os.environ.get("CEG_MEMORY_DEBUG") == "1":
     tracemalloc.start()
 
 
-async def broadcast(event: dict[str, Any]) -> None:
+async def broadcast(event: NormalizedEvent) -> None:
+    event_dict = event.model_dump()
     dead: list[WebSocket] = []
     for ws in list(ws_clients):
         try:
-            await ws.send_json(event)
+            await ws.send_json(event_dict)
         except Exception as exc:
             logger.warning("WebSocket broadcast 실패, 클라이언트 제거: %s", exc)
             dead.append(ws)
@@ -155,7 +167,7 @@ class RenderResponse(BaseModel):
     axes: Dict[str, AxisOut] = {}
     sets: Dict[str, str] = {}
     excludes: List[ExcludeRuleOut] = []
-    template_structure: List[dict] = []
+    template_structure: List[Dict[str, Any]] = []
 
 
 class InjectRequest(BaseModel):
@@ -225,7 +237,7 @@ async def _resolve_initial_worker_urls(store: JobStore) -> list[str]:
     """
     entries = await store.list_worker_urls()
     if entries:
-        return [e["url"] for e in entries]
+        return [str(e["url"]) for e in entries]
     env_urls = read_env_worker_urls()
     seed = env_urls or [DEFAULT_COMFYUI_URL]
     for url in seed:
@@ -247,20 +259,19 @@ async def lifespan(app: FastAPI):
     )
     await webhook_service.load()
 
-    async def broadcast_with_webhook(event: dict[str, Any]) -> None:
+    async def broadcast_with_webhook(event: NormalizedEvent) -> None:
         await broadcast(event)
         # Webhook notification (fire-and-forget)
-        etype = event.get("type", "")
-        if etype == "job.updated":
-            job = event.get("job", {})
-            status = job.get("status", "")
-            if status == "done":
+        if isinstance(event, JobUpdatedEvent):
+            job = event.job
+            status = job.status
+            if status == JobStatus.DONE:
                 asyncio.create_task(
-                    webhook_service.notify("job_done", job=job)
+                    webhook_service.notify("job_done", job=job.model_dump())
                 )
-            elif status in ("error", "cancelled"):
+            elif status in (JobStatus.ERROR, JobStatus.CANCELLED):
                 asyncio.create_task(
-                    webhook_service.notify("job_error", job=job)
+                    webhook_service.notify("job_error", job=job.model_dump())
                 )
 
     job_manager.subscribe(broadcast_with_webhook)
@@ -559,7 +570,7 @@ async def jobs_session_stats(req: SessionStatsRequest):
     # 3. 세션 매칭 및 카운팅
     sorted_markers = sorted(req.markers, key=lambda x: x.startAt, reverse=True)
 
-    session_job_counts = {}
+    session_job_counts: dict[str, int] = {}
     selected_session_counts = {
         "pending": 0,
         "queued": 0,
@@ -571,7 +582,9 @@ async def jobs_session_stats(req: SessionStatsRequest):
     }
 
     for job in jobs_minimal:
-        t = job["createdAt"] * 1000  # seconds to ms
+        created_at_val = job["createdAt"]
+        created_at = float(created_at_val) if isinstance(created_at_val, (int, float)) else 0.0
+        t = created_at * 1000  # seconds to ms
 
         sid = ""
         if req.activeState and t >= req.activeState.activatedAt:
@@ -745,7 +758,7 @@ async def images_upload(file: UploadFile):
 # ====== 영속 이미지 ======
 
 
-@app.get("/saved-images")
+@app.get("/saved-images", response_model=SavedImagesListResponse)
 async def saved_images_list(
     limit: int = 100,
     offset: int = 0,
@@ -768,7 +781,7 @@ async def saved_images_list(
     return {"items": items, "limit": limit, "offset": offset, "total": total}
 
 
-@app.get("/jobs/{job_id}/saved-images")
+@app.get("/jobs/{job_id}/saved-images", response_model=JobSavedImagesResponse)
 async def saved_images_for_job(job_id: str):
     items = await job_manager._store.list_saved_images(
         limit=10_000, offset=0, job_id=job_id
@@ -789,7 +802,7 @@ async def saved_image_serve(hash: str):
     return FileResponse(str(path), media_type=media_type)
 
 
-@app.get("/saved-images/{hash}/meta")
+@app.get("/saved-images/{hash}/meta", response_model=SavedImageResponse)
 async def saved_image_meta(hash: str):
     record = await job_manager._store.get_saved_image(hash)
     if record is None:
@@ -1089,21 +1102,23 @@ async def db_import(file: UploadFile):
     
     # 5. UI 동기화 이벤트 송출 (모든 클라이언트가 잡 목록을 새로고침할 수 있게 함)
     snapshot = await job_manager.snapshot()
-    await broadcast({
-        "type": "snapshot",
-        "jobs": snapshot,
-        "workers": [
-            {
-                "id": info.id,
-                "url": info.url,
-                "alive": info.alive,
-                "busy": info.busy,
-                "currentJobId": info.current_job_id,
-            }
-            for info in worker_pool.info()
-        ],
-        "paused": job_manager.paused,
-    })
+    await broadcast(
+        SnapshotEvent(
+            type="snapshot",
+            jobs=snapshot,
+            workers=[
+                SnapshotWorker(
+                    id=info.id,
+                    url=info.url,
+                    alive=info.alive,
+                    busy=info.busy,
+                    currentJobId=info.current_job_id,
+                )
+                for info in worker_pool.info()
+            ],
+            paused=job_manager.paused,
+        )
+    )
     
     return {"ok": True}
 
@@ -1130,7 +1145,14 @@ async def app_settings_set(key: str, req: SettingValueRequest, request: Request)
     """설정 저장."""
     client_id = request.headers.get("x-client-id")
     await job_manager._store.save_setting(key, req.value)
-    await broadcast({"type": "settings.updated", "key": key, "value": req.value, "sender": client_id})
+    await broadcast(
+        SettingsUpdatedEvent(
+            type="settings.updated",
+            key=key,
+            value=req.value,
+            sender=client_id or "",
+        )
+    )
     return {"ok": True}
 
 
@@ -1139,7 +1161,14 @@ async def app_settings_delete(key: str, request: Request):
     """설정 삭제."""
     client_id = request.headers.get("x-client-id")
     await job_manager._store.delete_setting(key)
-    await broadcast({"type": "settings.updated", "key": key, "value": None, "sender": client_id})
+    await broadcast(
+        SettingsUpdatedEvent(
+            type="settings.updated",
+            key=key,
+            value=None,
+            sender=client_id or "",
+        )
+    )
     return {"ok": True}
 
 

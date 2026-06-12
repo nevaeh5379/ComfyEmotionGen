@@ -143,20 +143,20 @@ class TestJobs:
         await tmp_store.save(_make_job(id="j1", status="pending"))
         await tmp_store.save(_make_job(id="j2", status="completed"))
         await tmp_store.save(_make_job(id="j3", status="completed"))
-        assert await tmp_store.count_jobs(status="completed") == 2
-        assert await tmp_store.count_jobs(status="pending") == 1
+        assert await tmp_store.count_jobs(statuses=["completed"]) == 2
+        assert await tmp_store.count_jobs(statuses=["pending"]) == 1
 
     async def test_count_jobs_by_filename(self, tmp_store: JobStore) -> None:
         await tmp_store.save(_make_job(id="j1", filename="cat_photo.png"))
         await tmp_store.save(_make_job(id="j2", filename="dog_photo.png"))
         await tmp_store.save(_make_job(id="j3", filename="landscape.jpg"))
         # filename uses LIKE with wildcards
-        assert await tmp_store.count_jobs(filename="photo") == 2
+        assert await tmp_store.count_jobs(search_tags=["@photo"]) == 2
 
     async def test_count_jobs_combined_filters(self, tmp_store: JobStore) -> None:
         await tmp_store.save(_make_job(id="j1", filename="cat_photo.png", status="completed"))
         await tmp_store.save(_make_job(id="j2", filename="dog_photo.png", status="pending"))
-        assert await tmp_store.count_jobs(status="completed", filename="photo") == 1
+        assert await tmp_store.count_jobs(statuses=["completed"], search_tags=["@photo"]) == 1
 
     async def test_query_jobs_default_params(self, tmp_store: JobStore) -> None:
         for i in range(5):
@@ -179,20 +179,20 @@ class TestJobs:
     async def test_query_jobs_status_filter(self, tmp_store: JobStore) -> None:
         await tmp_store.save(_make_job(id="j1", status="pending"))
         await tmp_store.save(_make_job(id="j2", status="completed"))
-        result = await tmp_store.query_jobs(status="completed")
+        result = await tmp_store.query_jobs(statuses=["completed"])
         assert len(result) == 1
         assert result[0]["id"] == "j2"
 
     async def test_query_jobs_filename_filter(self, tmp_store: JobStore) -> None:
         await tmp_store.save(_make_job(id="j1", filename="cat.png"))
         await tmp_store.save(_make_job(id="j2", filename="dog.png"))
-        result = await tmp_store.query_jobs(filename="cat")
+        result = await tmp_store.query_jobs(search_tags=["@cat"])
         assert len(result) == 1
 
     async def test_query_jobs_combined_filters(self, tmp_store: JobStore) -> None:
         await tmp_store.save(_make_job(id="j1", filename="cat.png", status="pending"))
         await tmp_store.save(_make_job(id="j2", filename="cat.png", status="completed"))
-        result = await tmp_store.query_jobs(status="pending", filename="cat")
+        result = await tmp_store.query_jobs(statuses=["pending"], search_tags=["@cat"])
         assert len(result) == 1 and result[0]["id"] == "j1"
 
 

@@ -12,27 +12,27 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional, cast
+from backend.src.models import JSONValue
 
 import aiosqlite
 
 logger = logging.getLogger(__name__)
 
 # Resolve database path: CEG_DATABASE_PATH/CEG_DB_PATH > CEG_DATA_DIR/jobs.db > data/jobs.db
-_env_db_path = os.environ.get("CEG_DATABASE_PATH") or os.environ.get("CEG_DB_PATH")
-if _env_db_path:
-    DEFAULT_DB_PATH = Path(_env_db_path)
-else:
+def get_default_db_path() -> Path:
+    _env_db_path = os.environ.get("CEG_DATABASE_PATH") or os.environ.get("CEG_DB_PATH")
+    if _env_db_path:
+        return Path(_env_db_path)
     _env_data_dir = os.environ.get("CEG_DATA_DIR")
     if _env_data_dir:
-        DEFAULT_DB_PATH = Path(_env_data_dir) / "jobs.db"
-    else:
-        DEFAULT_DB_PATH = Path("data/jobs.db")
+        return Path(_env_data_dir) / "jobs.db"
+    return Path("data/jobs.db")
 
 
 def _saved_image_row_to_dict(
-    row: Any, *, tags: Optional[list[str]] = None
-) -> dict[str, Any]:
+    row: aiosqlite.Row, *, tags: Optional[list[str]] = None
+) -> dict[str, JSONValue]:
     keys = row.keys() if hasattr(row, "keys") else set()
     try:
         meta = json.loads(row["meta_json"]) if "meta_json" in keys and row["meta_json"] else {}
@@ -67,8 +67,8 @@ def _saved_image_row_to_dict(
 class JobStore:
     """aiosqlite 기반 잡 저장소."""
 
-    def __init__(self, db_path: Path = DEFAULT_DB_PATH) -> None:
-        self._db_path = db_path
+    def __init__(self, db_path: Optional[Path] = None) -> None:
+        self._db_path = db_path or get_default_db_path()
         self._conn: Optional[aiosqlite.Connection] = None
 
     async def open(self) -> None:
@@ -254,7 +254,7 @@ class JobStore:
             await self._conn.close()
             self._conn = None
 
-    async def save(self, job_dict: dict[str, Any]) -> None:
+    async def save(self, job_dict: dict[str, JSONValue]) -> None:
         if self._conn is None:
             raise RuntimeError("JobStore is not open")
         await self._conn.execute(
@@ -314,7 +314,7 @@ class JobStore:
         )
         await self._conn.commit()
 
-    async def cancel_batch(self, job_updates: list[dict[str, Any]]) -> None:
+    async def cancel_batch(self, job_updates: list[dict[str, JSONValue]]) -> None:
         """여러 잡을 일괄 취소 상태로 변경하고 이벤트를 기록합니다 (단일 트랜잭션)."""
         if self._conn is None:
             raise RuntimeError("JobStore is not open")
@@ -348,7 +348,7 @@ class JobStore:
         await self._conn.commit()
 
 
-    def _job_row_to_dict(self, row: Any) -> dict[str, Any]:
+    def _job_row_to_dict(self, row: aiosqlite.Row) -> dict[str, JSONValue]:
         try:
             meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
         except (json.JSONDecodeError, TypeError):
@@ -390,14 +390,14 @@ class JobStore:
             "targetWorkerId": row["target_worker_id"] if "target_worker_id" in row.keys() else None,
         }
 
-    async def load_all(self) -> list[dict[str, Any]]:
+    async def load_all(self) -> list[dict[str, JSONValue]]:
         if self._conn is None:
             return []
         cursor = await self._conn.execute("SELECT * FROM jobs ORDER BY created_at ASC")
         rows = await cursor.fetchall()
         return [self._job_row_to_dict(row) for row in rows]
 
-    async def get_job(self, job_id: str) -> Optional[dict[str, Any]]:
+    async def get_job(self, job_id: str) -> Optional[dict[str, JSONValue]]:
         if self._conn is None:
             return None
         cursor = await self._conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
@@ -406,7 +406,7 @@ class JobStore:
             return None
         return self._job_row_to_dict(row)
 
-    async def get_all_jobs_minimal(self) -> list[dict[str, Any]]:
+    async def get_all_jobs_minimal(self) -> list[dict[str, JSONValue]]:
         if self._conn is None:
             return []
         cursor = await self._conn.execute("SELECT id, status, created_at FROM jobs")
@@ -424,7 +424,7 @@ class JobStore:
         if self._conn is None:
             return 0
         conditions: list[str] = []
-        params: list[Any] = []
+        params: list[JSONValue] = []
 
         if statuses:
             placeholders = ",".join("?" for _ in statuses)
@@ -475,11 +475,11 @@ class JobStore:
         created_at_to: Optional[float] = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, JSONValue]]:
         if self._conn is None:
             return []
         conditions: list[str] = []
-        params: list[Any] = []
+        params: list[JSONValue] = []
 
         if statuses:
             placeholders = ",".join("?" for _ in statuses)
@@ -540,7 +540,7 @@ class JobStore:
         event_type: str,
         *,
         worker_id: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        details: Optional[dict[str, JSONValue]] = None,
     ) -> None:
         """잡 상태 전환 이벤트를 기록 (INSERT-only)."""
         if self._conn is None:
@@ -560,7 +560,7 @@ class JobStore:
         )
         await self._conn.commit()
 
-    async def get_job_events(self, job_id: str) -> list[dict[str, Any]]:
+    async def get_job_events(self, job_id: str) -> list[dict[str, JSONValue]]:
         """특정 잡의 모든 상태 전환 이력을 시간순으로 반환."""
         if self._conn is None:
             return []
@@ -569,7 +569,7 @@ class JobStore:
             (job_id,),
         )
         rows = await cursor.fetchall()
-        results: list[dict[str, Any]] = []
+        results: list[dict[str, JSONValue]] = []
         for row in rows:
             try:
                 details = json.loads(row["details"])
@@ -592,7 +592,7 @@ class JobStore:
         job_id: str,
         worker_id: str,
         event_type: str,
-        payload: dict[str, Any],
+        payload: dict[str, JSONValue],
     ) -> None:
         """ComfyUI 실행 이벤트를 기록 (INSERT-only)."""
         if self._conn is None:
@@ -612,7 +612,7 @@ class JobStore:
         )
         await self._conn.commit()
 
-    async def get_execution_events(self, job_id: str) -> list[dict[str, Any]]:
+    async def get_execution_events(self, job_id: str) -> list[dict[str, JSONValue]]:
         """특정 잡의 모든 ComfyUI 실행 이벤트를 시간순으로 반환."""
         if self._conn is None:
             return []
@@ -621,7 +621,7 @@ class JobStore:
             (job_id,),
         )
         rows = await cursor.fetchall()
-        results: list[dict[str, Any]] = []
+        results: list[dict[str, JSONValue]] = []
         for row in rows:
             try:
                 details = json.loads(row["payload_json"])
@@ -679,7 +679,7 @@ class JobStore:
 
     # ---------- workers (persistent worker URL list) ----------
 
-    async def list_worker_urls(self) -> list[dict[str, Any]]:
+    async def list_worker_urls(self) -> list[dict[str, JSONValue]]:
         """워커 URL 목록을 [{url, worker_type}, ...] 형태로 반환."""
         if self._conn is None:
             return []
@@ -726,7 +726,7 @@ class JobStore:
         prompt: str,
         meta: Optional[dict[str, str]] = None,
         ceg_template: str = "",
-        workflow: Optional[dict[str, Any]] = None,
+        workflow: Optional[dict[str, JSONValue]] = None,
     ) -> None:
         if self._conn is None:
             raise RuntimeError("JobStore is not open")
@@ -893,7 +893,7 @@ class JobStore:
             result[h] = await self.get_tags(h)
         return result
 
-    async def get_saved_image(self, hash: str) -> Optional[dict[str, Any]]:
+    async def get_saved_image(self, hash: str) -> Optional[dict[str, JSONValue]]:
         if self._conn is None:
             return None
         cursor = await self._conn.execute(
@@ -912,10 +912,10 @@ class JobStore:
         status: Optional[str] = None,
         filename: Optional[str] = None,
         tag: Optional[str] = None,
-    ) -> tuple[str, str, list[Any]]:
+    ) -> tuple[str, str, list[JSONValue]]:
         """list/count가 공유하는 JOIN/WHERE/params 빌더."""
         conditions: list[str] = []
-        params: list[Any] = []
+        params: list[JSONValue] = []
         joins = ""
         if tag is not None:
             joins = " JOIN image_tags it ON it.image_hash = si.hash"
@@ -960,7 +960,7 @@ class JobStore:
         status: Optional[str] = None,
         filename: Optional[str] = None,
         tag: Optional[str] = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, JSONValue]]:
         if self._conn is None:
             return []
         joins, where, params = self._saved_images_filter_clause(
@@ -996,7 +996,7 @@ class JobStore:
         *,
         status: Optional[str] = None,
         note: Optional[str] = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> Optional[dict[str, JSONValue]]:
         """status/note 부분 업데이트. status='trashed'면 trashed_at 동기화."""
         if self._conn is None:
             return None
@@ -1004,7 +1004,7 @@ class JobStore:
         if existing is None:
             return None
         sets: list[str] = []
-        params: list[Any] = []
+        params: list[JSONValue] = []
         if status is not None:
             sets.append("status = ?")
             params.append(status)
@@ -1038,7 +1038,7 @@ class JobStore:
         await self._conn.commit()
         return cursor.rowcount > 0
 
-    async def list_trashed_for_purge(self) -> list[dict[str, Any]]:
+    async def list_trashed_for_purge(self) -> list[dict[str, JSONValue]]:
         """status='trashed' 항목 전체 (휴지통 비우기에서 디스크 정리에 필요)."""
         if self._conn is None:
             return []
@@ -1086,7 +1086,7 @@ class JobStore:
         rows = await cursor.fetchall()
         return [r["tag"] for r in rows]
 
-    async def list_tag_counts(self) -> list[dict[str, Any]]:
+    async def list_tag_counts(self) -> list[dict[str, JSONValue]]:
         """{tag, count} 리스트 (count 내림차순)."""
         if self._conn is None:
             return []
@@ -1101,7 +1101,7 @@ class JobStore:
 
     async def list_asset_groups(
         self, *, limit: int = 100, offset: int = 0, sort: str = "latest"
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, JSONValue]]:
         if self._conn is None:
             return []
         if sort == "name":
@@ -1156,12 +1156,12 @@ class JobStore:
         offset: int = 0,
         status: Optional[str] = None,
         worker_id: Optional[str] = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, JSONValue]]:
         """필터링된 전체 job_events 목록을 반환."""
         if self._conn is None:
             return []
         conditions: list[str] = []
-        params: list[Any] = []
+        params: list[JSONValue] = []
 
         if status is not None:
             # status는 jobs 테이블에 있으므로 JOIN 필요
@@ -1195,7 +1195,7 @@ class JobStore:
 
         cursor = await self._conn.execute(query, params)
         rows = await cursor.fetchall()
-        results: list[dict[str, Any]] = []
+        results: list[dict[str, JSONValue]] = []
         for row in rows:
             try:
                 details = json.loads(row["details"])

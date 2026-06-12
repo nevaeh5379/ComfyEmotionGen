@@ -13,7 +13,7 @@ if sys.platform == "win32":
 import uvicorn  # noqa: E402
 
 
-async def main():
+async def main() -> None:
     try:
         port = int(os.environ.get("BACKEND_PORT", "8000"))
     except ValueError:

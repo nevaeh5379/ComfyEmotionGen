@@ -11,10 +11,11 @@ from __future__ import annotations
 from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, cast, Dict, List, Optional, Union
+from typing import cast, Dict, List, Optional, Union, TypedDict
 import re
 
-from lark import Lark, Transformer, UnexpectedInput
+from lark import Lark, Transformer, UnexpectedInput, Token, Tree
+from backend.src.models import JSONValue
 
 
 # ====== 라인 타입 enum ======
@@ -48,12 +49,12 @@ class TemplateLine:
     keys: List[str] = field(default_factory=list)
     type: LineType = LineType.OTHER
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, JSONValue]:
         """JSON 직렬화용 dict 변환."""
         return {
             "line_num": self.line_num,
             "text": self.text,
-            "keys": self.keys,
+            "keys": cast(List[JSONValue], self.keys),
             "type": self.type.value,
         }
 
@@ -92,7 +93,7 @@ class Program:
     vars: Dict[str, str] = field(default_factory=dict)
     axes: Dict[str, Axis] = field(default_factory=dict)
     combine_alias: Optional[str] = None
-    combine_expr: Any = None
+    combine_expr: Optional[object] = None
     excludes: List[ExcludeRule] = field(default_factory=list)
     template: str = ""
     filename: str = ""
@@ -104,43 +105,48 @@ class Program:
 GRAMMAR_PATH = Path(__file__).parent / "prompt_dsl.lark"
 
 
-class _Builder(Transformer):
+class _Builder(Transformer[Token, object]):
     """파스 트리를 Program 객체로 변환."""
 
-    def start(self, items):
+    def start(self, items: list[object]) -> Program:
         prog = Program()
         for item in items:
             if item is None:
                 continue
-            kind, payload = item
-            match kind:
-                case "set":
-                    name, value = payload
-                    prog.vars[name] = value
-                case "axis":
-                    prog.axes[payload.name] = payload
-                case "combine":
-                    prog.combine_alias = payload.get("alias")
-                    prog.combine_expr = payload.get("expr")
-                case "exclude":
-                    prog.excludes.append(payload)
-                case "template":
-                    prog.template = payload.strip()
-                case "filename":
-                    prog.filename = payload.strip()
+            if isinstance(item, tuple) and len(item) == 2:
+                kind, payload = item
+                match kind:
+                    case "set":
+                        if isinstance(payload, tuple) and len(payload) == 2:
+                            name, value = payload
+                            prog.vars[str(name)] = str(value)
+                    case "axis":
+                        if isinstance(payload, Axis):
+                            prog.axes[payload.name] = payload
+                    case "combine":
+                        if isinstance(payload, dict):
+                            prog.combine_alias = payload.get("alias")
+                            prog.combine_expr = payload.get("expr")
+                    case "exclude":
+                        if isinstance(payload, ExcludeRule):
+                            prog.excludes.append(payload)
+                    case "template":
+                        prog.template = str(payload).strip()
+                    case "filename":
+                        prog.filename = str(payload).strip()
         return prog
 
-    def statement(self, items):
+    def statement(self, items: list[object]) -> object:
         return items[0]
 
-    def set_stmt(self, items):
+    def set_stmt(self, items: list[object]) -> object:
         return ("set", (str(items[0]), str(items[1])[1:-1]))
 
-    def axis_def(self, items):
+    def axis_def(self, items: list[object]) -> object:
         name = str(items[0])
         is_optional = False
         include = None
-        entries = []
+        entries: list[AxisValue] = []
         for item in items[1:]:
             if str(item) == "?":
                 is_optional = True
@@ -151,31 +157,31 @@ class _Builder(Transformer):
                 include = str(item)
         return ("axis", Axis(name=name, include=include, values=entries, is_optional=is_optional))
 
-    def axis_include(self, items):
+    def axis_include(self, items: list[object]) -> object:
         return str(items[0])[1:-1]
 
-    def axis_entry(self, items):
+    def axis_entry(self, items: list[object]) -> object:
         key = str(items[0])
         val = items[1]
         if isinstance(val, dict):
-            props = val
+            props = cast(dict[str, str], val)
             value = ", ".join(props.values())
         else:
             props = {}
-            value = val
+            value = str(val)
         return AxisValue(key=key, value=value, props=props)
 
-    def axis_value(self, items):
+    def axis_value(self, items: list[object]) -> object:
         if not items:
             return {}
         if isinstance(items[0], tuple):
-            return dict(items)
+            return dict(cast(list[tuple[str, str]], items))
         return str(items[0])[1:-1]
 
-    def axis_property(self, items):
+    def axis_property(self, items: list[object]) -> object:
         return (str(items[0]), str(items[1])[1:-1])
 
-    def combine_stmt(self, items):
+    def combine_stmt(self, items: list[object]) -> object:
         if len(items) >= 1 and isinstance(items[0], tuple) and items[0][0] == "assign":
             alias = items[0][1]
             expr = items[0][2]
@@ -184,57 +190,57 @@ class _Builder(Transformer):
             expr = items[0]
         return ("combine", {"alias": alias, "expr": expr})
 
-    def combine_assignment(self, items):
+    def combine_assignment(self, items: list[object]) -> object:
         return ("assign", str(items[0]), items[1])
 
-    def expr_add(self, items):
+    def expr_add(self, items: list[object]) -> object:
         if len(items) == 1:
             return items[0]
         return ("add", items)
 
-    def expr_mul(self, items):
+    def expr_mul(self, items: list[object]) -> object:
         if len(items) == 1:
             return items[0]
         return ("mul", items)
 
-    def expr_var(self, items):
+    def expr_var(self, items: list[object]) -> object:
         return ("var", str(items[0]))
 
-    def expr_str(self, items):
+    def expr_str(self, items: list[object]) -> object:
         return ("str", str(items[0])[1:-1])
 
-    def expr_hide_key(self, items):
+    def expr_hide_key(self, items: list[object]) -> object:
         return ("hide_key", items[0])
 
-    def exclude_stmt(self, items):
-        conditions = []
+    def exclude_stmt(self, items: list[object]) -> object:
+        conditions: list[Condition] = []
         connective = "AND"
         for item in items:
             if isinstance(item, Condition):
                 conditions.append(item)
-            elif item.type == 'OR':
+            elif isinstance(item, Token) and item.type == 'OR':
                 connective = "OR"
         return ("exclude", ExcludeRule(conditions=conditions, connective=connective))
 
-    def condition(self, items):
+    def condition(self, items: list[object]) -> object:
         return items[0]
 
-    def eq_condition(self, items):
+    def eq_condition(self, items: list[object]) -> object:
         return Condition(axis=str(items[0]), op="eq", values=[str(items[1])])
 
-    def in_condition(self, items):
+    def in_condition(self, items: list[object]) -> object:
         return Condition(axis=str(items[0]), op="in", values=[str(v) for v in items[1:]])
 
-    def not_in_condition(self, items):
+    def not_in_condition(self, items: list[object]) -> object:
         return Condition(axis=str(items[0]), op="not_in", values=[str(v) for v in items[1:]])
 
-    def template_block(self, items):
+    def template_block(self, items: list[object]) -> object:
         return ("template", str(items[0]))
 
-    def filename_block(self, items):
+    def filename_block(self, items: list[object]) -> object:
         return ("filename", str(items[0]))
 
-    def comment(self, items):
+    def comment(self, items: list[object]) -> object:
         return None
 
 
@@ -279,6 +285,14 @@ _TYPE_PRIORITY: Dict[LineType, int] = {
 }
 
 
+class _RowStructure(TypedDict):
+    line_num: int
+    text: str
+    keys: List[str]
+    type: LineType
+    priority: int
+
+
 class _StructureExtractor:
     """Lark AST에서 템플릿 줄 번호별 매핑 정보를 추출한다."""
 
@@ -287,7 +301,7 @@ class _StructureExtractor:
     def __init__(self, source: str) -> None:
         self.lines = source.split("\n")
         self.n = len(self.lines)
-        self.rows: List[Dict[str, Any]] = [
+        self.rows: List[_RowStructure] = [
             {
                 "line_num": i + 1,
                 "text": self.lines[i],
@@ -310,16 +324,18 @@ class _StructureExtractor:
                     if k not in row_keys:
                         row_keys.append(k)
 
-    def _find_axis_name(self, node) -> Optional[str]:
-        for c in node.children:
-            if hasattr(c, "type") and c.type == "NAME":
-                return str(c)
+    def _find_axis_name(self, node: Tree[Token] | Token) -> Optional[str]:
+        if isinstance(node, Tree):
+            for c in node.children:
+                if isinstance(c, Token) and c.type == "NAME":
+                    return str(c)
         return None
 
-    def _extract_entry_key(self, node) -> Optional[str]:
-        for c2 in node.children:
-            if hasattr(c2, "type") and c2.type == "NAME":
-                return str(c2)
+    def _extract_entry_key(self, node: Tree[Token] | Token) -> Optional[str]:
+        if isinstance(node, Tree):
+            for c2 in node.children:
+                if isinstance(c2, Token) and c2.type == "NAME":
+                    return str(c2)
         return None
 
     def _collect_body_refs(self, start: int, end: int, typ: LineType) -> None:
@@ -330,10 +346,10 @@ class _StructureExtractor:
             if refs:
                 self._tag(i, i, typ, refs)
 
-    def _dfs(self, node) -> None:
-        if not hasattr(node, "data") or not hasattr(node, "meta"):
+    def _dfs(self, node: Tree[Token] | Token) -> None:
+        if not isinstance(node, Tree):
             return
-        rule: str = node.data
+        rule: str = str(node.data)
         start: int = getattr(node.meta, "line", 1)
         end: int = getattr(node.meta, "end_line", start)
 
@@ -348,7 +364,7 @@ class _StructureExtractor:
             if axis_name:
                 self._tag(start, start, LineType.AXIS_HEADER, [axis_name])
             for c in node.children:
-                if not hasattr(c, "data"):
+                if not isinstance(c, Tree):
                     continue
                 if c.data == "axis_entry":
                     cs = getattr(c.meta, "line", start)
@@ -389,10 +405,9 @@ class _StructureExtractor:
             self._tag(start, end, LineType.COMMENT)
 
         for c in node.children:
-            if hasattr(c, "data"):
-                self._dfs(c)
+            self._dfs(c)
 
-    def extract(self, tree) -> List[TemplateLine]:
+    def extract(self, tree: Tree[Token] | Token) -> List[TemplateLine]:
         self._dfs(tree)
         return [
             TemplateLine(
@@ -405,13 +420,13 @@ class _StructureExtractor:
         ]
 
 
-def _build_template_structure(tree, source: str) -> List[TemplateLine]:
+def _build_template_structure(tree: Tree[Token] | Token, source: str) -> List[TemplateLine]:
     return _StructureExtractor(source).extract(tree)
 
 
 def parse(src: str) -> Program:
     try:
-        raw_tree = _raw_parser.parse(src)
+        raw_tree: Tree[Token] = _raw_parser.parse(src)
         structure = _build_template_structure(raw_tree, src)
         prog = cast(Program, _parser.parse(src))
         prog.template_structure = structure
@@ -428,10 +443,12 @@ def parse(src: str) -> Program:
 
 # ====== 평가기 ======
 
-def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[str, AxisValue]]:
-    kind, payload = expr
+def eval_expr(expr: object, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[str, AxisValue]]:
+    if not isinstance(expr, tuple) or len(expr) < 2:
+        return []
+    kind, payload = expr[0], expr[1]
     if kind == 'var':
-        name = payload
+        name = str(payload)
         if name in axes:
             axis = axes[name]
             vals = axis.values
@@ -451,7 +468,7 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
     
     elif kind == 'str':
         dummy_name = f"__literal_{id(expr)}__"
-        return [{dummy_name: AxisValue(key="", value=payload)}]
+        return [{dummy_name: AxisValue(key="", value=str(payload))}]
 
     elif kind == 'hide_key':
         res = eval_expr(payload, axes, vars)
@@ -465,29 +482,31 @@ def eval_expr(expr, axes: Dict[str, Axis], vars: Dict[str, str]) -> List[Dict[st
 
     elif kind == 'add':
         res = []
-        for child in payload:
-            res.extend(eval_expr(child, axes, vars))
+        if isinstance(payload, list):
+            for child in payload:
+                res.extend(eval_expr(child, axes, vars))
         return res
         
     elif kind == 'mul':
-        res = eval_expr(payload[0], axes, vars)
-        for child in payload[1:]:
-            right = eval_expr(child, axes, vars)
-            new_res = []
-            for left in res:
-                for r in right:
-                    merged = dict(left)
-                    merged.update(r)
-                    new_res.append(merged)
-            res = new_res
-        return res
+        if isinstance(payload, list) and len(payload) > 0:
+            res = eval_expr(payload[0], axes, vars)
+            for child in payload[1:]:
+                right = eval_expr(child, axes, vars)
+                new_res = []
+                for left in res:
+                    for r in right:
+                        merged = dict(left)
+                        merged.update(r)
+                        new_res.append(merged)
+                res = new_res
+            return res
         
     return []
 
 
 # ====== 렌더러 ======
 
-def _substitute(template: str, ctx: Dict[str, Any], keys: Dict[str, str]) -> str:
+def _substitute(template: str, ctx: Dict[str, str], keys: Dict[str, str]) -> str:
     out = template
     for _ in range(5):  # 최대 5번 재귀적 치환
         prev = out
@@ -523,9 +542,9 @@ def render(prog: Program, *,
            only: Optional[Dict[str, List[str]]] = None,
            fix: Optional[Dict[str, str]] = None,
            skip_excludes: bool = False,
-           extra_excludes: Optional[List[Dict[str, Any]]] = None,
+           extra_excludes: Optional[List[Dict[str, JSONValue]]] = None,
            limit: int = 0,
-           offset: int = 0) -> Dict[str, Any]:
+           offset: int = 0) -> Dict[str, JSONValue]:
     if not prog.combine_expr:
         return {
             "total": 1,
@@ -558,7 +577,7 @@ def render(prog: Program, *,
 
     # -- skip_excludes: 기존 exclude 규칙 무시 --
     if not skip_excludes:
-        def program_excluded(combo_dict):
+        def program_excluded(combo_dict: Dict[str, AxisValue]) -> bool:
             cks = {k: v.key for k, v in combo_dict.items()}
             for rule in prog.excludes:
                 results = []
@@ -583,12 +602,22 @@ def render(prog: Program, *,
 
     # -- extra_excludes: 추가 제외 규칙 --
     if extra_excludes:
-        _extra_rules = [ExcludeRule(
-            [Condition(**c) for c in r["conditions"]],
-            r.get("connective", "AND")
-        ) for r in extra_excludes]
+        _extra_rules = []
+        for r in extra_excludes:
+            conds_raw = r.get("conditions")
+            conditions = []
+            if isinstance(conds_raw, list):
+                for c in conds_raw:
+                    if isinstance(c, dict):
+                        axis = str(c.get("axis", ""))
+                        op = str(c.get("op", ""))
+                        vals_raw = c.get("values", [])
+                        values = [str(v) for v in vals_raw] if isinstance(vals_raw, list) else []
+                        conditions.append(Condition(axis=axis, op=op, values=values))
+            connective = str(r.get("connective", "AND"))
+            _extra_rules.append(ExcludeRule(conditions=conditions, connective=connective))
 
-        def extra_excluded(combo_dict):
+        def extra_excluded(combo_dict: Dict[str, AxisValue]) -> bool:
             cks = {k: v.key for k, v in combo_dict.items()}
             for rule in _extra_rules:
                 results = []
@@ -625,7 +654,7 @@ def render(prog: Program, *,
         keys = {}
         
         # 생략된 선택적 축들에 대해 빈 문자열 기본값 바인딩
-        for name, axis in prog.axes.items():
+        for name, axis_obj in prog.axes.items():
             if name not in combo:
                 ctx[name] = ""
                 keys[name] = ""
@@ -664,17 +693,17 @@ def render(prog: Program, *,
         })
 
     axes_info = {}
-    for name, axis in prog.axes.items():
+    for name, axis_obj in prog.axes.items():
         axes_info[name] = {
-            "include": axis.include,
-            "is_optional": getattr(axis, "is_optional", False),
+            "include": axis_obj.include,
+            "is_optional": getattr(axis_obj, "is_optional", False),
             "values": [
                 {
                     "key": v.key,
                     "value": v.value,
                     "props": dict(v.props),
                 }
-                for v in axis.values
+                for v in axis_obj.values
             ]
         }
 
@@ -689,14 +718,14 @@ def render(prog: Program, *,
         for rule in prog.excludes
     ]
 
-    return {
+    return cast(Dict[str, JSONValue], {
         "total": total,
         "items": results,
         "axes": axes_info,
         "sets": dict(prog.vars),
         "excludes": excludes_info,
         "template_structure": [ln.to_dict() for ln in prog.template_structure],
-    }
+    })
 
 
 # ====== ComfyUI 연동 ======
@@ -737,8 +766,11 @@ if __name__ == "__main__":
         print(e)
         sys.exit(1)
     rendered = render(prog)
-    for r in rendered["items"]:
-        print(f"=== {r['filename']} ===")
-        print(r["prompt"])
-        print()
+    items = rendered.get("items")
+    if isinstance(items, list):
+        for r in items:
+            if isinstance(r, dict):
+                print(f"=== {str(r.get('filename'))} ===")
+                print(str(r.get("prompt")))
+                print()
     print(f"Total: {rendered['total']} combinations")
