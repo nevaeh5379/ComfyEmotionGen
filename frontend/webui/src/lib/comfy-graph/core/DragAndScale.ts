@@ -199,8 +199,8 @@ export class DragAndScale {
       this.element.width === 300 && this.element.height === 150
         ? [1920, 1080]
         : [this.element.width, this.element.height]
-    const cw = width / window.devicePixelRatio
-    const ch = height / window.devicePixelRatio
+    const cw = width
+    const ch = height
     let targetScale = this.scale
 
     if (zoom > 0) {
@@ -249,8 +249,8 @@ export class DragAndScale {
     const easeFunction = easeFunctions[easing] ?? easeFunctions.linear
 
     const startTimestamp = performance.now()
-    const cw = this.element.width / window.devicePixelRatio
-    const ch = this.element.height / window.devicePixelRatio
+    const cw = this.element.width
+    const ch = this.element.height
     const startX = this.offset[0]
     const startY = this.offset[1]
     const startX2 = startX - cw / this.scale

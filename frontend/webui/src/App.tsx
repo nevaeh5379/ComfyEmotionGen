@@ -555,7 +555,7 @@ function AppContent() {
   return (
     <div
       className={`flex flex-col bg-background ${
-        activeTab === "jobs" || activeTab === "generator" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
+        activeTab === "jobs" || activeTab === "generator" || activeTab === "editor" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
       }`}
     >
       <CurationToolbarProvider

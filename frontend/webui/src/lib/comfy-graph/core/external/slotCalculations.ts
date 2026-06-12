@@ -1,7 +1,6 @@
 // CEG - slotCalculations from ComfyUI_frontend renderer
 import type { LGraphNode } from '../LGraphNode'
 import type { INodeInputSlot, INodeOutputSlot, Point } from '../interfaces'
-import { LiteGraph } from '../litegraph'
 
 export interface SlotPositionContext {
   nodeX: number
@@ -16,12 +15,21 @@ export interface SlotPositionContext {
   widgets?: Array<{ name?: string }>
 }
 
+interface NodeConstructorWithSlotHeight {
+  title_height?: number
+  slot_height?: number
+  slot_start_y?: number
+}
+
+const DEFAULT_TITLE_HEIGHT = 30
+const DEFAULT_SLOT_HEIGHT = 20
+
 export function calculateInputSlotPosFromSlot(
   ctx: SlotPositionContext,
   slot: INodeInputSlot
 ): Point {
   if (ctx.collapsed) {
-    return [ctx.nodeX, ctx.nodeY - LiteGraph.NODE_TITLE_HEIGHT * 0.5]
+    return [ctx.nodeX, ctx.nodeY - DEFAULT_TITLE_HEIGHT * 0.5]
   }
 
   if (slot.pos) {
@@ -30,8 +38,8 @@ export function calculateInputSlotPosFromSlot(
 
   const slotIndex = ctx.inputs.indexOf(slot)
   const nodeOffsetY = ctx.slotStartY || 0
-  const y = ctx.nodeY + ((slotIndex !== -1 ? slotIndex : 0) + 0.7) * LiteGraph.NODE_SLOT_HEIGHT + nodeOffsetY
-  return [ctx.nodeX + LiteGraph.NODE_SLOT_HEIGHT * 0.5, y]
+  const y = ctx.nodeY + ((slotIndex !== -1 ? slotIndex : 0) + 0.7) * DEFAULT_SLOT_HEIGHT + nodeOffsetY
+  return [ctx.nodeX + DEFAULT_SLOT_HEIGHT * 0.5, y]
 }
 
 export function getSlotPosition(
@@ -39,8 +47,12 @@ export function getSlotPosition(
   slotIndex: number | INodeInputSlot | INodeOutputSlot,
   isInput: boolean
 ): Point {
+  const ctor = node.constructor as NodeConstructorWithSlotHeight
+  const titleHeight = ctor.title_height ?? DEFAULT_TITLE_HEIGHT
+  const slotHeight = ctor.slot_height ?? DEFAULT_SLOT_HEIGHT
+
   if (node.flags.collapsed) {
-    return [node.pos[0], node.pos[1] - LiteGraph.NODE_TITLE_HEIGHT * 0.5]
+    return [node.pos[0], node.pos[1] - titleHeight * 0.5]
   }
 
   const slot = typeof slotIndex === 'number'
@@ -55,12 +67,12 @@ export function getSlotPosition(
     return [node.pos[0] + slot.pos[0], node.pos[1] + slot.pos[1]]
   }
 
-  const nodeOffsetY = node.constructor.slot_start_y || 0
-  const y = node.pos[1] + ((index !== -1 ? (index ?? 0) : 0) + 0.7) * LiteGraph.NODE_SLOT_HEIGHT + nodeOffsetY
+  const nodeOffsetY = ctor.slot_start_y || 0
+  const y = node.pos[1] + ((index !== -1 ? (index ?? 0) : 0) + 0.7) * slotHeight + nodeOffsetY
   
   if (isInput) {
-    return [node.pos[0] + LiteGraph.NODE_SLOT_HEIGHT * 0.5, y]
+    return [node.pos[0] + slotHeight * 0.5, y]
   } else {
-    return [node.pos[0] + node.size[0] - LiteGraph.NODE_SLOT_HEIGHT * 0.5, y]
+    return [node.pos[0] + node.size[0] - slotHeight * 0.5, y]
   }
 }

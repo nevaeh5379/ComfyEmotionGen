@@ -2548,7 +2548,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       // Set the width of the line for isPointInStroke checks
       const { lineWidth } = this.ctx
       this.ctx.lineWidth = this.connections_width + 7
-      const dpi = Math.max(window?.devicePixelRatio ?? 1, 1)
+      const dpi = 1
 
       // Try layout store for segment hit testing first (more precise)
       const hitSegment = layoutStore.queryLinkSegmentAtPoint({ x, y }, this.ctx)
@@ -4866,7 +4866,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
    * centers the camera on a given node
    */
   centerOnNode(node: LGraphNode): void {
-    const dpi = window?.devicePixelRatio || 1
+    const dpi = 1
     this.ds.offset[0] =
       -node.pos[0] -
       node.size[0] * 0.5 +
@@ -5093,7 +5093,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     if (this.bgcanvas == this.canvas) {
       this.drawBackCanvas()
     } else {
-      const scale = window.devicePixelRatio
+      const scale = 1
       ctx.drawImage(
         this.bgcanvas,
         0,
@@ -5423,9 +5423,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     x = x || 10
     y =
       y ||
-      this.canvas.height /
-        ((this.canvas.ownerDocument.defaultView ?? window).devicePixelRatio ||
-          1) -
+      this.canvas.height -
         (lineCount + 1) * lineHeight
 
     ctx.save()
@@ -5495,7 +5493,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
 
     // reset in case of error
     if (!this.viewport) {
-      const scale = window.devicePixelRatio
+      const scale = 1
       ctx.restore()
       ctx.setTransform(scale, 0, 0, scale, 0, 0)
     }

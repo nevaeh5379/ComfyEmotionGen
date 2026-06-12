@@ -4,16 +4,44 @@ const widgetValues = new Map<string, WidgetState>()
 
 export function useWidgetValueStore() {
   return {
-    registerWidget: (graphId: string, options: Partial<WidgetState>): WidgetState => {
-      let state = widgetValues.get(graphId)
+    registerWidget: (graphId: string | number, options: Partial<WidgetState>): WidgetState => {
+      const nodeId = options.nodeId
+      const name = options.name
+      const key = (nodeId !== undefined && name !== undefined)
+        ? `${graphId}-${nodeId}-${name}`
+        : String(graphId)
+
+      let state = widgetValues.get(key)
       if (!state) {
-        state = { value: options.value ?? null }
-        widgetValues.set(graphId, state)
+        state = {
+          value: options.value ?? null,
+          nodeId,
+          name,
+          label: options.label,
+          disabled: options.disabled,
+          type: options.type,
+          options: options.options,
+          serialize: options.serialize
+        }
+        widgetValues.set(key, state)
       }
       return state
     },
+    getWidget: (graphId: string | number, nodeId: string | number, name: string): WidgetState | null => {
+      const key = `${graphId}-${nodeId}-${name}`
+      return widgetValues.get(key) || null
+    },
     clearGraph: (graphId?: string | number) => {
-      widgetValues.clear()
+      if (graphId === undefined) {
+        widgetValues.clear()
+      } else {
+        const prefix = `${graphId}-`
+        for (const key of widgetValues.keys()) {
+          if (key.startsWith(prefix) || key === String(graphId)) {
+            widgetValues.delete(key)
+          }
+        }
+      }
     },
     setWidgetValue: (graphId: string, value: string | number | boolean | null) => {
       const state = widgetValues.get(graphId)
