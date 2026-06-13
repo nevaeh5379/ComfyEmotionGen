@@ -16,6 +16,8 @@ import { useCanvasStore } from "@/lib/comfy-graph/stores/canvasStore"
 import type { ComfyWorkflowJSON } from "@/lib/comfy-graph/types/workflow"
 import { Button } from "@/components/ui/button"
 import { Undo2, Redo2, Save, FolderOpen, PanelLeft, PanelRight } from "lucide-react"
+import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
+import { ReactGraphEditor } from "@/components/graph/react/ReactGraphEditor"
 
 export function EditorTab() {
   const { workflowJson, setWorkflowJson, parsedWorkflow } = useWorkflowContext()
@@ -24,12 +26,69 @@ export function EditorTab() {
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   const [showRightPanel, setShowRightPanel] = useState(true)
+  const [editorMode, setEditorMode] = useState<"canvas" | "react">("canvas")
 
   const nodeDefs = useNodeDefStore((s) => s.nodeDefs)
   const setNodeDefs = useNodeDefStore((s) => s.setNodeDefs)
   const canUndo = useGraphStore((s) => s.canUndo())
   const canRedo = useGraphStore((s) => s.canRedo())
   const graph = useCanvasStore((s) => s.currentGraph)
+
+  // currentWorkflow가 갱신되면 reactGraphStore에도 연동
+  useEffect(() => {
+    if (currentWorkflow) {
+      useReactGraphStore.getState().setGraph(currentWorkflow)
+    }
+  }, [currentWorkflow])
+
+  // reactGraphStore의 변경사항을 workflowJson에 반영
+  useEffect(() => {
+    if (editorMode !== "react") return
+
+    const unsubscribe = useReactGraphStore.subscribe((state) => {
+      const apiWorkflow: Record<
+        string,
+        { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } }
+      > = {}
+
+      for (const node of state.nodes) {
+        const inputs: Record<string, unknown> = {}
+
+        // 위젯 값 처리
+        if (node.widgets_values && node.properties?.widget_names) {
+          const widgetNames = node.properties.widget_names as string[]
+          for (let i = 0; i < Math.min(node.widgets_values.length, widgetNames.length); i++) {
+            inputs[widgetNames[i]] = node.widgets_values[i]
+          }
+        }
+
+        // 링크 처리
+        if (node.inputs) {
+          for (const input of node.inputs) {
+            if (input.link != null) {
+              const link = state.links.find((l) => l.id === input.link)
+              if (link) {
+                inputs[input.name] = [link.origin_id.toString(), link.origin_slot]
+              }
+            }
+          }
+        }
+
+        apiWorkflow[node.id.toString()] = {
+          inputs,
+          class_type: node.type,
+          _meta: { title: node.type },
+        }
+      }
+
+      const nextJson = JSON.stringify(apiWorkflow, null, 2)
+      if (nextJson !== workflowJson) {
+        setWorkflowJson(nextJson)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [editorMode, workflowJson, setWorkflowJson])
 
   // object_info 로드
   useEffect(() => {
@@ -170,6 +229,17 @@ export function EditorTab() {
 
   // 노드 라이브러리에서 노드 추가
   const handleAddNode = useCallback((type: string) => {
+    if (editorMode === "react") {
+      const def = nodeDefs[type]
+      const state = useReactGraphStore.getState()
+      const pos: [number, number] = [
+        Math.round(150 - state.pan[0] / state.zoom),
+        Math.round(150 - state.pan[1] / state.zoom)
+      ]
+      state.addNode(type, pos, def)
+      return
+    }
+
     // @ts-ignore - graph is LGraph from our store
     if (!graph) return
 
@@ -183,7 +253,7 @@ export function EditorTab() {
     if (app?.createNode) {
       app.createNode(type, pos)
     }
-  }, [graph])
+  }, [graph, editorMode, nodeDefs])
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -231,6 +301,25 @@ export function EditorTab() {
           저장
         </Button>
         <div className="flex-1" />
+        <div className="flex items-center gap-1 rounded-lg bg-muted/65 p-0.5 border border-line/40 select-none">
+          <Button
+            variant={editorMode === "canvas" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-6 px-2 text-[10px] font-extrabold cursor-pointer"
+            onClick={() => setEditorMode("canvas")}
+          >
+            Canvas (Legacy)
+          </Button>
+          <Button
+            variant={editorMode === "react" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-6 px-2 text-[10px] font-extrabold cursor-pointer"
+            onClick={() => setEditorMode("react")}
+          >
+            React DOM (New)
+          </Button>
+        </div>
+        <div className="h-4 w-px bg-border mx-1" />
         <Button
           variant="ghost"
           size="sm"
@@ -260,6 +349,8 @@ export function EditorTab() {
             <div className="flex items-center justify-center h-full text-muted-foreground">
               ComfyUI 워커가 연결되어 있지 않습니다.
             </div>
+          ) : editorMode === "react" ? (
+            <ReactGraphEditor />
           ) : (
             <GraphCanvas
               workflow={currentWorkflow}
@@ -271,7 +362,7 @@ export function EditorTab() {
         {/* 우측: Properties */}
         {showRightPanel && (
           <div className="w-64 shrink-0 border-l">
-            <NodePropertiesPanel />
+            <NodePropertiesPanel editorMode={editorMode} />
           </div>
         )}
       </div>

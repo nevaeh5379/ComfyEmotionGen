@@ -1,19 +1,21 @@
-/**
- * Node Properties Panel
- * 선택된 노드의 속성을 표시하는 우측 패널
- */
-
 import { useCanvasStore } from "@/lib/comfy-graph/stores/canvasStore"
+import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
+import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
 import { useEffect, useState } from "react"
 import { Settings2, X } from "lucide-react"
 
 interface NodePropertiesPanelProps {
   className?: string
+  editorMode?: "canvas" | "react"
 }
 
-export function NodePropertiesPanel({ className = "" }: NodePropertiesPanelProps) {
+export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: NodePropertiesPanelProps) {
   const canvas = useCanvasStore((s) => s.canvas)
-  const [selectedNode, setSelectedNode] = useState<{
+  const reactNodes = useReactGraphStore((s) => s.nodes)
+  const reactSelectedIds = useReactGraphStore((s) => s.selectedNodeIds)
+  const reactDeselectAll = useReactGraphStore((s) => s.deselectAll)
+
+  const [canvasSelectedNode, setCanvasSelectedNode] = useState<{
     id: number
     title: string
     type: string
@@ -27,7 +29,7 @@ export function NodePropertiesPanel({ className = "" }: NodePropertiesPanelProps
   } | null>(null)
 
   useEffect(() => {
-    if (!canvas || !canvas.graph) return
+    if (editorMode !== "canvas" || !canvas || !canvas.graph) return
 
     const updateSelection = () => {
       const g = canvas!.graph
@@ -35,7 +37,7 @@ export function NodePropertiesPanel({ className = "" }: NodePropertiesPanelProps
       const selected = g.nodes.filter((n) => n.is_selected)
       if (selected.length === 1) {
         const node = selected[0]
-        setSelectedNode({
+        setCanvasSelectedNode({
           id: Number(node.id),
           // @ts-ignore
           title: node.title || node.type || "Node",
@@ -66,7 +68,7 @@ export function NodePropertiesPanel({ className = "" }: NodePropertiesPanelProps
           })),
         })
       } else {
-        setSelectedNode(null)
+        setCanvasSelectedNode(null)
       }
     }
 
@@ -83,7 +85,67 @@ export function NodePropertiesPanel({ className = "" }: NodePropertiesPanelProps
       canvas.canvas.removeEventListener("mouseup", handleEvent)
       canvas.canvas.removeEventListener("click", handleEvent)
     }
-  }, [canvas])
+  }, [canvas, editorMode])
+
+  // Derive selected node based on editorMode
+  let selectedNode: {
+    id: number
+    title: string
+    type: string
+    pos: [number, number]
+    size: [number, number]
+    color?: string
+    bgcolor?: string
+    widgets?: Array<{ name: string; value: unknown; type: string }>
+    inputs?: Array<{ name: string; type: string; link: number | null }>
+    outputs?: Array<{ name: string; type: string; links: number[] }>
+  } | null = null
+
+  if (editorMode === "react") {
+    if (reactSelectedIds.size === 1) {
+      const id = Array.from(reactSelectedIds)[0]
+      const node = reactNodes.find((n) => n.id === id)
+      if (node) {
+        const nodeDef = useNodeDefStore.getState().getNodeDef(node.type)
+        const req = nodeDef?.input?.required ?? {}
+        const opt = nodeDef?.input?.optional ?? {}
+        const allSpecs = { ...req, ...opt }
+        const widgetNames = (node.properties?.widget_names as string[]) || []
+
+        selectedNode = {
+          id: node.id,
+          title: nodeDef?.display_name || node.type || "Node",
+          type: node.type || "unknown",
+          pos: node.pos,
+          size: node.size,
+          color: undefined,
+          bgcolor: undefined,
+          widgets: widgetNames.map((name, idx) => {
+            const spec = allSpecs[name]
+            const typeSpec = spec?.[0]
+            const typeStr = Array.isArray(typeSpec) ? "combo" : String(typeSpec || "string")
+            return {
+              name,
+              value: node.widgets_values?.[idx],
+              type: typeStr,
+            }
+          }),
+          inputs: node.inputs?.map((i) => ({
+            name: i.name,
+            type: i.type,
+            link: i.link || null,
+          })),
+          outputs: node.outputs?.map((o) => ({
+            name: o.name,
+            type: o.type,
+            links: o.links || [],
+          })),
+        }
+      }
+    }
+  } else {
+    selectedNode = canvasSelectedNode
+  }
 
   if (!selectedNode) {
     return (
@@ -112,12 +174,17 @@ export function NodePropertiesPanel({ className = "" }: NodePropertiesPanelProps
         <button
           className="text-muted-foreground hover:text-foreground"
           onClick={() => {
-            // Deselect all nodes
-            if (canvas?.graph) {
-              for (const node of canvas.graph.nodes) {
-                node.is_selected = false
+            if (editorMode === "react") {
+              reactDeselectAll()
+            } else {
+              // Deselect all nodes
+              if (canvas?.graph) {
+                for (const node of canvas.graph.nodes) {
+                  node.is_selected = false
+                }
+                canvas.graph.setDirtyCanvas(true, true)
               }
-              canvas.graph.setDirtyCanvas(true, true)
+              setCanvasSelectedNode(null)
             }
           }}
         >
