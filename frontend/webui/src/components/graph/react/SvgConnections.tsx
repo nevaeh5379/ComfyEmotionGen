@@ -1,118 +1,133 @@
 /**
  * SvgConnections - 노드 연결선을 SVG Bezier 곡선으로 그리는 컴포넌트
+ *
+ * ⚡ DOM 측정(getBoundingClientRect) 없이 store 데이터만으로
+ *    핀 위치를 수학적으로 계산 → 드래그 시 즉시 반응
  */
 
-import { useEffect, useState, useMemo } from "react"
+import { useMemo } from "react"
 import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
+import type { ComfyWorkflowNode } from "@/lib/comfy-graph/types/workflow"
 
-interface SvgConnectionsProps {
-  containerRef: React.RefObject<HTMLDivElement | null>
+// ─── ReactNode.tsx 레이아웃 상수 (Tailwind 값과 동기화 유지) ──────────────
+//  title bar:  py-1.5(6+6) + text-xs line-height(16) + border(1) ≈ 29px
+const TITLE_H        = 29   // 타이틀 바 높이
+const CONTENT_PAD    = 8    // py-2 top padding (content 영역)
+const ROW_H          = 20   // h-5  슬롯 행 높이
+const ROW_GAP        = 4    // gap-1 슬롯 행 사이 간격
+const PIN_R          = 5    // w-2.5 h-2.5 → 직경 10px → 반지름 5px
+const GRID_PAD_X     = 4    // px-1  그리드 좌우 패딩
+// ─────────────────────────────────────────────────────────────────────────
+
+/** output 핀(우측) 중심 좌표 → 월드 좌표 */
+function outputPinCenter(node: ComfyWorkflowNode, slotIdx: number): [number, number] {
+  return [
+    node.pos[0] + node.size[0] - GRID_PAD_X - PIN_R,
+    node.pos[1] + TITLE_H + CONTENT_PAD + slotIdx * (ROW_H + ROW_GAP) + ROW_H / 2,
+  ]
 }
 
-export function SvgConnections({ containerRef }: SvgConnectionsProps) {
-  const nodes = useReactGraphStore((s) => s.nodes)
-  const links = useReactGraphStore((s) => s.links)
-  const zoom = useReactGraphStore((s) => s.zoom)
+/** input 핀(좌측) 중심 좌표 → 월드 좌표 */
+function inputPinCenter(node: ComfyWorkflowNode, slotIdx: number): [number, number] {
+  return [
+    node.pos[0] + GRID_PAD_X + PIN_R,
+    node.pos[1] + TITLE_H + CONTENT_PAD + slotIdx * (ROW_H + ROW_GAP) + ROW_H / 2,
+  ]
+}
+
+/** 타입 문자열 → 연결선 색상 */
+function linkColor(type: string): string {
+  const t = type.toUpperCase()
+  if (t === "MODEL")       return "#a78bfa"  // violet
+  if (t === "LATENT")      return "#f472b6"  // pink
+  if (t === "CONDITIONING") return "#fb923c" // orange
+  if (t === "IMAGE")       return "#34d399"  // green
+  if (t === "CLIP")        return "#facc15"  // yellow
+  if (t === "VAE")         return "#60a5fa"  // blue
+  return "#6ee7b7"                           // teal (default)
+}
+
+export function SvgConnections() {
+  const nodes    = useReactGraphStore((s) => s.nodes)
+  const links    = useReactGraphStore((s) => s.links)
   const disconnect = useReactGraphStore((s) => s.disconnect)
 
-  const [tick, setTick] = useState(0)
+  // id → node 빠른 조회용 맵
+  const nodeMap = useMemo(() => {
+    const m = new Map<number, ComfyWorkflowNode>()
+    for (const n of nodes) m.set(n.id, n)
+    return m
+  }, [nodes])
 
-  // 노드 드래그 및 그래프 상태 변화 시 핀 위치 재계산 트리거
-  useEffect(() => {
-    const handle = requestAnimationFrame(() => {
-      setTick((t) => t + 1)
+  // 링크 → 베지어 경로 계산 (DOM 측정 없음 → 즉시 반응)
+  const paths = useMemo(() => {
+    return links.flatMap((link) => {
+      const src = nodeMap.get(link.origin_id)
+      const dst = nodeMap.get(link.target_id)
+      if (!src || !dst) return []
+
+      const [x1, y1] = outputPinCenter(src, link.origin_slot)
+      const [x2, y2] = inputPinCenter(dst, link.target_slot)
+
+      const dx     = x2 - x1
+      const curve  = Math.max(Math.abs(dx) * 0.55, 50)
+      const cp1x   = x1 + curve
+      const cp2x   = x2 - curve
+
+      const d = `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`
+      const color = linkColor(link.type)
+
+      return [{ id: link.id, d, color }]
     })
-    return () => cancelAnimationFrame(handle)
-  }, [nodes, links, zoom, tick]) // 매 렌더링 프레임 핀 위치 추적 보장
-
-  // 연결선 경로 계산
-  const renderedPaths = useMemo(() => {
-    const containerEl = containerRef.current
-    if (!containerEl) return []
-
-    const containerRect = containerEl.getBoundingClientRect()
-
-    return links.map((link) => {
-      // 1. Output Pin (시작점) 찾기
-      const outSelector = `[data-slot-node-id="${link.origin_id}"][data-slot-type="output"][data-slot-index="${link.origin_slot}"]`
-      const outEl = containerEl.querySelector(outSelector)
-
-      // 2. Input Pin (끝점) 찾기
-      const inSelector = `[data-slot-node-id="${link.target_id}"][data-slot-type="input"][data-slot-index="${link.target_slot}"]`
-      const inEl = containerEl.querySelector(inSelector)
-
-      if (!outEl || !inEl) return null
-
-      const outRect = outEl.getBoundingClientRect()
-      const inRect = inEl.getBoundingClientRect()
-
-      // 컨테이너 로컬 스페이스(world coords)로 핀 중심 좌표 변환
-      const p1: [number, number] = [
-        (outRect.left - containerRect.left + outRect.width / 2) / zoom,
-        (outRect.top - containerRect.top + outRect.height / 2) / zoom,
-      ]
-
-      const p2: [number, number] = [
-        (inRect.left - containerRect.left + inRect.width / 2) / zoom,
-        (inRect.top - containerRect.top + inRect.height / 2) / zoom,
-      ]
-
-      // Bezier 곡선 경로 계산
-      const dx = p2[0] - p1[0]
-      const curve = Math.max(Math.abs(dx) * 0.55, 40)
-      const cp1x = p1[0] + curve
-      const cp1y = p1[1]
-      const cp2x = p2[0] - curve
-      const cp2y = p2[1]
-
-      const path = `M ${p1[0]} ${p1[1]} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2[0]} ${p2[1]}`
-
-      return {
-        id: link.id,
-        path,
-        type: link.type,
-      }
-    }).filter(Boolean) as Array<{ id: number; path: string; type: string }>
-  }, [links, nodes, zoom, containerRef, tick])
+  }, [links, nodeMap])
 
   return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-      {/* 그림자 및 후광 효과 */}
+    <svg
+      className="absolute inset-0 pointer-events-none overflow-visible"
+      style={{ width: "100%", height: "100%" }}
+    >
       <defs>
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2" result="blur" />
+        <filter id="link-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="1.5" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
 
-      {/* 연결선들 */}
-      {renderedPaths.map((lp) => (
-        <g key={`g-link-${lp.id}`} className="pointer-events-auto group">
-          {/* 클릭 감지용 두꺼운 투명 패스 */}
+      {paths.map((lp) => (
+        <g key={`link-${lp.id}`} className="pointer-events-auto group">
+          {/* 클릭 감지용 투명 두꺼운 패스 */}
           <path
-            d={lp.path}
+            d={lp.d}
             fill="none"
             stroke="transparent"
-            strokeWidth={12}
+            strokeWidth={14}
             className="cursor-pointer"
             onClick={(e) => {
               e.stopPropagation()
-              // Alt + 클릭 시 연결 끊기
-              if (e.altKey) {
-                disconnect(lp.id)
-              }
+              if (e.altKey) disconnect(lp.id)
             }}
           >
             <title>Alt + Click to disconnect</title>
           </path>
-          {/* 실제 그려지는 비주얼 패스 */}
+
+          {/* 글로우 그림자 */}
           <path
-            d={lp.path}
+            d={lp.d}
             fill="none"
-            stroke={lp.type === "model" ? "#b5a2ff" : lp.type === "latent" ? "#ff8cbb" : "#4ade80"}
-            strokeWidth={2.5}
-            className="transition-all duration-150 group-hover:stroke-primary group-hover:stroke-[3.5px] cursor-pointer"
-            style={{ filter: "url(#glow)" }}
+            stroke={lp.color}
+            strokeWidth={4}
+            strokeOpacity={0.25}
+            style={{ filter: "url(#link-glow)" }}
+            className="pointer-events-none"
+          />
+
+          {/* 실제 선 */}
+          <path
+            d={lp.d}
+            fill="none"
+            stroke={lp.color}
+            strokeWidth={2}
+            className="group-hover:stroke-white transition-colors duration-100 cursor-pointer"
           />
         </g>
       ))}

@@ -56,9 +56,17 @@ export function ReactGraphEditor() {
 
   // 마우스로 빈 공간 드래그 시 팬(Pan) 처리
   const handleWorkspaceMouseDown = (e: React.MouseEvent) => {
-    // Left click on empty space or Middle click
-    if (e.button !== 0 && e.button !== 1) return
-    if (e.target !== containerRef.current) return // empty space click only
+    // Middle button always pans; left button only pans when clicking empty space
+    const isMiddle = e.button === 1
+    const isLeft = e.button === 0
+    if (!isLeft && !isMiddle) return
+
+    // 노드, 핀, 컨텍스트 메뉴 위를 클릭했으면 팬 안함
+    const target = e.target as HTMLElement
+    const isOnNode = !!target.closest("[data-node-id]")
+    const isOnPin = !!target.closest("[data-slot-node-id]")
+    const isOnMenu = !!target.closest(".context-menu-container")
+    if (!isMiddle && (isOnNode || isOnPin || isOnMenu)) return
 
     e.preventDefault()
     deselectAll()
@@ -392,7 +400,7 @@ export function ReactGraphEditor() {
         {/* Interactive nodes and edges inside transformed wrapper */}
         <div className="absolute inset-0 pointer-events-auto overflow-visible">
           {/* 1. SVG 연결선 레이어 */}
-          <SvgConnections containerRef={containerRef} />
+          <SvgConnections />
 
           {/* 2. 임시 드래깅 연결선 그리기 */}
           {activeDragPin && tempLinkEnd && (

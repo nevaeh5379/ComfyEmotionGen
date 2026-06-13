@@ -18,55 +18,106 @@ interface ReactNodeProps {
 
 export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
   const nodeRef = useRef<HTMLDivElement>(null)
-  
-  const updateNodePos = useReactGraphStore((s) => s.updateNodePos)
-  const removeNode = useReactGraphStore((s) => s.removeNode)
-  const selectNode = useReactGraphStore((s) => s.selectNode)
+
+  const updateNodePos  = useReactGraphStore((s) => s.updateNodePos)
+  const updateNodeSize = useReactGraphStore((s) => s.updateNodeSize)
+  const removeNode     = useReactGraphStore((s) => s.removeNode)
+  const selectNode     = useReactGraphStore((s) => s.selectNode)
   const updateWidgetValue = useReactGraphStore((s) => s.updateWidgetValue)
   const zoom = useReactGraphStore((s) => s.zoom)
-  
+
   const getNodeDef = useNodeDefStore((s) => s.getNodeDef)
-  const nodeDef = useMemo(() => getNodeDef(type), [type, getNodeDef])
+  const nodeDef    = useMemo(() => getNodeDef(type), [type, getNodeDef])
+  const nodeData   = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
 
-  const nodeData = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
-
+  // ─── 이동 드래그 ────────────────────────────────────────────
   const handleHeaderMouseDown = (e: React.MouseEvent) => {
-    // Left click only
     if (e.button !== 0) return
     e.stopPropagation()
 
-    // Take snapshot of graph before dragging starts
     useReactGraphStore.getState().takeSnapshot()
-
-    // Select this node
     selectNode(id, e.ctrlKey || e.metaKey)
 
-    const startX = pos[0]
-    const startY = pos[1]
-    const startMouseX = e.clientX
-    const startMouseY = e.clientY
+    const startX = pos[0], startY = pos[1]
+    const startMX = e.clientX, startMY = e.clientY
 
-    const handleMouseMove = (ev: MouseEvent) => {
-      const dx = ev.clientX - startMouseX
-      const dy = ev.clientY - startMouseY
-      
-      // 스케일에 맞춰 드래그 델타 분배
-      const nextX = Math.round(startX + dx / zoom)
-      const nextY = Math.round(startY + dy / zoom)
-
-      updateNodePos(id, [nextX, nextY])
+    const onMove = (ev: MouseEvent) => {
+      updateNodePos(id, [
+        Math.round(startX + (ev.clientX - startMX) / zoom),
+        Math.round(startY + (ev.clientY - startMY) / zoom),
+      ])
     }
-
-    const handleMouseUp = () => {
-      window.removeEventListener("mousemove", handleMouseMove)
-      window.removeEventListener("mouseup", handleMouseUp)
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup",   onUp)
     }
-
-    window.addEventListener("mousemove", handleMouseMove)
-    window.addEventListener("mouseup", handleMouseUp)
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup",   onUp)
   }
 
-  // 노드 위젯 정의 리스트 매핑
+  // ─── 너비 리사이즈 (우측 핸들) ──────────────────────────────
+  const handleRightResize = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const startW = size[0], startMX = e.clientX
+
+    const onMove = (ev: MouseEvent) => {
+      const nextW = Math.max(180, Math.round(startW + (ev.clientX - startMX) / zoom))
+      updateNodeSize(id, [nextW, size[1]])
+    }
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup",   onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup",   onUp)
+  }
+
+  // ─── 높이 리사이즈 (하단 핸들) ──────────────────────────────
+  const handleBottomResize = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const startH = size[1], startMY = e.clientY
+
+    const onMove = (ev: MouseEvent) => {
+      const nextH = Math.max(80, Math.round(startH + (ev.clientY - startMY) / zoom))
+      updateNodeSize(id, [size[0], nextH])
+    }
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup",   onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup",   onUp)
+  }
+
+  // ─── 코너 리사이즈 (우하단 핸들) ────────────────────────────
+  const handleCornerResize = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const startW = size[0], startH = size[1]
+    const startMX = e.clientX, startMY = e.clientY
+
+    const onMove = (ev: MouseEvent) => {
+      const nextW = Math.max(180, Math.round(startW + (ev.clientX - startMX) / zoom))
+      const nextH = Math.max(80,  Math.round(startH + (ev.clientY - startMY) / zoom))
+      updateNodeSize(id, [nextW, nextH])
+    }
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup",   onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup",   onUp)
+  }
+
+  // ─── 위젯 스펙 ──────────────────────────────────────────────
   const widgetSpecs = useMemo(() => {
     const req = nodeDef?.input?.required ?? {}
     const opt = nodeDef?.input?.optional ?? {}
@@ -75,53 +126,50 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
 
   const widgetNames = (nodeData?.properties?.widget_names as string[]) || []
 
+  // ─── 렌더 ───────────────────────────────────────────────────
   return (
     <div
       ref={nodeRef}
       data-node-id={id}
-      className={`absolute rounded-lg border bg-background/95 shadow-md flex flex-col min-w-[210px] select-none transition-shadow ${
+      className={`absolute rounded-lg border bg-background/95 shadow-md flex flex-col select-none ${
         selected ? "border-primary ring-2 ring-primary/25 shadow-lg" : "border-border"
       }`}
       style={{
-        left: pos[0],
-        top: pos[1],
-        width: size[0],
+        left:   pos[0],
+        top:    pos[1],
+        width:  size[0],
+        height: size[1],
         zIndex: selected ? 100 : 10,
+        minWidth: 180,
+        minHeight: 80,
       }}
       onClick={(e) => {
         e.stopPropagation()
         selectNode(id, e.ctrlKey || e.metaKey)
       }}
     >
-      {/* Title bar */}
+      {/* ── Title bar ─────────────────────────────────────── */}
       <div
         onMouseDown={handleHeaderMouseDown}
-        className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/65 rounded-t-lg cursor-grab active:cursor-grabbing text-xs font-bold text-foreground select-none"
+        className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/65 rounded-t-lg cursor-grab active:cursor-grabbing text-xs font-bold text-foreground"
       >
         <span className="truncate">{nodeDef?.display_name || type}</span>
         <button
-          onClick={(e) => {
-            e.stopPropagation()
-            removeNode(id)
-          }}
+          onClick={(e) => { e.stopPropagation(); removeNode(id) }}
           className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
         >
           <X className="h-3 w-3" />
         </button>
       </div>
 
-      {/* Slots & Widgets container */}
-      <div className="flex-1 py-2 flex flex-col gap-1.5 text-[11px]">
-        {/* Inputs & Outputs (Slots) */}
+      {/* ── Content (slots + widgets) ──────────────────────── */}
+      <div className="flex-1 min-h-0 overflow-y-auto py-2 flex flex-col gap-1.5 text-[11px]">
+        {/* Inputs & Outputs row */}
         <div className="grid grid-cols-2 gap-2 px-1">
           {/* Left: Inputs */}
           <div className="flex flex-col gap-1 items-start">
             {nodeData?.inputs?.map((input, idx) => (
-              <div
-                key={`in-${idx}`}
-                className="flex items-center gap-1.5 text-left h-5 relative pl-3.5"
-              >
-                {/* Connection Pin */}
+              <div key={`in-${idx}`} className="flex items-center gap-1.5 text-left h-5 relative pl-3.5">
                 <div
                   data-slot-node-id={id}
                   data-slot-type="input"
@@ -142,14 +190,10 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
           {/* Right: Outputs */}
           <div className="flex flex-col gap-1 items-end ml-auto">
             {nodeData?.outputs?.map((output, idx) => (
-              <div
-                key={`out-${idx}`}
-                className="flex items-center gap-1.5 text-right h-5 relative pr-3.5"
-              >
+              <div key={`out-${idx}`} className="flex items-center gap-1.5 text-right h-5 relative pr-3.5">
                 <span className="truncate max-w-[80px] text-muted-foreground font-semibold">
                   {output.name}
                 </span>
-                {/* Connection Pin */}
                 <div
                   data-slot-node-id={id}
                   data-slot-type="output"
@@ -170,22 +214,40 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
         {/* Widgets */}
         {widgetNames.length > 0 && (
           <div className="flex flex-col border-t border-border/50 pt-2 gap-1">
-            {widgetNames.map((name, idx) => {
-              const val = nodeData?.widgets_values?.[idx]
-              const spec = widgetSpecs[name]
-
-              return (
-                <ReactWidget
-                  key={`widget-${idx}`}
-                  name={name}
-                  value={val}
-                  spec={spec}
-                  onChange={(newVal) => updateWidgetValue(id, name, newVal)}
-                />
-              )
-            })}
+            {widgetNames.map((name, idx) => (
+              <ReactWidget
+                key={`widget-${idx}`}
+                name={name}
+                value={nodeData?.widgets_values?.[idx]}
+                spec={widgetSpecs[name]}
+                onChange={(newVal) => updateWidgetValue(id, name, newVal)}
+              />
+            ))}
           </div>
         )}
+      </div>
+
+      {/* ── Resize handles ────────────────────────────────── */}
+      {/* Right edge — width */}
+      <div
+        onMouseDown={handleRightResize}
+        className="absolute top-0 right-0 w-1.5 cursor-ew-resize"
+        style={{ height: "calc(100% - 6px)", top: 0 }}
+      />
+      {/* Bottom edge — height */}
+      <div
+        onMouseDown={handleBottomResize}
+        className="absolute bottom-0 left-0 h-1.5 cursor-ns-resize"
+        style={{ width: "calc(100% - 6px)" }}
+      />
+      {/* Corner — both */}
+      <div
+        onMouseDown={handleCornerResize}
+        className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize flex items-center justify-center"
+      >
+        <svg width="6" height="6" viewBox="0 0 6 6" className="text-border/70">
+          <path d="M0 6 L6 0 M3 6 L6 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
       </div>
     </div>
   )

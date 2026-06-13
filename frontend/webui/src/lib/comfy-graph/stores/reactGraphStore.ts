@@ -138,7 +138,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       id: newId,
       type,
       pos,
-      size: [210, 100 + Math.max(inputs.length, outputs.length, widgetsValues.length) * 25],
+      size: [240, 56 + Math.max(inputs.length, outputs.length) * 24 + widgetsValues.length * 30],
       inputs: inputs.length > 0 ? inputs : undefined,
       outputs: outputs.length > 0 ? outputs : undefined,
       widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,

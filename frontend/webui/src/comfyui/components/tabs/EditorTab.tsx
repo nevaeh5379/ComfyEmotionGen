@@ -4,7 +4,7 @@
  * 좌: Node Library, 중: Canvas, 우: Properties
  */
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useWorkflowContext } from "@/comfyui/contexts/WorkflowContext"
 import { GraphCanvas } from "@/components/graph/GraphCanvas"
 import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
@@ -34,12 +34,25 @@ export function EditorTab() {
   const canRedo = useGraphStore((s) => s.canRedo())
   const graph = useCanvasStore((s) => s.currentGraph)
 
+  // ─── 이전 에디터 모드 추적 (루프 방지용) ─────────────────────
+  const prevEditorModeRef = useRef<"canvas" | "react">("canvas")
+
   // currentWorkflow가 갱신되면 reactGraphStore에도 연동
+  // (canvas 모드에서만: react 모드에서는 reactGraphStore가 소스오브트루스)
   useEffect(() => {
-    if (currentWorkflow) {
+    if (currentWorkflow && editorMode !== "react") {
       useReactGraphStore.getState().setGraph(currentWorkflow)
     }
-  }, [currentWorkflow])
+  }, [currentWorkflow, editorMode])
+
+  // canvas → react 모드 전환 시 단 1회 setGraph
+  useEffect(() => {
+    const prev = prevEditorModeRef.current
+    prevEditorModeRef.current = editorMode
+    if (editorMode === "react" && prev === "canvas" && currentWorkflow) {
+      useReactGraphStore.getState().setGraph(currentWorkflow)
+    }
+  }, [editorMode]) // currentWorkflow를 의도적으로 제외: 전환 시점 스냅샷만 사용
 
   // reactGraphStore의 변경사항을 workflowJson에 반영
   useEffect(() => {
@@ -110,14 +123,13 @@ export function EditorTab() {
     return () => { cancelled = true }
   }, [setNodeDefs])
 
-  // workflowJson 변경 시 그래프로 변환
+  // workflowJson 변경 시 그래프로 변환 (nodeDefs를 사용해 위젯/출력 올바르게 채우기)
   useEffect(() => {
     if (!parsedWorkflow?.success) {
       setCurrentWorkflow(null)
       return
     }
 
-    // ComfyWorkflow (API 포맷) → ComfyWorkflowJSON (UI 포맷) 변환
     const apiWorkflow = parsedWorkflow.data
     const nodes: import("@/lib/comfy-graph/types/workflow").ComfyWorkflowNode[] = []
     const links: import("@/lib/comfy-graph/types/workflow").ComfyWorkflowLink[] = []
@@ -125,38 +137,100 @@ export function EditorTab() {
 
     for (const [nodeId, nodeData] of Object.entries(apiWorkflow)) {
       const id = parseInt(nodeId) || nodes.length + 1
-      const node: import("@/lib/comfy-graph/types/workflow").ComfyWorkflowNode = {
-        id,
-        type: nodeData.class_type,
-        pos: [100 + (nodes.length % 5) * 300, 100 + Math.floor(nodes.length / 5) * 200],
-        size: [200, 100],
-      }
+      const def = nodeDefs[nodeData.class_type]
 
-      // 입력 처리
-      if (nodeData.inputs) {
-        const inputs: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput[] = []
-        for (const [key, value] of Object.entries(nodeData.inputs)) {
-          if (Array.isArray(value) && value.length === 2 && typeof value[0] === "string") {
-            // 링크 참조
-            const originId = parseInt(value[0])
-            const originSlot = value[1] as number
-            inputs.push({ name: key, type: "*", link: linkId })
-            links.push({
-              id: linkId++,
-              origin_id: originId,
-              origin_slot: originSlot,
-              target_id: id,
-              target_slot: inputs.length - 1,
-              type: "*",
-            })
+      const inputPins: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput[] = []
+      const outputPins: import("@/lib/comfy-graph/types/workflow").ComfyNodeOutput[] = []
+      const widgetsValues: unknown[] = []
+      const widgetNames: string[] = []
+
+      if (def) {
+        // Definition 있음: 위젯 vs 링크핀 올바르게 분리
+        const req = def.input?.required ?? {}
+        const opt = def.input?.optional ?? {}
+        const allInputs = { ...req, ...opt }
+
+        for (const [name, spec] of Object.entries(allInputs)) {
+          const typeSpec = spec[0]
+          const isWidget =
+            Array.isArray(typeSpec) ||
+            ["INT", "FLOAT", "STRING", "BOOLEAN"].includes(String(typeSpec).toUpperCase())
+
+          const rawVal = nodeData.inputs?.[name]
+
+          if (isWidget) {
+            widgetNames.push(name)
+            // 링크 참조가 아닌 경우에만 실제 값 사용
+            const isLink =
+              Array.isArray(rawVal) && rawVal.length === 2 && typeof rawVal[0] === "string"
+            widgetsValues.push(isLink ? (spec[1]?.default ?? "") : (rawVal ?? spec[1]?.default ?? ""))
           } else {
-            inputs.push({ name: key, type: "*" })
+            // 링크 타입 핀
+            const pin: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput = {
+              name,
+              type: String(typeSpec),
+            }
+            const isLink =
+              Array.isArray(rawVal) && rawVal.length === 2 && typeof rawVal[0] === "string"
+            if (isLink && Array.isArray(rawVal)) {
+              pin.link = linkId
+              links.push({
+                id: linkId++,
+                origin_id: parseInt(String(rawVal[0])),
+                origin_slot: rawVal[1] as number,
+                target_id: id,
+                target_slot: inputPins.length,
+                type: String(typeSpec),
+              })
+            }
+            inputPins.push(pin)
           }
         }
-        if (inputs.length > 0) node.inputs = inputs
+
+        // Outputs: definition에서 읽어오기
+        if (def.output && def.output_name) {
+          for (let i = 0; i < def.output.length; i++) {
+            outputPins.push({
+              name: def.output_name[i] || def.output[i],
+              type: def.output[i] || "*",
+            })
+          }
+        }
+      } else {
+        // Definition 없음: 링크 참조만 파싱 (fallback)
+        if (nodeData.inputs) {
+          for (const [key, value] of Object.entries(nodeData.inputs)) {
+            if (Array.isArray(value) && value.length === 2 && typeof value[0] === "string") {
+              const pin: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput = {
+                name: key, type: "*", link: linkId,
+              }
+              links.push({
+                id: linkId++,
+                origin_id: parseInt(value[0]),
+                origin_slot: value[1] as number,
+                target_id: id,
+                target_slot: inputPins.length,
+                type: "*",
+              })
+              inputPins.push(pin)
+            }
+          }
+        }
       }
 
-      nodes.push(node)
+      const maxSlots = Math.max(inputPins.length, outputPins.length)
+      const height = 56 + maxSlots * 24 + widgetsValues.length * 30
+
+      nodes.push({
+        id,
+        type: nodeData.class_type,
+        pos: [100 + (nodes.length % 5) * 300, 100 + Math.floor(nodes.length / 5) * 250],
+        size: [240, Math.max(80, height)],
+        inputs: inputPins.length > 0 ? inputPins : undefined,
+        outputs: outputPins.length > 0 ? outputPins : undefined,
+        widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,
+        properties: widgetNames.length > 0 ? { widget_names: widgetNames } : undefined,
+      })
     }
 
     setCurrentWorkflow({
@@ -166,7 +240,7 @@ export function EditorTab() {
       links,
       version: 0.4,
     })
-  }, [parsedWorkflow])
+  }, [parsedWorkflow, nodeDefs])
 
   // 그래프 변경 시 workflowJson 업데이트
   const handleWorkflowChange = useCallback(
