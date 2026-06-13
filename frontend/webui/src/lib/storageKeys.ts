@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   activeWorkflowId: "activeWorkflowId",
   appSettings: "appSettings",
   savedWorkflows: "savedWorkflows",
+  editorWorkflows: "editorWorkflows",
   savedTemplates: "savedTemplates",
   sessions: "ceg_sessions",
   activeState: "ceg_active_state",

@@ -15,9 +15,33 @@ import { useGraphStore } from "@/lib/comfy-graph/stores/graphStore"
 import { useCanvasStore } from "@/lib/comfy-graph/stores/canvasStore"
 import type { ComfyWorkflowJSON } from "@/lib/comfy-graph/types/workflow"
 import { Button } from "@/components/ui/button"
-import { Undo2, Redo2, Save, FolderOpen, PanelLeft, PanelRight } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Undo2,
+  Redo2,
+  Save,
+  FolderOpen,
+  PanelLeft,
+  PanelRight,
+  Trash2,
+  Folder,
+  X,
+} from "lucide-react"
 import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
 import { ReactGraphEditor } from "@/components/graph/react/ReactGraphEditor"
+import {
+  useEditorSavedWorkflows,
+  type EditorSavedWorkflow,
+} from "@/comfyui/hooks/useEditorSavedWorkflows"
 
 export function EditorTab() {
   const { workflowJson, setWorkflowJson, parsedWorkflow } = useWorkflowContext()
@@ -27,6 +51,12 @@ export function EditorTab() {
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   const [showRightPanel, setShowRightPanel] = useState(true)
   const [editorMode, setEditorMode] = useState<"canvas" | "react">("canvas")
+
+  const { workflows: savedEditorWorkflows, saveWorkflow: saveEditorWorkflow, deleteWorkflow: deleteEditorWorkflow } =
+    useEditorSavedWorkflows()
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [saveName, setSaveName] = useState("")
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false)
 
   const nodeDefs = useNodeDefStore((s) => s.nodeDefs)
   const setNodeDefs = useNodeDefStore((s) => s.setNodeDefs)
@@ -318,6 +348,28 @@ export function EditorTab() {
     [nodeDefs, setWorkflowJson]
   )
 
+  const handleSaveWorkflow = useCallback(() => {
+    if (!saveName.trim()) return
+    saveEditorWorkflow(saveName.trim(), workflowJson)
+    setSaveDialogOpen(false)
+    setSaveName("")
+  }, [saveName, saveEditorWorkflow, workflowJson])
+
+  const handleLoadWorkflow = useCallback(
+    (w: EditorSavedWorkflow) => {
+      setWorkflowJson(w.workflowJson)
+      setLoadDialogOpen(false)
+    },
+    [setWorkflowJson]
+  )
+
+  const handleDeleteWorkflow = useCallback(
+    (id: string) => {
+      deleteEditorWorkflow(id)
+    },
+    [deleteEditorWorkflow]
+  )
+
   // workflowJson이 비어있으면 빈 그래프 표시
   const handleNewWorkflow = useCallback(() => {
     setWorkflowJson("")
@@ -397,11 +449,24 @@ export function EditorTab() {
           <FolderOpen className="h-4 w-4 mr-1" />
           새 워크플로우
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => {
-          console.log("[EditorTab] Save workflow:", workflowJson)
-        }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setSaveName("")
+            setSaveDialogOpen(true)
+          }}
+        >
           <Save className="h-4 w-4 mr-1" />
           저장
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setLoadDialogOpen(true)}
+        >
+          <Folder className="h-4 w-4 mr-1" />
+          불러오기
         </Button>
         <div className="flex-1" />
         <div className="flex items-center gap-1 rounded-lg bg-muted/65 p-0.5 border border-line/40 select-none">
@@ -438,6 +503,96 @@ export function EditorTab() {
           <PanelRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* 저장 다이얼로그 */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>워크플로우 저장</DialogTitle>
+            <DialogDescription>
+              현재 에디터의 워크플로우를 저장합니다. 같은 이름이 있으면 덮어씁니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="workflow-name">이름</Label>
+              <Input
+                id="workflow-name"
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                placeholder="워크플로우 이름"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleSaveWorkflow()
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleSaveWorkflow} disabled={!saveName.trim()}>
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 불러오기 다이얼로그 */}
+      <Dialog open={loadDialogOpen} onOpenChange={setLoadDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>저장된 워크플로우</DialogTitle>
+            <DialogDescription>
+              에디터에 저장된 워크플로우 목록입니다. 선택하면 불러옵니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {savedEditorWorkflows.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                저장된 워크플로우가 없습니다.
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {savedEditorWorkflows.map((w) => (
+                  <li
+                    key={w.id}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <button
+                      type="button"
+                      className="flex-1 text-left text-sm hover:text-accent-foreground cursor-pointer"
+                      onClick={() => handleLoadWorkflow(w)}
+                    >
+                      <span className="font-medium">{w.name}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {new Date(w.savedAt).toLocaleString()}
+                      </span>
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="ml-2"
+                      onClick={() => handleDeleteWorkflow(w.id)}
+                      aria-label="삭제"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLoadDialogOpen(false)}>
+              닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 메인 영역: 좌-중-우 */}
       <div className="flex flex-1 min-h-0">
