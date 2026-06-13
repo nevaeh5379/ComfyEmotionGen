@@ -72,11 +72,25 @@ export function GraphCanvas({
     }
   }, [nodeDefs, setCanvas, setCurrentGraph, setAppService, onWorkflowChange])
 
-  // workflow prop 변경 시 로드
+  // workflow prop 변경 시 로드 (appRef가 아직 없으면 pending으로 저장)
+  const pendingWorkflowRef = useRef<ComfyWorkflowJSON | null>(null)
+
   useEffect(() => {
-    if (!workflow || !appRef.current) return
+    if (!workflow) return
+    if (!appRef.current) {
+      pendingWorkflowRef.current = workflow
+      return
+    }
     appRef.current.loadGraphData(workflow)
+    pendingWorkflowRef.current = null
   }, [workflow])
+
+  // appRef 초기화 완료 후 pending workflow가 있으면 로드
+  useEffect(() => {
+    if (!appRef.current || !pendingWorkflowRef.current) return
+    appRef.current.loadGraphData(pendingWorkflowRef.current)
+    pendingWorkflowRef.current = null
+  }, [nodeDefs])
 
   // 키보드 단축키
   const handleKeyDown = useCallback(

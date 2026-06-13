@@ -55,7 +55,7 @@ export function SvgConnections() {
   // id → node 빠른 조회용 맵
   const nodeMap = useMemo(() => {
     const m = new Map<number, ComfyWorkflowNode>()
-    for (const n of nodes) m.set(n.id, n)
+    if (nodes) for (const n of nodes) m.set(n.id, n)
     return m
   }, [nodes])
 
@@ -93,7 +93,7 @@ export function SvgConnections() {
         </filter>
       </defs>
 
-      {paths.map((lp) => (
+      {(paths ?? []).map((lp) => (
         <g key={`link-${lp.id}`} className="pointer-events-auto group">
           {/* 클릭 감지용 투명 두꺼운 패스 */}
           <path

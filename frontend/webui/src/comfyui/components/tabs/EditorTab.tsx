@@ -68,13 +68,15 @@ export function EditorTab() {
   // ─── 이전 에디터 모드 추적 (루프 방지용) ─────────────────────
   const prevEditorModeRef = useRef<"canvas" | "react">("canvas")
 
-  // currentWorkflow가 갱신되면 reactGraphStore에도 연동
-  // (canvas 모드에서만: react 모드에서는 reactGraphStore가 소스오브트루스)
+  // currentWorkflow가 갱신되면 reactGraphStore에도 연동 (루프 방지용 ref)
+  const isSyncingToStoreRef = useRef(false)
+
   useEffect(() => {
-    if (currentWorkflow && editorMode !== "react") {
-      useReactGraphStore.getState().setGraph(currentWorkflow)
-    }
-  }, [currentWorkflow, editorMode])
+    if (!currentWorkflow) return
+    isSyncingToStoreRef.current = true
+    useReactGraphStore.getState().setGraph(currentWorkflow)
+    isSyncingToStoreRef.current = false
+  }, [currentWorkflow])
 
   // canvas → react 모드 전환 시 단 1회 setGraph
   useEffect(() => {
@@ -90,6 +92,9 @@ export function EditorTab() {
     if (editorMode !== "react") return
 
     const unsubscribe = useReactGraphStore.subscribe((state) => {
+      // workflowJson → reactGraphStore 싱크 중이면 역방향 전파 스킵 (루프 방지)
+      if (isSyncingToStoreRef.current) return
+
       const apiWorkflow: Record<
         string,
         { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } }
@@ -360,7 +365,6 @@ export function EditorTab() {
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
       if (!file) return
-
       const reader = new FileReader()
       reader.onload = (e) => {
         try {
@@ -368,6 +372,15 @@ export function EditorTab() {
           const parsed = JSON.parse(text) as ComfyWorkflowJSON
           if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
             throw new Error("Invalid ComfyUI workflow JSON: missing nodes array")
+          }
+          // 링크 정규화: 배열 [id, origin_id, origin_slot, target_id, target_slot, type] → 객체
+          if (parsed.links) {
+            parsed.links = parsed.links.map((l: unknown) => {
+              if (Array.isArray(l)) {
+                return { id: l[0], origin_id: l[1], origin_slot: l[2], target_id: l[3], target_slot: l[4], type: l[5] ?? "*" }
+              }
+              return l
+            }) as ComfyWorkflowJSON["links"]
           }
           setCurrentWorkflow(parsed)
         } catch (err) {
