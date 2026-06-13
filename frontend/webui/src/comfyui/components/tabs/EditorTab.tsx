@@ -380,7 +380,10 @@ export function EditorTab() {
             variant={editorMode === "canvas" ? "secondary" : "ghost"}
             size="sm"
             className="h-6 px-2 text-[10px] font-extrabold cursor-pointer"
-            onClick={() => setEditorMode("canvas")}
+            onClick={() => {
+              localStorage.setItem("comfy-editor-mode", "canvas")
+              setEditorMode("canvas")
+            }}
           >
             Canvas (Legacy)
           </Button>
@@ -388,7 +391,10 @@ export function EditorTab() {
             variant={editorMode === "react" ? "secondary" : "ghost"}
             size="sm"
             className="h-6 px-2 text-[10px] font-extrabold cursor-pointer"
-            onClick={() => setEditorMode("react")}
+            onClick={() => {
+              localStorage.setItem("comfy-editor-mode", "react")
+              setEditorMode("react")
+            }}
           >
             React DOM (New)
           </Button>

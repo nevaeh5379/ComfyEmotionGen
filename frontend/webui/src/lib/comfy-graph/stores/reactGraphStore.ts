@@ -68,8 +68,24 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(workflow.links || [])
     if (nodesEqual && linksEqual) return
 
+    // 기존에 렌더링 중이던 노드의 위치/크기/위젯값은 보존 (탭 이동 후 복귀 시 초기화 방지)
+    const existingMap = new Map(currentNodes.map((n) => [n.id, n]))
+    const mergedNodes = (workflow.nodes || []).map((node) => {
+      const existing = existingMap.get(node.id)
+      if (existing) {
+        return {
+          ...node,
+          pos: existing.pos,
+          size: existing.size,
+          widgets_values: existing.widgets_values,
+          properties: existing.properties,
+        }
+      }
+      return node
+    })
+
     set({
-      nodes: workflow.nodes || [],
+      nodes: mergedNodes,
       links: workflow.links || [],
       selectedNodeIds: new Set<number>(),
     })
@@ -87,7 +103,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     const widgetNames: string[] = []
 
     if (def) {
-      // 1. Inputs & Widgets 구분하여 초기화
+      // 1. Inputs & Widgets 초기화
       const req = def.input?.required ?? {}
       const opt = def.input?.optional ?? {}
 
@@ -101,20 +117,27 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
             String(typeSpec).toUpperCase()
           )
 
+        let defaultVal: unknown = ""
+        if (Array.isArray(typeSpec)) {
+          defaultVal = typeSpec[0] ?? ""
+        } else if (spec[1]?.default !== undefined) {
+          defaultVal = spec[1].default
+        } else if (typeSpec === "INT" || typeSpec === "FLOAT") {
+          defaultVal = 0
+        } else if (typeSpec === "BOOLEAN") {
+          defaultVal = false
+        }
+
         if (isWidget) {
           widgetNames.push(name)
-          // 기본값 지정
-          let defaultVal: unknown = ""
-          if (Array.isArray(typeSpec)) {
-            defaultVal = typeSpec[0] ?? ""
-          } else if (spec[1]?.default !== undefined) {
-            defaultVal = spec[1].default
-          } else if (typeSpec === "INT" || typeSpec === "FLOAT") {
-            defaultVal = 0
-          } else if (typeSpec === "BOOLEAN") {
-            defaultVal = false
-          }
           widgetsValues.push(defaultVal)
+
+          // 위젯도 inputs에 추가하되, widget 속성을 붙여 소켓으로 노출
+          inputs.push({
+            name,
+            type: String(typeSpec),
+            widget: { name, config: spec[1] || {} },
+          })
         } else {
           inputs.push({
             name,
@@ -138,7 +161,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       id: newId,
       type,
       pos,
-      size: [240, 56 + Math.max(inputs.length, outputs.length) * 24 + widgetsValues.length * 30],
+      size: [240, 56 + Math.max(inputs.length, outputs.length) * 24 + widgetNames.length * 8],
       inputs: inputs.length > 0 ? inputs : undefined,
       outputs: outputs.length > 0 ? outputs : undefined,
       widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,

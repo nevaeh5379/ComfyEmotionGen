@@ -166,25 +166,28 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
       <div className="flex-1 min-h-0 overflow-y-auto py-2 flex flex-col gap-1.5 text-[11px]">
         {/* Inputs & Outputs row */}
         <div className="grid grid-cols-2 gap-2 px-1">
-          {/* Left: Inputs */}
+          {/* Left: Pure Inputs (no widget) */}
           <div className="flex flex-col gap-1 items-start">
-            {nodeData?.inputs?.map((input, idx) => (
-              <div key={`in-${idx}`} className="flex items-center gap-1.5 text-left h-5 relative pl-3.5">
-                <div
-                  data-slot-node-id={id}
-                  data-slot-type="input"
-                  data-slot-index={idx}
-                  data-slot-datatype={input.type}
-                  className={`absolute left-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
-                    input.link ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
-                  }`}
-                  title={input.type}
-                />
-                <span className="truncate max-w-[80px] text-muted-foreground font-semibold">
-                  {input.name}
-                </span>
-              </div>
-            ))}
+            {nodeData?.inputs?.map((input, idx) => {
+              if (input.widget) return null
+              return (
+                <div key={`in-${idx}`} className="flex items-center gap-1.5 text-left h-5 relative pl-3.5">
+                  <div
+                    data-slot-node-id={id}
+                    data-slot-type="input"
+                    data-slot-index={idx}
+                    data-slot-datatype={input.type}
+                    className={`absolute left-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
+                      input.link ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
+                    }`}
+                    title={input.type}
+                  />
+                  <span className="truncate max-w-[80px] text-muted-foreground font-semibold">
+                    {input.name}
+                  </span>
+                </div>
+              )
+            })}
           </div>
 
           {/* Right: Outputs */}
@@ -211,20 +214,71 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
           </div>
         </div>
 
-        {/* Widgets */}
-        {widgetNames.length > 0 && (
+        {/* Widget Inputs (socket + widget inline) */}
+        {nodeData?.inputs && nodeData.inputs.some((i) => i.widget) && (
           <div className="flex flex-col border-t border-border/50 pt-2 gap-1">
-            {widgetNames.map((name, idx) => (
-              <ReactWidget
-                key={`widget-${idx}`}
-                name={name}
-                value={nodeData?.widgets_values?.[idx]}
-                spec={widgetSpecs[name]}
-                onChange={(newVal) => updateWidgetValue(id, name, newVal)}
-              />
-            ))}
+            {nodeData.inputs.map((input, idx) => {
+              if (!input.widget) return null
+              const widgetName = input.widget.name
+              const widgetIdx = widgetNames.indexOf(widgetName)
+              const widgetValue = widgetIdx !== -1 ? nodeData?.widgets_values?.[widgetIdx] : undefined
+
+              return (
+                <div key={`widget-in-${idx}`} className="flex flex-col gap-1 relative pl-6 pr-3 py-1">
+                  {/* Socket handle for widget input */}
+                  <div
+                    data-slot-node-id={id}
+                    data-slot-type="input"
+                    data-slot-index={idx}
+                    data-slot-datatype={input.type}
+                    className={`absolute left-1.5 top-[14px] w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
+                      input.link ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
+                    }`}
+                    title={input.type}
+                  />
+
+                  {input.link ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground font-bold truncate">
+                        {widgetName}
+                      </span>
+                      <span className="text-[9px] text-green-500 font-mono">linked</span>
+                    </div>
+                  ) : (
+                    <ReactWidget
+                      name={widgetName}
+                      value={widgetValue}
+                      spec={widgetSpecs[widgetName]}
+                      onChange={(newVal) => updateWidgetValue(id, widgetName, newVal)}
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
+
+        {/* Pure widgets not exposed as inputs */}
+        {(() => {
+          const linkedWidgetNames = new Set(
+            nodeData?.inputs?.filter((i) => i.widget).map((i) => i.widget!.name) ?? []
+          )
+          const pureWidgets = widgetNames.filter((n) => !linkedWidgetNames.has(n))
+          if (pureWidgets.length === 0) return null
+          return (
+            <div className="flex flex-col border-t border-border/50 pt-2 gap-1">
+              {pureWidgets.map((name) => (
+                <ReactWidget
+                  key={`widget-${name}`}
+                  name={name}
+                  value={nodeData?.widgets_values?.[widgetNames.indexOf(name)]}
+                  spec={widgetSpecs[name]}
+                  onChange={(newVal) => updateWidgetValue(id, name, newVal)}
+                />
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {/* ── Resize handles ────────────────────────────────── */}
