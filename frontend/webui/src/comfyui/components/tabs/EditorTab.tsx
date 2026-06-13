@@ -158,12 +158,41 @@ export function EditorTab() {
 
           const rawVal = nodeData.inputs?.[name]
 
+          let defaultVal: unknown = ""
+          if (Array.isArray(typeSpec)) {
+            defaultVal = typeSpec[0] ?? ""
+          } else if (spec[1]?.default !== undefined) {
+            defaultVal = spec[1].default
+          } else if (typeSpec === "INT" || typeSpec === "FLOAT") {
+            defaultVal = 0
+          } else if (typeSpec === "BOOLEAN") {
+            defaultVal = false
+          }
+
           if (isWidget) {
             widgetNames.push(name)
-            // 링크 참조가 아닌 경우에만 실제 값 사용
             const isLink =
               Array.isArray(rawVal) && rawVal.length === 2 && typeof rawVal[0] === "string"
-            widgetsValues.push(isLink ? (spec[1]?.default ?? "") : (rawVal ?? spec[1]?.default ?? ""))
+            widgetsValues.push(isLink ? (spec[1]?.default ?? "") : (rawVal ?? defaultVal))
+
+            // 위젯도 inputs에 추가하되, widget 속성을 붙여 소켓으로 노출
+            const pin: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput = {
+              name,
+              type: String(typeSpec),
+              widget: { name, config: spec[1] || {} },
+            }
+            if (isLink && Array.isArray(rawVal)) {
+              pin.link = linkId
+              links.push({
+                id: linkId++,
+                origin_id: parseInt(String(rawVal[0])),
+                origin_slot: rawVal[1] as number,
+                target_id: id,
+                target_slot: inputPins.length,
+                type: String(typeSpec),
+              })
+            }
+            inputPins.push(pin)
           } else {
             // 링크 타입 핀
             const pin: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput = {
@@ -219,7 +248,7 @@ export function EditorTab() {
       }
 
       const maxSlots = Math.max(inputPins.length, outputPins.length)
-      const height = 56 + maxSlots * 24 + widgetsValues.length * 30
+      const height = 48 + maxSlots * 18 + widgetNames.length * 22
 
       nodes.push({
         id,

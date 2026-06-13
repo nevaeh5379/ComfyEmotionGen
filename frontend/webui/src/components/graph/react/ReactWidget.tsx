@@ -9,9 +9,10 @@ interface ReactWidgetProps {
   value: unknown
   spec: InputSpec | undefined
   onChange: (val: unknown) => void
+  showLabel?: boolean
 }
 
-export function ReactWidget({ name, value, spec, onChange }: ReactWidgetProps) {
+export function ReactWidget({ name, value, spec, onChange, showLabel = true }: ReactWidgetProps) {
   const typeSpec = spec?.[0]
   const config = spec?.[1] || {}
 
@@ -21,14 +22,16 @@ export function ReactWidget({ name, value, spec, onChange }: ReactWidgetProps) {
     const strVal = String(value ?? options[0] ?? "")
 
     return (
-      <div className="flex flex-col gap-1 px-3 py-1">
-        <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold">
-          <span className="truncate">{name}</span>
-        </div>
+      <div className="flex flex-col gap-0.5">
+        {showLabel && (
+          <span className="text-[10px] text-muted-foreground font-bold truncate">
+            {name}
+          </span>
+        )}
         <select
           value={strVal}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full text-xs rounded border border-input bg-background/50 px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-ring select-none"
+          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring select-none"
         >
           {options.map((opt) => (
             <option key={String(opt)} value={String(opt)}>
@@ -47,13 +50,17 @@ export function ReactWidget({ name, value, spec, onChange }: ReactWidgetProps) {
     const boolVal = !!value
 
     return (
-      <div className="flex items-center justify-between px-3 py-1.5 hover:bg-accent/10 rounded">
-        <span className="text-[10px] text-muted-foreground font-bold truncate">{name}</span>
+      <div className="flex items-center justify-between hover:bg-accent/10 rounded px-1 py-0.5">
+        {showLabel && (
+          <span className="text-[10px] text-muted-foreground font-bold truncate">
+            {name}
+          </span>
+        )}
         <input
           type="checkbox"
           checked={boolVal}
           onChange={(e) => onChange(e.target.checked)}
-          className="h-3.5 w-3.5 rounded border-input bg-background focus:ring-ring text-primary"
+          className="h-3 w-3 rounded border-input bg-background focus:ring-ring text-primary"
         />
       </div>
     )
@@ -69,11 +76,13 @@ export function ReactWidget({ name, value, spec, onChange }: ReactWidgetProps) {
     const step = config.step !== undefined ? Number(config.step) : (isInt ? 1 : 0.1)
 
     return (
-      <div className="flex flex-col gap-1 px-3 py-1">
-        <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold">
-          <span className="truncate">{name}</span>
-          <span className="mono text-[9px] opacity-75">{numVal}</span>
-        </div>
+      <div className="flex flex-col gap-0.5">
+        {showLabel && (
+          <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold">
+            <span className="truncate">{name}</span>
+            <span className="mono text-[9px] opacity-75">{numVal}</span>
+          </div>
+        )}
         <input
           type="number"
           value={isNaN(numVal) ? "" : numVal}
@@ -89,7 +98,7 @@ export function ReactWidget({ name, value, spec, onChange }: ReactWidgetProps) {
             const val = isInt ? parseInt(rawVal, 10) : parseFloat(rawVal)
             onChange(isNaN(val) ? 0 : val)
           }}
-          className="w-full text-xs rounded border border-input bg-background/50 px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
         />
       </div>
     )
@@ -99,15 +108,17 @@ export function ReactWidget({ name, value, spec, onChange }: ReactWidgetProps) {
   const strVal = String(value ?? "")
 
   return (
-    <div className="flex flex-col gap-1 px-3 py-1">
-      <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold">
-        <span className="truncate">{name}</span>
-      </div>
+    <div className="flex flex-col gap-0.5">
+      {showLabel && (
+        <span className="text-[10px] text-muted-foreground font-bold truncate">
+          {name}
+        </span>
+      )}
       <input
         type="text"
         value={strVal}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full text-xs rounded border border-input bg-background/50 px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
   )

@@ -95,9 +95,21 @@ export function ReactGraphEditor() {
   // 마우스 휠 스크롤 줌(Zoom) 처리
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault()
+    if (!containerRef.current) return
+
+    const rect = containerRef.current.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+
     const zoomFactor = 1.08
     const nextZoom = e.deltaY < 0 ? zoom * zoomFactor : zoom / zoomFactor
+
+    // 마우스 위치 기준으로 확대/축소: 마우스가 가리키던 월드 좌표를 유지하도록 pan 보정
+    const newPanX = mouseX - (mouseX - pan[0]) / zoom * nextZoom
+    const newPanY = mouseY - (mouseY - pan[1]) / zoom * nextZoom
+
     setZoom(nextZoom)
+    setPan([newPanX, newPanY])
   }
 
   // 화면 좌표(Screen) -> 캔버스 월드 좌표(World) 변환
@@ -146,10 +158,10 @@ export function ReactGraphEditor() {
 
     const pinRect = pinEl.getBoundingClientRect()
     return [
-      (pinRect.left - containerRect.left + pinRect.width / 2) / zoom,
-      (pinRect.top - containerRect.top + pinRect.height / 2) / zoom,
+      (pinRect.left - containerRect.left + pinRect.width / 2 - pan[0]) / zoom,
+      (pinRect.top - containerRect.top + pinRect.height / 2 - pan[1]) / zoom,
     ] as [number, number]
-  }, [activeDragPin, zoom])
+  }, [activeDragPin, zoom, pan])
 
   // 임시 연결선 패스 생성
   const tempLinkPath = useMemo(() => {
@@ -215,8 +227,8 @@ export function ReactGraphEditor() {
       const containerRect = containerRef.current.getBoundingClientRect()
       
       // 마우스 위치를 월드 좌표계(1x)로 변환
-      const mouseX = (e.clientX - containerRect.left) / zoom
-      const mouseY = (e.clientY - containerRect.top) / zoom
+      const mouseX = (e.clientX - containerRect.left - pan[0]) / zoom
+      const mouseY = (e.clientY - containerRect.top - pan[1]) / zoom
       setTempLinkEnd([mouseX, mouseY])
     }
 
@@ -250,7 +262,7 @@ export function ReactGraphEditor() {
       window.removeEventListener("mousemove", handleGlobalMouseMove)
       window.removeEventListener("mouseup", handleGlobalMouseUp)
     }
-  }, [activeDragPin, hoveredPin, zoom, connect, isHoveredPinCompatible])
+  }, [activeDragPin, hoveredPin, zoom, pan, connect, isHoveredPinCompatible])
 
   // 핀 이벤트 위임 설정 (핀 드래깅 연동)
   useEffect(() => {
@@ -272,8 +284,8 @@ export function ReactGraphEditor() {
         
         // 초기 끝점 설정
         const containerRect = container.getBoundingClientRect()
-        const mouseX = (e.clientX - containerRect.left) / zoom
-        const mouseY = (e.clientY - containerRect.top) / zoom
+        const mouseX = (e.clientX - containerRect.left - pan[0]) / zoom
+        const mouseY = (e.clientY - containerRect.top - pan[1]) / zoom
         setTempLinkEnd([mouseX, mouseY])
       }
     }
@@ -306,7 +318,7 @@ export function ReactGraphEditor() {
       container.removeEventListener("mouseover", handleMouseEnter)
       container.removeEventListener("mouseout", handleMouseLeave)
     }
-  }, [zoom])
+  }, [zoom, pan])
 
   // 키보드 단축키 처리 (Delete/Backspace로 노드 삭제, Ctrl+Z/Y로 실행취소/재실행)
   useEffect(() => {

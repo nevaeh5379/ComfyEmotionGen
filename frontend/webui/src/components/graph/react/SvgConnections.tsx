@@ -10,11 +10,11 @@ import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
 import type { ComfyWorkflowNode } from "@/lib/comfy-graph/types/workflow"
 
 // ─── ReactNode.tsx 레이아웃 상수 (Tailwind 값과 동기화 유지) ──────────────
-//  title bar:  py-1.5(6+6) + text-xs line-height(16) + border(1) ≈ 29px
-const TITLE_H        = 29   // 타이틀 바 높이
-const CONTENT_PAD    = 8    // py-2 top padding (content 영역)
-const ROW_H          = 20   // h-5  슬롯 행 높이
-const ROW_GAP        = 4    // gap-1 슬롯 행 사이 간격
+//  title bar:  py-1(4) + text-xs line-height(14) + border(1) ≈ 25px
+const TITLE_H        = 25   // 타이틀 바 높이
+const CONTENT_PAD    = 4    // py-1 top padding (content 영역)
+const ROW_H          = 16   // h-4  슬롯 행 높이
+const ROW_GAP        = 2    // gap-0.5 슬롯 행 사이 간격
 const PIN_R          = 5    // w-2.5 h-2.5 → 직경 10px → 반지름 5px
 const GRID_PAD_X     = 4    // px-1  그리드 좌우 패딩
 // ─────────────────────────────────────────────────────────────────────────

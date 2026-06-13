@@ -4,6 +4,7 @@
  */
 
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 import type {
   ComfyWorkflowJSON,
   ComfyWorkflowNode,
@@ -53,13 +54,13 @@ interface ReactGraphState {
 }
 
 export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
-  nodes: [],
-  links: [],
-  zoom: 1.0,
-  pan: [0, 0],
-  selectedNodeIds: new Set<number>(),
-  undoStack: [],
-  redoStack: [],
+      nodes: [],
+      links: [],
+      zoom: 1.0,
+      pan: [0, 0],
+      selectedNodeIds: new Set<number>(),
+      undoStack: [],
+      redoStack: [],
 
   setGraph: (workflow) => {
     const currentNodes = get().nodes
@@ -68,7 +69,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(workflow.links || [])
     if (nodesEqual && linksEqual) return
 
-    // 기존에 렌더링 중이던 노드의 위치/크기/위젯값은 보존 (탭 이동 후 복귀 시 초기화 방지)
+    // 기존에 렌더링 중이던 노드의 위치/크기/위젯값/입력슬롯은 보존 (탭 이동 후 복귀 시 초기화 방지)
     const existingMap = new Map(currentNodes.map((n) => [n.id, n]))
     const mergedNodes = (workflow.nodes || []).map((node) => {
       const existing = existingMap.get(node.id)
@@ -77,6 +78,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
           ...node,
           pos: existing.pos,
           size: existing.size,
+          inputs: existing.inputs,
+          outputs: existing.outputs,
           widgets_values: existing.widgets_values,
           properties: existing.properties,
         }
@@ -161,7 +164,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       id: newId,
       type,
       pos,
-      size: [240, 56 + Math.max(inputs.length, outputs.length) * 24 + widgetNames.length * 8],
+      size: [240, 48 + Math.max(inputs.length, outputs.length) * 18 + widgetNames.length * 22],
       inputs: inputs.length > 0 ? inputs : undefined,
       outputs: outputs.length > 0 ? outputs : undefined,
       widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,
