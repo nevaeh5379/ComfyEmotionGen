@@ -7,6 +7,7 @@ import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
 import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
 import { X } from "lucide-react"
+import type { ComfyNodeInput, ComfyNodeOutput } from "@/lib/comfy-graph/types/workflow"
 
 interface ReactNodeProps {
   id: number
@@ -133,14 +134,73 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
     window.addEventListener("mouseup",   onUp)
   }
 
-  // ─── 위젯 스펙 ──────────────────────────────────────────────
-  const widgetSpecs = useMemo(() => {
-    const req = nodeDef?.input?.required ?? {}
-    const opt = nodeDef?.input?.optional ?? {}
-    return { ...req, ...opt }
-  }, [nodeDef])
+  // ─── 정규화된 노드 데이터 (nodeDef fallback 포함) ───────────
+  const { inputs, outputs, widgetNames, widgetSpecs } = useMemo(() => {
+    const def = nodeDef
+    let names: string[] = (nodeData?.properties?.widget_names as string[]) || []
+    let ins: ComfyNodeInput[] = nodeData?.inputs ? [...nodeData.inputs] : []
+    let outs: ComfyNodeOutput[] = nodeData?.outputs ? [...nodeData.outputs] : []
 
-  const widgetNames = (nodeData?.properties?.widget_names as string[]) || []
+    // nodeDef 기반 fallback: inputs / outputs / widgetNames 생성
+    if (def) {
+      if (names.length === 0) {
+        const req = def.input?.required ?? {}
+        const opt = def.input?.optional ?? {}
+        for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+          const typeSpec = spec[0]
+          const isWidget =
+            Array.isArray(typeSpec) ||
+            ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
+              String(typeSpec).toUpperCase()
+            )
+          if (isWidget) names.push(name)
+        }
+      }
+
+      if (ins.length === 0) {
+        const req = def.input?.required ?? {}
+        const opt = def.input?.optional ?? {}
+        for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+          const typeSpec = spec[0]
+          const isWidget =
+            Array.isArray(typeSpec) ||
+            ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
+              String(typeSpec).toUpperCase()
+            )
+          ins.push({
+            name,
+            type: String(typeSpec),
+            ...(isWidget ? { widget: { name, config: spec[1] || {} } } : {}),
+          })
+        }
+      }
+
+      if (outs.length === 0 && def.output) {
+        for (let i = 0; i < def.output.length; i++) {
+          outs.push({
+            name: def.output_name[i] || def.output[i] || `out_${i}`,
+            type: def.output[i] || "*",
+          })
+        }
+      }
+    }
+
+    // inputs 에 widget 속성이 없는데 widgetNames 에 포함되면 보충
+    const nameSet = new Set(names)
+    ins = ins.map((input) => {
+      if (!input.widget && nameSet.has(input.name)) {
+        return { ...input, widget: { name: input.name, config: {} } }
+      }
+      return input
+    })
+
+    const specs = {
+      ...(def?.input?.required ?? {}),
+      ...(def?.input?.optional ?? {}),
+    }
+
+    return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
+  }, [nodeDef, nodeData])
 
   // ─── 렌더 ───────────────────────────────────────────────────
   return (
@@ -183,7 +243,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
         <div className="grid grid-cols-2 gap-2 px-1">
           {/* Left: Pure Inputs (no widget) */}
           <div className="flex flex-col gap-0.5 items-start">
-            {nodeData?.inputs?.map((input, idx) => {
+            {inputs.map((input, idx) => {
               if (input.widget) return null
               return (
                 <div key={`in-${idx}`} className="flex items-center gap-1.5 text-left h-4 relative pl-3.5">
@@ -207,7 +267,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
 
           {/* Right: Outputs */}
           <div className="flex flex-col gap-0.5 items-end ml-auto">
-            {nodeData?.outputs?.map((output, idx) => (
+            {outputs.map((output, idx) => (
               <div key={`out-${idx}`} className="flex items-center gap-1.5 text-right h-4 relative pr-3.5">
                 <span className="truncate max-w-[80px] text-muted-foreground font-semibold">
                   {output.name}
@@ -230,9 +290,9 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
         </div>
 
         {/* Widget Inputs (socket + widget inline) */}
-        {nodeData?.inputs && nodeData.inputs.some((i) => i.widget) && (
+        {inputs.some((i) => i.widget) && (
           <div className="flex flex-col border-t border-border/50 pt-1 gap-0">
-            {nodeData.inputs.map((input, idx) => {
+            {inputs.map((input, idx) => {
               if (!input.widget) return null
               const widgetName = input.widget.name
               const widgetIdx = widgetNames.indexOf(widgetName)
@@ -279,7 +339,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
         {/* Pure widgets not exposed as inputs */}
         {(() => {
           const linkedWidgetNames = new Set(
-            nodeData?.inputs?.filter((i) => i.widget).map((i) => i.widget!.name) ?? []
+            inputs.filter((i) => i.widget).map((i) => i.widget!.name)
           )
           const pureWidgets = widgetNames.filter((n) => !linkedWidgetNames.has(n))
           if (pureWidgets.length === 0) return null

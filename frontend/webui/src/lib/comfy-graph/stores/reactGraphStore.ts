@@ -13,6 +13,7 @@ import type {
   ComfyNodeOutput
 } from "@/lib/comfy-graph/types/workflow"
 import type { ComfyNodeDef } from "@/lib/comfy-graph/types/nodeDef"
+import { useNodeDefStore } from "./nodeDefStore"
 
 interface ReactGraphState {
   nodes: ComfyWorkflowNode[]
@@ -410,7 +411,26 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         if (node.id !== nodeId) return node
 
         // widget_names 배열을 통해 해당 위젯의 인덱스 검색
-        const widgetNames = (node.properties?.widget_names as string[]) || []
+        let widgetNames = (node.properties?.widget_names as string[]) || []
+
+        // nodeDef fallback: widget_names가 없으면 nodeDef에서 유추
+        if (widgetNames.length === 0) {
+          const def = useNodeDefStore.getState().getNodeDef(node.type)
+          if (def) {
+            const req = def.input?.required ?? {}
+            const opt = def.input?.optional ?? {}
+            for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+              const typeSpec = spec[0]
+              const isWidget =
+                Array.isArray(typeSpec) ||
+                ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
+                  String(typeSpec).toUpperCase()
+                )
+              if (isWidget) widgetNames.push(name)
+            }
+          }
+        }
+
         const idx = widgetNames.indexOf(widgetName)
         if (idx === -1) return node
 
@@ -420,6 +440,10 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         return {
           ...node,
           widgets_values: nextValues,
+          properties: {
+            ...(node.properties || {}),
+            widget_names: widgetNames,
+          },
         }
       }),
     })
