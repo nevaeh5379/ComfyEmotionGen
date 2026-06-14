@@ -2,7 +2,7 @@
  * ReactNode - HTML/CSS로 그려지는 리액트 노드 컴포넌트
  */
 
-import { useRef, useMemo } from "react"
+import { useRef, useMemo, useLayoutEffect, useState } from "react"
 import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
 import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
@@ -18,6 +18,10 @@ interface ReactNodeProps {
 
 export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
   const nodeRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [minHeight, setMinHeight] = useState(80)
+  const sizeRef = useRef(size)
+  sizeRef.current = size
 
   const updateNodePos  = useReactGraphStore((s) => s.updateNodePos)
   const updateNodeSize = useReactGraphStore((s) => s.updateNodeSize)
@@ -29,6 +33,18 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
   const getNodeDef = useNodeDefStore((s) => s.getNodeDef)
   const nodeDef    = useMemo(() => getNodeDef(type), [type, getNodeDef])
   const nodeData   = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
+
+  useLayoutEffect(() => {
+    const content = contentRef.current
+    if (!content) return
+    const titleBar = content.previousElementSibling as HTMLElement | null
+    const titleBarHeight = titleBar?.offsetHeight ?? 28
+    const contentHeight = titleBarHeight + content.scrollHeight
+    setMinHeight(contentHeight)
+    if (sizeRef.current[1] < contentHeight) {
+      updateNodeSize(id, [sizeRef.current[0], contentHeight])
+    }
+  }, [id, updateNodeSize, nodeData])
 
   // ─── 이동 드래그 ────────────────────────────────────────────
   const handleHeaderMouseDown = (e: React.MouseEvent) => {
@@ -84,7 +100,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
     const startH = size[1], startMY = e.clientY
 
     const onMove = (ev: MouseEvent) => {
-      const nextH = Math.max(80, Math.round(startH + (ev.clientY - startMY) / zoom))
+      const nextH = Math.max(minHeight, Math.round(startH + (ev.clientY - startMY) / zoom))
       updateNodeSize(id, [size[0], nextH])
     }
     const onUp = () => {
@@ -106,7 +122,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
 
     const onMove = (ev: MouseEvent) => {
       const nextW = Math.max(180, Math.round(startW + (ev.clientX - startMX) / zoom))
-      const nextH = Math.max(80,  Math.round(startH + (ev.clientY - startMY) / zoom))
+      const nextH = Math.max(minHeight, Math.round(startH + (ev.clientY - startMY) / zoom))
       updateNodeSize(id, [nextW, nextH])
     }
     const onUp = () => {
@@ -141,7 +157,6 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
         height: size[1],
         zIndex: selected ? 100 : 10,
         minWidth: 180,
-        minHeight: 80,
       }}
       onClick={(e) => {
         e.stopPropagation()
@@ -163,7 +178,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
       </div>
 
       {/* ── Content (slots + widgets) ──────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-1 flex flex-col gap-0.5 text-[11px]">
+      <div ref={contentRef} className="flex-1 py-1 flex flex-col gap-0.5 text-[11px]">
         {/* Inputs & Outputs row */}
         <div className="grid grid-cols-2 gap-2 px-1">
           {/* Left: Pure Inputs (no widget) */}
