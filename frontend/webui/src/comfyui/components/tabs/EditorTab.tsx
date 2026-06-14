@@ -5,7 +5,6 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react"
-import { useWorkflowContext } from "@/comfyui/contexts/WorkflowContext"
 import { GraphCanvas } from "@/components/graph/GraphCanvas"
 import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
 import { NodePropertiesPanel } from "@/components/graph/NodePropertiesPanel"
@@ -44,8 +43,6 @@ import {
 } from "@/comfyui/hooks/useEditorSavedWorkflows"
 
 export function EditorTab() {
-  const { workflowJson, setWorkflowJson, parsedWorkflow } = useWorkflowContext()
-
   const [currentWorkflow, setCurrentWorkflow] = useState<ComfyWorkflowJSON | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
@@ -68,14 +65,10 @@ export function EditorTab() {
   // ─── 이전 에디터 모드 추적 (루프 방지용) ─────────────────────
   const prevEditorModeRef = useRef<"canvas" | "react">("canvas")
 
-  // currentWorkflow가 갱신되면 reactGraphStore에도 연동 (루프 방지용 ref)
-  const isSyncingToStoreRef = useRef(false)
-
+  // currentWorkflow가 갱신되면 reactGraphStore에도 연동
   useEffect(() => {
     if (!currentWorkflow) return
-    isSyncingToStoreRef.current = true
     useReactGraphStore.getState().setGraph(currentWorkflow)
-    isSyncingToStoreRef.current = false
   }, [currentWorkflow])
 
   // canvas → react 모드 전환 시 단 1회 setGraph
@@ -86,58 +79,6 @@ export function EditorTab() {
       useReactGraphStore.getState().setGraph(currentWorkflow)
     }
   }, [editorMode]) // currentWorkflow를 의도적으로 제외: 전환 시점 스냅샷만 사용
-
-  // reactGraphStore의 변경사항을 workflowJson에 반영
-  useEffect(() => {
-    if (editorMode !== "react") return
-
-    const unsubscribe = useReactGraphStore.subscribe((state) => {
-      // workflowJson → reactGraphStore 싱크 중이면 역방향 전파 스킵 (루프 방지)
-      if (isSyncingToStoreRef.current) return
-
-      const apiWorkflow: Record<
-        string,
-        { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } }
-      > = {}
-
-      for (const node of state.nodes) {
-        const inputs: Record<string, unknown> = {}
-
-        // 위젯 값 처리
-        if (node.widgets_values && node.properties?.widget_names) {
-          const widgetNames = node.properties.widget_names as string[]
-          for (let i = 0; i < Math.min(node.widgets_values.length, widgetNames.length); i++) {
-            inputs[widgetNames[i]] = node.widgets_values[i]
-          }
-        }
-
-        // 링크 처리
-        if (node.inputs) {
-          for (const input of node.inputs) {
-            if (input.link != null) {
-              const link = state.links.find((l) => l.id === input.link)
-              if (link) {
-                inputs[input.name] = [link.origin_id.toString(), link.origin_slot]
-              }
-            }
-          }
-        }
-
-        apiWorkflow[node.id.toString()] = {
-          inputs,
-          class_type: node.type,
-          _meta: { title: node.type },
-        }
-      }
-
-      const nextJson = JSON.stringify(apiWorkflow, null, 2)
-      if (nextJson !== workflowJson) {
-        setWorkflowJson(nextJson)
-      }
-    })
-
-    return () => unsubscribe()
-  }, [editorMode, workflowJson, setWorkflowJson])
 
   // object_info 로드
   useEffect(() => {
@@ -159,207 +100,20 @@ export function EditorTab() {
     return () => { cancelled = true }
   }, [setNodeDefs])
 
-  // workflowJson 변경 시 그래프로 변환 (nodeDefs를 사용해 위젯/출력 올바르게 채우기)
-  useEffect(() => {
-    if (!parsedWorkflow?.success) {
-      setCurrentWorkflow(null)
-      return
-    }
-
-    const apiWorkflow = parsedWorkflow.data
-    const nodes: import("@/lib/comfy-graph/types/workflow").ComfyWorkflowNode[] = []
-    const links: import("@/lib/comfy-graph/types/workflow").ComfyWorkflowLink[] = []
-    let linkId = 1
-
-    for (const [nodeId, nodeData] of Object.entries(apiWorkflow)) {
-      const id = parseInt(nodeId) || nodes.length + 1
-      const def = nodeDefs[nodeData.class_type]
-
-      const inputPins: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput[] = []
-      const outputPins: import("@/lib/comfy-graph/types/workflow").ComfyNodeOutput[] = []
-      const widgetsValues: unknown[] = []
-      const widgetNames: string[] = []
-
-      if (def) {
-        // Definition 있음: 위젯 vs 링크핀 올바르게 분리
-        const req = def.input?.required ?? {}
-        const opt = def.input?.optional ?? {}
-        const allInputs = { ...req, ...opt }
-
-        for (const [name, spec] of Object.entries(allInputs)) {
-          const typeSpec = spec[0]
-          const isWidget =
-            Array.isArray(typeSpec) ||
-            ["INT", "FLOAT", "STRING", "BOOLEAN"].includes(String(typeSpec).toUpperCase())
-
-          const rawVal = nodeData.inputs?.[name]
-
-          let defaultVal: unknown = ""
-          if (Array.isArray(typeSpec)) {
-            defaultVal = typeSpec[0] ?? ""
-          } else if (spec[1]?.default !== undefined) {
-            defaultVal = spec[1].default
-          } else if (typeSpec === "INT" || typeSpec === "FLOAT") {
-            defaultVal = 0
-          } else if (typeSpec === "BOOLEAN") {
-            defaultVal = false
-          }
-
-          if (isWidget) {
-            widgetNames.push(name)
-            const isLink =
-              Array.isArray(rawVal) && rawVal.length === 2 && typeof rawVal[0] === "string"
-            widgetsValues.push(isLink ? (spec[1]?.default ?? "") : (rawVal ?? defaultVal))
-
-            // 위젯도 inputs에 추가하되, widget 속성을 붙여 소켓으로 노출
-            const pin: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput = {
-              name,
-              type: String(typeSpec),
-              widget: { name, config: spec[1] || {} },
-            }
-            if (isLink && Array.isArray(rawVal)) {
-              pin.link = linkId
-              links.push({
-                id: linkId++,
-                origin_id: parseInt(String(rawVal[0])),
-                origin_slot: rawVal[1] as number,
-                target_id: id,
-                target_slot: inputPins.length,
-                type: String(typeSpec),
-              })
-            }
-            inputPins.push(pin)
-          } else {
-            // 링크 타입 핀
-            const pin: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput = {
-              name,
-              type: String(typeSpec),
-            }
-            const isLink =
-              Array.isArray(rawVal) && rawVal.length === 2 && typeof rawVal[0] === "string"
-            if (isLink && Array.isArray(rawVal)) {
-              pin.link = linkId
-              links.push({
-                id: linkId++,
-                origin_id: parseInt(String(rawVal[0])),
-                origin_slot: rawVal[1] as number,
-                target_id: id,
-                target_slot: inputPins.length,
-                type: String(typeSpec),
-              })
-            }
-            inputPins.push(pin)
-          }
-        }
-
-        // Outputs: definition에서 읽어오기
-        if (def.output && def.output_name) {
-          for (let i = 0; i < def.output.length; i++) {
-            outputPins.push({
-              name: def.output_name[i] || def.output[i],
-              type: def.output[i] || "*",
-            })
-          }
-        }
-      } else {
-        // Definition 없음: 링크 참조만 파싱 (fallback)
-        if (nodeData.inputs) {
-          for (const [key, value] of Object.entries(nodeData.inputs)) {
-            if (Array.isArray(value) && value.length === 2 && typeof value[0] === "string") {
-              const pin: import("@/lib/comfy-graph/types/workflow").ComfyNodeInput = {
-                name: key, type: "*", link: linkId,
-              }
-              links.push({
-                id: linkId++,
-                origin_id: parseInt(value[0]),
-                origin_slot: value[1] as number,
-                target_id: id,
-                target_slot: inputPins.length,
-                type: "*",
-              })
-              inputPins.push(pin)
-            }
-          }
-        }
-      }
-
-      const maxSlots = Math.max(inputPins.length, outputPins.length)
-      const height = 48 + maxSlots * 18 + widgetNames.length * 22
-
-      nodes.push({
-        id,
-        type: nodeData.class_type,
-        pos: [100 + (nodes.length % 5) * 300, 100 + Math.floor(nodes.length / 5) * 250],
-        size: [240, Math.max(80, height)],
-        inputs: inputPins.length > 0 ? inputPins : undefined,
-        outputs: outputPins.length > 0 ? outputPins : undefined,
-        widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,
-        properties: widgetNames.length > 0 ? { widget_names: widgetNames } : undefined,
-      })
-    }
-
-    setCurrentWorkflow({
-      last_node_id: nodes.length,
-      last_link_id: linkId - 1,
-      nodes,
-      links,
-      version: 0.4,
-    })
-  }, [parsedWorkflow, nodeDefs])
-
-  // 그래프 변경 시 workflowJson 업데이트
-  const handleWorkflowChange = useCallback(
-    (workflow: ComfyWorkflowJSON) => {
-      // ComfyWorkflowJSON → ComfyWorkflow (API 포맷) 변환
-      const apiWorkflow: Record<
-        string,
-        { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } }
-      > = {}
-
-      for (const node of workflow.nodes) {
-        const inputs: Record<string, unknown> = {}
-
-        // 위젯 값 처리 (간단한 휴리스틱)
-        if (node.widgets_values) {
-          const nodeDef = Object.values(nodeDefs).find((d) => d.name === node.type)
-          if (nodeDef?.input?.required) {
-            const keys = Object.keys(nodeDef.input.required)
-            for (let i = 0; i < Math.min(node.widgets_values.length, keys.length); i++) {
-              inputs[keys[i]] = node.widgets_values[i]
-            }
-          }
-        }
-
-        // 링크 처리
-        if (node.inputs) {
-          for (const input of node.inputs) {
-            if (input.link != null) {
-              const link = workflow.links.find((l) => l.id === input.link)
-              if (link) {
-                inputs[input.name] = [link.origin_id.toString(), link.origin_slot]
-              }
-            }
-          }
-        }
-
-        apiWorkflow[node.id.toString()] = {
-          inputs,
-          class_type: node.type,
-          _meta: { title: node.type },
-        }
-      }
-
-      setWorkflowJson(JSON.stringify(apiWorkflow, null, 2))
-    },
-    [nodeDefs, setWorkflowJson]
-  )
-
   const handleSaveWorkflow = useCallback(() => {
-    if (!saveName.trim() || !currentWorkflow) return
-    saveEditorWorkflow(saveName.trim(), currentWorkflow)
+    if (!saveName.trim()) return
+    const state = useReactGraphStore.getState()
+    const workflow: ComfyWorkflowJSON = {
+      last_node_id: Math.max(0, ...state.nodes.map((n) => n.id)),
+      last_link_id: Math.max(0, ...state.links.map((l) => l.id)),
+      nodes: state.nodes,
+      links: state.links,
+      version: 0.4,
+    }
+    saveEditorWorkflow(saveName.trim(), workflow)
     setSaveDialogOpen(false)
     setSaveName("")
-  }, [saveName, saveEditorWorkflow, currentWorkflow])
+  }, [saveName, saveEditorWorkflow])
 
   const handleFileImport = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -412,9 +166,7 @@ export function EditorTab() {
     [deleteEditorWorkflow]
   )
 
-  // workflowJson이 비어있으면 빈 그래프 표시
   const handleNewWorkflow = useCallback(() => {
-    setWorkflowJson("")
     setCurrentWorkflow({
       last_node_id: 0,
       last_link_id: 0,
@@ -422,7 +174,7 @@ export function EditorTab() {
       links: [],
       version: 0.4,
     })
-  }, [setWorkflowJson])
+  }, [])
 
   // 노드 라이브러리에서 노드 추가
   const handleAddNode = useCallback((type: string) => {
@@ -676,7 +428,6 @@ export function EditorTab() {
           ) : (
             <GraphCanvas
               workflow={currentWorkflow}
-              onWorkflowChange={handleWorkflowChange}
             />
           )}
         </div>
