@@ -93,24 +93,33 @@ export function ReactGraphEditor() {
   }
 
   // 마우스 휠 스크롤 줌(Zoom) 처리
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    if (!containerRef.current) return
+  // React의 onWheel은 passive 이벤트라 preventDefault()를 호출하면 경고가 발생하므로
+  // useEffect에서 { passive: false } 옵션으로 직접 등록합니다.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
 
-    const rect = containerRef.current.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
 
-    const zoomFactor = 1.08
-    const nextZoom = e.deltaY < 0 ? zoom * zoomFactor : zoom / zoomFactor
+      const rect = container.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
 
-    // 마우스 위치 기준으로 확대/축소: 마우스가 가리키던 월드 좌표를 유지하도록 pan 보정
-    const newPanX = mouseX - (mouseX - pan[0]) / zoom * nextZoom
-    const newPanY = mouseY - (mouseY - pan[1]) / zoom * nextZoom
+      const zoomFactor = 1.08
+      const nextZoom = e.deltaY < 0 ? zoom * zoomFactor : zoom / zoomFactor
 
-    setZoom(nextZoom)
-    setPan([newPanX, newPanY])
-  }
+      // 마우스 위치 기준으로 확대/축소: 마우스가 가리키던 월드 좌표를 유지하도록 pan 보정
+      const newPanX = mouseX - (mouseX - pan[0]) / zoom * nextZoom
+      const newPanY = mouseY - (mouseY - pan[1]) / zoom * nextZoom
+
+      setZoom(nextZoom)
+      setPan([newPanX, newPanY])
+    }
+
+    container.addEventListener("wheel", handleWheel, { passive: false })
+    return () => container.removeEventListener("wheel", handleWheel)
+  }, [zoom, pan, setZoom, setPan])
 
   // 화면 좌표(Screen) -> 캔버스 월드 좌표(World) 변환
   const screenToWorld = (screenX: number, screenY: number): [number, number] => {
@@ -393,7 +402,6 @@ export function ReactGraphEditor() {
     <div
       ref={containerRef}
       onMouseDown={handleWorkspaceMouseDown}
-      onWheel={handleWheel}
       onContextMenu={handleContextMenu}
       className="relative w-full h-full overflow-hidden bg-[#18181b] select-none"
       style={{

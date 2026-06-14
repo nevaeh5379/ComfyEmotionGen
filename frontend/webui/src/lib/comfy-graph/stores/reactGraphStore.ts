@@ -65,11 +65,20 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   setGraph: (workflow) => {
     const currentNodes = get().nodes
     const currentLinks = get().links
+
+    // 링크 정규화: 배열 [id, origin_id, origin_slot, target_id, target_slot, type] → 객체
+    const normalizedLinks: ComfyWorkflowLink[] = (workflow.links || []).map((l: unknown) => {
+      if (Array.isArray(l)) {
+        return { id: l[0], origin_id: l[1], origin_slot: l[2], target_id: l[3], target_slot: l[4], type: l[5] ?? "*" }
+      }
+      return l as ComfyWorkflowLink
+    })
+
     const nodesEqual = JSON.stringify(currentNodes) === JSON.stringify(workflow.nodes || [])
-    const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(workflow.links || [])
+    const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(normalizedLinks)
     if (nodesEqual && linksEqual) return
 
-    // 기존에 렌더링 중이던 노드의 위치/크기/위젯값/입력슬롯은 보존 (탭 이동 후 복귀 시 초기화 방지)
+    // 기존 노드의 위치/크기/위젯값은 보존, inputs/outputs는 새 워크플로우 기준으로 교체
     const existingMap = new Map(currentNodes.map((n) => [n.id, n]))
     const mergedNodes = (workflow.nodes || []).map((node) => {
       const existing = existingMap.get(node.id)
@@ -78,8 +87,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
           ...node,
           pos: existing.pos,
           size: existing.size,
-          inputs: existing.inputs,
-          outputs: existing.outputs,
           widgets_values: existing.widgets_values,
           properties: existing.properties,
         }
@@ -89,7 +96,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
     set({
       nodes: mergedNodes,
-      links: workflow.links || [],
+      links: normalizedLinks,
       selectedNodeIds: new Set<number>(),
     })
   },
