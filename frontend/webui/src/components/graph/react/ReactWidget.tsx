@@ -10,9 +10,10 @@ interface ReactWidgetProps {
   spec: InputSpec | undefined
   onChange: (val: unknown) => void
   showLabel?: boolean
+  disabled?: boolean
 }
 
-export function ReactWidget({ name, value, spec, onChange, showLabel = true }: ReactWidgetProps) {
+export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false }: ReactWidgetProps) {
   const typeSpec = spec?.[0]
   const config = spec?.[1] || {}
 
@@ -31,7 +32,8 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true }: R
         <select
           value={strVal}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring select-none"
+          disabled={disabled}
+          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring select-none disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {options.map((opt) => (
             <option key={String(opt)} value={String(opt)}>
@@ -59,8 +61,9 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true }: R
         <input
           type="checkbox"
           checked={boolVal}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
-          className="h-3 w-3 rounded border-input bg-background focus:ring-ring text-primary"
+          className="h-3 w-3 rounded border-input bg-background focus:ring-ring text-primary disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
     )
@@ -89,6 +92,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true }: R
           min={min}
           max={max}
           step={step}
+          disabled={disabled}
           onChange={(e) => {
             const rawVal = e.target.value
             if (rawVal === "") {
@@ -98,7 +102,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true }: R
             const val = isInt ? parseInt(rawVal, 10) : parseFloat(rawVal)
             onChange(isNaN(val) ? 0 : val)
           }}
-          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
     )
@@ -117,8 +121,9 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true }: R
       <input
         type="text"
         value={strVal}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
       />
     </div>
   )

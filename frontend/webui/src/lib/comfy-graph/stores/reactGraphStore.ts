@@ -42,6 +42,7 @@ interface ReactGraphState {
   ) => void
   disconnect: (linkId: number) => void
   updateWidgetValue: (nodeId: number, widgetName: string, value: unknown) => void
+  changeNodeMode: (nodeId: number, mode: number) => void
   setZoom: (zoom: number) => void
   setPan: (pan: [number, number]) => void
   selectNode: (id: number, accumulate?: boolean) => void
@@ -446,6 +447,16 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
           },
         }
       }),
+    })
+  },
+
+  changeNodeMode: (nodeId, mode) => {
+    get().takeSnapshot()
+    const { nodes } = get()
+    set({
+      nodes: nodes.map((node) =>
+        node.id === nodeId ? { ...node, mode } : node
+      ),
     })
   },
 

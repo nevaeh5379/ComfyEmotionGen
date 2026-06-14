@@ -8,6 +8,7 @@ import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
 import { X } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/lib/comfy-graph/types/workflow"
+import { LGraphEventMode } from "@/lib/comfy-graph/core/types/globalEnums"
 
 interface ReactNodeProps {
   id: number
@@ -29,6 +30,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
   const removeNode     = useReactGraphStore((s) => s.removeNode)
   const selectNode     = useReactGraphStore((s) => s.selectNode)
   const updateWidgetValue = useReactGraphStore((s) => s.updateWidgetValue)
+  const changeNodeMode = useReactGraphStore((s) => s.changeNodeMode)
   const zoom = useReactGraphStore((s) => s.zoom)
 
   const getNodeDef = useNodeDefStore((s) => s.getNodeDef)
@@ -202,14 +204,23 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
     return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
   }, [nodeDef, nodeData])
 
+  const nodeMode = (nodeData?.mode ?? LGraphEventMode.ALWAYS) as LGraphEventMode
+  const isBypassed = nodeMode === LGraphEventMode.BYPASS
+  const isMuted    = nodeMode === LGraphEventMode.NEVER
+  const isDisabled = isBypassed || isMuted
+
   // ─── 렌더 ───────────────────────────────────────────────────
   return (
     <div
       ref={nodeRef}
       data-node-id={id}
-      className={`absolute rounded-lg border bg-background/95 shadow-md flex flex-col select-none ${
-        selected ? "border-primary ring-2 ring-primary/25 shadow-lg" : "border-border"
-      }`}
+      className={`absolute rounded-lg border shadow-md flex flex-col select-none ${
+        selected
+          ? "border-primary ring-2 ring-primary/25 shadow-lg"
+          : isMuted
+            ? "border-zinc-700"
+            : "border-border"
+      } ${isMuted ? "opacity-50" : isBypassed ? "opacity-75" : "bg-background/95"}`}
       style={{
         left:   pos[0],
         top:    pos[1],
@@ -217,6 +228,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
         height: size[1],
         zIndex: selected ? 100 : 10,
         minWidth: 180,
+        ...(isBypassed ? { backgroundColor: "rgba(120,120,120,0.35)" } : {}),
       }}
       onClick={(e) => {
         e.stopPropagation()
@@ -226,15 +238,38 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
       {/* ── Title bar ─────────────────────────────────────── */}
       <div
         onMouseDown={handleHeaderMouseDown}
-        className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/65 rounded-t-lg cursor-grab active:cursor-grabbing text-xs font-bold text-foreground"
+        className={`shrink-0 flex items-center justify-between px-3 py-1.5 border-b rounded-t-lg cursor-grab active:cursor-grabbing text-xs font-bold text-foreground ${
+          isMuted ? "bg-zinc-800/60 border-zinc-700" : isBypassed ? "bg-zinc-600/40 border-zinc-600/50" : "bg-muted/65 border-border"
+        }`}
       >
         <span className="truncate">{nodeDef?.display_name || type}</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); removeNode(id) }}
-          className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
-        >
-          <X className="h-3 w-3" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* ── Mode toggle ── */}
+          <button
+            title={isBypassed ? "Bypass (off)" : isMuted ? "Muted (off)" : "Always (on)"}
+            onClick={(e) => {
+              e.stopPropagation()
+              // Cycle: ALWAYS → BYPASS → NEVER → ALWAYS
+              const next = isBypassed ? LGraphEventMode.NEVER : isMuted ? LGraphEventMode.ALWAYS : LGraphEventMode.BYPASS
+              changeNodeMode(id, next)
+            }}
+            className={`text-[9px] font-bold px-1 py-0.5 rounded leading-none transition-colors ${
+              isMuted
+                ? "bg-red-950/60 text-red-400 hover:bg-red-900/60"
+                : isBypassed
+                  ? "bg-amber-950/60 text-amber-400 hover:bg-amber-900/60"
+                  : "bg-green-950/60 text-green-400 hover:bg-green-900/60"
+            }`}
+          >
+            {isMuted ? "OFF" : isBypassed ? "BYP" : "ON"}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); removeNode(id) }}
+            className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
       </div>
 
       {/* ── Content (slots + widgets) ──────────────────────── */}
@@ -326,6 +361,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                           spec={widgetSpecs[widgetName]}
                           onChange={(newVal) => updateWidgetValue(id, widgetName, newVal)}
                           showLabel={false}
+                          disabled={isDisabled}
                         />
                       )}
                     </div>
@@ -352,6 +388,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                     value={nodeData?.widgets_values?.[widgetNames.indexOf(name)]}
                     spec={widgetSpecs[name]}
                     onChange={(newVal) => updateWidgetValue(id, name, newVal)}
+                    disabled={isDisabled}
                   />
                 </div>
               ))}
