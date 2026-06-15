@@ -137,6 +137,15 @@ export function EditorTab() {
             }) as ComfyWorkflowJSON["links"]
           }
           setCurrentWorkflow(parsed)
+          // Sync live graph for DOM widget injection (non-blocking)
+          try {
+            const appService = (window as any).__comfyAppService
+            if (appService && typeof appService.loadGraphData === "function") {
+              appService.loadGraphData(parsed)
+            }
+          } catch (err) {
+            console.warn("[EditorTab] loadGraphData failed (widgets may not render):", err)
+          }
         } catch (err) {
           console.error("[EditorTab] Failed to import workflow file:", err)
           alert("워크플로우 파일을 불러오는데 실패했습니다. 올바른 JSON 파일인지 확인해주세요.")
@@ -154,6 +163,14 @@ export function EditorTab() {
   const handleLoadWorkflow = useCallback(
     (w: EditorSavedWorkflow) => {
       setCurrentWorkflow(w.workflow)
+      try {
+        const appService = (window as any).__comfyAppService
+        if (appService && typeof appService.loadGraphData === "function") {
+          appService.loadGraphData(w.workflow)
+        }
+      } catch (err) {
+        console.warn("[EditorTab] loadGraphData failed (widgets may not render):", err)
+      }
       setLoadDialogOpen(false)
     },
     []

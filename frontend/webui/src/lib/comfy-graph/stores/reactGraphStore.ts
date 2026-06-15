@@ -118,10 +118,62 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       const liveNode = LiteGraph.createNode(type)
       if (liveNode) {
         liveNode.pos = pos
+        const isLora = type.toLowerCase().includes("lora");
+
+        // Add default inputs, outputs, and widgets from nodeDef
+        if (def) {
+          if (def.input?.required) {
+            for (const [name, spec] of Object.entries(def.input.required)) {
+              const typeStr = Array.isArray((spec as any)[0]) ? "COMBO" : ((spec as any)[0] as string)
+              liveNode.addInput(name, typeStr)
+            }
+          }
+          if (def.input?.optional) {
+            for (const [name, spec] of Object.entries(def.input.optional)) {
+              const typeStr = Array.isArray((spec as any)[0]) ? "COMBO" : ((spec as any)[0] as string)
+              liveNode.addInput(name, typeStr)
+            }
+          }
+          for (let i = 0; i < def.output.length; i++) {
+            liveNode.addOutput(def.output_name[i] || def.output[i], def.output[i])
+          }
+          // Add default widgets from required inputs
+          if (def.input?.required) {
+            for (const [name, spec] of Object.entries(def.input.required)) {
+              const [typeVal, config = {}] = spec as [string | string[], Record<string, unknown>]
+              if (Array.isArray(typeVal)) {
+                liveNode.addWidget("combo", name, typeVal[0], () => {}, { values: typeVal })
+              } else if (typeVal === "INT" || typeVal === "FLOAT") {
+                const defaultVal = (config.default as number) ?? (typeVal === "INT" ? 0 : 0.0)
+                const min = (config.min as number) ?? 0
+                const max = (config.max as number) ?? (typeVal === "INT" ? 0x7fffffff : 1e38)
+                const step = (config.step as number) ?? 1
+                liveNode.addWidget(typeVal === "INT" ? "number" : "number", name, defaultVal, () => {}, { min, max, step, precision: typeVal === "INT" ? 0 : 2 })
+              } else if (typeVal === "STRING" || (typeof typeVal === "string" && typeVal.startsWith("AUTOCOMPLETE_"))) {
+                liveNode.addWidget("text", name, (config.default as string) ?? "", () => {}, config)
+              } else if (typeVal === "BOOLEAN") {
+                liveNode.addWidget("toggle", name, (config.default as boolean) ?? false, () => {})
+              } else {
+                liveNode.addWidget("text", name, (config.default as string) ?? "", () => {}, config)
+              }
+            }
+          }
+        }
+
+        // Call prototype's onNodeCreated (patched by beforeRegisterNodeDef hooks)
+        if (typeof liveNode.onNodeCreated === "function") {
+          if (isLora) console.log("[CEG:DEBUG addNode(Live)] calling onNodeCreated, widgets before:", liveNode.widgets?.length || 0)
+          liveNode.onNodeCreated()
+          if (isLora) console.log("[CEG:DEBUG addNode(Live)] after onNodeCreated, widgets:", liveNode.widgets?.length || 0,
+            liveNode.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })))
+        }
+
         for (const ext of (window as any).app.extensions || []) {
           if (ext.nodeCreated) {
             try {
+              if (isLora) console.log("[CEG:DEBUG addNode(Live)] Calling nodeCreated for", ext.name, "on node", type);
               ext.nodeCreated(liveNode, (window as any).app)
+              if (isLora) console.log("[CEG:DEBUG addNode(Live)] After nodeCreated", ext.name, "widgets=" + (liveNode.widgets?.length || 0));
             } catch (err) {
               console.error("Extension nodeCreated failed:", err)
             }
@@ -129,6 +181,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         }
         ;(window as any).app.graph.add(liveNode)
         get().syncGraphFromLive()
+        if (isLora) console.log("[CEG:DEBUG addNode(Live)] Done, liveNode.widgets=" + (liveNode.widgets?.length || 0));
         return
       }
     }

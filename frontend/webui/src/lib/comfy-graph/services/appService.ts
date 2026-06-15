@@ -79,14 +79,17 @@ export class ComfyAppService {
   /**
    * Register all node definitions in LiteGraph
    */
-  private registerNodeDefs(nodeDefs: Record<string, ComfyNodeDef>): void {
+  registerNodeDefs(nodeDefs: Record<string, ComfyNodeDef>): void {
     const app = (window as any).app
+    console.log("[CEG:DEBUG registerNodeDefs] Extensions count:", app?.extensions?.length || 0, app?.extensions?.map((e: any) => e.name || "(anon)"));
+
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
       const NodeClass = class extends ComfyNode {
         static title = def.display_name || def.name
         static category = def.category || ""
         static type = type
+        static comfyClass = def.name
 
         constructor() {
           super(NodeClass.title)
@@ -94,16 +97,23 @@ export class ComfyAppService {
       }
 
       // Run beforeRegisterNodeDef hooks
+      let hooksApplied = 0;
       if (app?.extensions) {
         for (const ext of app.extensions) {
           if (ext.beforeRegisterNodeDef) {
             try {
               ext.beforeRegisterNodeDef(NodeClass, def, app)
+              hooksApplied++;
             } catch (err) {
               console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
             }
           }
         }
+      }
+
+      // Only log for lora types (noisy otherwise)
+      if (type.toLowerCase().includes("lora")) {
+        console.log("[CEG:DEBUG registerNodeDefs]", type, "hooksApplied=" + hooksApplied, "NodeClass title=" + NodeClass.title);
       }
 
       LiteGraph.registerNodeType(type, NodeClass)
@@ -118,10 +128,27 @@ export class ComfyAppService {
 
     // 노드 생성
     for (const nodeData of workflow.nodes) {
-      const node = this.createNode(nodeData.type, nodeData.pos, {
-        skipConfigure: true,
-      })
-      if (!node) continue
+      const isLora = nodeData.type.toLowerCase().includes("lora");
+      if (isLora) console.log("[CEG:DEBUG loadGraphData] Creating node:", nodeData.type, "id=" + nodeData.id);
+
+      let node: LGraphNode | null = null
+      try {
+        node = this.createNode(nodeData.type, nodeData.pos, {
+          skipConfigure: true,
+        })
+      } catch (err) {
+        console.warn(`[CEG:DEBUG loadGraphData] createNode failed for ${nodeData.type}:`, err)
+        continue
+      }
+      if (!node) {
+        if (isLora) console.log("[CEG:DEBUG loadGraphData] FAILED to create node:", nodeData.type);
+        continue;
+      }
+
+      if (isLora) {
+        console.log("[CEG:DEBUG loadGraphData] Node created, widgets:", node.widgets?.length || 0,
+          "widget items:", node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element, hasOptions: !!w.options })));
+      }
 
       node.id = nodeData.id
       node.pos = nodeData.pos
@@ -360,6 +387,11 @@ export class ComfyAppService {
     const node = LiteGraph.createNode(type)
     if (!node) return null
 
+    const isLora = type.toLowerCase().includes("lora");
+    if (isLora) {
+      console.log("[CEG:DEBUG createNode]", type, "node.widgets after LiteGraph.createNode:", node.widgets?.length || 0);
+    }
+
     node.pos = pos
 
     // 입력 슬롯
@@ -387,6 +419,18 @@ export class ComfyAppService {
 
     // 위젯 생성
     this.addNodeWidgets(node, nodeDef)
+    if (isLora) {
+      console.log("[CEG:DEBUG createNode]", type, "after addNodeWidgets, widgets:", node.widgets?.length || 0,
+        node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })));
+    }
+
+    // Call prototype's onNodeCreated (patched by beforeRegisterNodeDef hooks)
+    if (typeof node.onNodeCreated === "function") {
+      if (isLora) console.log("[CEG:DEBUG createNode]", type, "calling onNodeCreated");
+      node.onNodeCreated()
+      if (isLora) console.log("[CEG:DEBUG createNode]", type, "after onNodeCreated, widgets:", node.widgets?.length || 0,
+        node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })));
+    }
 
     this.graph.add(node)
 
@@ -396,7 +440,12 @@ export class ComfyAppService {
       for (const ext of app.extensions) {
         if (ext.nodeCreated) {
           try {
+            if (isLora) console.log("[CEG:DEBUG createNode]", type, "calling nodeCreated hook for ext:", ext.name || "(anon)");
             ext.nodeCreated(node, app)
+            if (isLora) {
+              console.log("[CEG:DEBUG createNode]", type, "after nodeCreated, widgets:", node.widgets?.length || 0,
+                node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })));
+            }
           } catch (err) {
             console.error(`Extension nodeCreated failed for ${ext.name}:`, err)
           }
@@ -438,13 +487,17 @@ export class ComfyAppService {
           step,
           precision: type === "INT" ? 0 : 2,
         })
-      } else if (type === "STRING") {
-        // 텍스트 위젯
+      } else if (type === "STRING" || type.startsWith("AUTOCOMPLETE_")) {
+        // 텍스트 위젯 (STRING, AUTOCOMPLETE_TEXT, AUTOCOMPLETE_TEXT_LORAS, etc.)
         const defaultValue = (config.default as string) ?? ""
-        node.addWidget("text", name, defaultValue, () => {})
+        node.addWidget("text", name, defaultValue, () => {}, config)
       } else if (type === "BOOLEAN") {
         // 토글 위젯
         node.addWidget("toggle", name, (config.default as boolean) ?? false, () => {})
+      } else {
+        // Fallback: treat as string widget for custom types like "MODEL", "CLIP", etc.
+        const defaultValue = (config.default as string) ?? ""
+        node.addWidget("text", name, defaultValue, () => {}, config)
       }
     }
   }

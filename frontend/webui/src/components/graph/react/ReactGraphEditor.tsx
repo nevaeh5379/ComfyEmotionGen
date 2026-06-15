@@ -38,29 +38,59 @@ export function ReactGraphEditor() {
     let cancelled = false
     async function initApp() {
       const app = window.app as any
+      console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + !!hiddenCanvasRef.current, "hiddenContainer=" + !!hiddenContainerRef.current, "extensionsLoaded=" + !!app.extensionsLoaded, "app.graph=" + !!app.graph, "nodeDefs=" + Object.keys(nodeDefs).length, "extensions=" + (app.extensions?.length || 0));
 
-      // HMR or fast remount safety: Restore graph and canvas stubs immediately
-      // to avoid null reference crashes during async extension import awaits.
-      if (!app.graph) {
-        app.graph = new LGraph()
-      }
-      if (!app.canvas) {
-        app.canvas = new LGraphCanvas(document.createElement("canvas"), app.graph)
+      if (!hiddenCanvasRef.current || !hiddenContainerRef.current) {
+        console.log("[CEG:DEBUG ReactGraphEditor] SKIPPED: refs null");
+        return;
       }
 
-      // 2. 익스텐션 로드 (아직 로드되지 않은 경우)
+      // 1. 백그라운드 ComfyAppService 인스턴스 먼저 생성 (ext.init() 전에 실제 graph 필요)
+      console.log("[CEG:DEBUG ReactGraphEditor] Step 1: Creating ComfyAppService with nodeDefs count:", Object.keys(nodeDefs).length);
+
+      const appService = new ComfyAppService({
+        canvas: hiddenCanvasRef.current,
+        container: hiddenContainerRef.current,
+        nodeDefs,
+      })
+      app.graph = appService.graph
+      app.canvas = appService.canvas
+      // @ts-ignore
+      app.graph._canvas = appService.canvas
+      // @ts-ignore
+      appService.canvas.app = app
+
+      ;(window as any).__comfyAppService = appService
+
+      // setDirtyCanvas 가로채기 (Zustand 동기화 트리거)
+      const origLGraphSetDirty = LGraph.prototype.setDirtyCanvas
+      LGraph.prototype.setDirtyCanvas = function (this: LGraph, ...args: any[]) {
+        const res = (origLGraphSetDirty as any).apply(this, args)
+        app.syncGraph()
+        return res
+      }
+
+      const origLGraphNodeSetDirty = LGraphNode.prototype.setDirtyCanvas
+      LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, ...args: any[]) {
+        const res = (origLGraphNodeSetDirty as any).apply(this, args)
+        app.syncGraph()
+        return res
+      }
+
+      // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)
       if (!app.extensionsLoaded) {
         try {
           const extensionUrls = await comfyApi.getExtensions()
+          console.log("[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:", extensionUrls.length, extensionUrls);
           for (const url of extensionUrls) {
-            // Filter out core extensions that belong to the official Vue/legacy frontend
             if (url.includes("/extensions/core/")) {
               continue
             }
             try {
-              // 백엔드 절대 경로와 결합하여 직접 다이렉트 임포트 (CORS/무중계 지원)
               const fullUrl = url.startsWith("http") ? url : `${comfyApi.api_base}${url}`;
+              console.log("[CEG:DEBUG ReactGraphEditor] Importing extension:", fullUrl);
               await import(/* @vite-ignore */ fullUrl)
+              console.log("[CEG:DEBUG ReactGraphEditor] Import success:", fullUrl);
             } catch (err) {
               console.error(`Failed to load extension: ${url}`, err)
             }
@@ -70,13 +100,30 @@ export function ReactGraphEditor() {
         }
         app.extensionsLoaded = true
 
-        // init 훅 실행
+        console.log("[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:", app.extensions.length, app.extensions.map((e: any) => e.name || "(anonymous)"));
+
+        // Re-register node defs NOW that extensions' beforeRegisterNodeDef hooks are available
+        console.log("[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available");
+        appService.registerNodeDefs(nodeDefs)
+
         for (const ext of app.extensions) {
           if (ext.init) {
             try {
+              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.init for:", ext.name || "(anonymous)");
               await ext.init(app)
             } catch (err) {
               console.error(`Extension init failed for ${ext.name}:`, err)
+            }
+          }
+        }
+
+        for (const ext of app.extensions) {
+          if (ext.registerCustomNodes) {
+            try {
+              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.registerCustomNodes for:", ext.name || "(anonymous)");
+              await ext.registerCustomNodes(app)
+            } catch (err) {
+              console.error(`Extension registerCustomNodes failed for ${ext.name}:`, err)
             }
           }
         }
@@ -84,58 +131,32 @@ export function ReactGraphEditor() {
 
       if (cancelled) return
 
-      // 3. 백그라운드 ComfyAppService 인스턴스 생성
-      if (hiddenCanvasRef.current && hiddenContainerRef.current) {
-        const appService = new ComfyAppService({
-          canvas: hiddenCanvasRef.current,
-          container: hiddenContainerRef.current,
-          nodeDefs,
-        })
-        app.graph = appService.graph
-        app.canvas = appService.canvas
-        // @ts-ignore
-        app.graph._canvas = appService.canvas
-        // @ts-ignore
-        appService.canvas.app = app
-
-        // setDirtyCanvas 가로채기 (Zustand 동기화 트리거)
-        const origLGraphSetDirty = LGraph.prototype.setDirtyCanvas
-        LGraph.prototype.setDirtyCanvas = function (this: LGraph, ...args: any[]) {
-          const res = (origLGraphSetDirty as any).apply(this, args)
-          app.syncGraph()
-          return res
-        }
-
-        const origLGraphNodeSetDirty = LGraphNode.prototype.setDirtyCanvas
-        LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, ...args: any[]) {
-          const res = (origLGraphNodeSetDirty as any).apply(this, args)
-          app.syncGraph()
-          return res
-        }
-
-        // setup 훅 실행 (익스텐션 로드 완료 후 최초 1회)
-        for (const ext of app.extensions) {
-          if (ext.setup) {
-            try {
-              await ext.setup(app)
-            } catch (err) {
-              console.error(`Extension setup failed for ${ext.name}:`, err)
-            }
+      // setup 훅 실행
+      for (const ext of app.extensions) {
+        if (ext.setup) {
+          try {
+            console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:", ext.name || "(anonymous)");
+            await ext.setup(app)
+          } catch (err) {
+            console.error(`Extension setup failed for ${ext.name}:`, err)
           }
         }
+      }
 
-        // 최초 그래프 상태 동기화
-        const state = useReactGraphStore.getState()
-        if (state.nodes.length > 0) {
-          const workflow = {
-            last_node_id: Math.max(0, ...state.nodes.map(n => n.id)),
-            last_link_id: Math.max(0, ...state.links.map(l => l.id)),
-            nodes: state.nodes,
-            links: state.links,
-            version: 0.4,
-          }
-          appService.loadGraphData(workflow)
+      // 최초 그래프 상태 동기화
+      const state = useReactGraphStore.getState()
+      console.log("[CEG:DEBUG ReactGraphEditor] Step 3: Syncing initial state, nodes in store:", state.nodes.length);
+      if (state.nodes.length > 0) {
+        const workflow = {
+          last_node_id: Math.max(0, ...state.nodes.map(n => n.id)),
+          last_link_id: Math.max(0, ...state.links.map(l => l.id)),
+          nodes: state.nodes,
+          links: state.links,
+          version: 0.4,
         }
+        console.log("[CEG:DEBUG ReactGraphEditor] Calling loadGraphData with", workflow.nodes.length, "nodes");
+        appService.loadGraphData(workflow)
+        console.log("[CEG:DEBUG ReactGraphEditor] loadGraphData complete, graph now has", appService.graph.nodes.length, "nodes");
       }
 
       if (!cancelled) {
@@ -147,8 +168,6 @@ export function ReactGraphEditor() {
 
     return () => {
       cancelled = true
-      // Retain the instantiated graph and canvas to prevent null crashes
-      // for other extensions currently holding references during fast refresh/remount.
     }
   }, [nodeDefs])
 
@@ -525,15 +544,6 @@ export function ReactGraphEditor() {
 
   const selectedNodeIds = useReactGraphStore((s) => s.selectedNodeIds)
 
-  if (!isReady) {
-    return (
-      <div className="flex flex-col items-center justify-center w-full h-full bg-[#18181b] text-zinc-400 gap-2 font-medium">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-400" />
-        <span>익스텐션 및 라이브 그래프 로드 중...</span>
-      </div>
-    )
-  }
-
   return (
     <div
       ref={containerRef}
@@ -546,6 +556,12 @@ export function ReactGraphEditor() {
         backgroundPosition: `${pan[0]}px ${pan[1]}px`,
       }}
     >
+      {!isReady && (
+        <div className="absolute inset-0 z-[9999] flex flex-col items-center justify-center bg-[#18181b] text-zinc-400 gap-2 font-medium">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-400" />
+          <span>Extensions / Live graph loading...</span>
+        </div>
+      )}
       {/* Zoom / Pan Wrapper */}
       <div
         className="absolute inset-0 origin-top-left overflow-visible pointer-events-none"

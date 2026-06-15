@@ -138,8 +138,14 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
 
   // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
   const liveNode = useMemo(() => {
-    return (window as any).app?.graph?.getNodeById(id)
-  }, [id, nodeData])
+    const ln = (window as any).app?.graph?.getNodeById(id)
+    if (type.toLowerCase().includes("lora")) {
+      console.log("[CEG:DEBUG ReactNode.liveNode]", "id=" + id, "type=" + type, "hasLiveNode=" + !!ln,
+        "widgets=" + (ln?.widgets?.length || 0),
+        "widget details:", ln?.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element, elementTag: w.element?.tagName || "N/A" })));
+    }
+    return ln
+  }, [id, nodeData, type]);
 
   const { inputs, outputs, widgetNames, widgetSpecs } = useMemo(() => {
     const def = nodeDef

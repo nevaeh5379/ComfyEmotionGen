@@ -99,6 +99,8 @@ try {
 
 // Polyfill LGraphNode.prototype.addDOMWidget to support custom HTML/Vue widgets (e.g. LoRA Manager loader UI)
 ;(LGraphNode.prototype as any).addDOMWidget = function (name: string, type: string, element: HTMLElement, options: any = {}) {
+  console.log("[CEG:DEBUG addDOMWidget]", "nodeId=" + this.id, "name=" + name, "type=" + type, "hasElement=" + !!element, "elementTag=" + (element?.tagName || "N/A"), "stack=" + new Error().stack?.split("\n").slice(2, 5).join(" <- "));
+
   const widget = {
     type: type,
     name: name,
@@ -173,16 +175,42 @@ apiObj.getObjectInfo = apiObj.getObjectInfo || (async () => {
   const { comfyApi } = await import("@/lib/comfy-graph/api");
   return comfyApi.getObjectInfo();
 });
+const _fetchApiMocks: Record<string, () => Promise<Response>> = {
+  "/system_stats": async () => {
+    const stats = await apiObj.getSystemStats();
+    return new Response(JSON.stringify(stats), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+};
+
 apiObj.fetchApi = apiObj.fetchApi || (async (url: string, options: any) => {
   const cleanUrl = url.startsWith("/") ? url : `/${url}`;
   const fullUrl = cleanUrl.startsWith("/api/") ? cleanUrl : `/api${cleanUrl}`;
+  const route = fullUrl.replace(/^\/api/, "");
+  if (_fetchApiMocks[route]) {
+    return _fetchApiMocks[route]();
+  }
   return fetch(`${apiObj.api_base}${fullUrl}`, options);
 });
 apiObj.getSystemStats = apiObj.getSystemStats || (async () => {
   return {
     system: {
-      comfyui_version: "1.16.9"
-    }
+      os: "linux",
+      ram_total: 32 * 1024 * 1024 * 1024,
+      ram_free: 16 * 1024 * 1024 * 1024,
+      comfyui_version: "1.16.9",
+      required_frontend_version: "",
+      installed_templates_version: "",
+      required_templates_version: "",
+      python_version: "3.11",
+      pytorch_version: "2.0",
+      embedded_python: false,
+      argv: [],
+      comfy_package_versions: [],
+    },
+    devices: [],
   };
 });
 apiObj.addEventListener = apiObj.addEventListener || apiObj.addEventListener?.bind(apiObj) || (() => {});

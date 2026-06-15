@@ -568,8 +568,7 @@ export class LiteGraphGlobal {
       Object.assign(node, options)
     }
 
-    // callback
-    node.onNodeCreated?.()
+    // callback - deferred to callers (must run after widgets/inputs/outputs are set up)
     return node
   }
 
