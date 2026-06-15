@@ -616,30 +616,7 @@ if (!document.getElementById('comfy-file-input')) {
   document.body.appendChild(fileInput);
 }
 
-// Mock LiteGraph.createNode('KSampler') to return default inputs (seed, positive, negative)
-if (window.LiteGraph) {
-  const lg = window.LiteGraph as any;
-  const originalCreateNode = lg.createNode;
-  lg.createNode = function(type: string) {
-    if (type === 'KSampler') {
-      return {
-        inputs: [
-          { name: 'seed', localized_name: 'seed' },
-          { name: 'positive', localized_name: 'positive' },
-          { name: 'negative', localized_name: 'negative' }
-        ]
-      };
-    }
-    if (originalCreateNode) {
-      return originalCreateNode.call(this, type);
-    }
-    const ctor = this.registered_node_types[type];
-    if (ctor) {
-      try { return new ctor(); } catch(e) {}
-    }
-    return { inputs: [] };
-  };
-}
+
 
 w.IoDirection = w.IoDirection || {};
 w.addConnectionLayoutSupport = w.addConnectionLayoutSupport || (() => {});

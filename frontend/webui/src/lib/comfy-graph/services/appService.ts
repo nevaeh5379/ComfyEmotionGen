@@ -191,7 +191,8 @@ export class ComfyAppService {
         console.warn(`[loadGraphData] configure failed for ${nodeData.type}:`, err)
       }
 
-      // Run loadedGraphNode hooks
+      // Run loadedGraphNode hooks (before widget value restoration, so DOM widgets
+      // like LoraManager's loras widget are initialized and can accept values)
       const app = (window as any).app
       if (app?.extensions) {
         for (const ext of app.extensions) {
@@ -201,6 +202,19 @@ export class ComfyAppService {
             } catch (err) {
               console.error(`Extension loadedGraphNode failed for ${ext.name}:`, err)
             }
+          }
+        }
+      }
+
+      // Restore widget values AFTER configure + loadedGraphNode hooks, because
+      // configureWidgets skips serialize:false widgets (misaligning indices),
+      // and some DOM widgets need their hook-initialized DOM to accept values.
+      if (nodeData.widgets_values && node.widgets) {
+        for (let i = 0; i < Math.min(node.widgets.length, nodeData.widgets_values.length); i++) {
+          try {
+            node.widgets[i].value = (nodeData.widgets_values as any)[i]
+          } catch (err) {
+            console.warn(`[loadGraphData] failed to set widget[${i}] for ${nodeData.type}:`, err)
           }
         }
       }
@@ -385,6 +399,11 @@ export class ComfyAppService {
     const node = LiteGraph.createNode(type)
     if (!node) return null
 
+    if (typeof node.addInput !== 'function') {
+      console.warn(`[CEG:DEBUG createNode] ${type}: node.addInput is not a function, node=`, node, 'proto=', Object.getPrototypeOf(node), 'protoKeys=', Object.getOwnPropertyNames(Object.getPrototypeOf(node)).slice(0, 20));
+      return null;
+    }
+
     const isLora = type.toLowerCase().includes("lora");
     if (isLora) {
       console.log("[CEG:DEBUG createNode]", type, "node.widgets after LiteGraph.createNode:", node.widgets?.length || 0);
@@ -492,10 +511,9 @@ export class ComfyAppService {
       } else if (type === "BOOLEAN") {
         // 토글 위젯
         node.addWidget("toggle", name, (config.default as boolean) ?? false, () => {})
-      } else {
-        // Fallback: treat as string widget for custom types like "MODEL", "CLIP", etc.
-        const defaultValue = (config.default as string) ?? ""
-        node.addWidget("text", name, defaultValue, () => {}, config)
+      } else if (nodeDef.input?.required) {
+        // Skip non-widget types (MODEL, CLIP, LATENT, IMAGE, etc.)
+        // They are connection-only slots and should never get a text widget.
       }
     }
   }
