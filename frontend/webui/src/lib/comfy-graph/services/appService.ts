@@ -81,7 +81,6 @@ export class ComfyAppService {
    */
   registerNodeDefs(nodeDefs: Record<string, ComfyNodeDef>): void {
     const app = (window as any).app
-    console.log("[CEG:DEBUG registerNodeDefs] Extensions count:", app?.extensions?.length || 0, app?.extensions?.map((e: any) => e.name || "(anon)"));
 
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
@@ -97,23 +96,16 @@ export class ComfyAppService {
       }
 
       // Run beforeRegisterNodeDef hooks
-      let hooksApplied = 0;
       if (app?.extensions) {
         for (const ext of app.extensions) {
           if (ext.beforeRegisterNodeDef) {
             try {
               ext.beforeRegisterNodeDef(NodeClass, def, app)
-              hooksApplied++;
             } catch (err) {
               console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
             }
           }
         }
-      }
-
-      // Only log for lora types (noisy otherwise)
-      if (type.toLowerCase().includes("lora")) {
-        console.log("[CEG:DEBUG registerNodeDefs]", type, "hooksApplied=" + hooksApplied, "NodeClass title=" + NodeClass.title);
       }
 
       LiteGraph.registerNodeType(type, NodeClass)
@@ -128,32 +120,21 @@ export class ComfyAppService {
 
     // 노드 생성
     for (const nodeData of workflow.nodes) {
-      const isLora = nodeData.type.toLowerCase().includes("lora");
-      if (isLora) console.log("[CEG:DEBUG loadGraphData] Creating node:", nodeData.type, "id=" + nodeData.id);
-
       let node: LGraphNode | null = null
       try {
         node = this.createNode(nodeData.type, nodeData.pos, {
           skipConfigure: true,
         })
       } catch (err) {
-        console.warn(`[CEG:DEBUG loadGraphData] createNode failed for ${nodeData.type}:`, err)
+        console.warn(`[CEG] createNode failed for ${nodeData.type}:`, err)
         continue
       }
-      if (!node) {
-        if (isLora) console.log("[CEG:DEBUG loadGraphData] FAILED to create node:", nodeData.type);
-        continue;
-      }
-
-      if (isLora) {
-        console.log("[CEG:DEBUG loadGraphData] Node created, widgets:", node.widgets?.length || 0,
-          "widget items:", node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element, hasOptions: !!w.options })));
-      }
+      if (!node) continue
 
       // graph.add(node)에서 할당된 자동 ID를 JSON의 ID로 교체하고 _nodes_by_id 갱신
+      // 주의: oldId가 다른 노드의 JSON ID와 충돌할 수 있으므로 delete하지 않음
       const oldId = node.id
       if (oldId !== nodeData.id) {
-        delete this.graph._nodes_by_id[oldId]
         node.id = nodeData.id
         this.graph._nodes_by_id[node.id] = node
       }
@@ -224,15 +205,19 @@ export class ComfyAppService {
     for (const linkData of workflow.links) {
       const originNode = this.graph.getNodeById(linkData.origin_id)
       const targetNode = this.graph.getNodeById(linkData.target_id)
-      if (!originNode || !targetNode) continue
+      if (!originNode || !targetNode) {
+        console.warn(`[CEG] connectSkipped: link=${linkData.id} origin=${linkData.origin_id} target=${linkData.target_id}`)
+        continue
+      }
 
-      // @ts-ignore outputs access
       const originSlot = originNode.outputs?.[linkData.origin_slot]
-      // @ts-ignore inputs access
       const targetSlot = targetNode.inputs?.[linkData.target_slot]
       if (!originSlot || !targetSlot) continue
 
-      originNode.connect(linkData.origin_slot, targetNode, linkData.target_slot)
+      const result = originNode.connect(linkData.origin_slot, targetNode, linkData.target_slot)
+      if (result === null || result === false) {
+        console.warn(`[CEG] connectFailed: link=${linkData.id} type=${originNode.type}.out[${linkData.origin_slot}] -> ${targetNode.type}.in[${linkData.target_slot}]`)
+      }
     }
 
     // 그룹 생성
@@ -399,15 +384,7 @@ export class ComfyAppService {
     const node = LiteGraph.createNode(type)
     if (!node) return null
 
-    if (typeof node.addInput !== 'function') {
-      console.warn(`[CEG:DEBUG createNode] ${type}: node.addInput is not a function, node=`, node, 'proto=', Object.getPrototypeOf(node), 'protoKeys=', Object.getOwnPropertyNames(Object.getPrototypeOf(node)).slice(0, 20));
-      return null;
-    }
-
-    const isLora = type.toLowerCase().includes("lora");
-    if (isLora) {
-      console.log("[CEG:DEBUG createNode]", type, "node.widgets after LiteGraph.createNode:", node.widgets?.length || 0);
-    }
+    if (typeof node.addInput !== 'function') return null
 
     node.pos = pos
 
@@ -436,18 +413,9 @@ export class ComfyAppService {
 
     // 위젯 생성
     this.addNodeWidgets(node, nodeDef)
-    if (isLora) {
-      console.log("[CEG:DEBUG createNode]", type, "after addNodeWidgets, widgets:", node.widgets?.length || 0,
-        node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })));
-    }
 
     // Call prototype's onNodeCreated (patched by beforeRegisterNodeDef hooks)
-    if (typeof node.onNodeCreated === "function") {
-      if (isLora) console.log("[CEG:DEBUG createNode]", type, "calling onNodeCreated");
-      node.onNodeCreated()
-      if (isLora) console.log("[CEG:DEBUG createNode]", type, "after onNodeCreated, widgets:", node.widgets?.length || 0,
-        node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })));
-    }
+    node.onNodeCreated?.()
 
     this.graph.add(node)
 
@@ -457,12 +425,7 @@ export class ComfyAppService {
       for (const ext of app.extensions) {
         if (ext.nodeCreated) {
           try {
-            if (isLora) console.log("[CEG:DEBUG createNode]", type, "calling nodeCreated hook for ext:", ext.name || "(anon)");
             ext.nodeCreated(node, app)
-            if (isLora) {
-              console.log("[CEG:DEBUG createNode]", type, "after nodeCreated, widgets:", node.widgets?.length || 0,
-                node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })));
-            }
           } catch (err) {
             console.error(`Extension nodeCreated failed for ${ext.name}:`, err)
           }

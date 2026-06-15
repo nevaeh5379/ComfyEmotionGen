@@ -38,3 +38,5 @@ build/
 .codegraph
 backend/data/
 data/
+debug/
+*.log
