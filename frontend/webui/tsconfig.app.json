@@ -8,7 +8,6 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
 
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -16,14 +15,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting - 완화: ComfyUI_frontend LiteGraph 포팅 중 */
     "strict": true,
     "noUnusedLocals": false,
+    "noUncheckedIndexedAccess": true,
     "noUnusedParameters": false,
+    "noImplicitReturns": true,
     "erasableSyntaxOnly": false,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "exactOptionalPropertyTypes": false,
+    "exactOptionalPropertyTypes": true,
     "paths": {
       "@/*": ["./src/*"],
       "@comfy-graph/*": ["./src/lib/comfy-graph/*"]

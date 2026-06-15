@@ -11,6 +11,8 @@ export default defineConfig([
     files: ["**/*.{ts,tsx}"],
     extends: [
       js.configs.recommended,
+      tseslint.configs.strictTypeChecked,
+      tseslint.configs.stylisticTypeChecked,
       tseslint.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
@@ -18,10 +20,14 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     rules: {
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "error",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -29,6 +35,25 @@ export default defineConfig([
           varsIgnorePattern: "^_",
         },
       ],
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/explicit-function-return-type": "error",
+      "@typescript-eslint/no-floating-promises": "error", 
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/consistent-type-imports": "error", 
+      "@typescript-eslint/no-non-null-assertion": "error",  
+      "@typescript-eslint/strict-boolean-expressions": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error", 
+"@typescript-eslint/no-unsafe-member-access": "error", 
+"@typescript-eslint/no-unsafe-call": "error",     
+"@typescript-eslint/no-unsafe-return": "error",    
+"@typescript-eslint/no-unsafe-argument": "error", 
+      "no-console": "warn",      
+      "no-debugger": "error",
+      "eqeqeq": ["error", "always"], 
+      "no-var": "error", 
+      "prefer-const": "error",   
+      "no-throw-literal": "error", 
     },
   },
 ])
