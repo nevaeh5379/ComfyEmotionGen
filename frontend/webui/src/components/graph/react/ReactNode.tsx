@@ -327,6 +327,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                     data-slot-node-id={id}
                     data-slot-type="input"
                     data-slot-index={idx}
+                    data-slot-name={input.name}
                     data-slot-datatype={input.type}
                     className={`absolute left-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
                       input.link ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
@@ -352,6 +353,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                   data-slot-node-id={id}
                   data-slot-type="output"
                   data-slot-index={idx}
+                  data-slot-name={output.name}
                   data-slot-datatype={output.type}
                   className={`absolute right-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
                     output.links && output.links.length > 0
@@ -382,16 +384,17 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                   </span>
                   {/* 소켓 + 입력칸 한 줄 */}
                   <div className="flex items-center gap-1.5">
-                    <div
-                      data-slot-node-id={id}
-                      data-slot-type="input"
-                      data-slot-index={idx}
-                      data-slot-datatype={input.type}
-                      className={`shrink-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
-                        input.link ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
-                      }`}
-                      title={input.type}
-                    />
+                  <div
+                    data-slot-node-id={id}
+                    data-slot-type="input"
+                    data-slot-index={idx}
+                    data-slot-name={input.name}
+                    data-slot-datatype={input.type}
+                    className={`shrink-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
+                      input.link ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
+                    }`}
+                    title={input.type}
+                  />
                     <div className="flex-1 min-w-0">
                       {input.link ? (
                         <span className="text-[9px] text-green-500 font-mono">linked</span>

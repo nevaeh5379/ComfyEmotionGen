@@ -41,7 +41,29 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
     set({ nodeDefs: defs, nodeDefsByCategory: byCategory })
   },
 
-  getNodeDef: (type) => get().nodeDefs[type],
+  getNodeDef: (type) => {
+    const defs = get().nodeDefs
+    // 1. Exact match
+    if (defs[type]) return defs[type]
+
+    // 2. Case-insensitive match
+    const lowerType = type.toLowerCase()
+    for (const [key, def] of Object.entries(defs)) {
+      if (key.toLowerCase() === lowerType) return def
+    }
+
+    // 3. Try stripping known prefixes/suffixes
+    const stripped = type.replace(/^(ComfyUI-|Comfy-|Custom-)/i, '').replace(/-(?:Node|Simple|Provider)$/i, '')
+    if (stripped !== type && defs[stripped]) return defs[stripped]
+
+    // 4. Try partial match (key contains type or type contains key)
+    for (const [key, def] of Object.entries(defs)) {
+      const lowerKey = key.toLowerCase()
+      if (lowerKey.includes(lowerType) || lowerType.includes(lowerKey)) return def
+    }
+
+    return undefined
+  },
 
   setShowDeprecated: (showDeprecated) => set({ showDeprecated }),
   setShowExperimental: (showExperimental) => set({ showExperimental }),

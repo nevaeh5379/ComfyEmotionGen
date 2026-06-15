@@ -83,9 +83,6 @@ export function ReactGraphEditor() {
           const extensionUrls = await comfyApi.getExtensions()
           console.log("[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:", extensionUrls.length, extensionUrls);
           for (const url of extensionUrls) {
-            if (url.includes("/extensions/core/")) {
-              continue
-            }
             try {
               const fullUrl = url.startsWith("http") ? url : `${comfyApi.api_base}${url}`;
               console.log("[CEG:DEBUG ReactGraphEditor] Importing extension:", fullUrl);

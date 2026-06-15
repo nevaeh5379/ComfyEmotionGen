@@ -19,6 +19,7 @@ import type {
   ComfyWorkflowLink,
 } from "@comfy-graph/types/workflow"
 import type { ComfyNodeDef } from "@comfy-graph/types/nodeDef"
+import { useNodeDefStore } from "@comfy-graph/stores/nodeDefStore"
 
 export interface ComfyAppConfig {
   canvas: HTMLCanvasElement
@@ -129,12 +130,18 @@ export class ComfyAppService {
         console.warn(`[CEG] createNode failed for ${nodeData.type}:`, err)
         continue
       }
-      if (!node) continue
+      if (!node) {
+        // Absolute fallback: generic node so graph has all nodes for linking
+        console.warn(`[CEG] createNode returned null for ${nodeData.type}, forcing generic fallback`)
+        node = new LGraphNode(nodeData.type || "Unknown")
+        node.pos = nodeData.pos
+        this.graph.add(node)
+      }
 
       // graph.add(node)에서 할당된 자동 ID를 JSON의 ID로 교체하고 _nodes_by_id 갱신
-      // 주의: oldId가 다른 노드의 JSON ID와 충돌할 수 있으므로 delete하지 않음
       const oldId = node.id
       if (oldId !== nodeData.id) {
+        delete this.graph._nodes_by_id[oldId]
         node.id = nodeData.id
         this.graph._nodes_by_id[node.id] = node
       }
@@ -215,8 +222,28 @@ export class ComfyAppService {
       if (!originSlot || !targetSlot) continue
 
       const result = originNode.connect(linkData.origin_slot, targetNode, linkData.target_slot)
-      if (result === null || result === false) {
+      if (result === null || (result as unknown) === false) {
         console.warn(`[CEG] connectFailed: link=${linkData.id} type=${originNode.type}.out[${linkData.origin_slot}] -> ${targetNode.type}.in[${linkData.target_slot}]`)
+      }
+    }
+
+    // 연결에 실패한 슬롯(phantom link) 정리: connect 실패 후에도 workflow JSON에서 설정된
+    // stale slot.link / slot.links 가 남아있으면 핀이 녹색으로 표시되지만 실제 SVG 경로는 없음
+    for (const node of this.graph.nodes) {
+      if ((node as any).inputs) {
+        for (const input of (node as any).inputs) {
+          if (input.link != null && !this.graph.links.has(input.link)) {
+            input.link = null
+          }
+        }
+      }
+      if ((node as any).outputs) {
+        for (const output of (node as any).outputs) {
+          if (output.links && Array.isArray(output.links)) {
+            output.links = output.links.filter((linkId: number) => this.graph.links.has(linkId))
+            if (output.links.length === 0) output.links = null
+          }
+        }
       }
     }
 
@@ -375,13 +402,44 @@ export class ComfyAppService {
     pos: Vector2 = [0, 0],
     options: { skipConfigure?: boolean } = {}
   ): LGraphNode | null {
-    const nodeDef = this.nodeDefs[type]
+    let nodeDef = this.nodeDefs[type]
+    let actualType = type
     if (!nodeDef) {
-      console.warn(`[ComfyApp] Unknown node type: ${type}`)
-      return null
+      const storeDef = useNodeDefStore.getState().getNodeDef(type)
+      if (storeDef) {
+        console.debug(`[CEG] createNode: fuzzy match for "${type}" via store.getNodeDef`)
+        nodeDef = storeDef
+        // Find the actually registered key in this.nodeDefs (case-insensitive match)
+        for (const key of Object.keys(this.nodeDefs)) {
+          if (key.toLowerCase() === type.toLowerCase()) {
+            actualType = key
+            break
+          }
+        }
+        // If still not found in this.nodeDefs, register dynamically from store
+        if (actualType === type) {
+          const store = useNodeDefStore.getState()
+          for (const key of Object.keys(store.nodeDefs)) {
+            if (key.toLowerCase() === type.toLowerCase()) {
+              actualType = key
+              break
+            }
+          }
+          console.debug(`[CEG] createNode: registering "${actualType}" dynamically in LiteGraph`)
+          // Register in LiteGraph on-the-fly so createNode works
+          this.registerNodeDefs({ [actualType]: nodeDef })
+          this.nodeDefs[actualType] = nodeDef
+        }
+      } else {
+        console.warn(`[ComfyApp] Unknown node type: ${type}, creating generic node`)
+        const node = new LGraphNode(type)
+        node.pos = pos
+        this.graph.add(node)
+        return node
+      }
     }
 
-    const node = LiteGraph.createNode(type)
+    const node = LiteGraph.createNode(actualType)
     if (!node) return null
 
     if (typeof node.addInput !== 'function') return null

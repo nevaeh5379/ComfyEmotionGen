@@ -25,11 +25,28 @@ function queryPin(
   container: HTMLElement,
   nodeId: number,
   slotType: "input" | "output",
-  slotIdx: number
+  slotIdx: number,
+  slotName?: string
 ): HTMLElement | null {
-  return container.querySelector(
+  // 1. Exact match by nodeId + type + index
+  const exact = container.querySelector(
     `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"][data-slot-index="${slotIdx}"]`
   )
+  if (exact) return exact as HTMLElement
+
+  // 2. Fallback: try matching by slot name if provided
+  if (slotName) {
+    const byName = container.querySelector(
+      `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"][data-slot-name="${slotName}"]`
+    )
+    if (byName) return byName as HTMLElement
+  }
+
+  // 3. Fallback: find closest pin within this node (any index)
+  const anySlot = container.querySelector(
+    `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"]`
+  )
+  return anySlot as HTMLElement | null
 }
 
 interface PathData {
@@ -63,8 +80,8 @@ export function SvgConnections() {
       const dst = nodeMap.get(link.target_id)
       if (!src || !dst) continue
 
-      const srcPin = queryPin(container, src.id, "output", link.origin_slot)
-      const dstPin = queryPin(container, dst.id, "input", link.target_slot)
+      const srcPin = queryPin(container, src.id, "output", link.origin_slot, src.outputs?.[link.origin_slot]?.name)
+      const dstPin = queryPin(container, dst.id, "input", link.target_slot, dst.inputs?.[link.target_slot]?.name)
       if (!srcPin || !dstPin) continue
 
       const sr = srcPin.getBoundingClientRect()
