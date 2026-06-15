@@ -56,6 +56,7 @@ class LGraphNode {
 class LGraphCanvas {
   constructor() {
     this.ds = { offset: [0, 0], scale: 1 };
+    this.canvas = document.createElement("canvas");
   }
 }
 class LLink {}
@@ -65,10 +66,43 @@ class ContextMenu {}
 // Basic prototype methods and static arrays to avoid early canvas reference crashes
 LGraphCanvas.prototype.getCanvasMenuOptions = () => [];
 LGraphCanvas.prototype.getContextMenuOptions = () => [];
+LGraphCanvas.prototype.setDirty = () => {};
+LGraphCanvas.prototype.addEventListener = () => {};
 LGraphCanvas.node_menu_options = [];
 LGraphCanvas.canvas_menu_options = [];
 LGraphNode.prototype.getMenuOptions = () => [];
 LGraphNode.prototype.getContextMenuOptions = () => [];
+LGraphNode.prototype.addDOMWidget = function (name, type, element, options = {}) {
+  const widget = {
+    type,
+    name,
+    element,
+    options: { hideOnZoom: true, ...options },
+    _value: options.getValue?.() ?? '',
+    value: '',
+    callback: null
+  };
+  Object.defineProperty(widget, 'value', {
+    get() {
+      return this.options.getValue?.() ?? this._value ?? '';
+    },
+    set(v) {
+      this._value = v;
+      if (this.options.setValue) {
+        this.options.setValue(v);
+      }
+      if (this.callback) {
+        this.callback(v);
+      }
+    },
+    configurable: true
+  });
+  if (!this.widgets) {
+    this.widgets = [];
+  }
+  this.widgets.push(widget);
+  return widget;
+};
 
 const LiteGraph = {
   LGraph,
@@ -77,6 +111,15 @@ const LiteGraph = {
   LLink,
   LGraphGroup,
   ContextMenu,
+  color_palettes: new Proxy({}, {
+    get(target, prop) {
+      if (!(prop in target)) {
+        target[prop] = {};
+      }
+      return target[prop];
+    }
+  }),
+  Styles: { obsidian: {} },
   registered_node_types: {},
   registerNodeType: (type, nodeClass) => {
     LiteGraph.registered_node_types[type] = nodeClass;
@@ -88,6 +131,22 @@ const LiteGraph = {
     obj[name] = function(...args) {
       return fn.call(this, old, ...args);
     };
+  },
+  createNode: (type) => {
+    if (type === 'KSampler') {
+      return {
+        inputs: [
+          { name: 'seed', localized_name: 'seed' },
+          { name: 'positive', localized_name: 'positive' },
+          { name: 'negative', localized_name: 'negative' }
+        ]
+      };
+    }
+    const ctor = LiteGraph.registered_node_types[type];
+    if (ctor) {
+      try { return new ctor(); } catch(e) {}
+    }
+    return { inputs: [] };
   }
 };
 
@@ -110,6 +169,19 @@ global.LGraphGroup = LGraphGroup;
 // 3. Setup ComfyUI Core Front-end Stubs (Required for basic extension registration)
 const registeredExtensions = [];
 
+const settingsLookupProxy = new Proxy({
+  'Comfy.Locale': {
+    onChange: () => {}
+  }
+}, {
+  get(target, prop) {
+    if (!(prop in target)) {
+      target[prop] = { onChange: () => {} };
+    }
+    return target[prop];
+  }
+});
+
 const app = {
   registerExtension: (ext) => {
     console.log(`  -> Registered extension: ${ext.name}`);
@@ -121,18 +193,228 @@ const app = {
       show: () => {}
     },
     settings: {
-      addSetting: () => ({})
+      addSetting: () => ({}),
+      getSettingValue: () => null,
+      setSettingValue: () => {},
+      settingsLookup: settingsLookupProxy
     }
   },
   settings: {
-    addSetting: () => ({})
+    addSetting: () => ({}),
+    getSettingValue: () => null,
+    setSettingValue: () => {},
+    settingsLookup: settingsLookupProxy
   },
   canvas: new LGraphCanvas(),
-  graph: new LGraph()
+  graph: new LGraph(),
+  extensionManager: {
+    command: {
+      commands: [
+        { id: 'Comfy.ExportWorkflowAPI' }
+      ]
+    }
+  }
 };
 
 window.app = app;
 global.app = app;
+
+// Global stubs for independent script evaluation inside JSDOM VM context
+const mockAppOrJquery = (arg) => {
+  const obj = {
+    ready: (cb) => cb(),
+    on: () => {},
+    click: () => {},
+    val: () => "",
+    hide: () => {},
+    show: () => {},
+    use: () => obj,
+    mount: () => obj
+  };
+  return obj;
+};
+window.j = window.jQuery = window.$ = window.createApp = mockAppOrJquery;
+global.j = global.jQuery = global.$ = global.createApp = window.createApp;
+
+window.BaseEditorCanvas = class {};
+global.BaseEditorCanvas = window.BaseEditorCanvas;
+
+window.ModelInfoDialog = class {};
+global.ModelInfoDialog = window.ModelInfoDialog;
+
+window.ClipspaceDialog = class { static registerButton() {} };
+global.ClipspaceDialog = window.ClipspaceDialog;
+
+window.rgthreeConfig = {
+  enabled: true,
+  tweaks: { enabled: true },
+  features: { enabled: true },
+  nodes: {
+    reroute: {
+      fast_reroute: {
+        enabled: true
+      }
+    }
+  }
+};
+global.rgthreeConfig = window.rgthreeConfig;
+
+window.RgthreeBaseVirtualNode = class {};
+global.RgthreeBaseVirtualNode = window.RgthreeBaseVirtualNode;
+
+window.BaseCollectorNode = class {};
+global.BaseCollectorNode = window.BaseCollectorNode;
+
+window.BaseNodeModeChanger = class {};
+global.BaseNodeModeChanger = window.BaseNodeModeChanger;
+
+window.BaseFastGroupsModeChanger = class {};
+global.BaseFastGroupsModeChanger = window.BaseFastGroupsModeChanger;
+
+window.RgthreeBaseServerNode = class {};
+global.RgthreeBaseServerNode = window.RgthreeBaseServerNode;
+
+window.rgthree = {
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  newLogSession: () => ({ end: () => {} }),
+  logger: { log: () => {} }
+};
+global.rgthree = window.rgthree;
+
+window.DynamicContextNodeBase = class {};
+global.DynamicContextNodeBase = window.DynamicContextNodeBase;
+
+window.BaseAnyInputConnectedNode = class {};
+global.BaseAnyInputConnectedNode = window.BaseAnyInputConnectedNode;
+
+window.BaseContextNode = class {};
+global.BaseContextNode = window.BaseContextNode;
+
+window.RgthreeDialog = class {};
+global.RgthreeDialog = window.RgthreeDialog;
+
+window.CONFIG_SERVICE = {
+  getConfigValue: () => null,
+  addEventListener: () => {}
+};
+global.CONFIG_SERVICE = window.CONFIG_SERVICE;
+
+window.VERSION = "1.0.0";
+global.VERSION = window.VERSION;
+
+window.ue_callbacks = {
+  register_allnode_callback: () => {},
+  register_allgraph_callback: () => {}
+};
+global.ue_callbacks = window.ue_callbacks;
+
+window.create = (tag, clss, parent, properties) => {
+  const nd = document.createElement(tag);
+  if (clss) clss.split(" ").forEach((s) => nd.classList.add(s));
+  if (parent) parent.appendChild(nd);
+  if (properties) Object.assign(nd, properties);
+  return nd;
+};
+global.create = window.create;
+
+window.Pausable = class {};
+global.Pausable = window.Pausable;
+
+window.SETTINGS = {};
+global.SETTINGS = window.SETTINGS;
+
+window.i18n_functional = (x) => x;
+global.i18n_functional = window.i18n_functional;
+
+window.i18ify_settings = (x) => x;
+global.i18ify_settings = window.i18ify_settings;
+
+window.settingsCache = {
+  getSettingValue: () => null,
+  addCallback: () => {}
+};
+global.settingsCache = window.settingsCache;
+
+window.WILDCARD_COMMANDS = {};
+global.WILDCARD_COMMANDS = window.WILDCARD_COMMANDS;
+
+window.TextAreaAutoComplete = class {};
+global.TextAreaAutoComplete = window.TextAreaAutoComplete;
+
+window.shared = {};
+global.shared = window.shared;
+
+window.NodeTypesString = {};
+global.NodeTypesString = window.NodeTypesString;
+
+window.RgthreeBaseWidget = class {};
+global.RgthreeBaseWidget = window.RgthreeBaseWidget;
+
+window.LinkRenderController = class {};
+global.LinkRenderController = window.LinkRenderController;
+
+window.X = window.X || {};
+global.X = window.X;
+
+window.Exposed = () => {};
+global.Exposed = window.Exposed;
+
+window.injectCss = () => {};
+global.injectCss = window.injectCss;
+
+window.He = {
+  use: () => {}
+};
+global.He = window.He;
+
+window.d = () => {};
+global.d = window.d;
+
+window.q = () => ({});
+global.q = window.q;
+
+window.LAYOUT_LABEL_TO_DATA = {
+  Left: [ 1, [ 0, 0.5 ], [ 0, 0 ] ],
+  Right: [ 2, [ 1, 0.5 ], [ -0, 0 ] ],
+  Top: [ 3, [ 0.5, 0 ], [ 0, 0 ] ],
+  Bottom: [ 4, [ 0.5, 1 ], [ 0, -0 ] ]
+};
+window.LAYOUT_LABEL_OPPOSITES = {
+  Left: "Right",
+  Right: "Left",
+  Top: "Bottom",
+  Bottom: "Top"
+};
+window.LAYOUT_CLOCKWISE = ["Left", "Top", "Right", "Bottom"];
+
+global.LAYOUT_LABEL_TO_DATA = window.LAYOUT_LABEL_TO_DATA;
+global.LAYOUT_LABEL_OPPOSITES = window.LAYOUT_LABEL_OPPOSITES;
+global.LAYOUT_CLOCKWISE = window.LAYOUT_CLOCKWISE;
+
+window.IoDirection = {};
+window.addConnectionLayoutSupport = () => {};
+window.addMenuItem = () => {};
+window.getSlotLinks = () => [];
+window.isValidConnection = () => true;
+window.setConnectionsLayout = () => {};
+window.waitForCanvas = () => Promise.resolve();
+
+global.IoDirection = window.IoDirection;
+global.addConnectionLayoutSupport = window.addConnectionLayoutSupport;
+global.addMenuItem = window.addMenuItem;
+global.getSlotLinks = window.getSlotLinks;
+global.isValidConnection = window.isValidConnection;
+global.setConnectionsLayout = window.setConnectionsLayout;
+global.waitForCanvas = window.waitForCanvas;
+
+window.WILDCARD_COMMANDS = {
+  command: {}
+};
+global.WILDCARD_COMMANDS = window.WILDCARD_COMMANDS;
+
+const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 const api = {
   addEventListener: (type, callback) => {},
@@ -140,11 +422,18 @@ const api = {
   fetchApi: async (url, options) => {
     return {
       ok: true,
-      json: async () => [],
+      json: async () => ([]),
       text: async () => ""
     };
   },
-  api_base: ""
+  getSystemStats: async () => {
+    return {
+      system: {
+        comfyui_version: "1.16.9"
+      }
+    };
+  },
+  api_base: BACKEND_URL
 };
 
 window.api = api;
@@ -178,11 +467,11 @@ window.getUrl = (path, base) => {
 };
 
 window.ComfyWidgets = {
-  STRING: () => {},
-  INT: () => {},
-  FLOAT: () => {},
-  COMBO: () => {},
-  BOOLEAN: () => {},
+  STRING: () => ({ widget: { inputEl: {} } }),
+  INT: () => ({ widget: { inputEl: {} } }),
+  FLOAT: () => ({ widget: { inputEl: {} } }),
+  COMBO: () => ({ widget: { inputEl: {} } }),
+  BOOLEAN: () => ({ widget: { inputEl: {} } }),
 };
 
 window.ComfyApp = class {
@@ -201,8 +490,28 @@ window.applyContextMenuPatch = () => {};
 window.loadCss = () => {};
 window.createEditorStylesheet = () => {};
 
-// Add standard browser fetch stub to JSDOM window
-window.fetch = global.fetch;
+// Add standard browser fetch stub to JSDOM window with HTML fallback protection
+const originalFetch = global.fetch;
+window.fetch = async (url, options) => {
+  const res = await originalFetch(url, options);
+  const urlStr = typeof url === 'string' ? url : (url && url.url) ? url.url : '';
+  if (res.ok && urlStr && (urlStr.endsWith('.js') || urlStr.endsWith('.css') || urlStr.includes('/extensions/') || urlStr.includes('/rgthree/'))) {
+    try {
+      const clone = res.clone();
+      const text = await clone.text();
+      if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<!doctype") || text.trim().startsWith("<html")) {
+        // Return simulated 404 response to JSDOM
+        return new dom.window.Response("Not Found (HTML SPA Fallback Detected)", {
+          status: 404,
+          statusText: "Not Found",
+          headers: { "Content-Type": "text/plain" }
+        });
+      }
+    } catch (e) {}
+  }
+  return res;
+};
+global.fetch = window.fetch;
 
 // comfyAPI global helper used by ComfyUI-KJNodes
 window.comfyAPI = {
@@ -214,14 +523,41 @@ window.comfyAPI = {
   },
   utils: {
     applyTextReplacements: (node, text) => text
+  },
+  ui: {
+    ComfyDialog: class {},
+    $el: window.$el,
+    ComfyUI: class {}
+  },
+  widgets: {
+    updateControlWidgetLabel() {},
+    IS_CONTROL_WIDGET() {},
+    addValueControlWidget() {},
+    addValueControlWidgets() {},
+    ComfyWidgets: window.ComfyWidgets,
+    isValidWidgetType() {}
+  },
+  widgetInputs: {
+    PrimitiveNode: class {},
+    getWidgetConfig: () => ({}),
+    convertToInput: () => {},
+    setWidgetConfig: () => {},
+    mergeIfValid: () => {}
+  },
+  groupNode: {
+    GroupNodeConfig: class {
+      static registerFromWorkflow() { return Promise.resolve(); }
+    },
+    GroupNodeHandler: class {}
+  },
+  pnginfo: {
+    getPngMetadata: () => Promise.resolve({}),
+    getWebpMetadata: () => Promise.resolve({})
   }
 };
 
-// 4. Fetch and run extensions
 // BACKEND_URL is used to retrieve the active extensions list.
 // FRONTEND_URL represents the actual Vite environment port (5173) which the browser attempts to fetch scripts from.
-const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 function transpileESM(code) {
   let cleanCode = code;
@@ -241,35 +577,34 @@ function transpileESM(code) {
     return match;
   });
 
-  // Strip imports completely because they will fall back to global window inside 'with (window)'
-  cleanCode = cleanCode.replace(/import\b[\s\S]*?from\s*['"][^'"]*?['"];?/g, '/* import skipped */');
-  cleanCode = cleanCode.replace(/import\s*['"][^'"]*?['"];?/g, '/* side-effect import skipped */');
+  // 1. Resolve import.meta urls and resolves
+  cleanCode = cleanCode.replace(/import\.meta\.resolve\((.*?)\)/g, '$1');
+  cleanCode = cleanCode.replace(/import\.meta\.url/g, 'window.location.href');
+  cleanCode = cleanCode.replace(/import\.meta/g, '{}');
 
-  // Strip export keywords
+  // 2. Transpile dynamic import(...) to safe resolved Promise (string arguments only)
+  cleanCode = cleanCode.replace(/\bimport\(\s*['"`](.*?)['"`]\s*\)/g, 'Promise.resolve(window)');
+
+  // 3. Strip imports completely
+  cleanCode = cleanCode.replace(/\bimport(?:\s+|\{)[^;\n]*?from\s*['"][^'"]+?['"];?/g, '/* import skipped */');
+  cleanCode = cleanCode.replace(/\bimport(?:\s+|\{)\s*\{[^}]*\}\s*from\s*['"][^'"]+?['"];?/g, '/* multiline import skipped */');
+  cleanCode = cleanCode.replace(/\bimport\s*['"`].*?['"`];?/g, '/* side-effect import skipped */');
+
+  // 4. Strip export keywords and declarations
+  cleanCode = cleanCode.replace(/export\b[^;]*?\*\s*from\s*['"][^'"]+?['"];?/g, '/* export * skipped */');
+  cleanCode = cleanCode.replace(/export\b[^;]*?from\s*['"][^'"]+?['"];?/g, '/* export from skipped */');
+  cleanCode = cleanCode.replace(/export\b\s*\{[^}]*?\};?/g, '/* export braces skipped */');
   cleanCode = cleanCode.replace(/\bexport\s+default\s+/g, '');
   cleanCode = cleanCode.replace(/\bexport\s+(const|let|var|function|class|async\s+function)\b/g, '$1');
-  cleanCode = cleanCode.replace(/\bexport\s*\{([\s\S]*?)\};?/g, '/* exported declaration */');
-
-  // Transpile dynamic import(...) to safe resolved Promise
-  cleanCode = cleanCode.replace(/\bimport\((.*?)\)/g, 'Promise.resolve(window)');
-
-  // Resolve import.meta urls and resolves
-  cleanCode = cleanCode.replace(/import\.meta\.resolve\((.*?)\)/g, '$1');
-  cleanCode = cleanCode.replace(/\bimport\.meta\.url\b/g, 'window.location.href');
-  cleanCode = cleanCode.replace(/\bimport\.meta\b/g, '{}');
 
   // Build assignments to attach exports to window
   const exportAssignments = exportsList
     .map(name => `try { window.${name} = ${name}; } catch(e) {}`)
     .join('\n');
 
-  // Wrap in async IIFE with a 'with (window)' block.
-  // 'with (window)' avoids duplicate variable declaration crashes (like const {app} = comfyAPI.app)
-  // while fallback-accessing mock globals correctly.
+  // Wrap in async IIFE
   return `(async function() {
-    with (window) {
-      ${cleanCode}
-    }
+    ${cleanCode}
     
     ${exportAssignments}
   }).call(window);`;
@@ -319,6 +654,9 @@ async function main() {
         throw new Error(`Failed to download script. Status: ${scriptRes.status}`);
       }
       const code = await scriptRes.text();
+      if (code.trim().startsWith("<!DOCTYPE") || code.trim().startsWith("<!doctype") || code.trim().startsWith("<html")) {
+        throw new Error(`Failed to download script. Server returned HTML instead of Javascript (SPA fallback).`);
+      }
       const transpiledCode = transpileESM(code);
 
       // Run code in JSDOM VM Context

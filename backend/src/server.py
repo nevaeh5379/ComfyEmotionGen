@@ -743,73 +743,7 @@ async def get_extensions(worker_id: Optional[str] = None) -> list[str]:
     return []
 
 
-@app.get("/extensions/{path:path}")
-async def get_extension_file(
-    path: str,
-    request: Request,
-    worker_id: Optional[str] = None,
-) -> StreamingResponse:
-    """ComfyUI 익스텐션 정적 파일(JS, CSS 등)을 프록시 제공한다.
 
-    Proxies ComfyUI extension static files (JS, CSS, etc.) from an active worker.
-    """
-    if worker_id:
-        worker = worker_pool.get(worker_id)
-        if worker is None or not worker.alive:
-            raise HTTPException(
-                status_code=400,
-                detail=f"worker {worker_id} not found or offline"
-            )
-    else:
-        worker = worker_pool.find_idle()
-        if worker is None:
-            for w in worker_pool.all():
-                if w.alive:
-                    worker = w
-                    break
-
-    if worker is None:
-        raise HTTPException(
-            status_code=503,
-            detail="no available worker and ComfyUI is offline"
-        )
-
-    params = dict(request.query_params)
-
-    try:
-        req = worker._http.build_request("GET", f"/extensions/{path}", params=params)
-        resp = await worker._http.send(req, stream=True)
-
-        if resp.status_code >= 400:
-            await resp.aclose()
-            raise HTTPException(
-                status_code=resp.status_code,
-                detail=f"Failed to fetch extension asset: {resp.reason_phrase}"
-            )
-
-        async def stream_content():
-            try:
-                async for chunk in resp.aiter_bytes():
-                    yield chunk
-            finally:
-                await resp.aclose()
-
-        headers = {}
-        for h in ["content-type", "cache-control", "etag", "last-modified"]:
-            if h in resp.headers:
-                headers[h] = resp.headers[h]
-
-        return StreamingResponse(
-            stream_content(),
-            status_code=resp.status_code,
-            headers=headers
-        )
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Error proxying extension asset: %s", path)
-        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/version")
@@ -2099,8 +2033,15 @@ async def ws_events(websocket: WebSocket) -> None:
 
 # ====== 정적 파일 서빙 (번들된 프론트엔드) / Static file serving (bundled frontend) ======
 
+# ====== 정적 파일 서빙 (번들된 프론트엔드) / Static file serving (bundled frontend) ======
+
 _static_dir = os.environ.get("CEG_STATIC_DIR")
-if _static_dir and Path(_static_dir).is_dir():
+_has_static = _static_dir and Path(_static_dir).is_dir()
+
+if _has_static:
+    from fastapi.staticfiles import StaticFiles
+    # StaticFiles를 마운트하지 않고 인스턴스를 직접 생성하여 서빙 위임에 사용
+    frontend_static = StaticFiles(directory=_static_dir, html=True)
 
     @app.get("/config.js")
     def _config_js() -> Response:
@@ -2115,6 +2056,95 @@ if _static_dir and Path(_static_dir).is_dir():
             media_type="application/javascript",
         )
 
-    # CEG_STATIC_DIR이 설정되면 빌드된 프론트엔드를 루트에 마운트
-    # Mount the built frontend at root when CEG_STATIC_DIR is set
-    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="frontend")
+# 정의되지 않은 모든 요청을 감지하는 통합 와일드카드 동적 하이브리드 라우터 (개발 및 배포 전 환경에서 상시 등록)
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
+async def dynamic_comfyui_proxy(
+    path: str,
+    request: Request,
+    worker_id: Optional[str] = None,
+) -> Response:
+    # 1. 백엔드 자체 API 경로는 404 처리 (FastAPI 정식 라우터가 먼저 매칭되므로 보통 여기에 안 오지만 안전을 위해)
+    backend_prefixes = [
+        "jobs", "saved-images", "workers", "trash", "tags", 
+        "templates", "render", "workflow", "logs", "db", 
+        "version", "health", "debug", "uploaded_images"
+    ]
+    if any(path.startswith(prefix) for prefix in backend_prefixes):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # clipspace.js의 404 방지를 위한 동적 스텁 반환 (신규 버전 ComfyUI에서 제거됨에 따른 404 해소)
+    if path.endswith("extensions/core/clipspace.js") or path.endswith("clipspace.js"):
+        return Response(
+            "export const ClipspaceDialog = window.ClipspaceDialog || class { static registerButton() {} };",
+            media_type="application/javascript"
+        )
+
+    # 2. 로컬 프론트엔드 정적 파일이 실제 존재하면 정적 파일 서빙 수행 (서빙 디렉터리가 켜져 있는 경우만)
+    if _has_static and path:
+        local_file = Path(_static_dir) / path
+        if local_file.is_file():
+            return await frontend_static(request.scope, receive=None, send=None)
+
+    # 3. 로컬에 파일이 없으면 ComfyUI 워커로 동적 프록시 시도
+    worker = worker_pool.find_idle()
+    if worker is None:
+        for w in worker_pool.all():
+            if w.alive:
+                worker = w
+                break
+
+    if worker is not None:
+        method = request.method
+        params = dict(request.query_params)
+        body = await request.body() if method in ["POST", "PUT", "PATCH"] else None
+        
+        try:
+            req_headers = {}
+            for h in ["content-type", "accept", "authorization"]:
+                if h in request.headers:
+                    req_headers[h] = request.headers[h]
+
+            req = worker._http.build_request(
+                method,
+                f"/{path}",
+                params=params,
+                content=body,
+                headers=req_headers
+            )
+            resp = await worker._http.send(req, stream=True)
+
+            if resp.status_code != 404:
+                async def stream_content():
+                    try:
+                        async for chunk in resp.aiter_bytes():
+                            yield chunk
+                    finally:
+                        await resp.aclose()
+
+                headers = {}
+                for h in ["content-type", "cache-control", "etag", "last-modified"]:
+                    if h in resp.headers:
+                        headers[h] = resp.headers[h]
+
+                    # CORS 헤더 추가 (CORS 다이렉트 통신 허용)
+                    # CORSMiddleware가 정적 스트리밍에도 동작하나 명시적 통제를 보완함
+                    # headers["access-control-allow-origin"] = "*"
+
+                return StreamingResponse(
+                    stream_content(),
+                    status_code=resp.status_code,
+                    headers=headers
+                )
+            await resp.aclose()
+        except Exception as exc:
+            logger.warning("Dynamic proxy to worker failed for /%s: %s", path, exc)
+
+    # 4. 로컬 파일도 없고 워커도 자원을 찾지 못했다면(404), 프론트엔드 SPA fallback index.html 서빙
+    # 단, 정적 리소스 파일(.js, .css, 이미지 등)에 대해서는 index.html 대신 404 상태코드를 정확히 반환하여 클라이언트 측 파싱 에러를 방지한다.
+    if _has_static and not any(path.endswith(ext) for ext in [".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".wasm"]):
+        from fastapi.responses import FileResponse
+        index_file = Path(_static_dir) / "index.html"
+        if index_file.is_file():
+            return FileResponse(str(index_file))
+
+    raise HTTPException(status_code=404, detail="Not found")

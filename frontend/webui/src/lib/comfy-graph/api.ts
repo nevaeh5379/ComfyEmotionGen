@@ -6,13 +6,15 @@
 
 import type { ComfyWorkflowJSON, ComfyApiWorkflow } from "@comfy-graph/types/workflow"
 import type { ComfyNodeDef } from "@comfy-graph/types/nodeDef"
+import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 
-const API_BASE = ""
+const API_BASE = DEFAULT_BACKEND_URL
 
 /**
  * CEG 백엔드 API Client
  */
 export const comfyApi = {
+  api_base: API_BASE,
   /**
    * GET /object_info - ComfyUI 노드 정의 조회
    */

@@ -10,7 +10,7 @@ import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { comfyApi } from "@/lib/comfy-graph/api"
 import { ComfyAppService } from "@/lib/comfy-graph/services/appService"
-import { LGraph, LGraphNode } from "@/lib/comfy-graph/core/litegraph"
+import { LGraph, LGraphNode, LGraphCanvas } from "@/lib/comfy-graph/core/litegraph"
 
 export function ReactGraphEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -37,31 +37,16 @@ export function ReactGraphEditor() {
   useEffect(() => {
     let cancelled = false
     async function initApp() {
-      // 1. 전역 api 및 app 객체 재점검
-      if (!window.api) {
-        const apiObj = new EventTarget() as any
-        apiObj.api_base = ""
-        apiObj.getExtensions = async () => comfyApi.getExtensions()
-        apiObj.getObjectInfo = async () => comfyApi.getObjectInfo()
-        window.api = apiObj
-      }
+      const app = window.app as any
 
-      if (!window.app) {
-        const extensions: any[] = []
-        window.app = {
-          extensions,
-          registerExtension(ext: any) {
-            extensions.push(ext)
-          },
-          graph: null,
-          canvas: null,
-          async syncGraph() {
-            useReactGraphStore.getState().syncGraphFromLive()
-          }
-        }
+      // HMR or fast remount safety: Restore graph and canvas stubs immediately
+      // to avoid null reference crashes during async extension import awaits.
+      if (!app.graph) {
+        app.graph = new LGraph()
       }
-
-      const app = window.app
+      if (!app.canvas) {
+        app.canvas = new LGraphCanvas(document.createElement("canvas"), app.graph)
+      }
 
       // 2. 익스텐션 로드 (아직 로드되지 않은 경우)
       if (!app.extensionsLoaded) {
@@ -73,7 +58,9 @@ export function ReactGraphEditor() {
               continue
             }
             try {
-              await import(/* @vite-ignore */ url)
+              // 백엔드 절대 경로와 결합하여 직접 다이렉트 임포트 (CORS/무중계 지원)
+              const fullUrl = url.startsWith("http") ? url : `${comfyApi.api_base}${url}`;
+              await import(/* @vite-ignore */ fullUrl)
             } catch (err) {
               console.error(`Failed to load extension: ${url}`, err)
             }
@@ -160,10 +147,8 @@ export function ReactGraphEditor() {
 
     return () => {
       cancelled = true
-      if (window.app) {
-        window.app.graph = null
-        window.app.canvas = null
-      }
+      // Retain the instantiated graph and canvas to prevent null crashes
+      // for other extensions currently holding references during fast refresh/remount.
     }
   }, [nodeDefs])
 

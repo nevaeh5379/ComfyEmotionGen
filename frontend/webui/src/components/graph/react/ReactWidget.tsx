@@ -110,7 +110,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
         {showLabel && (
           <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold">
             <span className="truncate">{name}</span>
-            <span className="mono text-[9px] opacity-75">{numVal}</span>
+            <span className="mono text-[9px] opacity-75">{isNaN(numVal) ? "0" : String(numVal)}</span>
           </div>
         )}
         <input
