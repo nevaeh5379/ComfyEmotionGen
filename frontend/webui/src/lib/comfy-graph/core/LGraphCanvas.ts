@@ -1,6 +1,6 @@
 
 import { toString } from 'es-toolkit/compat'
-import { toValue } from './external/vueShim'
+
 
 import { isMiddleButtonEvent } from './utils/pointerUtils'
 import { MovingInputLink } from './canvas/MovingInputLink'
@@ -9,7 +9,7 @@ import { AutoPanController } from './canvas/useAutoPan'
 import { LitegraphLinkAdapter } from './external/litegraphLinkAdapter'
 import type { LinkRenderContext } from './external/litegraphLinkAdapter'
 import { getSlotPosition } from './external/slotCalculations'
-import { useLayoutMutations } from './external/layoutMutations'
+import { getLayoutMutations } from './external/layoutMutations'
 import { layoutStore, LayoutSource } from './external/layoutStore'
 import { forEachNode } from './utils/graphTraversalUtil'
 
@@ -1547,7 +1547,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       } else if (item.type == 'Boolean') {
         value = Boolean(value)
       }
-      // @ts-expect-error Requires refactor.
+      // @ts-expect-error: Bypass external type check Requires refactor.
       node[property] = value
       dialog.remove()
       canvas.setDirty(true, true)
@@ -1567,7 +1567,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     if (typeof values === 'object') {
       let desc_value = ''
       for (const k in values) {
-        // @ts-expect-error deprecated #578
+        // @ts-expect-error: Bypass external type check deprecated #578
         if (values[k] != value) continue
 
         desc_value = k
@@ -2131,7 +2131,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     if (!this.canvas) return window
 
     const doc = this.canvas.ownerDocument
-    // @ts-expect-error Check if required
+    // @ts-expect-error: Bypass external type check Check if required
     return doc.defaultView || doc.parentWindow
   }
 
@@ -3961,7 +3961,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     if (!graph) return
 
     let block_default = false
-    // @ts-expect-error EventTarget.localName is not in standard types
+    // @ts-expect-error: Bypass external type check EventTarget.localName is not in standard types
     if (e.target.localName == 'input') return
 
     if (e.type == 'keydown') {
@@ -4327,7 +4327,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     for (const [, layout] of allNodes) {
       if (layout.zIndex > maxZIndex) maxZIndex = layout.zIndex
     }
-    const { setNodeZIndex } = useLayoutMutations()
+    const { setNodeZIndex } = getLayoutMutations()
     for (let i = 0; i < newPositions.length; i++) {
       setNodeZIndex(newPositions[i].nodeId, maxZIndex + i + 1)
     }
@@ -5059,9 +5059,9 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
 
     const { ctx, canvas, graph } = this
 
-    // @ts-expect-error start2D method not in standard CanvasRenderingContext2D
+    // @ts-expect-error: Bypass external type check start2D method not in standard CanvasRenderingContext2D
     if (ctx.start2D && !this.viewport) {
-      // @ts-expect-error start2D method not in standard CanvasRenderingContext2D
+      // @ts-expect-error: Bypass external type check start2D method not in standard CanvasRenderingContext2D
       ctx.start2D()
       ctx.restore()
       ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -5766,11 +5766,11 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     }
     ctx.fill()
 
-    // @ts-expect-error TODO: Better value typing
+    // @ts-expect-error: Bypass external type check TODO: Better value typing
     const { data } = link
     if (data == null) return
 
-    // @ts-expect-error TODO: Better value typing
+    // @ts-expect-error: Bypass external type check TODO: Better value typing
     if (this.onDrawLinkTooltip?.(ctx, link, this) == true) return
 
     let text: string | null
@@ -6924,7 +6924,6 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     )
     const dirty = () => this._dirty()
 
-    const that = this
     const { graph } = this
     const { afterRerouteId } = opts
 
@@ -7008,25 +7007,12 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       }
     }
 
-    // build menu
-    const menu = new LiteGraph.ContextMenu<string>(options, {
-      event: opts.e,
-      extra: slotX,
-      title:
-        (slotX && slotX.name != ''
-          ? slotX.name + (fromSlotType ? ' | ' : '')
-          : '') + (slotX && fromSlotType ? fromSlotType : ''),
-      callback: inner_clicked
-    })
-
-    return menu
-
     // callback
-    function inner_clicked(
+    const inner_clicked = (
       v: string | undefined,
       options: IContextMenuOptions<string, INodeInputSlot | INodeOutputSlot>,
       e: MouseEvent
-    ) {
+    ) => {
       switch (v) {
         case 'Add Node':
           LGraphCanvas.onMenuAdd(null, null, e, menu, function (node) {
@@ -7087,17 +7073,17 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
         case 'Search':
           if (isFrom) {
             opts.showSearchBox(e, {
-              // @ts-expect-error - Subgraph types
+              // @ts-expect-error: Bypass external type check - Subgraph types
               node_from: opts.nodeFrom,
-              // @ts-expect-error - Subgraph types
+              // @ts-expect-error: Bypass external type check - Subgraph types
               slot_from: slotX,
               type_filter_in: fromSlotType
             })
           } else {
             opts.showSearchBox(e, {
-              // @ts-expect-error - Subgraph types
+              // @ts-expect-error: Bypass external type check - Subgraph types
               node_to: opts.nodeTo,
-              // @ts-expect-error - Subgraph types
+              // @ts-expect-error: Bypass external type check - Subgraph types
               slot_from: slotX,
               type_filter_out: fromSlotType
             })
@@ -7111,10 +7097,23 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
           } satisfies Partial<ICreateDefaultNodeOptions>
 
           const options = Object.assign(opts, customProps)
-          if (!that.createDefaultNodeForSlot(options)) break
+          if (!this.createDefaultNodeForSlot(options)) break
         }
       }
     }
+
+    // build menu
+    const menu = new LiteGraph.ContextMenu<string>(options, {
+      event: opts.e,
+      extra: slotX,
+      title:
+        (slotX && slotX.name != ''
+          ? slotX.name + (fromSlotType ? ' | ' : '')
+          : '') + (slotX && fromSlotType ? fromSlotType : ''),
+      callback: inner_clicked
+    })
+
+    return menu
   }
 
   // refactor: there are different dialogs, some uses createDialog some dont
@@ -7125,7 +7124,6 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     event: CanvasPointerEvent,
     multiline?: boolean
   ): HTMLDivElement {
-    const that = this
     title = title || ''
 
     const customProperties = {
@@ -7134,8 +7132,8 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       innerHTML: multiline
         ? "<span class='name'></span> <textarea autofocus class='value'></textarea><button class='rounded'>OK</button>"
         : "<span class='name'></span> <input autofocus type='text' class='value'/><button class='rounded'>OK</button>",
-      close() {
-        that.prompt_box = null
+      close: () => {
+        this.prompt_box = null
         if (dialog.parentNode) {
           dialog.remove()
         }
@@ -7225,9 +7223,9 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     const button = dialog.querySelector('button')
     if (!button) throw new TypeError('button was null when opening prompt')
 
-    button.addEventListener('click', function () {
+    button.addEventListener('click', () => {
       callback?.(input.value)
-      that.setDirty(true)
+      this.setDirty(true)
       dialog.close()
     })
 
@@ -7281,7 +7279,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       do_type_filter: LiteGraph.search_filter_enabled,
 
       // these are default: pass to set initially set values
-      // @ts-expect-error Property missing from interface definition
+      // @ts-expect-error: Bypass external type check Property missing from interface definition
       type_filter_in: false,
 
       type_filter_out: false,
@@ -7295,16 +7293,15 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
 
     // console.log(options);
 
-    const that = this
     const graphcanvas = LGraphCanvas.active_canvas
     const { canvas } = graphcanvas
     const root_document = canvas.ownerDocument || document
 
     const div = document.createElement('div')
     const dialog = Object.assign(div, {
-      close(this: typeof div) {
-        that.search_box = undefined
-        this.blur()
+      close: () => {
+        this.search_box = undefined
+        div.blur()
         canvas.focus()
         root_document.body.style.overflow = ''
 
@@ -7390,9 +7387,8 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       }
     }
 
-    // @ts-expect-error Panel?
-    that.search_box?.close()
-    that.search_box = dialog
+    this.search_box?.close()
+    this.search_box = dialog
 
     let first: string | null = null
     let timeout: ReturnType<typeof setTimeout> | null = null
@@ -7457,7 +7453,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
           opt.innerHTML = aSlots[iK]
           selIn.append(opt)
           if (
-            // @ts-expect-error Property missing from interface definition
+            // @ts-expect-error: Bypass external type check Property missing from interface definition
             options.type_filter_in !== false &&
             String(options.type_filter_in).toLowerCase() ==
               String(aSlots[iK]).toLowerCase()
@@ -7507,7 +7503,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       new MouseEvent('click', {
         clientX: rect.left + rect.width * 0.5,
         clientY: rect.top + rect.height * 0.5,
-        // @ts-expect-error layerY is a nonstandard property
+        // @ts-expect-error: Bypass external type check layerY is a nonstandard property
         layerY: rect.top + rect.height * 0.5
       })
 
@@ -7525,10 +7521,10 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
     })
     if (options.show_all_on_open) refreshHelper()
 
-    function select(name: string) {
+    const select = (name: string) => {
       if (name) {
-        if (that.onSearchBoxSelection) {
-          that.onSearchBoxSelection(name, safeEvent, graphcanvas)
+        if (this.onSearchBoxSelection) {
+          this.onSearchBoxSelection(name, safeEvent, graphcanvas)
         } else {
           if (!graphcanvas.graph) throw new NullGraphError()
 
@@ -7555,9 +7551,9 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
                 iS = options.slot_from.name
                   ? options.node_from.findOutputSlot(options.slot_from.name)
                   : -1
-                // @ts-expect-error - slot_index property
+                // @ts-expect-error: Bypass external type check - slot_index property
                 if (iS == -1 && options.slot_from.slot_index !== undefined)
-                  // @ts-expect-error - slot_index property
+                  // @ts-expect-error: Bypass external type check - slot_index property
                   iS = options.slot_from.slot_index
                 break
               case 'number':
@@ -7599,9 +7595,9 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
                 iS = options.slot_from.name
                   ? options.node_to.findInputSlot(options.slot_from.name)
                   : -1
-                // @ts-expect-error - slot_index property
+                // @ts-expect-error: Bypass external type check - slot_index property
                 if (iS == -1 && options.slot_from.slot_index !== undefined)
-                  // @ts-expect-error - slot_index property
+                  // @ts-expect-error: Bypass external type check - slot_index property
                   iS = options.slot_from.slot_index
                 break
               case 'number':
@@ -7654,15 +7650,15 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       }
     }
 
-    function refreshHelper() {
+    const refreshHelper = () => {
       timeout = null
       let str = input.value
       first = null
       helper.innerHTML = ''
       if (!str && !options.show_all_if_empty) return
 
-      if (that.onSearchBox) {
-        const list = that.onSearchBox(helper, str, graphcanvas)
+      if (this.onSearchBox) {
+        const list = this.onSearchBox(helper, str, graphcanvas)
         if (list) {
           for (const item of list) {
             addResult(item)
@@ -7678,11 +7674,11 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
         // filter by type preprocess
         let sIn: HTMLSelectElement | null = null
         let sOut: HTMLSelectElement | null = null
-        if (options.do_type_filter && that.search_box) {
-          sIn = that.search_box.querySelector<HTMLSelectElement>(
+        if (options.do_type_filter && this.search_box) {
+          sIn = this.search_box.querySelector<HTMLSelectElement>(
             '.slot_in_type_filter'
           )
-          sOut = that.search_box.querySelector<HTMLSelectElement>(
+          sOut = this.search_box.querySelector<HTMLSelectElement>(
             '.slot_out_type_filter'
           )
         }
@@ -7884,7 +7880,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       input = dialog.querySelector('input')
       input?.addEventListener('click', function () {
         dialog.modified()
-        // @ts-expect-error setValue function signature not strictly typed
+        // @ts-expect-error: Bypass external type check setValue function signature not strictly typed
         setValue(!!input.checked)
       })
     } else {
@@ -7902,7 +7898,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
           v = JSON.stringify(v)
         }
 
-        // @ts-expect-error HTMLInputElement.value expects string but v can be other types
+        // @ts-expect-error: Bypass external type check HTMLInputElement.value expects string but v can be other types
         input.value = v
         input.addEventListener('keydown', function (e) {
           if (e.key == 'Escape') {
@@ -7946,7 +7942,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
         value = Number(value)
       }
       if (type == 'array' || type == 'object') {
-        // @ts-expect-error JSON.parse doesn't care.
+        // @ts-expect-error: Bypass external type check JSON.parse doesn't care.
         value = JSON.parse(value)
       }
       node.properties[property] = value
@@ -8308,7 +8304,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       // clear
       panel.content.innerHTML = ''
       panel.addHTML(
-        // @ts-expect-error - desc property
+        // @ts-expect-error: Bypass external type check - desc property
         `<span class='node_type'>${node.type}</span><span class='node_desc'>${node.constructor.desc || ''}</span><span class='separator'></span>`
       )
 
@@ -8464,9 +8460,9 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
       throw new TypeError('checkPanels - this.canvas.parentNode was null')
     const panels = this.canvas.parentNode.querySelectorAll('.litegraph.dialog')
     for (const panel of panels) {
-      // @ts-expect-error Panel
+      // @ts-expect-error: Bypass external type check Panel
       if (!panel.node) continue
-      // @ts-expect-error Panel
+      // @ts-expect-error: Bypass external type check Panel
       if (!panel.node.graph || panel.graph != this.graph) panel.close()
     }
   }
@@ -8702,7 +8698,7 @@ export class LGraphCanvas implements CustomEventDispatcher<LGraphCanvasEventMap>
             menu_info.push(...node.getExtraSlotMenuOptions(slot))
           }
         }
-        // @ts-expect-error Slot type can be number and has number checks
+        // @ts-expect-error: Bypass external type check Slot type can be number and has number checks
         options.title = (slot.input ? slot.input.type : slot.output.type) || '*'
         if (slot.input && slot.input.type == LiteGraph.ACTION)
           options.title = 'Action'

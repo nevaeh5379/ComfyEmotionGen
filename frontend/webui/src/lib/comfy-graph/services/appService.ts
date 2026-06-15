@@ -62,13 +62,10 @@ export class ComfyAppService {
 
     // Canvas 스타일 설정
     this.canvas.render_canvas_border = false
-    // @ts-ignore LiteGraph fork property
     this.canvas.allow_dragcanvas = true
-    // @ts-ignore LiteGraph fork property
     this.canvas.allow_zoom = true
 
     // 그래프 변경 감지
-    // @ts-ignore LiteGraph fork property
     this.graph.onChange = () => {
       this.onGraphChanged?.(this.serializeGraph())
     }
@@ -81,7 +78,7 @@ export class ComfyAppService {
    * Register all node definitions in LiteGraph
    */
   registerNodeDefs(nodeDefs: Record<string, ComfyNodeDef>): void {
-    const app = (window as any).app
+    const app = window.app
 
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
@@ -101,7 +98,7 @@ export class ComfyAppService {
         for (const ext of app.extensions) {
           if (ext.beforeRegisterNodeDef) {
             try {
-              ext.beforeRegisterNodeDef(NodeClass, def, app)
+              ext.beforeRegisterNodeDef(NodeClass, def as never, app)
             } catch (err) {
               console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
             }
@@ -150,7 +147,6 @@ export class ComfyAppService {
         for (const input of nodeData.inputs) {
           const slot = node.inputs?.find((s: { name: string }) => s.name === input.name)
           if (slot) {
-            // @ts-ignore LiteGraph fork property
             slot.link = input.link ?? null
           }
         }
@@ -161,22 +157,20 @@ export class ComfyAppService {
         for (const output of nodeData.outputs) {
           const slot = node.outputs?.find((s: { name: string }) => s.name === output.name)
           if (slot) {
-            // @ts-ignore LiteGraph fork property
             slot.links = output.links ?? []
           }
         }
       }
 
       try {
-        // @ts-ignore configure may accept ComfyWorkflowNode
-        node.configure?.(nodeData)
+        node.configure?.(nodeData as never)
       } catch (err) {
         console.warn(`[loadGraphData] configure failed for ${nodeData.type}:`, err)
       }
 
       // Run loadedGraphNode hooks (before widget value restoration, so DOM widgets
       // like LoraManager's loras widget are initialized and can accept values)
-      const app = (window as any).app
+      const app = window.app
       if (app?.extensions) {
         for (const ext of app.extensions) {
           if (ext.loadedGraphNode) {
@@ -195,7 +189,7 @@ export class ComfyAppService {
       if (nodeData.widgets_values && node.widgets) {
         for (let i = 0; i < Math.min(node.widgets.length, nodeData.widgets_values.length); i++) {
           try {
-            node.widgets[i].value = (nodeData.widgets_values as any)[i]
+            node.widgets[i].value = nodeData.widgets_values[i] as string | number | boolean
           } catch (err) {
             console.warn(`[loadGraphData] failed to set widget[${i}] for ${nodeData.type}:`, err)
           }
@@ -225,15 +219,15 @@ export class ComfyAppService {
     // 연결에 실패한 슬롯(phantom link) 정리: connect 실패 후에도 workflow JSON에서 설정된
     // stale slot.link / slot.links 가 남아있으면 핀이 녹색으로 표시되지만 실제 SVG 경로는 없음
     for (const node of this.graph.nodes) {
-      if ((node as any).inputs) {
-        for (const input of (node as any).inputs) {
+      if (node.inputs) {
+        for (const input of node.inputs) {
           if (input.link != null && !this.graph.links.has(input.link)) {
             input.link = null
           }
         }
       }
-      if ((node as any).outputs) {
-        for (const output of (node as any).outputs) {
+      if (node.outputs) {
+        for (const output of node.outputs) {
           if (output.links && Array.isArray(output.links)) {
             output.links = output.links.filter((linkId: number) => this.graph.links.has(linkId))
             if (output.links.length === 0) output.links = null
@@ -272,42 +266,33 @@ export class ComfyAppService {
         size: node.size,
       }
 
-      // @ts-ignore inputs access
       if (node.inputs) {
-        // @ts-ignore inputs access
-        nodeData.inputs = node.inputs.map((input: { name: string; type: string; link: number | null }) => ({
+        nodeData.inputs = node.inputs.map((input) => ({
           name: input.name,
-          type: input.type,
+          type: String(input.type),
           link: input.link ?? undefined,
         }))
       }
 
-      // @ts-ignore outputs access
       if (node.outputs) {
-        // @ts-ignore outputs access
-        nodeData.outputs = node.outputs.map((output: { name: string; type: string; links: number[] | null }, i: number) => ({
+        nodeData.outputs = node.outputs.map((output, i) => ({
           name: output.name,
-          type: output.type,
+          type: String(output.type),
           links: output.links?.length ? output.links : undefined,
           slot_index: i,
         }))
       }
 
-      // @ts-ignore widgets access
       if (node.widgets) {
-        // @ts-ignore widgets access
-        nodeData.widgets_values = node.widgets.map((w: { value: unknown }) => w.value)
+        nodeData.widgets_values = node.widgets.map((w) => w.value)
       }
 
-      // @ts-ignore color property
       if (node.color) nodeData.color = node.color
-      // @ts-ignore bgcolor property
       if (node.bgcolor) nodeData.bgcolor = node.bgcolor
 
       nodes.push(nodeData)
     }
 
-    // @ts-ignore links iteration
     for (const [, link] of this.graph.links) {
       links.push({
         id: link.id,
@@ -319,7 +304,6 @@ export class ComfyAppService {
       })
     }
 
-    // @ts-ignore groups access
     const groups = this.graph.groups.map((g: { title: string; pos: [number, number]; size: [number, number]; color?: string }) => ({
       title: g.title,
       bounding: [g.pos[0], g.pos[1], g.size[0], g.size[1]] as [number, number, number, number],
@@ -346,9 +330,7 @@ export class ComfyAppService {
       const inputs: Record<string, unknown> = {}
 
       // 위젯 값
-      // @ts-ignore widgets access
       if (node.widgets) {
-        // @ts-ignore widgets access
         for (const widget of node.widgets) {
           if (widget.name) {
             inputs[widget.name] = widget.value
@@ -357,12 +339,9 @@ export class ComfyAppService {
       }
 
       // 링크된 입력
-      // @ts-ignore inputs access
       if (node.inputs) {
-        // @ts-ignore inputs access
         for (const input of node.inputs) {
           if (input.link != null) {
-            // @ts-ignore links iteration
             for (const [, link] of this.graph.links) {
               if (link.id === input.link) {
                 const originNode = this.graph.getNodeById(link.origin_id)
@@ -376,7 +355,6 @@ export class ComfyAppService {
         }
       }
 
-      // @ts-ignore title property
       prompt[node.id.toString()] = {
         inputs,
         class_type: node.type,
@@ -468,7 +446,7 @@ export class ComfyAppService {
     this.graph.add(node)
 
     // Run nodeCreated hooks
-    const app = (window as any).app
+    const app = window.app
     if (app?.extensions) {
       for (const ext of app.extensions) {
         if (ext.nodeCreated) {
@@ -495,7 +473,6 @@ export class ComfyAppService {
     if (!nodeDef.input?.required) return
 
     for (const [name, spec] of Object.entries(nodeDef.input.required)) {
-      // @ts-ignore InputSpec tuple destructuring
       const [type, config = {}] = spec as [string | string[], Record<string, unknown>]
 
       if (Array.isArray(type)) {

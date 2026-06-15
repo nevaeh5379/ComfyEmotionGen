@@ -30,29 +30,42 @@ export function useJobRunner() {
     Record<string, Record<string, boolean>>
   >({})
   const [collapsedAxes, setCollapsedAxes] = useState<Set<string>>(new Set())
-  const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(new Set())
-  const [repeatCount, setRepeatCount] = useState(1)
-  const [randomRunCount, setRandomRunCount] = useState(1)
-  const [targetWorkerId, setTargetWorkerId] = useState<string | null>(null)
-
-  const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
-
-  // Load uncheckedItems from localStorage when activeTemplateId changes
-  useEffect(() => {
+  const [prevTemplateId, setPrevTemplateId] = useState<string | null>(activeTemplateId)
+  const [uncheckedItems, setUncheckedItems] = useState<Set<string>>(() => {
     const key = `ceg_unchecked_items_${activeTemplateId || "default"}`
     try {
       const saved = localStorage.getItem(key)
       if (saved) {
         const arr = JSON.parse(saved) as string[]
-        setUncheckedItems(new Set(arr))
-      } else {
-        setUncheckedItems(new Set())
+        return new Set(arr)
       }
-    } catch (e) {
-      console.warn("Failed to load unchecked items", e)
-      setUncheckedItems(new Set())
+    } catch {
+      // Empty
     }
-  }, [activeTemplateId])
+    return new Set()
+  })
+
+  if (activeTemplateId !== prevTemplateId) {
+    setPrevTemplateId(activeTemplateId)
+    const key = `ceg_unchecked_items_${activeTemplateId || "default"}`
+    let nextSet = new Set<string>()
+    try {
+      const saved = localStorage.getItem(key)
+      if (saved) {
+        const arr = JSON.parse(saved) as string[]
+        nextSet = new Set(arr)
+      }
+    } catch {
+      // Empty
+    }
+    setUncheckedItems(nextSet)
+  }
+
+  const [repeatCount, setRepeatCount] = useState(1)
+  const [randomRunCount, setRandomRunCount] = useState(1)
+  const [targetWorkerId, setTargetWorkerId] = useState<string | null>(null)
+
+  const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
 
   // Save uncheckedItems to localStorage when it changes
   useEffect(() => {

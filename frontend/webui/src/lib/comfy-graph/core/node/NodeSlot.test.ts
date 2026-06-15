@@ -22,7 +22,7 @@ describe('NodeSlot', () => {
         links: [],
         boundingRect
       }
-      // @ts-expect-error Argument type mismatch for test
+      // @ts-expect-error: Bypass external type check Argument type mismatch for test
       const serialized = outputAsSerialisable(slot)
       expect(serialized).not.toHaveProperty('_data')
     })

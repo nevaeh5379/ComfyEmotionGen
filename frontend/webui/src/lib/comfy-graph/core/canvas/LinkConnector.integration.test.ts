@@ -34,30 +34,30 @@ interface TestContext {
 }
 
 const test = baseTest.extend<TestContext>({
-  reroutesBeforeTest: async ({ reroutesComplexGraph }, use) => {
-    await use([...reroutesComplexGraph.reroutes])
+  reroutesBeforeTest: async ({ reroutesComplexGraph }, provide) => {
+    await provide([...reroutesComplexGraph.reroutes])
   },
 
-  graph: async ({ reroutesComplexGraph }, use) => {
+  graph: async ({ reroutesComplexGraph }, provide) => {
     const mockCtx = createMockCanvasRenderingContext2D()
     for (const node of reroutesComplexGraph.nodes) {
       node.updateArea(mockCtx)
     }
-    await use(reroutesComplexGraph)
+    await provide(reroutesComplexGraph)
   },
   setConnectingLinks: async (
-    {},
-    use: (mock: (value: ConnectingLink[]) => void) => Promise<void>
+    _,
+    provide: (mock: (value: ConnectingLink[]) => void) => Promise<void>
   ) => {
     const mock = vi.fn()
-    await use(mock)
+    await provide(mock)
   },
-  connector: async ({ setConnectingLinks }, use) => {
+  connector: async ({ setConnectingLinks }, provide) => {
     const connector = new LinkConnector(setConnectingLinks)
-    await use(connector)
+    await provide(connector)
   },
-  createTestNode: async ({ graph }, use) => {
-    await use((id): LGraphNode => {
+  createTestNode: async ({ graph }, provide) => {
+    await provide((id): LGraphNode => {
       const node = new LGraphNode('test')
       node.id = id
       graph.add(node)
@@ -65,8 +65,8 @@ const test = baseTest.extend<TestContext>({
     })
   },
 
-  validateIntegrityNoChanges: async ({ graph, reroutesBeforeTest }, use) => {
-    await use(() => {
+  validateIntegrityNoChanges: async ({ graph, reroutesBeforeTest }, provide) => {
+    await provide(() => {
       expect(graph.floatingLinks.size).toBe(1)
       expect([...graph.reroutes]).toEqual(reroutesBeforeTest)
 
@@ -82,9 +82,9 @@ const test = baseTest.extend<TestContext>({
 
   validateIntegrityFloatingRemoved: async (
     { graph, reroutesBeforeTest },
-    use
+    provide
   ) => {
-    await use(() => {
+    await provide(() => {
       expect(graph.floatingLinks.size).toBe(0)
       expect([...graph.reroutes]).toEqual(reroutesBeforeTest)
 
@@ -94,8 +94,8 @@ const test = baseTest.extend<TestContext>({
     })
   },
 
-  validateLinkIntegrity: async ({ graph }, use) => {
-    await use(() => {
+  validateLinkIntegrity: async ({ graph }, provide) => {
+    await provide(() => {
       for (const reroute of graph.reroutes.values()) {
         if (reroute.origin_id === undefined) {
           expect(reroute.linkIds.size).toBe(0)
@@ -172,17 +172,17 @@ const test = baseTest.extend<TestContext>({
     })
   },
 
-  getNextLinkIds: async ({ graph }, use) => {
-    await use((linkIds, expectedExtraLinks = 0) => {
+  getNextLinkIds: async ({ graph }, provide) => {
+    await provide((linkIds, expectedExtraLinks = 0) => {
       const indexes = [...new Array(linkIds.size + expectedExtraLinks).keys()]
       return indexes.map((index) => graph.last_link_id + index + 1)
     })
   },
 
-  floatingReroute: async ({ graph }, use) => {
+  floatingReroute: async ({ graph }, provide) => {
     const floatingReroute = graph.reroutes.get(1)!
     expect(floatingReroute.floating).toEqual({ slotType: 'output' })
-    await use(floatingReroute)
+    await provide(floatingReroute)
   }
 })
 

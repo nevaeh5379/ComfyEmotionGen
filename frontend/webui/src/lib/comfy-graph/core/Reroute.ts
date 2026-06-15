@@ -1,6 +1,5 @@
 
-// TODO: CEG port - replaced import: @/renderer/core/layout/operations/layoutMutations
-import { useLayoutMutations } from './external/layoutMutations'
+import { getLayoutMutations } from './external/layoutMutations'
 // import { useLayoutMutations } from '@/renderer/core/layout/operations/layoutMutations'
 // TODO: CEG port - replaced import: @/renderer/core/layout/types
 import { LayoutSource } from './external/layoutMutations'
@@ -25,7 +24,7 @@ import { LiteGraph } from './litegraph'
 import { distance, isPointInRect } from './measure'
 import type { Serialisable, SerialisableReroute } from './types/serialisation'
 
-const layoutMutations = useLayoutMutations()
+const layoutMutations = getLayoutMutations()
 
 export type RerouteId = number
 
@@ -417,7 +416,6 @@ export class Reroute
 
   /** @inheritdoc */
   move(deltaX: number, deltaY: number) {
-    const previousPos = { x: this.posInternal[0], y: this.posInternal[1] }
     this.posInternal[0] += deltaX
     this.posInternal[1] += deltaY
 

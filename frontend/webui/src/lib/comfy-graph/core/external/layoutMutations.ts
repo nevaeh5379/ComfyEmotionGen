@@ -13,7 +13,7 @@ export interface LayoutMutations {
   setNodeZIndex(nodeId: string | number, zIndex: number): void
 }
 
-export function useLayoutMutations(): LayoutMutations {
+export function getLayoutMutations(): LayoutMutations {
   return {
     setSource(source) {
       layoutStore.setSource(source)
@@ -88,7 +88,7 @@ export function useLayoutMutations(): LayoutMutations {
         pos: pos
       })
     },
-    createLink(id, fromNodeId, fromSlot, toNodeId, toSlot) {
+    createLink(id, _fromNodeId, _fromSlot, _toNodeId, _toSlot) {
       layoutStore.applyOperation({
         timestamp: Date.now(),
         actor: 'user',

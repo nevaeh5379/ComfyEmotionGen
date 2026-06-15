@@ -115,7 +115,7 @@ export class ComboWidget
     const foundIndex =
       typeof values === 'object'
         ? indexedValues.indexOf(String(this.value)) + delta
-        : // @ts-expect-error handle non-string values
+        : // @ts-expect-error: Bypass external type check handle non-string values
           indexedValues.indexOf(this.value) + delta
 
     const index = clamp(foundIndex, 0, indexedValues.length - 1)

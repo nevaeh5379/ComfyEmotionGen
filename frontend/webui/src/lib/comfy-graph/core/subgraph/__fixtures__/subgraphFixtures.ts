@@ -21,10 +21,10 @@ import { test as baseTest } from '../../__fixtures__/testExtensions'
 
 const test = baseTest.extend({
   pinia: [
-    async ({}, use) => {
+    async (_, provide) => {
       setActivePinia(createTestingPinia({ stubActions: false }))
       resetSubgraphFixtureState()
-      await use(undefined)
+      await provide(undefined)
     },
     { auto: true }
   ]
@@ -80,7 +80,7 @@ interface SubgraphFixtures {
  * ```
  */
 export const subgraphTest = test.extend<SubgraphFixtures>({
-  emptySubgraph: async ({}, use) => {
+  emptySubgraph: async (_, provide) => {
     const subgraph = createTestSubgraph({
       name: 'Empty Test Subgraph',
       inputCount: 0,
@@ -88,10 +88,10 @@ export const subgraphTest = test.extend<SubgraphFixtures>({
       nodeCount: 0
     })
 
-    await use(subgraph)
+    await provide(subgraph)
   },
 
-  simpleSubgraph: async ({}, use) => {
+  simpleSubgraph: async (_, provide) => {
     const subgraph = createTestSubgraph({
       name: 'Simple Test Subgraph',
       inputs: [{ name: 'input', type: 'number' }],
@@ -99,10 +99,10 @@ export const subgraphTest = test.extend<SubgraphFixtures>({
       nodeCount: 2
     })
 
-    await use(subgraph)
+    await provide(subgraph)
   },
 
-  complexSubgraph: async ({}, use) => {
+  complexSubgraph: async (_, provide) => {
     const subgraph = createTestSubgraph({
       name: 'Complex Test Subgraph',
       inputs: [
@@ -117,10 +117,10 @@ export const subgraphTest = test.extend<SubgraphFixtures>({
       nodeCount: 5
     })
 
-    await use(subgraph)
+    await provide(subgraph)
   },
 
-  nestedSubgraph: async ({}, use) => {
+  nestedSubgraph: async (_, provide) => {
     const nested = createNestedSubgraphs({
       depth: 3,
       nodesPerLevel: 2,
@@ -128,10 +128,10 @@ export const subgraphTest = test.extend<SubgraphFixtures>({
       outputsPerSubgraph: 1
     })
 
-    await use(nested)
+    await provide(nested)
   },
 
-  subgraphWithNode: async ({}, use) => {
+  subgraphWithNode: async (_, provide) => {
     const subgraph = createTestSubgraph({
       name: 'Subgraph With Node',
       inputs: [{ name: 'input', type: '*' }],
@@ -148,14 +148,14 @@ export const subgraphTest = test.extend<SubgraphFixtures>({
 
     parentGraph.add(subgraphNode)
 
-    await use({
+    await provide({
       subgraph,
       subgraphNode,
       parentGraph
     })
   },
 
-  eventCapture: async ({}, use) => {
+  eventCapture: async (_, provide) => {
     const subgraph = createTestSubgraph({
       name: 'Event Test Subgraph'
     })
@@ -171,7 +171,7 @@ export const subgraphTest = test.extend<SubgraphFixtures>({
       'renaming-output'
     ])
 
-    await use({ subgraph, capture })
+    await provide({ subgraph, capture })
 
     capture.cleanup()
   }

@@ -57,8 +57,7 @@ interface PathData {
 
 export function SvgConnections() {
   const svgRef = useRef<SVGSVGElement>(null)
-  const pathsRef = useRef<PathData[]>([])
-  const [, redraw] = useState(0)
+  const [paths, setPaths] = useState<PathData[]>([])
 
   const nodes = useReactGraphStore((s) => s.nodes)
   const links = useReactGraphStore((s) => s.links)
@@ -101,11 +100,8 @@ export function SvgConnections() {
       newPaths.push({ id: link.id, d, color })
     }
 
-    pathsRef.current = newPaths
-    redraw((n) => n + 1)
+    setPaths(newPaths)
   }, [nodes, links, zoom])
-
-  const paths = pathsRef.current
 
   return (
     <svg

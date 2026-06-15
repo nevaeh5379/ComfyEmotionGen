@@ -36,12 +36,12 @@ interface TestContext {
 }
 
 const test = baseTest.extend<TestContext>({
-  network: async ({}, use) => {
+  network: async (_, provide) => {
     const graph = new LGraph()
     const floatingLinks = new Map<number, LLink>()
     const reroutes = new Map<number, Reroute>()
 
-    await use({
+    await provide({
       links: new Map<number, LLink>(),
       reroutes,
       floatingLinks,
@@ -60,27 +60,27 @@ const test = baseTest.extend<TestContext>({
   },
 
   setConnectingLinks: async (
-    {},
-    use: (mock: (value: ConnectingLink[]) => void) => Promise<void>
+    _,
+    provide: (mock: (value: ConnectingLink[]) => void) => Promise<void>
   ) => {
     const mock = vi.fn()
-    await use(mock)
+    await provide(mock)
   },
-  connector: async ({ setConnectingLinks }, use) => {
+  connector: async ({ setConnectingLinks }, provide) => {
     const connector = new LinkConnector(setConnectingLinks)
-    await use(connector)
+    await provide(connector)
   },
 
-  createTestNode: async ({ network }, use) => {
-    await use((id: number): LGraphNode => {
+  createTestNode: async ({ network }, provide) => {
+    await provide((id: number): LGraphNode => {
       const node = new LGraphNode('test')
       node.id = id
       network.add(node)
       return node
     })
   },
-  createTestLink: async ({ network }, use) => {
-    await use(
+  createTestLink: async ({ network }, provide) => {
+    await provide(
       (
         id: number,
         sourceId: number,

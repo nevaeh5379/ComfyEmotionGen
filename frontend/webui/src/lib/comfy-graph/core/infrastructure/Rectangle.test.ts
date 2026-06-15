@@ -7,8 +7,8 @@ import type { Point, Size } from '../litegraph'
 // TODO: If there's a common test context, use it here
 // For now, we'll define a simple context for Rectangle tests
 const test = baseTest.extend<{ rect: Rectangle }>({
-  rect: async ({}, use) => {
-    await use(new Rectangle())
+  rect: async (_, provide) => {
+    await provide(new Rectangle())
   }
 })
 

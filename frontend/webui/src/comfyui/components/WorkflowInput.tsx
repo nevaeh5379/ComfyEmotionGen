@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -12,12 +12,15 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import type { ObjectInfoInputSpec } from "../types/renderTypes"
 
+type PrimitiveValue = string | number | boolean
+type WorkflowInputValue = PrimitiveValue | PrimitiveValue[] | null
+
 interface WorkflowInputProps {
   nodeId: string
   inputKey: string
-  value: any
+  value: WorkflowInputValue
   spec: ObjectInfoInputSpec | null
-  onSave: (val: any) => void
+  onSave: (val: WorkflowInputValue) => void
 }
 
 export function WorkflowInput({
@@ -27,12 +30,13 @@ export function WorkflowInput({
   spec,
   onSave,
 }: WorkflowInputProps) {
-  const [localValue, setLocalValue] = useState<any>(value)
+  const [prevValue, setPrevValue] = useState<WorkflowInputValue>(value)
+  const [localValue, setLocalValue] = useState<WorkflowInputValue>(value)
 
-  // Sync state if value changes externally (e.g., workflow template loads)
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value)
     setLocalValue(value)
-  }, [value])
+  }
 
   const enumOptions = Array.isArray(spec?.[0]) ? (spec[0] as string[]) : null
   const typeStr = typeof spec?.[0] === "string" ? spec[0] : null

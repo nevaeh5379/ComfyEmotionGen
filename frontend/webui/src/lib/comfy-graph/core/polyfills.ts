@@ -1,7 +1,7 @@
 
-// @ts-expect-error Polyfill
+// @ts-expect-error: Bypass external type check Polyfill
 Symbol.dispose ??= Symbol('Symbol.dispose')
-// @ts-expect-error Polyfill
+// @ts-expect-error: Bypass external type check Polyfill
 Symbol.asyncDispose ??= Symbol('Symbol.asyncDispose')
 
 // API *************************************************
@@ -12,7 +12,7 @@ export function loadPolyfills() {
     window.CanvasRenderingContext2D &&
     !window.CanvasRenderingContext2D.prototype.roundRect
   ) {
-    // @ts-expect-error Slightly broken polyfill - radius_low not impl. anywhere
+    // @ts-expect-error: Bypass external type check Slightly broken polyfill - radius_low not impl. anywhere
     window.CanvasRenderingContext2D.prototype.roundRect = function (
       x: number,
       y: number,
@@ -83,9 +83,9 @@ export function loadPolyfills() {
 
   if (typeof window != 'undefined' && !window['requestAnimationFrame']) {
     window.requestAnimationFrame =
-      // @ts-expect-error Legacy code
+      // @ts-expect-error: Bypass external type check Legacy code
       window.webkitRequestAnimationFrame ||
-      // @ts-expect-error Legacy code
+      // @ts-expect-error: Bypass external type check Legacy code
       window.mozRequestAnimationFrame ||
       function (callback) {
         window.setTimeout(callback, 1000 / 60)

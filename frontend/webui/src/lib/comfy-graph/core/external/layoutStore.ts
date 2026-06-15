@@ -70,8 +70,98 @@ export interface RerouteLayout {
   bounds: Bounds
 }
 
-export type LayoutOperation = any
-export type LayoutChange = any
+export interface BaseLayoutOperation {
+  timestamp?: number
+  actor?: string
+  source?: string
+  entity?: string
+}
+
+export interface MoveNodeOperation extends BaseLayoutOperation {
+  type: 'moveNode'
+  nodeId: NodeId
+  position: Point
+}
+
+export interface ResizeNodeOperation extends BaseLayoutOperation {
+  type: 'resizeNode'
+  nodeId: NodeId
+  size: Size
+}
+
+export interface BatchUpdateBoundsOperation extends BaseLayoutOperation {
+  type: 'batchUpdateBounds'
+  updates: Array<{ nodeId: NodeId; bounds: Bounds }>
+}
+
+export interface CreateNodeOperation extends BaseLayoutOperation {
+  type: 'createNode'
+  nodeId: NodeId
+  position: Point
+  size: Size
+  bounds?: Bounds
+  zIndex?: number
+  visible?: boolean
+}
+
+export interface DeleteNodeOperation extends BaseLayoutOperation {
+  type: 'deleteNode'
+  nodeId: NodeId
+}
+
+export interface CreateRerouteOperation extends BaseLayoutOperation {
+  type: 'createReroute'
+  rerouteId: RerouteId
+  pos: Point
+  parentId?: RerouteId
+  linkIds?: LinkId[]
+}
+
+export interface DeleteRerouteOperation extends BaseLayoutOperation {
+  type: 'deleteReroute'
+  rerouteId: RerouteId
+}
+
+export interface MoveRerouteOperation extends BaseLayoutOperation {
+  type: 'moveReroute'
+  rerouteId: RerouteId
+  pos: [number, number]
+}
+
+export interface SetNodeZIndexOperation extends BaseLayoutOperation {
+  type: 'setNodeZIndex'
+  nodeId: NodeId
+  zIndex: number
+}
+
+export interface CreateLinkOperation extends BaseLayoutOperation {
+  type: 'createLink'
+  linkId: LinkId
+}
+
+export interface DeleteLinkOperation extends BaseLayoutOperation {
+  type: 'deleteLink'
+  linkId: LinkId
+}
+
+export type LayoutOperation =
+  | MoveNodeOperation
+  | ResizeNodeOperation
+  | BatchUpdateBoundsOperation
+  | CreateNodeOperation
+  | DeleteNodeOperation
+  | CreateRerouteOperation
+  | DeleteRerouteOperation
+  | MoveRerouteOperation
+  | SetNodeZIndexOperation
+  | CreateLinkOperation
+  | DeleteLinkOperation
+
+
+export interface LayoutChange {
+  type: string
+  targetId?: string
+}
 
 // Geometry Helpers
 function pointInBounds(p: Point, b: Bounds): boolean {
@@ -168,7 +258,7 @@ export class InMemoryLayoutStore {
     point: Point,
     ctx?: CanvasRenderingContext2D
   ): { linkId: LinkId; rerouteId: RerouteId | null } | null {
-    for (const [key, layout] of this.linkSegments) {
+    for (const layout of this.linkSegments.values()) {
       if (
         point.x >= layout.bounds.x - 8 &&
         point.x <= layout.bounds.x + layout.bounds.width + 8 &&
@@ -304,7 +394,6 @@ export class InMemoryLayoutStore {
   }
 
   applyOperation(operation: LayoutOperation): void {
-    const timestamp = operation.timestamp || Date.now()
     if (operation.type === 'moveNode') {
       const node = this.nodes.get(operation.nodeId)
       if (node) {
@@ -378,11 +467,11 @@ export class InMemoryLayoutStore {
     this.versionRef.value++
   }
 
-  onChange(callback: (change: LayoutChange) => void): () => void {
+  onChange(_callback: (change: LayoutChange) => void): () => void {
     return () => {}
   }
 
-  onNodeChange(nodeId: NodeId, callback: (change: LayoutChange) => void): () => void {
+  onNodeChange(_nodeId: NodeId, _callback: (change: LayoutChange) => void): () => void {
     return () => {}
   }
 

@@ -1,20 +1,15 @@
-import { useState, useEffect } from "react"
 import { useBackend } from "../hooks/useBackend"
 import { API } from "@/lib/api"
 import { Loader2, AlertCircle } from "lucide-react"
 
 export function InlineImagePreview({ filename, backendUrl }: { filename: string; backendUrl: string }) {
   const { jobs } = useBackend()
-  const [show, setShow] = useState(false)
 
   // Find latest job matching filename
   // Using reverse to find the latest appended job since they are usually appended to the array
   const job = [...jobs].reverse().find(j => j.filename === filename)
   
-  // Show the preview area if there is an active/completed job for this filename
-  useEffect(() => {
-    if (job) setShow(true)
-  }, [job])
+  const show = !!job
 
   if (!show || !job) return null
   

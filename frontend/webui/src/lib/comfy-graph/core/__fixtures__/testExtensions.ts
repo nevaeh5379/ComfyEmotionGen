@@ -26,13 +26,13 @@ interface LitegraphFixtures {
 
 /** LiteGraph test fixtures. Each creates an LGraph from cloned data; LGraph singletons may still share some global state. */
 export const test = baseTest.extend<LitegraphFixtures>({
-  minimalGraph: async ({}, use) => {
+  minimalGraph: async (_, provide) => {
     // Before each test function
     const serialisable = structuredClone(minimalSerialisableGraph)
     const lGraph = new LGraph(serialisable)
 
     // use the fixture value
-    await use(lGraph)
+    await provide(lGraph)
   },
   minimalSerialisableGraph: structuredClone(minimalSerialisableGraph),
   oldSchemaGraph: structuredClone(oldSchemaGraph),
@@ -41,19 +41,19 @@ export const test = baseTest.extend<LitegraphFixtures>({
   ),
   linkedNodesGraph: structuredClone(linkedNodes as unknown as ISerialisedGraph),
 
-  floatingBranchGraph: async ({}, use) => {
+  floatingBranchGraph: async (_, provide) => {
     const cloned = structuredClone(
       floatingBranch as unknown as ISerialisedGraph
     )
     const graph = new LGraph(cloned)
-    await use(graph)
+    await provide(graph)
   },
 
-  reroutesComplexGraph: async ({}, use) => {
+  reroutesComplexGraph: async (_, provide) => {
     const cloned = structuredClone(
       reroutesComplex as unknown as ISerialisedGraph
     )
     const graph = new LGraph(cloned)
-    await use(graph)
+    await provide(graph)
   }
 })

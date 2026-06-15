@@ -4,7 +4,7 @@
  * CEG 백엔드 API와 연동
  */
 
-import type { ComfyWorkflowJSON, ComfyApiWorkflow } from "@comfy-graph/types/workflow"
+import type { ComfyApiWorkflow } from "@comfy-graph/types/workflow"
 import type { ComfyNodeDef } from "@comfy-graph/types/nodeDef"
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 

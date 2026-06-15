@@ -12,14 +12,13 @@ import type {
   LGraphNode,
   Size
 } from '../litegraph'
-import { useWidgetValueStore } from '../external/widgetStores'
+import { getWidgetValueStore } from '../external/widgetStores'
 import { LiteGraph } from '../litegraph'
 import type { CanvasPointerEvent } from '../types/events'
 import type {
   IBaseWidget,
   NodeBindable,
   TWidgetType,
-  WidgetObjectValue,
   WidgetEntityId,
   WidgetState
 } from '../types/widgets'
@@ -158,7 +157,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     const graphId = this.node.graph?.rootGraph.id
     if (!graphId) return
 
-    this._state = useWidgetValueStore().registerWidget(graphId, {
+    this._state = getWidgetValueStore().registerWidget(graphId, {
       ...this._state,
       // BaseWidget: this.value getter returns this._state.value. So value: this.value === value: this._state.value.
       // BaseDOMWidgetImpl: this.value getter returns options.getValue?.() ?? ''. Resolves the correct initial value instead of undefined.
@@ -185,28 +184,19 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     // TODO: Resolve this workaround. Ref: https://github.com/Comfy-Org/litegraph.js/issues/1022
     const {
       node: _,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      outline_color,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      background_color,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      height,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      text_color,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      secondary_text_color,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      disabledTextColor,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      displayName,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      displayValue,
-      // @ts-expect-error Prevent naming conflicts with custom nodes.
-      labelBaseline,
+      outline_color: _outline_color,
+      background_color: _background_color,
+      height: _height,
+      text_color: _text_color,
+      secondary_text_color: _secondary_text_color,
+      disabledTextColor: _disabledTextColor,
+      displayName: _displayName,
+      displayValue: _displayValue,
+      labelBaseline: _labelBaseline,
       label,
       disabled,
       value,
-      linkedWidgets,
+      linkedWidgets: _linkedWidgets,
       ...safeValues
     } = widget
 
@@ -455,7 +445,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
    * Correctly and safely typing this is currently not possible (practical?) in TypeScript 5.8.
    */
   createCopyForNode(node: LGraphNode): this {
-    // @ts-expect-error - Constructor type casting for widget cloning
+    // @ts-expect-error: Bypass external type check - Constructor type casting for widget cloning
     const cloned: this = new (this.constructor as typeof this)(this, node)
     cloned.value = this.value
     return cloned

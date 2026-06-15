@@ -1,5 +1,5 @@
 
-import { toValue } from './external/vueShim'
+
 
 import { LGraphNodeProperties } from './LGraphNodeProperties'
 import {
@@ -8,7 +8,7 @@ import {
 } from './external/slotCalculations'
 import type { SlotPositionContext } from './external/slotCalculations'
 // TODO: CEG port - replaced import: @/renderer/core/layout/operations/layoutMutations
-import { useLayoutMutations } from './external/layoutMutations'
+import { getLayoutMutations } from './external/layoutMutations'
 // import { useLayoutMutations } from '@/renderer/core/layout/operations/layoutMutations'
 // TODO: CEG port - replaced import: @/renderer/core/layout/types
 import { LayoutSource } from './external/layoutMutations'
@@ -222,9 +222,7 @@ supported callbacks:
     + getExtraMenuOptions: to add option to context menu
 */
 
-export interface LGraphNode {
-  constructor: LGraphNodeConstructor
-}
+// LGraphNode interface removed to avoid unsafe declaration merging
 
 // #endregion Types
 
@@ -332,14 +330,14 @@ export class LGraphNode
   /** The fg color used to render the node. */
   get renderingColor(): string {
     const baseColor =
-      this.color || this.constructor.color || LiteGraph.NODE_DEFAULT_COLOR
+      this.color || this.ctor.color || LiteGraph.NODE_DEFAULT_COLOR
     return adjustColor(baseColor, { lightness: LiteGraph.nodeLightness })
   }
 
   /** The bg color used to render the node. */
   get renderingBgColor(): string {
     const baseBgColor =
-      this.bgcolor || this.constructor.bgcolor || LiteGraph.NODE_DEFAULT_BGCOLOR
+      this.bgcolor || this.ctor.bgcolor || LiteGraph.NODE_DEFAULT_BGCOLOR
     const adjustments: ColorAdjustOptions = {
       opacity: LiteGraph.nodeOpacity,
       lightness: LiteGraph.nodeLightness
@@ -503,7 +501,7 @@ export class LGraphNode
     this._pos[0] = value[0]
     this._pos[1] = value[1]
 
-    const mutations = useLayoutMutations()
+    const mutations = getLayoutMutations()
     mutations.setSource(LayoutSource.Canvas)
     mutations.moveNode(String(this.id), { x: value[0], y: value[1] })
   }
@@ -525,7 +523,7 @@ export class LGraphNode
     this._size[0] = value[0]
     this._size[1] = value[1]
 
-    const mutations = useLayoutMutations()
+    const mutations = getLayoutMutations()
     mutations.setSource(LayoutSource.Canvas)
     mutations.resizeNode(String(this.id), {
       width: value[0],
@@ -579,7 +577,7 @@ export class LGraphNode
    * The shape of the node used for rendering. @see {@link RenderShape}
    */
   get renderingShape(): RenderShape {
-    return this._shape || this.constructor.shape || LiteGraph.NODE_DEFAULT_SHAPE
+    return this._shape || this.ctor.shape || LiteGraph.NODE_DEFAULT_SHAPE
   }
 
   public get is_selected(): boolean | undefined {
@@ -591,7 +589,7 @@ export class LGraphNode
   }
 
   public get title_mode(): TitleMode {
-    return this.constructor.title_mode ?? TitleMode.NORMAL_TITLE
+    return this.ctor.title_mode ?? TitleMode.NORMAL_TITLE
   }
 
   onConnectInput?(
@@ -816,6 +814,10 @@ export class LGraphNode
     }
   }
 
+  get ctor(): LGraphNodeConstructor {
+    return this.constructor as LGraphNodeConstructor
+  }
+
   constructor(title: string, type?: string) {
     this.id = LiteGraph.use_uuids ? LiteGraph.uuidv4() : -1
     this.title = title || 'Unnamed'
@@ -851,28 +853,28 @@ export class LGraphNode
         continue
       }
 
-      // @ts-expect-error #594
+      // @ts-expect-error: Bypass external type check #594
       if (info[j] == null) {
         continue
-        // @ts-expect-error #594
+        // @ts-expect-error: Bypass external type check #594
       } else if (typeof info[j] == 'object') {
-        // @ts-expect-error #594
+        // @ts-expect-error: Bypass external type check #594
         if (this[j]?.configure) {
-          // @ts-expect-error #594
+          // @ts-expect-error: Bypass external type check #594
           this[j]?.configure(info[j])
         } else {
-          // @ts-expect-error #594
+          // @ts-expect-error: Bypass external type check #594
           this[j] = LiteGraph.cloneObject(info[j], this[j])
         }
       } else {
         // value
-        // @ts-expect-error #594
+        // @ts-expect-error: Bypass external type check #594
         this[j] = info[j]
       }
     }
 
     if (!info.title) {
-      this.title = this.constructor.title
+      this.title = this.ctor.title
     }
 
     this.inputs ??= []
@@ -970,7 +972,7 @@ export class LGraphNode
     if (this.outputs)
       o.outputs = this.outputs.map((output) => outputAsSerialisable(output))
 
-    if (this.title && this.title != this.constructor.title) o.title = this.title
+    if (this.title && this.title != this.ctor.title) o.title = this.title
 
     if (this.properties) o.properties = LiteGraph.cloneObject(this.properties)
 
@@ -988,7 +990,7 @@ export class LGraphNode
       }
     }
 
-    if (!o.type && this.constructor.type) o.type = this.constructor.type
+    if (!o.type && this.ctor.type) o.type = this.ctor.type
 
     if (this.color) o.color = this.color
     if (this.bgcolor) o.bgcolor = this.bgcolor
@@ -1025,7 +1027,7 @@ export class LGraphNode
       }
     }
 
-    // @ts-expect-error Exceptional case: id is removed so that the graph can assign a new one on add.
+    // @ts-expect-error: Bypass external type check Exceptional case: id is removed so that the graph can assign a new one on add.
     data.id = undefined
 
     node.id = this.id
@@ -1046,7 +1048,7 @@ export class LGraphNode
    * get the title string
    */
   getTitle(): string {
-    return this.title || this.constructor.title
+    return this.title || this.ctor.title
   }
 
   /**
@@ -1399,7 +1401,7 @@ export class LGraphNode
       case LGraphEventMode.ALWAYS:
         break
 
-      // @ts-expect-error Not impl.
+      // @ts-expect-error: Bypass external type check Not impl.
       case LiteGraph.ON_REQUEST:
         break
 
@@ -1421,17 +1423,17 @@ export class LGraphNode
       options.action_call ||= `${this.id}_exec_${Math.floor(Math.random() * 9999)}`
       if (!this.graph) throw new NullGraphError()
 
-      // @ts-expect-error Technically it works when id is a string. Array gets props.
+      // @ts-expect-error: Bypass external type check Technically it works when id is a string. Array gets props.
       this.graph.nodes_executing[this.id] = true
       this.onExecute(param, options)
-      // @ts-expect-error deprecated
+      // @ts-expect-error: Bypass external type check deprecated
       this.graph.nodes_executing[this.id] = false
 
       // save execution/action ref
       this.exec_version = this.graph.iteration
       if (options?.action_call) {
         this.action_call = options.action_call
-        // @ts-expect-error deprecated
+        // @ts-expect-error: Bypass external type check deprecated
         this.graph.nodes_executedAction[this.id] = options.action_call
       }
     }
@@ -1455,16 +1457,16 @@ export class LGraphNode
       options.action_call ||= `${this.id}_${action || 'action'}_${Math.floor(Math.random() * 9999)}`
       if (!this.graph) throw new NullGraphError()
 
-      // @ts-expect-error deprecated
+      // @ts-expect-error: Bypass external type check deprecated
       this.graph.nodes_actioning[this.id] = action || 'actioning'
       this.onAction(action, param, options)
-      // @ts-expect-error deprecated
+      // @ts-expect-error: Bypass external type check deprecated
       this.graph.nodes_actioning[this.id] = false
 
       // save execution/action ref
       if (options?.action_call) {
         this.action_call = options.action_call
-        // @ts-expect-error deprecated
+        // @ts-expect-error: Bypass external type check deprecated
         this.graph.nodes_executedAction[this.id] = options.action_call
       }
     }
@@ -1747,7 +1749,7 @@ export class LGraphNode
    * @returns the total size
    */
   computeSize(out?: Size): Size {
-    const ctorSize = this.constructor.size
+    const ctorSize = this.ctor.size
     if (ctorSize) return [ctorSize[0], ctorSize[1]]
 
     const { inputs, outputs, widgets } = this
@@ -1808,7 +1810,7 @@ export class LGraphNode
 
     size[0] = Math.max(slotsWidth, widgetWidth, title_width, minWidth)
     size[1] =
-      (this.constructor.slot_start_y || 0) + rows * LiteGraph.NODE_SLOT_HEIGHT
+      (this.ctor.slot_start_y || 0) + rows * LiteGraph.NODE_SLOT_HEIGHT
 
     // Get widget height & expand size if necessary
     let widgets_height = 0
@@ -1847,8 +1849,8 @@ export class LGraphNode
       )
     }
 
-    if (this.constructor.min_height && size[1] < this.constructor.min_height) {
-      size[1] = this.constructor.min_height
+    if (this.ctor.min_height && size[1] < this.ctor.min_height) {
+      size[1] = this.ctor.min_height
     }
 
     // margin
@@ -1860,7 +1862,7 @@ export class LGraphNode
   inResizeCorner(canvasX: number, canvasY: number): boolean {
     const rows = this.outputs ? this.outputs.length : 1
     const outputs_offset =
-      (this.constructor.slot_start_y || 0) + rows * LiteGraph.NODE_SLOT_HEIGHT
+      (this.ctor.slot_start_y || 0) + rows * LiteGraph.NODE_SLOT_HEIGHT
     return isInRectangle(
       canvasX,
       canvasY,
@@ -1914,13 +1916,12 @@ export class LGraphNode
       }
     }
     // litescene mode using the constructor
-    // @ts-expect-error deprecated https://github.com/Comfy-Org/litegraph.js/issues/639
-    if (this.constructor[`@${property}`])
-      // @ts-expect-error deprecated https://github.com/Comfy-Org/litegraph.js/issues/639
-      info = this.constructor[`@${property}`]
+    const ctorWithIndex = this.ctor as Record<string, string | number | boolean | null | undefined | object | (() => void) | string[]>
+    if (ctorWithIndex[`@${property}`])
+      info = ctorWithIndex[`@${property}`] as Record<string, string | number | boolean | null | undefined | object | (() => void) | string[]>
 
-    if (this.constructor.widgets_info?.[property])
-      info = this.constructor.widgets_info[property]
+    if (this.ctor.widgets_info?.[property])
+      info = this.ctor.widgets_info[property] as Record<string, string | number | boolean | null | undefined | object | (() => void) | string[]>
 
     // litescene mode using the constructor
     if (!info && this.onGetPropertyInfo) {
@@ -1971,7 +1972,7 @@ export class LGraphNode
     }
 
     const w: IBaseWidget & { type: Type } = {
-      // @ts-expect-error - Type casting for widget type property
+      // @ts-expect-error: Bypass external type check - Type casting for widget type property
       type: type.toLowerCase(),
       name: name,
       value: value,
@@ -2888,7 +2889,7 @@ export class LGraphNode
     const { graph } = this
     if (!graph) throw new NullGraphError()
 
-    const layoutMutations = useLayoutMutations()
+    const layoutMutations = getLayoutMutations()
 
     const outputIndex = this.outputs.indexOf(output)
     if (outputIndex === -1) {
@@ -3388,7 +3389,7 @@ export class LGraphNode
     out[1] =
       nodeY +
       (slotIndex + 0.7) * LiteGraph.NODE_SLOT_HEIGHT +
-      (this.constructor.slot_start_y || 0)
+      (this.ctor.slot_start_y || 0)
     return out
   }
 
@@ -3420,7 +3421,7 @@ export class LGraphNode
       nodeHeight: this.size[1],
       collapsed: this.flags.collapsed ?? false,
       collapsedWidth: this._collapsed_width,
-      slotStartY: this.constructor.slot_start_y,
+      slotStartY: this.ctor.slot_start_y,
       inputs: this.inputs,
       outputs: this.outputs,
       widgets: this.widgets
@@ -3482,7 +3483,7 @@ export class LGraphNode
   trace(msg: string): void {
     this.console ||= []
     this.console.push(msg)
-    // @ts-expect-error deprecated
+    // @ts-expect-error: Bypass external type check deprecated
     if (this.console.length > LGraphNode.MAX_CONSOLE) this.console.shift()
   }
 
@@ -3536,7 +3537,7 @@ export class LGraphNode
   }
 
   get collapsible() {
-    return !this.pinned && this.constructor.collapsable !== false
+    return !this.pinned && this.ctor.collapsable !== false
   }
 
   /**
@@ -3659,7 +3660,7 @@ export class LGraphNode
       ctx.shadowColor = LiteGraph.DEFAULT_SHADOW_COLOR
     }
 
-    ctx.fillStyle = this.constructor.title_color || fgcolor
+    ctx.fillStyle = this.ctor.title_color || fgcolor
     ctx.beginPath()
 
     if (shape == RenderShape.BOX || low_quality) {
@@ -3795,7 +3796,7 @@ export class LGraphNode
       if (selected) {
         ctx.fillStyle = LiteGraph.NODE_SELECTED_TITLE_COLOR
       } else {
-        ctx.fillStyle = this.constructor.title_text_color || default_title_color
+        ctx.fillStyle = this.ctor.title_text_color || default_title_color
       }
 
       // Calculate available width for title

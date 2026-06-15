@@ -47,7 +47,7 @@ describe('LGraphNode', () => {
   beforeEach(() => {
     setActivePinia(createTestingPinia({ stubActions: false }))
     origLiteGraph = Object.assign({}, LiteGraph)
-    // @ts-expect-error Intended: Force remove an otherwise readonly non-optional property
+    // @ts-expect-error: Bypass external type check Intended: Force remove an otherwise readonly non-optional property
     delete origLiteGraph.Classes
 
     Object.assign(LiteGraph, {

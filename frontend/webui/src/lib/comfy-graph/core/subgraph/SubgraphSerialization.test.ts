@@ -293,7 +293,7 @@ describe('SubgraphSerialization - Version Compatibility', () => {
     }
 
     expect(() => {
-      // @ts-expect-error Type mismatch in ExportedSubgraph format
+      // @ts-expect-error: Bypass external type check Type mismatch in ExportedSubgraph format
       const subgraph = new Subgraph(new LGraph(), modernFormat)
       expect(subgraph.name).toBe('Modern Subgraph')
       expect(subgraph.inputs.length).toBe(1)
@@ -323,7 +323,7 @@ describe('SubgraphSerialization - Version Compatibility', () => {
     }
 
     expect(() => {
-      // @ts-expect-error Type mismatch in ExportedSubgraph format
+      // @ts-expect-error: Bypass external type check Type mismatch in ExportedSubgraph format
       const subgraph = new Subgraph(new LGraph(), incompleteFormat)
       expect(subgraph.name).toBe('Incomplete Subgraph')
       // Should have default empty arrays
@@ -358,7 +358,7 @@ describe('SubgraphSerialization - Version Compatibility', () => {
 
     // Should handle future format gracefully
     expect(() => {
-      // @ts-expect-error Type mismatch in ExportedSubgraph format
+      // @ts-expect-error: Bypass external type check Type mismatch in ExportedSubgraph format
       const subgraph = new Subgraph(new LGraph(), futureFormat)
       expect(subgraph.name).toBe('Future Subgraph')
     }).not.toThrow()

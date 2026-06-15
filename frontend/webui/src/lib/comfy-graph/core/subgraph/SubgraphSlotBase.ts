@@ -1,5 +1,3 @@
-
-import type { LGraphCanvas } from '../LGraphCanvas'
 import type { LGraphNode } from '../LGraphNode'
 import type { LLink, LinkId } from '../LLink'
 import type { RerouteId } from '../Reroute'

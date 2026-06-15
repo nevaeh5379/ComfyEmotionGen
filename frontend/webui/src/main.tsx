@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client"
 
 import "./index.css"
 import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "@/lib/comfy-graph/core/litegraph"
+import type { Size } from "@/lib/comfy-graph/core/interfaces"
 
 window.LiteGraph = LiteGraph
 window.LGraph = LGraph
@@ -32,7 +33,7 @@ try {
       } else {
         window.localStorage.setItem(key, JSON.stringify(parsed));
       }
-    } catch (e) {
+    } catch {
       window.localStorage.setItem(key, '{}');
     }
   }
@@ -56,7 +57,7 @@ try {
           return '{}';
         }
         return JSON.stringify(parsed);
-      } catch (e) {
+      } catch {
         return '{}';
       }
     }
@@ -80,7 +81,7 @@ try {
         }
         originalSetItem(key, JSON.stringify(parsed));
         return;
-      } catch (e) {
+      } catch {
         originalSetItem(key, '{}');
         return;
       }
@@ -91,24 +92,30 @@ try {
   console.error("Failed to install localStorage hooks", e);
 }
 
-;(window.LiteGraph as any).LGraph = LGraph
-;(window.LiteGraph as any).LGraphNode = LGraphNode
-;(window.LiteGraph as any).LGraphCanvas = LGraphCanvas
-;(window.LiteGraph as any).LLink = LLink
-;(window.LiteGraph as any).LGraphGroup = LGraphGroup
+window.LiteGraph.LGraph = LGraph
+window.LiteGraph.LGraphNode = LGraphNode
+window.LiteGraph.LGraphCanvas = LGraphCanvas
+window.LiteGraph.LLink = LLink
+window.LiteGraph.LGraphGroup = LGraphGroup
 
 // Polyfill LGraphNode.prototype.addDOMWidget to support custom HTML/Vue widgets (e.g. LoRA Manager loader UI)
-;(LGraphNode.prototype as any).addDOMWidget = function (name: string, type: string, element: HTMLElement, options: any = {}) {
+LGraphNode.prototype.addDOMWidget = function (
+  name: string,
+  type: string,
+  element: HTMLElement,
+  options: DOMWidgetOptions = {}
+) {
   console.log("[CEG:DEBUG addDOMWidget]", "nodeId=" + this.id, "name=" + name, "type=" + type, "hasElement=" + !!element, "elementTag=" + (element?.tagName || "N/A"), "stack=" + new Error().stack?.split("\n").slice(2, 5).join(" <- "));
 
-  const widget = {
+  const widget: DOMWidget = {
     type: type,
     name: name,
     element: element,
     options: { hideOnZoom: true, ...options },
     _value: options.getValue?.() ?? '',
     value: '',
-    callback: null as any
+    callback: undefined,
+    y: 0
   };
 
   Object.defineProperty(widget, 'value', {
@@ -134,12 +141,12 @@ try {
   if (!this.widgets) {
     this.widgets = [];
   }
-  this.widgets.push(widget as any);
+  this.widgets.push(widget);
 
   if (options.beforeResize || options.afterResize) {
     const oldResize = this.onResize;
-    this.onResize = function(this: any) {
-      if (oldResize) (oldResize as any).apply(this, arguments as any);
+    this.onResize = function(this: LGraphNode, size: Size) {
+      if (oldResize) oldResize.call(this, size);
       if (options.beforeResize) options.beforeResize.call(widget, this);
       if (options.afterResize) options.afterResize.call(widget, this);
     };
@@ -149,27 +156,30 @@ try {
     window.app.syncGraph();
   }
 
-  return widget as any;
+  return widget;
 };
 
 // LiteGraph color palettes and Styles stub to avoid theme setting crashes (e.g. obsidian theme setting)
-;(window.LiteGraph as any).color_palettes = new Proxy((window.LiteGraph as any).color_palettes || {}, {
+window.LiteGraph.color_palettes = new Proxy(window.LiteGraph.color_palettes || {}, {
   get(target, prop) {
+    if (typeof prop === 'symbol') {
+      return undefined;
+    }
     if (!(prop in target)) {
       target[prop] = {};
     }
     return target[prop];
   }
 });
-;(window.LiteGraph as any).Styles = (window.LiteGraph as any).Styles || {
+window.LiteGraph.Styles = window.LiteGraph.Styles || {
   obsidian: {}
 };
 
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 
 // Initialize window.api as a persistent EventTarget instance
-window.api = window.api || (new EventTarget() as any);
-const apiObj = window.api as any;
+window.api = window.api || (new EventTarget() as ComfyApi);
+const apiObj = window.api;
 apiObj.api_base = apiObj.api_base || DEFAULT_BACKEND_URL;
 apiObj.getExtensions = apiObj.getExtensions || (async () => {
   const { comfyApi } = await import("@/lib/comfy-graph/api");
@@ -189,7 +199,7 @@ const _fetchApiMocks: Record<string, () => Promise<Response>> = {
   },
 };
 
-apiObj.fetchApi = apiObj.fetchApi || (async (url: string, options: any) => {
+apiObj.fetchApi = apiObj.fetchApi || (async (url: string, options?: RequestInit) => {
   const cleanUrl = url.startsWith("/") ? url : `/${url}`;
   const fullUrl = cleanUrl.startsWith("/api/") ? cleanUrl : `/api${cleanUrl}`;
   const route = fullUrl.replace(/^\/api/, "");
@@ -223,28 +233,33 @@ apiObj.removeEventListener = apiObj.removeEventListener || apiObj.removeEventLis
 // Proxy for settingsLookup to dynamically handle any settings access without crashing
 const settingsLookupProxy = new Proxy({
   'Comfy.Locale': { onChange() {} }
-} as any, {
+} as Record<string, { onChange?: () => void }>, {
   get(target, prop) {
-    if (!(prop in target)) {
+    if (typeof prop === "string" && !(prop in target)) {
       target[prop] = { onChange() {} };
     }
-    return target[prop];
+    return target[prop as keyof typeof target];
   }
 });
 
 // Initialize window.app as a persistent object
-window.app = window.app || {} as any
-const appObj = window.app as any
+window.app = window.app || {
+  extensions: [],
+  registerExtension(ext: ComfyExtension) {
+    this.extensions.push(ext);
+  }
+};
+const appObj = window.app;
 appObj.extensions = appObj.extensions || []
-appObj.registerExtension = appObj.registerExtension || function (ext: any) {
+appObj.registerExtension = appObj.registerExtension || function (ext: ComfyExtension) {
   appObj.extensions.push(ext)
 }
 
 // app.ui.settings 및 app.settings 의 getSettingValue 안전 후킹 유틸
-const installSettingValueHook = (settingsObj: any) => {
+const installSettingValueHook = (settingsObj: ComfySettings | undefined) => {
   if (!settingsObj) return;
   const originalGet = settingsObj.getSettingValue;
-  settingsObj.getSettingValue = function(this: any, id: string) {
+  settingsObj.getSettingValue = function(this: ComfySettings, id: string) {
     const val = originalGet ? originalGet.call(this, id) : null;
     if (id === 'Comfy.CustomColorPalettes') {
       if (!val || val === 'undefined' || val === 'null') {
@@ -260,7 +275,7 @@ const installSettingValueHook = (settingsObj: any) => {
             return {};
           }
           return parsed;
-        } catch (e) {
+        } catch {
           return {};
         }
       }
@@ -272,14 +287,14 @@ const installSettingValueHook = (settingsObj: any) => {
 let _installingHook = false;
 
 // api.getSettings 후킹 유틸
-const installApiSettingsHook = (apiInstance: any) => {
+const installApiSettingsHook = (apiInstance: ComfyApi) => {
   if (!apiInstance || _installingHook) return;
   _installingHook = true;
   const originalGetSettings = apiInstance.getSettings;
-  apiInstance.getSettings = async function(this: any) {
+  apiInstance.getSettings = async function(this: ComfyApi) {
     const settings = originalGetSettings ? await originalGetSettings.call(this) : {};
     if (settings && settings['Comfy.CustomColorPalettes']) {
-      let val = settings['Comfy.CustomColorPalettes'];
+      const val = settings['Comfy.CustomColorPalettes'];
       if (typeof val === 'string') {
         try {
           let parsed = JSON.parse(val);
@@ -291,7 +306,7 @@ const installApiSettingsHook = (apiInstance: any) => {
           } else {
             settings['Comfy.CustomColorPalettes'] = {};
           }
-        } catch (e) {
+        } catch {
           settings['Comfy.CustomColorPalettes'] = {};
         }
       }
@@ -316,8 +331,8 @@ Object.defineProperty(apiObj, 'getSettings', {
 installApiSettingsHook(apiObj);
 
 // window.app 객체 속성 가드 설치
-let _appUi = appObj.ui || {};
-let _appSettings = appObj.settings || {};
+let _appUi: NonNullable<ComfyApp['ui']> = appObj.ui || {};
+let _appSettings: ComfySettings = appObj.settings || {};
 
 // 초기 셋업
 _appUi.dialogs = _appUi.dialogs || {}
@@ -346,10 +361,10 @@ Object.defineProperty(appObj, 'ui', {
       if (newUi.settings) {
         installSettingValueHook(newUi.settings);
       } else {
-        let _uiSettings: any = null;
+        let _uiSettings: ComfySettings | null = null;
         Object.defineProperty(newUi, 'settings', {
           get() { return _uiSettings; },
-          set(ns) {
+          set(ns: ComfySettings) {
             _uiSettings = ns;
             installSettingValueHook(ns);
           },
@@ -380,16 +395,16 @@ appObj.syncGraph = appObj.syncGraph || async function () {
 }
 
 // 필수 브라우저 글로벌 스텁 설정 (ComfyUI 커스텀 노드가 참조하는 글로벌 변수들)
-const w = window as any
+const w = window
 if (!w.$el) {
-  w.$el = (tag: string, attrs: any, children: any) => {
+  w.$el = (tag: string, attrs?: Record<string, unknown> | null, _children?: unknown) => {
     const el = document.createElement(tag);
     if (attrs) {
       for (const [k, v] of Object.entries(attrs)) {
-        if (k === 'style' && typeof v === 'object') {
+        if (k === 'style' && typeof v === 'object' && v !== null) {
           Object.assign(el.style, v);
         } else {
-          (el as any)[k] = v;
+          (el as HTMLElement & Record<string, unknown>)[k] = v;
         }
       }
     }
@@ -408,7 +423,7 @@ if (!w.addStylesheet) {
 }
 
 if (!w.getUrl) {
-  w.getUrl = (path: string, base: any) => {
+  w.getUrl = (path: string, base?: string | URL) => {
     return base ? new URL(path, base).toString() : path;
   };
 }
@@ -438,6 +453,7 @@ if (!w.ComfyDialog) {
 if (!w.ClipspaceDialog) {
   w.ClipspaceDialog = class {
     constructor() {}
+    static registerButton(_name: string, _cb: () => void) {}
   };
 }
 
@@ -454,7 +470,7 @@ if (!w.comfyAPI) {
       api: window.api || {}
     },
     utils: {
-      applyTextReplacements: (node: any, text: string) => text
+      applyTextReplacements: (_node: LGraphNode | null, text: string) => text
     },
     ui: {
       ComfyDialog: class {},
@@ -494,7 +510,7 @@ if (!w.ClipspaceDialog) {
     static registerButton() {}
   };
 } else {
-  ;(w.ClipspaceDialog as any).registerButton = (w.ClipspaceDialog as any).registerButton || function() {}
+  w.ClipspaceDialog.registerButton = w.ClipspaceDialog.registerButton || function() {}
 }
 
 if (w.LGraphCanvas) {
@@ -560,7 +576,7 @@ if (!w.ue_callbacks) {
 }
 
 if (!w.create) {
-  w.create = (tag: string, clss: string, parent: HTMLElement, properties: any) => {
+  w.create = (tag: string, clss: string, parent: HTMLElement, properties?: Record<string, unknown>) => {
     const nd = document.createElement(tag);
     if (clss) clss.split(" ").forEach((s) => nd.classList.add(s));
     if (parent) parent.appendChild(nd);
@@ -570,9 +586,19 @@ if (!w.create) {
 }
 
 if (!w.createApp) {
-  const mockAppOrJquery = (arg: any) => {
-    const obj: any = {
-      ready: (cb: any) => cb(),
+  interface MockJquery {
+    ready: (cb: () => void) => void
+    on: () => void
+    click: () => void
+    val: () => string
+    hide: () => void
+    show: () => void
+    use: () => MockJquery
+    mount: () => MockJquery
+  }
+  const mockAppOrJquery = (_arg: unknown): MockJquery => {
+    const obj: MockJquery = {
+      ready: (cb: () => void) => cb(),
       on: () => {},
       click: () => {},
       val: () => "",

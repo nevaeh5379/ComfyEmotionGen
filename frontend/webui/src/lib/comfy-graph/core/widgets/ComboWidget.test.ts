@@ -6,10 +6,10 @@ import type { CanvasPointerEvent } from '../types/events'
 import type { IComboWidget } from '../types/widgets'
 import { ComboWidget } from 'ComboWidget'
 
-const { LGraphCanvas } = await vi.importActual<typeof LGraphCanvasModule>(
+const { LGraphCanvas: _LGraphCanvas } = await vi.importActual<typeof LGraphCanvasModule>(
   '@/lib/litegraph/src/LGraphCanvas'
 )
-type LGraphCanvasType = InstanceType<typeof LGraphCanvas>
+type LGraphCanvasType = InstanceType<typeof _LGraphCanvas>
 
 interface MockWidgetConfig extends Omit<IComboWidget, 'options'> {
   options: IComboWidget['options']
@@ -1062,7 +1062,7 @@ describe('ComboWidget', () => {
         createMockWidgetConfig({
           name: 'mode',
           value: 'test',
-          // @ts-expect-error - Testing with intentionally invalid null value
+          // @ts-expect-error: Bypass external type check - Testing with intentionally invalid null value
           options: { values: null }
         }),
         node

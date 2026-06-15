@@ -14,8 +14,8 @@ import {
 import type { SerialisableGraph } from 'types/serialisation'
 import type { UUID } from '@/utils/uuid'
 import { zeroUuid } from '@/utils/uuid'
-import { usePreviewExposureStore } from '@/stores/previewExposureStore'
-import { useWidgetValueStore } from '@/stores/widgetValueStore'
+import { getPreviewExposureStore } from './external/widgetStores'
+import { getWidgetValueStore } from './external/widgetStores'
 import {
   createTestSubgraph,
   createTestSubgraphData,
@@ -80,7 +80,7 @@ describe('LGraph', () => {
   })
 
   test('can be instantiated', ({ expect }) => {
-    // @ts-expect-error Intentional - extra holds any / all consumer data that should be serialised
+    // @ts-expect-error: Bypass external type check Intentional - extra holds any / all consumer data that should be serialised
     const graph = new LGraph({ extra: 'TestGraph' })
     expect(graph).toBeInstanceOf(LGraph)
     expect(graph.extra).toBe('TestGraph')
@@ -289,13 +289,13 @@ describe('Graph Clearing and Callbacks', () => {
     const graphId = 'graph-clear-cleanup' as UUID
     graph.id = graphId
 
-    const previewExposureStore = usePreviewExposureStore()
+    const previewExposureStore = getPreviewExposureStore()
     previewExposureStore.addExposure(graphId, `${graphId}:1`, {
       sourceNodeId: '10',
       sourcePreviewName: '$$canvas-image-preview'
     })
 
-    const widgetValueStore = useWidgetValueStore()
+    const widgetValueStore = getWidgetValueStore()
     widgetValueStore.registerWidget(graphId, {
       nodeId: '10' as NodeId,
       name: 'seed',
@@ -395,11 +395,11 @@ describe('Subgraph Definition Garbage Collection', () => {
 
 describe('Legacy LGraph Compatibility Layer', () => {
   test('can be extended via prototype', ({ expect, minimalGraph }) => {
-    // @ts-expect-error Should always be an error.
+    // @ts-expect-error: Bypass external type check Should always be an error.
     LGraph.prototype.newMethod = function () {
       return 'New method added via prototype'
     }
-    // @ts-expect-error Should always be an error.
+    // @ts-expect-error: Bypass external type check Should always be an error.
     expect(minimalGraph.newMethod()).toBe('New method added via prototype')
   })
 

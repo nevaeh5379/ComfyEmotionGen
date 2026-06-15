@@ -23,7 +23,9 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [minHeight, setMinHeight] = useState(80)
   const sizeRef = useRef(size)
-  sizeRef.current = size
+  useLayoutEffect(() => {
+    sizeRef.current = size
+  }, [size])
 
   const updateNodePos  = useReactGraphStore((s) => s.updateNodePos)
   const updateNodeSize = useReactGraphStore((s) => s.updateNodeSize)
@@ -138,39 +140,39 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
 
   // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
   const liveNode = useMemo(() => {
-    const ln = (window as any).app?.graph?.getNodeById(id)
+    const ln = window.app?.graph?.getNodeById(id)
     if (type.toLowerCase().includes("lora")) {
       console.log("[CEG:DEBUG ReactNode.liveNode]", "id=" + id, "type=" + type, "hasLiveNode=" + !!ln,
         "widgets=" + (ln?.widgets?.length || 0),
-        "widget details:", ln?.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element, elementTag: w.element?.tagName || "N/A" })));
+        "widget details:", ln?.widgets?.map((w) => ({ name: w.name, type: w.type, hasElement: !!w.element, elementTag: (w.element as HTMLElement | undefined)?.tagName || "N/A" })));
     }
     return ln
-  }, [id, nodeData, type]);
+  }, [id, type]);
 
   const { inputs, outputs, widgetNames, widgetSpecs } = useMemo(() => {
     const def = nodeDef
     let names: string[] = []
     let ins: ComfyNodeInput[] = []
     let outs: ComfyNodeOutput[] = []
-    const specs: Record<string, any> = {}
+    const specs: Record<string, [string, Record<string, unknown>]> = {}
 
     if (liveNode) {
       if (liveNode.widgets) {
-        names = liveNode.widgets.map((w: any) => w.name)
+        names = liveNode.widgets.map((w) => w.name)
         for (const w of liveNode.widgets) {
           specs[w.name] = [w.type || "string", w.options || {}]
         }
       }
       if (liveNode.inputs) {
-        ins = liveNode.inputs.map((slot: any) => ({
+        ins = liveNode.inputs.map((slot) => ({
           name: slot.name,
           type: String(slot.type),
           link: slot.link ?? undefined,
-          widget: slot.widget ? { name: slot.widget.name, config: {} } : undefined,
+          widget: (slot as { widget?: { name: string } }).widget ? { name: (slot as { widget: { name: string } }).widget.name, config: {} } : undefined,
         }))
       }
       if (liveNode.outputs) {
-        outs = liveNode.outputs.map((slot: any, i: number) => ({
+        outs = liveNode.outputs.map((slot, i: number) => ({
           name: slot.name,
           type: String(slot.type),
           links: slot.links ?? undefined,
@@ -405,24 +407,24 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                           spec={widgetSpecs[widgetName]}
                           onChange={(newVal) => {
                             updateWidgetValue(id, widgetName, newVal)
-                            const liveW = liveNode?.widgets?.find((w: any) => w.name === widgetName)
+                            const liveW = liveNode?.widgets?.find((w) => w.name === widgetName)
                             if (liveW) {
-                              liveW.value = newVal
+                              liveW.value = newVal as StrictJSONValue
                               if (liveW.callback) {
                                 try {
-                                  liveW.callback(newVal)
+                                  liveW.callback(newVal as StrictJSONValue)
                                 } catch (err) {
                                   console.error("Widget callback failed:", err)
                                 }
                               }
                             }
-                            if ((window as any).app?.syncGraphNode) {
-                              (window as any).app.syncGraphNode(id)
+                            if (window.app?.syncGraphNode) {
+                              window.app.syncGraphNode(id)
                             }
                           }}
                           showLabel={false}
                           disabled={isDisabled}
-                          element={liveNode?.widgets?.find((w: any) => w.name === widgetName)?.element}
+                          element={(liveNode?.widgets?.find((w) => w.name === widgetName)?.element) as HTMLElement | undefined}
                         />
                       )}
                     </div>
@@ -450,23 +452,23 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                     spec={widgetSpecs[name]}
                     onChange={(newVal) => {
                       updateWidgetValue(id, name, newVal)
-                      const liveW = liveNode?.widgets?.find((w: any) => w.name === name)
+                      const liveW = liveNode?.widgets?.find((w) => w.name === name)
                       if (liveW) {
-                        liveW.value = newVal
+                        liveW.value = newVal as StrictJSONValue
                         if (liveW.callback) {
                           try {
-                            liveW.callback(newVal)
+                            liveW.callback(newVal as StrictJSONValue)
                           } catch (err) {
                             console.error("Widget callback failed:", err)
                           }
                         }
                       }
-                      if ((window as any).app?.syncGraphNode) {
-                        (window as any).app.syncGraphNode(id)
+                      if (window.app?.syncGraphNode) {
+                        window.app.syncGraphNode(id)
                       }
                     }}
                     disabled={isDisabled}
-                    element={liveNode?.widgets?.find((w: any) => w.name === name)?.element}
+                    element={(liveNode?.widgets?.find((w) => w.name === name)?.element) as HTMLElement | undefined}
                   />
                 </div>
               ))}
