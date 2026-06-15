@@ -237,9 +237,12 @@ const installSettingValueHook = (settingsObj: any) => {
   };
 };
 
+let _installingHook = false;
+
 // api.getSettings 후킹 유틸
 const installApiSettingsHook = (apiInstance: any) => {
-  if (!apiInstance) return;
+  if (!apiInstance || _installingHook) return;
+  _installingHook = true;
   const originalGetSettings = apiInstance.getSettings;
   apiInstance.getSettings = async function(this: any) {
     const settings = originalGetSettings ? await originalGetSettings.call(this) : {};
@@ -263,6 +266,7 @@ const installApiSettingsHook = (apiInstance: any) => {
     }
     return settings;
   };
+  _installingHook = false;
 };
 
 // window.api.getSettings 동적 바인딩 가드
