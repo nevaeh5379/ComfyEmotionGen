@@ -136,58 +136,98 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
     window.addEventListener("mouseup",   onUp)
   }
 
-  // ─── 정규화된 노드 데이터 (nodeDef fallback 포함) ───────────
+  // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
+  const liveNode = useMemo(() => {
+    return (window as any).app?.graph?.getNodeById(id)
+  }, [id, nodeData])
+
   const { inputs, outputs, widgetNames, widgetSpecs } = useMemo(() => {
     const def = nodeDef
-    let names: string[] = (nodeData?.properties?.widget_names as string[]) || []
-    let ins: ComfyNodeInput[] = nodeData?.inputs ? [...nodeData.inputs] : []
-    let outs: ComfyNodeOutput[] = nodeData?.outputs ? [...nodeData.outputs] : []
+    let names: string[] = []
+    let ins: ComfyNodeInput[] = []
+    let outs: ComfyNodeOutput[] = []
+    const specs: Record<string, any> = {}
 
-    // nodeDef 기반 fallback: inputs / outputs / widgetNames 생성
-    if (def) {
-      if (names.length === 0) {
-        const req = def.input?.required ?? {}
-        const opt = def.input?.optional ?? {}
-        for (const [name, spec] of Object.entries({ ...req, ...opt })) {
-          const typeSpec = spec[0]
-          const isWidget =
-            Array.isArray(typeSpec) ||
-            ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
-              String(typeSpec).toUpperCase()
-            )
-          if (isWidget) names.push(name)
+    if (liveNode) {
+      if (liveNode.widgets) {
+        names = liveNode.widgets.map((w: any) => w.name)
+        for (const w of liveNode.widgets) {
+          specs[w.name] = [w.type || "string", w.options || {}]
+        }
+      }
+      if (liveNode.inputs) {
+        ins = liveNode.inputs.map((slot: any) => ({
+          name: slot.name,
+          type: String(slot.type),
+          link: slot.link ?? undefined,
+          widget: slot.widget ? { name: slot.widget.name, config: {} } : undefined,
+        }))
+      }
+      if (liveNode.outputs) {
+        outs = liveNode.outputs.map((slot: any, i: number) => ({
+          name: slot.name,
+          type: String(slot.type),
+          links: slot.links ?? undefined,
+          slot_index: i,
+        }))
+      }
+    } else {
+      names = (nodeData?.properties?.widget_names as string[]) || []
+      ins = nodeData?.inputs ? [...nodeData.inputs] : []
+      outs = nodeData?.outputs ? [...nodeData.outputs] : []
+
+      if (def) {
+        if (names.length === 0) {
+          const req = def.input?.required ?? {}
+          const opt = def.input?.optional ?? {}
+          for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+            const typeSpec = spec[0]
+            const isWidget =
+              Array.isArray(typeSpec) ||
+              ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
+                String(typeSpec).toUpperCase()
+              )
+            if (isWidget) names.push(name)
+          }
+        }
+
+        if (ins.length === 0) {
+          const req = def.input?.required ?? {}
+          const opt = def.input?.optional ?? {}
+          for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+            const typeSpec = spec[0]
+            const isWidget =
+              Array.isArray(typeSpec) ||
+              ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
+                String(typeSpec).toUpperCase()
+              )
+            ins.push({
+              name,
+              type: String(typeSpec),
+              ...(isWidget ? { widget: { name, config: spec[1] || {} } } : {}),
+            })
+          }
+        }
+
+        if (outs.length === 0 && def.output) {
+          for (let i = 0; i < def.output.length; i++) {
+            outs.push({
+              name: def.output_name[i] || def.output[i] || `out_${i}`,
+              type: def.output[i] || "*",
+            })
+          }
         }
       }
 
-      if (ins.length === 0) {
-        const req = def.input?.required ?? {}
-        const opt = def.input?.optional ?? {}
-        for (const [name, spec] of Object.entries({ ...req, ...opt })) {
-          const typeSpec = spec[0]
-          const isWidget =
-            Array.isArray(typeSpec) ||
-            ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
-              String(typeSpec).toUpperCase()
-            )
-          ins.push({
-            name,
-            type: String(typeSpec),
-            ...(isWidget ? { widget: { name, config: spec[1] || {} } } : {}),
-          })
-        }
+      const allSpecs = {
+        ...(def?.input?.required ?? {}),
+        ...(def?.input?.optional ?? {}),
       }
-
-      if (outs.length === 0 && def.output) {
-        for (let i = 0; i < def.output.length; i++) {
-          outs.push({
-            name: def.output_name[i] || def.output[i] || `out_${i}`,
-            type: def.output[i] || "*",
-          })
-        }
+      for (const [name, spec] of Object.entries(allSpecs)) {
+        specs[name] = spec
       }
     }
 
-    // inputs 에 widget 속성이 없는데 widgetNames 에 포함되면 보충
     const nameSet = new Set(names)
     ins = ins.map((input) => {
       if (!input.widget && nameSet.has(input.name)) {
@@ -196,13 +236,8 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
       return input
     })
 
-    const specs = {
-      ...(def?.input?.required ?? {}),
-      ...(def?.input?.optional ?? {}),
-    }
-
     return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
-  }, [nodeDef, nodeData])
+  }, [nodeDef, nodeData, liveNode])
 
   const nodeMode = (nodeData?.mode ?? LGraphEventMode.ALWAYS) as LGraphEventMode
   const isBypassed = nodeMode === LGraphEventMode.BYPASS
@@ -359,9 +394,26 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                           name={widgetName}
                           value={widgetValue}
                           spec={widgetSpecs[widgetName]}
-                          onChange={(newVal) => updateWidgetValue(id, widgetName, newVal)}
+                          onChange={(newVal) => {
+                            updateWidgetValue(id, widgetName, newVal)
+                            const liveW = liveNode?.widgets?.find((w: any) => w.name === widgetName)
+                            if (liveW) {
+                              liveW.value = newVal
+                              if (liveW.callback) {
+                                try {
+                                  liveW.callback(newVal)
+                                } catch (err) {
+                                  console.error("Widget callback failed:", err)
+                                }
+                              }
+                            }
+                            if ((window as any).app?.syncGraphNode) {
+                              (window as any).app.syncGraphNode(id)
+                            }
+                          }}
                           showLabel={false}
                           disabled={isDisabled}
+                          element={liveNode?.widgets?.find((w: any) => w.name === widgetName)?.element}
                         />
                       )}
                     </div>
@@ -387,13 +439,43 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                     name={name}
                     value={nodeData?.widgets_values?.[widgetNames.indexOf(name)]}
                     spec={widgetSpecs[name]}
-                    onChange={(newVal) => updateWidgetValue(id, name, newVal)}
+                    onChange={(newVal) => {
+                      updateWidgetValue(id, name, newVal)
+                      const liveW = liveNode?.widgets?.find((w: any) => w.name === name)
+                      if (liveW) {
+                        liveW.value = newVal
+                        if (liveW.callback) {
+                          try {
+                            liveW.callback(newVal)
+                          } catch (err) {
+                            console.error("Widget callback failed:", err)
+                          }
+                        }
+                      }
+                      if ((window as any).app?.syncGraphNode) {
+                        (window as any).app.syncGraphNode(id)
+                      }
+                    }}
                     disabled={isDisabled}
+                    element={liveNode?.widgets?.find((w: any) => w.name === name)?.element}
                   />
                 </div>
               ))}
             </div>
           )
+        })()}
+
+        {/* Custom HTML injected by properties */}
+        {(() => {
+          const customHtml = liveNode?.properties?.html || liveNode?.properties?.custom_html || liveNode?.properties?.text_html || nodeData?.properties?.html || nodeData?.properties?.custom_html;
+          if (!customHtml) return null;
+          return (
+            <div
+              className="border-t border-border/50 p-2 overflow-auto max-h-[250px] text-xs text-foreground bg-accent/5 select-text lm-custom-html"
+              dangerouslySetInnerHTML={{ __html: String(customHtml) }}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          );
         })()}
       </div>
 

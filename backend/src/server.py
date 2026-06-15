@@ -743,6 +743,75 @@ async def get_extensions(worker_id: Optional[str] = None) -> list[str]:
     return []
 
 
+@app.get("/extensions/{path:path}")
+async def get_extension_file(
+    path: str,
+    request: Request,
+    worker_id: Optional[str] = None,
+) -> StreamingResponse:
+    """ComfyUI 익스텐션 정적 파일(JS, CSS 등)을 프록시 제공한다.
+
+    Proxies ComfyUI extension static files (JS, CSS, etc.) from an active worker.
+    """
+    if worker_id:
+        worker = worker_pool.get(worker_id)
+        if worker is None or not worker.alive:
+            raise HTTPException(
+                status_code=400,
+                detail=f"worker {worker_id} not found or offline"
+            )
+    else:
+        worker = worker_pool.find_idle()
+        if worker is None:
+            for w in worker_pool.all():
+                if w.alive:
+                    worker = w
+                    break
+
+    if worker is None:
+        raise HTTPException(
+            status_code=503,
+            detail="no available worker and ComfyUI is offline"
+        )
+
+    params = dict(request.query_params)
+
+    try:
+        req = worker._http.build_request("GET", f"/extensions/{path}", params=params)
+        resp = await worker._http.send(req, stream=True)
+
+        if resp.status_code >= 400:
+            await resp.aclose()
+            raise HTTPException(
+                status_code=resp.status_code,
+                detail=f"Failed to fetch extension asset: {resp.reason_phrase}"
+            )
+
+        async def stream_content():
+            try:
+                async for chunk in resp.aiter_bytes():
+                    yield chunk
+            finally:
+                await resp.aclose()
+
+        headers = {}
+        for h in ["content-type", "cache-control", "etag", "last-modified"]:
+            if h in resp.headers:
+                headers[h] = resp.headers[h]
+
+        return StreamingResponse(
+            stream_content(),
+            status_code=resp.status_code,
+            headers=headers
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error proxying extension asset: %s", path)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/version")
 def version() -> dict[str, str | None]:
     """백엔드/번들 버전 및 커밋 해시를 반환한다.

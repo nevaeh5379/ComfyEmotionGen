@@ -14,6 +14,7 @@ import type {
 } from "@/lib/comfy-graph/types/workflow"
 import type { ComfyNodeDef } from "@/lib/comfy-graph/types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
+import { LiteGraph, LGraph, LGraphNode } from "@/lib/comfy-graph/core/litegraph"
 
 interface ReactGraphState {
   nodes: ComfyWorkflowNode[]
@@ -48,6 +49,14 @@ interface ReactGraphState {
   selectNode: (id: number, accumulate?: boolean) => void
   deselectAll: () => void
   clearGraph: () => void
+  syncNodeFromLive: (
+    id: number,
+    widgetsValues: unknown[],
+    inputs: any[],
+    outputs: any[],
+    properties?: any
+  ) => void
+  syncGraphFromLive: () => void
 
   // Undo/Redo Actions
   takeSnapshot: () => void
@@ -105,6 +114,25 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   addNode: (type, pos, def) => {
     get().takeSnapshot()
+    if ((window as any).app?.graph) {
+      const liveNode = LiteGraph.createNode(type)
+      if (liveNode) {
+        liveNode.pos = pos
+        for (const ext of (window as any).app.extensions || []) {
+          if (ext.nodeCreated) {
+            try {
+              ext.nodeCreated(liveNode, (window as any).app)
+            } catch (err) {
+              console.error("Extension nodeCreated failed:", err)
+            }
+          }
+        }
+        ;(window as any).app.graph.add(liveNode)
+        get().syncGraphFromLive()
+        return
+      }
+    }
+
     const { nodes } = get()
     const maxId = nodes.reduce((max, n) => Math.max(max, n.id), 0)
     const newId = maxId + 1
@@ -187,6 +215,17 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     if (ids.length === 0) return
     get().takeSnapshot()
 
+    if ((window as any).app?.graph) {
+      for (const id of ids) {
+        const liveNode = (window as any).app.graph.getNodeById(id)
+        if (liveNode) {
+          (window as any).app.graph.remove(liveNode)
+        }
+      }
+      get().syncGraphFromLive()
+      return
+    }
+
     const { nodes, links, selectedNodeIds } = get()
     const idSet = new Set(ids)
 
@@ -250,6 +289,12 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   },
 
   updateNodePos: (id, pos) => {
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(id)
+      if (liveNode) {
+        liveNode.pos = pos
+      }
+    }
     const { nodes } = get()
     set({
       nodes: nodes.map((n) => (n.id === id ? { ...n, pos } : n)),
@@ -257,6 +302,12 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   },
 
   updateNodeSize: (id, size) => {
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(id)
+      if (liveNode) {
+        liveNode.size = size
+      }
+    }
     const { nodes } = get()
     set({
       nodes: nodes.map((n) => (n.id === id ? { ...n, size } : n)),
@@ -264,6 +315,16 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   },
 
   connect: (originNodeId, originSlotIdx, targetNodeId, targetSlotIdx, type) => {
+    if ((window as any).app?.graph) {
+      const originNode = (window as any).app.graph.getNodeById(originNodeId)
+      const targetNode = (window as any).app.graph.getNodeById(targetNodeId)
+      if (originNode && targetNode) {
+        originNode.connect(originSlotIdx, targetNode, targetSlotIdx)
+        get().syncGraphFromLive()
+        return
+      }
+    }
+
     const { nodes, links } = get()
 
     // Find origin (output) and target (input) nodes
@@ -364,6 +425,19 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   disconnect: (linkId) => {
     get().takeSnapshot()
+
+    if ((window as any).app?.graph) {
+      const link = (window as any).app.graph.links.get(linkId)
+      if (link) {
+        const targetNode = (window as any).app.graph.getNodeById(link.target_id)
+        if (targetNode) {
+          targetNode.disconnectInput(link.target_slot)
+          get().syncGraphFromLive()
+          return
+        }
+      }
+    }
+
     const { nodes, links } = get()
     const nextLinks = links.filter((l) => l.id !== linkId)
 
@@ -406,6 +480,27 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   updateWidgetValue: (nodeId, widgetName, value) => {
     get().takeSnapshot()
+
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(nodeId)
+      if (liveNode && liveNode.widgets) {
+        const widget = liveNode.widgets.find((w: any) => w.name === widgetName)
+        if (widget) {
+          widget.value = value
+          if (widget.callback) {
+            try {
+              widget.callback(value)
+            } catch (err) {
+              console.error("Widget callback failed:", err)
+            }
+          }
+          liveNode.setDirtyCanvas(true, true)
+          get().syncGraphFromLive()
+          return
+        }
+      }
+    }
+
     const { nodes } = get()
     set({
       nodes: nodes.map((node) => {
@@ -452,6 +547,15 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   changeNodeMode: (nodeId, mode) => {
     get().takeSnapshot()
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(nodeId)
+      if (liveNode) {
+        liveNode.mode = mode
+        ;(window as any).app.syncGraph()
+        return
+      }
+    }
+
     const { nodes } = get()
     set({
       nodes: nodes.map((node) =>
@@ -479,6 +583,10 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   clearGraph: () => {
     get().takeSnapshot()
+    if ((window as any).app?.graph) {
+      (window as any).app.graph.clear()
+      ;(window as any).app.syncGraph()
+    }
     set({
       nodes: [],
       links: [],
@@ -515,6 +623,30 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       ...redoStack
     ].slice(0, 50)
 
+    if ((window as any).app?.graph) {
+      ;(window as any).app.graph.clear()
+      const origSync = (window as any).app.syncGraph
+      ;(window as any).app.syncGraph = () => {}
+      ;(window as any).app.canvas.graph = (window as any).app.graph
+
+      const last_node_id = Math.max(0, ...previous.nodes.map(n => n.id))
+      const last_link_id = Math.max(0, ...previous.links.map(l => l.id))
+      const workflow = {
+        last_node_id,
+        last_link_id,
+        nodes: previous.nodes,
+        links: previous.links,
+        version: 0.4,
+      }
+      const service = (window as any).app.canvas.graph._canvas?.app || (window as any).app
+      if (service && typeof service.loadGraphData === "function") {
+        service.loadGraphData(workflow)
+      }
+
+      (window as any).app.syncGraph = origSync
+      ;(window as any).app.syncGraph()
+    }
+
     set({
       nodes: previous.nodes,
       links: previous.links,
@@ -537,11 +669,127 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       }
     ].slice(-50)
 
+    if ((window as any).app?.graph) {
+      const origSync = (window as any).app.syncGraph
+      ;(window as any).app.syncGraph = () => {}
+
+      const last_node_id = Math.max(0, ...next.nodes.map(n => n.id))
+      const last_link_id = Math.max(0, ...next.links.map(l => l.id))
+      const workflow = {
+        last_node_id,
+        last_link_id,
+        nodes: next.nodes,
+        links: next.links,
+        version: 0.4,
+      }
+      const service = (window as any).app.canvas.graph._canvas?.app || (window as any).app
+      if (service && typeof service.loadGraphData === "function") {
+        service.loadGraphData(workflow)
+      }
+
+      (window as any).app.syncGraph = origSync
+      ;(window as any).app.syncGraph()
+    }
+
     set({
       nodes: next.nodes,
       links: next.links,
       undoStack: nextUndo,
       redoStack: nextRedo
     })
+  },
+
+  syncNodeFromLive: (id, widgetsValues, inputs, outputs, properties) => {
+    const state = get()
+    const nodeIdx = state.nodes.findIndex((n) => n.id === id)
+    if (nodeIdx === -1) return
+
+    const oldNode = state.nodes[nodeIdx]
+    const mergedProperties = {
+      ...(oldNode.properties || {}),
+      ...(properties || {}),
+    }
+
+    const widgetsEqual = JSON.stringify(oldNode.widgets_values) === JSON.stringify(widgetsValues)
+    const inputsEqual = JSON.stringify(oldNode.inputs) === JSON.stringify(inputs)
+    const outputsEqual = JSON.stringify(oldNode.outputs) === JSON.stringify(outputs)
+    const propsEqual = JSON.stringify(oldNode.properties) === JSON.stringify(mergedProperties)
+
+    if (widgetsEqual && inputsEqual && outputsEqual && propsEqual) {
+      return
+    }
+
+    const updatedNode = {
+      ...oldNode,
+      widgets_values: widgetsValues,
+      inputs: inputs.length > 0 ? inputs : undefined,
+      outputs: outputs.length > 0 ? outputs : undefined,
+      properties: mergedProperties,
+    }
+
+    const nextNodes = [...state.nodes]
+    nextNodes[nodeIdx] = updatedNode
+
+    set({ nodes: nextNodes })
+  },
+
+  syncGraphFromLive: () => {
+    if (!(window as any).app?.graph) return
+    const graph = (window as any).app.graph
+    const currentNodes = get().nodes
+    const currentLinks = get().links
+
+    // Serialize links
+    const links: ComfyWorkflowLink[] = []
+    for (const [, link] of graph.links) {
+      links.push({
+        id: link.id,
+        origin_id: Number(link.origin_id),
+        origin_slot: link.origin_slot,
+        target_id: Number(link.target_id),
+        target_slot: link.target_slot,
+        type: link.type as string,
+      })
+    }
+
+    // Serialize nodes
+    const mergedNodes = graph.nodes.map((liveNode: any) => {
+      const existing = currentNodes.find((n) => n.id === liveNode.id)
+      const widgetsValues = liveNode.widgets?.map((w: any) => w.value) || []
+      const inputs = liveNode.inputs?.map((input: any) => ({
+        name: input.name,
+        type: input.type,
+        link: input.link ?? undefined,
+      })) || []
+      const outputs = liveNode.outputs?.map((output: any, i: number) => ({
+        name: output.name,
+        type: output.type,
+        links: output.links ?? undefined,
+        slot_index: i,
+      })) || []
+
+      return {
+        id: liveNode.id,
+        type: liveNode.type || existing?.type || "",
+        pos: liveNode.pos,
+        size: liveNode.size,
+        widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,
+        inputs: inputs.length > 0 ? inputs : undefined,
+        outputs: outputs.length > 0 ? outputs : undefined,
+        properties: {
+          ...(existing?.properties || {}),
+          ...(liveNode.properties || {}),
+          widget_names: liveNode.widgets?.map((w: any) => w.name) || [],
+        },
+        mode: liveNode.mode !== undefined ? liveNode.mode : existing?.mode,
+      }
+    })
+
+    const nodesEqual = JSON.stringify(currentNodes) === JSON.stringify(mergedNodes)
+    const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(links)
+
+    if (!nodesEqual || !linksEqual) {
+      set({ nodes: mergedNodes, links })
+    }
   },
 }))

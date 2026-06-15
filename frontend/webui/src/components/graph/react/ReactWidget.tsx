@@ -1,8 +1,30 @@
-/**
- * ReactWidget - HTML 기반 노드 위젯 컴포넌트
- */
-
+import { useEffect, useRef } from "react"
 import type { InputSpec } from "@/lib/comfy-graph/types/nodeDef"
+
+interface HTMLElementWidgetProps {
+  element: HTMLElement
+}
+
+export function HTMLElementWidget({ element }: HTMLElementWidgetProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !element) return
+
+    // Clear container first
+    container.innerHTML = ""
+    container.appendChild(element)
+
+    return () => {
+      if (element.parentNode === container) {
+        container.removeChild(element)
+      }
+    }
+  }, [element])
+
+  return <div ref={containerRef} className="w-full min-h-[40px] text-foreground" />
+}
 
 interface ReactWidgetProps {
   name: string
@@ -11,9 +33,14 @@ interface ReactWidgetProps {
   onChange: (val: unknown) => void
   showLabel?: boolean
   disabled?: boolean
+  element?: HTMLElement | null
 }
 
-export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false }: ReactWidgetProps) {
+export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element }: ReactWidgetProps) {
+  if (element) {
+    return <HTMLElementWidget element={element} />
+  }
+
   const typeSpec = spec?.[0]
   const config = spec?.[1] || {}
 

@@ -8,9 +8,17 @@ import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
 import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
+import { comfyApi } from "@/lib/comfy-graph/api"
+import { ComfyAppService } from "@/lib/comfy-graph/services/appService"
+import { LGraph, LGraphNode } from "@/lib/comfy-graph/core/litegraph"
 
 export function ReactGraphEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const hiddenCanvasRef = useRef<HTMLCanvasElement>(null)
+  const hiddenContainerRef = useRef<HTMLDivElement>(null)
+
+  const [isReady, setIsReady] = useState(false)
+  const nodeDefs = useNodeDefStore((s) => s.nodeDefs)
   
   const nodes = useReactGraphStore((s) => s.nodes)
   const zoom = useReactGraphStore((s) => s.zoom)
@@ -24,6 +32,140 @@ export function ReactGraphEditor() {
   const clearGraph = useReactGraphStore((s) => s.clearGraph)
 
   const nodeDefsByCategory = useNodeDefStore((s) => s.nodeDefsByCategory)
+
+  // 백그라운드 LiteGraph 및 익스텐션 초기화
+  useEffect(() => {
+    let cancelled = false
+    async function initApp() {
+      // 1. 전역 api 및 app 객체 재점검
+      if (!window.api) {
+        const apiObj = new EventTarget() as any
+        apiObj.api_base = ""
+        apiObj.getExtensions = async () => comfyApi.getExtensions()
+        apiObj.getObjectInfo = async () => comfyApi.getObjectInfo()
+        window.api = apiObj
+      }
+
+      if (!window.app) {
+        const extensions: any[] = []
+        window.app = {
+          extensions,
+          registerExtension(ext: any) {
+            extensions.push(ext)
+          },
+          graph: null,
+          canvas: null,
+          async syncGraph() {
+            useReactGraphStore.getState().syncGraphFromLive()
+          }
+        }
+      }
+
+      const app = window.app
+
+      // 2. 익스텐션 로드 (아직 로드되지 않은 경우)
+      if (!app.extensionsLoaded) {
+        try {
+          const extensionUrls = await comfyApi.getExtensions()
+          for (const url of extensionUrls) {
+            // Filter out core extensions that belong to the official Vue/legacy frontend
+            if (url.includes("/extensions/core/")) {
+              continue
+            }
+            try {
+              await import(/* @vite-ignore */ url)
+            } catch (err) {
+              console.error(`Failed to load extension: ${url}`, err)
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch extension list:", err)
+        }
+        app.extensionsLoaded = true
+
+        // init 훅 실행
+        for (const ext of app.extensions) {
+          if (ext.init) {
+            try {
+              await ext.init(app)
+            } catch (err) {
+              console.error(`Extension init failed for ${ext.name}:`, err)
+            }
+          }
+        }
+      }
+
+      if (cancelled) return
+
+      // 3. 백그라운드 ComfyAppService 인스턴스 생성
+      if (hiddenCanvasRef.current && hiddenContainerRef.current) {
+        const appService = new ComfyAppService({
+          canvas: hiddenCanvasRef.current,
+          container: hiddenContainerRef.current,
+          nodeDefs,
+        })
+        app.graph = appService.graph
+        app.canvas = appService.canvas
+        // @ts-ignore
+        app.graph._canvas = appService.canvas
+        // @ts-ignore
+        appService.canvas.app = app
+
+        // setDirtyCanvas 가로채기 (Zustand 동기화 트리거)
+        const origLGraphSetDirty = LGraph.prototype.setDirtyCanvas
+        LGraph.prototype.setDirtyCanvas = function (this: LGraph, ...args: any[]) {
+          const res = (origLGraphSetDirty as any).apply(this, args)
+          app.syncGraph()
+          return res
+        }
+
+        const origLGraphNodeSetDirty = LGraphNode.prototype.setDirtyCanvas
+        LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, ...args: any[]) {
+          const res = (origLGraphNodeSetDirty as any).apply(this, args)
+          app.syncGraph()
+          return res
+        }
+
+        // setup 훅 실행 (익스텐션 로드 완료 후 최초 1회)
+        for (const ext of app.extensions) {
+          if (ext.setup) {
+            try {
+              await ext.setup(app)
+            } catch (err) {
+              console.error(`Extension setup failed for ${ext.name}:`, err)
+            }
+          }
+        }
+
+        // 최초 그래프 상태 동기화
+        const state = useReactGraphStore.getState()
+        if (state.nodes.length > 0) {
+          const workflow = {
+            last_node_id: Math.max(0, ...state.nodes.map(n => n.id)),
+            last_link_id: Math.max(0, ...state.links.map(l => l.id)),
+            nodes: state.nodes,
+            links: state.links,
+            version: 0.4,
+          }
+          appService.loadGraphData(workflow)
+        }
+      }
+
+      if (!cancelled) {
+        setIsReady(true)
+      }
+    }
+
+    initApp()
+
+    return () => {
+      cancelled = true
+      if (window.app) {
+        window.app.graph = null
+        window.app.canvas = null
+      }
+    }
+  }, [nodeDefs])
 
   // 드래그 중인 핀 및 임시 선 끝점 관리
   const [activeDragPin, setActiveDragPin] = useState<{
@@ -398,6 +540,15 @@ export function ReactGraphEditor() {
 
   const selectedNodeIds = useReactGraphStore((s) => s.selectedNodeIds)
 
+  if (!isReady) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-full bg-[#18181b] text-zinc-400 gap-2 font-medium">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-400" />
+        <span>익스텐션 및 라이브 그래프 로드 중...</span>
+      </div>
+    )
+  }
+
   return (
     <div
       ref={containerRef}
@@ -558,6 +709,12 @@ export function ReactGraphEditor() {
           )}
         </div>
       )}
+      {/* 5. 백그라운드 LiteGraph를 위한 숨겨진 Canvas */}
+      <div ref={hiddenContainerRef} style={{ display: "none" }}>
+        <canvas ref={hiddenCanvasRef} />
+        {/* VHS and other extensions look for this element to configure allowed file extensions */}
+        <input type="file" id="comfy-file-input" style={{ display: "none" }} />
+      </div>
     </div>
   )
 }

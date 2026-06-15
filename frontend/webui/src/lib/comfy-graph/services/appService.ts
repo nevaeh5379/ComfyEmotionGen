@@ -80,6 +80,7 @@ export class ComfyAppService {
    * Register all node definitions in LiteGraph
    */
   private registerNodeDefs(nodeDefs: Record<string, ComfyNodeDef>): void {
+    const app = (window as any).app
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
       const NodeClass = class extends ComfyNode {
@@ -89,6 +90,19 @@ export class ComfyAppService {
 
         constructor() {
           super(NodeClass.title)
+        }
+      }
+
+      // Run beforeRegisterNodeDef hooks
+      if (app?.extensions) {
+        for (const ext of app.extensions) {
+          if (ext.beforeRegisterNodeDef) {
+            try {
+              ext.beforeRegisterNodeDef(NodeClass, def, app)
+            } catch (err) {
+              console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
+            }
+          }
         }
       }
 
@@ -151,6 +165,20 @@ export class ComfyAppService {
 
       // @ts-ignore configure may accept ComfyWorkflowNode
       node.configure?.(nodeData)
+
+      // Run loadedGraphNode hooks
+      const app = (window as any).app
+      if (app?.extensions) {
+        for (const ext of app.extensions) {
+          if (ext.loadedGraphNode) {
+            try {
+              ext.loadedGraphNode(node, app)
+            } catch (err) {
+              console.error(`Extension loadedGraphNode failed for ${ext.name}:`, err)
+            }
+          }
+        }
+      }
     }
 
     // 링크 생성
@@ -361,6 +389,20 @@ export class ComfyAppService {
     this.addNodeWidgets(node, nodeDef)
 
     this.graph.add(node)
+
+    // Run nodeCreated hooks
+    const app = (window as any).app
+    if (app?.extensions) {
+      for (const ext of app.extensions) {
+        if (ext.nodeCreated) {
+          try {
+            ext.nodeCreated(node, app)
+          } catch (err) {
+            console.error(`Extension nodeCreated failed for ${ext.name}:`, err)
+          }
+        }
+      }
+    }
 
     if (!options.skipConfigure) {
       this.graph.setDirtyCanvas(true, true)

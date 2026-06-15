@@ -51,6 +51,14 @@ export function GraphCanvas({
     setCurrentGraph(app.graph)
     setAppService(app)
 
+    // Bind legacy app properties to window.app
+    if (window.app) {
+      window.app.graph = app.graph
+      window.app.canvas = app.canvas
+      window.app.loadGraphData = app.loadGraphData.bind(app)
+      window.app.serializeGraph = app.serializeGraph.bind(app)
+    }
+
     // 리사이즈 핸들러
     const handleResize = () => {
       if (!container) return
@@ -69,6 +77,10 @@ export function GraphCanvas({
       setCanvas(null)
       setCurrentGraph(null)
       setAppService(null)
+      if (window.app) {
+        window.app.graph = null
+        window.app.canvas = null
+      }
     }
   }, [nodeDefs, setCanvas, setCurrentGraph, setAppService, onWorkflowChange])
 
