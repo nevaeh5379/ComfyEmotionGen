@@ -150,7 +150,13 @@ export class ComfyAppService {
           "widget items:", node.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element, hasOptions: !!w.options })));
       }
 
-      node.id = nodeData.id
+      // graph.add(node)에서 할당된 자동 ID를 JSON의 ID로 교체하고 _nodes_by_id 갱신
+      const oldId = node.id
+      if (oldId !== nodeData.id) {
+        delete this.graph._nodes_by_id[oldId]
+        node.id = nodeData.id
+        this.graph._nodes_by_id[node.id] = node
+      }
       node.pos = nodeData.pos
       node.size = nodeData.size
       if (nodeData.color) node.color = nodeData.color
@@ -178,20 +184,12 @@ export class ComfyAppService {
         }
       }
 
-      // Widget values
-      if (nodeData.widgets_values) {
-        if (node.widgets) {
-          for (let i = 0; i < node.widgets.length; i++) {
-            if (i < nodeData.widgets_values.length) {
-              // @ts-ignore widget value assignment
-              node.widgets[i].value = nodeData.widgets_values[i]
-            }
-          }
-        }
+      try {
+        // @ts-ignore configure may accept ComfyWorkflowNode
+        node.configure?.(nodeData)
+      } catch (err) {
+        console.warn(`[loadGraphData] configure failed for ${nodeData.type}:`, err)
       }
-
-      // @ts-ignore configure may accept ComfyWorkflowNode
-      node.configure?.(nodeData)
 
       // Run loadedGraphNode hooks
       const app = (window as any).app

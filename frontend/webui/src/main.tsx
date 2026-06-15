@@ -118,7 +118,11 @@ try {
     set(v) {
       this._value = v;
       if (this.options.setValue) {
-        this.options.setValue(v);
+        try {
+          this.options.setValue(v);
+        } catch (err) {
+          console.warn(`[addDOMWidget] setValue failed for widget "${this.name}":`, err);
+        }
       }
       if (this.callback) {
         this.callback(v);

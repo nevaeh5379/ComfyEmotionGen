@@ -89,6 +89,30 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(normalizedLinks)
     if (nodesEqual && linksEqual) return
 
+    // 라이브 그래프가 존재하고 extension이 완전히 로드되었으면 loadGraphData로 노드 재구축
+    // (중간 syncGraph 호출을 억제하여 불완전한 상태가 store에 반영되지 않도록 함)
+    const app = (window as any).app
+    if (app?.graph && app.extensionsLoaded) {
+      const service = (window as any).__comfyAppService
+      if (service) {
+        const origSyncGraph = app.syncGraph
+        app.syncGraph = () => {}
+        try {
+          const workflowToLoad: ComfyWorkflowJSON = {
+            ...workflow,
+            links: normalizedLinks,
+          }
+          service.loadGraphData(workflowToLoad as any)
+        } finally {
+          app.syncGraph = origSyncGraph
+        }
+        get().syncGraphFromLive()
+        set({ selectedNodeIds: new Set<number>() })
+        return
+      }
+    }
+
+    // fallback: 라이브 그래프가 없으면 직접 store 갱신 (모드 전환 등)
     // 기존 노드의 위치/크기/위젯값은 보존, inputs/outputs는 새 워크플로우 기준으로 교체
     const existingMap = new Map(currentNodes.map((n) => [n.id, n]))
     const mergedNodes = (workflow.nodes || []).map((node) => {
