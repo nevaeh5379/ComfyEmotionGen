@@ -380,9 +380,16 @@ export function snapPoint(
 export function alignToContainer(
   rect: Rect,
   anchors: Alignment,
-  [containerX, containerY, containerWidth, containerHeight]: ReadOnlyRect,
-  [insetX, insetY]: Readonly<Point> = [0, 0]
+  container: ReadOnlyRect,
+  inset: Readonly<Point> = [0, 0]
 ): Rect {
+  const containerX = container[0] ?? 0
+  const containerY = container[1] ?? 0
+  const containerWidth = container[2] ?? 0
+  const containerHeight = container[3] ?? 0
+  const insetX = inset[0] ?? 0
+  const insetY = inset[1] ?? 0
+
   if (hasFlag(anchors, Alignment.Left)) {
     // Left
     rect[0] = containerX + insetX
@@ -423,9 +430,16 @@ export function alignToContainer(
 export function alignOutsideContainer(
   rect: Rect,
   anchors: Alignment,
-  [otherX, otherY, otherWidth, otherHeight]: ReadOnlyRect,
-  [outsetX, outsetY]: Readonly<Point> = [0, 0]
+  other: ReadOnlyRect,
+  outset: Readonly<Point> = [0, 0]
 ): Rect {
+  const otherX = other[0] ?? 0
+  const otherY = other[1] ?? 0
+  const otherWidth = other[2] ?? 0
+  const otherHeight = other[3] ?? 0
+  const outsetX = outset[0] ?? 0
+  const outsetY = outset[1] ?? 0
+
   if (hasFlag(anchors, Alignment.Left)) {
     // Left
     rect[0] = otherX - outsetX - rect[2]

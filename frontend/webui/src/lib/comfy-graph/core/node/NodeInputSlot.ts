@@ -44,7 +44,7 @@ export class NodeInputSlot extends NodeSlot implements INodeInputSlot {
     node: LGraphNode
   ) {
     super(slot, node)
-    this.link = slot.link
+    this.link = slot.link ?? null
   }
 
   override get isConnected(): boolean {

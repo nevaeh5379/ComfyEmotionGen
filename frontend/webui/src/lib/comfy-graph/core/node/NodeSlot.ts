@@ -26,17 +26,17 @@ import { SlotBase } from './SlotBase'
 
 export interface IDrawOptions {
   colorContext: DefaultConnectionColors
-  labelPosition?: LabelPosition
-  lowQuality?: boolean
-  doStroke?: boolean
-  highlight?: boolean
+  labelPosition?: LabelPosition | undefined
+  lowQuality?: boolean | undefined
+  doStroke?: boolean | undefined
+  highlight?: boolean | undefined
 }
 
 const ROTATION_OFFSET = -Math.PI
 
 /** Shared base class for {@link LGraphNode} input and output slots. */
 export abstract class NodeSlot extends SlotBase implements INodeSlot {
-  pos?: Point
+  pos?: Point | undefined
 
   /** The offset from the parent node to the centre point of this slot. */
   private get _centreOffset(): Readonly<Point> {
@@ -47,10 +47,10 @@ export abstract class NodeSlot extends SlotBase implements INodeSlot {
     const diameter = boundingRect[3]
 
     return getCentre([
-      boundingRect[0] - nodePos[0],
-      boundingRect[1] - nodePos[1],
-      diameter,
-      diameter
+      (boundingRect[0] ?? 0) - nodePos[0],
+      (boundingRect[1] ?? 0) - nodePos[1],
+      diameter ?? 0,
+      diameter ?? 0
     ])
   }
 
@@ -91,6 +91,13 @@ export abstract class NodeSlot extends SlotBase implements INodeSlot {
     super(name, type, rectangle)
 
     Object.assign(this, rest)
+    this.pos = this.pos ?? undefined
+    this.color_off = this.color_off ?? undefined
+    this.color_on = this.color_on ?? undefined
+    this.dir = this.dir ?? undefined
+    this.label = this.label ?? undefined
+    this.localized_name = this.localized_name ?? undefined
+    this.shape = this.shape ?? undefined
     this._node = node
   }
 
@@ -266,16 +273,25 @@ export abstract class NodeSlot extends SlotBase implements INodeSlot {
    * Returns only serializable slot properties without the node back-reference.
    */
   toJSON(): INodeSlot {
+    const {
+      pos,
+      color_off,
+      color_on,
+      dir,
+      label,
+      localized_name,
+      shape
+    } = this
     return {
       name: this.name,
       type: this.type,
-      label: this.label,
-      color_on: this.color_on,
-      color_off: this.color_off,
-      shape: this.shape,
-      dir: this.dir,
-      localized_name: this.localized_name,
-      pos: this.pos,
+      label: label ?? undefined,
+      color_on: color_on ?? undefined,
+      color_off: color_off ?? undefined,
+      shape: shape ?? undefined,
+      dir: dir ?? undefined,
+      localized_name: localized_name ?? undefined,
+      pos: pos ?? undefined,
       boundingRect: [...this.boundingRect] as [number, number, number, number]
     }
   }

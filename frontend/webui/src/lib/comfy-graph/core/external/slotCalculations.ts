@@ -8,11 +8,11 @@ export interface SlotPositionContext {
   nodeWidth: number
   nodeHeight: number
   collapsed: boolean
-  collapsedWidth?: number
-  slotStartY?: number
+  collapsedWidth?: number | undefined
+  slotStartY?: number | undefined
   inputs: INodeInputSlot[]
   outputs: INodeOutputSlot[]
-  widgets?: Array<{ name?: string }>
+  widgets?: Array<{ name?: string | undefined }> | undefined
 }
 
 interface NodeConstructorWithSlotHeight {

@@ -66,10 +66,10 @@ declare global {
     type: string
     name: string
     element: HTMLElement
-    options: DOMWidgetOptions & { hideOnZoom?: boolean }
-    _value?: string
-    value?: string
-    callback?: ((v: string) => void)
+    options: DOMWidgetOptions & { hideOnZoom?: boolean | undefined }
+    _value?: string | undefined
+    value?: string | undefined
+    callback?: ((v: string) => void) | undefined
     y: number
     [symbol: symbol]: boolean
   }
@@ -122,10 +122,10 @@ declare module "./lib/comfy-graph/core/LiteGraphGlobal" {
 
 declare module "./lib/comfy-graph/core/interfaces" {
   interface INodeInputSlot {
-    link?: number | null
+    link?: number | null | undefined
   }
   interface INodeOutputSlot {
-    links?: number[] | null
+    links?: number[] | null | undefined
   }
 }
 
@@ -151,8 +151,7 @@ declare module "./lib/comfy-graph/core/LGraphNode" {
       options?: Record<string, unknown>
       [key: string]: unknown
     }[]
-    onResize?: (this: LGraphNode) => void
-    configure?: (info: ComfyWorkflowNode) => void
+    onResize?: (this: LGraphNode) => void | undefined
   }
 }
 

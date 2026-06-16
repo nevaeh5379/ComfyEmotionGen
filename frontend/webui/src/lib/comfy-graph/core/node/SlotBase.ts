@@ -18,22 +18,22 @@ import type {
 
 export abstract class SlotBase implements INodeSlot {
   name: string
-  localized_name?: string
-  label?: string
+  localized_name?: string | undefined
+  label?: string | undefined
   type: ISlotType
-  dir?: LinkDirection
-  removable?: boolean
-  shape?: RenderShape
-  color_off?: CanvasColour
-  color_on?: CanvasColour
-  locked?: boolean
-  nameLocked?: boolean
-  widget?: IWidgetLocator
-  _floatingLinks?: Set<LLink>
-  hasErrors?: boolean
+  dir?: LinkDirection | undefined
+  removable?: boolean | undefined
+  shape?: RenderShape | undefined
+  color_off?: CanvasColour | undefined
+  color_on?: CanvasColour | undefined
+  locked?: boolean | undefined
+  nameLocked?: boolean | undefined
+  widget?: IWidgetLocator | undefined
+  _floatingLinks?: Set<LLink> | undefined
+  hasErrors?: boolean | undefined
 
   /** The centre point of the slot. */
-  abstract pos?: Point
+  abstract pos?: Point | undefined
   readonly boundingRect: Rectangle
 
   constructor(name: string, type: ISlotType, boundingRect?: Rectangle) {

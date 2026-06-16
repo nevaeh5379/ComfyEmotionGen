@@ -57,7 +57,7 @@ interface LinkConnectorState {
   /** When `true`, existing links are being repositioned. Otherwise, new links are being created. */
   draggingExistingLinks: boolean
   /** When set, connecting links will all snap to this position. */
-  snapLinksPos?: [number, number]
+  snapLinksPos?: [number, number] | undefined
 }
 
 /** Discriminated union to simplify type narrowing. */
@@ -71,7 +71,7 @@ type RenderLinkUnion =
   | ToOutputFromIoNodeLink
 
 interface LinkConnectorExport {
-  renderLinks: RenderLink[]
+  renderLinks: RenderLinkUnion[]
   inputLinks: LLink[]
   outputLinks: LLink[]
   floatingLinks: LLink[]
@@ -93,8 +93,7 @@ export class LinkConnector {
   state: LinkConnectorState = {
     connectingTo: undefined,
     multi: false,
-    draggingExistingLinks: false,
-    snapLinksPos: undefined
+    draggingExistingLinks: false
   }
 
   readonly events = new CustomEventTarget<LinkConnectorEventMap>()
@@ -112,7 +111,7 @@ export class LinkConnector {
   readonly hiddenReroutes: Set<Reroute> = new Set()
 
   /** The widget beneath the pointer, if it is a valid connection target. */
-  overWidget?: IBaseWidget
+  overWidget?: IBaseWidget | undefined
   /** The type (returned by downstream callback) for {@link overWidget} */
   overWidgetType?: string
 
@@ -693,7 +692,7 @@ export class LinkConnector {
           // Otherwise, keep using EmptySubgraphOutput to create a new slot
           const nextLink = renderLinks[renderLinks.indexOf(link) + 1]
           if (nextLink && link.fromSlot.type === nextLink.fromSlot.type) {
-            targetSlot = createdSlot
+            targetSlot = createdSlot ?? targetSlot
           } else {
             // Reset to EmptySubgraphOutput for different types
             targetSlot = output
@@ -711,9 +710,11 @@ export class LinkConnector {
       }
 
       // Same logic for SubgraphInputNode if needed
-      let targetSlot = input
+      let targetSlot: SubgraphInput | EmptySubgraphInput | undefined = input
 
       for (const link of renderLinks) {
+        if (!targetSlot) continue
+
         // Validate the connection type before proceeding
         if (
           'canConnectToSubgraphInput' in link &&
@@ -739,7 +740,7 @@ export class LinkConnector {
           // Otherwise, keep using EmptySubgraphInput to create a new slot
           const nextLink = renderLinks[renderLinks.indexOf(link) + 1]
           if (nextLink && link.fromSlot.type === nextLink.fromSlot.type) {
-            targetSlot = createdSlot
+            targetSlot = createdSlot ?? targetSlot
           } else {
             // Reset to EmptySubgraphInput for different types
             targetSlot = input
@@ -801,8 +802,11 @@ export class LinkConnector {
           `Attempted to connect ${this.renderLinks.length} input links to a reroute.`
         )
 
-      const renderLink = this.renderLinks[0]
-      this._connectOutputToReroute(reroute, renderLink)
+    const renderLink = this.renderLinks[0]
+    if (!renderLink) {
+      throw new Error('No render link available to connect to reroute.')
+    }
+    this._connectOutputToReroute(reroute, renderLink)
 
       return
     }
@@ -1049,7 +1053,7 @@ export class LinkConnector {
         input,
         output,
         pos: link.fromPos,
-        afterRerouteId
+        afterRerouteId: afterRerouteId ?? undefined
       } satisfies ConnectingLink
     })
     this._setConnectingLinks(links)

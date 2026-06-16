@@ -43,6 +43,7 @@ export function findFirstNode(
   for (const item of items) {
     if (item instanceof LGraphNode) return item
   }
+  return undefined
 }
 
 type FreeSlotResult<T extends { type: ISlotType }> =

@@ -42,7 +42,7 @@ export class DragAndScale {
   element: HTMLCanvasElement
   visible_area: Rectangle
   dragging?: boolean
-  viewport?: Rect
+  viewport?: Rect | undefined
 
   onredraw?(das: DragAndScale): void
   onChanged?(scale: number, offset: Point): void
@@ -175,8 +175,8 @@ export class DragAndScale {
     const new_center = this.convertCanvasToOffset(normalizedCenter)
     const delta_offset = [new_center[0] - center[0], new_center[1] - center[1]]
 
-    this.offset[0] += delta_offset[0]
-    this.offset[1] += delta_offset[1]
+    this.offset[0] += delta_offset[0]!
+    this.offset[1] += delta_offset[1]!
 
     this.onredraw?.(this)
   }

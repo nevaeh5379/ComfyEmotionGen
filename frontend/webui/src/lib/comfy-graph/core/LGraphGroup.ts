@@ -40,7 +40,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   static defaultColour = '#335'
 
   id: GroupId
-  color?: string
+  color?: string | undefined
   title: string
   font?: string
   font_size: number = LiteGraph.GROUP_TEXT_SIZE
@@ -51,9 +51,9 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   /** @deprecated See {@link _children} */
   _nodes: LGraphNode[] = []
   _children: Set<Positionable> = new Set()
-  graph?: LGraph
+  graph?: LGraph | undefined
   flags: IGraphGroupFlags = {}
-  selected?: boolean
+  selected?: boolean | undefined
 
   constructor(title?: string, id?: GroupId) {
     // TODO: Object instantiation pattern requires too much boilerplate and null checking.  ID should be passed in via constructor.
@@ -90,8 +90,8 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   set pos(v) {
     if (!v || v.length < 2) return
 
-    this._pos[0] = v[0]
-    this._pos[1] = v[1]
+    this._pos[0] = v[0]!
+    this._pos[1] = v[1]!
   }
 
   /** Size of the group, as width,height in graph units */
@@ -102,8 +102,8 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   set size(v) {
     if (!v || v.length < 2) return
 
-    this._size[0] = Math.max(LGraphGroup.minWidth, v[0])
-    this._size[1] = Math.max(LGraphGroup.minHeight, v[1])
+    this._size[0] = Math.max(LGraphGroup.minWidth, v[0]!)
+    this._size[1] = Math.max(LGraphGroup.minHeight, v[1]!)
   }
 
   get boundingRect() {
@@ -309,10 +309,10 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     const boundingBox = createBounds(objects, padding)
     if (boundingBox === null) return
 
-    this.pos[0] = boundingBox[0]
-    this.pos[1] = boundingBox[1] - this.titleHeight
-    this.size[0] = boundingBox[2]
-    this.size[1] = boundingBox[3] + this.titleHeight
+    this.pos[0] = boundingBox[0]!
+    this.pos[1] = boundingBox[1]! - this.titleHeight
+    this.size[0] = boundingBox[2]!
+    this.size[1] = boundingBox[3]! + this.titleHeight
   }
 
   /**
@@ -359,13 +359,13 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
 
   isPointInTitlebar(x: number, y: number): boolean {
     const b = this.boundingRect
-    return isInRectangle(x, y, b[0], b[1], b[2], this.titleHeight)
+    return isInRectangle(x, y, b[0]!, b[1]!, b[2]!, this.titleHeight)
   }
 
   isInResize(x: number, y: number): boolean {
     const b = this.boundingRect
-    const right = b[0] + b[2]
-    const bottom = b[1] + b[3]
+    const right = b[0]! + b[2]!
+    const bottom = b[1]! + b[3]!
 
     return (
       x < right &&

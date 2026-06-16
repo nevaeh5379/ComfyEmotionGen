@@ -7,12 +7,13 @@ function tokenize(input: string): Token[] | undefined {
   let lastIndex = 0
 
   for (const match of input.matchAll(re)) {
-    const gap = input.slice(lastIndex, match.index)
+    const matchIndex = match.index ?? 0
+    const gap = input.slice(lastIndex, matchIndex)
     if (gap.trim()) return undefined
-    lastIndex = match.index + match[0].length
+    lastIndex = matchIndex + match[0].length
 
     if (match[1]) tokens.push({ type: 'number', value: parseFloat(match[1]) })
-    else tokens.push({ type: 'op', value: match[2] })
+    else tokens.push({ type: 'op', value: match[2] ?? '' })
   }
 
   if (input.slice(lastIndex).trim()) return undefined
@@ -38,7 +39,7 @@ export function evaluateMathExpression(input: string): number | undefined {
   }
 
   function consume(): Token {
-    return tokens[pos++]
+    return tokens[pos++] ?? { type: 'op', value: '' }
   }
 
   function primary(): number | undefined {

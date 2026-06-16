@@ -17,8 +17,8 @@ import { isSubgraphOutput } from '../subgraph/subgraphUtils'
 
 export class NodeOutputSlot extends NodeSlot implements INodeOutputSlot {
   links: LinkId[] | null
-  _data?: unknown
-  slot_index?: number
+  _data?: unknown | undefined
+  slot_index?: number | undefined
 
   get isWidgetInputSlot(): false {
     return false
@@ -36,9 +36,9 @@ export class NodeOutputSlot extends NodeSlot implements INodeOutputSlot {
     node: LGraphNode
   ) {
     super(slot, node)
-    this.links = slot.links
+    this.links = slot.links ?? null
     this._data = slot._data
-    this.slot_index = slot.slot_index
+    this.slot_index = slot.slot_index != null ? slot.slot_index : undefined
   }
 
   override isValidTarget(

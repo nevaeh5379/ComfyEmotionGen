@@ -16,14 +16,14 @@ const randomStorage = new Uint32Array(31)
  * @returns A new UUIDv4 string
  */
 export function createUuidv4(): UUID {
-  if (typeof crypto?.randomUUID === "function") return crypto.randomUUID()
-  if (typeof crypto?.getRandomValues === "function") {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID()
+  if (typeof crypto.getRandomValues === "function") {
     const random = crypto.getRandomValues(randomStorage)
     let i = 0
     return "10000000-1000-4000-8000-100000000000".replaceAll(/[018]/g, (a) =>
       (
         Number(a) ^
-        ((random[i++] * 3.725_290_298_461_914e-9) >> (Number(a) * 0.25))
+        (((random[i++] ?? 0) * 3.725_290_298_461_914e-9) >> (Number(a) * 0.25))
       ).toString(16)
     )
   }

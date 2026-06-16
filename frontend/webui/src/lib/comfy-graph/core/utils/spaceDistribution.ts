@@ -1,7 +1,7 @@
 
 export interface SpaceRequest {
   minSize: number
-  maxSize?: number
+  maxSize?: number | undefined
 }
 
 /**
