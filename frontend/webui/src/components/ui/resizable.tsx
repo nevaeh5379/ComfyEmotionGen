@@ -9,13 +9,13 @@ function ResizablePanelGroup({
   defaultLayout: defaultLayoutProp,
   onLayoutChanged: onLayoutChangedProp,
   ...props
-}: ResizablePrimitive.GroupProps & { autoSaveId?: string }) {
+}: ResizablePrimitive.GroupProps & { autoSaveId?: string }): React.ReactElement {
   const defaultLayout = useMemo(() => {
-    if (!autoSaveId) return defaultLayoutProp
+    if (autoSaveId === undefined) return defaultLayoutProp
     try {
       const saved = localStorage.getItem(`resizable-layout:${autoSaveId}`)
-      if (saved) {
-        return JSON.parse(saved)
+      if (saved !== null) {
+        return JSON.parse(saved) as ResizablePrimitive.Layout
       }
     } catch (e) {
       console.error("Failed to load resizable layout:", e)
@@ -24,8 +24,8 @@ function ResizablePanelGroup({
   }, [autoSaveId, defaultLayoutProp])
 
   const handleLayoutChanged = useCallback(
-    (layout: ResizablePrimitive.Layout) => {
-      if (autoSaveId) {
+    (layout: ResizablePrimitive.Layout): void => {
+      if (autoSaveId !== undefined) {
         try {
           localStorage.setItem(
             `resizable-layout:${autoSaveId}`,
@@ -35,7 +35,7 @@ function ResizablePanelGroup({
           console.error("Failed to save resizable layout:", e)
         }
       }
-      if (onLayoutChangedProp) {
+      if (onLayoutChangedProp !== undefined) {
         onLayoutChangedProp(layout)
       }
     },
@@ -56,7 +56,7 @@ function ResizablePanelGroup({
   )
 }
 
-function ResizablePanel({ ...props }: ResizablePrimitive.PanelProps) {
+function ResizablePanel({ ...props }: ResizablePrimitive.PanelProps): React.ReactElement {
   return <ResizablePrimitive.Panel data-slot="resizable-panel" {...props} />
 }
 
@@ -66,7 +66,7 @@ function ResizableHandle({
   ...props
 }: ResizablePrimitive.SeparatorProps & {
   withHandle?: boolean
-}) {
+}): React.ReactElement {
   return (
     <ResizablePrimitive.Separator
       data-slot="resizable-handle"
@@ -76,7 +76,7 @@ function ResizableHandle({
       )}
       {...props}
     >
-      {withHandle && (
+      {withHandle === true && (
         <div className="z-10 flex h-6 w-1 shrink-0 rounded-lg bg-border" />
       )}
     </ResizablePrimitive.Separator>

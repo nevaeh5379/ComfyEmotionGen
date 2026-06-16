@@ -30,7 +30,7 @@ export const ConfirmProvider = ({
   children,
 }: {
   children: React.ReactNode
-}) => {
+}): React.ReactElement => {
   const [isOpen, setIsOpen] = useState(false)
   const [options, setOptions] = useState<ConfirmOptions>({})
   const [resolveRef, setResolveRef] = useState<
@@ -45,12 +45,12 @@ export const ConfirmProvider = ({
     })
   }, [])
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     setIsOpen(false)
     resolveRef?.(false)
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = (): void => {
     setIsOpen(false)
     resolveRef?.(true)
   }
@@ -61,20 +61,20 @@ export const ConfirmProvider = ({
       <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{options.title || "확인"}</AlertDialogTitle>
+            <AlertDialogTitle>{options.title ?? "확인"}</AlertDialogTitle>
             <AlertDialogDescription>
-              {options.description || "계속하시겠습니까?"}
+              {options.description ?? "계속하시겠습니까?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancel}>
-              {options.cancelText || "취소"}
+              {options.cancelText ?? "취소"}
             </AlertDialogCancel>
             <AlertDialogAction
-              variant={options.variant || "default"}
+              variant={options.variant ?? "default"}
               onClick={handleConfirm}
             >
-              {options.confirmText || "확인"}
+              {options.confirmText ?? "확인"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

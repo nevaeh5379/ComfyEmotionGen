@@ -1,3 +1,4 @@
+import type React from "react"
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ interface KeyboardShortcutsDialogProps {
 export function KeyboardShortcutsDialog({
   open,
   onOpenChange,
-}: KeyboardShortcutsDialogProps) {
+}: KeyboardShortcutsDialogProps): React.ReactElement {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-1.5rem)] border-line/60 bg-panel/95 p-4 shadow-2xl backdrop-blur-md sm:w-full sm:max-w-2xl sm:p-6 dark:bg-panel/90">
@@ -289,7 +290,7 @@ function ShortcutRow({
   alternativeKeys,
   description,
   subDescription,
-}: ShortcutRowProps) {
+}: ShortcutRowProps): React.ReactElement {
   return (
     <div className="flex flex-col justify-between gap-3 rounded-lg border-b border-line/10 px-4 py-3 text-sm transition-all duration-150 last:border-b-0 hover:bg-muted/15 sm:flex-row sm:items-center">
       {/* Left Column: Description & SubDescription */}
@@ -297,7 +298,7 @@ function ShortcutRow({
         <span className="leading-normal font-semibold break-keep text-foreground/90 dark:text-foreground/95">
           {description}
         </span>
-        {subDescription && (
+        {subDescription !== undefined && subDescription !== "" && (
           <span className="text-[11.5px] leading-relaxed font-medium break-keep text-muted-foreground/80">
             {subDescription}
           </span>

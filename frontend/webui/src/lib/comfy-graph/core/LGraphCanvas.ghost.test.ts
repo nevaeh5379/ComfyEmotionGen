@@ -90,7 +90,7 @@ describe('LGraphCanvas ghost placement auto-pan', () => {
   it('cleans up autopan and stops responding to document pointermove on finalize', () => {
     const processMoveSpy = vi.spyOn(canvas, 'processMouseMove')
     canvas.startGhostPlacement(node)
-    expect(canvas['_autoPan']).not.toBeNull()
+    expect(canvas._autoPan).not.toBeNull()
 
     document.dispatchEvent(new MouseEvent('pointermove'))
     expect(processMoveSpy).toHaveBeenCalled()
@@ -98,7 +98,7 @@ describe('LGraphCanvas ghost placement auto-pan', () => {
     processMoveSpy.mockClear()
     canvas.finalizeGhostPlacement(false)
 
-    expect(canvas['_autoPan']).toBeNull()
+    expect(canvas._autoPan).toBeNull()
 
     document.dispatchEvent(new MouseEvent('pointermove'))
     expect(processMoveSpy).not.toHaveBeenCalled()
@@ -109,7 +109,7 @@ describe('LGraphCanvas ghost placement auto-pan', () => {
 
     canvas.linkConnector.reset()
 
-    expect(canvas['_autoPan']).not.toBeNull()
+    expect(canvas._autoPan).not.toBeNull()
     vi.advanceTimersByTime(16)
     expect(canvas.ds.offset[0]).not.toBe(0)
   })

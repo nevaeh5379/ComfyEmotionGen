@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { useCurationContext } from "./CurationContext"
 import { StatusIcon } from "./CombinationPickerHelpers"
 import { hasApproved } from "../../types/Message"
@@ -10,7 +11,7 @@ interface SidebarProps {
 export function CombinationPickerSidebar({
   selectedFilename,
   setSelectedFilename,
-}: SidebarProps) {
+}: SidebarProps): ReactNode {
   const { data } = useCurationContext()
   const { renderItems, imagesByFilename } = data
 

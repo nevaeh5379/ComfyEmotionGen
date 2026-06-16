@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react"
+import React, { useState, useCallback, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { XIcon, ImageOff } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
@@ -37,7 +37,7 @@ export function ImageViewer({
   onClose,
   alt,
   children,
-}: ImageViewerProps) {
+}: ImageViewerProps): React.ReactElement | null {
   /* ---- 1. Refs & State ---- */
   const zoomRef = useRef(MIN_ZOOM)
   const panRef = useRef({ x: 0, y: 0 })
@@ -148,9 +148,10 @@ export function ImageViewer({
     return MIN_ZOOM
   }, [])
 
-  const prevZoomStep = useCallback((current: number) => {
+  const prevZoomStep = useCallback((current: number): number => {
     for (let i = ZOOM_STEPS.length - 1; i >= 0; i--) {
-      if (ZOOM_STEPS[i]! < current) return ZOOM_STEPS[i]!
+      const step = ZOOM_STEPS[i]
+      if (step !== undefined && step < current) return step
     }
     return MIN_ZOOM
   }, [])
@@ -209,8 +210,7 @@ export function ImageViewer({
       const ch = el.clientHeight
       const fitScale = Math.min(cw / imgNatural.w, ch / imgNatural.h, 1)
 
-      // Convert container‑space drag coords → image‑space (0..1)
-      const toImg = (cx: number, cy: number) => ({
+      const toImg = (cx: number, cy: number): { x: number; y: number } => ({
         x: (cx - r.imgLeft) / r.imgW,
         y: (cy - r.imgTop) / r.imgH,
       })
@@ -401,10 +401,10 @@ export function ImageViewer({
 
   /* ---- 6. Effects ---- */
   useEffect(() => {
-    const onResize = () =>
+    const onResize = (): void =>
       { setWinSize({ w: window.innerWidth, h: window.innerHeight }); }
     window.addEventListener("resize", onResize)
-    return () => { window.removeEventListener("resize", onResize); }
+    return (): void => { window.removeEventListener("resize", onResize); }
   }, [])
 
   /* lock body scroll when open */
@@ -416,7 +416,7 @@ export function ImageViewer({
       }
       const originalStyle = document.body.style.overflow
       document.body.style.overflow = "hidden"
-      return () => {
+      return (): void => {
         document.body.style.overflow = originalStyle
       }
     }
@@ -448,14 +448,14 @@ export function ImageViewer({
         draggingRef.current = false
         shiftSelectRef.current = false
       }
-      return () => { clearTimeout(timer); }
+      return (): void => { clearTimeout(timer); }
     }
     return undefined
   }, [isOpen, setZoomAndRef, setPanAndRef])
 
   /* track Shift key globally */
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
+      const down = (e: KeyboardEvent): void => {
       if (e.key === "Escape") {
         onClose()
         return
@@ -465,7 +465,7 @@ export function ImageViewer({
         setShiftHeld(true)
       }
     }
-    const up = (e: KeyboardEvent) => {
+      const up = (e: KeyboardEvent): void => {
       if (e.key === "Shift") {
         shiftHeldRef.current = false
         setShiftHeld(false)
@@ -473,7 +473,7 @@ export function ImageViewer({
     }
     window.addEventListener("keydown", down)
     window.addEventListener("keyup", up)
-    return () => {
+    return (): void => {
       window.removeEventListener("keydown", down)
       window.removeEventListener("keyup", up)
     }
@@ -483,7 +483,7 @@ export function ImageViewer({
     if (dragging) {
       window.addEventListener("mousemove", onWindowMouseMove)
       window.addEventListener("mouseup", onWindowMouseUp)
-      return () => {
+      return (): void => {
         window.removeEventListener("mousemove", onWindowMouseMove)
         window.removeEventListener("mouseup", onWindowMouseUp)
       }
@@ -506,10 +506,10 @@ export function ImageViewer({
   const selRect: React.CSSProperties | undefined =
     dragging && shiftSelect
       ? {
-          left: `${Math.min(dragStart.x, dragCurrent.x)}px`,
-          top: `${Math.min(dragStart.y, dragCurrent.y)}px`,
-          width: `${Math.abs(dragCurrent.x - dragStart.x)}px`,
-          height: `${Math.abs(dragCurrent.y - dragStart.y)}px`,
+          left: `${String(Math.min(dragStart.x, dragCurrent.x))}px`,
+          top: `${String(Math.min(dragStart.y, dragCurrent.y))}px`,
+          width: `${String(Math.abs(dragCurrent.x - dragStart.x))}px`,
+          height: `${String(Math.abs(dragCurrent.y - dragStart.y))}px`,
         }
       : undefined
 
@@ -540,11 +540,11 @@ export function ImageViewer({
         <div
           ref={containerRef}
           className="relative flex-shrink-0 overflow-hidden"
-          style={(() => {
+          style={(function(): React.CSSProperties {
             const base: React.CSSProperties = { cursor }
             if (imgNatural.w === 0 || imgNatural.h === 0) return base
             const aspect = imgNatural.w / imgNatural.h
-            const barH = children ? 50 : 0
+            const barH = children !== undefined ? 50 : 0
             const maxW = Math.round(winSize.w * 0.92)
             const maxH = Math.round(winSize.h * 0.92) - barH
             let w = maxW
@@ -568,7 +568,7 @@ export function ImageViewer({
               alt={alt ?? "확대 이미지"}
               className="max-h-full max-w-full select-none"
               style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transform: `translate(${String(pan.x)}px, ${String(pan.y)}px) scale(${String(zoom)})`,
                 transformOrigin: "center center",
                 transition: dragging ? "none" : "transform 0.15s ease-out",
                 opacity: imgStatus === "loaded" ? 1 : 0,
@@ -617,8 +617,8 @@ export function ImageViewer({
                 width: lensSize,
                 height: lensSize,
                 backgroundImage: `url(${src})`,
-                backgroundPosition: `${lensBgPos.x}px ${lensBgPos.y}px`,
-                backgroundSize: `${imgNatural.w * lensZoom}px ${imgNatural.h * lensZoom}px`,
+                backgroundPosition: `${String(lensBgPos.x)}px ${String(lensBgPos.y)}px`,
+                backgroundSize: `${String(imgNatural.w * lensZoom)}px ${String(imgNatural.h * lensZoom)}px`,
                 backgroundRepeat: "no-repeat",
                 borderRadius:
                   lensShape === "circle" ? "50%" : "var(--radius-sm)",
@@ -739,7 +739,7 @@ export function ImageViewer({
           </div>
         </div>
 
-        {children && (
+        {children !== undefined && (
           <div className="flex items-center justify-center gap-3 border-t border-white/10 bg-black/60 px-6 py-4">
             {children}
           </div>

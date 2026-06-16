@@ -919,9 +919,9 @@ export class LGraphNode
         ) {
           const propValue = this.properties[w.options.property] as NodeProperty
           if (propValue !== null && typeof propValue === 'object') {
-            w.value = structuredClone(propValue) as TWidgetValue
+            w.value = structuredClone(propValue)
           } else {
-            w.value = propValue as TWidgetValue
+            w.value = propValue
           }
         }
       }

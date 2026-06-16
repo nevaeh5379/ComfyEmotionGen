@@ -1,3 +1,4 @@
+import React from "react"
 import { Accordion as AccordionPrimitive } from "radix-ui"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -25,7 +26,7 @@ export function CollapseSection({
   actions,
   children,
   className,
-}: CollapseSectionProps) {
+}: CollapseSectionProps): React.ReactElement {
   return (
     <AccordionPrimitive.Root
       type="single"
@@ -45,17 +46,17 @@ export function CollapseSection({
                 open ? "" : "-rotate-90"
               )}
             />
-            {icon && <span className="shrink-0 text-ink-2">{icon}</span>}
+            {icon !== null && icon !== undefined && <span className="shrink-0 text-ink-2">{icon}</span>}
             <span className="text-xs font-semibold whitespace-nowrap">
               {title}
             </span>
-            {meta && (
+            {meta !== null && meta !== undefined && (
               <span className="flex items-center gap-1.5 text-[11px] whitespace-nowrap text-muted-foreground">
                 {meta}
               </span>
             )}
           </AccordionPrimitive.Trigger>
-          {actions && (
+          {actions !== null && actions !== undefined && (
             <div
               className="flex items-center"
               onClick={(e) => { e.stopPropagation(); }}

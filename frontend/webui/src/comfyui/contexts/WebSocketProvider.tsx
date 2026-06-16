@@ -8,7 +8,7 @@
  * 자동 재연결(지수 백오프). 백엔드 URL이 바뀌면 끊고 재연결.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { BackendEvent, JobView, WorkerView } from "../types/Message"
 import {
   DEFAULT_BACKEND_URL,
@@ -36,18 +36,21 @@ interface ProviderProps {
 
 const readStoredBackendUrl = (): string => {
   // 패키지 모드: 런처 주입 URL 강제. localStorage 무시 (포트가 매 실행마다 바뀜).
-  if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL!
+  if (IS_PACKAGE_MODE) {
+    if (PACKAGE_BACKEND_URL === null) throw new Error("unreachable: IS_PACKAGE_MODE implies non-null URL")
+    return PACKAGE_BACKEND_URL
+  }
   try {
-    return localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
+    return localStorage.getItem(STORAGE_KEYS.backendUrl) ?? DEFAULT_BACKEND_URL
   } catch {
     return DEFAULT_BACKEND_URL
   }
 }
 
-export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
+export const WebSocketProvider = ({ children, backendUrl }: ProviderProps): React.ReactElement => {
   useRenderLog("WebSocketProvider")
   const [storedUrl, setStoredUrl] = useState<string>(readStoredBackendUrl)
-  const url = backendUrl !== undefined ? backendUrl : storedUrl
+  const url = backendUrl ?? storedUrl
   const [isConnected, setIsConnected] = useState(false)
   const [jobs, setJobs] = useState<JobView[]>([])
   const [workers, setWorkers] = useState<WorkerView[]>([])
@@ -56,12 +59,12 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const [workerPreviews, setWorkerPreviews] = useState<Record<string, number>>({})
 
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.backendUrl && e.newValue)
+    const onStorage = (e: StorageEvent): void => {
+      if (e.key === STORAGE_KEYS.backendUrl && e.newValue !== null)
         setStoredUrl(e.newValue)
     }
     window.addEventListener("storage", onStorage)
-    return () => { window.removeEventListener("storage", onStorage); }
+    return (): void => { window.removeEventListener("storage", onStorage); }
   }, [])
 
   const socketRef = useRef<WebSocket | null>(null)
@@ -141,7 +144,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
       const wsUrl = `${httpToWs(url)}${API.ws.events}`
 
-      const connect = () => {
+      const connect = (): void => {
         // 유효하지 않은 URL이면 재연결 타이머만 돌림
         if (!wsUrl) {
           console.warn("[backend] invalid URL, skipping connection")
@@ -175,7 +178,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
         socketRef.current = socket
 
-        socket.onopen = () => {
+        socket.onopen = (): void => {
           setIsConnected(true)
           backoff = WS_INITIAL_BACKOFF_MS
           console.info("[backend] connected")
@@ -188,10 +191,10 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
               )
               populateSettingsCache(filtered)
             }
-          }).catch((err) => { console.warn("[WebSocket] 설정 동기화 실패:", err); })
+          }).catch((err: unknown) => { console.warn("[WebSocket] 설정 동기화 실패:", err); })
         }
 
-        socket.onmessage = (e) => {
+        socket.onmessage = (e): void => {
           if (typeof e.data !== "string") return
           try {
             const event = JSON.parse(e.data) as BackendEvent
@@ -201,12 +204,12 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
           }
         }
 
-        socket.onerror = () => {
+        socket.onerror = (): void => {
           // close가 따로 호출되니 여기서는 로깅만
           console.warn("[WebSocket] 에러 발생")
         }
 
-        socket.onclose = () => {
+        socket.onclose = (): void => {
           setIsConnected(false)
           socketRef.current = null
           if (!shouldReconnectRef.current) return
@@ -223,7 +226,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
       connect()
 
-      return () => {
+      return (): void => {
         shouldReconnectRef.current = false
         if (reconnectTimerRef.current !== null) {
           clearTimeout(reconnectTimerRef.current)

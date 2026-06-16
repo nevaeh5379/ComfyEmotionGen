@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,7 +25,7 @@ export const NameConflictDialog = ({
   newName,
   onSaveNew,
   onOverwrite,
-}: NameConflictDialogProps) => (
+}: NameConflictDialogProps): ReactNode => (
   <Dialog
     open={pendingSave !== null}
     onOpenChange={(open) => {

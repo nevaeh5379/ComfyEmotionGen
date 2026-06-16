@@ -1,3 +1,4 @@
+import * as React from "react"
 import {
   HoverCard,
   HoverCardContent,
@@ -26,7 +27,7 @@ const StatusHoverCard = ({
   hoverAlign = "start",
   hoverWidth = "w-56",
   children,
-}: StatusHoverCardProps) => (
+}: StatusHoverCardProps): React.ReactElement => (
   <HoverCard openDelay={200} closeDelay={100}>
     <HoverCardTrigger asChild>
       <div className="w-fit cursor-help">
@@ -68,7 +69,7 @@ export const ServerStatus = ({
   isConnected,
   okHint,
   failHint,
-}: ServerStatusProps) => {
+}: ServerStatusProps): React.ReactElement => {
   const color = isConnected ? "bg-green-500" : "bg-red-500"
 
   return (
@@ -94,7 +95,7 @@ interface WorkerStatusProps {
   jobs: JobView[]
 }
 
-export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps) => {
+export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps): React.ReactElement => {
   const aliveCount = workers.filter((w) => w.alive).length
   const total = workers.length
   const allAlive = backendAlive && total > 0 && aliveCount === total
@@ -104,7 +105,7 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
     : someAlive
       ? "bg-yellow-500"
       : "bg-red-500"
-  const workerTypes = [...new Set(workers.map((w) => w.workerType ?? "comfyui"))]
+  const workerTypes = [...new Set(workers.map((w) => w.workerType))]
   const typeLabel = workerTypes.length === 1
     ? workerTypes[0] === "comfyui" ? "ComfyUI 워커" : workerTypes[0]
     : "워커"
@@ -145,7 +146,7 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
         {workers.map((w) => {
           const runningJob = jobs.find(
             (j) => j.workerId === w.id && (j.status === "running" || j.status === "queued")
-          ) || (w.currentJobId ? jobs.find((j) => j.id === w.currentJobId) : undefined)
+          ) ?? (w.currentJobId !== null && w.currentJobId !== "" ? jobs.find((j) => j.id === w.currentJobId) : undefined)
           const overallProgress = runningJob ? getOverallProgress(runningJob) : 0
 
           return (
@@ -156,7 +157,7 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
               <div className="flex items-center justify-between gap-1 text-xs">
                 <span className="font-mono font-bold shrink-0">{w.id}</span>
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground shrink-0">
-                  {w.workerType ?? "comfyui"}
+                  {w.workerType}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-left text-muted-foreground/80 pl-1">
                   {w.url}

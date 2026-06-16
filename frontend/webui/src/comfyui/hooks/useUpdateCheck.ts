@@ -13,7 +13,7 @@ export function useUpdateCheck(
     if (IS_LOCAL_DEV) return null
     const cacheKey = `ceg_update_check_${BUNDLE_VERSION}_${effectiveChannel}`
     const cached = sessionStorage.getItem(cacheKey)
-    return cached ? (JSON.parse(cached) as UpdateInfo) : null
+    return cached !== null && cached !== "" ? (JSON.parse(cached) as UpdateInfo) : null
   })
 
   useEffect(() => {
@@ -33,8 +33,8 @@ export function useUpdateCheck(
       if (!active) return
       sessionStorage.setItem(cacheKey, info ? JSON.stringify(info) : "")
       setUpdate(info)
-    }).catch((err) => { console.warn("업데이트 확인 실패:", err); })
-    return () => {
+    }).catch((err: unknown): void => { console.warn("업데이트 확인 실패:", err); })
+    return (): void => {
       active = false
     }
   }, [effectiveChannel])

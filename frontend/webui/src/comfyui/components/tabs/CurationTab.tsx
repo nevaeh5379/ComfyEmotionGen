@@ -36,12 +36,12 @@ export function CurationTab({
   fluidGridLayout,
   curationSelectedAxis,
   setCurationSelectedAxis,
-}: CurationTabProps) {
+}: CurationTabProps): React.ReactElement {
   const toolbarState: CurationToolbarState = {
     selectedAxis: curationSelectedAxis,
     setSelectedAxis: setCurationSelectedAxis,
     viewMode: "gallery" as const,
-    setViewMode: () => {},
+    setViewMode: () => undefined,
     hideTopSection: true,
   }
 

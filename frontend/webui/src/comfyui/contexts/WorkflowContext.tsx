@@ -109,7 +109,7 @@ export function WorkflowProvider({
   const saveWorkflow = useCallback(
     (name: string, workflowContent: string) => {
       const res = originalSaveWorkflow(name, workflowContent)
-      saveWorkflowToServer()
+      void saveWorkflowToServer()
       return res
     },
     [originalSaveWorkflow, saveWorkflowToServer]
@@ -141,10 +141,13 @@ export function WorkflowProvider({
   ) => {
     setWorkflowJson(w.workflow)
     setActiveWorkflowId(w.id)
-    if (!w.mappingPresets || w.mappingPresets.length === 0) {
+    if (w.mappingPresets.length === 0) {
       onClearMappings()
     } else if (w.mappingPresets.length === 1) {
-      onSetMappings(w.mappingPresets[0]!.mappings, w.mappingPresets[0]!.id)
+      const preset = w.mappingPresets[0]
+      if (preset) {
+        onSetMappings(preset.mappings, preset.id)
+      }
     } else {
       setPendingPresetSelection(w)
     }

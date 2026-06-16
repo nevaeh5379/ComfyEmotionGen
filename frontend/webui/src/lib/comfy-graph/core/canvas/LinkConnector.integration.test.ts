@@ -223,7 +223,7 @@ describe('LinkConnector Integration', () => {
 
       const reroutesBefore = LLink.getReroutes(
         graph,
-        graph.links.get(hasInputNode.inputs[0].link!)!
+        graph.links.get(hasInputNode.inputs[0].link)
       )
 
       connector.moveInputLink(graph, hasInputNode.inputs[0])
@@ -250,7 +250,7 @@ describe('LinkConnector Integration', () => {
 
       const reroutesAfter = LLink.getReroutes(
         graph,
-        graph.links.get(disconnectedNode.inputs[0].link!)!
+        graph.links.get(disconnectedNode.inputs[0].link)
       )
       expect(reroutesAfter).toEqual(reroutesBefore)
     })
@@ -264,7 +264,7 @@ describe('LinkConnector Integration', () => {
 
       const floatingLink = graph.floatingLinks.values().next().value!
       expect(floatingLink).toBeInstanceOf(LLink)
-      const floatingReroute = graph.reroutes.get(floatingLink.parentId!)!
+      const floatingReroute = graph.reroutes.get(floatingLink.parentId)!
 
       const disconnectedNode = graph.getNodeById(9)!
       connector.dragFromReroute(graph, floatingReroute)
@@ -348,7 +348,7 @@ describe('LinkConnector Integration', () => {
 
       const reroutesBefore = LLink.getReroutes(
         graph,
-        graph.links.get(hasInputNode.inputs[0].link!)!
+        graph.links.get(hasInputNode.inputs[0].link)
       )
 
       const atOutputNodeEvent = mockedNodeTitleDropEvent(hasOutputNode)
@@ -362,7 +362,7 @@ describe('LinkConnector Integration', () => {
 
       const reroutesAfter = LLink.getReroutes(
         graph,
-        graph.links.get(hasInputNode.inputs[0].link!)!
+        graph.links.get(hasInputNode.inputs[0].link)
       )
       expect(reroutesAfter).toEqual(reroutesBefore)
     })
@@ -377,7 +377,7 @@ describe('LinkConnector Integration', () => {
       const originalOutputNodes = hasOutputNode.getOutputNodes(0)
       const reroutesBefore = LLink.getReroutes(
         graph,
-        graph.links.get(hasInputNode.inputs[0].link!)!
+        graph.links.get(hasInputNode.inputs[0].link)
       )
 
       const atHasOutputNode = mockedInputDropEvent(hasOutputNode, 0)
@@ -391,7 +391,7 @@ describe('LinkConnector Integration', () => {
 
       const reroutesAfter = LLink.getReroutes(
         graph,
-        graph.links.get(hasInputNode.inputs[0].link!)!
+        graph.links.get(hasInputNode.inputs[0].link)
       )
       expect(reroutesAfter).toEqual(reroutesBefore)
     })
@@ -587,7 +587,7 @@ describe('LinkConnector Integration', () => {
           .sort((a, b) => a.at(-1)!.id - b.at(-1)!.id)
 
       const reroutesBefore = toSortedRerouteChain(
-        manyOutputsNode.outputs[0].links!
+        manyOutputsNode.outputs[0].links
       )
 
       connector.moveOutputLink(graph, manyOutputsNode.outputs[0])
@@ -605,7 +605,7 @@ describe('LinkConnector Integration', () => {
       connector.reset()
 
       const reroutesAfter = toSortedRerouteChain(
-        manyOutputsNode.outputs[0].links!
+        manyOutputsNode.outputs[0].links
       )
       expect(reroutesAfter).toEqual(reroutesBefore)
 
@@ -622,7 +622,7 @@ describe('LinkConnector Integration', () => {
 
       const reroutesBefore = LLink.getReroutes(
         graph,
-        graph.links.get(hasOutputNode.outputs[0].links![0])!
+        graph.links.get(hasOutputNode.outputs[0].links![0])
       )
 
       const atInputNodeEvent = mockedNodeTitleDropEvent(hasInputNode)
@@ -637,14 +637,14 @@ describe('LinkConnector Integration', () => {
       // Moved link should have the same reroutes
       const reroutesAfter = LLink.getReroutes(
         graph,
-        graph.links.get(hasInputNode.outputs[0].links![0])!
+        graph.links.get(hasInputNode.outputs[0].links![0])
       )
       expect(reroutesAfter).toEqual(reroutesBefore)
 
       // Link recreated to avoid loopback should have no reroutes
       const reroutesAfter2 = LLink.getReroutes(
         graph,
-        graph.links.get(hasOutputNode.outputs[0].links![0])!
+        graph.links.get(hasOutputNode.outputs[0].links![0])
       )
       expect(reroutesAfter2).toEqual([])
     })
@@ -658,7 +658,7 @@ describe('LinkConnector Integration', () => {
 
       const reroutesBefore = LLink.getReroutes(
         graph,
-        graph.links.get(hasOutputNode.outputs[0].links![0])!
+        graph.links.get(hasOutputNode.outputs[0].links![0])
       )
 
       const atInputNodeOutSlot = mockedOutputDropEvent(hasInputNode, 0)
@@ -673,14 +673,14 @@ describe('LinkConnector Integration', () => {
       // Moved link should have the same reroutes
       const reroutesAfter = LLink.getReroutes(
         graph,
-        graph.links.get(hasInputNode.outputs[0].links![0])!
+        graph.links.get(hasInputNode.outputs[0].links![0])
       )
       expect(reroutesAfter).toEqual(reroutesBefore)
 
       // Link recreated to avoid loopback should have no reroutes
       const reroutesAfter2 = LLink.getReroutes(
         graph,
-        graph.links.get(hasOutputNode.outputs[0].links![0])!
+        graph.links.get(hasOutputNode.outputs[0].links![0])
       )
       expect(reroutesAfter2).toEqual([])
     })
@@ -864,7 +864,7 @@ describe('LinkConnector Integration', () => {
     }
   })
 
-  type TestData = {
+  interface TestData {
     /** Drop link on this reroute */
     targetRerouteId: number
     /** Parent reroutes of the target reroute */
@@ -986,7 +986,7 @@ describe('LinkConnector Integration', () => {
     }
   )
 
-  type ReconnectTestData = {
+  interface ReconnectTestData {
     /** Drag link from this reroute */
     fromRerouteId: number
     /** Drop link on this reroute */

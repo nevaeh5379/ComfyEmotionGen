@@ -58,7 +58,7 @@ describe('SubgraphSlot visual feedback', () => {
       defaultOutputColor: '#00FF00',
       getConnectedColor: vi.fn().mockReturnValue('#0000FF'),
       getDisconnectedColor: vi.fn().mockReturnValue('#AAAAAA')
-    } as Partial<MockColorContext> as MockColorContext
+    }
   })
 
   it('should render SubgraphInput slots with full opacity when dragging from compatible slot', () => {

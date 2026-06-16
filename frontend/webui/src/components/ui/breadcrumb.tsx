@@ -45,7 +45,7 @@ const BreadcrumbLink = React.forwardRef<
     asChild?: boolean
   }
 >(({ asChild, className, ...props }, ref) => {
-  const Comp = asChild ? Slot.Root : "a"
+  const Comp = asChild === true ? Slot.Root : "a"
 
   return (
     <Comp
@@ -79,7 +79,7 @@ const BreadcrumbSeparator = ({
   children,
   className,
   ...props
-}: React.ComponentProps<"li">) => (
+}: React.ComponentProps<"li">): React.ReactElement => (
   <li
     role="presentation"
     aria-hidden="true"
@@ -94,7 +94,7 @@ BreadcrumbSeparator.displayName = "BreadcrumbSeparator"
 const BreadcrumbEllipsis = ({
   className,
   ...props
-}: React.ComponentProps<"span">) => (
+}: React.ComponentProps<"span">): React.ReactElement => (
   <span
     role="presentation"
     aria-hidden="true"

@@ -76,7 +76,7 @@ export function ImageGrid({
   onFocus,
   thumbnailSize,
   fluidGridLayout = true,
-}: GridProps) {
+}: GridProps): React.ReactElement {
   const [brokenHashes, setBrokenHashes] = useState<Set<string>>(new Set())
 
   const handleSetBroken = useCallback((hash: string) => {
@@ -108,8 +108,8 @@ export function ImageGrid({
       className="grid items-start gap-3 sm:gap-4"
       style={{
         gridTemplateColumns: fluidGridLayout
-          ? `repeat(auto-fill, minmax(${thumbnailSize ?? 180}px, 1fr))`
-          : `repeat(auto-fill, ${thumbnailSize ?? 180}px)`,
+          ? `repeat(auto-fill, minmax(${String(thumbnailSize ?? 180)}px, 1fr))`
+          : `repeat(auto-fill, ${String(thumbnailSize ?? 180)}px)`,
       }}
     >
       {items.map((img) => {
@@ -363,15 +363,15 @@ const ImageGridItem = memo(function ImageGridItem({
               if (img.workflow) {
                 workflowStr = JSON.stringify(img.workflow, null, 2)
               } else if (img.prompt) {
-                const parsed = JSON.parse(img.prompt)
+                const parsed = JSON.parse(img.prompt) as Record<string, unknown>
                 workflowStr = JSON.stringify(parsed, null, 2)
               }
               if (workflowStr) {
-                navigator.clipboard.writeText(workflowStr).catch(() => {})
+                navigator.clipboard.writeText(workflowStr).catch(() => undefined)
               }
             } catch {
               if (img.prompt) {
-                navigator.clipboard.writeText(img.prompt).catch(() => {})
+                navigator.clipboard.writeText(img.prompt).catch(() => undefined)
               }
             }
           }}
@@ -383,13 +383,13 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
-            if (img.tags && img.tags.length > 0) {
+            if (img.tags.length > 0) {
               navigator.clipboard
                 .writeText(img.tags.join(", "))
-                .catch(() => {})
+                .catch(() => undefined)
             }
           }}
-          disabled={!img.tags || img.tags.length === 0}
+          disabled={img.tags.length === 0}
           className="gap-2 font-bold"
         >
           <Tag className="h-3.5 w-3.5" />
@@ -414,7 +414,7 @@ const ImageGridItem = memo(function ImageGridItem({
         <ContextMenuItem
           onClick={() => {
             const url = `${backendUrl}/saved-images/${img.hash}`
-            navigator.clipboard.writeText(url).catch(() => {})
+            navigator.clipboard.writeText(url).catch(() => undefined)
           }}
           className="gap-2 font-bold"
         >

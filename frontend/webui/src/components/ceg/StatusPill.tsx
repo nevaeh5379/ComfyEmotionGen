@@ -20,8 +20,8 @@ interface StatusPillProps {
   className?: string
 }
 
-export function StatusPill({ status, className }: StatusPillProps) {
-  const s = (STATUS_MAP[status] ?? STATUS_MAP.done)!
+export function StatusPill({ status, className }: StatusPillProps): React.ReactElement {
+  const s = STATUS_MAP[status] ?? STATUS_MAP.done
   return (
     <span
       className={cn(

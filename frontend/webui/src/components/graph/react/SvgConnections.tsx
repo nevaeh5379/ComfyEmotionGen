@@ -6,7 +6,7 @@
  * getBoundingClientRect로 얻은 화면 좌표를 zoom으로 나눠 SVG 좌표계로 변환합니다.
  */
 
-import { useLayoutEffect, useRef, useState } from "react"
+import React, { useLayoutEffect, useRef, useState } from "react"
 import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
 import type { ComfyWorkflowNode } from "@/lib/comfy-graph/types/workflow"
 
@@ -30,21 +30,21 @@ function queryPin(
 ): HTMLElement | null {
   // 1. Exact match by nodeId + type + index
   const exact = container.querySelector(
-    `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"][data-slot-index="${slotIdx}"]`
+    `[data-slot-node-id="${String(nodeId)}"][data-slot-type="${slotType}"][data-slot-index="${String(slotIdx)}"]`
   )
-  if (exact) return exact as HTMLElement
+  if (exact !== null) return exact as HTMLElement
 
   // 2. Fallback: try matching by slot name if provided
-  if (slotName) {
+  if (slotName !== undefined && slotName !== "") {
     const byName = container.querySelector(
-      `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"][data-slot-name="${slotName}"]`
+      `[data-slot-node-id="${String(nodeId)}"][data-slot-type="${slotType}"][data-slot-name="${slotName}"]`
     )
-    if (byName) return byName as HTMLElement
+    if (byName !== null) return byName as HTMLElement
   }
 
   // 3. Fallback: find closest pin within this node (any index)
   const anySlot = container.querySelector(
-    `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"]`
+    `[data-slot-node-id="${String(nodeId)}"][data-slot-type="${slotType}"]`
   )
   return anySlot as HTMLElement | null
 }
@@ -55,7 +55,7 @@ interface PathData {
   color: string
 }
 
-export function SvgConnections() {
+export function SvgConnections(): React.ReactElement {
   const svgRef = useRef<SVGSVGElement>(null)
   const [paths, setPaths] = useState<PathData[]>([])
 
@@ -70,7 +70,7 @@ export function SvgConnections() {
 
     const containerRect = container.getBoundingClientRect()
     const nodeMap = new Map<number, ComfyWorkflowNode>()
-    if (nodes) for (const n of nodes) nodeMap.set(n.id, n)
+    for (const n of nodes) nodeMap.set(n.id, n)
 
     const newPaths: PathData[] = []
 
@@ -94,7 +94,7 @@ export function SvgConnections() {
       const dx = x2 - x1
       const curve = Math.max(Math.abs(dx) * 0.55, 50)
 
-      const d = `M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}`
+      const d = `M ${String(x1)} ${String(y1)} C ${String(x1 + curve)} ${String(y1)}, ${String(x2 - curve)} ${String(y2)}, ${String(x2)} ${String(y2)}`
       const color = linkColor(link.type)
 
       newPaths.push({ id: link.id, d, color })
@@ -117,7 +117,7 @@ export function SvgConnections() {
       </defs>
 
       {paths.map((lp) => (
-        <g key={`link-${lp.id}`} className="pointer-events-auto group">
+        <g key={`link-${String(lp.id)}`} className="pointer-events-auto group">
           <path
             d={lp.d}
             fill="none"

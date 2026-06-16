@@ -23,8 +23,8 @@ async function fetchWebhooks(backendUrl: string): Promise<WebhookConfig[]> {
   try {
     const res = await fetch(`${backendUrl}${API.webhooks.root}`)
     if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-    const data = await res.json()
-    return data.configs ?? []
+    const data = (await res.json()) as { configs: WebhookConfig[] }
+    return data.configs
   } catch (err) {
     console.error("Failed to fetch webhooks:", err)
     toast.error("웹훅 목록 불러오기에 실패했습니다.")
@@ -123,7 +123,16 @@ async function testConfigInternal(
 
 // ── Sync callbacks (useCallback + async internal) ────────────────
 
-export const useWebhooks = (backendUrl: string) => {
+export const useWebhooks = (backendUrl: string): {
+  configs: WebhookConfig[]
+  isLoading: boolean
+  addConfig: (payload: { name: string; channel_type: ChannelType; url: string; events: string[]; enabled: boolean; include_image: boolean }) => Promise<boolean>
+  updateConfig: (id: string, payload: { name?: string; channel_type?: ChannelType; url?: string; events?: string[]; enabled?: boolean; include_image?: boolean }) => Promise<boolean>
+  deleteConfig: (id: string) => Promise<boolean>
+  testConfig: (id: string) => Promise<boolean>
+  load: () => Promise<void>
+  allEvents: readonly string[]
+} => {
   const [configs, setConfigs] = useState<WebhookConfig[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const initialized = useRef(false)
@@ -131,14 +140,14 @@ export const useWebhooks = (backendUrl: string) => {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
-    fetchWebhooks(backendUrl).then(setConfigs)
+    void fetchWebhooks(backendUrl).then(setConfigs)
   }, [backendUrl])
 
   const backendUrlRef = useLatestRef(backendUrl)
 
   const load = useCallback(async () => {
     setConfigs(await fetchWebhooks(backendUrlRef.current))
-  }, [])
+  }, [backendUrlRef])
 
   const addConfig = useCallback(
     async (payload: {
@@ -153,7 +162,7 @@ export const useWebhooks = (backendUrl: string) => {
       if (ok) await load()
       return ok
     },
-    [load]
+    [load, backendUrlRef]
   )
 
   const updateConfig = useCallback(
@@ -172,7 +181,7 @@ export const useWebhooks = (backendUrl: string) => {
       if (ok) await load()
       return ok
     },
-    [load]
+    [load, backendUrlRef]
   )
 
   const deleteConfig = useCallback(
@@ -181,7 +190,7 @@ export const useWebhooks = (backendUrl: string) => {
       if (ok) await load()
       return ok
     },
-    [load]
+    [load, backendUrlRef]
   )
 
   const testConfig = useCallback(async (id: string) => {
@@ -194,7 +203,7 @@ export const useWebhooks = (backendUrl: string) => {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [backendUrlRef])
 
   return {
     configs,

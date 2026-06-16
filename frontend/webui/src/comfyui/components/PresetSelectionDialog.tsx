@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -21,7 +22,7 @@ export const PresetSelectionDialog = ({
   onClose,
   onSelectPreset,
   onStartWithoutMapping,
-}: PresetSelectionDialogProps) => (
+}: PresetSelectionDialogProps): ReactNode => (
   <Dialog
     open={pendingWorkflow !== null}
     onOpenChange={(open) => {

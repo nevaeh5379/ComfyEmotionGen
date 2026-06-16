@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
+import type React from "react"
 import { Search, X, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -53,7 +54,7 @@ export const TagInputSearch = memo(function TagInputSearch({
 
   // Handle click outside to close the dropdown
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent): void {
       if (
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
@@ -62,7 +63,7 @@ export const TagInputSearch = memo(function TagInputSearch({
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
-    return () => {
+    return (): void => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [])
@@ -100,9 +101,11 @@ export const TagInputSearch = memo(function TagInputSearch({
           activeIndex >= 0 &&
           activeIndex < candidates.length
         ) {
-          const cand = candidates[activeIndex]!
-          onAddTag(getPrefix(cand.type) + cand.value)
-          setIsOpen(false)
+          const cand = candidates[activeIndex]
+          if (cand) {
+            onAddTag(getPrefix(cand.type) + cand.value)
+            setIsOpen(false)
+          }
         } else {
           const trimmed = value.trim()
           if (trimmed) {
@@ -134,14 +137,17 @@ export const TagInputSearch = memo(function TagInputSearch({
         e.preventDefault()
         setIsOpen(false)
       } else if (e.key === "Backspace" && !value && tags.length > 0) {
-        onRemoveTag(tags[tags.length - 1]!)
+        const lastTag = tags[tags.length - 1]
+        if (lastTag !== undefined) {
+          onRemoveTag(lastTag)
+        }
       }
     },
     [candidates, tags, value, activeIndex, isOpen, onAddTag, onRemoveTag]
   )
 
   // Highlight matching characters by making them bold
-  const renderHighlight = (text: string, query: string) => {
+  const renderHighlight = (text: string, query: string): React.ReactElement => {
     const cleanQuery = query.replace(/^[@#$]/, "").toLowerCase()
     if (!cleanQuery) return <span>{text}</span>
     const index = text.toLowerCase().indexOf(cleanQuery)

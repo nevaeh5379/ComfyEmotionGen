@@ -1,6 +1,6 @@
 import { PACKAGE_BACKEND_URL } from "./runtime"
 
-const backendUrl = PACKAGE_BACKEND_URL || ""
+const backendUrl = PACKAGE_BACKEND_URL ?? ""
 
 export function reportClientError(
   level: "info" | "warning" | "error",
@@ -31,9 +31,9 @@ window.onerror = (
   lineno?: number,
   colno?: number,
   error?: Error
-): boolean | void => {
-  const msg = typeof message === "string" ? message : message.type
-  const stack = error ? error.stack : `${source || "unknown"}:${lineno || 0}:${colno || 0}`
+): boolean | undefined => {
+  const msg = typeof message === "string" ? message : (message).type
+  const stack = error?.stack ?? `${source ?? "unknown"}:${String(lineno ?? 0)}:${String(colno ?? 0)}`
   reportClientError("error", `Unhandled error: ${msg}`, stack)
 }
 

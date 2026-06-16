@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { TemplateGeneratorPanel } from "../TemplateGeneratorPanel"
 import type { TabId } from "../layout/nav-tabs"
 
@@ -14,7 +15,7 @@ export interface GeneratorTabProps {
 // GeneratorTab
 // ---------------------------------------------------------------------------
 
-export function GeneratorTab({ setActiveTab, backendUrl }: GeneratorTabProps) {
+export function GeneratorTab({ setActiveTab, backendUrl }: GeneratorTabProps): ReactNode {
   return (
     <div className="flex flex-1 flex-col min-h-0">
       <TemplateGeneratorPanel

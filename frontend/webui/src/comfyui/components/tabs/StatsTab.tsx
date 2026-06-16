@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { StatisticsPanel } from "../StatisticsPanel"
 import type { JobView, WorkerView } from "../../types/Message"
 
@@ -14,7 +15,7 @@ export interface StatsTabProps {
 // StatsTab
 // ---------------------------------------------------------------------------
 
-export function StatsTab({ jobs, workers }: StatsTabProps) {
+export function StatsTab({ jobs, workers }: StatsTabProps): ReactNode {
   return (
     <div className="flex flex-1 flex-col overflow-y-auto p-4 md:p-6">
       <StatisticsPanel jobs={jobs} workers={workers} />

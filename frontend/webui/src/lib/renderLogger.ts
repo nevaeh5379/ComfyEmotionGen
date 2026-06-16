@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, type DependencyList } from "react"
 
 const IS_DEV = import.meta.env.DEV
 
-export function useRenderLog(name: string) {
+export function useRenderLog(name: string): void {
   const count = useRef(0)
   const lastEnd = useRef<number | null>(null)
 
@@ -13,13 +13,13 @@ export function useRenderLog(name: string) {
     if (IS_DEV) {
       const gapStr =
         gap < 1000 ? `+${gap.toFixed(1)}ms` : `+${(gap / 1000).toFixed(1)}s`
-      console.log(`[Render] ${name} #${count.current}  gap:${gapStr}`)
+      console.log(`[Render] ${name} #${String(count.current)}  gap:${gapStr}`)
     }
     lastEnd.current = performance.now()
   })
 }
 
-export function useWatchValues(label: string, values: Record<string, unknown>) {
+export function useWatchValues(label: string, values: Record<string, unknown>): void {
   const prev = useRef<Record<string, unknown>>({})
 
   useLayoutEffect(() => {
@@ -30,7 +30,7 @@ export function useWatchValues(label: string, values: Record<string, unknown>) {
         const p = prev.current[k]
         const isArray = Array.isArray(v)
         if (isArray && Array.isArray(p)) {
-          return `${k}(arr:${p.length}→${(v as unknown[]).length})`
+          return `${k}(arr:${String((p as unknown[]).length)}→${String((v as unknown[]).length)})`
         }
         return k
       })
@@ -43,16 +43,15 @@ export function useWatchValues(label: string, values: Record<string, unknown>) {
 
 export function useEffectLog(
   label: string,
-  effect: () => void | (() => void),
+  effect: () => void,
   deps?: DependencyList
-) {
+): void {
   useEffect(() => {
-    if (!IS_DEV) return effect()
+    if (!IS_DEV) { effect(); return; }
     const tag = `[Effect] ${label}`
     console.time(tag)
-    const cleanup = effect()
+    effect()
     console.timeEnd(tag)
-    return cleanup
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 }

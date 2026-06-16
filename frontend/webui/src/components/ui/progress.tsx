@@ -7,7 +7,7 @@ function Progress({
   className,
   value,
   ...props
-}: React.ComponentProps<typeof ProgressPrimitive.Root>) {
+}: React.ComponentProps<typeof ProgressPrimitive.Root>): React.ReactElement {
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
@@ -20,7 +20,7 @@ function Progress({
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
         className="size-full flex-1 bg-primary transition-all"
-        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+        style={{ transform: `translateX(-${String(100 - (value ?? 0))}%)` }}
       />
     </ProgressPrimitive.Root>
   )

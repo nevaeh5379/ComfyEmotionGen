@@ -29,7 +29,7 @@ export function CurationProvider({
   setThumbnailSize,
   data,
   selection,
-}: CurationProviderProps) {
+}: CurationProviderProps): ReactNode {
   const value = useMemo(
     () => ({
       backendUrl,

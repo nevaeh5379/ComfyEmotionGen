@@ -363,8 +363,8 @@ describe('Rectangle', () => {
 
         let testExpected = expectedOrOuter as boolean
         if (typeof expectedOrOuter !== 'boolean') {
-          testOuter = expectedOrOuter as Rectangle
-          testExpected = expectedIfThreeArgs as boolean
+          testOuter = expectedOrOuter
+          testExpected = expectedIfThreeArgs!
         }
         expect(testOuter.containsRect(inner)).toBe(testExpected)
       }

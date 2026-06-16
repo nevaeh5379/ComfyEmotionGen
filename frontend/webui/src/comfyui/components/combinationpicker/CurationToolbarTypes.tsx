@@ -84,8 +84,8 @@ export function CurationToolbarProvider({
   const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
   const [showUnassignedPanel, setShowUnassignedPanel] = useState(false)
   const [unassignedGroupsSize, setUnassignedGroupsSize] = useState(0)
-  const exportRef = useRef<() => void>(() => {})
-  const refreshRef = useRef<() => void>(() => {})
+  const exportRef = useRef<() => void>(() => undefined)
+  const refreshRef = useRef<() => void>(() => undefined)
 
   const setViewMode = useCallback((mode: CurationViewMode) => {
     setViewModeState(mode)
@@ -94,17 +94,17 @@ export function CurationToolbarProvider({
     } else {
       setGridSubModeState(mode)
     }
-  }, [])
+  }, [setViewModeState, setListLayoutState, setGridSubModeState])
 
   const setListLayout = useCallback((layout: "gallery" | "table") => {
     setListLayoutState(layout)
     setViewModeState(layout)
-  }, [])
+  }, [setListLayoutState, setViewModeState])
 
   const setGridSubMode = useCallback((subMode: "grid" | "compare" | "tournament") => {
     setGridSubModeState(subMode)
     setViewModeState(subMode)
-  }, [])
+  }, [setGridSubModeState, setViewModeState])
 
   const setExportHandler = useCallback((fn: () => void) => {
     exportRef.current = fn

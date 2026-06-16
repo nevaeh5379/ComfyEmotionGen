@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type RefObject } from "react"
 
 /**
  * 항상 최신 값을 추적하는 ref를 반환합니다.
@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react"
  * }, [])
  * ```
  */
-export function useLatestRef<T>(value: T) {
+export function useLatestRef<T>(value: T): RefObject<T> {
   const ref = useRef(value)
   useEffect(() => {
     ref.current = value

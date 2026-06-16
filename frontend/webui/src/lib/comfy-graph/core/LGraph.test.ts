@@ -161,7 +161,7 @@ describe('Floating Links / Reroutes', () => {
     expect(graph.links.size).toBe(1)
     expect(graph.reroutes.size).toBe(0)
 
-    graph.createReroute([0, 0], graph.links.values().next().value!)
+    graph.createReroute([0, 0], graph.links.values().next().value)
     expect(graph.links.size).toBe(1)
     expect(graph.reroutes.size).toBe(1)
   })
@@ -171,7 +171,7 @@ describe('Floating Links / Reroutes', () => {
     linkedNodesGraph
   }) => {
     const graph = new LGraph(linkedNodesGraph)
-    graph.createReroute([0, 0], graph.links.values().next().value!)
+    graph.createReroute([0, 0], graph.links.values().next().value)
     graph.remove(graph.nodes[0])
 
     expect(graph.links.size).toBe(0)
@@ -185,7 +185,7 @@ describe('Floating Links / Reroutes', () => {
     linkedNodesGraph
   }) => {
     const graph = new LGraph(linkedNodesGraph)
-    graph.createReroute([0, 0], graph.links.values().next().value!)
+    graph.createReroute([0, 0], graph.links.values().next().value)
     graph.nodes[0].disconnectOutput(0)
 
     expect(graph.links.size).toBe(0)
@@ -297,7 +297,7 @@ describe('Graph Clearing and Callbacks', () => {
 
     const widgetValueStore = getWidgetValueStore()
     widgetValueStore.registerWidget(graphId, {
-      nodeId: '10' as NodeId,
+      nodeId: '10',
       name: 'seed',
       type: 'number',
       value: 1,
@@ -307,7 +307,7 @@ describe('Graph Clearing and Callbacks', () => {
       disabled: undefined
     })
 
-    expect(widgetValueStore.getWidget(graphId, '10' as NodeId, 'seed')).toEqual(
+    expect(widgetValueStore.getWidget(graphId, '10', 'seed')).toEqual(
       expect.objectContaining({ value: 1 })
     )
     expect(
@@ -317,7 +317,7 @@ describe('Graph Clearing and Callbacks', () => {
     graph.clear()
 
     expect(
-      widgetValueStore.getWidget(graphId, '10' as NodeId, 'seed')
+      widgetValueStore.getWidget(graphId, '10', 'seed')
     ).toBeUndefined()
     expect(previewExposureStore.getExposures(graphId, `${graphId}:1`)).toEqual(
       []
@@ -693,7 +693,7 @@ describe('_removeDuplicateLinks', () => {
     expect(graph._links.size).toBe(1)
     const survivingId = graph._links.keys().next().value!
     expect(target.inputs[0].link).toBe(survivingId)
-    expect(graph._links.has(target.inputs[0].link!)).toBe(true)
+    expect(graph._links.has(target.inputs[0].link)).toBe(true)
   })
 
   it('is a no-op when no duplicates exist', () => {
@@ -917,7 +917,7 @@ describe('deduplicateSubgraphNodeIds (via configure)', () => {
     const idsB = nodeIdSet(graph, SUBGRAPH_B)
 
     for (const id of SHARED_NODE_IDS) {
-      expect(idsA.has(id as NodeId)).toBe(true)
+      expect(idsA.has(id)).toBe(true)
     }
     for (const id of idsA) {
       expect(idsB.has(id)).toBe(false)

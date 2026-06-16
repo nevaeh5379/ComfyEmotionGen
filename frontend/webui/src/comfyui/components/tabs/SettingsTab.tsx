@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { SettingsPanel } from "../SettingsPanel"
 import type { AppSettings } from "../../hooks/useSettings"
 import type { WorkerView } from "../../types/Message"
@@ -27,7 +28,7 @@ export function SettingsTab({
   backendUrl,
   onBackendUrlChange,
   workers,
-}: SettingsTabProps) {
+}: SettingsTabProps): ReactNode {
   return (
     <div className="flex-1 overflow-y-auto">
       <SettingsPanel

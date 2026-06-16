@@ -1,3 +1,4 @@
+import React from "react"
 import { Download, FileCode2, Eye, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -45,9 +46,9 @@ export function CegTemplatePanel({
   onFileOpen,
   isDirty,
   onRevert,
-}: CegTemplatePanelProps) {
-  const activeName = activeTemplateId
-    ? savedTemplates.find((t) => t.id === activeTemplateId)?.name
+}: CegTemplatePanelProps): React.ReactElement {
+  const activeName = activeTemplateId !== null
+    ? savedTemplates.find((t) => t.id === activeTemplateId)?.name ?? undefined
     : undefined
 
   return (
@@ -55,7 +56,7 @@ export function CegTemplatePanel({
       <div className="flex items-center gap-2 border-b border-line bg-muted/40 px-3 py-1.5">
         <div className="relative flex items-center justify-center shrink-0">
           <FileCode2 className="h-3.5 w-3.5 text-primary opacity-70" />
-          {isDirty && (
+          {isDirty === true && (
             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"></span>
           )}
         </div>
@@ -76,7 +77,7 @@ export function CegTemplatePanel({
           />
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {isDirty && onRevert && (
+          {isDirty === true && onRevert !== undefined && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -106,7 +107,7 @@ export function CegTemplatePanel({
               <TooltipContent>미리보기</TooltipContent>
             </Tooltip>
           )}
-          {activeTemplateId && (
+          {activeTemplateId !== null && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

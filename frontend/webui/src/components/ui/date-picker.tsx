@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 
@@ -22,7 +23,7 @@ export function DatePicker({
   onChange,
   placeholder = "날짜 선택",
   className,
-}: DatePickerProps) {
+}: DatePickerProps): ReactNode {
   return (
     <Popover>
       <PopoverTrigger asChild>

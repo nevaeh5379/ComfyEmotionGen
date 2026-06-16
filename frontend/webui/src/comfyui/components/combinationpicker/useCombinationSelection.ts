@@ -1,6 +1,16 @@
+import type React from "react"
 import { useState, useCallback } from "react"
 
-export function useCombinationSelection(visibleFilenames: string[]) {
+export function useCombinationSelection(
+  visibleFilenames: string[]
+): {
+  selectionMode: boolean
+  setSelectionMode: React.Dispatch<React.SetStateAction<boolean>>
+  selectedFilenames: Set<string>
+  setSelectedFilenames: React.Dispatch<React.SetStateAction<Set<string>>>
+  toggleSelect: (filename: string, event?: React.MouseEvent | React.KeyboardEvent) => void
+  exitSelectionMode: () => void
+} {
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedFilenames, setSelectedFilenames] = useState<Set<string>>(
     new Set()
@@ -9,15 +19,15 @@ export function useCombinationSelection(visibleFilenames: string[]) {
 
   const toggleSelect = useCallback(
     (filename: string, event?: React.MouseEvent | React.KeyboardEvent) => {
-      const isShift = event?.shiftKey
-      const isCtrl = event?.ctrlKey || event?.metaKey
+      const isShift = event?.shiftKey === true
+      const isCtrl = event?.ctrlKey === true || event?.metaKey === true
 
       setSelectedFilenames((prev) => {
         const next = new Set(prev)
 
         if (
           isShift &&
-          lastSelected &&
+          lastSelected !== null &&
           visibleFilenames.includes(lastSelected)
         ) {
           const startIdx = visibleFilenames.indexOf(lastSelected)

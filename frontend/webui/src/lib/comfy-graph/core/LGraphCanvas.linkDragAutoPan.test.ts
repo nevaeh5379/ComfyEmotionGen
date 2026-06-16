@@ -51,14 +51,14 @@ describe('LGraphCanvas link drag auto-pan', () => {
   })
 
   function startLinkDrag() {
-    canvas['_linkConnectorDrop']()
+    canvas._linkConnectorDrop()
   }
 
   it('starts auto-pan when link drag begins', () => {
     canvas.mouse[0] = 400
     canvas.mouse[1] = 300
     startLinkDrag()
-    expect(canvas['_autoPan']).not.toBeNull()
+    expect(canvas._autoPan).not.toBeNull()
   })
 
   it('keeps graph_mouse consistent with offset after auto-pan', () => {
@@ -123,11 +123,11 @@ describe('LGraphCanvas link drag auto-pan', () => {
     canvas.mouse[0] = 400
     canvas.mouse[1] = 300
     startLinkDrag()
-    expect(canvas['_autoPan']).not.toBeNull()
+    expect(canvas._autoPan).not.toBeNull()
 
     canvas.pointer.finally!()
 
-    expect(canvas['_autoPan']).toBeNull()
+    expect(canvas._autoPan).toBeNull()
   })
 
   it('does not pan when pointer is in the center', () => {
