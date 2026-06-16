@@ -16,10 +16,10 @@ export interface LinkRenderContext {
   scale: number
   linkMarkerShape: number
   renderConnectionArrows: boolean
-  highlightedLinks?: Set<string>
-  defaultLinkColor?: string
-  linkTypeColors?: Record<string, string>
-  disabledPattern?: CanvasPattern | null
+  highlightedLinks?: Set<string> | undefined
+  defaultLinkColor?: string | undefined
+  linkTypeColors?: Record<string, string> | undefined
+  disabledPattern?: CanvasPattern | null | undefined
 }
 
 function convertDirection(dir: number | LinkDirection): Direction {
@@ -129,24 +129,26 @@ export class LitegraphLinkAdapter {
         byType: context.linkTypeColors || {},
         highlighted: '#ff0',
       },
-      patterns: {
-        disabled: context.disabledPattern
-      },
       scale: context.scale,
-      highlightedIds: context.highlightedLinks
+    }
+    if (context.highlightedLinks !== undefined) renderContext.highlightedIds = context.highlightedLinks
+    if (context.disabledPattern !== undefined) {
+      renderContext.patterns = { disabled: context.disabledPattern }
     }
 
-    pathRenderer.drawDraggingLink(
-      ctx,
-      {
-        fixedPoint: { x: from[0], y: from[1] },
-        fixedDirection,
-        dragPoint: { x: to[0], y: to[1] },
-        dragDirection,
-        color: typeof colour === 'string' ? colour : undefined,
-      },
-      renderContext
-    )
+     const dragData: Parameters<typeof pathRenderer.drawDraggingLink>[1] = {
+       fixedPoint: { x: from[0], y: from[1] },
+       fixedDirection,
+       dragPoint: { x: to[0], y: to[1] },
+       dragDirection,
+     }
+     if (typeof colour === 'string') dragData.color = colour
+
+     pathRenderer.drawDraggingLink(
+       ctx,
+       dragData,
+       renderContext
+     )
   }
 
   renderLinkDirect(
@@ -161,13 +163,13 @@ export class LitegraphLinkAdapter {
     end_dir: number,
     context: LinkRenderContext,
     extras: {
-      reroute?: Reroute
-      startControl?: readonly [number, number]
-      endControl?: readonly [number, number]
-      num_sublines?: number
-      disabled?: boolean
+      reroute?: Reroute | undefined
+      startControl?: readonly [number, number] | undefined
+      endControl?: readonly [number, number] | undefined
+      num_sublines?: number | undefined
+      disabled?: boolean | undefined
     } = {}
-  ): void {
+): void {
     const renderContext: RenderContext = {
       style: {
         mode: convertRenderMode(context.renderMode),
@@ -184,11 +186,11 @@ export class LitegraphLinkAdapter {
         byType: context.linkTypeColors || {},
         highlighted: '#ff0',
       },
-      patterns: {
-        disabled: context.disabledPattern
-      },
       scale: context.scale,
-      highlightedIds: context.highlightedLinks
+    }
+    if (context.highlightedLinks !== undefined) renderContext.highlightedIds = context.highlightedLinks
+    if (context.disabledPattern !== undefined) {
+      renderContext.patterns = { disabled: context.disabledPattern }
     }
 
     if (flow !== null && flow !== undefined && flow !== 0) {
@@ -197,40 +199,43 @@ export class LitegraphLinkAdapter {
       }
     }
 
-    let controlPoints: { x: number; y: number }[] | undefined = undefined
-    if (extras.startControl || extras.endControl) {
-      const sc = extras.startControl
-      const ec = extras.endControl
-      
-      const dist = Math.sqrt(Math.pow(b[0] - a[0], 2) + Math.pow(b[1] - a[1], 2))
-      const controlDist = Math.max(30, dist * 0.25)
-      
-      const startControlOffset = sc 
-        ? { x: sc[0], y: sc[1] }
-        : getDirectionOffset(convertDirection(start_dir), controlDist)
-        
-      const endControlOffset = ec
-        ? { x: ec[0], y: ec[1] }
-        : getDirectionOffset(convertDirection(end_dir), controlDist)
+     let controlPoints: { x: number; y: number }[] | undefined = undefined
+     if (extras.startControl || extras.endControl) {
+       const sc = extras.startControl
+       const ec = extras.endControl
+       
+       const dist = Math.sqrt(Math.pow(b[0] - a[0], 2) + Math.pow(b[1] - a[1], 2))
+       const controlDist = Math.max(30, dist * 0.25)
+       
+       const startControlOffset = sc
+         ? { x: sc[0], y: sc[1] }
+         : getDirectionOffset(convertDirection(start_dir), controlDist)
 
-      controlPoints = [
-        { x: a[0] + startControlOffset.x, y: a[1] + startControlOffset.y },
-        { x: b[0] + endControlOffset.x, y: b[1] + endControlOffset.y }
-      ]
-    }
+       const endControlOffset = ec
+         ? { x: ec[0], y: ec[1] }
+         : getDirectionOffset(convertDirection(end_dir), controlDist)
 
-    const linkRenderData: LinkRenderData = {
-      id: link ? String(link.id) : (extras.reroute ? `reroute-${extras.reroute.id}` : 'temp'),
-      startPoint: { x: a[0], y: a[1] },
-      endPoint: { x: b[0], y: b[1] },
-      startDirection: convertDirection(start_dir),
-      endDirection: convertDirection(end_dir),
-      color: (typeof color === 'string' ? color : undefined) || (link?.color ? String(link.color) : undefined),
-      type: link ? String(link.type) : undefined,
-      disabled: extras.disabled,
-      flow: flow !== null && flow !== undefined && flow !== 0,
-      controlPoints
-    }
+       controlPoints = [
+         { x: a[0] + startControlOffset.x, y: a[1] + startControlOffset.y },
+         { x: b[0] + endControlOffset.x, y: b[1] + endControlOffset.y }
+       ]
+     }
+
+     const linkColor = typeof color === 'string' ? color : (link?.color ? String(link.color) : undefined)
+     const linkType = link ? String(link.type) : undefined
+
+     const linkRenderData: LinkRenderData = {
+       id: link ? String(link.id) : (extras.reroute ? `reroute-${extras.reroute.id}` : 'temp'),
+       startPoint: { x: a[0], y: a[1] },
+       endPoint: { x: b[0], y: b[1] },
+       startDirection: convertDirection(start_dir),
+       endDirection: convertDirection(end_dir),
+       flow: flow !== null && flow !== undefined && flow !== 0,
+     }
+     if (linkColor !== undefined) linkRenderData.color = linkColor
+     if (linkType !== undefined) linkRenderData.type = linkType
+     if (extras.disabled !== undefined) linkRenderData.disabled = extras.disabled
+     if (controlPoints !== undefined) linkRenderData.controlPoints = controlPoints
 
     const path = pathRenderer.drawLink(ctx, linkRenderData, renderContext)
 

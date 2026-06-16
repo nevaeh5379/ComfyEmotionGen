@@ -14,6 +14,12 @@ export class FileUploadWidget
   implements IFileUploadWidget
 {
   override type = 'fileupload' as const
+  override get label(): string {
+    return this._state?.label ?? ''
+  }
+  override set label(value: string) {
+    if (this._state) this._state.label = value
+  }
 
   drawWidget(ctx: CanvasRenderingContext2D, options: DrawWidgetOptions): void {
     const { width } = options

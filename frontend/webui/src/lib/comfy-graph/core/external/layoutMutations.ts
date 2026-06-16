@@ -1,4 +1,4 @@
-import { layoutStore, LayoutSource } from './layoutStore'
+import { layoutStore, LayoutSource, type CreateRerouteOperation } from './layoutStore'
 export { LayoutSource }
 
 export interface LayoutMutations {
@@ -26,8 +26,7 @@ export function getLayoutMutations(): LayoutMutations {
         type: 'moveNode',
         entity: 'node',
         nodeId: id,
-        position: pos,
-        previousPosition: pos
+        position: pos
       })
     },
     resizeNode(id, size) {
@@ -38,8 +37,7 @@ export function getLayoutMutations(): LayoutMutations {
         type: 'resizeNode',
         entity: 'node',
         nodeId: id,
-        size: size,
-        previousSize: size
+        size: size
       })
     },
     deleteReroute(id) {
@@ -65,17 +63,18 @@ export function getLayoutMutations(): LayoutMutations {
       layoutStore.deleteLinkLayout(id)
     },
     createReroute(id, pos, parentId, linkIds) {
-      layoutStore.applyOperation({
+      const op: CreateRerouteOperation = {
         timestamp: Date.now(),
         actor: 'user',
         source: layoutStore.getCurrentSource(),
         type: 'createReroute',
         entity: 'reroute',
         rerouteId: id,
-        pos: pos,
-        parentId: parentId,
-        linkIds: linkIds
-      })
+        pos: pos
+      }
+      if (parentId !== undefined) op.parentId = parentId
+      if (linkIds !== undefined) op.linkIds = linkIds
+      layoutStore.applyOperation(op)
     },
     moveReroute(id, pos) {
       layoutStore.applyOperation({

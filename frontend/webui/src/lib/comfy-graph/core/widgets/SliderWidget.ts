@@ -95,7 +95,7 @@ export class SliderWidget
   /**
    * Handles drag events for the slider widget
    */
-  override onDrag(options: WidgetEventOptions) {
+  override onDrag(options: WidgetEventOptions): boolean {
     if (this.options.read_only) return false
 
     const { e, node } = options
@@ -110,5 +110,6 @@ export class SliderWidget
     if (newValue !== this.value) {
       this.setValue(newValue, options)
     }
+    return true
   }
 }

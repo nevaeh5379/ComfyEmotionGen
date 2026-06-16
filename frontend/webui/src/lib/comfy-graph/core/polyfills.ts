@@ -36,19 +36,26 @@ export function loadPolyfills() {
       // make it compatible with official one
       if (Array.isArray(radius)) {
         if (radius.length == 1) {
+          const r0 = radius[0] ?? 0
           top_left_radius =
             top_right_radius =
             bottom_left_radius =
             bottom_right_radius =
-              radius[0]
+              r0
         } else if (radius.length == 2) {
-          top_left_radius = bottom_right_radius = radius[0]
-          top_right_radius = bottom_left_radius = radius[1]
+          const r0 = radius[0] ?? 0
+          const r1 = radius[1] ?? 0
+          top_left_radius = bottom_right_radius = r0
+          top_right_radius = bottom_left_radius = r1
         } else if (radius.length == 4) {
-          top_left_radius = radius[0]
-          top_right_radius = radius[1]
-          bottom_left_radius = radius[2]
-          bottom_right_radius = radius[3]
+          const r0 = radius[0] ?? 0
+          const r1 = radius[1] ?? 0
+          const r2 = radius[2] ?? 0
+          const r3 = radius[3] ?? 0
+          top_left_radius = r0
+          top_right_radius = r1
+          bottom_left_radius = r2
+          bottom_right_radius = r3
         } else {
           return
         }

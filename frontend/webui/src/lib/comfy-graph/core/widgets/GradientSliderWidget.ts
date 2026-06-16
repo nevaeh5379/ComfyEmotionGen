@@ -67,7 +67,7 @@ export class GradientSliderWidget
     }
   }
 
-  override onDrag(options: WidgetEventOptions) {
+  override onDrag(options: WidgetEventOptions): boolean {
     if (this.options.read_only) return false
 
     const { e, node } = options
@@ -82,5 +82,6 @@ export class GradientSliderWidget
     if (newValue !== this.value) {
       this.setValue(newValue, options)
     }
+    return true
   }
 }

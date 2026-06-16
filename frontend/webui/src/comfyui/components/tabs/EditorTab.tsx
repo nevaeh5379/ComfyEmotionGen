@@ -195,12 +195,14 @@ export function EditorTab() {
       return
     }
 
-    // @ts-expect-error: Bypass external type check - graph is LGraph from our store
-    if (!graph) return
+  if (!graph) return
 
-    // 중앙에 노드 추가 (캔버스 중심)
-    // @ts-expect-error: Bypass external type check
-    const center = graph?.list_of_graphcanvas?.[0]?.ds?.offset || [0, 0]
+     // Centralにノ드 추가 (캔버스 중심)
+    const graphCanvasList = (graph as unknown as Record<string, unknown>)?.list_of_graphcanvas
+    const firstCanvas = Array.isArray(graphCanvasList) ? graphCanvasList[0] : undefined
+    const ds = firstCanvas ? (firstCanvas as Record<string, unknown>)?.ds : undefined
+    const offset = ds ? (ds as Record<string, unknown>)?.offset : undefined
+    const center = Array.isArray(offset) ? offset : [0, 0]
     const pos: [number, number] = [center[0] + 100, center[1] + 100]
 
     // Use ComfyAppService through the canvas store

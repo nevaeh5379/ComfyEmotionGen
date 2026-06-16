@@ -33,7 +33,7 @@ interface ReactWidgetProps {
   onChange: (val: unknown) => void
   showLabel?: boolean
   disabled?: boolean
-  element?: HTMLElement | null
+  element?: HTMLElement | null | undefined
 }
 
 export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element }: ReactWidgetProps) {

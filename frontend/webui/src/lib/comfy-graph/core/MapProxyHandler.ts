@@ -18,6 +18,7 @@ export class MapProxyHandler<V> implements ProxyHandler<
         value
       }
     }
+    return undefined
   }
 
   has(target: Map<number | string, V>, p: string | symbol): boolean {

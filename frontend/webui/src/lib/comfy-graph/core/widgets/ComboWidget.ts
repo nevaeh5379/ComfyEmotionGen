@@ -33,13 +33,13 @@ export class ComboWidget
 {
   override type = 'combo' as const
 
-  override get _displayValue() {
+  override get _displayValue(): string {
     if (this.computedDisabled) return ''
 
     const getOptionLabel = this.options.getOptionLabel
     if (getOptionLabel) {
       try {
-        return getOptionLabel(this.value ? String(this.value) : null)
+        return getOptionLabel(this.value ? String(this.value) : null) ?? ''
       } catch (e) {
         console.error('Failed to map value:', e)
         return this.value ? String(this.value) : ''
@@ -51,10 +51,10 @@ export class ComboWidget
       const values = typeof rawValues === 'function' ? rawValues() : rawValues
 
       if (values && !Array.isArray(values)) {
-        return values[this.value]
+        return String(values[this.value] ?? '')
       }
     }
-    return typeof this.value === 'number' ? String(this.value) : this.value
+    return typeof this.value === 'number' ? String(this.value) : String(this.value)
   }
 
   private getValues(node: LGraphNode): Values {
@@ -115,13 +115,12 @@ export class ComboWidget
     const foundIndex =
       typeof values === 'object'
         ? indexedValues.indexOf(String(this.value)) + delta
-        : // @ts-expect-error: Bypass external type check handle non-string values
-          indexedValues.indexOf(this.value) + delta
+        : indexedValues.indexOf(String(this.value)) + delta
 
     const index = clamp(foundIndex, 0, indexedValues.length - 1)
 
     const value = Array.isArray(values) ? values[index] : index
-    this.setValue(value, options)
+    if (value !== undefined) this.setValue(value, options)
   }
 
   override onClick({ e, node, canvas }: WidgetEventOptions) {
@@ -149,8 +148,11 @@ export class ComboWidget
         scale: Math.max(1, canvas.ds.scale),
         event: e,
         className: 'dark',
-        callback: (value: string) => {
-          this.setValue(value, { e, node, canvas })
+        callback: (value: unknown) => {
+          if (value !== undefined && value !== null && values !== values_list) {
+            const numValue = typeof value === 'number' ? value : Number(value)
+            if (!isNaN(numValue)) this.setValue(numValue, { e, node, canvas })
+          }
         }
       }
       const menu = new LiteGraph.ContextMenu([], menuOptions)
@@ -176,12 +178,13 @@ export class ComboWidget
       scale: Math.max(1, canvas.ds.scale),
       event: e,
       className: 'dark',
-      callback: (value: string) => {
-        this.setValue(
-          values != values_list ? text_values.indexOf(value) : value,
-          { e, node, canvas }
-        )
-      }
+callback: (value: unknown) => {
+          if (value === undefined) return
+          this.setValue(
+            values != values_list ? text_values.indexOf(String(value)) : Number(value),
+            { e, node, canvas }
+          )
+        }
     })
   }
 }

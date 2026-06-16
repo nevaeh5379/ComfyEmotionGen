@@ -451,7 +451,7 @@ export class Rectangle extends Float64Array {
 
   /** @returns A new, untyped array (serializable) containing the values of this rectangle. */
   export(): [number, number, number, number] {
-    return [this[0], this[1], this[2], this[3]]
+    return [this[0] ?? 0, this[1] ?? 0, this[2] ?? 0, this[3] ?? 0]
   }
 
   /**

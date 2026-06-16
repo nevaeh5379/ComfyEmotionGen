@@ -4,6 +4,7 @@ import type {
   IAssetWidget,
   IBaseWidget,
   IComboWidget,
+  IFileUploadWidget,
   IWidget,
   TWidgetType
 } from '../types/widgets'
@@ -113,8 +114,10 @@ export function toConcreteWidget<TWidget extends IWidget | IBaseWidget>(
       return toClass(TextWidget, narrowedWidget, node)
     case 'text':
       return toClass(TextWidget, narrowedWidget, node)
-    case 'fileupload':
-      return toClass(FileUploadWidget, narrowedWidget, node)
+    case 'fileupload': {
+      const widget = toClass(FileUploadWidget, narrowedWidget as IFileUploadWidget & { node: LGraphNode }, node)
+      return widget as WidgetTypeMap[TWidget['type']]
+    }
     case 'color':
       return toClass(ColorWidget, narrowedWidget, node)
     case 'markdown':
@@ -147,8 +150,10 @@ export function toConcreteWidget<TWidget extends IWidget | IBaseWidget>(
       return toClass(RangeWidget, narrowedWidget, node)
     default: {
       if (wrapLegacyWidgets) return toClass(LegacyWidget, widget, node)
+      return undefined
     }
   }
+  return undefined
 }
 
 // #region Type Guards

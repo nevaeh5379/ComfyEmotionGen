@@ -13,17 +13,18 @@ export function getWidgetValueStore() {
 
       let state = widgetValues.get(key)
       if (!state) {
-        state = {
+        const newState: Omit<WidgetState, 'nodeId'> & Partial<Pick<WidgetState, 'nodeId'>> = {
           value: options.value ?? null,
-          nodeId,
-          name,
-          label: options.label,
-          disabled: options.disabled,
-          type: options.type,
-          options: options.options,
-          serialize: options.serialize
         }
-        widgetValues.set(key, state)
+        if (options.options !== undefined) newState.options = options.options
+        if (options.type !== undefined) newState.type = options.type
+        if (name !== undefined) newState.name = name
+        if (nodeId !== undefined) newState.nodeId = nodeId
+        if (options.label !== undefined) newState.label = options.label
+        if (options.disabled !== undefined) newState.disabled = options.disabled
+        if (options.serialize !== undefined) newState.serialize = options.serialize
+        widgetValues.set(key, newState as unknown as WidgetState)
+        state = newState as unknown as WidgetState
       }
       return state
     },
@@ -46,9 +47,9 @@ export function getWidgetValueStore() {
     setWidgetValue: (graphId: string, value: string | number | boolean | null) => {
       const state = widgetValues.get(graphId)
       if (state) {
-        state.value = value ?? undefined
+        state.value = value ?? null
       } else {
-        widgetValues.set(graphId, { value: value ?? undefined })
+        widgetValues.set(graphId, { value: value ?? null })
       }
     },
     getWidgetValueState: (graphId: string): WidgetState | null => {

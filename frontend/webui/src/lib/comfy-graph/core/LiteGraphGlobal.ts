@@ -496,7 +496,9 @@ export class LiteGraphGlobal {
         : this.registered_slot_in_types
       register[slotType] ??= { nodes: [] }
 
-      const { nodes } = register[slotType]
+      const entry = register[slotType]
+      if (!entry) continue
+      const { nodes } = entry
       if (!nodes.includes(class_type)) nodes.push(class_type)
 
       // check if is a new type
@@ -560,7 +562,7 @@ export class LiteGraphGlobal {
     node.flags ||= {}
     // call onresize?
     node.size ||= node.computeSize()
-    node.pos ||= [this.DEFAULT_POSITION[0], this.DEFAULT_POSITION[1]]
+    node.pos ||= [this.DEFAULT_POSITION[0] ?? 10, this.DEFAULT_POSITION[1] ?? 10]
     node.mode ||= LGraphEventMode.ALWAYS
 
     // extra options
@@ -577,7 +579,7 @@ export class LiteGraphGlobal {
    * @param type full name of the node class. p.e. "math/sin"
    * @returns the node class
    */
-  getNodeType(type: string): typeof LGraphNode {
+  getNodeType(type: string): typeof LGraphNode | undefined {
     return this.registered_node_types[type]
   }
 
@@ -590,6 +592,7 @@ export class LiteGraphGlobal {
     const r = []
     for (const i in this.registered_node_types) {
       const type = this.registered_node_types[i]
+      if (!type) continue
       if (type.filter != filter) continue
 
       if (category == '') {
@@ -611,6 +614,7 @@ export class LiteGraphGlobal {
     const categories: Dictionary<number> = { '': 1 }
     for (const i in this.registered_node_types) {
       const type = this.registered_node_types[i]
+      if (!type) continue
       if (type.category && !type.skip_list) {
         if (type.filter != filter) continue
 
@@ -634,6 +638,7 @@ export class LiteGraphGlobal {
     }
 
     const docHeadObj = document.getElementsByTagName('head')[0]
+    if (!docHeadObj) return
     folder_wildcard = document.location.href + folder_wildcard
 
     for (const script_file of script_files) {
@@ -717,15 +722,18 @@ export class LiteGraphGlobal {
 
   // used to create nodes from wrapping functions
   getParameterNames(func: (...args: unknown[]) => unknown): string[] {
-    return String(func)
+    const funcStr = String(func)
       .replaceAll(/\/\/.*$/gm, '') // strip single-line comments
       .replaceAll(/\s+/g, '') // strip white space
       .replaceAll(/\/\*[^*/]*\*\//g, '') // strip multi-line comments  /**/
-      .split('){', 1)[0]
+    const paramsPart = funcStr.split('){', 1)[0]
+    if (!paramsPart) return []
+    const result = paramsPart
       .replace(/^[^(]*\(/, '') // extract the parameters
       .replaceAll(/=[^,]+/g, '') // strip any ES6 defaults
       .split(',')
       .filter(Boolean) // split & filter [""]
+    return result
   }
 
   /* helper for interaction: pointer, touch, mouse Listeners
@@ -908,11 +916,18 @@ export class LiteGraphGlobal {
 
   // point inside bounding box
   isInsideBounding(p: number[], bb: number[][]): boolean {
+    const bb0 = bb[0]
+    const bb1 = bb[1]
+    if (!bb0 || !bb1) return false
+    const bb0x0 = bb0[0]
+    const bb0x1 = bb0[1]
+    const bb1x0 = bb1[0]
+    const bb1x1 = bb1[1]
     if (
-      p[0] < bb[0][0] ||
-      p[1] < bb[0][1] ||
-      p[0] > bb[1][0] ||
-      p[1] > bb[1][1]
+      (p[0] ?? 0) < (bb0x0 ?? 0) ||
+      (p[1] ?? 0) < (bb0x1 ?? 0) ||
+      (p[0] ?? 0) > (bb1x0 ?? 0) ||
+      (p[1] ?? 0) > (bb1x1 ?? 0)
     ) {
       return false
     }
@@ -948,8 +963,9 @@ export class LiteGraphGlobal {
     let hex = '#'
     let int1, int2
     for (let i = 0; i < 3; i++) {
-      int1 = triplet[i] / 16
-      int2 = triplet[i] % 16
+      const val = triplet[i] ?? 0
+      int1 = val / 16
+      int2 = val % 16
 
       hex += hex_alphabets.charAt(int1) + hex_alphabets.charAt(int2)
     }

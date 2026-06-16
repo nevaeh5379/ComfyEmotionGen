@@ -35,38 +35,34 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
       const g = canvas!.graph
       if (!g) return
       const selected = g.nodes.filter((n) => n.is_selected)
-      if (selected.length === 1) {
-        const node = selected[0]
-        setCanvasSelectedNode({
-          id: Number(node.id),
-          // @ts-expect-error: Bypass external type check
-          title: node.title || node.type || "Node",
-          type: node.type || "unknown",
-          pos: node.pos,
-          size: node.size,
-          // @ts-expect-error: Bypass external type check
-          color: node.color,
-          // @ts-expect-error: Bypass external type check
-          bgcolor: node.bgcolor,
-          // @ts-expect-error: Bypass external type check
-          widgets: node.widgets?.map((w) => ({
-            name: w.name,
-            value: w.value,
-            type: w.type,
-          })),
-          // @ts-expect-error: Bypass external type check
-          inputs: node.inputs?.map((i) => ({
-            name: i.name,
-            type: i.type,
-            link: i.link,
-          })),
-          // @ts-expect-error: Bypass external type check
-          outputs: node.outputs?.map((o) => ({
-            name: o.name,
-            type: o.type,
-            links: o.links || [],
-          })),
-        })
+       if (selected.length === 1) {
+         const node = selected[0]
+         if (!node) return
+         setCanvasSelectedNode({
+           id: Number(node.id),
+           title: node.title || node.type || "Node",
+           type: node.type || "unknown",
+           pos: node.pos,
+           size: node.size,
+           color: node.color,
+           bgcolor: node.bgcolor,
+           widgets: node.widgets?.map((w) => ({
+             name: w.name,
+             value: w.value,
+             type: w.type,
+           })),
+           // @ts-expect-error: Bypass external type check
+           inputs: node.inputs?.map((i) => ({
+             name: i.name,
+             type: i.type,
+             link: i.link,
+           })),
+            outputs: node.outputs?.map((o) => ({
+              name: o.name,
+              type: String(o.type),
+              links: o.links || [],
+            })),
+         })
       } else {
         setCanvasSelectedNode(null)
       }
@@ -112,14 +108,21 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
         const allSpecs = { ...req, ...opt }
         const widgetNames = (node.properties?.widget_names as string[]) || []
 
-        selectedNode = {
+        const nodeData: {
+          id: number
+          title: string
+          type: string
+          pos: [number, number]
+          size: [number, number]
+          widgets?: Array<{ name: string; value: unknown; type: string }>
+          inputs?: Array<{ name: string; type: string; link: number | null }>
+          outputs?: Array<{ name: string; type: string; links: number[] }>
+        } = {
           id: node.id,
           title: nodeDef?.display_name || node.type || "Node",
           type: node.type || "unknown",
           pos: node.pos,
           size: node.size,
-          color: undefined,
-          bgcolor: undefined,
           widgets: widgetNames.map((name, idx) => {
             const spec = allSpecs[name]
             const typeSpec = spec?.[0]
@@ -130,20 +133,21 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
               type: typeStr,
             }
           }),
-          inputs: node.inputs?.map((i) => ({
-            name: i.name,
-            type: i.type,
-            link: i.link || null,
-          })),
-          outputs: node.outputs?.map((o) => ({
-            name: o.name,
-            type: o.type,
-            links: o.links || [],
-          })),
         }
-      }
-    }
-  } else {
+        if (node.inputs) nodeData.inputs = node.inputs.map((i) => ({
+          name: i.name,
+          type: String(i.type),
+          link: i.link || null,
+        }))
+        if (node.outputs) nodeData.outputs = node.outputs.map((o) => ({
+          name: o.name,
+          type: String(o.type),
+          links: o.links || [],
+        }))
+        selectedNode = nodeData
+       }
+     }
+   } else {
     selectedNode = canvasSelectedNode
   }
 

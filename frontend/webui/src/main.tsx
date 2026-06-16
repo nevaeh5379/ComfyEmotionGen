@@ -5,6 +5,20 @@ import { createRoot } from "react-dom/client"
 import "./index.css"
 import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "@/lib/comfy-graph/core/litegraph"
 import type { Size } from "@/lib/comfy-graph/core/interfaces"
+import type { IBaseWidget, WidgetObjectValue, IWidgetOptions } from "@/lib/comfy-graph/core/types/widgets"
+
+// Re-declare DOMWidget to match global.d.ts for type compatibility
+interface DOMWidget {
+  type: string
+  name: string
+  element: HTMLElement
+  options: Record<string, unknown> & { hideOnZoom?: boolean }
+  _value?: string | undefined
+  value: string | undefined
+  callback?: ((v: string) => void) | undefined
+  y: number
+  [key: symbol]: boolean
+}
 
 window.LiteGraph = LiteGraph
 window.LGraph = LGraph
@@ -114,7 +128,7 @@ LGraphNode.prototype.addDOMWidget = function (
     options: { hideOnZoom: true, ...options },
     _value: options.getValue?.() ?? '',
     value: '',
-    callback: undefined,
+    callback() {},
     y: 0
   };
 
@@ -141,7 +155,7 @@ LGraphNode.prototype.addDOMWidget = function (
   if (!this.widgets) {
     this.widgets = [];
   }
-  this.widgets.push(widget);
+  this.widgets.push(widget as IBaseWidget<string | number | boolean | WidgetObjectValue | undefined, string, IWidgetOptions<unknown>>);
 
   if (options.beforeResize || options.afterResize) {
     const oldResize = this.onResize;

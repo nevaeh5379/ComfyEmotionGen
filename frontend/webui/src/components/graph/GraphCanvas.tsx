@@ -56,7 +56,7 @@ export function GraphCanvas({
       window.app.graph = app.graph
       window.app.canvas = app.canvas
       window.app.loadGraphData = app.loadGraphData.bind(app)
-      window.app.serializeGraph = app.serializeGraph.bind(app)
+      ;(window.app as unknown as Record<string, unknown>).serializeGraph = app.serializeGraph.bind(app)
     }
 
     // 리사이즈 핸들러

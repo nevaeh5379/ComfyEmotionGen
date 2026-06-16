@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import type { ObjectInfoInputSpec } from "../types/renderTypes"
 
 type PrimitiveValue = string | number | boolean
-type WorkflowInputValue = PrimitiveValue | PrimitiveValue[] | null
+type WorkflowInputValue = PrimitiveValue | PrimitiveValue[] | null | undefined
 
 interface WorkflowInputProps {
   nodeId: string
@@ -30,8 +30,8 @@ export function WorkflowInput({
   spec,
   onSave,
 }: WorkflowInputProps) {
-  const [prevValue, setPrevValue] = useState<WorkflowInputValue>(value)
-  const [localValue, setLocalValue] = useState<WorkflowInputValue>(value)
+  const [prevValue, setPrevValue] = useState<WorkflowInputValue>(value ?? null)
+  const [localValue, setLocalValue] = useState<WorkflowInputValue>(value ?? null)
 
   if (value !== prevValue) {
     setPrevValue(value)
@@ -39,7 +39,7 @@ export function WorkflowInput({
   }
 
   const enumOptions = Array.isArray(spec?.[0]) ? (spec[0] as string[]) : null
-  const typeStr = typeof spec?.[0] === "string" ? spec[0] : null
+  const typeStr = typeof spec?.[0] === "string" ? spec[0] : null as string | null
   const extraParams = spec?.[1] || {}
 
   // 1. Boolean input
@@ -131,7 +131,7 @@ export function WorkflowInput({
     return (
       <Input
         type="number"
-        value={localValue === null || localValue === undefined ? "" : localValue}
+        value={localValue == null ? "" : String(localValue)}
         onChange={(e) => {
           const val = e.target.value
           setLocalValue(val === "" ? "" : val)
@@ -167,7 +167,7 @@ export function WorkflowInput({
   if (isMultiline) {
     return (
       <Textarea
-        value={localValue ?? ""}
+        value={localValue == null ? "" : String(localValue)}
         onChange={(e) => setLocalValue(e.target.value)}
         onBlur={handleTextBlurOrSubmit}
         placeholder="텍스트 입력..."
@@ -179,7 +179,7 @@ export function WorkflowInput({
   return (
     <Input
       type="text"
-      value={localValue ?? ""}
+      value={localValue == null ? "" : String(localValue)}
       onChange={(e) => setLocalValue(e.target.value)}
       onBlur={handleTextBlurOrSubmit}
       onKeyDown={(e) => {

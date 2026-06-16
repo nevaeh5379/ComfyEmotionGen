@@ -176,8 +176,8 @@ export class CanvasPathRenderer {
     if (link.color) {
       return link.color
     }
-    if (link.type && context.colors.byType[link.type]) {
-      return context.colors.byType[link.type]
+    if (link.type && context.colors.byType && context.colors.byType[link.type]) {
+      return context.colors.byType[link.type] ?? context.colors.default
     }
     return context.colors.default
   }
@@ -359,17 +359,28 @@ export class CanvasPathRenderer {
 
     if (controls.length >= 2) {
       // Cubic bezier
-      path.bezierCurveTo(
-        controls[0].x,
-        controls[0].y,
-        controls[1].x,
-        controls[1].y,
-        end.x,
-        end.y
-      )
+      const c0 = controls[0]
+      const c1 = controls[1]
+      if (c0 && c1) {
+        path.bezierCurveTo(
+          c0.x,
+          c0.y,
+          c1.x,
+          c1.y,
+          end.x,
+          end.y
+        )
+      } else {
+        path.lineTo(end.x, end.y)
+      }
     } else if (controls.length === 1) {
       // Quadratic bezier
-      path.quadraticCurveTo(controls[0].x, controls[0].y, end.x, end.y)
+      const c0 = controls[0]
+      if (c0) {
+        path.quadraticCurveTo(c0.x, c0.y, end.x, end.y)
+      } else {
+        path.lineTo(end.x, end.y)
+      }
     } else {
       // Fallback to linear
       path.lineTo(end.x, end.y)
@@ -580,31 +591,26 @@ export class CanvasPathRenderer {
   ): Path2D {
     // Create LinkRenderData from drag data
     // When dragging from input, swap the points/directions
-    const linkData: LinkRenderData = dragData.fromInput
-      ? {
-          id: 'dragging',
-          startPoint: dragData.dragPoint,
-          endPoint: dragData.fixedPoint,
-          startDirection:
-            dragData.dragDirection ||
-            this.getOppositeDirection(dragData.fixedDirection),
-          endDirection: dragData.fixedDirection,
-          color: dragData.color,
-          type: dragData.type,
-          disabled: dragData.disabled
-        }
-      : {
-          id: 'dragging',
-          startPoint: dragData.fixedPoint,
-          endPoint: dragData.dragPoint,
-          startDirection: dragData.fixedDirection,
-          endDirection:
-            dragData.dragDirection ||
-            this.getOppositeDirection(dragData.fixedDirection),
-          color: dragData.color,
-          type: dragData.type,
-          disabled: dragData.disabled
-        }
+    const isFromInput = dragData.fromInput
+    const fixedPoint = isFromInput ? dragData.fixedPoint : dragData.dragPoint
+    const dragPoint = isFromInput ? dragData.dragPoint : dragData.fixedPoint
+    const startDirection = isFromInput
+      ? dragData.dragDirection || this.getOppositeDirection(dragData.fixedDirection)
+      : dragData.fixedDirection
+    const endDirection = isFromInput
+      ? dragData.fixedDirection
+      : dragData.dragDirection || this.getOppositeDirection(dragData.fixedDirection)
+
+    const linkData: LinkRenderData = {
+      id: 'dragging',
+      startPoint: fixedPoint,
+      endPoint: dragPoint,
+      startDirection,
+      endDirection,
+    }
+    if (dragData.color !== undefined) linkData.color = dragData.color
+    if (dragData.type !== undefined) linkData.type = dragData.type
+    if (dragData.disabled !== undefined) linkData.disabled = dragData.disabled
 
     // Use standard link drawing
     return this.drawLink(ctx, linkData, context)
@@ -656,12 +662,16 @@ export class CanvasPathRenderer {
       controlPoints &&
       controlPoints.length >= 2
     ) {
+      const c0 = controlPoints[0]
+      const c1 = controlPoints[1]
+      if (!c0 || !c1) return
+
       // For spline mode, find point at t=0.5 on the bezier curve
       const centerPos = this.findPointOnBezier(
         0.5,
         startPoint,
-        controlPoints[0],
-        controlPoints[1],
+        c0,
+        c1,
         endPoint
       )
       link.centerPos = centerPos
@@ -671,8 +681,8 @@ export class CanvasPathRenderer {
         const justPastCenter = this.findPointOnBezier(
           0.51,
           startPoint,
-          controlPoints[0],
-          controlPoints[1],
+          c0,
+          c1,
           endPoint
         )
         link.centerAngle = Math.atan2(

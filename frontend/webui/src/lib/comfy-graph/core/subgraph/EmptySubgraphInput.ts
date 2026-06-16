@@ -41,6 +41,7 @@ export class EmptySubgraphInput extends SubgraphInput {
 
   override get labelPos(): Point {
     const [x, y, , height] = this.boundingRect
+    if (x === undefined || y === undefined || height === undefined) return [0, 0]
     return [x, y + height * 0.5]
   }
 }

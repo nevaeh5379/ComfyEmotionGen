@@ -28,6 +28,7 @@ export function getNodeInputOnPos(
       return { index, input, pos }
     }
   }
+  return undefined
 }
 
 export function getNodeOutputOnPos(
@@ -45,6 +46,7 @@ export function getNodeOutputOnPos(
       return { index, output, pos }
     }
   }
+  return undefined
 }
 
 /**
