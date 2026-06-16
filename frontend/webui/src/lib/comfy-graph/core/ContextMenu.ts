@@ -5,7 +5,6 @@ import type {
   IContextMenuOptions,
   IContextMenuValue
 } from './interfaces'
-import { LiteGraph } from './litegraph'
 
 interface SanitizerData {
   attrName: string
@@ -89,8 +88,7 @@ export class ContextMenu<TValue = unknown> {
   constructor(
     values: readonly (string | IContextMenuValue<TValue> | null)[],
     options: IContextMenuOptions<TValue>
-  ) {
-    options ||= {}
+  ): void {
     this.options = options
 
     // to link a menu with its parent
@@ -104,7 +102,7 @@ export class ContextMenu<TValue = unknown> {
         this.parentMenu.lock = true
         this.parentMenu.current_submenu = this
       }
-      if (parent.options?.className === 'dark') {
+      if (parent.options.className === 'dark') {
         options.className = 'dark'
       }
     }
@@ -117,14 +115,14 @@ export class ContextMenu<TValue = unknown> {
       eventClass !== 'PointerEvent'
     ) {
       console.error(
-        `Event passed to ContextMenu is not of type MouseEvent or CustomEvent. Ignoring it. (${eventClass})`
+        `Event passed to ContextMenu is not of type MouseEvent or CustomEvent. Ignoring it. (${eventClass ?? 'null'})`
       )
       options.event = undefined
     }
 
     const root: ContextMenuDivElement<TValue> = document.createElement('div')
     let classes = 'litegraph litecontextmenu litemenubar-panel'
-    if (options.className) classes += ` ${options.className}`
+    if (options.className !== undefined && options.className !== '') classes += ` ${options.className}`
     root.className = classes
     root.style.minWidth = '100'
     root.style.minHeight = '100'
@@ -146,7 +144,7 @@ export class ContextMenu<TValue = unknown> {
     }
 
     // this prevents the default context browser menu to open in case this menu was created when pressing right button
-    root.addEventListener('pointerup', (e) => e.preventDefault(), eventOptions)
+    root.addEventListener('pointerup', (e) => { e.preventDefault(); }, eventOptions)
 
     // Right button
     root.addEventListener(
@@ -160,7 +158,7 @@ export class ContextMenu<TValue = unknown> {
     root.addEventListener(
       'pointerdown',
       (e) => {
-        if (e.button == 2) {
+        if (e.button === 2) {
           this.close()
           e.preventDefault()
         }
@@ -171,7 +169,7 @@ export class ContextMenu<TValue = unknown> {
     this.root = root
 
     // title
-    if (options.title) {
+    if (options.title !== undefined && options.title !== '') {
       const element = document.createElement('div')
       element.className = 'litemenu-title'
       element.textContent = options.title
@@ -184,33 +182,28 @@ export class ContextMenu<TValue = unknown> {
       let name = Array.isArray(values) ? value : String(i)
 
       if (typeof name !== 'string') {
-        name =
-          name != null
-            ? name.content === undefined
-              ? String(name)
-              : name.content
-            : name
+        name = name?.content ?? ''
       }
 
-      this.addItem(String(name), value as string | IContextMenuValue<TValue> | null, options)
+      this.addItem(name, value as string | IContextMenuValue<TValue> | null, options)
     }
 
     // insert before checking position
     const ownerDocument = (options.event?.target as Node | null | undefined)
       ?.ownerDocument
-    const root_document = ownerDocument || document
+    const root_document = ownerDocument ?? document
 
     if (root_document.fullscreenElement)
       root_document.fullscreenElement.append(root)
     else root_document.body.append(root)
 
     // compute best position
-    let left = options.left || 0
-    let top = options.top || 0
+    let left = options.left ?? 0
+    let top = options.top ?? 0
     if (options.event) {
       left = options.event.clientX - 10
       top = options.event.clientY - 10
-      if (options.title) top -= 20
+      if (options.title !== undefined && options.title !== '') top -= 20
 
       if (parent) {
         const rect = parent.root.getBoundingClientRect()
@@ -219,7 +212,7 @@ export class ContextMenu<TValue = unknown> {
 
       const body_rect = document.body.getBoundingClientRect()
       const root_rect = root.getBoundingClientRect()
-      if (body_rect.height == 0)
+      if (body_rect.height === 0)
         console.error(
           'document.body height is 0. That is dangerous, set html,body { height: 100%; }'
         )
@@ -230,12 +223,10 @@ export class ContextMenu<TValue = unknown> {
         top = body_rect.height - root_rect.height - 10
     }
 
-    root.style.left = `${left}px`
-    root.style.top = `${top}px`
+    root.style.left = `${String(left)}px`
+    root.style.top = `${String(top)}px`
 
-    if (LiteGraph.context_menu_scaling && options.scale) {
-      root.style.transform = `scale(${Math.round(options.scale * 4) * 0.25})`
-    }
+    
   }
 
   /**
@@ -244,12 +235,12 @@ export class ContextMenu<TValue = unknown> {
    * @param visited A set of visited menus to avoid circular references
    * @returns `true` if {@link node} is inside this context menu or any of its submenus
    */
-  containsNode(node: Node, visited: Set<this> = new Set()): boolean {
+  containsNode(node: Node, visited = new Set<this>()): boolean {
     if (visited.has(this)) return false
     visited.add(this)
 
     return (
-      this.current_submenu?.containsNode(node, visited) ||
+      this.current_submenu?.containsNode(node, visited) ??
       this.root.contains(node)
     )
   }
@@ -259,8 +250,6 @@ export class ContextMenu<TValue = unknown> {
     value: string | IContextMenuValue<TValue> | null,
     options: IContextMenuOptions<TValue>
   ): HTMLElement {
-    options ||= {}
-
     const element: ContextMenuDivElement<TValue> = document.createElement('div')
     element.className = 'litemenu-entry submenu'
 
@@ -269,64 +258,62 @@ export class ContextMenu<TValue = unknown> {
     if (value === null) {
       element.classList.add('separator')
     } else {
-      const label = name === null ? '' : String(name)
+      const label = name ?? ''
       if (typeof value === 'string') {
         element.textContent = label
       } else {
         // Use innerHTML for content that contains HTML tags, textContent otherwise
         const hasHtmlContent =
-          value?.content !== undefined && /<[a-z][\s\S]*>/i.test(value.content)
+          value.content !== undefined && /<[a-z][\s\S]*>/i.test(value.content)
         if (hasHtmlContent) {
-          element.innerHTML = sanitizeMenuHTML(value.content!)
+          element.innerHTML = sanitizeMenuHTML(value.content)
         } else {
-          element.textContent = value?.title ?? label
+          element.textContent = value.title ?? label
         }
 
-        if (value.disabled) {
+        if (value.disabled === true) {
           disabled = true
           element.classList.add('disabled')
           element.setAttribute('aria-disabled', 'true')
         }
-        if (value.submenu || value.has_submenu) {
+        if (value.submenu !== undefined || value.has_submenu === true) {
           element.classList.add('has_submenu')
           element.setAttribute('aria-haspopup', 'true')
           element.setAttribute('aria-expanded', 'false')
         }
-        if (value.className) element.className += ` ${value.className}`
+        if (value.className !== undefined && value.className !== '') element.className += ` ${value.className}`
       }
       element.value = value
       element.setAttribute('role', 'menuitem')
 
       if (typeof value === 'function') {
-        element.dataset['value'] = String(name)
+        element.dataset.value = String(name)
         element.onclick_callback = value
       } else {
-        element.dataset['value'] = String(value)
+        element.dataset.value = typeof value === 'string' ? value : JSON.stringify(value)
       }
     }
 
     this.root.append(element)
 
-    const setAriaExpanded = () => {
+    const setAriaExpanded = (): void => {
       const entries = this.root.querySelectorAll(
         'div.litemenu-entry.has_submenu'
       )
-      if (entries) {
-        for (const entry of entries) {
-          entry.setAttribute('aria-expanded', 'false')
-        }
+      for (const entry of entries) {
+        entry.setAttribute('aria-expanded', 'false')
       }
       element.setAttribute('aria-expanded', 'true')
     }
 
-    const inner_onclick_handler = (target: ContextMenuDivElement<TValue>, e: MouseEvent) => {
+    const inner_onclick_handler = (target: ContextMenuDivElement<TValue>, e: MouseEvent): void => {
       const value = target.value
       let close_parent = true
 
       this.current_submenu?.close(e)
       if (
-        (value as IContextMenuValue)?.has_submenu ||
-        (value as IContextMenuValue)?.submenu
+        (value as IContextMenuValue).has_submenu === true ||
+        (value as IContextMenuValue).submenu !== undefined
       ) {
         setAriaExpanded()
       }
@@ -347,8 +334,8 @@ export class ContextMenu<TValue = unknown> {
       // special cases
       if (typeof value === 'object') {
         if (
-          value.callback &&
-          !options.ignore_item_callbacks &&
+          value.callback !== undefined &&
+          options.ignore_item_callbacks !== true &&
           value.disabled !== true
         ) {
           // item callback
@@ -363,8 +350,6 @@ export class ContextMenu<TValue = unknown> {
           if (r === true) close_parent = false
         }
         if (value.submenu) {
-          if (!value.submenu.options) throw 'ContextMenu submenu needs options'
-
           new (this.constructor as typeof ContextMenu<TValue>)(value.submenu.options, {
             callback: value.submenu.callback,
             event: e,
@@ -378,17 +363,17 @@ export class ContextMenu<TValue = unknown> {
         }
       }
 
-      if (close_parent && !this.lock) this.close()
+      if (close_parent && this.lock !== true) this.close()
     }
 
-    const inner_onclick = (e: MouseEvent) => {
+    const inner_onclick = (e: MouseEvent): void => {
       inner_onclick_handler(e.currentTarget as ContextMenuDivElement<TValue>, e)
     }
 
-    const inner_over = (e: MouseEvent) => {
+    const inner_over = (e: MouseEvent): void => {
       const target = e.currentTarget as ContextMenuDivElement<TValue>
       const value = target.value
-      if (!value || !(value as IContextMenuValue).has_submenu) return
+      if (value === undefined || (value as IContextMenuValue).has_submenu !== true) return
 
       // if it is a submenu, autoopen like the item was clicked
       inner_onclick_handler(target, e)
@@ -396,7 +381,7 @@ export class ContextMenu<TValue = unknown> {
     }
 
     if (!disabled) element.addEventListener('click', inner_onclick)
-    if (!disabled && options.autoopen)
+    if (!disabled && options.autoopen === true)
       element.addEventListener('pointerenter', inner_over)
 
     return element
@@ -405,20 +390,11 @@ export class ContextMenu<TValue = unknown> {
   close(e?: MouseEvent, ignore_parent_menu?: boolean): void {
     this.controller.abort()
     this.root.remove()
-    if (this.parentMenu && !ignore_parent_menu) {
+    if (this.parentMenu !== undefined && ignore_parent_menu !== true) {
       this.parentMenu.lock = false
       this.parentMenu.current_submenu = undefined
       if (e === undefined) {
         this.parentMenu.close()
-      } else if (
-        e &&
-        !ContextMenu.isCursorOverElement(e, this.parentMenu.root)
-      ) {
-        ContextMenu.trigger(
-          this.parentMenu.root,
-          `${LiteGraph.pointerevents_method}leave`,
-          e
-        )
       }
     }
     this.current_submenu?.close(e, true)
@@ -431,9 +407,8 @@ export class ContextMenu<TValue = unknown> {
     event_name: string,
     params: MouseEvent
   ): CustomEvent {
-    const evt = document.createEvent('CustomEvent')
-    evt.initCustomEvent(event_name, true, true, params)
-    if (element.dispatchEvent) element.dispatchEvent(evt)
+    const evt = new CustomEvent(event_name, { bubbles: true, cancelable: true, detail: params })
+    element.dispatchEvent(evt)
     // else nothing seems bound here so nothing to do
     return evt
   }
@@ -451,22 +426,9 @@ export class ContextMenu<TValue = unknown> {
 
   /** @deprecated Unused. */
   static isCursorOverElement(
-    event: MouseEvent,
-    element: HTMLDivElement
+    _event: MouseEvent,
+    _element: HTMLDivElement
   ): boolean {
-    const left = event.clientX
-    const top = event.clientY
-    const rect = element.getBoundingClientRect()
-    if (!rect) return false
-
-    if (
-      top > rect.top &&
-      top < rect.top + rect.height &&
-      left > rect.left &&
-      left < rect.left + rect.width
-    ) {
-      return true
-    }
     return false
   }
 }

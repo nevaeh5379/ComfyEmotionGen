@@ -12,7 +12,7 @@ export interface DragAndScaleState {
   scale: number
 }
 
-export type AnimationOptions = {
+export interface AnimationOptions {
   /** Duration of the animation in milliseconds. */
   duration?: number
   /** Relative target zoom level. 1 means the view is fit exactly on the bounding box. */

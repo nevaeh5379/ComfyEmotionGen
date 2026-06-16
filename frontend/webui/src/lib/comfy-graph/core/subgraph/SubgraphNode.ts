@@ -220,12 +220,12 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
     if (cachedViews?.version === this._cacheVersion) return cachedViews.views
 
     const linkedEntries = this._getLinkedPromotionEntries()
-    const reconcileEntries: Array<{
+    const reconcileEntries: {
       sourceNodeId: string
       sourceWidgetName: string
       viewKey: string
       slotName: string
-    }> = []
+    }[] = []
     const displayNameByViewKey = new Map<string, string>()
     for (const entry of linkedEntries) {
       const viewKey = this._makePromotionViewKey(
@@ -309,7 +309,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
         const existingInput = this.inputs.find(
           (input) =>
             input._subgraphSlot === subgraphInput ||
-            (input._subgraphSlot && input._subgraphSlot.id === subgraphInput.id)
+            (input._subgraphSlot?.id === subgraphInput.id)
         )
         if (existingInput) {
           this._addSubgraphInputListeners(subgraphInput, existingInput)

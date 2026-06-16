@@ -8,6 +8,6 @@ export function useBackendUrl(): string {
     DEFAULT_BACKEND_URL
   )
   return IS_PACKAGE_MODE
-    ? (PACKAGE_BACKEND_URL as string)
+    ? (PACKAGE_BACKEND_URL!)
     : storedBackendUrl
 }

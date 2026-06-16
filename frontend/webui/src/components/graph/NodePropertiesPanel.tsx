@@ -23,16 +23,16 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
     size: [number, number]
     color?: string
     bgcolor?: string
-    widgets?: Array<{ name: string; value: unknown; type: string }>
-    inputs?: Array<{ name: string; type: string; link: number | null }>
-    outputs?: Array<{ name: string; type: string; links: number[] }>
+    widgets?: { name: string; value: unknown; type: string }[]
+    inputs?: { name: string; type: string; link: number | null }[]
+    outputs?: { name: string; type: string; links: number[] }[]
   } | null>(null)
 
   useEffect(() => {
-    if (editorMode !== "canvas" || !canvas || !canvas.graph) return
+    if (editorMode !== "canvas" || !canvas?.graph) return
 
     const updateSelection = () => {
-      const g = canvas!.graph
+      const g = canvas.graph
       if (!g) return
       const selected = g.nodes.filter((n) => n.is_selected)
        if (selected.length === 1) {
@@ -72,7 +72,7 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
     const interval = setInterval(updateSelection, 100)
 
     // Also listen for canvas events
-    const handleEvent = () => updateSelection()
+    const handleEvent = () => { updateSelection(); }
     canvas.canvas.addEventListener("mouseup", handleEvent)
     canvas.canvas.addEventListener("click", handleEvent)
 
@@ -92,9 +92,9 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
     size: [number, number]
     color?: string
     bgcolor?: string
-    widgets?: Array<{ name: string; value: unknown; type: string }>
-    inputs?: Array<{ name: string; type: string; link: number | null }>
-    outputs?: Array<{ name: string; type: string; links: number[] }>
+    widgets?: { name: string; value: unknown; type: string }[]
+    inputs?: { name: string; type: string; link: number | null }[]
+    outputs?: { name: string; type: string; links: number[] }[]
   } | null = null
 
   if (editorMode === "react") {
@@ -114,9 +114,9 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
           type: string
           pos: [number, number]
           size: [number, number]
-          widgets?: Array<{ name: string; value: unknown; type: string }>
-          inputs?: Array<{ name: string; type: string; link: number | null }>
-          outputs?: Array<{ name: string; type: string; links: number[] }>
+          widgets?: { name: string; value: unknown; type: string }[]
+          inputs?: { name: string; type: string; link: number | null }[]
+          outputs?: { name: string; type: string; links: number[] }[]
         } = {
           id: node.id,
           title: nodeDef?.display_name || node.type || "Node",

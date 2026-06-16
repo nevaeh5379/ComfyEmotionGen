@@ -37,7 +37,7 @@ import { TextWidget } from './TextWidget'
 import { TextareaWidget } from './TextareaWidget'
 import { TreeSelectWidget } from './TreeSelectWidget'
 
-export type WidgetTypeMap = {
+export interface WidgetTypeMap {
   button: ButtonWidget
   toggle: BooleanWidget
   slider: SliderWidget
@@ -116,7 +116,7 @@ export function toConcreteWidget<TWidget extends IWidget | IBaseWidget>(
       return toClass(TextWidget, narrowedWidget, node)
     case 'fileupload': {
       const widget = toClass(FileUploadWidget, narrowedWidget as IFileUploadWidget & { node: LGraphNode }, node)
-      return widget as WidgetTypeMap[TWidget['type']]
+      return widget
     }
     case 'color':
       return toClass(ColorWidget, narrowedWidget, node)

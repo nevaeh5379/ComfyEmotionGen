@@ -48,11 +48,11 @@ export abstract class SubgraphIONodeBase<
     return this._boundingRect
   }
 
-  selected: boolean = false
-  pinned: boolean = false
+  selected = false
+  pinned = false
   readonly removable = false
 
-  isPointerOver: boolean = false
+  isPointerOver = false
 
   abstract readonly emptySlot: EmptySubgraphInput | EmptySubgraphOutput
 
@@ -200,7 +200,7 @@ export abstract class SubgraphIONodeBase<
     new LiteGraph.ContextMenu(options, {
       event,
       title: slot.name || 'Subgraph Output',
-      callback: (value?: string | IContextMenuValue<unknown, unknown, unknown> | undefined) => {
+      callback: (value?: string | IContextMenuValue  ) => {
         if (value !== undefined) this._onSlotMenuAction(value as IContextMenuValue, slot, event)
       }
     })

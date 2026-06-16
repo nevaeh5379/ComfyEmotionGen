@@ -155,20 +155,20 @@ export function CombinationPickerToolbar({
   const [isMobile, setIsMobile] = useState(false)
 
   useLayoutEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    const handleResize = () => { setIsMobile(window.innerWidth < 768); }
     handleResize()
     window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
+    return () => { window.removeEventListener("resize", handleResize); }
   }, [])
 
   useLayoutEffect(() => {
     const el = toolbarRef.current
     if (!el) return
-    const update = () => setToolbarHeight(el.offsetHeight)
+    const update = () => { setToolbarHeight(el.offsetHeight); }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => { ro.disconnect(); }
   }, [])
 
   // 필터 변경 시 자동 확장 헬퍼
@@ -387,7 +387,7 @@ export function CombinationPickerToolbar({
                 max="320"
                 step="10"
                 value={thumbnailSize}
-                onChange={(e) => setThumbnailSize(Number(e.target.value))}
+                onChange={(e) => { setThumbnailSize(Number(e.target.value)); }}
                 className="h-1 w-20 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
               />
               <span className="w-[34px] text-right font-mono text-[10px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
@@ -408,7 +408,7 @@ export function CombinationPickerToolbar({
               }
               size="sm"
               className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || searchTags.length > 0) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-              onClick={() => setFiltersExpanded(true)}
+              onClick={() => { setFiltersExpanded(true); }}
             >
               <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
               <span className="hidden sm:inline">필터</span>
@@ -426,7 +426,7 @@ export function CombinationPickerToolbar({
                   }
                   size="sm"
                   className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || searchTags.length > 0) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-                  onClick={() => setFiltersExpanded(!filtersExpanded)}
+                  onClick={() => { setFiltersExpanded(!filtersExpanded); }}
                 >
                   <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
                   <span className="hidden sm:inline">필터</span>
@@ -481,14 +481,14 @@ export function CombinationPickerToolbar({
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
                 checked={hideRejected}
-                onCheckedChange={(v) => setHideRejected(v)}
+                onCheckedChange={(v) => { setHideRejected(v); }}
                 className="py-2.5 md:py-1.5"
               >
                 리젝 숨기기
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={autoAdvance}
-                onCheckedChange={(v) => setAutoAdvance(v)}
+                onCheckedChange={(v) => { setAutoAdvance(v); }}
                 className="py-2.5 md:py-1.5"
               >
                 자동 다음 이동
@@ -503,7 +503,7 @@ export function CombinationPickerToolbar({
                   "py-2.5 md:py-1.5",
                   duplicateStrategy === "hash" ? "bg-accent" : ""
                 )}
-                onClick={() => setDuplicateStrategy("hash")}
+                onClick={() => { setDuplicateStrategy("hash"); }}
               >
                 HASH
               </DropdownMenuItem>
@@ -512,14 +512,14 @@ export function CombinationPickerToolbar({
                   "py-2.5 md:py-1.5",
                   duplicateStrategy === "number" ? "bg-accent" : ""
                 )}
-                onClick={() => setDuplicateStrategy("number")}
+                onClick={() => { setDuplicateStrategy("number"); }}
               >
                 NUM
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {unassignedGroupsSize > 0 && (
                 <DropdownMenuItem
-                  onClick={() => setShowUnassignedPanel(!showUnassignedPanel)}
+                  onClick={() => { setShowUnassignedPanel(!showUnassignedPanel); }}
                   className="py-2.5 md:py-1.5"
                 >
                   <AlertTriangleIcon className="mr-2 h-4 w-4 text-amber-600 md:h-3.5 md:w-3.5" />
@@ -617,7 +617,7 @@ export function CombinationPickerToolbar({
           <Select
             value={statusFilter}
             onValueChange={(v) =>
-              withExpand(setStatusFilter, v as "all" | "done" | "pending")
+              { withExpand(setStatusFilter, v as "all" | "done" | "pending"); }
             }
           >
             <SelectTrigger className="h-9 w-full text-sm font-bold md:!h-7 md:w-28 md:!py-1 md:text-[10px]">
@@ -755,7 +755,7 @@ export function CombinationPickerToolbar({
               <Select
                 value={statusFilter}
                 onValueChange={(v) =>
-                  withExpand(setStatusFilter, v as "all" | "done" | "pending")
+                  { withExpand(setStatusFilter, v as "all" | "done" | "pending"); }
                 }
               >
                 <SelectTrigger className="h-10 w-full text-sm font-bold bg-background">
@@ -811,7 +811,7 @@ export function CombinationPickerToolbar({
                     max="320"
                     step="10"
                     value={thumbnailSize}
-                    onChange={(e) => setThumbnailSize(Number(e.target.value))}
+                    onChange={(e) => { setThumbnailSize(Number(e.target.value)); }}
                     className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
                 </div>
@@ -842,7 +842,7 @@ export function CombinationPickerToolbar({
                 <span className="text-xs font-medium text-foreground">중복 파일명 구분 전략</span>
                 <Select
                   value={duplicateStrategy}
-                  onValueChange={(v) => setDuplicateStrategy(v as "hash" | "number")}
+                  onValueChange={(v) => { setDuplicateStrategy(v as "hash" | "number"); }}
                 >
                   <SelectTrigger className="h-8 w-24 text-xs font-bold bg-background">
                     <SelectValue />

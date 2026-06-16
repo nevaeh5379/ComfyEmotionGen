@@ -5,14 +5,14 @@ import { fetchSetting, saveSetting } from "@/lib/serverStorage"
 type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
 
-type ThemeProviderProps = {
+interface ThemeProviderProps {
   children: React.ReactNode
   defaultTheme?: Theme
   storageKey?: string
   disableTransitionOnChange?: boolean
 }
 
-type ThemeProviderState = {
+interface ThemeProviderState {
   theme: Theme
   setTheme: (theme: Theme) => void
 }
@@ -84,7 +84,7 @@ const persistTheme = (key: string, value: Theme) => {
   } catch {
     // ignore quota errors
   }
-  saveSetting(key, value).catch((err) => console.warn("테마 저장 실패:", err))
+  saveSetting(key, value).catch((err) => { console.warn("테마 저장 실패:", err); })
 }
 
 const loadThemeFromServer = async (key: string): Promise<Theme | null> => {

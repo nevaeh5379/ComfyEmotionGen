@@ -26,7 +26,7 @@ export function useJobActions() {
     const target = sortedMarkers[targetIdx]
     if (!target) return { from: null, to: null }
 
-    const isCurrentActive = activeState && selectedSessionId === activeState.activeSessionId
+    const isCurrentActive = selectedSessionId === activeState?.activeSessionId
 
     if (isCurrentActive) {
       return {

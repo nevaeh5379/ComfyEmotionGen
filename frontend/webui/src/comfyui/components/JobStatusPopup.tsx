@@ -71,7 +71,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     const interval = setInterval(() => {
       setCurrentPage((prev) => (prev + 1) % totalPages)
     }, 3000)
-    return () => clearInterval(interval)
+    return () => { clearInterval(interval); }
   }, [cycleMinimizedProgress, runningJobs.length, totalPages])
 
   const queuedJobs = useMemo(
@@ -89,8 +89,8 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 
   useEffect(() => {
     if (runningJobs.length === 0) return
-    const id = setInterval(() => setTick((t) => t + 1), 1000)
-    return () => clearInterval(id)
+    const id = setInterval(() => { setTick((t) => t + 1); }, 1000)
+    return () => { clearInterval(id); }
   }, [runningJobs])
 
   // ── Refs for latest values ────────────────────────────────────────
@@ -145,7 +145,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
       .join(" | ")
     const mainJobOverall = mainJob ? getOverallProgress(mainJob) : 0
     const etaStr =
-      mainJob && mainJob.startedAt && mainJobOverall > 0 && mainJobOverall < 100
+      mainJob?.startedAt && mainJobOverall > 0 && mainJobOverall < 100
         ? formatETA(mainJob.startedAt, mainJobOverall, jobs)
         : null
 
@@ -154,7 +154,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
         className="fixed right-4 bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg transition-opacity hover:opacity-90 sm:right-4 sm:left-auto sm:w-auto"
         role="button"
         tabIndex={0}
-        onClick={() => setExpanded(true)}
+        onClick={() => { setExpanded(true); }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") setExpanded(true)
         }}
@@ -166,7 +166,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
         <span className="text-xs font-medium tabular-nums">
           {activeJobs.length}개{" "}
           {runningJobs.length > 0 && !paused
-            ? `${progressStr}`
+            ? progressStr
             : paused
               ? "중지"
               : "대기"}
@@ -206,7 +206,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6"
-                onClick={() => setExpanded(false)}
+                onClick={() => { setExpanded(false); }}
               >
                 <Minimize2 className="h-3.5 w-3.5" />
               </Button>

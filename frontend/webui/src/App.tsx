@@ -83,7 +83,7 @@ import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from "lucide-react"
 // ---------------------------------------------------------------------------
 // App — Root component with providers
 // ---------------------------------------------------------------------------
-export function App() {
+export function App(): JSX.Element {
   useOfflineSync()
 
   const [storedBackendUrl] = useLocalStorage(
@@ -91,7 +91,7 @@ export function App() {
     DEFAULT_BACKEND_URL
   )
   const backendUrl = IS_PACKAGE_MODE
-    ? (PACKAGE_BACKEND_URL as string)
+    ? (PACKAGE_BACKEND_URL ?? "")
     : storedBackendUrl
 
   return (
@@ -114,7 +114,7 @@ export function App() {
 // ---------------------------------------------------------------------------
 // AppContent — Inside all contexts
 // ---------------------------------------------------------------------------
-function AppContent() {
+function AppContent(): JSX.Element {
   // ── Backend ──
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
@@ -124,8 +124,8 @@ function AppContent() {
     STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL
   )
-  const setBackendUrl = IS_PACKAGE_MODE
-    ? (_: string) => {}
+  const setBackendUrl: (url: string) => void = IS_PACKAGE_MODE
+    ? (_: string): void => { /* read-only in package mode */ }
     : setStoredBackendUrl
 
   // ── Backend health ──
@@ -252,9 +252,9 @@ function AppContent() {
         const doneCount = session.sessionCounts.done
         const errorCount = session.sessionCounts.error + session.sessionCounts.cancelled
         if (errorCount > 0) {
-          toast.info(`배치 완료! (${doneCount} 완료, ${errorCount} 실패/취소)`)
+          toast.info(`배치 완료! (${String(doneCount)} 완료, ${String(errorCount)} 실패/취소)`)
         } else {
-          toast.success(`모든 작업이 완료되었습니다! (${doneCount}개)`)
+          toast.success(`모든 작업이 완료되었습니다! (${String(doneCount)}개)`)
         }
         fetch(`${backendUrl}${API.webhooks.batchComplete}`, {
           method: "POST",
@@ -264,7 +264,7 @@ function AppContent() {
             error: errorCount,
             total: totalJobs,
           }),
-        }).catch(() => {})
+        }).catch((): void => { /* intentionally ignored */ })
       }
     }
     prevActiveCount.current = current
@@ -325,22 +325,22 @@ function AppContent() {
   const canRun =
     Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
 
-  // ── Object info fetch ──
-  useEffect(() => {
+   // ── Object info fetch ──
+    useEffect(() => {
     if (!isAliveBackend) return
     fetch(`${backendUrl}${API.objectInfo}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) nodeMapping.setObjectInfo(data)
+        if (data !== null && data !== undefined) nodeMapping.setObjectInfo(data as Record<string, unknown>)
       })
-      .catch(() => {})
+      .catch((): void => { /* intentionally ignored */ })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendUrl, isAliveBackend])
 
   // ── Quick save handler (Ctrl+S shortcut) ──
-  const handleQuickSave = useCallback(() => {
+  const handleQuickSave = useCallback((): void => {
     if (compositionTab === "ceg") {
-      if (template.activeTemplateId) {
+      if (template.activeTemplateId !== null && template.activeTemplateId !== "") {
         const active = template.savedTemplates.find(
           (t) => t.id === template.activeTemplateId
         )
@@ -357,6 +357,7 @@ function AppContent() {
         )
       }
     }
+    return undefined
   }, [compositionTab, template, workflow])
 
   // ── Tab Change Scroll Lock Cleanup ──
@@ -372,19 +373,19 @@ function AppContent() {
     activeTab,
     mobileJobTab,
     canRun,
-    handleRun,
+    handleRun: () => { void handleRun().catch((): void => { /* ignore */ }); },
     handleSave: handleQuickSave,
     handleGalleryRefresh: tb.handleRefresh,
     setActiveTab,
-    toggleShortcuts: () => setShortcutsOpen((prev) => !prev),
+    toggleShortcuts: () => { setShortcutsOpen((prev) => !prev); /* toggle */ },
   })
 
   // ── Name conflict helpers ──
   const nextFreeName = (name: string, items: { name: string }[]): string => {
     if (!items.some((x) => x.name === name)) return name
     let n = NAME_CONFLICT_START_NUMBER
-    while (items.some((x) => x.name === `${name} (${n})`)) n++
-    return `${name} (${n})`
+    while (items.some((x) => x.name === `${name} (${String(n)})`)) n++
+    return `${name} (${String(n)})`
   }
 
   const pendingSaveItems =
@@ -394,7 +395,7 @@ function AppContent() {
         ? workflow.savedWorkflows
         : nodeMapping.savedNodeMappings
 
-  const handleNameConflictSaveNew = () => {
+  const handleNameConflictSaveNew = (): void => {
     if (!pendingSave) return
     const newName = nextFreeName(pendingSave.name, pendingSaveItems)
     if (pendingSave.type === "template") {
@@ -405,7 +406,7 @@ function AppContent() {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId) {
+      if (workflow.activeWorkflowId !== null) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           newName,
@@ -417,7 +418,7 @@ function AppContent() {
     setPendingSave(null)
   }
 
-  const handleNameConflictOverwrite = () => {
+  const handleNameConflictOverwrite = (): void => {
     if (!pendingSave) return
     if (pendingSave.type === "template") {
       template.saveTemplate(pendingSave.name, template.cegTemplate)
@@ -427,7 +428,7 @@ function AppContent() {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId) {
+      if (workflow.activeWorkflowId !== null) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           pendingSave.name,
@@ -578,9 +579,9 @@ function AppContent() {
           setCompositionTab={setCompositionTab}
           repeatCount={repeatCount}
           setRepeatCount={setRepeatCount}
-          handleRun={handleRun}
-          handleRandomRun={handleRandomRun}
-          handleRunUnapproved={handleRunUnapproved}
+          handleRun={() => { void handleRun().catch((): void => { /* ignore */ }); }}
+          handleRandomRun={() => { void handleRandomRun().catch((): void => { /* ignore */ }); }}
+          handleRunUnapproved={() => { void handleRunUnapproved().catch((): void => { /* ignore */ }); }}
           randomRunCount={randomRunCount}
           setRandomRunCount={setRandomRunCount}
           targetWorkerId={targetWorkerId}
@@ -591,29 +592,27 @@ function AppContent() {
           hasActiveFilter={hasActiveFilter}
           setIsAxisFilterOpen={setIsAxisFilterOpen}
           setIsGraphOpen={setIsGraphOpen}
-          onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
+          onStatsDragStart={(cx, cy) => { handleNavTabDragStart("stats", cx, cy); }}
           onCurationDragStart={(cx, cy) =>
-            handleNavTabDragStart("curation", cx, cy)
+            { handleNavTabDragStart("curation", cx, cy); }
           }
           onGalleryDragStart={(cx, cy) =>
-            handleNavTabDragStart("gallery", cx, cy)
+            { handleNavTabDragStart("gallery", cx, cy); }
           }
           sessionMarkers={session.markers}
           sessionJobCounts={session.sessionJobCounts}
           sortedMarkers={session.sortedMarkers}
           selectedSessionId={session.selectedSessionId}
-          activeSessionState={
-            session.activeState ? { activeSessionId: session.activeState.activeSessionId } : null
-          }
+        activeSessionState={{ activeSessionId: session.activeState.activeSessionId }}
           sessionPickerOpen={session.sessionPickerOpen}
           onSessionPickerOpenChange={session.setSessionPickerOpen}
           onSelectSession={session.setSelectedSessionId}
           onCreateNewSession={session.createNewSession}
           paused={paused}
-          onTogglePause={jobActions.handleTogglePause}
-          onCancelAll={jobActions.handleCancelAll}
-          onRetryAllFailed={jobActions.handleRetryAllFailed}
-          onDeleteAllFailed={jobActions.handleDeleteAllFailed}
+          onTogglePause={() => { void jobActions.handleTogglePause().catch((): void => { /* ignore */ }); }}
+          onCancelAll={() => { void jobActions.handleCancelAll().catch((): void => { /* ignore */ }); }}
+          onRetryAllFailed={() => { void jobActions.handleRetryAllFailed().catch((): void => { /* ignore */ }); }}
+          onDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed().catch((): void => { /* ignore */ }); }}
           activeJobsCount={session.sessionCounts.active}
         />
 
@@ -744,21 +743,21 @@ function AppContent() {
             const ok = await handleRunSelected()
             if (ok) setIsSelectionOpen(false)
           }}
-          onExcludeApproved={selectOnlyUnapprovedItems}
+          onExcludeApproved={() => { void selectOnlyUnapprovedItems().catch((): void => { /* ignore */ }); }}
         />
 
-        {workflow.parsedWorkflow?.success && (
+        {workflow.parsedWorkflow?.success === true && (
           <WorkflowGraphViewer
             workflow={workflow.parsedWorkflow.data}
             isOpen={isGraphOpen}
-            onClose={() => setIsGraphOpen(false)}
+            onClose={() => { setIsGraphOpen(false); }}
             backendUrl={backendUrl}
           />
         )}
 
         <NameConflictDialog
           pendingSave={pendingSave}
-          onClose={() => setPendingSave(null)}
+          onClose={() => { setPendingSave(null); }}
           newName={nextFreeName(pendingSave?.name ?? "", pendingSaveItems)}
           onSaveNew={handleNameConflictSaveNew}
           onOverwrite={handleNameConflictOverwrite}
@@ -770,14 +769,14 @@ function AppContent() {
             paused={paused}
             backendUrl={backendUrl}
             isAliveBackend={isAliveBackend}
-            onNavigateToJobs={() => setActiveTab("jobs")}
+            onNavigateToJobs={() => { setActiveTab("jobs"); }}
             cycleMinimizedProgress={settings.cycleMinimizedProgress}
           />
         )}
 
         <PresetSelectionDialog
           pendingWorkflow={pendingPresetSelection}
-          onClose={() => setPendingPresetSelection(null)}
+          onClose={() => { setPendingPresetSelection(null); }}
           onSelectPreset={(mappings: NodeMapping[], presetId: string) => {
             nodeMapping.setNodeMappings(mappings)
             nodeMapping.setActiveNodeMappingPresetId(presetId)
@@ -792,7 +791,7 @@ function AppContent() {
 
         <VersionDiffDialog
           open={pendingDiff !== null}
-          onClose={() => setPendingDiff(null)}
+          onClose={() => { setPendingDiff(null); }}
           onConfirm={() => {
             if (!pendingDiff) return
             if (pendingDiff.type === "template") {
@@ -825,24 +824,24 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-composition"
             isOpen={isCompositionFloating}
-            onClose={() => setIsCompositionFloating(false)}
-            onDock={() => setIsCompositionFloating(false)}
+            onClose={() => { setIsCompositionFloating(false); }}
+            onDock={() => { setIsCompositionFloating(false); }}
             initialPos={compositionFloatingPos}
             initialSize={compositionFloatingSize}
             onPosChange={setCompositionFloatingPos}
             onSizeChange={setCompositionFloatingSize}
             title="작업 구성 패널"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "composition")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "composition"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <WorkCompositionPanel
                 repeatCount={repeatCount}
                 setRepeatCount={setRepeatCount}
-                handleRun={handleRun}
-                handleRandomRun={handleRandomRun}
-                handleRunUnapproved={handleRunUnapproved}
+                handleRun={() => { void handleRun().catch((): void => { /* ignore */ }); }}
+                handleRandomRun={() => { void handleRandomRun().catch((): void => { /* ignore */ }); }}
+                handleRunUnapproved={() => { void handleRunUnapproved().catch((): void => { /* ignore */ }); }}
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 estimatedRunCount={estimatedRunCount}
@@ -853,13 +852,13 @@ function AppContent() {
                 setTargetWorkerId={setTargetWorkerId}
                 compositionTab={compositionTab}
                 setCompositionTab={setCompositionTab}
-                onPreviewOpen={() => setIsSheetOpen(true)}
-                onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
-                onSelectionOpen={() => setIsSelectionOpen(true)}
+                onPreviewOpen={() => { setIsSheetOpen(true); }}
+                onAxisFilterOpen={() => { setIsAxisFilterOpen(true); }}
+                onSelectionOpen={() => { setIsSelectionOpen(true); }}
                 hasActiveFilter={hasActiveFilter}
-                onGraphOpen={() => setIsGraphOpen(true)}
+                onGraphOpen={() => { setIsGraphOpen(true); }}
                 isFloating={true}
-                onFloatToggle={() => setIsCompositionFloating(false)}
+                onFloatToggle={() => { setIsCompositionFloating(false); }}
               />
             </div>
           </FloatingWindow>
@@ -870,15 +869,15 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-jobManager"
             isOpen={isJobManagerFloating}
-            onClose={() => setIsJobManagerFloating(false)}
-            onDock={() => setIsJobManagerFloating(false)}
+            onClose={() => { setIsJobManagerFloating(false); }}
+            onDock={() => { setIsJobManagerFloating(false); }}
             initialPos={jobManagerFloatingPos}
             initialSize={jobManagerFloatingSize}
             onPosChange={setJobManagerFloatingPos}
             onSizeChange={setJobManagerFloatingSize}
             title="작업 큐 매니저"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
@@ -902,13 +901,13 @@ function AppContent() {
                   sortedMarkers={session.sortedMarkers}
                   counts={session.sessionCounts}
                   sessionJobs={session.sessionJobs}
-                  handleTogglePause={jobActions.handleTogglePause}
-                  handleCancelAll={jobActions.handleCancelAll}
-                  handleRetryAllFailed={jobActions.handleRetryAllFailed}
-                  handleDeleteAllFailed={jobActions.handleDeleteAllFailed}
+                  handleTogglePause={() => { void jobActions.handleTogglePause().catch((): void => { /* ignore */ }); }}
+                  handleCancelAll={() => { void jobActions.handleCancelAll().catch((): void => { /* ignore */ }); }}
+                  handleRetryAllFailed={() => { void jobActions.handleRetryAllFailed().catch((): void => { /* ignore */ }); }}
+                  handleDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed().catch((): void => { /* ignore */ }); }}
                   refetchStats={session.refetchStats}
                   isFloating={true}
-                  onFloatToggle={() => setIsJobManagerFloating(false)}
+                  onFloatToggle={() => { setIsJobManagerFloating(false); }}
                 />
               </div>
             </div>
@@ -919,7 +918,7 @@ function AppContent() {
         {activeTab !== "gallery" && !isGalleryDocked && isGalleryFloating && (
           <GalleryFloatingWindow
             isOpen={true}
-            onClose={() => setIsGalleryFloating(false)}
+            onClose={() => { setIsGalleryFloating(false); }}
             onDock={() => {
               setIsGalleryFloating(false)
               setActiveTab("gallery")
@@ -929,7 +928,7 @@ function AppContent() {
             onPosChange={setGalleryFloatingPos}
             onSizeChange={setGalleryFloatingSize}
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "gallery"); }
             }
             backendUrl={backendUrl}
             enableHover={settings.enableHover}
@@ -945,7 +944,7 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-stats"
             isOpen={isStatsFloating}
-            onClose={() => setIsStatsFloating(false)}
+            onClose={() => { setIsStatsFloating(false); }}
             onDock={() => {
               setIsStatsFloating(false)
               setActiveTab("stats")
@@ -956,7 +955,7 @@ function AppContent() {
             onSizeChange={setStatsFloatingSize}
             title="통계"
             onDragProgress={(cx, cy, _sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, _sw, sh, isEnding, "stats")
+              { handleDragProgress(cx, cy, _sw, sh, isEnding, "stats"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
@@ -970,7 +969,7 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-curation"
             isOpen={isCurationFloating}
-            onClose={() => setIsCurationFloating(false)}
+            onClose={() => { setIsCurationFloating(false); }}
             onDock={() => {
               setIsCurationFloating(false)
               setActiveTab("curation")
@@ -981,7 +980,7 @@ function AppContent() {
             onSizeChange={setCurationFloatingSize}
             title="큐레이션"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "curation")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "curation"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
@@ -997,7 +996,7 @@ function AppContent() {
                   selectedAxis: curationSelectedAxis,
                   setSelectedAxis: setCurationSelectedAxis,
                   viewMode: "gallery" as const,
-                  setViewMode: () => {},
+                  setViewMode: (): void => { /* intentionally unused */ },
                   hideTopSection: true,
                 }}
               />

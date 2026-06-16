@@ -94,7 +94,7 @@ export function EditorTab() {
         setIsLoading(true)
         const defs = await comfyApi.getObjectInfo()
         if (!cancelled) {
-          setNodeDefs(defs as Record<string, import("@/lib/comfy-graph/types/nodeDef").ComfyNodeDef>)
+          setNodeDefs(defs)
         }
       } catch (err) {
         console.error("[EditorTab] Failed to load object_info:", err)
@@ -219,7 +219,7 @@ export function EditorTab() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setShowLeftPanel((v) => !v)}
+          onClick={() => { setShowLeftPanel((v) => !v); }}
           className={showLeftPanel ? "bg-accent" : ""}
         >
           <PanelLeft className="h-4 w-4" />
@@ -266,7 +266,7 @@ export function EditorTab() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setLoadDialogOpen(true)}
+          onClick={() => { setLoadDialogOpen(true); }}
         >
           <Folder className="h-4 w-4 mr-1" />
           불러오기
@@ -315,7 +315,7 @@ export function EditorTab() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setShowRightPanel((v) => !v)}
+          onClick={() => { setShowRightPanel((v) => !v); }}
           className={showRightPanel ? "bg-accent" : ""}
         >
           <PanelRight className="h-4 w-4" />
@@ -337,7 +337,7 @@ export function EditorTab() {
               <Input
                 id="workflow-name"
                 value={saveName}
-                onChange={(e) => setSaveName(e.target.value)}
+                onChange={(e) => { setSaveName(e.target.value); }}
                 placeholder="워크플로우 이름"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -349,7 +349,7 @@ export function EditorTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { setSaveDialogOpen(false); }}>
               취소
             </Button>
             <Button onClick={handleSaveWorkflow} disabled={!saveName.trim()}>
@@ -383,7 +383,7 @@ export function EditorTab() {
                     <button
                       type="button"
                       className="flex-1 text-left text-sm hover:text-accent-foreground cursor-pointer"
-                      onClick={() => handleLoadWorkflow(w)}
+                      onClick={() => { handleLoadWorkflow(w); }}
                     >
                       <span className="font-medium">{w.name}</span>
                       <span className="ml-2 text-xs text-muted-foreground">
@@ -394,7 +394,7 @@ export function EditorTab() {
                       variant="ghost"
                       size="icon-sm"
                       className="ml-2"
-                      onClick={() => handleDeleteWorkflow(w.id)}
+                      onClick={() => { handleDeleteWorkflow(w.id); }}
                       aria-label="삭제"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -405,7 +405,7 @@ export function EditorTab() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setLoadDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { setLoadDialogOpen(false); }}>
               닫기
             </Button>
           </DialogFooter>

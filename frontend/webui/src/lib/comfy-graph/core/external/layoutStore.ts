@@ -91,7 +91,7 @@ export interface ResizeNodeOperation extends BaseLayoutOperation {
 
 export interface BatchUpdateBoundsOperation extends BaseLayoutOperation {
   type: 'batchUpdateBounds'
-  updates: Array<{ nodeId: NodeId; bounds: Bounds }>
+  updates: { nodeId: NodeId; bounds: Bounds }[]
 }
 
 export interface CreateNodeOperation extends BaseLayoutOperation {
@@ -180,7 +180,7 @@ export class InMemoryLayoutStore {
   private versionRef = { value: 0 }
 
   private source: LayoutSource = LayoutSource.Canvas
-  private actor: string = 'user'
+  private actor = 'user'
 
   // Vue reactive bindings (reused in React stubs)
   public isDraggingVueNodes = { value: false }
@@ -476,7 +476,7 @@ export class InMemoryLayoutStore {
   }
 
   initializeFromLiteGraph(
-    nodes: Array<{ id: string; pos: [number, number]; size: [number, number] }>
+    nodes: { id: string; pos: [number, number]; size: [number, number] }[]
   ): void {
     this.nodes.clear()
     for (const n of nodes) {
@@ -511,7 +511,7 @@ export class InMemoryLayoutStore {
   }
 
   batchUpdateNodeBounds(
-    updates: Array<{ nodeId: NodeId; bounds: Bounds }>
+    updates: { nodeId: NodeId; bounds: Bounds }[]
   ): void {
     for (const update of updates) {
       const node = this.nodes.get(update.nodeId)

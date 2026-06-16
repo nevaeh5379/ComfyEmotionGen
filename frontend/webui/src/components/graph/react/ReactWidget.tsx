@@ -58,7 +58,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
         )}
         <select
           value={strVal}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => { onChange(e.target.value); }}
           disabled={disabled}
           className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring select-none disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -89,7 +89,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
           type="checkbox"
           checked={boolVal}
           disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
+          onChange={(e) => { onChange(e.target.checked); }}
           className="h-3 w-3 rounded border-input bg-background focus:ring-ring text-primary disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
@@ -149,7 +149,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
         type="text"
         value={strVal}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => { onChange(e.target.value); }}
         className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
       />
     </div>

@@ -11,10 +11,10 @@ export interface RangeValue {
 
 export interface ChartData {
   labels?: string[]
-  datasets?: Array<{
+  datasets?: {
     label?: string
     data?: number[]
-  }>
+  }[]
 }
 
 export type WidgetObjectValue =

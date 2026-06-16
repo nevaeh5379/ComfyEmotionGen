@@ -41,11 +41,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isInSubgraph: false,
   dirty: false,
 
-  setCanvas: (canvas) => set({ canvas }),
-  setCurrentGraph: (graph) => set({ currentGraph: graph }),
-  setAppService: (appService: ComfyAppService | null) => set({ appService }),
-  setScale: (scale) => set({ scale }),
-  setOffset: (offset) => set({ offset }),
+  setCanvas: (canvas) => { set({ canvas }); },
+  setCurrentGraph: (graph) => { set({ currentGraph: graph }); },
+  setAppService: (appService: ComfyAppService | null) => { set({ appService }); },
+  setScale: (scale) => { set({ scale }); },
+  setOffset: (offset) => { set({ offset }); },
 
   updateSelectedItems: () => {
     const canvas = get().canvas
@@ -60,7 +60,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ selectedNodes: selected })
   },
 
-  setIsDragging: (isDragging) => set({ isDragging }),
-  setIsInSubgraph: (isInSubgraph) => set({ isInSubgraph }),
-  setDirty: (dirty) => set({ dirty }),
+  setIsDragging: (isDragging) => { set({ isDragging }); },
+  setIsInSubgraph: (isInSubgraph) => { set({ isInSubgraph }); },
+  setDirty: (dirty) => { set({ dirty }); },
 }))

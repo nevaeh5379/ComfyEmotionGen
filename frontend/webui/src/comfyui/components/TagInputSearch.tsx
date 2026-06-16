@@ -181,7 +181,7 @@ export const TagInputSearch = memo(function TagInputSearch({
           {tag}
           <button
             type="button"
-            onClick={() => onRemoveTag(tag)}
+            onClick={() => { onRemoveTag(tag); }}
             className="inline-flex items-center justify-center rounded p-0.5 text-primary/70 transition-colors hover:bg-primary/20 hover:text-primary"
           >
             <X className="h-2.5 w-2.5" />
@@ -215,7 +215,7 @@ export const TagInputSearch = memo(function TagInputSearch({
             <button
               key={cand.value + "-" + cand.type}
               type="button"
-              onMouseEnter={() => setActiveIndex(idx)}
+              onMouseEnter={() => { setActiveIndex(idx); }}
               onClick={() => {
                 onAddTag(getPrefix(cand.type) + cand.value)
                 setIsOpen(false)

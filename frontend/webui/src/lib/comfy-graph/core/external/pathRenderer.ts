@@ -28,11 +28,11 @@ export interface LinkRenderData {
   flow?: boolean
   disabled?: boolean
   // Optional multi-segment support
-  segments?: Array<{
+  segments?: {
     start: Point
     end: Point
     controlPoints?: Point[]
-  }>
+  }[]
   // Center point storage (for hit detection and menu)
   centerPos?: Point
   centerAngle?: number
@@ -176,7 +176,7 @@ export class CanvasPathRenderer {
     if (link.color) {
       return link.color
     }
-    if (link.type && context.colors.byType && context.colors.byType[link.type]) {
+    if (link.type && context.colors.byType?.[link.type]) {
       return context.colors.byType[link.type] ?? context.colors.default
     }
     return context.colors.default

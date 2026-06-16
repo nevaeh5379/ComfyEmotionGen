@@ -63,7 +63,7 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
             type="text"
             placeholder="Search nodes..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); }}
             className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
@@ -82,7 +82,7 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
               <div key={category}>
                 <button
                   className="flex items-center w-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/50 transition-colors"
-                  onClick={() => toggleCategory(category)}
+                  onClick={() => { toggleCategory(category); }}
                 >
                   {isExpanded ? (
                     <ChevronDown className="h-3.5 w-3.5 mr-1 shrink-0" />

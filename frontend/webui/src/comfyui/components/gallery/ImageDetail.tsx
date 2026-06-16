@@ -107,14 +107,14 @@ export function ImageDetailPanel({
     if (!image.workflow || !workflowName.trim()) return
     saveWorkflow(workflowName.trim(), JSON.stringify(image.workflow))
     setWorkflowSaved(true)
-    setTimeout(() => setWorkflowSaved(false), 2000)
+    setTimeout(() => { setWorkflowSaved(false); }, 2000)
   }
 
   const handleSaveTemplate = () => {
     if (!image.cegTemplate || !templateName.trim()) return
     saveTemplate(templateName.trim(), image.cegTemplate)
     setTemplateSaved(true)
-    setTimeout(() => setTemplateSaved(false), 2000)
+    setTimeout(() => { setTemplateSaved(false); }, 2000)
   }
 
   return (
@@ -176,7 +176,7 @@ export function ImageDetailPanel({
           src={`${backendUrl}/saved-images/${image.hash}`}
           alt={image.originalFilename}
           className="max-h-[60vh] w-full object-contain"
-          onError={() => setImgError(true)}
+          onError={() => { setImgError(true); }}
         />
       )}
       <div className="space-y-1 text-xs">
@@ -219,7 +219,7 @@ export function ImageDetailPanel({
                   className="h-8 flex-1"
                   placeholder="워크플로우 이름"
                   value={workflowName}
-                  onChange={(e) => setWorkflowName(e.target.value)}
+                  onChange={(e) => { setWorkflowName(e.target.value); }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSaveWorkflow()
                   }}
@@ -246,7 +246,7 @@ export function ImageDetailPanel({
                   className="h-8 flex-1"
                   placeholder="템플릿 이름"
                   value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
+                  onChange={(e) => { setTemplateName(e.target.value); }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSaveTemplate()
                   }}
@@ -271,7 +271,7 @@ export function ImageDetailPanel({
         <label className="text-xs font-semibold">노트</label>
         <Textarea
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(e) => { setNote(e.target.value); }}
           rows={3}
         />
         <Button size="sm" variant="outline" onClick={saveNote}>
@@ -318,7 +318,7 @@ export function ImageDetailPanel({
             className="h-8 w-48"
             placeholder="새 태그"
             value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
+            onChange={(e) => { setNewTag(e.target.value); }}
             onKeyDown={(e) => {
               if (e.key === "Enter") addTag()
             }}
@@ -337,11 +337,11 @@ export function ImageDetail(props: DetailProps) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 select-text"
       onClick={props.onClose}
-      onMouseDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => { e.stopPropagation(); }}
     >
       <div
         className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-lg bg-background p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); }}
       >
         <ImageDetailPanel {...props} />
       </div>

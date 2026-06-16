@@ -26,6 +26,37 @@ interface NodeDef {
 
 type ObjectInfo = Record<string, NodeDef>
 
+interface ComfyGraphLGraphNode {
+  color: string
+  pos: [number, number]
+  size?: [number, number]
+  addInput(name: string, type: string): void
+  addOutput(name: string, type: string): void
+  connect(slot: number | string, targetNode: ComfyGraphLGraphNode, targetSlot: string): void
+}
+
+interface ComfyGraphLGraph {
+  add(node: ComfyGraphLGraphNode): void
+  stop(): void
+}
+
+interface ComfyGraphLGraphCanvas {
+  read_only: boolean
+  ds: {
+    scale: number
+    offset: [number, number]
+  }
+  resize(width: number, height: number): void
+  setDirty(flush: boolean, always: boolean): void
+  stopRendering(): void
+}
+
+interface ComfyGraphLib {
+  LGraph: new () => ComfyGraphLGraph
+  LGraphCanvas: new (canvas: HTMLCanvasElement, graph: ComfyGraphLGraph) => ComfyGraphLGraphCanvas
+  LGraphNode: new (title?: string) => ComfyGraphLGraphNode
+}
+
 let cachedObjectInfo: ObjectInfo | null = null
 
 async function fetchObjectInfo(backendUrl: string): Promise<ObjectInfo | null> {
@@ -52,7 +83,7 @@ function WorkflowGraphViewer({
   isOpen,
   onClose,
   backendUrl,
-}: WorkflowGraphViewerProps) {
+}: WorkflowGraphViewerProps): JSX.Element {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [stats, setStats] = useState({ nodes: 0, edges: 0 })
@@ -64,25 +95,22 @@ function WorkflowGraphViewer({
   useEffect(() => {
     if (!isOpen || !containerEl || !canvasRef.current) return
 
+    const container = containerEl
     let cancelled = false
     let stopFn: (() => void) | null = null
     let rafId: number
 
-    async function init(w: number, h: number) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lib = (await import("@/lib/comfy-graph")) as any
+    async function init(w: number, h: number): Promise<void> {
+      const lib = (await import("@/lib/comfy-graph")) as ComfyGraphLib
       const { LGraph, LGraphCanvas, LGraphNode } = lib
 
       if (cancelled || !canvasRef.current) return
 
       const { positions, edges } = computeLayout(workflow)
       const graph = new LGraph()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nodeMap = new Map<string, any>()
+      const nodeMap = new Map<string, ComfyGraphLGraphNode>()
 
       const objectInfo = await fetchObjectInfo(backendUrl)
-
-      if (cancelled || !canvasRef.current) return
 
       for (const [nodeId, wfNode] of Object.entries(workflow)) {
         const info = objectInfo?.[wfNode.class_type]
@@ -103,7 +131,7 @@ function WorkflowGraphViewer({
             lgNode.addInput(name, Array.isArray(typeSpec) ? "COMBO" : typeSpec)
           }
           for (const [name, spec] of Object.entries(opt)) {
-            const [typeSpec] = spec as InputSpec
+            const [typeSpec] = spec
             lgNode.addInput(name, Array.isArray(typeSpec) ? "COMBO" : typeSpec)
           }
           for (let i = 0; i < info.output.length; i++) {
@@ -134,7 +162,7 @@ function WorkflowGraphViewer({
       for (const edge of edges) {
         const src = nodeMap.get(edge.source)
         const tgt = nodeMap.get(edge.target)
-        if (!src || !tgt) continue
+        if (src === undefined || tgt === undefined) continue
         src.connect(edge.sourceSlot, tgt, edge.targetInput)
       }
 
@@ -174,30 +202,31 @@ function WorkflowGraphViewer({
         const { width, height } = entry.contentRect
         if (width > 0 && height > 0) lgCanvas.resize(width, height)
       })
-      resizeObserver.observe(containerEl!)
+      resizeObserver.observe(container)
 
-      stopFn = () => {
+      stopFn = (): void => {
         resizeObserver.disconnect()
         lgCanvas.stopRendering()
         graph.stop()
       }
     }
 
-    function waitForSize() {
+    function waitForSize(): void {
       rafId = requestAnimationFrame(() => {
-        if (cancelled || !containerEl) return
-        const w = containerEl.clientWidth
-        const h = containerEl.clientHeight
+        const w = container.clientWidth
+        const h = container.clientHeight
         if (w === 0 || h === 0) {
           waitForSize()
           return
         }
-        init(w, h)
+        init(w, h).catch((): void => {
+        // intentionally ignored
+      })
       })
     }
     waitForSize()
 
-    return () => {
+    return (): void => {
       cancelled = true
       cancelAnimationFrame(rafId)
       stopFn?.()

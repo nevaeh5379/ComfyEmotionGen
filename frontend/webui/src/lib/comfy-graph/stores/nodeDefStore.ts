@@ -65,8 +65,8 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
     return undefined
   },
 
-  setShowDeprecated: (showDeprecated) => set({ showDeprecated }),
-  setShowExperimental: (showExperimental) => set({ showExperimental }),
-  setLoading: (isLoading) => set({ isLoading }),
-  setError: (error) => set({ error }),
+  setShowDeprecated: (showDeprecated) => { set({ showDeprecated }); },
+  setShowExperimental: (showExperimental) => { set({ showExperimental }); },
+  setLoading: (isLoading) => { set({ isLoading }); },
+  setError: (error) => { set({ error }); },
 }))

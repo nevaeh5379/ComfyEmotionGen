@@ -146,7 +146,7 @@ export function SettingsPanel({
                 placeholder={DEFAULT_BACKEND_URL}
                 value={backendUrl}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onBackendUrlChange(e.target.value)
+                  { onBackendUrlChange(e.target.value); }
                 }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                   const v = e.target.value.trim()
@@ -185,10 +185,10 @@ export function SettingsPanel({
               <Select
                 value={String(settings.imagePageSize)}
                 onValueChange={(v) =>
-                  updateSetting(
+                  { updateSetting(
                     "imagePageSize",
                     Number(v) as AppSettings["imagePageSize"]
-                  )
+                  ); }
                 }
               >
                 <SelectTrigger className="h-8 w-36 text-sm">
@@ -209,7 +209,7 @@ export function SettingsPanel({
               <Switch
                 checked={settings.imageLazyLoad}
                 onCheckedChange={(v) =>
-                  updateSetting("imageLazyLoad", v === true)
+                  { updateSetting("imageLazyLoad", v); }
                 }
               />
             </SettingRow>
@@ -225,7 +225,7 @@ export function SettingsPanel({
             <Switch
               checked={settings.autoApplyReject}
               onCheckedChange={(v) =>
-                updateSetting("autoApplyReject", v === true)
+                { updateSetting("autoApplyReject", v); }
               }
             />
           </SettingRow>
@@ -237,7 +237,7 @@ export function SettingsPanel({
             <Switch
               checked={settings.hideEmptyCurationFolders}
               onCheckedChange={(v) =>
-                updateSetting("hideEmptyCurationFolders", v === true)
+                { updateSetting("hideEmptyCurationFolders", v); }
               }
             />
           </SettingRow>
@@ -249,10 +249,10 @@ export function SettingsPanel({
             <Select
               value={settings.galleryExportScope}
               onValueChange={(v) =>
-                updateSetting(
+                { updateSetting(
                   "galleryExportScope",
                   v as AppSettings["galleryExportScope"]
-                )
+                ); }
               }
             >
               <SelectTrigger className="h-8 w-44 text-sm">
@@ -272,10 +272,10 @@ export function SettingsPanel({
             <Select
               value={settings.galleryExportStrategy}
               onValueChange={(v) =>
-                updateSetting(
+                { updateSetting(
                   "galleryExportStrategy",
                   v as AppSettings["galleryExportStrategy"]
-                )
+                ); }
               }
             >
               <SelectTrigger className="h-8 w-44 text-sm">
@@ -295,10 +295,10 @@ export function SettingsPanel({
             <Select
               value={settings.singleDownloadMode}
               onValueChange={(v) =>
-                updateSetting(
+                { updateSetting(
                   "singleDownloadMode",
                   v as AppSettings["singleDownloadMode"]
-                )
+                ); }
               }
             >
               <SelectTrigger className="h-8 w-44 text-sm">
@@ -325,10 +325,10 @@ export function SettingsPanel({
             <Select
               value={settings.updateChannel}
               onValueChange={(v) =>
-                updateSetting(
+                { updateSetting(
                   "updateChannel",
                   v as AppSettings["updateChannel"]
-                )
+                ); }
               }
               disabled={IS_LOCAL_DEV}
             >
@@ -354,10 +354,10 @@ export function SettingsPanel({
             <Select
               value={settings.progressCalculation}
               onValueChange={(v) =>
-                updateSetting(
+                { updateSetting(
                   "progressCalculation",
                   v as AppSettings["progressCalculation"]
-                )
+                ); }
               }
             >
               <SelectTrigger className="h-8 w-52 text-sm">
@@ -383,7 +383,7 @@ export function SettingsPanel({
             <Switch
               checked={settings.cycleMinimizedProgress}
               onCheckedChange={(v) =>
-                updateSetting("cycleMinimizedProgress", v === true)
+                { updateSetting("cycleMinimizedProgress", v); }
               }
             />
           </SettingRow>
@@ -397,7 +397,7 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.enableHover}
-              onCheckedChange={(v) => updateSetting("enableHover", v === true)}
+              onCheckedChange={(v) => { updateSetting("enableHover", v); }}
             />
           </SettingRow>
           <Separator />
@@ -408,7 +408,7 @@ export function SettingsPanel({
             <Switch
               checked={settings.useWindowMode}
               onCheckedChange={(v) =>
-                updateSetting("useWindowMode", v === true)
+                { updateSetting("useWindowMode", v); }
               }
             />
           </SettingRow>
@@ -420,7 +420,7 @@ export function SettingsPanel({
             <Switch
               checked={settings.fluidGridLayout}
               onCheckedChange={(v) =>
-                updateSetting("fluidGridLayout", v === true)
+                { updateSetting("fluidGridLayout", v); }
               }
             />
           </SettingRow>
@@ -503,7 +503,7 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: `${now + Math.random().toString(36).slice(2, 7)}`,
+                                id: now + Math.random().toString(36).slice(2, 7),
                                 name: (p.name as string) || "미명 템플릿",
                                 template: (p.template as string) || "",
                                 savedAt: (p.savedAt as number) || now,
@@ -602,7 +602,7 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: `${now + Math.random().toString(36).slice(2, 7)}`,
+                                id: now + Math.random().toString(36).slice(2, 7),
                                 name: (p.name as string) || "미명 워크플로우",
                                 workflow: (p.workflow as string) || "",
                                 mappingPresets:
