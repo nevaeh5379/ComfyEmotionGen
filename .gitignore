@@ -40,3 +40,4 @@ backend/data/
 data/
 debug/
 *.log
+.DS_Store

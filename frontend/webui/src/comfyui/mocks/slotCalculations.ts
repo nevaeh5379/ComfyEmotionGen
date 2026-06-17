@@ -1,11 +1,11 @@
-import type { LGraphNode } from '../LGraphNode'
+import type { LGraphNode } from '@/lib/litegraph/src/LGraphNode'
 import type {
   INodeInputSlot,
   INodeOutputSlot,
   Point
-} from '../interfaces'
-import { LiteGraph } from '../litegraph'
-import { isWidgetInputSlot } from '../node/slotUtils'
+} from '@/lib/litegraph/src/interfaces'
+import { LiteGraph } from '@/lib/litegraph/src/litegraph'
+import { isWidgetInputSlot } from '@/lib/litegraph/src/node/slotUtils'
 import { layoutStore } from './layout'
 
 export interface SlotPositionContext {

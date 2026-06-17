@@ -23,12 +23,12 @@ import type {
   SubgraphIO
 } from '@/lib/litegraph/src/types/serialisation'
 
-import type { GraphOrSubgraph } from '../subgraph/Subgraph'
-import type { SubgraphInput } from '../subgraph/SubgraphInput'
-import type { SubgraphInputNode } from '../subgraph/SubgraphInputNode'
-import type { SubgraphNode } from '../subgraph/SubgraphNode'
-import type { SubgraphOutput } from '../subgraph/SubgraphOutput'
-import type { SubgraphOutputNode } from '../subgraph/SubgraphOutputNode'
+import type { GraphOrSubgraph } from '@/lib/litegraph/src/subgraph/Subgraph'
+import type { SubgraphInput } from '@/lib/litegraph/src/subgraph/SubgraphInput'
+import type { SubgraphInputNode } from '@/lib/litegraph/src/subgraph/SubgraphInputNode'
+import type { SubgraphNode } from '@/lib/litegraph/src/subgraph/SubgraphNode'
+import type { SubgraphOutput } from '@/lib/litegraph/src/subgraph/SubgraphOutput'
+import type { SubgraphOutputNode } from '@/lib/litegraph/src/subgraph/SubgraphOutputNode'
 
 interface FilteredItems {
   nodes: Set<LGraphNode>
