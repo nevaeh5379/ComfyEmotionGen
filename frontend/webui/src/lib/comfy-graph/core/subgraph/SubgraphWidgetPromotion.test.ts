@@ -20,8 +20,8 @@ import { reorderSubgraphInputsByName } from '@/core/graph/subgraph/promotionUtil
 import type { SerializedProxyWidgetTuple } from '@/core/schemas/promotionSchema'
 import { computeProcessedWidgets } from '@/renderer/extensions/vueNodes/composables/useProcessedWidgets'
 import { IS_CONTROL_WIDGET } from '@/scripts/controlWidgetMarker'
-import { getPreviewExposureStore } from '../external/widgetStores'
-import { getWidgetValueStore } from '../external/widgetStores'
+import { usePreviewExposureStore } from '@/stores/previewExposureStore'
+import { useWidgetValueStore } from '@/stores/widgetValueStore'
 import { createNodeLocatorId } from '@/types/nodeIdentification'
 import { graphToPrompt } from '@/utils/executionUtil'
 
@@ -51,7 +51,7 @@ function createNodeWithWidget(
   const input = node.addInput('value', slotType)
   node.addOutput('out', slotType)
 
-  // @ts-expect-error: Bypass external type check Abstract class instantiation
+  // @ts-expect-error Abstract class instantiation
   const widget = new BaseWidget({
     name: 'widget',
     type: widgetType,
@@ -191,7 +191,7 @@ describe('SubgraphWidgetPromotion', () => {
       const numInput = multiWidgetNode.addInput('num', 'number')
       const strInput = multiWidgetNode.addInput('str', 'string')
 
-      // @ts-expect-error: Bypass external type check Abstract class instantiation
+      // @ts-expect-error Abstract class instantiation
       const widget1 = new BaseWidget({
         name: 'widget1',
         type: 'number',
@@ -201,7 +201,7 @@ describe('SubgraphWidgetPromotion', () => {
         node: multiWidgetNode
       })
 
-      // @ts-expect-error: Bypass external type check Abstract class instantiation
+      // @ts-expect-error Abstract class instantiation
       const widget2 = new BaseWidget({
         name: 'widget2',
         type: 'string',
@@ -502,7 +502,7 @@ describe('SubgraphWidgetPromotion', () => {
       const numInput = multiWidgetNode.addInput('num', 'number')
       const strInput = multiWidgetNode.addInput('str', 'string')
 
-      // @ts-expect-error: Bypass external type check Abstract class instantiation
+      // @ts-expect-error Abstract class instantiation
       const widget1 = new BaseWidget({
         name: 'widget1',
         type: 'number',
@@ -513,7 +513,7 @@ describe('SubgraphWidgetPromotion', () => {
         tooltip: 'Number widget tooltip'
       })
 
-      // @ts-expect-error: Bypass external type check Abstract class instantiation
+      // @ts-expect-error Abstract class instantiation
       const widget2 = new BaseWidget({
         name: 'widget2',
         type: 'string',
@@ -588,7 +588,7 @@ describe('SubgraphWidgetPromotion', () => {
       const hostNode = createTestSubgraphNode(subgraph)
       const hostWidget = hostNode.widgets[0]
       expectPromotedWidgetView(hostWidget)
-      getWidgetValueStore().registerWidget(hostNode.rootGraph.id, {
+      useWidgetValueStore().registerWidget(hostNode.rootGraph.id, {
         nodeId: hostNode.id,
         name: hostWidget.name,
         type: hostWidget.type,
@@ -943,7 +943,7 @@ describe('SubgraphWidgetPromotion', () => {
         }
         if (c.expect.storeSeedValue !== undefined) {
           expect(
-            getWidgetValueStore()
+            useWidgetValueStore()
               .getNodeWidgets(host.rootGraph.id, host.id)
               .find((entry) => entry.name === 'seed')?.value
           ).toBe(c.expect.storeSeedValue)
@@ -1004,7 +1004,7 @@ describe('SubgraphWidgetPromotion', () => {
         const subgraph = createTestSubgraph()
         const sources = buildSources(subgraph, TEXT_PAIR)
         const host = createTestSubgraphNode(subgraph)
-        const widgetStore = getWidgetValueStore()
+        const widgetStore = useWidgetValueStore()
         for (const { node, widget } of sources) {
           widgetStore.registerWidget(host.rootGraph.id, {
             nodeId: node.id,
@@ -1031,7 +1031,7 @@ describe('SubgraphWidgetPromotion', () => {
         )
 
         const host = createTestSubgraphNode(subgraph, { id: 101 })
-        const widgetStore = getWidgetValueStore()
+        const widgetStore = useWidgetValueStore()
         widgetStore.registerWidget(host.rootGraph.id, {
           nodeId: interiorNode.id,
           name: interiorWidget.name,
@@ -1064,7 +1064,7 @@ describe('SubgraphWidgetPromotion', () => {
           'second host value'
         ])
 
-        const widgetStore = getWidgetValueStore()
+        const widgetStore = useWidgetValueStore()
         widgetStore.clearGraph(host.rootGraph.id)
         const reloaded = createTestSubgraphNode(subgraph, { id: 101 })
         reloaded.configure(serialized)
@@ -1142,7 +1142,7 @@ describe('SubgraphWidgetPromotion', () => {
         hostNode._internalConfigureAfterSlots()
 
         expect(
-          getPreviewExposureStore().getExposures(
+          usePreviewExposureStore().getExposures(
             hostNode.rootGraph.id,
             String(hostNode.id)
           )
@@ -1182,7 +1182,7 @@ describe('SubgraphWidgetPromotion', () => {
         const hostNode = createTestSubgraphNode(createTestSubgraph())
         if (c.staleProperty)
           hostNode.properties.previewExposures = c.staleProperty
-        const store = getPreviewExposureStore()
+        const store = usePreviewExposureStore()
         for (const e of c.addExposures) {
           store.addExposure(hostNode.rootGraph.id, String(hostNode.id), e)
         }
@@ -1198,7 +1198,7 @@ describe('SubgraphWidgetPromotion', () => {
         const hostNode = createTestSubgraphNode(createTestSubgraph())
         const rootGraphId = hostNode.rootGraph.id
         const hostLocator = String(hostNode.id)
-        const store = getPreviewExposureStore()
+        const store = usePreviewExposureStore()
 
         const serialized = hostNode.serialize()
         expect(serialized.properties?.previewExposures).toEqual([])
@@ -1223,7 +1223,7 @@ describe('SubgraphWidgetPromotion', () => {
         subgraph.rootGraph.add(firstHost)
         subgraph.rootGraph.add(secondHost)
 
-        const store = getPreviewExposureStore()
+        const store = usePreviewExposureStore()
         store.addExposure(
           firstHost.rootGraph.id,
           String(firstHost.id),

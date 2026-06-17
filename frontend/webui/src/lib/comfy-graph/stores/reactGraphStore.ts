@@ -4,6 +4,7 @@
  */
 
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 import type {
   ComfyWorkflowJSON,
   ComfyWorkflowNode,
@@ -13,7 +14,7 @@ import type {
 } from "@/lib/comfy-graph/types/workflow"
 import type { ComfyNodeDef } from "@/lib/comfy-graph/types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
-import { LiteGraph, LGraphNode } from "@/lib/comfy-graph/core/litegraph"
+import { LiteGraph, LGraph, LGraphNode } from "@/lib/comfy-graph/core/litegraph"
 
 interface ReactGraphState {
   nodes: ComfyWorkflowNode[]
@@ -51,9 +52,9 @@ interface ReactGraphState {
   syncNodeFromLive: (
     id: number,
     widgetsValues: unknown[],
-    inputs: ComfyNodeInput[],
-    outputs: ComfyNodeOutput[],
-    properties?: Record<string, StrictJSONValue>
+    inputs: any[],
+    outputs: any[],
+    properties?: any
   ) => void
   syncGraphFromLive: () => void
 
@@ -90,18 +91,18 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
     // 라이브 그래프가 존재하고 extension이 완전히 로드되었으면 loadGraphData로 노드 재구축
     // (중간 syncGraph 호출을 억제하여 불완전한 상태가 store에 반영되지 않도록 함)
-    const app = window.app
+    const app = (window as any).app
     if (app?.graph && app.extensionsLoaded) {
-      const service = window.__comfyAppService
+      const service = (window as any).__comfyAppService
       if (service) {
         const origSyncGraph = app.syncGraph
         app.syncGraph = () => {}
         try {
           const workflowToLoad: ComfyWorkflowJSON = {
-            nodes: workflow.nodes,
+            ...workflow,
             links: normalizedLinks,
           }
-          service.loadGraphData(workflowToLoad)
+          service.loadGraphData(workflowToLoad as any)
         } finally {
           app.syncGraph = origSyncGraph
         }
@@ -137,7 +138,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   addNode: (type, pos, def) => {
     get().takeSnapshot()
-    if (window.app?.graph) {
+    if ((window as any).app?.graph) {
       const liveNode = LiteGraph.createNode(type)
       if (liveNode) {
         liveNode.pos = pos
@@ -147,13 +148,13 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         if (def) {
           if (def.input?.required) {
             for (const [name, spec] of Object.entries(def.input.required)) {
-              const typeStr = Array.isArray((spec as [string | string[], Record<string, unknown>])[0]) ? "COMBO" : ((spec as [string | string[], Record<string, unknown>])[0] as string)
+              const typeStr = Array.isArray((spec as any)[0]) ? "COMBO" : ((spec as any)[0] as string)
               liveNode.addInput(name, typeStr)
             }
           }
           if (def.input?.optional) {
             for (const [name, spec] of Object.entries(def.input.optional)) {
-              const typeStr = Array.isArray((spec as [string | string[], Record<string, unknown>])[0]) ? "COMBO" : ((spec as [string | string[], Record<string, unknown>])[0] as string)
+              const typeStr = Array.isArray((spec as any)[0]) ? "COMBO" : ((spec as any)[0] as string)
               liveNode.addInput(name, typeStr)
             }
           }
@@ -188,21 +189,21 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
           if (isLora) console.log("[CEG:DEBUG addNode(Live)] calling onNodeCreated, widgets before:", liveNode.widgets?.length || 0)
           liveNode.onNodeCreated()
           if (isLora) console.log("[CEG:DEBUG addNode(Live)] after onNodeCreated, widgets:", liveNode.widgets?.length || 0,
-            liveNode.widgets?.map((w) => ({ name: w.name, type: w.type, hasElement: !!w.element })))
+            liveNode.widgets?.map((w: any) => ({ name: w.name, type: w.type, hasElement: !!w.element })))
         }
 
-        for (const ext of window.app.extensions || []) {
+        for (const ext of (window as any).app.extensions || []) {
           if (ext.nodeCreated) {
             try {
               if (isLora) console.log("[CEG:DEBUG addNode(Live)] Calling nodeCreated for", ext.name, "on node", type);
-              ext.nodeCreated(liveNode, window.app)
+              ext.nodeCreated(liveNode, (window as any).app)
               if (isLora) console.log("[CEG:DEBUG addNode(Live)] After nodeCreated", ext.name, "widgets=" + (liveNode.widgets?.length || 0));
             } catch (err) {
               console.error("Extension nodeCreated failed:", err)
             }
           }
         }
-        window.app.graph.add(liveNode)
+        ;(window as any).app.graph.add(liveNode)
         get().syncGraphFromLive()
         if (isLora) console.log("[CEG:DEBUG addNode(Live)] Done, liveNode.widgets=" + (liveNode.widgets?.length || 0));
         return
@@ -291,11 +292,11 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     if (ids.length === 0) return
     get().takeSnapshot()
 
-    if (window.app?.graph) {
+    if ((window as any).app?.graph) {
       for (const id of ids) {
-        const liveNode = window.app.graph.getNodeById(id)
+        const liveNode = (window as any).app.graph.getNodeById(id)
         if (liveNode) {
-          window.app.graph.remove(liveNode)
+          (window as any).app.graph.remove(liveNode)
         }
       }
       get().syncGraphFromLive()
@@ -365,8 +366,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   },
 
   updateNodePos: (id, pos) => {
-    if (window.app?.graph) {
-      const liveNode = window.app.graph.getNodeById(id)
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(id)
       if (liveNode) {
         liveNode.pos = pos
       }
@@ -378,8 +379,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   },
 
   updateNodeSize: (id, size) => {
-    if (window.app?.graph) {
-      const liveNode = window.app.graph.getNodeById(id)
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(id)
       if (liveNode) {
         liveNode.size = size
       }
@@ -391,9 +392,9 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   },
 
   connect: (originNodeId, originSlotIdx, targetNodeId, targetSlotIdx, type) => {
-    if (window.app?.graph) {
-      const originNode = window.app.graph.getNodeById(originNodeId)
-      const targetNode = window.app.graph.getNodeById(targetNodeId)
+    if ((window as any).app?.graph) {
+      const originNode = (window as any).app.graph.getNodeById(originNodeId)
+      const targetNode = (window as any).app.graph.getNodeById(targetNodeId)
       if (originNode && targetNode) {
         originNode.connect(originSlotIdx, targetNode, targetSlotIdx)
         get().syncGraphFromLive()
@@ -401,7 +402,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       }
     }
 
-    const { nodes } = get()
+    const { nodes, links } = get()
 
     // Find origin (output) and target (input) nodes
     const originNode = nodes.find((n) => n.id === originNodeId)
@@ -502,10 +503,10 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   disconnect: (linkId) => {
     get().takeSnapshot()
 
-    if (window.app?.graph) {
-      const link = window.app.graph.links.get(linkId)
+    if ((window as any).app?.graph) {
+      const link = (window as any).app.graph.links.get(linkId)
       if (link) {
-        const targetNode = window.app.graph.getNodeById(link.target_id)
+        const targetNode = (window as any).app.graph.getNodeById(link.target_id)
         if (targetNode) {
           targetNode.disconnectInput(link.target_slot)
           get().syncGraphFromLive()
@@ -557,15 +558,15 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   updateWidgetValue: (nodeId, widgetName, value) => {
     get().takeSnapshot()
 
-    if (window.app?.graph) {
-      const liveNode = window.app.graph.getNodeById(nodeId)
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(nodeId)
       if (liveNode && liveNode.widgets) {
-        const widget = liveNode.widgets.find((w) => w.name === widgetName)
+        const widget = liveNode.widgets.find((w: any) => w.name === widgetName)
         if (widget) {
-          widget.value = value as never
+          widget.value = value
           if (widget.callback) {
             try {
-              widget.callback(value as StrictJSONValue)
+              widget.callback(value)
             } catch (err) {
               console.error("Widget callback failed:", err)
             }
@@ -583,7 +584,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         if (node.id !== nodeId) return node
 
         // widget_names 배열을 통해 해당 위젯의 인덱스 검색
-        const widgetNames = (node.properties?.widget_names as string[]) || []
+        let widgetNames = (node.properties?.widget_names as string[]) || []
 
         // nodeDef fallback: widget_names가 없으면 nodeDef에서 유추
         if (widgetNames.length === 0) {
@@ -623,13 +624,13 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   changeNodeMode: (nodeId, mode) => {
     get().takeSnapshot()
-    if (window.app?.graph) {
-      const liveNode = window.app.graph.getNodeById(nodeId)
+    if ((window as any).app?.graph) {
+      const liveNode = (window as any).app.graph.getNodeById(nodeId)
       if (liveNode) {
         liveNode.mode = mode
+        ;(window as any).app.syncGraph()
+        return
       }
-      window.app.syncGraph?.()
-      return
     }
 
     const { nodes } = get()
@@ -659,9 +660,9 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
   clearGraph: () => {
     get().takeSnapshot()
-    if (window.app?.graph) {
-      window.app.graph.clear()
-      window.app.syncGraph?.()
+    if ((window as any).app?.graph) {
+      (window as any).app.graph.clear()
+      ;(window as any).app.syncGraph()
     }
     set({
       nodes: [],
@@ -699,13 +700,11 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       ...redoStack
     ].slice(0, 50)
 
-    if (window.app?.graph) {
-      window.app.graph.clear()
-      const origSync = window.app.syncGraph
-      window.app.syncGraph = () => {}
-      if (window.app.canvas && window.app.graph) {
-        window.app.canvas.graph = window.app.graph
-      }
+    if ((window as any).app?.graph) {
+      ;(window as any).app.graph.clear()
+      const origSync = (window as any).app.syncGraph
+      ;(window as any).app.syncGraph = () => {}
+      ;(window as any).app.canvas.graph = (window as any).app.graph
 
       const last_node_id = Math.max(0, ...previous.nodes.map(n => n.id))
       const last_link_id = Math.max(0, ...previous.links.map(l => l.id))
@@ -716,13 +715,13 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         links: previous.links,
         version: 0.4,
       }
-      const service = window.app.canvas?.graph?._canvas?.app || window.app
+      const service = (window as any).app.canvas.graph._canvas?.app || (window as any).app
       if (service && typeof service.loadGraphData === "function") {
         service.loadGraphData(workflow)
       }
 
-      window.app.syncGraph = origSync
-      window.app.syncGraph?.()
+      (window as any).app.syncGraph = origSync
+      ;(window as any).app.syncGraph()
     }
 
     set({
@@ -747,9 +746,9 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       }
     ].slice(-50)
 
-    if (window.app?.graph) {
-      const origSync = window.app.syncGraph
-      window.app.syncGraph = () => {}
+    if ((window as any).app?.graph) {
+      const origSync = (window as any).app.syncGraph
+      ;(window as any).app.syncGraph = () => {}
 
       const last_node_id = Math.max(0, ...next.nodes.map(n => n.id))
       const last_link_id = Math.max(0, ...next.links.map(l => l.id))
@@ -760,13 +759,13 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         links: next.links,
         version: 0.4,
       }
-      const service = window.app.canvas?.graph?._canvas?.app || window.app
+      const service = (window as any).app.canvas.graph._canvas?.app || (window as any).app
       if (service && typeof service.loadGraphData === "function") {
         service.loadGraphData(workflow)
       }
 
-      window.app.syncGraph = origSync
-      window.app.syncGraph?.()
+      (window as any).app.syncGraph = origSync
+      ;(window as any).app.syncGraph()
     }
 
     set({
@@ -812,8 +811,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
   },
 
   syncGraphFromLive: () => {
-    if (!window.app?.graph) return
-    const graph = window.app.graph
+    if (!(window as any).app?.graph) return
+    const graph = (window as any).app.graph
     const currentNodes = get().nodes
     const currentLinks = get().links
 
@@ -831,23 +830,23 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     }
 
     // Serialize nodes
-    const mergedNodes = graph.nodes.map((liveNode: LGraphNode) => {
+    const mergedNodes = graph.nodes.map((liveNode: any) => {
       const existing = currentNodes.find((n) => n.id === liveNode.id)
-      const widgetsValues = liveNode.widgets?.map((w) => w.value) || []
-      const inputs = liveNode.inputs?.map((input) => ({
+      const widgetsValues = liveNode.widgets?.map((w: any) => w.value) || []
+      const inputs = liveNode.inputs?.map((input: any) => ({
         name: input.name,
-        type: String(input.type),
+        type: input.type,
         link: input.link ?? undefined,
       })) || []
-      const outputs = liveNode.outputs?.map((output, i: number) => ({
+      const outputs = liveNode.outputs?.map((output: any, i: number) => ({
         name: output.name,
-        type: String(output.type),
+        type: output.type,
         links: output.links ?? undefined,
         slot_index: i,
       })) || []
 
       return {
-        id: Number(liveNode.id),
+        id: liveNode.id,
         type: liveNode.type || existing?.type || "",
         pos: liveNode.pos,
         size: liveNode.size,
@@ -857,7 +856,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         properties: {
           ...(existing?.properties || {}),
           ...(liveNode.properties || {}),
-          widget_names: liveNode.widgets?.map((w) => w.name) || [],
+          widget_names: liveNode.widgets?.map((w: any) => w.name) || [],
         },
         mode: liveNode.mode !== undefined ? liveNode.mode : existing?.mode,
       }

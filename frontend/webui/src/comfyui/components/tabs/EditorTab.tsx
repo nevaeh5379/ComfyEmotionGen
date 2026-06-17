@@ -72,19 +72,13 @@ export function EditorTab() {
   }, [currentWorkflow])
 
   // canvas → react 모드 전환 시 단 1회 setGraph
-  const currentWorkflowRef = useRef(currentWorkflow)
-  useEffect(() => {
-    currentWorkflowRef.current = currentWorkflow
-  }, [currentWorkflow])
-
   useEffect(() => {
     const prev = prevEditorModeRef.current
     prevEditorModeRef.current = editorMode
-    const wf = currentWorkflowRef.current
-    if (editorMode === "react" && prev === "canvas" && wf) {
-      useReactGraphStore.getState().setGraph(wf)
+    if (editorMode === "react" && prev === "canvas" && currentWorkflow) {
+      useReactGraphStore.getState().setGraph(currentWorkflow)
     }
-  }, [editorMode])
+  }, [editorMode]) // currentWorkflow를 의도적으로 제외: 전환 시점 스냅샷만 사용
 
   // object_info 로드
   useEffect(() => {
@@ -195,17 +189,17 @@ export function EditorTab() {
       return
     }
 
-    // @ts-expect-error: Bypass external type check - graph is LGraph from our store
+    // @ts-ignore - graph is LGraph from our store
     if (!graph) return
 
     // 중앙에 노드 추가 (캔버스 중심)
-    // @ts-expect-error: Bypass external type check
+    // @ts-ignore
     const center = graph?.list_of_graphcanvas?.[0]?.ds?.offset || [0, 0]
     const pos: [number, number] = [center[0] + 100, center[1] + 100]
 
     // Use ComfyAppService through the canvas store
-    const app = useCanvasStore.getState().appService
-    if (app) {
+    const app = useCanvasStore.getState().appService as any
+    if (app?.createNode) {
       app.createNode(type, pos)
     }
   }, [graph, editorMode, nodeDefs])

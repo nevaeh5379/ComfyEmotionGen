@@ -9,14 +9,14 @@ import { isNodeBindable } from './utils/type'
 import type { UUID } from '../utils/uuid'
 import { createUuidv4, zeroUuid } from '../utils/uuid'
 // TODO: CEG port - replaced import: @/renderer/core/layout/operations/layoutMutations
-import { getLayoutMutations } from './external/layoutMutations'
+import { useLayoutMutations } from './external/layoutMutations'
 // import { useLayoutMutations } from '@/renderer/core/layout/operations/layoutMutations'
 // TODO: CEG port - replaced import: @/renderer/core/layout/types
 import { LayoutSource } from './external/layoutMutations'
 // import { LayoutSource } from '@/renderer/core/layout/types'
 // TODO: CEG port - replaced import: @/stores/previewExposureStore
-import { getPreviewExposureStore } from './external/widgetStores'
-import { getWidgetValueStore } from './external/widgetStores'
+import { usePreviewExposureStore } from './external/widgetStores'
+import { useWidgetValueStore } from './external/widgetStores'
 // import { usePreviewExposureStore } from '@/stores/previewExposureStore'
 // TODO: CEG port - replaced import: @/stores/widgetValueStore
 // import { useWidgetValueStore } from '@/stores/widgetValueStore'
@@ -394,8 +394,8 @@ export class LGraph
 
     const graphId = this.id
     if (this.isRootGraph && graphId !== zeroUuid) {
-      getPreviewExposureStore().clearGraph(graphId)
-      getWidgetValueStore().clearGraph(graphId)
+      usePreviewExposureStore().clearGraph(graphId)
+      useWidgetValueStore().clearGraph(graphId)
     }
 
     this.id = zeroUuid
@@ -544,7 +544,7 @@ export class LGraph
       on_frame()
     } else {
       // execute every 'interval' ms
-      // @ts-expect-error: Bypass external type check - Timer ID type mismatch needs fixing
+      // @ts-expect-error - Timer ID type mismatch needs fixing
       this.execution_timer_id = setInterval(() => {
         // execute
         this.runStep(1, !this.catch_errors)
@@ -770,9 +770,9 @@ export class LGraph
 
     // sort now by priority
     L.sort(function (A, B) {
-      // @ts-expect-error: Bypass external type check ctor props
+      // @ts-expect-error ctor props
       const Ap = A.constructor.priority || A.priority || 0
-      // @ts-expect-error: Bypass external type check ctor props
+      // @ts-expect-error ctor props
       const Bp = B.constructor.priority || B.priority || 0
       // if same priority, sort by order
 
@@ -877,17 +877,17 @@ export class LGraph
     if (!nodes) return
 
     for (const node of nodes) {
-      // @ts-expect-error: Bypass external type check deprecated
+      // @ts-expect-error deprecated
       if (!node[eventname] || node.mode != mode) continue
       if (params === undefined) {
-        // @ts-expect-error: Bypass external type check deprecated
+        // @ts-expect-error deprecated
         node[eventname]()
       } else if (params && params.constructor === Array) {
-        // @ts-expect-error: Bypass external type check deprecated
+        // @ts-expect-error deprecated
         // eslint-disable-next-line prefer-spread
         node[eventname].apply(node, params)
       } else {
-        // @ts-expect-error: Bypass external type check deprecated
+        // @ts-expect-error deprecated
         node[eventname](params)
       }
     }
@@ -1341,7 +1341,7 @@ export class LGraph
       const newnode = LiteGraph.createNode(node.type)
       if (!newnode) continue
       _nodes[i] = newnode
-      newnode.configure?.(node.serialize())
+      newnode.configure(node.serialize())
       newnode.graph = this
       this._nodes_by_id[newnode.id] = newnode
 
@@ -1369,7 +1369,7 @@ export class LGraph
   triggerInput(name: string, value: unknown): void {
     const nodes = this.findNodesByTitle(name)
     for (const node of nodes) {
-      // @ts-expect-error: Bypass external type check - onTrigger method may not exist on all node types
+      // @ts-expect-error - onTrigger method may not exist on all node types
       node.onTrigger(value)
     }
   }
@@ -1378,7 +1378,7 @@ export class LGraph
   setCallback(name: string, func?: () => void): void {
     const nodes = this.findNodesByTitle(name)
     for (const node of nodes) {
-      // @ts-expect-error: Bypass external type check - setTrigger method may not exist on all node types
+      // @ts-expect-error - setTrigger method may not exist on all node types
       node.setTrigger(func)
     }
   }
@@ -1515,7 +1515,7 @@ export class LGraph
    * @returns The newly created reroute - typically ignored.
    */
   createReroute(pos: Point, before: LinkSegment): Reroute {
-    const layoutMutations = getLayoutMutations()
+    const layoutMutations = useLayoutMutations()
     const rerouteId = ++this.state.lastRerouteId
     const linkIds = before instanceof Reroute ? before.linkIds : [before.id]
     const floatingLinkIds =
@@ -1569,7 +1569,7 @@ export class LGraph
    * @param id ID of reroute to remove
    */
   removeReroute(id: RerouteId): void {
-    const layoutMutations = getLayoutMutations()
+    const layoutMutations = useLayoutMutations()
     const { reroutes } = this
     const reroute = reroutes.get(id)
     if (!reroute) return
@@ -2370,7 +2370,7 @@ export class LGraph
 
     const nodeList =
       !LiteGraph.use_uuids && options?.sortNodes
-        ? // @ts-expect-error: Bypass external type check If LiteGraph.use_uuids is false, ids are numbers.
+        ? // @ts-expect-error If LiteGraph.use_uuids is false, ids are numbers.
           [...this._nodes].sort((a, b) => a.id - b.id)
         : this._nodes
 
@@ -2447,7 +2447,7 @@ export class LGraph
     data: ISerialisedGraph | SerialisableGraph,
     keep_old?: boolean
   ): boolean | undefined {
-    const layoutMutations = getLayoutMutations()
+    const layoutMutations = useLayoutMutations()
     const options: LGraphEventMap['configuring'] = {
       data,
       clearGraph: !keep_old
@@ -2530,7 +2530,7 @@ export class LGraph
       for (const i in data) {
         if (LGraph.ConfigureProperties.has(i)) continue
 
-        // @ts-expect-error: Bypass external type check #574 Legacy property assignment
+        // @ts-expect-error #574 Legacy property assignment
         this[i] = data[i]
       }
 
@@ -2747,7 +2747,7 @@ export class LGraph
     }
   }
 
-  _canvas?: LGraphCanvas
+  private _canvas?: LGraphCanvas
   get primaryCanvas(): LGraphCanvas | undefined {
     return this.rootGraph._canvas
   }

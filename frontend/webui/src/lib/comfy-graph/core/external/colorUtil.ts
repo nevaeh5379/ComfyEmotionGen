@@ -4,7 +4,7 @@ export interface ColorAdjustOptions {
   lightness?: number
 }
 
-export function adjustColor(color: string, _options: ColorAdjustOptions): string {
+export function adjustColor(color: string, options: ColorAdjustOptions): string {
   // Minimal stub: just return the base color
   return color
 }

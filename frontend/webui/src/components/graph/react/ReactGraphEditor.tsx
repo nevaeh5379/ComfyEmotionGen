@@ -10,7 +10,7 @@ import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { comfyApi } from "@/lib/comfy-graph/api"
 import { ComfyAppService } from "@/lib/comfy-graph/services/appService"
-import { LGraph, LGraphNode } from "@/lib/comfy-graph/core/litegraph"
+import { LGraph, LGraphNode, LGraphCanvas } from "@/lib/comfy-graph/core/litegraph"
 
 export function ReactGraphEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -25,6 +25,7 @@ export function ReactGraphEditor() {
   const pan = useReactGraphStore((s) => s.pan)
   const setZoom = useReactGraphStore((s) => s.setZoom)
   const setPan = useReactGraphStore((s) => s.setPan)
+  const selectNode = useReactGraphStore((s) => s.selectNode)
   const deselectAll = useReactGraphStore((s) => s.deselectAll)
   const connect = useReactGraphStore((s) => s.connect)
   const addNode = useReactGraphStore((s) => s.addNode)
@@ -36,7 +37,7 @@ export function ReactGraphEditor() {
   useEffect(() => {
     let cancelled = false
     async function initApp() {
-      const app = window.app
+      const app = window.app as any
       console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + !!hiddenCanvasRef.current, "hiddenContainer=" + !!hiddenContainerRef.current, "extensionsLoaded=" + !!app.extensionsLoaded, "app.graph=" + !!app.graph, "nodeDefs=" + Object.keys(nodeDefs).length, "extensions=" + (app.extensions?.length || 0));
 
       if (!hiddenCanvasRef.current || !hiddenContainerRef.current) {
@@ -54,27 +55,25 @@ export function ReactGraphEditor() {
       })
       app.graph = appService.graph
       app.canvas = appService.canvas
-      if (app.graph) {
-        app.graph._canvas = appService.canvas
-      }
-      if (appService.canvas) {
-        appService.canvas.app = app
-      }
+      // @ts-ignore
+      app.graph._canvas = appService.canvas
+      // @ts-ignore
+      appService.canvas.app = app
 
-      window.__comfyAppService = appService
+      ;(window as any).__comfyAppService = appService
 
       // setDirtyCanvas 가로채기 (Zustand 동기화 트리거)
       const origLGraphSetDirty = LGraph.prototype.setDirtyCanvas
-      LGraph.prototype.setDirtyCanvas = function (this: LGraph, ...args: unknown[]) {
-        const res = (origLGraphSetDirty as (...args: unknown[]) => unknown).apply(this, args)
-        app.syncGraph?.()
+      LGraph.prototype.setDirtyCanvas = function (this: LGraph, ...args: any[]) {
+        const res = (origLGraphSetDirty as any).apply(this, args)
+        app.syncGraph()
         return res
       }
 
       const origLGraphNodeSetDirty = LGraphNode.prototype.setDirtyCanvas
-      LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, ...args: unknown[]) {
-        const res = (origLGraphNodeSetDirty as (...args: unknown[]) => unknown).apply(this, args)
-        app.syncGraph?.()
+      LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, ...args: any[]) {
+        const res = (origLGraphNodeSetDirty as any).apply(this, args)
+        app.syncGraph()
         return res
       }
 
@@ -98,7 +97,7 @@ export function ReactGraphEditor() {
         }
         app.extensionsLoaded = true
 
-        console.log("[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:", app.extensions.length, app.extensions.map((e) => e.name || "(anonymous)"));
+        console.log("[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:", app.extensions.length, app.extensions.map((e: any) => e.name || "(anonymous)"));
 
         // Re-register node defs NOW that extensions' beforeRegisterNodeDef hooks are available
         console.log("[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available");

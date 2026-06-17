@@ -7,26 +7,9 @@ import type {
 } from './interfaces'
 import { LiteGraph } from './litegraph'
 
-interface SanitizerData {
-  attrName: string
-  attrValue: string
-}
-
-interface DOMPurifyInstance {
-  addHook(hook: string, callback: (node: Element, data: SanitizerData) => void): void
-  sanitize(html: string, options?: { ALLOWED_TAGS?: string[]; ALLOWED_ATTR?: string[] }): string
-}
-
-interface DOMPurifyFactory {
-  (window: Window | Record<string, never>): DOMPurifyInstance
-  addHook?: (hook: string, callback: (node: Element, data: SanitizerData) => void) => void
-  sanitize?: (html: string, options?: { ALLOWED_TAGS?: string[]; ALLOWED_ATTR?: string[] }) => string
-}
-
-const factory = dompurifyFactory as never as DOMPurifyFactory
-const dompurify: DOMPurifyInstance = typeof window !== 'undefined'
-  ? (factory.addHook ? factory : factory(window)) as DOMPurifyInstance
-  : (factory.addHook ? factory : factory({})) as DOMPurifyInstance
+const dompurify = typeof window !== 'undefined'
+  ? ((dompurifyFactory as any).addHook ? dompurifyFactory : (dompurifyFactory as any)(window))
+  : ((dompurifyFactory as any).addHook ? dompurifyFactory : (dompurifyFactory as any)({}))
 
 const ALLOWED_TAGS = ['span', 'b', 'i', 'em', 'strong']
 const ALLOWED_STYLE_PROPS = new Set([
@@ -37,7 +20,7 @@ const ALLOWED_STYLE_PROPS = new Set([
   'border-left'
 ])
 
-dompurify.addHook('uponSanitizeAttribute', (_node: Element, data: SanitizerData) => {
+dompurify.addHook('uponSanitizeAttribute', (_node: any, data: any) => {
   if (data.attrName === 'style') {
     const sanitizedStyle = data.attrValue
       .split(';')
@@ -61,7 +44,11 @@ function sanitizeMenuHTML(html: string): string {
 }
 
 // TODO: Replace this pattern with something more modern.
-// ContextMenu interface removed to avoid unsafe declaration merging
+export interface ContextMenu<TValue = unknown> {
+  constructor: new (
+    ...args: ConstructorParameters<typeof ContextMenu<TValue>>
+  ) => ContextMenu<TValue>
+}
 
 /**
  * ContextMenu from LiteGUI
@@ -322,11 +309,23 @@ export class ContextMenu<TValue = unknown> {
       element.setAttribute('aria-expanded', 'true')
     }
 
-    const inner_onclick_handler = (target: ContextMenuDivElement<TValue>, e: MouseEvent) => {
-      const value = target.value
+    function inner_over(this: ContextMenuDivElement<TValue>, e: MouseEvent) {
+      const value = this.value
+      if (!value || !(value as IContextMenuValue).has_submenu) return
+
+      // if it is a submenu, autoopen like the item was clicked
+      inner_onclick.call(this, e)
+      setAriaExpanded()
+    }
+
+    // menu option clicked
+
+    const that = this
+    function inner_onclick(this: ContextMenuDivElement<TValue>, e: MouseEvent) {
+      const value = this.value
       let close_parent = true
 
-      this.current_submenu?.close(e)
+      that.current_submenu?.close(e)
       if (
         (value as IContextMenuValue)?.has_submenu ||
         (value as IContextMenuValue)?.submenu
@@ -337,11 +336,11 @@ export class ContextMenu<TValue = unknown> {
       // global callback
       if (options.callback) {
         const r = options.callback.call(
-          target,
+          this,
           value,
           options,
           e,
-          this,
+          that,
           options.node
         )
         if (r === true) close_parent = false
@@ -356,11 +355,11 @@ export class ContextMenu<TValue = unknown> {
         ) {
           // item callback
           const r = value.callback.call(
-            target,
+            this,
             value,
             options,
             e,
-            this,
+            that,
             options.extra
           )
           if (r === true) close_parent = false
@@ -368,10 +367,10 @@ export class ContextMenu<TValue = unknown> {
         if (value.submenu) {
           if (!value.submenu.options) throw 'ContextMenu submenu needs options'
 
-          new (this.constructor as typeof ContextMenu<TValue>)(value.submenu.options, {
+          new that.constructor(value.submenu.options, {
             callback: value.submenu.callback,
             event: e,
-            parentMenu: this,
+            parentMenu: that,
             ignore_item_callbacks: value.submenu.ignore_item_callbacks,
             title: value.submenu.title,
             extra: value.submenu.extra,
@@ -381,21 +380,7 @@ export class ContextMenu<TValue = unknown> {
         }
       }
 
-      if (close_parent && !this.lock) this.close()
-    }
-
-    const inner_onclick = (e: MouseEvent) => {
-      inner_onclick_handler(e.currentTarget as ContextMenuDivElement<TValue>, e)
-    }
-
-    const inner_over = (e: MouseEvent) => {
-      const target = e.currentTarget as ContextMenuDivElement<TValue>
-      const value = target.value
-      if (!value || !(value as IContextMenuValue).has_submenu) return
-
-      // if it is a submenu, autoopen like the item was clicked
-      inner_onclick_handler(target, e)
-      setAriaExpanded()
+      if (close_parent && !that.lock) that.close()
     }
 
     return element

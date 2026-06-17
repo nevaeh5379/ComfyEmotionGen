@@ -70,7 +70,7 @@ export interface LinkReleaseContextExtended {
   links: ConnectingLink[]
 }
 
-export type LiteGraphCanvasEvent = CustomEvent<CanvasEventDetail>
+export interface LiteGraphCanvasEvent extends CustomEvent<CanvasEventDetail> {}
 
 export interface LGraphNodeConstructor<T extends LGraphNode = LGraphNode> {
   new (title: string, type?: string): T
@@ -162,9 +162,9 @@ export type {
 } from './types/serialisation'
 export type { IWidget, IBaseWidget, TWidgetType, TWidgetValue, IWidgetOptions } from './types/widgets'
 export { isColorable } from './utils/type'
-// @ts-expect-error: Bypass external type check - uuid utility ported to CEG
+// @ts-ignore - uuid utility ported to CEG
 export { createUuidv4 } from '../utils/uuid'
-// @ts-expect-error: Bypass external type check - uuid utility ported to CEG
+// @ts-ignore - uuid utility ported to CEG
 export type { UUID } from '../utils/uuid'
 export { truncateText } from './utils/textUtils'
 export {

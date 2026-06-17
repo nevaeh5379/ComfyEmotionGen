@@ -226,21 +226,15 @@ export const useSavedImages = (
     [fetchImages, fetchGroups, groupMode]
   )
 
-  // Sync state during render when groups.length changes to 0
-  const [prevGroupsLength, setPrevGroupsLength] = useState(groups.length)
-  if (groups.length !== prevGroupsLength) {
-    setPrevGroupsLength(groups.length)
-    if (groups.length === 0) {
-      setGroupImagesMap(new Map())
-    }
-  }
-
   // 그룹 목록이 바뀌면 이미지 fetch
   // (fetchGroupImages는 내부적으로 setState를 호출하는 비동기 함수)
   useEffect(() => {
     if (groupMode && groups.length > 0) {
       const filenames = groups.map((g) => g.filename)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchGroupImages(filenames, status)
+    } else if (groups.length === 0) {
+      setGroupImagesMap(new Map())
     }
   }, [groups, groupMode, fetchGroupImages, status])
 

@@ -2,7 +2,7 @@ import type { WidgetState, PreviewExposureEntry } from '../types/widgets'
 
 const widgetValues = new Map<string, WidgetState>()
 
-export function getWidgetValueStore() {
+export function useWidgetValueStore() {
   return {
     registerWidget: (graphId: string | number, options: Partial<WidgetState>): WidgetState => {
       const nodeId = options.nodeId
@@ -60,9 +60,9 @@ export function getWidgetValueStore() {
 const exposedWidgets = new Set<string>()
 const exposedExposures = new Map<string, PreviewExposureEntry[]>()
 
-export function getPreviewExposureStore() {
+export function usePreviewExposureStore() {
   return {
-    clearGraph: (_graphId?: string | number) => {
+    clearGraph: (graphId?: string | number) => {
       exposedWidgets.clear()
       exposedExposures.clear()
     },
@@ -91,9 +91,9 @@ export function getPreviewExposureStore() {
 
 const domWidgets = new Map<string, unknown>()
 
-export function getDomWidgetStore() {
+export function useDomWidgetStore() {
   return {
-    clearGraph: (_graphId?: string | number) => {
+    clearGraph: (graphId?: string | number) => {
       domWidgets.clear()
     },
     registerWidget: (id: string, widget: unknown) => {

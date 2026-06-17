@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Search, Link2, AlertTriangle, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -58,7 +58,7 @@ const getInputTypeLabel = (
   return String(spec[0])
 }
 
-const isLink = (val: StrictJSONValue): boolean => {
+const isLink = (val: any): boolean => {
   return (
     Array.isArray(val) &&
     val.length === 2 &&
@@ -88,7 +88,7 @@ export function WorkflowFormEditor({
   const hasAliveWorker = useMemo(() => workers.some((w) => w.alive), [workers])
 
   // Handle value editing
-  const handleValueChange = (nodeId: string, inputKey: string, newValue: StrictJSONValue) => {
+  const handleValueChange = (nodeId: string, inputKey: string, newValue: any) => {
     try {
       const parsed = JSON.parse(workflowJson)
       if (parsed[nodeId] && parsed[nodeId].inputs) {
@@ -162,7 +162,12 @@ export function WorkflowFormEditor({
     return filteredNodes.length > 0 && filteredNodes[0] ? filteredNodes[0][0] : null
   }, [selectedNodeId, filteredNodes])
 
-
+  // Reset selected node if it falls out of activeNodeId
+  useEffect(() => {
+    if (activeNodeId && activeNodeId !== selectedNodeId) {
+      setSelectedNodeId(activeNodeId)
+    }
+  }, [activeNodeId, selectedNodeId])
 
   // Error State: If workflow data is invalid
   if (!parsedWorkflowData) {
@@ -399,8 +404,7 @@ export function WorkflowFormEditor({
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {linkInputs.map(([inputKey, linkVal]) => {
-                          const linkTuple = linkVal as [string, number]
-                          const targetId = linkTuple[0]
+                          const targetId = (linkVal as any)[0] as string
                           const targetNode = parsedWorkflowData[targetId]
                           const targetTitle =
                             targetNode?._meta?.title ||

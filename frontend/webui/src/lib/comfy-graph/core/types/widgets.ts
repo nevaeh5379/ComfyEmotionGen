@@ -432,7 +432,6 @@ export interface IBaseWidget<
   /** Widget type (see {@link TWidgetType}) */
   type: TType
   value?: TValue
-  element?: HTMLElement
 
   /**
    * Whether the widget value is persisted in the workflow JSON
@@ -485,16 +484,6 @@ export interface IBaseWidget<
   hidden?: boolean
   advanced?: boolean
   tooltip?: string
-
-  outline_color?: string
-  background_color?: string
-  height?: number
-  text_color?: string
-  secondary_text_color?: string
-  disabledTextColor?: string
-  displayName?: string
-  displayValue?: string
-  labelBaseline?: string
 
   // TODO: Confirm this format
   callback?(

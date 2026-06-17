@@ -418,7 +418,7 @@ export class LiteGraphGlobal {
 
     // extend class
     for (const i in this.LGraphNode.prototype) {
-      // @ts-expect-error: Bypass external type check #576 This functionality is deprecated and should be removed.
+      // @ts-expect-error #576 This functionality is deprecated and should be removed.
       base_class.prototype[i] ||= this.LGraphNode.prototype[i]
     }
 
@@ -471,12 +471,12 @@ export class LiteGraphGlobal {
     out ||= false
     const base_class =
       typeof type === 'string' &&
-      // @ts-expect-error: Bypass external type check Confirm this function no longer supports string types - base_class should always be an instance not a constructor.
+      // @ts-expect-error Confirm this function no longer supports string types - base_class should always be an instance not a constructor.
       this.registered_node_types[type] !== 'anonymous'
         ? this.registered_node_types[type]
         : type
 
-    // @ts-expect-error: Bypass external type check Confirm this function no longer supports string types - base_class should always be an instance not a constructor.
+    // @ts-expect-error Confirm this function no longer supports string types - base_class should always be an instance not a constructor.
     const class_type = base_class.constructor.type
 
     let allTypes: string[]
@@ -666,7 +666,7 @@ export class LiteGraphGlobal {
     if (!target) return r
 
     for (const i in r) {
-      // @ts-expect-error: Bypass external type check deprecated
+      // @ts-expect-error deprecated
       target[i] = r[i]
     }
     return target
@@ -795,7 +795,7 @@ export class LiteGraphGlobal {
       case 'move':
       case 'over':
       case 'out':
-      // @ts-expect-error: Bypass external type check - intentional fallthrough
+      // @ts-expect-error - intentional fallthrough
       case 'enter': {
         oDOM.addEventListener(sMethod + sEvent, fCall, capture)
       }
@@ -804,7 +804,7 @@ export class LiteGraphGlobal {
       case 'leave':
       case 'cancel':
       case 'gotpointercapture':
-      // @ts-expect-error: Bypass external type check - intentional fallthrough
+      // @ts-expect-error - intentional fallthrough
       case 'lostpointercapture': {
         if (sMethod != 'mouse') {
           return oDOM.addEventListener(sMethod + sEvent, fCall, capture)
@@ -838,7 +838,7 @@ export class LiteGraphGlobal {
       case 'move':
       case 'over':
       case 'out':
-      // @ts-expect-error: Bypass external type check - intentional fallthrough
+      // @ts-expect-error - intentional fallthrough
       case 'enter': {
         if (
           this.pointerevents_method == 'pointer' ||
@@ -856,7 +856,7 @@ export class LiteGraphGlobal {
       case 'leave':
       case 'cancel':
       case 'gotpointercapture':
-      // @ts-expect-error: Bypass external type check - intentional fallthrough
+      // @ts-expect-error - intentional fallthrough
       case 'lostpointercapture': {
         if (this.pointerevents_method == 'pointer') {
           return oDOM.removeEventListener(

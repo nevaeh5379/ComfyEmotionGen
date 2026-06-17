@@ -39,28 +39,28 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
         const node = selected[0]
         setCanvasSelectedNode({
           id: Number(node.id),
-          // @ts-expect-error: Bypass external type check
+          // @ts-ignore
           title: node.title || node.type || "Node",
           type: node.type || "unknown",
           pos: node.pos,
           size: node.size,
-          // @ts-expect-error: Bypass external type check
+          // @ts-ignore
           color: node.color,
-          // @ts-expect-error: Bypass external type check
+          // @ts-ignore
           bgcolor: node.bgcolor,
-          // @ts-expect-error: Bypass external type check
+          // @ts-ignore
           widgets: node.widgets?.map((w) => ({
             name: w.name,
             value: w.value,
             type: w.type,
           })),
-          // @ts-expect-error: Bypass external type check
+          // @ts-ignore
           inputs: node.inputs?.map((i) => ({
             name: i.name,
             type: i.type,
             link: i.link,
           })),
-          // @ts-expect-error: Bypass external type check
+          // @ts-ignore
           outputs: node.outputs?.map((o) => ({
             name: o.name,
             type: o.type,
@@ -178,12 +178,11 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
               reactDeselectAll()
             } else {
               // Deselect all nodes
-              const activeCanvas = useCanvasStore.getState().canvas
-              if (activeCanvas?.graph) {
-                for (const node of activeCanvas.graph.nodes) {
+              if (canvas?.graph) {
+                for (const node of canvas.graph.nodes) {
                   node.is_selected = false
                 }
-                activeCanvas.graph.setDirtyCanvas(true, true)
+                canvas.graph.setDirtyCanvas(true, true)
               }
               setCanvasSelectedNode(null)
             }

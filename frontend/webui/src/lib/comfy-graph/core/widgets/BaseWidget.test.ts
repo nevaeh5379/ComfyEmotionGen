@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { LGraph, LGraphNode } from '../litegraph'
 import type { INumericWidget } from '../types/widgets'
 import { NumberWidget } from 'NumberWidget'
-import { getWidgetValueStore } from '../external/widgetStores'
+import { useWidgetValueStore } from '@/stores/widgetValueStore'
 
 function createTestWidget(
   node: LGraphNode,
@@ -28,11 +28,11 @@ function createTestWidget(
 describe('BaseWidget store integration', () => {
   let graph: LGraph
   let node: LGraphNode
-  let store: ReturnType<typeof getWidgetValueStore>
+  let store: ReturnType<typeof useWidgetValueStore>
 
   beforeEach(() => {
     setActivePinia(createTestingPinia({ stubActions: false }))
-    store = getWidgetValueStore()
+    store = useWidgetValueStore()
     graph = new LGraph()
     node = new LGraphNode('TestNode')
     node.id = 1

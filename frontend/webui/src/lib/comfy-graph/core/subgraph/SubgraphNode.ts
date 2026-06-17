@@ -45,7 +45,7 @@ import type {
   PromotedWidgetView,
   PromotedWidgetSource
 } from '../external/promotedWidgetView'
-import { getPreviewExposureStore, getDomWidgetStore } from '../external/widgetStores'
+import { usePreviewExposureStore, useDomWidgetStore } from '../external/widgetStores'
 
 function createNodeLocatorId(graphId: string | number, nodeId: string | number): string {
   return `${graphId}-${nodeId}`
@@ -59,7 +59,7 @@ function parseProxyWidgetErrorQuarantine(data: ProxyQuarantineEntry[] | null | u
   return Array.isArray(data) ? data : []
 }
 
-function readWidgetValue(_entityId: string | undefined): string | number | boolean | null | undefined {
+function readWidgetValue(entityId: string | undefined): string | number | boolean | null | undefined {
   return undefined
 }
 
@@ -676,7 +676,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
   }
 
   private _hydratePreviewExposures() {
-    const store = getPreviewExposureStore()
+    const store = usePreviewExposureStore()
     const rootGraphId = this.rootGraph.id
     const hostLocator = String(this.id)
     const rawProperty = this.properties.previewExposures as PreviewExposureEntry[] | undefined
@@ -959,7 +959,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
       'id' in interiorWidget &&
       ('element' in interiorWidget || 'component' in interiorWidget)
     ) {
-      getDomWidgetStore().clearPositionOverride(String(interiorWidget.id))
+      useDomWidgetStore().clearPositionOverride(String(interiorWidget.id))
     }
   }
 
@@ -1070,7 +1070,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
     const rootGraphId = this.rootGraph.id
     const hostLocator = String(this.id)
 
-    const previewExposures = getPreviewExposureStore().getExposures(
+    const previewExposures = usePreviewExposureStore().getExposures(
       rootGraphId,
       hostLocator
     )

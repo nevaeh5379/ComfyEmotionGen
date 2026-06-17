@@ -6,7 +6,7 @@ import {
 import type { SubgraphInput } from './subgraph/SubgraphInput'
 import type { SubgraphOutput } from './subgraph/SubgraphOutput'
 // TODO: CEG port - replaced import: @/renderer/core/layout/operations/layoutMutations
-import { getLayoutMutations, LayoutSource } from './external/layoutMutations'
+import { useLayoutMutations, LayoutSource } from './external/layoutMutations'
 
 import type { LGraphNode, NodeId } from './LGraphNode'
 import type { Reroute, RerouteId } from './Reroute'
@@ -22,7 +22,7 @@ import type {
 } from './interfaces'
 import type { Serialisable, SerialisableLLink } from './types/serialisation'
 
-const layoutMutations = getLayoutMutations()
+const layoutMutations = useLayoutMutations()
 
 export type LinkId = number
 
