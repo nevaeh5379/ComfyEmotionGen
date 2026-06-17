@@ -1,0 +1,3 @@
+packages:
+  - '.'
+  - 'packages/litegraph/src/lib/litegraph'

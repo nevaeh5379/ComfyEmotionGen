@@ -28,33 +28,6 @@ export default defineConfig({
       "./index.html"
     ]
   },
-  resolve: {
-    alias: [
-      { find: "@/renderer/core/layout/operations/layoutMutations", replacement: path.resolve(__dirname, "./src/comfyui/mocks/layout.ts") },
-      { find: "@/renderer/core/layout/types", replacement: path.resolve(__dirname, "./src/comfyui/mocks/layout.ts") },
-      { find: "@/stores/previewExposureStore", replacement: path.resolve(__dirname, "./src/comfyui/mocks/stores.ts") },
-      { find: "@/stores/widgetValueStore", replacement: path.resolve(__dirname, "./src/comfyui/mocks/stores.ts") },
-      { find: "@/utils/graphTraversalUtil", replacement: path.resolve(__dirname, "./src/comfyui/mocks/utils.ts") },
-      { find: "@/utils/uuid", replacement: path.resolve(__dirname, "./src/comfyui/mocks/utils.ts") },
-      { find: "@/utils/colorUtil", replacement: path.resolve(__dirname, "./src/comfyui/mocks/utils.ts") },
-      { find: "@/types/widgetId", replacement: path.resolve(__dirname, "./src/comfyui/mocks/types.ts") },
-      { find: "@/types/widgetState", replacement: path.resolve(__dirname, "./src/comfyui/mocks/types.ts") },
-      { find: "@/core/schemas/promotionSchema", replacement: path.resolve(__dirname, "./src/comfyui/mocks/types.ts") },
-      { find: "@/renderer/core/canvas/litegraph/litegraphLinkAdapter", replacement: path.resolve(__dirname, "./packages/litegraph/src/renderer/core/canvas/litegraph/litegraphLinkAdapter.ts") },
-      { find: "@/renderer/core/canvas/pathRenderer", replacement: path.resolve(__dirname, "./packages/litegraph/src/renderer/core/canvas/pathRenderer.ts") },
-      { find: "@/renderer/core/canvas/litegraph/slotCalculations", replacement: path.resolve(__dirname, "./src/comfyui/mocks/slotCalculations.ts") },
-      { find: /.*subgraphUtils.*/, replacement: path.resolve(__dirname, "./src/comfyui/mocks/subgraphUtils.ts") },
-      { find: "@/lib/litegraph/src", replacement: path.resolve(__dirname, "./packages/litegraph/src/lib/litegraph/src") },
-      { find: "@/i18n", replacement: path.resolve(__dirname, "./src/comfyui/mocks/i18n.ts") },
-      { find: "@/renderer/core/canvas/useAutoPan", replacement: path.resolve(__dirname, "./src/comfyui/mocks/useAutoPan.ts") },
-      { find: "@/base", replacement: path.resolve(__dirname, "./packages/litegraph/src/base") },
-      { find: "@/renderer/core/layout/store/layoutStore", replacement: path.resolve(__dirname, "./src/comfyui/mocks/layout.ts") },
-      { find: "@/core", replacement: path.resolve(__dirname, "./packages/litegraph/src/core") },
-      { find: "@/types", replacement: path.resolve(__dirname, "./packages/litegraph/src/types") },
-      { find: "@/constants", replacement: path.resolve(__dirname, "./packages/litegraph/src/constants") },
-      { find: "@", replacement: path.resolve(__dirname, "./src") },
-    ],
-  },
   define: {
     __FRONTEND_VERSION__: JSON.stringify(pkg.version),
     __BUNDLE_VERSION__: JSON.stringify(process.env.CEG_BUNDLE_VERSION || "dev"),
