@@ -375,7 +375,7 @@ export function WorkflowFormEditor({
                           <WorkflowInput
                             nodeId={activeNodeId}
                             inputKey={inputKey}
-                            value={val as any}
+                            value={val}
                             spec={getNodeInputSpec(
                               objectInfo,
                               parsedWorkflowData,

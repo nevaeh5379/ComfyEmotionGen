@@ -95,14 +95,14 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
   computedDisabled?: boolean
   tooltip?: string
 
-  protected _state: Omit<WidgetState, 'nodeId'> &
+  private _state: Omit<WidgetState, 'nodeId'> &
     Partial<Pick<WidgetState, 'nodeId'>>
 
   get label(): string | undefined {
     return this._state.label
   }
   set label(value: string | undefined) {
-    if (value !== undefined) this._state.label = value
+    this._state.label = value
   }
 
   hidden?: boolean
@@ -139,9 +139,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     return this._state.value as TWidget['value']
   }
   set value(value: TWidget['value']) {
-    if (value !== undefined) {
-      this._state.value = value
-    }
+    this._state.value = value
   }
 
   get entityId(): WidgetEntityId | undefined {
@@ -159,15 +157,14 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     const graphId = this.node.graph?.rootGraph.id
     if (!graphId) return
 
-    const widgetValue = this.value
-  this._state = getWidgetValueStore().registerWidget(graphId, {
-       ...this._state,
-       // BaseWidget: this.value getter returns this._state.value. So value: this.value === value: this._state.value.
-       // BaseDOMWidgetImpl: this.value getter returns options.getValue?.() ?? ''. Resolves the correct initial value instead of undefined.
-       // I.e., calls overriden getter -> options.getValue() -> correct value (https://github.com/Comfy-Org/ComfyUI_frontend/issues/9194).
-       value: widgetValue,
-       nodeId,
-     } as Partial<WidgetState>)
+    this._state = getWidgetValueStore().registerWidget(graphId, {
+      ...this._state,
+      // BaseWidget: this.value getter returns this._state.value. So value: this.value === value: this._state.value.
+      // BaseDOMWidgetImpl: this.value getter returns options.getValue?.() ?? ''. Resolves the correct initial value instead of undefined.
+      // I.e., calls overriden getter -> options.getValue() -> correct value (https://github.com/Comfy-Org/ComfyUI_frontend/issues/9194).
+      value: this.value,
+      nodeId
+    })
   }
 
   constructor(widget: TWidget & { node: LGraphNode })
@@ -206,15 +203,14 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     Object.assign(this, safeValues)
 
     this._state = {
-        name: this.name,
-        type: this.type as TWidgetType,
-        disabled: disabled ?? false,
-        options: this.options,
-      } as Omit<WidgetState, 'nodeId'> & Partial<Pick<WidgetState, 'nodeId'>>
-    if (value !== undefined) this._state.value = value
-    else if (this.value !== undefined) this._state.value = this.value as never
-    if (this.serialize !== undefined) this._state.serialize = this.serialize
-    if (label !== undefined) this._state.label = label
+      name: this.name,
+      type: this.type as TWidgetType,
+      value,
+      label,
+      disabled: disabled ?? false,
+      serialize: this.serialize,
+      options: this.options
+    }
   }
 
   getOutlineColor() {
@@ -426,7 +422,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     if (value === this.value) return
 
     const v = this.type === 'number' ? Number(value) : value
-    this.value = v as TWidget['value']
+    this.value = v
     if (
       this.options?.property &&
       node.properties[this.options.property] !== undefined

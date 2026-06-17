@@ -88,8 +88,8 @@ export function strokeShape(
   // Adjust area if title is transparent
   if (title_mode === TitleMode.TRANSPARENT_TITLE) {
     const height = title_height ?? LiteGraph.NODE_TITLE_HEIGHT
-    if (area[1] !== undefined) area[1] -= height
-    if (area[3] !== undefined) area[3] += height
+    area[1] -= height
+    area[3] += height
   }
 
   // Set up context
@@ -101,8 +101,6 @@ export function strokeShape(
 
   // Draw shape based on type
   const [x, y, width, height] = area
-  if (x === undefined || y === undefined || width === undefined || height === undefined) return
-
   switch (shape) {
     case RenderShape.BOX: {
       ctx.rect(

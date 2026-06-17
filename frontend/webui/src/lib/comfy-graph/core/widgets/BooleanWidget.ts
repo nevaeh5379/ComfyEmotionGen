@@ -35,7 +35,7 @@ export class BooleanWidget
     // Draw label
     ctx.fillStyle = this.secondary_text_color
     const { displayName } = this
-    if (displayName) ctx.fillText(displayName, x, Number(this.labelBaseline))
+    if (displayName) ctx.fillText(displayName, x, this.labelBaseline)
   }
 
   drawValue(ctx: CanvasRenderingContext2D, x: number): void {
@@ -43,9 +43,9 @@ export class BooleanWidget
     ctx.fillStyle = this.value ? this.text_color : this.secondary_text_color
     ctx.textAlign = 'right'
     const value = this.value
-      ? String((this.options as { on?: string; off?: string })?.on ?? 'true')
-      : String((this.options as { on?: string; off?: string })?.off ?? 'false')
-    ctx.fillText(value, x, Number(this.labelBaseline))
+      ? this.options.on || 'true'
+      : this.options.off || 'false'
+    ctx.fillText(value, x, this.labelBaseline)
   }
 
   override onClick(options: WidgetEventOptions) {

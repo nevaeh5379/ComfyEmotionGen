@@ -43,11 +43,7 @@ export class SubgraphInput extends SubgraphSlot {
   }
 
   set _widget(widget) {
-    if (widget) {
-      this._widgetRef = new WeakRef(widget)
-    } else {
-      delete this._widgetRef
-    }
+    this._widgetRef = widget ? new WeakRef(widget) : undefined
   }
 
   override connect(
@@ -157,7 +153,6 @@ export class SubgraphInput extends SubgraphSlot {
 
   get labelPos(): Point {
     const [x, y, , height] = this.boundingRect
-    if (x === undefined || y === undefined || height === undefined) return [0, 0]
     return [x, y + height * 0.5]
   }
 
@@ -233,7 +228,6 @@ export class SubgraphInput extends SubgraphSlot {
   /** For inputs, x is the right edge of the input node. */
   override arrange(rect: ReadOnlyRect): void {
     const [right, top, width, height] = rect
-    if (right === undefined || top === undefined || width === undefined || height === undefined) return
     const { boundingRect: b, pos } = this
 
     b[0] = right - width

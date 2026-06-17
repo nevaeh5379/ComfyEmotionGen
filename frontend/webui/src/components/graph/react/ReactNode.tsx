@@ -9,7 +9,6 @@ import { ReactWidget } from "./ReactWidget"
 import { X } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/lib/comfy-graph/types/workflow"
 import { LGraphEventMode } from "@/lib/comfy-graph/core/types/globalEnums"
-import type { InputSpec } from "@/lib/comfy-graph/types/nodeDef"
 
 interface ReactNodeProps {
   id: number
@@ -161,7 +160,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
       if (liveNode.widgets) {
         names = liveNode.widgets.map((w) => w.name)
         for (const w of liveNode.widgets) {
-          specs[w.name] = [w.type || "string", w.options as Record<string, unknown> ?? {}]
+          specs[w.name] = [w.type || "string", w.options || {}]
         }
       }
       if (liveNode.inputs) {
@@ -233,7 +232,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
         ...(def?.input?.optional ?? {}),
       }
       for (const [name, spec] of Object.entries(allSpecs)) {
-        specs[name] = spec as [string, Record<string, unknown>]
+        specs[name] = spec
       }
     }
 
@@ -398,22 +397,22 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                     }`}
                     title={input.type}
                   />
-                  <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0">
                       {input.link ? (
                         <span className="text-[9px] text-green-500 font-mono">linked</span>
                       ) : (
                         <ReactWidget
                           name={widgetName}
                           value={widgetValue}
-                          spec={widgetSpecs[widgetName] as InputSpec | undefined}
+                          spec={widgetSpecs[widgetName]}
                           onChange={(newVal) => {
                             updateWidgetValue(id, widgetName, newVal)
                             const liveW = liveNode?.widgets?.find((w) => w.name === widgetName)
                             if (liveW) {
-                              liveW.value = newVal as string | number | boolean
+                              liveW.value = newVal as StrictJSONValue
                               if (liveW.callback) {
                                 try {
-                                  liveW.callback(newVal as string | number | boolean)
+                                  liveW.callback(newVal as StrictJSONValue)
                                 } catch (err) {
                                   console.error("Widget callback failed:", err)
                                 }
@@ -425,7 +424,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                           }}
                           showLabel={false}
                           disabled={isDisabled}
-                          element={(liveNode?.widgets?.find((w) => w.name === widgetName)?.element) ?? undefined}
+                          element={(liveNode?.widgets?.find((w) => w.name === widgetName)?.element) as HTMLElement | undefined}
                         />
                       )}
                     </div>
@@ -450,15 +449,15 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                   <ReactWidget
                     name={name}
                     value={nodeData?.widgets_values?.[widgetNames.indexOf(name)]}
-                    spec={widgetSpecs[name] as InputSpec | undefined}
+                    spec={widgetSpecs[name]}
                     onChange={(newVal) => {
                       updateWidgetValue(id, name, newVal)
                       const liveW = liveNode?.widgets?.find((w) => w.name === name)
                       if (liveW) {
-                        liveW.value = newVal as string | number | boolean
+                        liveW.value = newVal as StrictJSONValue
                         if (liveW.callback) {
                           try {
-                            liveW.callback(newVal as string | number | boolean)
+                            liveW.callback(newVal as StrictJSONValue)
                           } catch (err) {
                             console.error("Widget callback failed:", err)
                           }
@@ -469,7 +468,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
                       }
                     }}
                     disabled={isDisabled}
-                    element={(liveNode?.widgets?.find((w) => w.name === name)?.element) ?? undefined}
+                    element={(liveNode?.widgets?.find((w) => w.name === name)?.element) as HTMLElement | undefined}
                   />
                 </div>
               ))}

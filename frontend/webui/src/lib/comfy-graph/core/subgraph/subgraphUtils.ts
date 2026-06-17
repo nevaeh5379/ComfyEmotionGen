@@ -310,9 +310,7 @@ export function mapSubgraphInputsAndLinks(
     }
 
     // Use first input link
-    const firstConnection = connections[0]
-    if (!firstConnection) continue
-    const { input } = firstConnection
+    const { input } = connections[0]
     if (!input) continue
 
     // Subgraph input slot
@@ -392,9 +390,7 @@ export function mapSubgraphOutputsAndLinks(
     }
 
     // Use first output link
-    const firstConnection = connections[0]
-    if (!firstConnection) continue
-    const { output } = firstConnection
+    const { output } = connections[0]
     if (!output) continue
 
     // Subgraph output slot

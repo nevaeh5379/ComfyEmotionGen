@@ -103,7 +103,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
           }
           service.loadGraphData(workflowToLoad)
         } finally {
-          if (origSyncGraph !== undefined) app.syncGraph = origSyncGraph
+          app.syncGraph = origSyncGraph
         }
         get().syncGraphFromLive()
         set({ selectedNodeIds: new Set<number>() })
@@ -158,15 +158,14 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
             }
           }
           for (let i = 0; i < def.output.length; i++) {
-            const outputName = def.output_name?.[i] ?? def.output[i]
-            liveNode.addOutput(String(outputName ?? ""), (outputName ?? "*") as string)
+            liveNode.addOutput(def.output_name[i] || def.output[i], def.output[i])
           }
           // Add default widgets from required inputs
           if (def.input?.required) {
             for (const [name, spec] of Object.entries(def.input.required)) {
               const [typeVal, config = {}] = spec as [string | string[], Record<string, unknown>]
               if (Array.isArray(typeVal)) {
-                liveNode.addWidget("combo", name, String(typeVal[0] ?? ''), (_value?: unknown) => {}, { values: typeVal })
+                liveNode.addWidget("combo", name, typeVal[0], () => {}, { values: typeVal })
               } else if (typeVal === "INT" || typeVal === "FLOAT") {
                 const defaultVal = (config.default as number) ?? (typeVal === "INT" ? 0 : 0.0)
                 const min = (config.min as number) ?? 0
@@ -700,10 +699,10 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       ...redoStack
     ].slice(0, 50)
 
-    if (window.app?.graph && previous) {
+    if (window.app?.graph) {
       window.app.graph.clear()
       const origSync = window.app.syncGraph
-      if (origSync !== undefined) window.app.syncGraph = () => {}
+      window.app.syncGraph = () => {}
       if (window.app.canvas && window.app.graph) {
         window.app.canvas.graph = window.app.graph
       }
@@ -722,13 +721,13 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         service.loadGraphData(workflow)
       }
 
-      if (origSync !== undefined) window.app.syncGraph = origSync
+      window.app.syncGraph = origSync
       window.app.syncGraph?.()
     }
 
     set({
-      nodes: previous?.nodes ?? nodes,
-      links: previous?.links ?? links,
+      nodes: previous.nodes,
+      links: previous.links,
       undoStack: nextUndo,
       redoStack: nextRedo
     })
@@ -748,9 +747,9 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
       }
     ].slice(-50)
 
-    if (window.app?.graph && next) {
+    if (window.app?.graph) {
       const origSync = window.app.syncGraph
-      if (origSync !== undefined) window.app.syncGraph = () => {}
+      window.app.syncGraph = () => {}
 
       const last_node_id = Math.max(0, ...next.nodes.map(n => n.id))
       const last_link_id = Math.max(0, ...next.links.map(l => l.id))
@@ -766,13 +765,13 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         service.loadGraphData(workflow)
       }
 
-      if (origSync !== undefined) window.app.syncGraph = origSync
+      window.app.syncGraph = origSync
       window.app.syncGraph?.()
     }
 
     set({
-      nodes: next?.nodes ?? nodes,
-      links: next?.links ?? links,
+      nodes: next.nodes,
+      links: next.links,
       undoStack: nextUndo,
       redoStack: nextRedo
     })
@@ -784,8 +783,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     if (nodeIdx === -1) return
 
     const oldNode = state.nodes[nodeIdx]
-    if (!oldNode) return
-
     const mergedProperties = {
       ...(oldNode.properties || {}),
       ...(properties || {}),
@@ -803,8 +800,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     const updatedNode = {
       ...oldNode,
       widgets_values: widgetsValues,
-      inputs: inputs.length > 0 ? inputs : [],
-      outputs: outputs.length > 0 ? outputs : [],
+      inputs: inputs.length > 0 ? inputs : undefined,
+      outputs: outputs.length > 0 ? outputs : undefined,
       properties: mergedProperties,
     }
 

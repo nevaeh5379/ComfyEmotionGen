@@ -45,12 +45,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const { undoStack, redoStack, workflow } = get()
     if (undoStack.length === 0) return null
 
-    const previous = undoStack[undoStack.length - 1]!
+    const previous = undoStack[undoStack.length - 1]
     const newUndo = undoStack.slice(0, -1)
 
     set({
       undoStack: newUndo,
-      redoStack: workflow != null ? [workflow, ...redoStack] : redoStack,
+      redoStack: workflow ? [workflow, ...redoStack] : redoStack,
       workflow: previous,
       isDirty: true,
     })
@@ -62,11 +62,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const { undoStack, redoStack, workflow } = get()
     if (redoStack.length === 0) return null
 
-    const next = redoStack[0]!
+    const next = redoStack[0]
     const newRedo = redoStack.slice(1)
 
     set({
-      undoStack: workflow != null ? [...undoStack, workflow] : undoStack,
+      undoStack: workflow ? [...undoStack, workflow] : undoStack,
       redoStack: newRedo,
       workflow: next,
       isDirty: true,

@@ -329,27 +329,24 @@ export class LLink implements LinkSegment, Serialisable<SerialisableLLink> {
       ? network.outputNode?.slots[this.target_slot]
       : undefined
     if (subgraphOutput) {
-      const result: ResolvedConnection = {
+      return {
+        outputNode,
+        output,
+        subgraphInput: undefined,
         subgraphOutput,
-        link: this,
-        outputNode: outputNode ?? undefined,
-        output: output ?? undefined,
+        link: this
       }
-      if (inputNode !== undefined) result.inputNode = inputNode
-      if (input !== undefined) result.input = input
-      return result
     }
 
-    const result2 = {
-      link: this,
-    } as unknown as ResolvedConnection
-    if (inputNode !== undefined) result2.inputNode = inputNode
-    if (input !== undefined) result2.input = input
-    if (outputNode !== undefined) result2.outputNode = outputNode
-    if (output !== undefined) result2.output = output
-    if (subgraphInput !== undefined) result2.subgraphInput = subgraphInput
-    if (subgraphOutput !== undefined) result2.subgraphOutput = subgraphOutput
-    return result2
+    return {
+      inputNode,
+      outputNode,
+      input,
+      output,
+      subgraphInput,
+      subgraphOutput,
+      link: this
+    }
   }
 
   configure(o: LLink | SerialisedLLinkArray) {

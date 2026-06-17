@@ -116,10 +116,10 @@ export function ReactGraphEditor() {
         }
 
         for (const ext of app.extensions) {
-          if (typeof (ext as unknown as Record<string, unknown>).registerCustomNodes === 'function') {
+          if (ext.registerCustomNodes) {
             try {
               console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.registerCustomNodes for:", ext.name || "(anonymous)");
-              await ((ext as unknown as Record<string, unknown>).registerCustomNodes as (app: typeof window.app) => Promise<void>).call(ext, app)
+              await ext.registerCustomNodes(app)
             } catch (err) {
               console.error(`Extension registerCustomNodes failed for ${ext.name}:`, err)
             }
@@ -130,16 +130,16 @@ export function ReactGraphEditor() {
       if (cancelled) return
 
       // setup 훅 실행
-       for (const ext of app.extensions) {
-          if (typeof (ext as unknown as Record<string, unknown>).setup === 'function') {
-            try {
-              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:", ext.name || "(anonymous)");
-              await ((ext as unknown as Record<string, unknown>).setup as (app: typeof window.app) => Promise<void>).call(ext, app)
-            } catch (err) {
-              console.error(`Extension setup failed for ${ext.name}:`, err)
-            }
+      for (const ext of app.extensions) {
+        if (ext.setup) {
+          try {
+            console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:", ext.name || "(anonymous)");
+            await ext.setup(app)
+          } catch (err) {
+            console.error(`Extension setup failed for ${ext.name}:`, err)
           }
         }
+      }
 
       // 최초 그래프 상태 동기화
       const state = useReactGraphStore.getState()
@@ -289,14 +289,13 @@ export function ReactGraphEditor() {
     const nodeEl = target.closest("[data-node-id]")
     const clickedNodeId = nodeEl ? parseInt(nodeEl.getAttribute("data-node-id") || "", 10) : undefined
 
-    const contextMenuData: { x: number; y: number; screenX: number; screenY: number; nodeId?: number } = {
+    setContextMenu({
       x,
       y,
       screenX: e.clientX,
       screenY: e.clientY,
-    }
-    if (clickedNodeId !== undefined) contextMenuData.nodeId = clickedNodeId
-    setContextMenu(contextMenuData)
+      nodeId: clickedNodeId,
+    })
     setActiveSubmenu(null)
     setHoveredCategory(null)
   }

@@ -17,7 +17,6 @@ import type {
   CanvasPointerEvent,
   IContextMenuValue
 } from '../litegraph'
-import type { ContextMenu } from '../ContextMenu'
 import { snapPoint } from '../measure'
 import { CanvasItem } from '../types/globalEnums'
 import type {
@@ -170,7 +169,6 @@ export abstract class SubgraphIONodeBase<
         return slot
       }
     }
-    return undefined
   }
 
   /**
@@ -200,8 +198,8 @@ export abstract class SubgraphIONodeBase<
     new LiteGraph.ContextMenu(options, {
       event,
       title: slot.name || 'Subgraph Output',
-      callback: (value?: string | IContextMenuValue<unknown, unknown, unknown> | undefined) => {
-        if (value !== undefined) this._onSlotMenuAction(value as IContextMenuValue, slot, event)
+      callback: (item: IContextMenuValue) => {
+        this._onSlotMenuAction(item, slot, event)
       }
     })
   }
@@ -293,7 +291,6 @@ export abstract class SubgraphIONodeBase<
   arrange(): void {
     const { minWidth, roundedRadius } = SubgraphIONodeBase
     const [, y] = this.boundingRect
-    if (y === undefined) return
     const x = this.slotAnchorX
     const { size } = this
 
@@ -361,18 +358,7 @@ export abstract class SubgraphIONodeBase<
     ctx.textBaseline = 'middle'
 
     for (const slot of this.allSlots) {
-      const drawOptions: {
-        ctx: CanvasRenderingContext2D
-        colorContext: DefaultConnectionColors
-        fromSlot?: INodeInputSlot | INodeOutputSlot | SubgraphInput | SubgraphOutput
-        editorAlpha: number
-      } = {
-        ctx,
-        colorContext,
-        editorAlpha: editorAlpha ?? 1,
-      }
-      if (fromSlot !== undefined) drawOptions.fromSlot = fromSlot
-      slot.draw(drawOptions)
+      slot.draw({ ctx, colorContext, fromSlot, editorAlpha })
     }
   }
 

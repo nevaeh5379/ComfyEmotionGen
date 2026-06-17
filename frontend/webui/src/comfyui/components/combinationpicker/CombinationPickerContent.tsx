@@ -517,7 +517,6 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       const timer = window.setTimeout(() => curationToolbarCtx.setAutoAdvance(true), 0)
       return () => window.clearTimeout(timer)
     }
-    return undefined
   }, [autoApplyReject, curationToolbarCtx])
 
   // ── Keyboard Handler ──

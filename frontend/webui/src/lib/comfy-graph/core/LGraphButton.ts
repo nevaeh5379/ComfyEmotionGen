@@ -14,7 +14,7 @@ export class LGraphButton extends LGraphBadge {
 
   constructor(options: LGraphButtonOptions) {
     super(options)
-    if (options.name !== undefined) this.name = options.name
+    this.name = options.name
   }
 
   override getWidth(ctx: CanvasRenderingContext2D): number {

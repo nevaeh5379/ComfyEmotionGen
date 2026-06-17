@@ -54,12 +54,11 @@ export class LGraphNodeProperties {
     >
 
     if (parts.length === 1) {
-      return { targetObject, propertyName: parts[0] ?? '' }
+      return { targetObject, propertyName: parts[0] }
     }
 
     for (let i = 0; i < parts.length - 1; i++) {
       const key = parts[i]
-      if (key == null) continue
       const next = targetObject[key]
       if (isRecord(next)) {
         targetObject = next
@@ -68,7 +67,7 @@ export class LGraphNodeProperties {
 
     return {
       targetObject,
-      propertyName: parts[parts.length - 1] ?? ''
+      propertyName: parts[parts.length - 1]
     }
   }
 
@@ -196,9 +195,7 @@ export class LGraphNodeProperties {
     // Create all parent objects except the last property
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i]
-      if (part == null) continue
-      const existing = current[part]
-      if (!existing) {
+      if (!current[part]) {
         current[part] = {}
       }
       const next = current[part]

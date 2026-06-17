@@ -111,7 +111,7 @@ export class ExecutableNodeDTO implements ExecutableLGraphNode {
     this._id = [...this.subgraphNodePath, this.node.id].join(':')
     this.graph = node.graph
     this.inputs = this.node.inputs.map((x) => ({
-      linkId: x.link ?? null,
+      linkId: x.link,
       name: x.name,
       type: x.type
     }))
@@ -348,9 +348,7 @@ export class ExecutableNodeDTO implements ExecutableLGraphNode {
   private _getBypassSlotIndex(slot: number, type: ISlotType) {
     const { inputs } = this
     const oppositeInput = inputs[slot]
-    const outputSlot = this.node.outputs[slot]
-    if (!outputSlot) return -1
-    const outputType = outputSlot.type
+    const outputType = this.node.outputs[slot].type
 
     // Any type short circuit - match slot ID, fallback to first slot
     if (type === '*' || type === '') {

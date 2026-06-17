@@ -187,13 +187,9 @@ export class ComfyAppService {
       // configureWidgets skips serialize:false widgets (misaligning indices),
       // and some DOM widgets need their hook-initialized DOM to accept values.
       if (nodeData.widgets_values && node.widgets) {
-       for (let i = 0; i < Math.min(node.widgets.length, nodeData.widgets_values.length); i++) {
+        for (let i = 0; i < Math.min(node.widgets.length, nodeData.widgets_values.length); i++) {
           try {
-            const widgetValue = nodeData.widgets_values?.[i]
-            const widget = node.widgets?.[i]
-            if (widgetValue !== undefined && widget) {
-              widget.value = widgetValue as string | number | boolean
-            }
+            node.widgets[i].value = nodeData.widgets_values[i] as string | number | boolean
           } catch (err) {
             console.warn(`[loadGraphData] failed to set widget[${i}] for ${nodeData.type}:`, err)
           }
@@ -308,10 +304,10 @@ export class ComfyAppService {
       })
     }
 
-    const groups = this.graph.groups.map((g) => ({
+    const groups = this.graph.groups.map((g: { title: string; pos: [number, number]; size: [number, number]; color?: string }) => ({
       title: g.title,
       bounding: [g.pos[0], g.pos[1], g.size[0], g.size[1]] as [number, number, number, number],
-      color: g.color ?? undefined,
+      color: g.color,
     }))
 
     return {
@@ -437,8 +433,10 @@ export class ComfyAppService {
     }
 
     for (let i = 0; i < nodeDef.output.length; i++) {
-      const outputName = nodeDef.output_name?.[i] ?? nodeDef.output[i]
-      node.addOutput(String(outputName ?? "*"), nodeDef.output[i] ?? "*")
+      node.addOutput(
+        nodeDef.output_name[i] || nodeDef.output[i],
+        nodeDef.output[i]
+      )
     }
 
     this.addNodeWidgets(node, nodeDef)
@@ -479,7 +477,7 @@ export class ComfyAppService {
 
       if (Array.isArray(type)) {
         // COMBO 위젯
-        node.addWidget("combo", name, type[0] ?? "", (_value?: unknown) => {}, {
+        node.addWidget("combo", name, type[0], () => {}, {
           values: type,
         })
       } else if (type === "INT" || type === "FLOAT") {

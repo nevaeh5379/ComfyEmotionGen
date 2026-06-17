@@ -117,13 +117,11 @@ export class SubgraphOutput extends SubgraphSlot {
 
   get labelPos(): Point {
     const [x, y, , height] = this.boundingRect
-    if (x === undefined || y === undefined || height === undefined) return [0, 0]
     return [x + height, y + height * 0.5]
   }
 
   override arrange(rect: ReadOnlyRect): void {
     const [left, top, width, height] = rect
-    if (left === undefined || top === undefined || width === undefined || height === undefined) return
     const { boundingRect: b, pos } = this
 
     b[0] = left

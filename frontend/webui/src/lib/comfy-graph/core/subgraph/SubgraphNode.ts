@@ -145,7 +145,6 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
         sourceWidgetName: targetWidget.name
       }
     }
-    return undefined
   }
 
   private _getLinkedPromotionEntries(cache = true): LinkedPromotionEntry[] {
@@ -846,14 +845,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
   }
 
   override getInputLink(slot: number): LLink | null {
-    const slotData = this.subgraph.outputNode.slots[slot]
-    if (!slotData) {
-      console.warn(
-        `SubgraphNode.getInputLink: no output slot found at index ${slot}`
-      )
-      return null
-    }
-    const innerLink = slotData.getLinks().at(0)
+    const innerLink = this.subgraph.outputNode.slots[slot].getLinks().at(0)
     if (!innerLink) {
       console.warn(
         `SubgraphNode.getInputLink: no inner link found for slot ${slot}`
@@ -874,13 +866,6 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
    */
   resolveSubgraphInputLinks(slot: number): ResolvedConnection[] {
     const inputSlot = this.subgraph.inputNode.slots[slot]
-    if (!inputSlot) {
-      console.warn(
-        `[SubgraphNode.resolveSubgraphInputLinks] No input slot found at index [${slot}]`,
-        this
-      )
-      return []
-    }
     const innerLinks = inputSlot.getLinks()
     if (innerLinks.length === 0) {
       console.warn(
@@ -898,13 +883,6 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
    */
   resolveSubgraphOutputLink(slot: number): ResolvedConnection | undefined {
     const outputSlot = this.subgraph.outputNode.slots[slot]
-    if (!outputSlot) {
-      console.warn(
-        `[SubgraphNode.resolveSubgraphOutputLink] No output slot found at index [${slot}]`,
-        this
-      )
-      return undefined
-    }
     const innerLink = outputSlot.getLinks().at(0)
     if (innerLink) {
       return innerLink.resolve(this.subgraph)
@@ -913,7 +891,6 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
       `[SubgraphNode.resolveSubgraphOutputLink] No inner link found for output slot [${slot}] ${outputSlot.name}`,
       this
     )
-    return undefined
   }
 
   getInnerNodes(
@@ -1153,7 +1130,7 @@ export class SubgraphNode extends LGraphNode implements BaseLGraph {
   }
   getSlotShape(slot: SubgraphInput, extraInput?: INodeInputSlot) {
     const shapes = slot.linkIds.map(
-      (id) => this.subgraph.links.get(id)?.resolve(this.subgraph)?.input?.shape
+      (id) => this.subgraph.links[id]?.resolve(this.subgraph)?.input?.shape
     )
     if (extraInput) shapes.push(extraInput.shape)
     return shapes.every((shape) => shape === shapes[0]) ? shapes[0] : undefined

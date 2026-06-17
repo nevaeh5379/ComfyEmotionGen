@@ -40,7 +40,6 @@ export class SubgraphOutputNode
 
   get slotAnchorX() {
     const [x] = this.boundingRect
-    if (x === undefined) return 0
     return x + SubgraphIONodeBase.roundedRadius
   }
 
@@ -102,9 +101,7 @@ export class SubgraphOutputNode
     const outputSlot = target_node.findOutputByType(target_slotType)
     if (!outputSlot) return
 
-    const targetSlot = this.slots[slot]
-    if (!targetSlot) return undefined
-    return targetSlot.connect(
+    return this.slots[slot].connect(
       outputSlot.slot,
       target_node,
       optsIn?.afterRerouteId
@@ -133,7 +130,6 @@ export class SubgraphOutputNode
     const transform = ctx.getTransform()
 
     const [x, y, , height] = this.boundingRect
-    if (x === undefined || y === undefined || height === undefined) return
     ctx.translate(x, y)
 
     // Draw bottom rounded part

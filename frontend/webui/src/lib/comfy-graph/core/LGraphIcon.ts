@@ -36,11 +36,11 @@ export class LGraphIcon {
     xOffset = 0,
     yOffset = 0
   }: LGraphIconOptions) {
-    if (unicode !== undefined) this.unicode = unicode
+    this.unicode = unicode
     this.fontFamily = fontFamily
-    if (image !== undefined) this.image = image
+    this.image = image
     this.color = color
-    if (bgColor !== undefined) this.bgColor = bgColor
+    this.bgColor = bgColor
     this.fontSize = fontSize
     this.size = size ?? fontSize
     this.circlePadding = circlePadding

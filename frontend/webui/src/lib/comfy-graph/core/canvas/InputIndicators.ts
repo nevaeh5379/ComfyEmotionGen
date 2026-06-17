@@ -181,7 +181,7 @@ export class InputIndicators implements Disposable {
 
   dispose() {
     this.controller?.abort()
-    delete this.controller
+    this.controller = undefined
   }
 
   [Symbol.dispose](): void {
