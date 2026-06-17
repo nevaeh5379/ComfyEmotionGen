@@ -1,6 +1,6 @@
-import { useCanvasStore } from "@/lib/comfy-graph/stores/canvasStore"
-import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
-import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
+import { useCanvasStore } from "@/comfyui/stores/canvasStore"
+import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useEffect, useState } from "react"
 import { Settings2, X } from "lucide-react"
 
@@ -34,38 +34,38 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
     const updateSelection = () => {
       const g = canvas.graph
       if (!g) return
-      const selected = g.nodes.filter((n) => n.is_selected)
-      if (selected.length === 1) {
-        const node = selected[0]
+      const selected = g.nodes.filter((n: any) => n.is_selected)
+      if (selected.length === 1 && selected[0]) {
+        const node = selected[0] as any
         setCanvasSelectedNode({
           id: Number(node.id),
-          // @ts-ignore
           title: node.title || node.type || "Node",
           type: node.type || "unknown",
           pos: node.pos,
           size: node.size,
-          // @ts-ignore
-          color: node.color,
-          // @ts-ignore
-          bgcolor: node.bgcolor,
-          // @ts-ignore
-          widgets: node.widgets?.map((w) => ({
-            name: w.name,
-            value: w.value,
-            type: w.type,
-          })),
-          // @ts-ignore
-          inputs: node.inputs?.map((i) => ({
-            name: i.name,
-            type: i.type,
-            link: i.link,
-          })),
-          // @ts-ignore
-          outputs: node.outputs?.map((o) => ({
-            name: o.name,
-            type: o.type,
-            links: o.links || [],
-          })),
+          ...(node.color ? { color: node.color } : {}),
+          ...(node.bgcolor ? { bgcolor: node.bgcolor } : {}),
+          ...(node.widgets ? {
+            widgets: node.widgets.map((w: any) => ({
+              name: w.name,
+              value: w.value,
+              type: w.type,
+            }))
+          } : {}),
+          ...(node.inputs ? {
+            inputs: node.inputs.map((i: any) => ({
+              name: i.name,
+              type: String(i.type),
+              link: i.link,
+            }))
+          } : {}),
+          ...(node.outputs ? {
+            outputs: node.outputs.map((o: any) => ({
+              name: o.name,
+              type: String(o.type),
+              links: o.links || [],
+            }))
+          } : {}),
         })
       } else {
         setCanvasSelectedNode(null)
@@ -118,8 +118,8 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
           type: node.type || "unknown",
           pos: node.pos,
           size: node.size,
-          color: undefined,
-          bgcolor: undefined,
+          ...(node.color ? { color: node.color } : {}),
+          ...(node.bgcolor ? { bgcolor: node.bgcolor } : {}),
           widgets: widgetNames.map((name, idx) => {
             const spec = allSpecs[name]
             const typeSpec = spec?.[0]
@@ -130,16 +130,20 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
               type: typeStr,
             }
           }),
-          inputs: node.inputs?.map((i) => ({
-            name: i.name,
-            type: i.type,
-            link: i.link || null,
-          })),
-          outputs: node.outputs?.map((o) => ({
-            name: o.name,
-            type: o.type,
-            links: o.links || [],
-          })),
+          ...(node.inputs ? {
+            inputs: node.inputs.map((i) => ({
+              name: i.name,
+              type: i.type,
+              link: i.link || null,
+            }))
+          } : {}),
+          ...(node.outputs ? {
+            outputs: node.outputs.map((o) => ({
+              name: o.name,
+              type: o.type,
+              links: o.links || [],
+            }))
+          } : {}),
         }
       }
     }

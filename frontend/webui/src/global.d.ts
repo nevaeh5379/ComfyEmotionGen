@@ -1,9 +1,4 @@
-import type { LiteGraphGlobal } from "./lib/comfy-graph/core/LiteGraphGlobal"
-import type { LGraph } from "./lib/comfy-graph/core/LGraph"
-import type { LGraphCanvas } from "./lib/comfy-graph/core/LGraphCanvas"
-import type { LGraphNode } from "./lib/comfy-graph/core/LGraphNode"
-import type { LLink } from "./lib/comfy-graph/core/LLink"
-import type { LGraphGroup } from "./lib/comfy-graph/core/LGraphGroup"
+import type { LiteGraphGlobal, LGraph, LGraphCanvas, LGraphNode, LLink, LGraphGroup } from "comfy-litegraph"
 
 declare global {
   interface Window {

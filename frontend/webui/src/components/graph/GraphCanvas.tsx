@@ -4,11 +4,11 @@
  */
 
 import { useEffect, useRef, useCallback } from "react"
-import { ComfyAppService } from "@/lib/comfy-graph/services/appService"
-import { useCanvasStore } from "@/lib/comfy-graph/stores/canvasStore"
-import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
-import { useGraphStore } from "@/lib/comfy-graph/stores/graphStore"
-import type { ComfyWorkflowJSON } from "@/lib/comfy-graph/types/workflow"
+import { ComfyAppService } from "@/comfyui/services/appService"
+import { useCanvasStore } from "@/comfyui/stores/canvasStore"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { useGraphStore } from "@/comfyui/stores/graphStore"
+import type { ComfyWorkflowJSON } from "@/comfyui/types/workflow"
 
 interface GraphCanvasProps {
   workflow?: ComfyWorkflowJSON | null
@@ -127,11 +127,11 @@ export function GraphCanvas({
       if (e.key === "Delete" || e.key === "Backspace") {
         const app = appRef.current
         if (!app) return
-        const selected = app.graph.nodes.filter((n) => n.is_selected)
+        const selected = app.graph.nodes.filter((n: any) => n.is_selected)
         if (selected.length > 0) {
           e.preventDefault()
           for (const node of selected) {
-            app.graph.remove(node)
+            app.graph.remove(node as any)
           }
           app.graph.setDirtyCanvas(true, true)
         }

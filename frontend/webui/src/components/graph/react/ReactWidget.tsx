@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import type { InputSpec } from "@/lib/comfy-graph/types/nodeDef"
+import type { InputSpec } from "@/comfyui/types/nodeDef"
 
 interface HTMLElementWidgetProps {
   element: HTMLElement

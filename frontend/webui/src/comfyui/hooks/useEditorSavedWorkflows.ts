@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
-import type { ComfyWorkflowJSON } from "@/lib/comfy-graph/types/workflow"
+import type { ComfyWorkflowJSON } from "@/comfyui/types/workflow"
 import { usePersistedItems } from "./usePersistedItems"
 
 export interface EditorSavedWorkflow {

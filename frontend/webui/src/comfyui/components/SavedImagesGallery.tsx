@@ -329,7 +329,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
       const scrollContainer = target.closest(
         ".overflow-y-auto"
-      )
+      ) as HTMLElement | null
       scrollContainerRef.current = scrollContainer
       if (scrollContainer) {
         initialScrollPosRef.current = {

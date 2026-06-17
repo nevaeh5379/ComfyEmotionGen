@@ -7,8 +7,8 @@
  */
 
 import { useLayoutEffect, useRef, useState } from "react"
-import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
-import type { ComfyWorkflowNode } from "@/lib/comfy-graph/types/workflow"
+import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
+import type { ComfyWorkflowNode } from "@/comfyui/types/workflow"
 
 function linkColor(type: string): string {
   const t = type.toUpperCase()

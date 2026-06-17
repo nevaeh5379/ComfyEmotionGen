@@ -3,14 +3,14 @@
  */
 
 import { useRef, useState, useEffect, useMemo } from "react"
-import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
-import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
+import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
-import { comfyApi } from "@/lib/comfy-graph/api"
-import { ComfyAppService } from "@/lib/comfy-graph/services/appService"
-import { LGraph, LGraphNode, LGraphCanvas } from "@/lib/comfy-graph/core/litegraph"
+import { comfyApi } from "@/comfyui/api"
+import { ComfyAppService } from "@/comfyui/services/appService"
+import { LGraph, LGraphNode, LGraphCanvas } from "comfy-litegraph"
 
 export function ReactGraphEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -191,7 +191,7 @@ export function ReactGraphEditor() {
     y: number
     screenX: number
     screenY: number
-    nodeId?: number
+    nodeId?: number | undefined
   } | null>(null)
 
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null)

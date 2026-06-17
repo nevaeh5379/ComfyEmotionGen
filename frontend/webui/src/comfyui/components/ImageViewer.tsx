@@ -412,7 +412,7 @@ export function ImageViewer({
     if (isOpen) {
       const computedOverflow = window.getComputedStyle(document.body).overflow
       if (computedOverflow === "hidden") {
-        return
+        return () => {}
       }
       const originalStyle = document.body.style.overflow
       document.body.style.overflow = "hidden"
@@ -420,6 +420,7 @@ export function ImageViewer({
         document.body.style.overflow = originalStyle
       }
     }
+    return () => {}
   }, [isOpen])
 
   /* reset image status when src changes */
@@ -449,6 +450,7 @@ export function ImageViewer({
       }
       return () => { clearTimeout(timer); }
     }
+    return () => {}
   }, [isOpen, setZoomAndRef, setPanAndRef])
 
   /* track Shift key globally */
@@ -481,7 +483,9 @@ export function ImageViewer({
     if (dragging) {
       window.addEventListener("mousemove", onWindowMouseMove)
       window.addEventListener("mouseup", onWindowMouseUp)
-      return () => {
+    }
+    return () => {
+      if (dragging) {
         window.removeEventListener("mousemove", onWindowMouseMove)
         window.removeEventListener("mouseup", onWindowMouseUp)
       }

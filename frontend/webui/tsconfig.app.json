@@ -25,8 +25,7 @@
     "noUncheckedSideEffectImports": true,
     "exactOptionalPropertyTypes": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@comfy-graph/*": ["./src/lib/comfy-graph/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"],

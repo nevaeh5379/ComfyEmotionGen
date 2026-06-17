@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo } from "react"
-import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { Search, ChevronRight, ChevronDown, Plus } from "lucide-react"
 
 interface NodeLibrarySidebarProps {
@@ -34,7 +34,7 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
     const query = searchQuery.toLowerCase().trim()
     if (!query) return nodeDefsByCategory
 
-    const result: Record<string, import("@/lib/comfy-graph/types/nodeDef").ComfyNodeDef[]> = {}
+    const result: Record<string, import("@/comfyui/types/nodeDef").ComfyNodeDef[]> = {}
     for (const [category, defs] of Object.entries(nodeDefsByCategory)) {
       const filtered = defs.filter(
         (def) =>

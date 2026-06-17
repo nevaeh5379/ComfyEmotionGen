@@ -3,12 +3,13 @@
  */
 
 import { useRef, useMemo, useLayoutEffect, useState } from "react"
-import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
-import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
+import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
 import { X } from "lucide-react"
-import type { ComfyNodeInput, ComfyNodeOutput } from "@/lib/comfy-graph/types/workflow"
-import { LGraphEventMode } from "@/lib/comfy-graph/core/types/globalEnums"
+import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
+import { LGraphEventMode } from "comfy-litegraph"
+import type { InputSpec } from "@/comfyui/types/nodeDef"
 
 interface ReactNodeProps {
   id: number
@@ -187,7 +188,8 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
           const req = def.input?.required ?? {}
           const opt = def.input?.optional ?? {}
           for (const [name, spec] of Object.entries({ ...req, ...opt })) {
-            const typeSpec = spec[0]
+            const inputSpec = spec as InputSpec
+            const typeSpec = inputSpec[0]
             const isWidget =
               Array.isArray(typeSpec) ||
               ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
@@ -201,7 +203,8 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
           const req = def.input?.required ?? {}
           const opt = def.input?.optional ?? {}
           for (const [name, spec] of Object.entries({ ...req, ...opt })) {
-            const typeSpec = spec[0]
+            const inputSpec = spec as InputSpec
+            const typeSpec = inputSpec[0]
             const isWidget =
               Array.isArray(typeSpec) ||
               ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(
@@ -210,7 +213,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
             ins.push({
               name,
               type: String(typeSpec),
-              ...(isWidget ? { widget: { name, config: spec[1] || {} } } : {}),
+              ...(isWidget ? { widget: { name, config: inputSpec[1] || {} } } : {}),
             })
           }
         }

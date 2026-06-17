@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react"
-import "@/lib/comfy-graph/css/litegraph.css"
+import "comfy-litegraph/public/css/litegraph.css"
 import {
   Sheet,
   SheetContent,
@@ -70,7 +70,7 @@ function WorkflowGraphViewer({
 
     async function init(w: number, h: number) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lib = (await import("@/lib/comfy-graph")) as any
+      const lib = (await import("comfy-litegraph")) as any
       const { LGraph, LGraphCanvas, LGraphNode } = lib
 
       if (cancelled || !canvasRef.current) return

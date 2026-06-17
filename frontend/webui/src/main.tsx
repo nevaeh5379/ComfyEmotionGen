@@ -3,7 +3,7 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
-import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "@/lib/comfy-graph/core/litegraph"
+import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
 
 window.LiteGraph = LiteGraph
 window.LGraph = LGraph
@@ -172,11 +172,11 @@ window.api = window.api || (new EventTarget() as any);
 const apiObj = window.api;
 apiObj.api_base = apiObj.api_base || DEFAULT_BACKEND_URL;
 apiObj.getExtensions = apiObj.getExtensions || (async () => {
-  const { comfyApi } = await import("@/lib/comfy-graph/api");
+  const { comfyApi } = await import("@/comfyui/api");
   return comfyApi.getExtensions();
 });
 apiObj.getObjectInfo = apiObj.getObjectInfo || (async () => {
-  const { comfyApi } = await import("@/lib/comfy-graph/api");
+  const { comfyApi } = await import("@/comfyui/api");
   return comfyApi.getObjectInfo();
 });
 const _fetchApiMocks: Record<string, () => Promise<Response>> = {
@@ -375,7 +375,7 @@ Object.defineProperty(appObj, 'settings', {
 appObj.graph = appObj.graph || new LGraph()
 appObj.canvas = appObj.canvas || new LGraphCanvas(document.createElement("canvas"), appObj.graph)
 appObj.syncGraph = appObj.syncGraph || async function () {
-  const { useReactGraphStore } = await import("@/lib/comfy-graph/stores/reactGraphStore")
+  const { useReactGraphStore } = await import("@/comfyui/stores/reactGraphStore")
   useReactGraphStore.getState().syncGraphFromLive()
 }
 

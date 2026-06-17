@@ -8,11 +8,11 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { GraphCanvas } from "@/components/graph/GraphCanvas"
 import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
 import { NodePropertiesPanel } from "@/components/graph/NodePropertiesPanel"
-import { comfyApi } from "@/lib/comfy-graph/api"
-import { useNodeDefStore } from "@/lib/comfy-graph/stores/nodeDefStore"
-import { useGraphStore } from "@/lib/comfy-graph/stores/graphStore"
-import { useCanvasStore } from "@/lib/comfy-graph/stores/canvasStore"
-import type { ComfyWorkflowJSON } from "@/lib/comfy-graph/types/workflow"
+import { comfyApi } from "@/comfyui/api"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { useGraphStore } from "@/comfyui/stores/graphStore"
+import { useCanvasStore } from "@/comfyui/stores/canvasStore"
+import type { ComfyWorkflowJSON } from "@/comfyui/types/workflow"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -35,7 +35,7 @@ import {
   Folder,
   Upload,
 } from "lucide-react"
-import { useReactGraphStore } from "@/lib/comfy-graph/stores/reactGraphStore"
+import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { ReactGraphEditor } from "@/components/graph/react/ReactGraphEditor"
 import {
   useEditorSavedWorkflows,

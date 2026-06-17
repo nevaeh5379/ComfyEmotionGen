@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "outDir": "./dist",
+    "strict": false,
+    "strictFunctionTypes": false,
+    "skipLibCheck": true,
+    "paths": {
+      "@/lib/litegraph/src/*": ["./src/*"],
+      "@/renderer/core/layout/operations/layoutMutations": ["./src/mocks/layout.ts"],
+      "@/renderer/core/layout/types": ["./src/mocks/layout.ts"],
+      "@/stores/previewExposureStore": ["./src/mocks/stores.ts"],
+      "@/stores/widgetValueStore": ["./src/mocks/stores.ts"],
+      "@/utils/graphTraversalUtil": ["./src/mocks/utils.ts"],
+      "@/utils/uuid": ["./src/mocks/utils.ts"],
+      "@/utils/colorUtil": ["./src/mocks/utils.ts"],
+      "@/types/widgetId": ["./src/mocks/types.ts"],
+      "@/types/widgetState": ["./src/mocks/types.ts"],
+      "@/core/schemas/promotionSchema": ["./src/mocks/types.ts"],
+      "@/renderer/core/canvas/litegraph/litegraphLinkAdapter": ["./src/mocks/types.ts"],
+      "@/renderer/core/canvas/litegraph/slotCalculations": ["./src/mocks/types.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}
