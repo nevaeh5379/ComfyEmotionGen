@@ -117,28 +117,33 @@ export class ComfyAppService {
    * 워크플로우 JSON 로드
    */
   loadGraphData(workflow: ComfyWorkflowJSON): void {
-    console.log(`[CEG] loadGraphData: ${workflow.nodes?.length || 0} nodes, ${workflow.links?.length || 0} links`)
     this.graph.clear()
 
     // 노드 생성
     for (const nodeData of workflow.nodes) {
-      console.log(`[CEG] loadGraphData creating node: type="${nodeData.type}" id=${nodeData.id}`)
       let node: LGraphNode | null = null
       try {
         node = this.createNode(nodeData.type, nodeData.pos, {
           skipConfigure: true,
-          nodeId: nodeData.id,
         })
       } catch (err) {
         console.warn(`[CEG] createNode failed for ${nodeData.type}:`, err)
         continue
       }
       if (!node) {
+        // Absolute fallback: generic node so graph has all nodes for linking
         console.warn(`[CEG] createNode returned null for ${nodeData.type}, forcing generic fallback`)
         node = new LGraphNode(nodeData.type || "Unknown")
         node.pos = nodeData.pos
-        node.id = nodeData.id
         this.graph.add(node)
+      }
+
+      // graph.add(node)에서 할당된 자동 ID를 JSON의 ID로 교체하고 _nodes_by_id 갱신
+      const oldId = node.id
+      if (oldId !== nodeData.id) {
+        delete this.graph._nodes_by_id[oldId]
+        node.id = nodeData.id
+        this.graph._nodes_by_id[node.id] = node
       }
       node.pos = nodeData.pos
       node.size = nodeData.size
@@ -395,21 +400,23 @@ export class ComfyAppService {
   createNode(
     type: string,
     pos: Vector2 = [0, 0],
-    options: { skipConfigure?: boolean; nodeId?: number } = {}
+    options: { skipConfigure?: boolean } = {}
   ): LGraphNode | null {
     let nodeDef = this.nodeDefs[type]
     let actualType = type
     if (!nodeDef) {
       const storeDef = useNodeDefStore.getState().getNodeDef(type)
       if (storeDef) {
-        console.log(`[CEG] createNode: fuzzy match for "${type}" via store.getNodeDef`)
+        console.debug(`[CEG] createNode: fuzzy match for "${type}" via store.getNodeDef`)
         nodeDef = storeDef
+        // Find the actually registered key in this.nodeDefs (case-insensitive match)
         for (const key of Object.keys(this.nodeDefs)) {
           if (key.toLowerCase() === type.toLowerCase()) {
             actualType = key
             break
           }
         }
+        // If still not found in this.nodeDefs, register dynamically from store
         if (actualType === type) {
           const store = useNodeDefStore.getState()
           for (const key of Object.keys(store.nodeDefs)) {
@@ -418,7 +425,8 @@ export class ComfyAppService {
               break
             }
           }
-          console.log(`[CEG] createNode: registering "${actualType}" dynamically in LiteGraph`)
+          console.debug(`[CEG] createNode: registering "${actualType}" dynamically in LiteGraph`)
+          // Register in LiteGraph on-the-fly so createNode works
           this.registerNodeDefs({ [actualType]: nodeDef })
           this.nodeDefs[actualType] = nodeDef
         }
@@ -426,7 +434,6 @@ export class ComfyAppService {
         console.warn(`[ComfyApp] Unknown node type: ${type}, creating generic node`)
         const node = new LGraphNode(type)
         node.pos = pos
-        if (options.nodeId != null) node.id = options.nodeId
         this.graph.add(node)
         return node
       }
@@ -438,8 +445,8 @@ export class ComfyAppService {
     if (typeof node.addInput !== 'function') return null
 
     node.pos = pos
-    if (options.nodeId != null) node.id = options.nodeId
 
+    // 입력 슬롯
     if (nodeDef.input?.required) {
       for (const [name, spec] of Object.entries(nodeDef.input.required)) {
         const typeStr = Array.isArray(spec[0]) ? "COMBO" : (spec[0] as string)
@@ -454,6 +461,7 @@ export class ComfyAppService {
       }
     }
 
+    // 출력 슬롯
     for (let i = 0; i < nodeDef.output.length; i++) {
       node.addOutput(
         nodeDef.output_name[i] || nodeDef.output[i],
@@ -461,8 +469,10 @@ export class ComfyAppService {
       )
     }
 
+    // 위젯 생성
     this.addNodeWidgets(node, nodeDef)
 
+    // Call prototype's onNodeCreated (patched by beforeRegisterNodeDef hooks)
     node.onNodeCreated?.()
 
     this.graph.add(node)
