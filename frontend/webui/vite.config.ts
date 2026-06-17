@@ -23,6 +23,76 @@ function resolveCommit(): string {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: [
+      {
+        find: /^@\/(.*)$/,
+        replacement: "$1",
+        async customResolver(source, importer, options) {
+          if (importer && importer.includes("packages/litegraph")) {
+            if (source === "stores/widgetValueStore" || source === "stores/previewExposureStore") {
+              return path.resolve(__dirname, "src/comfyui/mocks/stores.ts");
+            }
+            if (source === "renderer/core/layout/operations/layoutMutations" || source === "renderer/core/layout/types") {
+              return path.resolve(__dirname, "src/comfyui/mocks/layout.ts");
+            }
+            if (source === "renderer/core/canvas/litegraph/litegraphLinkAdapter" || source === "renderer/core/canvas/litegraph/slotCalculations") {
+              return path.resolve(__dirname, "src/comfyui/mocks/types.ts");
+            }
+            if (source === "i18n") {
+              return path.resolve(__dirname, "src/comfyui/mocks/i18n.ts");
+            }
+            if (source.startsWith("lib/litegraph/src/")) {
+              const subPath = source.substring("lib/litegraph/src/".length);
+              const isDistImporter = importer.includes("packages/litegraph/src/lib/litegraph/dist");
+              const targetPath = path.resolve(
+                __dirname,
+                isDistImporter
+                  ? "packages/litegraph/src/lib/litegraph/dist"
+                  : "packages/litegraph/src/lib/litegraph/src",
+                subPath
+              );
+              const resolved = await this.resolve(targetPath, importer, {
+                skipSelf: true,
+                ...options,
+              });
+              return resolved || targetPath;
+            }
+            if (source === "utils/formatUtil") {
+              return path.resolve(
+                __dirname,
+                "packages/litegraph/packages/shared-frontend-utils/src/formatUtil.ts"
+              );
+            }
+            if (source === "utils/networkUtil") {
+              return path.resolve(
+                __dirname,
+                "packages/litegraph/packages/shared-frontend-utils/src/networkUtil.ts"
+              );
+            }
+            const resolvedPath = path.resolve(
+              __dirname,
+              "packages/litegraph/src",
+              source
+            );
+            const resolved = await this.resolve(resolvedPath, importer, {
+              skipSelf: true,
+              ...options,
+            });
+            return resolved || resolvedPath;
+          }
+          
+          // Default: map to webui's src/...
+          const resolvedPath = path.resolve(__dirname, "./src", source);
+          const resolved = await this.resolve(resolvedPath, importer, {
+            skipSelf: true,
+            ...options,
+          });
+          return resolved || resolvedPath;
+        }
+      }
+    ]
+  },
   optimizeDeps: {
     entries: [
       "./index.html"
