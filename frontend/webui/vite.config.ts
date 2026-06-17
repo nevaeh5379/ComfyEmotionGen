@@ -23,6 +23,11 @@ function resolveCommit(): string {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    entries: [
+      "./index.html"
+    ]
+  },
   resolve: {
     alias: [
       { find: "@/renderer/core/layout/operations/layoutMutations", replacement: path.resolve(__dirname, "./packages/litegraph/src/lib/litegraph/src/mocks/layout.ts") },
@@ -38,6 +43,7 @@ export default defineConfig({
       { find: "@/renderer/core/canvas/litegraph/litegraphLinkAdapter", replacement: path.resolve(__dirname, "./packages/litegraph/src/renderer/core/canvas/litegraph/litegraphLinkAdapter.ts") },
       { find: "@/renderer/core/canvas/pathRenderer", replacement: path.resolve(__dirname, "./packages/litegraph/src/renderer/core/canvas/pathRenderer.ts") },
       { find: "@/renderer/core/canvas/litegraph/slotCalculations", replacement: path.resolve(__dirname, "./packages/litegraph/src/lib/litegraph/src/mocks/slotCalculations.ts") },
+      { find: /.*subgraphUtils.*/, replacement: path.resolve(__dirname, "./packages/litegraph/src/lib/litegraph/src/mocks/subgraphUtils.ts") },
       { find: "@/lib/litegraph/src", replacement: path.resolve(__dirname, "./packages/litegraph/src/lib/litegraph/src") },
       { find: "@/i18n", replacement: path.resolve(__dirname, "./packages/litegraph/src/lib/litegraph/src/mocks/i18n.ts") },
       { find: "@/renderer/core/canvas/useAutoPan", replacement: path.resolve(__dirname, "./packages/litegraph/src/lib/litegraph/src/mocks/useAutoPan.ts") },
