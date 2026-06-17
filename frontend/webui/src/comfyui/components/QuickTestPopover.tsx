@@ -85,7 +85,7 @@ export function QuickTestPopover({
           <Input
             placeholder="조합 검색..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); }}
+            onChange={(e) => setSearch(e.target.value)}
             className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 shadow-none"
           />
         </div>
@@ -98,7 +98,7 @@ export function QuickTestPopover({
                 </div>
                 <div className="space-y-1">
                   {favorites.map((item) => (
-                    <ItemRow key={itemKey(item)} item={item} isFavorite={true} onSelect={() => { handleSelect(item); }} onToggleFavorite={() => { onToggleFavorite(itemKey(item)); }} />
+                    <ItemRow key={itemKey(item)} item={item} isFavorite={true} onSelect={() => handleSelect(item)} onToggleFavorite={() => onToggleFavorite(itemKey(item))} />
                   ))}
                 </div>
               </div>
@@ -109,7 +109,7 @@ export function QuickTestPopover({
                 <div className="mb-1 px-2 text-[10px] font-semibold text-muted-foreground">모든 조합</div>
                 <div className="space-y-1">
                   {others.map((item) => (
-                    <ItemRow key={itemKey(item)} item={item} isFavorite={false} onSelect={() => { handleSelect(item); }} onToggleFavorite={() => { onToggleFavorite(itemKey(item)); }} />
+                    <ItemRow key={itemKey(item)} item={item} isFavorite={false} onSelect={() => handleSelect(item)} onToggleFavorite={() => onToggleFavorite(itemKey(item))} />
                   ))}
                 </div>
               </div>

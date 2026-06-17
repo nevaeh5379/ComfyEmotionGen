@@ -29,19 +29,19 @@ export class InputIndicators implements Disposable {
   // #endregion
 
   // #region state
-  enabled = true
+  enabled: boolean = true
 
-  shiftDown = false
-  undoDown = false
-  redoDown = false
-  ctrlDown = false
-  altDown = false
-  mouse0Down = false
-  mouse1Down = false
-  mouse2Down = false
+  shiftDown: boolean = false
+  undoDown: boolean = false
+  redoDown: boolean = false
+  ctrlDown: boolean = false
+  altDown: boolean = false
+  mouse0Down: boolean = false
+  mouse1Down: boolean = false
+  mouse2Down: boolean = false
 
-  x = 0
-  y = 0
+  x: number = 0
+  y: number = 0
   // #endregion
 
   controller?: AbortController

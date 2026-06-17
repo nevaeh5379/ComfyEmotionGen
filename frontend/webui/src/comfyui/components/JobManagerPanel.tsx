@@ -168,28 +168,28 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [, setIsLoading] = useState(false)
   const [refetchTick, setRefetchTick] = useState(0)
 
-  const triggerRefetchJobs = useCallback(() => { setRefetchTick((t) => t + 1); }, [])
+  const triggerRefetchJobs = useCallback(() => setRefetchTick((t) => t + 1), [])
 
   useEffect(() => {
-    const handleRefetch = (): void => {
+    const handleRefetch = () => {
       triggerRefetchJobs()
     }
     window.addEventListener("ceg-refetch-jobs", handleRefetch)
-    return (): void => { window.removeEventListener("ceg-refetch-jobs", handleRefetch); }
+    return () => window.removeEventListener("ceg-refetch-jobs", handleRefetch)
   }, [triggerRefetchJobs])
 
   // 필터 변경 시 page를 1로 함께 초기화하는 래퍼
-  const setFilterTab = (v: FilterTab): void => {
+  const setFilterTab = (v: FilterTab) => {
     setFilterTabState(v)
     setPage(1)
     setSelectedForDelete(new Set())
   }
-  const setDateFrom = (v: string): void => {
+  const setDateFrom = (v: string) => {
     setDateFromState(v)
     setPage(1)
     setSelectedForDelete(new Set())
   }
-  const setDateTo = (v: string): void => {
+  const setDateTo = (v: string) => {
     setDateToState(v)
     setPage(1)
     setSelectedForDelete(new Set())
@@ -216,7 +216,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     const target = sortedMarkers[targetIdx]
     if (!target) return { from: null, to: null }
 
-    const isCurrentActive = selectedId === activeState?.activeSessionId
+    const isCurrentActive = activeState && selectedId === activeState.activeSessionId
 
     if (isCurrentActive) {
       return {
@@ -293,20 +293,19 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         if (!res.ok) throw new Error("jobs fetch failed")
         return res.json()
       })
-      .then((data: { items?: unknown[]; total?: number }) => {
+      .then((data) => {
         if (aborted) return
-        const items = data.items ?? []
-        setPageJobs(Array.isArray(items) ? items : [])
-        const total = data.total ?? 0
-        setTotalJobsCount(typeof total === "number" ? total : 0)
+        setPageJobs(data.items || [])
+        setTotalJobsCount(data.total || 0)
         setIsLoading(false)
       })
-      .catch((_err: unknown) => {
+      .catch((err) => {
+        console.warn("작업 목록 조회 실패:", err)
         if (aborted) return
         setIsLoading(false)
       })
 
-    return (): void => {
+    return () => {
       aborted = true
     }
   }, [
@@ -342,7 +341,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const mergedJobs = useMemo(() => {
     return pageJobs.map((pj) => {
       const active = jobs.find((aj) => aj.id === pj.id)
-      return active ?? pj
+      return active ? active : pj
     })
   }, [pageJobs, jobs])
 
@@ -352,7 +351,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     const prompts = new Set<string>()
     const errors = new Set<string>()
 
-    const tokenize = (str: string): string[] => {
+    const tokenize = (str: string) => {
       if (!str) return []
       return str
         .split(/[\s_\-.,()]+/g)
@@ -367,10 +366,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
     pageJobs.forEach((j) => {
       tokenize(j.filename).forEach((t) => filenames.add(t))
-      if (j.prompt !== "") {
+      if (j.prompt) {
         tokenize(j.prompt).forEach((t) => prompts.add(t))
       }
-      if (j.error !== null && j.error !== "") {
+      if (j.error) {
         tokenize(j.error).forEach((t) => errors.add(t))
       }
     })
@@ -458,7 +457,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   // ── misc computed ───────────────────────────────────────────────────
 
-  const selectedJob = selectedJobId !== null && selectedJobId !== ""
+  const selectedJob = selectedJobId
     ? (jobs.find((j) => j.id === selectedJobId) ??
        pageJobs.find((j) => j.id === selectedJobId) ??
        null)
@@ -475,13 +474,13 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   useEffect(() => {
     if (!runningJobs.length) return
-    const id = setInterval(() => { setTick((t) => t + 1); }, TICK_INTERVAL_MS)
-    return (): void => { clearInterval(id); }
+    const id = setInterval(() => setTick((t) => t + 1), TICK_INTERVAL_MS)
+    return () => clearInterval(id)
   }, [runningJobs])
 
   // ── api ─────────────────────────────────────────────────────────────
 
-  const toggleSort = (key: SortKey): void => {
+  const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     else {
       setSortKey(key)
@@ -489,13 +488,13 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleCancel = async (e: React.MouseEvent, jobId: string): Promise<void> => {
+  const handleCancel = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
       const res = await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, {
         method: "DELETE",
       })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       triggerRefetchJobs()
       refetchStats?.()
     } catch {
@@ -503,11 +502,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleRetry = async (e: React.MouseEvent, jobId: string): Promise<void> => {
+  const handleRetry = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     try {
       const res = await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, { method: "POST" })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       triggerRefetchJobs()
       refetchStats?.()
     } catch {
@@ -515,14 +514,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleMoveJob = async (jobId: string, targetWorkerId: string): Promise<void> => {
+  const handleMoveJob = async (jobId: string, targetWorkerId: string) => {
     try {
       const res = await fetch(`${backendUrl}${API.jobs.move(jobId)}`, {
         method: "POST",
         headers: HEADERS.json,
-        body: JSON.stringify({ targetWorkerId }),
+        body: JSON.stringify({ targetWorkerId: targetWorkerId || undefined }),
       })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       toast.success("작업이 이동되었습니다.")
       triggerRefetchJobs()
       refetchStats?.()
@@ -531,7 +530,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleDeleteOne = async (e: React.MouseEvent, jobId: string): Promise<void> => {
+  const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
     if (
       !(await confirm({
@@ -548,7 +547,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         headers: HEADERS.json,
         body: JSON.stringify({ job_ids: [jobId] }),
       })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       triggerRefetchJobs()
       refetchStats?.()
     } catch {
@@ -556,12 +555,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleDeleteSelected = async (): Promise<void> => {
+  const handleDeleteSelected = async () => {
     if (selectedForDelete.size === 0) return
     if (
       !(await confirm({
         title: "선택 삭제",
-        description: `선택한 ${String(selectedForDelete.size)}개 작업을 영구 삭제하시겠습니까?`,
+        description: `선택한 ${selectedForDelete.size}개 작업을 영구 삭제하시겠습니까?`,
         variant: "destructive",
         confirmText: "삭제",
       }))
@@ -573,7 +572,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         headers: HEADERS.json,
         body: JSON.stringify({ job_ids: Array.from(selectedForDelete) }),
       })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setSelectedForDelete(new Set())
       triggerRefetchJobs()
       refetchStats?.()
@@ -582,7 +581,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const toggleSelectForDelete = (jobId: string): void => {
+  const toggleSelectForDelete = (jobId: string) => {
     setSelectedForDelete((prev) => {
       const next = new Set(prev)
       if (next.has(jobId)) next.delete(jobId)
@@ -591,7 +590,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     })
   }
 
-  const selectAllFailed = (): void => {
+  const selectAllFailed = () => {
     const failedIds = new Set(
       pageJobs
         .filter((j) => j.status === "error" || j.status === "cancelled")
@@ -600,9 +599,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     setSelectedForDelete(failedIds)
   }
 
-  const deselectAll = (): void => { setSelectedForDelete(new Set()); }
+  const deselectAll = () => setSelectedForDelete(new Set())
 
-  const addSearchTag = (tag: string): void => {
+  const addSearchTag = (tag: string) => {
     const trimmed = tag.trim()
     if (!trimmed) return
     setSearchTags((prev) => {
@@ -614,7 +613,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     setTagInput("")
   }
 
-  const clearAllFilters = (): void => {
+  const clearAllFilters = () => {
     setSearchTags([])
     setTagInput("")
     setDateFromState("")
@@ -628,15 +627,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const fetchingRef = useRef<Set<string>>(new Set())
 
   const fetchJobImages = useCallback(
-    async (jobId: string): Promise<void> => {
+    async (jobId: string) => {
       if (fetchedImages.has(jobId) || fetchingRef.current.has(jobId)) return
       fetchingRef.current.add(jobId)
       try {
         const res = await fetch(`${backendUrl}${API.jobs.savedImages(jobId)}`)
         if (res.ok) {
-          const data = await res.json() as { items?: { hash: string }[] }
-          const items = data.items ?? []
-          const hashes: string[] = items.map(
+          const data = await res.json()
+          const hashes: string[] = (data.items ?? []).map(
             (img: { hash: string }) => img.hash
           )
           setFetchedImages((prev) => {
@@ -655,16 +653,16 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   )
 
   const openDetail = useCallback(
-    (jobId: string): void => {
+    (jobId: string) => {
       setSelectedJobId(jobId)
-      void fetchJobImages(jobId)
+      fetchJobImages(jobId)
     },
     [fetchJobImages]
   )
 
   // ── helpers ─────────────────────────────────────────────────────────
 
-  const setQuickDate = (label: string): void => {
+  const setQuickDate = (label: string) => {
     const now = new Date()
     const toStr = now.toISOString().slice(0, 10)
     setDateTo(toStr)
@@ -733,7 +731,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           {/* 1. Status Filter Select */}
           <Select
             value={filterTab}
-            onValueChange={(v) => { setFilterTab(v as FilterTab); }}
+            onValueChange={(v) => setFilterTab(v as FilterTab)}
           >
             <SelectTrigger className="h-8 w-[92px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue />
@@ -836,7 +834,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       dateFrom ? new Date(dateFrom + "T12:00:00") : undefined
                     }
                     onChange={(d) =>
-                      { setDateFrom(d ? format(d, "yyyy-MM-dd") : ""); }
+                      setDateFrom(d ? format(d, "yyyy-MM-dd") : "")
                     }
                     placeholder="시작일"
                     className="h-8 flex-1 border-line/50 bg-background text-[11px] shadow-none"
@@ -847,7 +845,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   <DatePicker
                     value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
                     onChange={(d) =>
-                      { setDateTo(d ? format(d, "yyyy-MM-dd") : ""); }
+                      setDateTo(d ? format(d, "yyyy-MM-dd") : "")
                     }
                     placeholder="종료일"
                     className="h-8 flex-1 border-line/50 bg-background text-[11px] shadow-none"
@@ -858,7 +856,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     variant="outline"
                     size="sm"
                     className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                    onClick={() => { setQuickDate("1h"); }}
+                    onClick={() => setQuickDate("1h")}
                   >
                     1h
                   </Button>
@@ -866,7 +864,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     variant="outline"
                     size="sm"
                     className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                    onClick={() => { setQuickDate("today"); }}
+                    onClick={() => setQuickDate("today")}
                   >
                     오늘
                   </Button>
@@ -874,7 +872,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     variant="outline"
                     size="sm"
                     className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                    onClick={() => { setQuickDate("24h"); }}
+                    onClick={() => setQuickDate("24h")}
                   >
                     24h
                   </Button>
@@ -886,7 +884,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           {/* 3. Sort Key Select */}
           <Select
             value={sortKey}
-            onValueChange={(k) => { toggleSort(k as SortKey); }}
+            onValueChange={(k) => toggleSort(k as SortKey)}
           >
             <SelectTrigger className="h-8 w-[96px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue placeholder="정렬" />
@@ -916,7 +914,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => { toggleSort(sortKey); }}
+            onClick={() => toggleSort(sortKey)}
             className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
           >
             {sortDir === "asc" ? (
@@ -973,7 +971,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   onValueChange={setTagInput}
                   onAddTag={addSearchTag}
                   onRemoveTag={(tag) =>
-                    { setSearchTags((prev) => prev.filter((t) => t !== tag)); }
+                    setSearchTags((prev) => prev.filter((t) => t !== tag))
                   }
                 />
               </div>
@@ -988,7 +986,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         >
           <Tabs
             value={filterTab}
-            onValueChange={(v) => { setFilterTab(v as FilterTab); }}
+            onValueChange={(v) => setFilterTab(v as FilterTab)}
             className="shrink-0"
           >
             <TabsList className="h-8 gap-1 bg-muted/50 p-1">
@@ -1034,7 +1032,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             <div className="flex items-center gap-1.5">
               <DatePicker
                 value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
-                onChange={(d) => { setDateFrom(d ? format(d, "yyyy-MM-dd") : ""); }}
+                onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
                 placeholder="시작"
                 className="h-8 w-24 border-line/50 bg-background text-[11px] shadow-none"
               />
@@ -1043,7 +1041,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               </span>
               <DatePicker
                 value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
-                onChange={(d) => { setDateTo(d ? format(d, "yyyy-MM-dd") : ""); }}
+                onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
                 placeholder="종료"
                 className="h-8 w-24 border-line/50 bg-background text-[11px] shadow-none"
               />
@@ -1067,7 +1065,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 variant="outline"
                 size="sm"
                 className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                onClick={() => { setQuickDate("1h"); }}
+                onClick={() => setQuickDate("1h")}
               >
                 1h
               </Button>
@@ -1075,7 +1073,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 variant="outline"
                 size="sm"
                 className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                onClick={() => { setQuickDate("today"); }}
+                onClick={() => setQuickDate("today")}
               >
                 오늘
               </Button>
@@ -1083,7 +1081,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 variant="outline"
                 size="sm"
                 className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                onClick={() => { setQuickDate("24h"); }}
+                onClick={() => setQuickDate("24h")}
               >
                 24h
               </Button>
@@ -1092,7 +1090,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             <Button
               size="sm"
               variant={showFilters ? "secondary" : "outline"}
-              onClick={() => { setShowFilters(!showFilters); }}
+              onClick={() => setShowFilters(!showFilters)}
               className="relative hidden h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none md:inline-flex"
             >
               <Filter className="h-3.5 w-3.5" />
@@ -1115,7 +1113,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       className="hidden h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none md:inline-flex"
                       onClick={onFloatToggle}
                     >
-                      {isFloating === true ? (
+                      {isFloating ? (
                         <ArrowUpRight className="h-3.5 w-3.5" />
                       ) : (
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -1123,7 +1121,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
-                    {isFloating === true
+                    {isFloating
                       ? "원래대로 결합 (Dock)"
                       : "창으로 분리 (Pop out)"}
                   </TooltipContent>
@@ -1145,7 +1143,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               onValueChange={setTagInput}
               onAddTag={addSearchTag}
               onRemoveTag={(tag) =>
-                { setSearchTags((prev) => prev.filter((t) => t !== tag)); }
+                setSearchTags((prev) => prev.filter((t) => t !== tag))
               }
             />
             {hasAnyFilter && (
@@ -1186,7 +1184,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => { void handleDeleteSelected(); }}
+                  onClick={handleDeleteSelected}
                   className="h-8 px-2 text-[11px] font-bold shadow-md"
                 >
                   삭제({selectedForDelete.size})
@@ -1201,7 +1199,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           filterTab={filterTab}
           sortKey={sortKey}
           sortDir={sortDir}
-          onSort={(k) => { toggleSort(k as SortKey); }}
+          onSort={(k) => toggleSort(k as SortKey)}
           pagedJobs={pagedJobs}
           totalPages={totalPages}
           page={page}
@@ -1214,19 +1212,19 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           backendUrl={backendUrl}
           showPagination={totalJobsCount > PAGE_SIZE}
           fetchedImages={fetchedImages}
-          fetchJobImages={(id) => { openDetail(id); }}
+          fetchJobImages={(id) => openDetail(id)}
           workers={workers}
-          onMoveJob={(jobId, targetWorkerId) => { void handleMoveJob(jobId, targetWorkerId); }}
+          onMoveJob={handleMoveJob}
         />
       </div>
       <JobDetailSheet
         job={selectedJob}
         backendUrl={backendUrl}
         fetchedImages={fetchedImages}
-        onClose={() => { setSelectedJobId(null); }}
-        onCancel={(e, jobId) => { void handleCancel(e, jobId); }}
-        onRetry={(e, jobId) => { void handleRetry(e, jobId); }}
-        onDelete={(e, jobId) => { void handleDeleteOne(e, jobId); }}
+        onClose={() => setSelectedJobId(null)}
+        onCancel={handleCancel}
+        onRetry={handleRetry}
+        onDelete={handleDeleteOne}
       />
     </div>
   )

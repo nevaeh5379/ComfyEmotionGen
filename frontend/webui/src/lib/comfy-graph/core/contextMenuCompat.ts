@@ -47,15 +47,15 @@ class LegacyMenuCompat {
     prototype?: LGraphCanvas
   ) {
     this.wrapperMethods.set(
-      methodName,
+      methodName as string,
       wrapperFn as unknown as ContextMenuValueProvider
     )
     this.preWrapperMethods.set(
-      methodName,
+      methodName as string,
       preWrapperFn as unknown as ContextMenuValueProvider
     )
-    const isInstalled = prototype?.[methodName] === wrapperFn
-    this.wrapperInstalled.set(methodName, !!isInstalled)
+    const isInstalled = prototype && prototype[methodName] === wrapperFn
+    this.wrapperInstalled.set(methodName as string, !!isInstalled)
   }
 
   /**
@@ -71,7 +71,7 @@ class LegacyMenuCompat {
 
     const originalMethod = prototype[methodName]
     this.originalMethods.set(
-      methodName,
+      methodName as string,
       originalMethod as unknown as ContextMenuValueProvider
     )
 

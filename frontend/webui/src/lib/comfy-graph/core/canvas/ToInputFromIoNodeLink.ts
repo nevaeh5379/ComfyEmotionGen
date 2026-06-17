@@ -69,7 +69,8 @@ export class ToInputFromIoNodeLink implements RenderLink {
   ) {
     const { fromSlot, fromReroute, existingLink } = this
     if (
-      node.id === existingLink?.target_id &&
+      existingLink &&
+      node.id === existingLink.target_id &&
       node.inputs[existingLink.target_slot] === input
     )
       return

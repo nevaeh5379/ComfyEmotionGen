@@ -64,7 +64,7 @@ export const AxisFilterSheet = ({
                 variant="ghost"
                 size="sm"
                 onClick={() =>
-                  { setAxisValueFilter((prev) => {
+                  setAxisValueFilter((prev) => {
                     const allEnabled = Object.values(prev).every((vals) =>
                       Object.values(vals).every(Boolean)
                     )
@@ -76,7 +76,7 @@ export const AxisFilterSheet = ({
                         ),
                       ])
                     )
-                  }); }
+                  })
                 }
               >
                 전체{" "}
@@ -90,7 +90,7 @@ export const AxisFilterSheet = ({
                 variant="ghost"
                 size="sm"
                 onClick={() =>
-                  { setAxisValueFilter((prev) =>
+                  setAxisValueFilter((prev) =>
                     Object.fromEntries(
                       Object.entries(prev).map(([k, vals]) => [
                         k,
@@ -99,7 +99,7 @@ export const AxisFilterSheet = ({
                         ),
                       ])
                     )
-                  ); }
+                  )
                 }
               >
                 초기화
@@ -140,7 +140,7 @@ export const AxisFilterSheet = ({
                   <div key={axis}>
                     <div
                       className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3 py-1.5 select-none"
-                      onClick={() => { toggleAxisCollapse(axis); }}
+                      onClick={() => toggleAxisCollapse(axis)}
                     >
                       <span className="w-3 text-xs text-muted-foreground transition-transform">
                         {isCollapsed ? "▸" : "▾"}
@@ -159,7 +159,7 @@ export const AxisFilterSheet = ({
                             ),
                           }))
                         }}
-                        onClick={(e) => { e.stopPropagation(); }}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <span className="font-mono text-sm font-semibold">
                         {axis}
@@ -177,13 +177,13 @@ export const AxisFilterSheet = ({
                           <Checkbox
                             checked={enabled}
                             onCheckedChange={(checked) =>
-                              { setAxisValueFilter((prev) => ({
+                              setAxisValueFilter((prev) => ({
                                 ...prev,
                                 [axis]: {
                                   ...prev[axis],
                                   [value]: checked === true,
                                 },
-                              })); }
+                              }))
                             }
                           />
                           <span
@@ -204,20 +204,20 @@ export const AxisFilterSheet = ({
               items={axisExcludedItems}
               accent="text-destructive"
               className="max-h-[40%]"
-              onItemClick={(item) => { filterByItem(item, setAxisValueFilter); }}
+              onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
               showCheckboxes
               getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
-              onToggleItem={(item) => { toggleItemCheck(itemKey(item)); }}
+              onToggleItem={(item) => toggleItemCheck(itemKey(item))}
             />
             <PreviewTable
               title="포함된 항목"
               items={axisFilteredItems}
               accent="text-green-600"
               summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
-              onItemClick={(item) => { filterByItem(item, setAxisValueFilter); }}
+              onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
               showCheckboxes
               getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
-              onToggleItem={(item) => { toggleItemCheck(itemKey(item)); }}
+              onToggleItem={(item) => toggleItemCheck(itemKey(item))}
             />
           </div>
         </div>

@@ -70,7 +70,7 @@ function getDirectionOffset(direction: Direction, distance: number): { x: number
 const pathRenderer = new CanvasPathRenderer()
 
 export class LitegraphLinkAdapter {
-  constructor(_isReroute = false) {
+  constructor(_isReroute: boolean = false) {
     // No-op
   }
 

@@ -24,7 +24,7 @@ export function useUpdateCheck(
 
     if (cached !== null) {
       const parsed = cached ? (JSON.parse(cached) as UpdateInfo) : null
-      queueMicrotask(() => { setUpdate(parsed); })
+      queueMicrotask(() => setUpdate(parsed))
       return
     }
 
@@ -33,7 +33,7 @@ export function useUpdateCheck(
       if (!active) return
       sessionStorage.setItem(cacheKey, info ? JSON.stringify(info) : "")
       setUpdate(info)
-    }).catch((err) => { console.warn("업데이트 확인 실패:", err); })
+    }).catch((err) => console.warn("업데이트 확인 실패:", err))
     return () => {
       active = false
     }

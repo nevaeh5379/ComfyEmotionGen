@@ -49,8 +49,8 @@ export function Magnifier({
   return (
     <div
       className={`relative flex items-center justify-center overflow-hidden bg-black/5 ${className}`}
-      onMouseEnter={() => { setShow(true); }}
-      onMouseLeave={() => { setShow(false); }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
       onMouseMove={handleMouseMove}
       style={
         imgNatural
@@ -147,7 +147,7 @@ export function TournamentView({
       }
     }
     window.addEventListener("keydown", handleKeyDown)
-    return () => { window.removeEventListener("keydown", handleKeyDown); }
+    return () => window.removeEventListener("keydown", handleKeyDown)
   }, [matches, handlePick, handleUndo])
 
   if (matches.length === 0 && nextRound.length === 0) {
@@ -176,7 +176,7 @@ export function TournamentView({
           </Button>
           <Button
             className="px-8 py-6 text-lg font-bold"
-            onClick={() => { onComplete(winner.hash); }}
+            onClick={() => onComplete(winner.hash)}
           >
             이 이미지 선택 완료
           </Button>
@@ -219,7 +219,7 @@ export function TournamentView({
         {[left, right].map((img, idx) => (
           <button
             key={img.hash}
-            onClick={() => { handlePick(img); }}
+            onClick={() => handlePick(img)}
             className="group relative w-1/2 flex-1 overflow-hidden rounded-xl border-2 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none md:border-4"
             style={{ maxHeight: "calc(100vh - 280px)" }}
           >
@@ -305,7 +305,7 @@ export function LongPressWrapper({
   }, [clear])
 
   useEffect(() => {
-    return () => { clear(); }
+    return () => clear()
   }, [clear])
 
   return (
@@ -369,7 +369,7 @@ function GalleryGridItem({
           <HoverCard openDelay={enableHover ? 500 : 99999} closeDelay={100}>
             <HoverCardTrigger asChild>
               <LongPressWrapper
-                onLongPress={() => { onLongPress(item.filename); }}
+                onLongPress={() => onLongPress(item.filename)}
                 onClick={(e) => {
                   if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
                     toggleSelect(item.filename, e)
@@ -478,7 +478,7 @@ function GalleryGridItem({
         isSelected={isSelected}
         selectionMode={selectionMode}
         onOpen={onOpen}
-        onToggleSelect={(f) => { toggleSelect(f); }}
+        onToggleSelect={(f) => toggleSelect(f)}
         onLongPress={onLongPress}
         {...(onRegenerate && { onRegenerate })}
       />
@@ -585,7 +585,7 @@ export function TableView({
               <ContextMenu key={item.filename}>
                 <ContextMenuTrigger asChild>
                   <LongPressWrapper
-                    onLongPress={() => { onLongPress(item.filename); }}
+                    onLongPress={() => onLongPress(item.filename)}
                     onClick={(e) => {
                       if (
                         selectionMode ||
@@ -647,7 +647,7 @@ export function TableView({
                   isSelected={isSelected}
                   selectionMode={selectionMode}
                   onOpen={onOpen}
-                  onToggleSelect={(f) => { toggleSelect(f); }}
+                  onToggleSelect={(f) => toggleSelect(f)}
                   onLongPress={onLongPress}
                   {...(onRegenerate && { onRegenerate })}
                 />

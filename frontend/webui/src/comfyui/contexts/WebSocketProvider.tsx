@@ -36,7 +36,7 @@ interface ProviderProps {
 
 const readStoredBackendUrl = (): string => {
   // 패키지 모드: 런처 주입 URL 강제. localStorage 무시 (포트가 매 실행마다 바뀜).
-  if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL!
+  if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL as string
   try {
     return localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
   } catch {
@@ -61,7 +61,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         setStoredUrl(e.newValue)
     }
     window.addEventListener("storage", onStorage)
-    return () => { window.removeEventListener("storage", onStorage); }
+    return () => window.removeEventListener("storage", onStorage)
   }, [])
 
   const socketRef = useRef<WebSocket | null>(null)
@@ -188,7 +188,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
               )
               populateSettingsCache(filtered)
             }
-          }).catch((err) => { console.warn("[WebSocket] 설정 동기화 실패:", err); })
+          }).catch((err) => console.warn("[WebSocket] 설정 동기화 실패:", err))
         }
 
         socket.onmessage = (e) => {

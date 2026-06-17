@@ -83,7 +83,7 @@ import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from "lucide-react"
 // ---------------------------------------------------------------------------
 // App — Root component with providers
 // ---------------------------------------------------------------------------
-export function App(): JSX.Element {
+export function App() {
   useOfflineSync()
 
   const [storedBackendUrl] = useLocalStorage(
@@ -91,7 +91,7 @@ export function App(): JSX.Element {
     DEFAULT_BACKEND_URL
   )
   const backendUrl = IS_PACKAGE_MODE
-    ? (PACKAGE_BACKEND_URL ?? "")
+    ? (PACKAGE_BACKEND_URL as string)
     : storedBackendUrl
 
   return (
@@ -114,7 +114,7 @@ export function App(): JSX.Element {
 // ---------------------------------------------------------------------------
 // AppContent — Inside all contexts
 // ---------------------------------------------------------------------------
-function AppContent(): JSX.Element {
+function AppContent() {
   // ── Backend ──
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
@@ -124,8 +124,8 @@ function AppContent(): JSX.Element {
     STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL
   )
-  const setBackendUrl: (url: string) => void = IS_PACKAGE_MODE
-    ? (_: string): void => { /* read-only in package mode */ }
+  const setBackendUrl = IS_PACKAGE_MODE
+    ? (_: string) => {}
     : setStoredBackendUrl
 
   // ── Backend health ──
@@ -252,9 +252,9 @@ function AppContent(): JSX.Element {
         const doneCount = session.sessionCounts.done
         const errorCount = session.sessionCounts.error + session.sessionCounts.cancelled
         if (errorCount > 0) {
-          toast.info(`배치 완료! (${String(doneCount)} 완료, ${String(errorCount)} 실패/취소)`)
+          toast.info(`배치 완료! (${doneCount} 완료, ${errorCount} 실패/취소)`)
         } else {
-          toast.success(`모든 작업이 완료되었습니다! (${String(doneCount)}개)`)
+          toast.success(`모든 작업이 완료되었습니다! (${doneCount}개)`)
         }
         fetch(`${backendUrl}${API.webhooks.batchComplete}`, {
           method: "POST",
@@ -264,7 +264,7 @@ function AppContent(): JSX.Element {
             error: errorCount,
             total: totalJobs,
           }),
-        }).catch((): void => { /* intentionally ignored */ })
+        }).catch(() => {})
       }
     }
     prevActiveCount.current = current
@@ -325,22 +325,22 @@ function AppContent(): JSX.Element {
   const canRun =
     Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
 
-   // ── Object info fetch ──
-    useEffect(() => {
+  // ── Object info fetch ──
+  useEffect(() => {
     if (!isAliveBackend) return
     fetch(`${backendUrl}${API.objectInfo}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data !== null && data !== undefined) nodeMapping.setObjectInfo(data as Record<string, unknown>)
+        if (data) nodeMapping.setObjectInfo(data)
       })
-      .catch((): void => { /* intentionally ignored */ })
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendUrl, isAliveBackend])
 
   // ── Quick save handler (Ctrl+S shortcut) ──
-  const handleQuickSave = useCallback((): void => {
+  const handleQuickSave = useCallback(() => {
     if (compositionTab === "ceg") {
-      if (template.activeTemplateId !== null && template.activeTemplateId !== "") {
+      if (template.activeTemplateId) {
         const active = template.savedTemplates.find(
           (t) => t.id === template.activeTemplateId
         )
@@ -357,7 +357,6 @@ function AppContent(): JSX.Element {
         )
       }
     }
-    return undefined
   }, [compositionTab, template, workflow])
 
   // ── Tab Change Scroll Lock Cleanup ──
@@ -373,19 +372,19 @@ function AppContent(): JSX.Element {
     activeTab,
     mobileJobTab,
     canRun,
-    handleRun: () => { void handleRun().catch((): void => { /* ignore */ }); },
+    handleRun,
     handleSave: handleQuickSave,
     handleGalleryRefresh: tb.handleRefresh,
     setActiveTab,
-    toggleShortcuts: () => { setShortcutsOpen((prev) => !prev); /* toggle */ },
+    toggleShortcuts: () => setShortcutsOpen((prev) => !prev),
   })
 
   // ── Name conflict helpers ──
   const nextFreeName = (name: string, items: { name: string }[]): string => {
     if (!items.some((x) => x.name === name)) return name
     let n = NAME_CONFLICT_START_NUMBER
-    while (items.some((x) => x.name === `${name} (${String(n)})`)) n++
-    return `${name} (${String(n)})`
+    while (items.some((x) => x.name === `${name} (${n})`)) n++
+    return `${name} (${n})`
   }
 
   const pendingSaveItems =
@@ -395,7 +394,7 @@ function AppContent(): JSX.Element {
         ? workflow.savedWorkflows
         : nodeMapping.savedNodeMappings
 
-  const handleNameConflictSaveNew = (): void => {
+  const handleNameConflictSaveNew = () => {
     if (!pendingSave) return
     const newName = nextFreeName(pendingSave.name, pendingSaveItems)
     if (pendingSave.type === "template") {
@@ -406,7 +405,7 @@ function AppContent(): JSX.Element {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId !== null) {
+      if (workflow.activeWorkflowId) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           newName,
@@ -418,7 +417,7 @@ function AppContent(): JSX.Element {
     setPendingSave(null)
   }
 
-  const handleNameConflictOverwrite = (): void => {
+  const handleNameConflictOverwrite = () => {
     if (!pendingSave) return
     if (pendingSave.type === "template") {
       template.saveTemplate(pendingSave.name, template.cegTemplate)
@@ -428,7 +427,7 @@ function AppContent(): JSX.Element {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId !== null) {
+      if (workflow.activeWorkflowId) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           pendingSave.name,
@@ -579,9 +578,9 @@ function AppContent(): JSX.Element {
           setCompositionTab={setCompositionTab}
           repeatCount={repeatCount}
           setRepeatCount={setRepeatCount}
-          handleRun={() => { void handleRun().catch((): void => { /* ignore */ }); }}
-          handleRandomRun={() => { void handleRandomRun().catch((): void => { /* ignore */ }); }}
-          handleRunUnapproved={() => { void handleRunUnapproved().catch((): void => { /* ignore */ }); }}
+          handleRun={handleRun}
+          handleRandomRun={handleRandomRun}
+          handleRunUnapproved={handleRunUnapproved}
           randomRunCount={randomRunCount}
           setRandomRunCount={setRandomRunCount}
           targetWorkerId={targetWorkerId}
@@ -592,27 +591,29 @@ function AppContent(): JSX.Element {
           hasActiveFilter={hasActiveFilter}
           setIsAxisFilterOpen={setIsAxisFilterOpen}
           setIsGraphOpen={setIsGraphOpen}
-          onStatsDragStart={(cx, cy) => { handleNavTabDragStart("stats", cx, cy); }}
+          onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
           onCurationDragStart={(cx, cy) =>
-            { handleNavTabDragStart("curation", cx, cy); }
+            handleNavTabDragStart("curation", cx, cy)
           }
           onGalleryDragStart={(cx, cy) =>
-            { handleNavTabDragStart("gallery", cx, cy); }
+            handleNavTabDragStart("gallery", cx, cy)
           }
           sessionMarkers={session.markers}
           sessionJobCounts={session.sessionJobCounts}
           sortedMarkers={session.sortedMarkers}
           selectedSessionId={session.selectedSessionId}
-        activeSessionState={{ activeSessionId: session.activeState.activeSessionId }}
+          activeSessionState={
+            session.activeState ? { activeSessionId: session.activeState.activeSessionId } : null
+          }
           sessionPickerOpen={session.sessionPickerOpen}
           onSessionPickerOpenChange={session.setSessionPickerOpen}
           onSelectSession={session.setSelectedSessionId}
           onCreateNewSession={session.createNewSession}
           paused={paused}
-          onTogglePause={() => { void jobActions.handleTogglePause().catch((): void => { /* ignore */ }); }}
-          onCancelAll={() => { void jobActions.handleCancelAll().catch((): void => { /* ignore */ }); }}
-          onRetryAllFailed={() => { void jobActions.handleRetryAllFailed().catch((): void => { /* ignore */ }); }}
-          onDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed().catch((): void => { /* ignore */ }); }}
+          onTogglePause={jobActions.handleTogglePause}
+          onCancelAll={jobActions.handleCancelAll}
+          onRetryAllFailed={jobActions.handleRetryAllFailed}
+          onDeleteAllFailed={jobActions.handleDeleteAllFailed}
           activeJobsCount={session.sessionCounts.active}
         />
 
@@ -743,21 +744,21 @@ function AppContent(): JSX.Element {
             const ok = await handleRunSelected()
             if (ok) setIsSelectionOpen(false)
           }}
-          onExcludeApproved={() => { void selectOnlyUnapprovedItems().catch((): void => { /* ignore */ }); }}
+          onExcludeApproved={selectOnlyUnapprovedItems}
         />
 
-        {workflow.parsedWorkflow?.success === true && (
+        {workflow.parsedWorkflow?.success && (
           <WorkflowGraphViewer
             workflow={workflow.parsedWorkflow.data}
             isOpen={isGraphOpen}
-            onClose={() => { setIsGraphOpen(false); }}
+            onClose={() => setIsGraphOpen(false)}
             backendUrl={backendUrl}
           />
         )}
 
         <NameConflictDialog
           pendingSave={pendingSave}
-          onClose={() => { setPendingSave(null); }}
+          onClose={() => setPendingSave(null)}
           newName={nextFreeName(pendingSave?.name ?? "", pendingSaveItems)}
           onSaveNew={handleNameConflictSaveNew}
           onOverwrite={handleNameConflictOverwrite}
@@ -769,14 +770,14 @@ function AppContent(): JSX.Element {
             paused={paused}
             backendUrl={backendUrl}
             isAliveBackend={isAliveBackend}
-            onNavigateToJobs={() => { setActiveTab("jobs"); }}
+            onNavigateToJobs={() => setActiveTab("jobs")}
             cycleMinimizedProgress={settings.cycleMinimizedProgress}
           />
         )}
 
         <PresetSelectionDialog
           pendingWorkflow={pendingPresetSelection}
-          onClose={() => { setPendingPresetSelection(null); }}
+          onClose={() => setPendingPresetSelection(null)}
           onSelectPreset={(mappings: NodeMapping[], presetId: string) => {
             nodeMapping.setNodeMappings(mappings)
             nodeMapping.setActiveNodeMappingPresetId(presetId)
@@ -791,7 +792,7 @@ function AppContent(): JSX.Element {
 
         <VersionDiffDialog
           open={pendingDiff !== null}
-          onClose={() => { setPendingDiff(null); }}
+          onClose={() => setPendingDiff(null)}
           onConfirm={() => {
             if (!pendingDiff) return
             if (pendingDiff.type === "template") {
@@ -824,24 +825,24 @@ function AppContent(): JSX.Element {
           <FloatingWindow
             id="floating-window-composition"
             isOpen={isCompositionFloating}
-            onClose={() => { setIsCompositionFloating(false); }}
-            onDock={() => { setIsCompositionFloating(false); }}
+            onClose={() => setIsCompositionFloating(false)}
+            onDock={() => setIsCompositionFloating(false)}
             initialPos={compositionFloatingPos}
             initialSize={compositionFloatingSize}
             onPosChange={setCompositionFloatingPos}
             onSizeChange={setCompositionFloatingSize}
             title="작업 구성 패널"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "composition"); }
+              handleDragProgress(cx, cy, sw, sh, isEnding, "composition")
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <WorkCompositionPanel
                 repeatCount={repeatCount}
                 setRepeatCount={setRepeatCount}
-                handleRun={() => { void handleRun().catch((): void => { /* ignore */ }); }}
-                handleRandomRun={() => { void handleRandomRun().catch((): void => { /* ignore */ }); }}
-                handleRunUnapproved={() => { void handleRunUnapproved().catch((): void => { /* ignore */ }); }}
+                handleRun={handleRun}
+                handleRandomRun={handleRandomRun}
+                handleRunUnapproved={handleRunUnapproved}
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 estimatedRunCount={estimatedRunCount}
@@ -852,13 +853,13 @@ function AppContent(): JSX.Element {
                 setTargetWorkerId={setTargetWorkerId}
                 compositionTab={compositionTab}
                 setCompositionTab={setCompositionTab}
-                onPreviewOpen={() => { setIsSheetOpen(true); }}
-                onAxisFilterOpen={() => { setIsAxisFilterOpen(true); }}
-                onSelectionOpen={() => { setIsSelectionOpen(true); }}
+                onPreviewOpen={() => setIsSheetOpen(true)}
+                onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
+                onSelectionOpen={() => setIsSelectionOpen(true)}
                 hasActiveFilter={hasActiveFilter}
-                onGraphOpen={() => { setIsGraphOpen(true); }}
+                onGraphOpen={() => setIsGraphOpen(true)}
                 isFloating={true}
-                onFloatToggle={() => { setIsCompositionFloating(false); }}
+                onFloatToggle={() => setIsCompositionFloating(false)}
               />
             </div>
           </FloatingWindow>
@@ -869,15 +870,15 @@ function AppContent(): JSX.Element {
           <FloatingWindow
             id="floating-window-jobManager"
             isOpen={isJobManagerFloating}
-            onClose={() => { setIsJobManagerFloating(false); }}
-            onDock={() => { setIsJobManagerFloating(false); }}
+            onClose={() => setIsJobManagerFloating(false)}
+            onDock={() => setIsJobManagerFloating(false)}
             initialPos={jobManagerFloatingPos}
             initialSize={jobManagerFloatingSize}
             onPosChange={setJobManagerFloatingPos}
             onSizeChange={setJobManagerFloatingSize}
             title="작업 큐 매니저"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager"); }
+              handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
@@ -901,13 +902,13 @@ function AppContent(): JSX.Element {
                   sortedMarkers={session.sortedMarkers}
                   counts={session.sessionCounts}
                   sessionJobs={session.sessionJobs}
-                  handleTogglePause={() => { void jobActions.handleTogglePause().catch((): void => { /* ignore */ }); }}
-                  handleCancelAll={() => { void jobActions.handleCancelAll().catch((): void => { /* ignore */ }); }}
-                  handleRetryAllFailed={() => { void jobActions.handleRetryAllFailed().catch((): void => { /* ignore */ }); }}
-                  handleDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed().catch((): void => { /* ignore */ }); }}
+                  handleTogglePause={jobActions.handleTogglePause}
+                  handleCancelAll={jobActions.handleCancelAll}
+                  handleRetryAllFailed={jobActions.handleRetryAllFailed}
+                  handleDeleteAllFailed={jobActions.handleDeleteAllFailed}
                   refetchStats={session.refetchStats}
                   isFloating={true}
-                  onFloatToggle={() => { setIsJobManagerFloating(false); }}
+                  onFloatToggle={() => setIsJobManagerFloating(false)}
                 />
               </div>
             </div>
@@ -918,7 +919,7 @@ function AppContent(): JSX.Element {
         {activeTab !== "gallery" && !isGalleryDocked && isGalleryFloating && (
           <GalleryFloatingWindow
             isOpen={true}
-            onClose={() => { setIsGalleryFloating(false); }}
+            onClose={() => setIsGalleryFloating(false)}
             onDock={() => {
               setIsGalleryFloating(false)
               setActiveTab("gallery")
@@ -928,7 +929,7 @@ function AppContent(): JSX.Element {
             onPosChange={setGalleryFloatingPos}
             onSizeChange={setGalleryFloatingSize}
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "gallery"); }
+              handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")
             }
             backendUrl={backendUrl}
             enableHover={settings.enableHover}
@@ -944,7 +945,7 @@ function AppContent(): JSX.Element {
           <FloatingWindow
             id="floating-window-stats"
             isOpen={isStatsFloating}
-            onClose={() => { setIsStatsFloating(false); }}
+            onClose={() => setIsStatsFloating(false)}
             onDock={() => {
               setIsStatsFloating(false)
               setActiveTab("stats")
@@ -955,7 +956,7 @@ function AppContent(): JSX.Element {
             onSizeChange={setStatsFloatingSize}
             title="통계"
             onDragProgress={(cx, cy, _sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, _sw, sh, isEnding, "stats"); }
+              handleDragProgress(cx, cy, _sw, sh, isEnding, "stats")
             }
           >
             <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
@@ -969,7 +970,7 @@ function AppContent(): JSX.Element {
           <FloatingWindow
             id="floating-window-curation"
             isOpen={isCurationFloating}
-            onClose={() => { setIsCurationFloating(false); }}
+            onClose={() => setIsCurationFloating(false)}
             onDock={() => {
               setIsCurationFloating(false)
               setActiveTab("curation")
@@ -980,7 +981,7 @@ function AppContent(): JSX.Element {
             onSizeChange={setCurationFloatingSize}
             title="큐레이션"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "curation"); }
+              handleDragProgress(cx, cy, sw, sh, isEnding, "curation")
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
@@ -996,7 +997,7 @@ function AppContent(): JSX.Element {
                   selectedAxis: curationSelectedAxis,
                   setSelectedAxis: setCurationSelectedAxis,
                   viewMode: "gallery" as const,
-                  setViewMode: (): void => { /* intentionally unused */ },
+                  setViewMode: () => {},
                   hideTopSection: true,
                 }}
               />

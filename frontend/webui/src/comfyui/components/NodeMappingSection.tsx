@@ -155,7 +155,7 @@ export const NodeMappingSection = React.memo(({
   return (
     <CollapseSection
       open={open}
-      onToggle={() => { setOpen((o) => !o); }}
+      onToggle={() => setOpen((o) => !o)}
       title="노드 매핑"
       className="border-t"
       meta={
@@ -291,7 +291,7 @@ export const NodeMappingSection = React.memo(({
                         m.inputKey
                       )
                       const enumOptions = Array.isArray(spec?.[0])
-                        ? (spec[0])
+                        ? (spec![0] as string[])
                         : null
                       const upload = safeImageUploads[`${m.nodeId}.${m.inputKey}`]
                       return (
@@ -311,9 +311,9 @@ export const NodeMappingSection = React.memo(({
                             <Select
                               value={m.sourceType}
                               onValueChange={(val) =>
-                                { updateMapping(m.id, {
+                                updateMapping(m.id, {
                                   sourceType: val as MappingSourceType,
-                                }); }
+                                })
                               }
                             >
                               <SelectTrigger className="!h-7 w-[84px] bg-background !py-1 text-[11px] font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground md:w-24">
@@ -341,9 +341,9 @@ export const NodeMappingSection = React.memo(({
                                   onChange={(
                                     e: React.ChangeEvent<HTMLInputElement>
                                   ) =>
-                                    { updateMapping(m.id, {
+                                    updateMapping(m.id, {
                                       seedValue: Number(e.target.value),
-                                    }); }
+                                    })
                                   }
                                   disabled={m.seedRandom}
                                   className="bg-background text-[11px] shadow-none"
@@ -356,9 +356,9 @@ export const NodeMappingSection = React.memo(({
                                     <TooltipTrigger asChild>
                                       <InputGroupButton
                                         onClick={() =>
-                                          { updateMapping(m.id, {
+                                          updateMapping(m.id, {
                                             seedRandom: !m.seedRandom,
-                                          }); }
+                                          })
                                         }
                                         className={
                                           m.seedRandom
@@ -427,7 +427,7 @@ export const NodeMappingSection = React.memo(({
                                 <Select
                                   value={m.fixedValue ?? ""}
                                   onValueChange={(val) =>
-                                    { updateMapping(m.id, { fixedValue: val }); }
+                                    updateMapping(m.id, { fixedValue: val })
                                   }
                                 >
                                   <SelectTrigger className="!h-7 w-32 bg-background !py-1 text-[11px] shadow-sm">
@@ -445,9 +445,9 @@ export const NodeMappingSection = React.memo(({
                                 <Input
                                   value={m.fixedValue ?? ""}
                                   onChange={(e) =>
-                                    { updateMapping(m.id, {
+                                    updateMapping(m.id, {
                                       fixedValue: e.target.value,
-                                    }); }
+                                    })
                                   }
                                   className="h-7 w-32 bg-background text-[11px] shadow-sm"
                                   placeholder="값 입력"
@@ -462,9 +462,9 @@ export const NodeMappingSection = React.memo(({
                                   size="icon"
                                   className="h-7 w-7 text-muted-foreground opacity-100 hover:bg-destructive/10 hover:text-destructive md:opacity-0 md:group-hover:opacity-100"
                                   onClick={() =>
-                                    { setNodeMappings((prev) =>
+                                    setNodeMappings((prev) =>
                                       prev.filter((x) => x.id !== m.id)
-                                    ); }
+                                    )
                                   }
                                 >
                                   <Trash2 className="size-3.5" />

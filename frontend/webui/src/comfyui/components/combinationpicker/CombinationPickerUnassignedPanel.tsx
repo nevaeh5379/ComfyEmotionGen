@@ -56,7 +56,7 @@ function UnassignedGridItem({
 
   return (
     <button
-      onClick={() => { handleUnassignedToggleSelect(filename); }}
+      onClick={() => handleUnassignedToggleSelect(filename)}
       className={`group relative flex flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors ${
         isSelected
           ? "bg-red-50/30 ring-2 ring-red-500"
@@ -175,7 +175,7 @@ export function CombinationPickerUnassignedPanel({
             <Checkbox
               id="showTrueOrphansOnly"
               checked={showTrueOrphansOnly}
-              onCheckedChange={(checked) => { setShowTrueOrphansOnly(!!checked); }}
+              onCheckedChange={(checked) => setShowTrueOrphansOnly(!!checked)}
             />
             <Label
               htmlFor="showTrueOrphansOnly"

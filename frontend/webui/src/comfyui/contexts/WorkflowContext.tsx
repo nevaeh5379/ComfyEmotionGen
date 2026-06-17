@@ -125,7 +125,7 @@ export function WorkflowProvider({
     try {
       const result = ComfyWorkflowSchema.safeParse(JSON.parse(workflowJson))
       if (result.success) {
-        return result
+        return result as ParsedWorkflow
       }
       return { success: false, error: { message: result.error.message } }
     } catch (error) {
@@ -151,7 +151,7 @@ export function WorkflowProvider({
   }, [setWorkflowJson, setActiveWorkflowId, setPendingPresetSelection])
 
   const onPendingSave = useCallback(
-    (name: string, type: "workflow") => { setPendingSave({ name, type }); },
+    (name: string, type: "workflow") => setPendingSave({ name, type }),
     [setPendingSave]
   )
 

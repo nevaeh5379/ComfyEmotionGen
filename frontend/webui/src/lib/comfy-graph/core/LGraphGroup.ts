@@ -50,7 +50,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   _size: Size = this._bounding.size
   /** @deprecated See {@link _children} */
   _nodes: LGraphNode[] = []
-  _children = new Set<Positionable>()
+  _children: Set<Positionable> = new Set()
   graph?: LGraph | undefined
   flags: IGraphGroupFlags = {}
   selected?: boolean | undefined
@@ -58,7 +58,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   constructor(title?: string, id?: GroupId) {
     // TODO: Object instantiation pattern requires too much boilerplate and null checking.  ID should be passed in via constructor.
     this.id = id ?? -1
-    this.title = title ?? 'Group'
+    this.title = title || 'Group'
 
     const { pale_blue } = LGraphCanvas.node_colors
     this.color = pale_blue ? pale_blue.groupcolor : '#AAA'
@@ -66,7 +66,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
 
   /** @inheritdoc {@link IColorable.setColorOption} */
   setColorOption(colorOption: ColorOption | null): void {
-    if (colorOption === null) {
+    if (colorOption == null) {
       delete this.color
     } else {
       this.color = colorOption.groupcolor
@@ -83,44 +83,42 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   }
 
   /** Position of the group, as x,y co-ordinates in graph space */
-  get pos(): Point {
+  get pos() {
     return this._pos
   }
 
-  set pos(v: Point | number[]): void {
-    if (!(v instanceof Array) || v.length < 2) return
+  set pos(v) {
+    if (!v || v.length < 2) return
 
-    this._pos[0] = v[0]
-    this._pos[1] = v[1]
+    this._pos[0] = v[0]!
+    this._pos[1] = v[1]!
   }
 
   /** Size of the group, as width,height in graph units */
-  get size(): Size {
+  get size() {
     return this._size
   }
 
-  set size(v: Size | number[]): void {
-    if (!(v instanceof Array) || v.length < 2) return
+  set size(v) {
+    if (!v || v.length < 2) return
 
-    this._size[0] = Math.max(LGraphGroup.minWidth, v[0])
-    this._size[1] = Math.max(LGraphGroup.minHeight, v[1])
+    this._size[0] = Math.max(LGraphGroup.minWidth, v[0]!)
+    this._size[1] = Math.max(LGraphGroup.minHeight, v[1]!)
   }
 
-  get boundingRect(): Rectangle {
+  get boundingRect() {
     return this._bounding
   }
 
-  getBounding(): Rectangle {
+  getBounding() {
     return this._bounding
   }
 
-  get nodes(): LGraphNode[] {
-    return Array.from(this._children).filter(
-      (item): item is LGraphNode => item instanceof LGraphNode
-    )
+  get nodes() {
+    return this._nodes
   }
 
-  get titleHeight(): number {
+  get titleHeight() {
     return LiteGraph.NODE_TITLE_HEIGHT
   }
 
@@ -128,7 +126,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     return this._children
   }
 
-  get pinned(): boolean {
+  get pinned() {
     return !!this.flags.pinned
   }
 
@@ -137,7 +135,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
    * Toggles pinned state if no value is provided.
    */
   pin(value?: boolean): void {
-    const newState = value ?? !this.pinned
+    const newState = value === undefined ? !this.pinned : value
 
     if (newState) this.flags.pinned = true
     else delete this.flags.pinned
@@ -152,7 +150,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     this.title = o.title
     this._bounding.set(o.bounding)
     this.color = o.color
-    this.flags = o.flags ?? this.flags
+    this.flags = o.flags || this.flags
   }
 
   serialize(): ISerialisedGroup {
@@ -177,7 +175,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
 
     const [x, y] = this._pos
     const [width, height] = this._size
-    const color = this.color ?? defaultColour
+    const color = this.color || defaultColour
 
     // Titlebar
     ctx.globalAlpha = 0.25 * graphCanvas.editor_alpha
@@ -204,7 +202,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     ctx.fill()
 
     // Title
-    ctx.font = `${String(font_size)}px ${LiteGraph.GROUP_FONT}`
+    ctx.font = `${font_size}px ${LiteGraph.GROUP_FONT}`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillText(
@@ -214,7 +212,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     )
     ctx.textBaseline = 'alphabetic'
 
-    if (LiteGraph.highlight_selected_group && this.selected === true) {
+    if (LiteGraph.highlight_selected_group && this.selected) {
       strokeShape(ctx, this._bounding, {
         title_height: this.titleHeight,
         padding
@@ -230,12 +228,12 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     return true
   }
 
-  move(deltaX: number, deltaY: number, skipChildren = false): void {
+  move(deltaX: number, deltaY: number, skipChildren: boolean = false): void {
     if (this.pinned) return
 
     this._pos[0] += deltaX
     this._pos[1] += deltaY
-    if (skipChildren) return
+    if (skipChildren === true) return
 
     for (const item of this._children) {
       item.move(deltaX, deltaY)
@@ -254,8 +252,8 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
    * @param visited Set of already visited group IDs to prevent redundant computation.
    */
   recomputeInsideNodes(
-    maxDepth = 100,
-    visited = new Set<GroupId>()
+    maxDepth: number = 100,
+    visited: Set<GroupId> = new Set()
   ): void {
     if (!this.graph) throw new NullGraphError()
     if (maxDepth <= 0 || visited.has(this.id)) return
@@ -264,11 +262,13 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
 
     const { nodes, reroutes, groups } = this.graph
     const children = this._children
+    this._nodes.length = 0
     children.clear()
 
     // Move nodes we overlap the centre point of
     for (const node of nodes) {
       if (containsCentre(this._bounding, node.boundingRect)) {
+        this._nodes.push(node)
         children.add(node)
       }
     }
@@ -305,14 +305,14 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
    * @param objects All objects that should be inside the group
    * @param padding Value in graph units to add to all sides of the group.  Default: 10
    */
-  resizeTo(objects: Iterable<Positionable>, padding = 10): void {
+  resizeTo(objects: Iterable<Positionable>, padding: number = 10): void {
     const boundingBox = createBounds(objects, padding)
     if (boundingBox === null) return
 
-    this.pos[0] = boundingBox[0]
-    this.pos[1] = boundingBox[1] - this.titleHeight
-    this.size[0] = boundingBox[2]
-    this.size[1] = boundingBox[3] + this.titleHeight
+    this.pos[0] = boundingBox[0]!
+    this.pos[1] = boundingBox[1]! - this.titleHeight
+    this.size[0] = boundingBox[2]!
+    this.size[1] = boundingBox[3]! + this.titleHeight
   }
 
   /**
@@ -320,9 +320,9 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
    * @param nodes The nodes to add to the group
    * @param padding The padding around the group
    */
-  addNodes(nodes: LGraphNode[], padding = 10): void {
-    if (this._children.size === 0 && nodes.length === 0) return
-    this.resizeTo([...this.children, ...nodes], padding)
+  addNodes(nodes: LGraphNode[], padding: number = 10): void {
+    if (!this._nodes && nodes.length === 0) return
+    this.resizeTo([...this.children, ...this._nodes, ...nodes], padding)
   }
 
   getMenuOptions(): (
@@ -333,39 +333,39 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     return [
       {
         content: this.pinned ? 'Unpin' : 'Pin',
-        callback: (): boolean | undefined => {
+        callback: () => {
           if (this.pinned) this.unpin()
           else this.pin()
           this.setDirtyCanvas(false, true)
         }
       },
       null,
-      { content: 'Title', callback: (): boolean | undefined => { LGraphCanvas.onShowPropertyEditor(); return undefined; } },
+      { content: 'Title', callback: LGraphCanvas.onShowPropertyEditor },
       {
         content: 'Color',
         has_submenu: true,
-        callback: (): boolean | undefined => { LGraphCanvas.onMenuNodeColors(); return undefined; }
+        callback: LGraphCanvas.onMenuNodeColors
       },
       {
         content: 'Font size',
         property: 'font_size',
         type: 'Number',
-        callback: (): boolean | undefined => { LGraphCanvas.onShowPropertyEditor(); return undefined; }
+        callback: LGraphCanvas.onShowPropertyEditor
       },
       null,
-      { content: 'Remove', callback: (): boolean | undefined => { LGraphCanvas.onMenuNodeRemove(); return undefined; } }
+      { content: 'Remove', callback: LGraphCanvas.onMenuNodeRemove }
     ]
   }
 
   isPointInTitlebar(x: number, y: number): boolean {
     const b = this.boundingRect
-    return isInRectangle(x, y, b[0] ?? 0, b[1] ?? 0, b[2] ?? 0, this.titleHeight)
+    return isInRectangle(x, y, b[0]!, b[1]!, b[2]!, this.titleHeight)
   }
 
   isInResize(x: number, y: number): boolean {
     const b = this.boundingRect
-    const right = (b[0] ?? 0) + (b[2] ?? 0)
-    const bottom = (b[1] ?? 0) + (b[3] ?? 0)
+    const right = b[0]! + b[2]!
+    const bottom = b[1]! + b[3]!
 
     return (
       x < right &&
@@ -377,7 +377,5 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   isPointInside(x: number, y: number): boolean {
     return isInRect(x, y, this.boundingRect)
   }
-  setDirtyCanvas = (black: boolean, onlyBase?: boolean): void => {
-    LGraphNode.prototype.setDirtyCanvas.call(this, black, onlyBase)
-  }
+  setDirtyCanvas = LGraphNode.prototype.setDirtyCanvas
 }

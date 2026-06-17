@@ -77,15 +77,15 @@ export class CanvasPointer {
   pointerId?: number | undefined
 
   /** Set to true when if the pointer moves far enough after a down event, before the corresponding up event is fired. */
-  dragStarted = false
+  dragStarted: boolean = false
 
   /** The {@link eUp} from the last successful click */
   eLastDown?: CanvasPointerEvent | undefined
 
   /** Used downstream for touch event support. */
-  isDouble = false
+  isDouble: boolean = false
   /** Used downstream for touch event support. */
-  isDown = false
+  isDown: boolean = false
 
   /** The resize handle currently being hovered or dragged */
   resizeDirection?: CompassCorners | undefined
@@ -96,7 +96,7 @@ export class CanvasPointer {
    *
    * Default: `true`
    */
-  clearEventsOnReset = true
+  clearEventsOnReset: boolean = true
 
   /** The last pointerdown event for the primary button */
   eDown?: CanvasPointerEvent | undefined
@@ -109,16 +109,16 @@ export class CanvasPointer {
   detectedDevice: 'mouse' | 'trackpad' = 'mouse'
 
   /** Timestamp of last wheel event for cooldown tracking */
-  lastWheelEventTime = 0
+  lastWheelEventTime: number = 0
 
   /** Flag to track if we've received the first wheel event */
-  hasReceivedWheelEvent = false
+  hasReceivedWheelEvent: boolean = false
 
   /** Buffered Linux wheel event awaiting confirmation */
   bufferedLinuxEvent?: WheelEvent | undefined
 
   /** Timestamp when Linux event was buffered */
-  bufferedLinuxEventTime = 0
+  bufferedLinuxEventTime: number = 0
 
   /** Timer ID for Linux buffer clearing */
   linuxBufferTimeoutId?: ReturnType<typeof setTimeout> | undefined

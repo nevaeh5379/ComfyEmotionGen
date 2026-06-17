@@ -96,7 +96,7 @@ export function TemplateProvider({
   const [generatorToolbarProps, setGeneratorToolbarProps] = useState<GeneratorToolbarProps | null>(null)
 
   const onPendingSave = useCallback(
-    (name: string, type: "template") => { setPendingSave({ name, type }); },
+    (name: string, type: "template") => setPendingSave({ name, type }),
     [setPendingSave]
   )
 

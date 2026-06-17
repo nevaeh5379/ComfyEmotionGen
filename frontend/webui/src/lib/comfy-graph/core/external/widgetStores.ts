@@ -23,8 +23,8 @@ export function getWidgetValueStore() {
         if (options.label !== undefined) newState.label = options.label
         if (options.disabled !== undefined) newState.disabled = options.disabled
         if (options.serialize !== undefined) newState.serialize = options.serialize
-        widgetValues.set(key, newState)
-        state = newState
+        widgetValues.set(key, newState as unknown as WidgetState)
+        state = newState as unknown as WidgetState
       }
       return state
     },

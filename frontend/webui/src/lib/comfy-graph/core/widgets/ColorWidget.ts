@@ -83,6 +83,6 @@ export class ColorWidget
 
     // Wait for next frame else Chrome doesn't render the color picker at the mouse
     // Firefox always opens it in top left of window on Windows
-    requestAnimationFrame(() => { input.click(); })
+    requestAnimationFrame(() => input.click())
   }
 }

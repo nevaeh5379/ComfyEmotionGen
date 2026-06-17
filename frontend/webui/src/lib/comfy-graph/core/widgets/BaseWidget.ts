@@ -89,7 +89,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
   name: string
   options: TWidget['options']
   type: TWidget['type']
-  y = 0
+  y: number = 0
   last_y?: number
   width?: number
   computedDisabled?: boolean
@@ -136,7 +136,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
   ): boolean
 
   get value(): TWidget['value'] {
-    return this._state.value
+    return this._state.value as TWidget['value']
   }
   set value(value: TWidget['value']) {
     if (value !== undefined) {
@@ -210,9 +210,9 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
         type: this.type as TWidgetType,
         disabled: disabled ?? false,
         options: this.options,
-      }
+      } as Omit<WidgetState, 'nodeId'> & Partial<Pick<WidgetState, 'nodeId'>>
     if (value !== undefined) this._state.value = value
-    else if (this.value !== undefined) this._state.value = this.value
+    else if (this.value !== undefined) this._state.value = this.value as never
     if (this.serialize !== undefined) this._state.serialize = this.serialize
     if (label !== undefined) this._state.label = label
   }
@@ -426,7 +426,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     if (value === this.value) return
 
     const v = this.type === 'number' ? Number(value) : value
-    this.value = v
+    this.value = v as TWidget['value']
     if (
       this.options?.property &&
       node.properties[this.options.property] !== undefined

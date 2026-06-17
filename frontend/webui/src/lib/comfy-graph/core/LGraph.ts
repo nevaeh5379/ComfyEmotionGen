@@ -228,11 +228,11 @@ export class LGraph
   ])
 
   id: UUID = zeroUuid
-  revision = 0
+  revision: number = 0
 
-  _version = -1
+  _version: number = -1
   /** The backing store for links.  Keys are wrapped in String() */
-  _links = new Map<LinkId, LLink>()
+  _links: Map<LinkId, LLink> = new Map()
   /**
    * Indexed property access is deprecated.
    * Backwards compatibility with a Proxy has been added, but will eventually be removed.
@@ -264,23 +264,23 @@ export class LGraph
   }
 
   readonly events = new CustomEventTarget<LGraphEventMap>()
-  readonly _subgraphs = new Map<SubgraphId, Subgraph>()
+  readonly _subgraphs: Map<SubgraphId, Subgraph> = new Map()
 
   _nodes: (LGraphNode | SubgraphNode)[] = []
   _nodes_by_id: Record<NodeId, LGraphNode> = {}
   _nodes_in_order: LGraphNode[] = []
   _nodes_executable: LGraphNode[] | null = null
   _groups: LGraphGroup[] = []
-  iteration = 0
-  globaltime = 0
+  iteration: number = 0
+  globaltime: number = 0
   /** @deprecated Unused */
-  runningtime = 0
-  fixedtime = 0
-  fixedtime_lapse = 0.01
-  elapsed_time = 0.01
-  last_update_time = 0
-  starttime = 0
-  catch_errors = true
+  runningtime: number = 0
+  fixedtime: number = 0
+  fixedtime_lapse: number = 0.01
+  elapsed_time: number = 0.01
+  last_update_time: number = 0
+  starttime: number = 0
+  catch_errors: boolean = true
   execution_timer_id?: number | null
   errors_in_execution?: boolean
   /** @deprecated Unused */
@@ -312,9 +312,9 @@ export class LGraph
   }
 
   /** Internal only.  Not required for serialisation; calculated on deserialise. */
-  private _lastFloatingLinkId = 0
+  private _lastFloatingLinkId: number = 0
 
-  private readonly floatingLinksInternal = new Map<LinkId, LLink>()
+  private readonly floatingLinksInternal: Map<LinkId, LLink> = new Map()
   get floatingLinks(): ReadonlyMap<LinkId, LLink> {
     return this.floatingLinksInternal
   }
@@ -325,7 +325,7 @@ export class LGraph
     return this.reroutesInternal
   }
 
-  get rootGraph(): this {
+  get rootGraph(): LGraph {
     return this
   }
 
@@ -334,20 +334,20 @@ export class LGraph
   }
 
   /** @deprecated See {@link state}.{@link LGraphState.lastNodeId lastNodeId} */
-  get last_node_id(): number {
+  get last_node_id() {
     return this.state.lastNodeId
   }
 
-  set last_node_id(value: number): void {
+  set last_node_id(value) {
     this.state.lastNodeId = value
   }
 
   /** @deprecated See {@link state}.{@link LGraphState.lastLinkId lastLinkId} */
-  get last_link_id(): LinkId {
+  get last_link_id() {
     return this.state.lastLinkId
   }
 
-  set last_link_id(value: LinkId): void {
+  set last_link_id(value) {
     this.state.lastLinkId = value
   }
 
@@ -361,7 +361,7 @@ export class LGraph
   onSerialize?(data: ISerialisedGraph | SerialisableGraph): void
   onConfigure?(data: ISerialisedGraph | SerialisableGraph): void
   onGetNodeMenuOptions?(
-    options: (IContextMenuValue | null)[],
+    options: (IContextMenuValue<unknown> | null)[],
     node: LGraphNode
   ): void
 
@@ -413,9 +413,11 @@ export class LGraph
     this._subgraphs.clear()
 
     // safe clear
-    for (const _node of this._nodes) {
-      _node.onRemoved?.()
-      this.onNodeRemoved?.(_node)
+    if (this._nodes) {
+      for (const _node of this._nodes) {
+        _node.onRemoved?.()
+        this.onNodeRemoved?.(_node)
+      }
     }
 
     // nodes
@@ -462,18 +464,18 @@ export class LGraph
     // notify canvas to redraw
     this.change()
 
-    this.canvasAction((c) => { c.clear(); })
+    this.canvasAction((c) => c.clear())
   }
 
   get subgraphs(): Map<SubgraphId, Subgraph> {
     return this.rootGraph._subgraphs
   }
 
-  get nodes(): (LGraphNode | SubgraphNode)[] {
+  get nodes() {
     return this._nodes
   }
 
-  get groups(): LGraphGroup[] {
+  get groups() {
     return this._groups
   }
 
@@ -517,22 +519,23 @@ export class LGraph
    * @param interval amount of milliseconds between executions, if 0 then it renders to the monitor refresh rate
    */
   start(interval?: number): void {
-    if (this.status === LGraph.STATUS_RUNNING) return
+    if (this.status == LGraph.STATUS_RUNNING) return
     this.status = LGraph.STATUS_RUNNING
     this.sendEventToAllNodes('onStart')
 
     // launch
     this.starttime = LiteGraph.getTime()
     this.last_update_time = this.starttime
-    interval ??= 0
+    interval ||= 0
 
     // execute once per frame
     if (
-      interval === 0 &&
-      typeof window !== 'undefined'
+      interval == 0 &&
+      typeof window != 'undefined' &&
+      window.requestAnimationFrame
     ) {
-      const on_frame = (): void => {
-        if (this.execution_timer_id !== -1) return
+      const on_frame = () => {
+        if (this.execution_timer_id != -1) return
 
         window.requestAnimationFrame(on_frame)
         this.runStep(1, !this.catch_errors)
@@ -554,11 +557,11 @@ export class LGraph
    * Stops the execution loop of the graph
    */
   stop(): void {
-    if (this.status === LGraph.STATUS_STOPPED) return
+    if (this.status == LGraph.STATUS_STOPPED) return
 
     this.status = LGraph.STATUS_STOPPED
-    if (this.execution_timer_id !== null) {
-      if (this.execution_timer_id !== -1) {
+    if (this.execution_timer_id != null) {
+      if (this.execution_timer_id != -1) {
         clearInterval(this.execution_timer_id)
       }
       this.execution_timer_id = null
@@ -574,23 +577,26 @@ export class LGraph
    * @param limit max number of nodes to execute (used to execute from start to a node)
    */
   runStep(num: number, do_not_catch_errors: boolean, limit?: number): void {
+    num = num || 1
+
     const start = LiteGraph.getTime()
     this.globaltime = 0.001 * (start - this.starttime)
 
-    const nodes = this._nodes_executable ?? this._nodes
+    const nodes = this._nodes_executable || this._nodes
+    if (!nodes) return
 
-    const effectiveLimit = limit ?? nodes.length
+    limit = limit || nodes.length
 
     if (do_not_catch_errors) {
       // iterations
       for (let i = 0; i < num; i++) {
-        for (let j = 0; j < effectiveLimit; ++j) {
+        for (let j = 0; j < limit; ++j) {
           const node = nodes[j]
           if (!node) continue
           // FIXME: Looks like copy/paste broken logic - checks for "on", executes "do"
-          if (node.mode === LGraphEventMode.ALWAYS && node.onExecute) {
+          if (node.mode == LGraphEventMode.ALWAYS && node.onExecute) {
             // wrap node.onExecute();
-            node.doExecute()
+            node.doExecute?.()
           }
         }
 
@@ -600,10 +606,10 @@ export class LGraph
       try {
         // iterations
         for (let i = 0; i < num; i++) {
-          for (let j = 0; j < effectiveLimit; ++j) {
+          for (let j = 0; j < limit; ++j) {
             const node = nodes[j]
             if (!node) continue
-            if (node.mode === LGraphEventMode.ALWAYS) {
+            if (node.mode == LGraphEventMode.ALWAYS) {
               node.onExecute?.()
             }
           }
@@ -622,7 +628,7 @@ export class LGraph
 
     const now = LiteGraph.getTime()
     let elapsed = now - start
-    if (elapsed === 0) elapsed = 1
+    if (elapsed == 0) elapsed = 1
 
     this.execution_time = 0.001 * elapsed
     this.globaltime += 0.001 * elapsed
@@ -655,7 +661,7 @@ export class LGraph
   ): LGraphNode[] {
     const L: LGraphNode[] = []
     const S: LGraphNode[] = []
-    const M = new Map<NodeId, LGraphNode>()
+    const M: Dictionary<LGraphNode> = {}
     // to avoid repeating links
     const visited_links: Record<NodeId, boolean> = {}
     const remaining_links: Record<NodeId, number> = {}
@@ -667,42 +673,46 @@ export class LGraph
       }
 
       // add to pending nodes
-      M.set(node.id, node)
+      M[node.id] = node
 
       // num of input connections
       let num = 0
-      for (const input of node.inputs) {
-        if (input.link !== null) {
-          num += 1
+      if (node.inputs) {
+        for (const input of node.inputs) {
+          if (input?.link != null) {
+            num += 1
+          }
         }
       }
 
-      if (num === 0) {
+      if (num == 0) {
         // is a starting node
         S.push(node)
-        if (set_level === true) node._level = 1
+        if (set_level) node._level = 1
       } else {
         // num of input links
-        if (set_level === true) node._level = 0
+        if (set_level) node._level = 0
         remaining_links[node.id] = num
       }
     }
 
-    for (;;) {
+    while (true) {
       // get an starting node
       const node = S.shift()
-      if (!node) break
+      if (node === undefined) break
 
       // add to ordered list
       L.push(node)
       // remove from the pending nodes
-      M.delete(node.id)
+      delete M[node.id]
+
+      if (!node.outputs) continue
 
       // for every output
       for (const output of node.outputs) {
         // not connected
         // TODO: Confirm functionality, clean condition
-        if (output.links === null || output.links.length === 0) continue
+        if (output?.links == null || output.links.length == 0) continue
 
         // for every connection
         for (const link_id of output.links) {
@@ -710,17 +720,17 @@ export class LGraph
           if (!link) continue
 
           // already visited link (ignore it)
-          if (visited_links[link.id] === true) continue
+          if (visited_links[link.id]) continue
 
           const target_node = this.getNodeById(link.target_id)
-          if (target_node === null) {
+          if (target_node == null) {
             visited_links[link.id] = true
             continue
           }
 
-          if (set_level === true) {
+          if (set_level) {
             node._level ??= 0
-            if (target_node._level <= node._level) {
+            if (!target_node._level || target_node._level <= node._level) {
               target_node._level = node._level + 1
             }
           }
@@ -728,21 +738,22 @@ export class LGraph
           // mark as visited
           visited_links[link.id] = true
           // reduce the number of links remaining
-          const remainingBefore = remaining_links[target_node.id] ?? 0
+          const remainingBefore = remaining_links[target_node.id]!
           remaining_links[target_node.id] = remainingBefore - 1
 
           // if no more links, then add to starters array
-          if (remainingBefore === 1) S.push(target_node)
+          if (remainingBefore == 1) S.push(target_node)
         }
       }
     }
 
     // the remaining ones (loops)
-    for (const [, node] of M) {
-      L.push(node)
+    for (const i in M) {
+      const node = M[i]
+      if (node) L.push(node)
     }
 
-    if (L.length !== this._nodes.length && LiteGraph.debug)
+    if (L.length != this._nodes.length && LiteGraph.debug)
       console.warn('something went wrong, nodes missing')
 
     /** Ensure type is set */
@@ -765,12 +776,12 @@ export class LGraph
     // sort now by priority
     L.sort(function (A, B) {
       // @ts-expect-error: Bypass external type check ctor props
-      const Ap = (A.constructor.priority as number | undefined) ?? (A.priority as number | undefined) ?? 0
+      const Ap = A.constructor.priority || A.priority || 0
       // @ts-expect-error: Bypass external type check ctor props
-      const Bp = (B.constructor.priority as number | undefined) ?? (B.priority as number | undefined) ?? 0
+      const Bp = B.constructor.priority || B.priority || 0
       // if same priority, sort by order
 
-      return Ap === Bp ? A.order - B.order : Ap - Bp
+      return Ap == Bp ? A.order - B.order : Ap - Bp
     })
 
     // save order number in the node, again...
@@ -783,31 +794,33 @@ export class LGraph
    * Positions every node in a more readable manner
    */
   arrange(margin?: number, layout?: string): void {
-    margin ??= 100
+    margin = margin || 100
 
     const nodes = this.computeExecutionOrder(false, true)
     const columns: LGraphNode[][] = []
     for (const node of nodes) {
-      const col = node._level ?? 1
-      columns[col] ??= []
+      const col = node._level || 1
+      columns[col] ||= []
       columns[col].push(node)
     }
 
     let x = margin
 
     for (const column of columns) {
+      if (!column) continue
+
       let max_size = 100
       let y = margin + LiteGraph.NODE_TITLE_HEIGHT
       for (const node of column) {
         node.setPos(
-          layout === LiteGraph.VERTICAL_LAYOUT ? y : x,
-          layout === LiteGraph.VERTICAL_LAYOUT ? x : y
+          layout == LiteGraph.VERTICAL_LAYOUT ? y : x,
+          layout == LiteGraph.VERTICAL_LAYOUT ? x : y
         )
-        const max_size_index = layout === LiteGraph.VERTICAL_LAYOUT ? 1 : 0
+        const max_size_index = layout == LiteGraph.VERTICAL_LAYOUT ? 1 : 0
         if (node.size[max_size_index] > max_size) {
           max_size = node.size[max_size_index]
         }
-        const node_size_index = layout === LiteGraph.VERTICAL_LAYOUT ? 0 : 1
+        const node_size_index = layout == LiteGraph.VERTICAL_LAYOUT ? 0 : 1
         y += node.size[node_size_index] + margin + LiteGraph.NODE_TITLE_HEIGHT
       }
       x += max_size + margin
@@ -863,21 +876,24 @@ export class LGraph
     params?: object | object[],
     mode?: LGraphEventMode
   ): void {
-    mode ??= LGraphEventMode.ALWAYS
+    mode = mode || LGraphEventMode.ALWAYS
 
-    const nodes = this._nodes_in_order
+    const nodes = this._nodes_in_order || this._nodes
+    if (!nodes) return
 
     for (const node of nodes) {
       // @ts-expect-error: Bypass external type check deprecated
-      const handler = node[eventname] as (() => void) | undefined
-      if (typeof handler !== 'function' || node.mode !== mode) continue
+      if (!node[eventname] || node.mode != mode) continue
       if (params === undefined) {
-        handler()
-      } else if (Array.isArray(params)) {
-         
-        handler.apply(node, params)
+        // @ts-expect-error: Bypass external type check deprecated
+        node[eventname]()
+      } else if (params && params.constructor === Array) {
+        // @ts-expect-error: Bypass external type check deprecated
+        // eslint-disable-next-line prefer-spread
+        node[eventname].apply(node, params)
       } else {
-        handler(params)
+        // @ts-expect-error: Bypass external type check deprecated
+        node[eventname](params)
       }
     }
   }
@@ -905,8 +921,8 @@ export class LGraph
 
       if (typeof method === 'function') {
         const args =
-          params === undefined ? [] : Array.isArray(params) ? params : [params]
-        method.apply(c, args)
+          params == null ? [] : Array.isArray(params) ? params : [params]
+        ;(method as (...args: unknown[]) => unknown).apply(c, args)
       }
     }
   }
@@ -934,6 +950,8 @@ export class LGraph
     node: LGraphNode | LGraphGroup,
     skipComputeOrderOrOptions?: boolean | GraphAddOptions
   ): LGraphNode | null | undefined {
+    if (!node) return
+
     // Handle backwards compatibility: 2nd arg can be boolean or options
     const opts: GraphAddOptions =
       typeof skipComputeOrderOrOptions === 'object'
@@ -944,7 +962,7 @@ export class LGraph
     const { state } = this
 
     // Ensure created items are snapped
-    if (LiteGraph.alwaysSnapToGrid === true) {
+    if (LiteGraph.alwaysSnapToGrid) {
       const snapTo = this.getSnapToGridSize()
       if (snapTo) node.snapToGrid(snapTo)
     }
@@ -953,7 +971,7 @@ export class LGraph
     // groups
     if (node instanceof LGraphGroup) {
       // Assign group ID
-      if (node.id === -1) node.id = ++state.lastGroupId
+      if (node.id == null || node.id === -1) node.id = ++state.lastGroupId
       if (node.id > state.lastGroupId) state.lastGroupId = node.id
 
       this._groups.push(node)
@@ -965,7 +983,7 @@ export class LGraph
     }
 
     // nodes
-    if (node.id !== -1 && this._nodes_by_id[node.id] !== undefined) {
+    if (node.id != -1 && this._nodes_by_id[node.id] != null) {
       console.warn(
         'LiteGraph: there is already a node with this ID, changing it'
       )
@@ -973,14 +991,14 @@ export class LGraph
     }
 
     if (this._nodes.length >= LiteGraph.MAX_NUMBER_OF_NODES) {
-      throw new Error('LiteGraph: max number of nodes in a graph reached')
+      throw 'LiteGraph: max number of nodes in a graph reached'
     }
 
     // give him an id
     if (LiteGraph.use_uuids) {
-      if (node.id === -1) node.id = LiteGraph.uuidv4()
+      if (node.id == null || node.id == -1) node.id = LiteGraph.uuidv4()
     } else {
-      if (node.id === -1) {
+      if (node.id == null || node.id == -1) {
         node.id = ++state.lastNodeId
       } else if (typeof node.id === 'number' && state.lastNodeId < node.id) {
         state.lastNodeId = node.id
@@ -988,7 +1006,7 @@ export class LGraph
     }
 
     // Set ghost flag before registration so VueNodeData picks it up
-    if (opts.ghost === true) {
+    if (opts.ghost) {
       node.flags.ghost = true
     }
 
@@ -1008,6 +1026,8 @@ export class LGraph
 
     node.onAdded?.(this)
 
+    if (this.config.align_to_grid) node.alignToGrid()
+
     if (!shouldSkipComputeOrder) this.updateExecutionOrder()
 
     this.onNodeAdded?.(node)
@@ -1015,11 +1035,11 @@ export class LGraph
     this.setDirtyCanvas(true)
     this.change()
 
-    if (opts.ghost === true) {
-      this.canvasAction((c) => { c.startGhostPlacement(node, opts.dragEvent); })
+    if (opts.ghost) {
+      this.canvasAction((c) => c.startGhostPlacement(node, opts.dragEvent))
     }
 
-    if (node.isSubgraphNode()) {
+    if (node.isSubgraphNode?.()) {
       forEachNode(node.subgraph, (innerNode) => {
         if (innerNode.isSubgraphNode())
           this.subgraphs.set(innerNode.subgraph.id, innerNode.subgraph)
@@ -1037,10 +1057,10 @@ export class LGraph
   remove(node: LGraphNode | LGraphGroup): void {
     // LEGACY: This was changed from constructor === LiteGraph.LGraphGroup
     if (node instanceof LGraphGroup) {
-      this.canvasAction((c) => { c.deselect(node); })
+      this.canvasAction((c) => c.deselect(node))
 
       const index = this._groups.indexOf(node)
-      if (index !== -1) {
+      if (index != -1) {
         this._groups.splice(index, 1)
       }
       node.graph = undefined
@@ -1051,12 +1071,12 @@ export class LGraph
     }
 
     // not found
-    if (this._nodes_by_id[node.id] === undefined) {
+    if (this._nodes_by_id[node.id] == null) {
       console.warn('LiteGraph: node not found', node)
       return
     }
     // cannot be removed
-    if (node.ignore_remove === true) {
+    if (node.ignore_remove) {
       console.warn('LiteGraph: node cannot be removed', node)
       return
     }
@@ -1067,13 +1087,17 @@ export class LGraph
     const { inputs, outputs } = node
 
     // disconnect inputs
-    for (const [i, slot] of inputs.entries()) {
-      if (slot.link !== null) node.disconnectInput(i, true)
+    if (inputs) {
+      for (const [i, slot] of inputs.entries()) {
+        if (slot.link != null) node.disconnectInput(i, true)
+      }
     }
 
     // disconnect outputs
-    for (const [i, slot] of outputs.entries()) {
-      if ((slot.links?.length ?? 0) > 0) node.disconnectOutput(i)
+    if (outputs) {
+      for (const [i, slot] of outputs.entries()) {
+        if (slot.links?.length) node.disconnectOutput(i)
+      }
     }
 
     // Floating links
@@ -1113,10 +1137,8 @@ export class LGraph
     const { list_of_graphcanvas } = this
     if (list_of_graphcanvas) {
       for (const canvas of list_of_graphcanvas) {
-        const selectedItems = canvas.selectedItems
-        if (selectedItems.has(node.id)) {
-          selectedItems.delete(node.id)
-        }
+        if (canvas.selected_nodes[node.id])
+          delete canvas.selected_nodes[node.id]
 
         canvas.deselect(node)
       }
@@ -1124,14 +1146,14 @@ export class LGraph
 
     // remove from containers
     const pos = this._nodes.indexOf(node)
-    if (pos !== -1) this._nodes.splice(pos, 1)
+    if (pos != -1) this._nodes.splice(pos, 1)
 
-    this._nodes_by_id[String(node.id)] = undefined as never
+    delete this._nodes_by_id[node.id]
 
     this.onNodeRemoved?.(node)
 
     // close panels
-    this.canvasAction((c) => { c.checkPanels(); })
+    this.canvasAction((c) => c.checkPanels())
 
     this.setDirtyCanvas(true, true)
     // sure? - almost sure is wrong
@@ -1145,7 +1167,7 @@ export class LGraph
    * Returns a node by its id.
    */
   getNodeById(id: NodeId | null | undefined): LGraphNode | null {
-    return id !== null && id !== undefined ? this._nodes_by_id[id] ?? null : null
+    return id != null ? this._nodes_by_id[id] ?? null : null
   }
 
   /**
@@ -1155,7 +1177,7 @@ export class LGraph
    */
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   findNodesByClass(classObject: Function, result?: LGraphNode[]): LGraphNode[] {
-    result ??= []
+    result = result || []
     result.length = 0
     const { _nodes } = this
     for (const node of _nodes) {
@@ -1171,10 +1193,11 @@ export class LGraph
    */
   findNodesByType(type: string, result: LGraphNode[]): LGraphNode[] {
     const matchType = type.toLowerCase()
+    result = result || []
     result.length = 0
     const { _nodes } = this
     for (const node of _nodes) {
-      if (node.type.toLowerCase() === matchType) result.push(node)
+      if (node.type?.toLowerCase() == matchType) result.push(node)
     }
     return result
   }
@@ -1187,7 +1210,7 @@ export class LGraph
   findNodeByTitle(title: string): LGraphNode | null {
     const { _nodes } = this
     for (const node of _nodes) {
-      if (node.title === title) return node
+      if (node.title == title) return node
     }
     return null
   }
@@ -1201,7 +1224,7 @@ export class LGraph
     const result: LGraphNode[] = []
     const { _nodes } = this
     for (const node of _nodes) {
-      if (node.title === title) result.push(node)
+      if (node.title == title) result.push(node)
     }
     return result
   }
@@ -1218,11 +1241,11 @@ export class LGraph
     y: number,
     nodeList?: LGraphNode[]
   ): LGraphNode | null {
-    const nodes = nodeList ?? this._nodes
+    const nodes = nodeList || this._nodes
     let i = nodes.length
     while (--i >= 0) {
       const node = nodes[i]
-      if (node.isPointInside(x, y)) return node
+      if (node?.isPointInside(x, y)) return node
     }
     return null
   }
@@ -1237,7 +1260,7 @@ export class LGraph
     // Iterate backwards through groups to find top-most
     for (let i = this._groups.length - 1; i >= 0; i--) {
       const group = this._groups[i]
-      if (group.isPointInside(x, y)) {
+      if (group?.isPointInside(x, y)) {
         return group
       }
     }
@@ -1254,7 +1277,7 @@ export class LGraph
     // Iterate backwards through groups to find top-most
     for (let i = this._groups.length - 1; i >= 0; i--) {
       const group = this._groups[i]
-      if (group.isPointInTitlebar(x, y)) {
+      if (group?.isPointInTitlebar(x, y)) {
         return group
       }
     }
@@ -1290,10 +1313,10 @@ export class LGraph
    */
   snapToGrid(items: Set<Positionable>): void {
     const snapTo = this.getSnapToGridSize()
-    if (snapTo === 0) return
+    if (!snapTo) return
 
     for (const item of getAllNestedItems(items)) {
-      if (item.pinned !== true) item.snapToGrid(snapTo)
+      if (!item.pinned) item.snapToGrid(snapTo)
     }
   }
 
@@ -1301,12 +1324,12 @@ export class LGraph
    * Finds the size of the grid that items should be snapped to when moved.
    * @returns The size of the grid that items should be snapped to
    */
-getSnapToGridSize(): number {
-     // Default to 1 when always snapping
-     return LiteGraph.alwaysSnapToGrid === true
-       ? LiteGraph.CANVAS_GRID_SIZE || 1
-       : LiteGraph.CANVAS_GRID_SIZE || 0
-   }
+  getSnapToGridSize(): number {
+    // Default to 1 when always snapping
+    return LiteGraph.alwaysSnapToGrid
+      ? LiteGraph.CANVAS_GRID_SIZE || 1
+      : LiteGraph.CANVAS_GRID_SIZE
+  }
 
   /**
    * @deprecated Will be removed in 0.9
@@ -1314,22 +1337,22 @@ getSnapToGridSize(): number {
    * used when replacing a nodetype by a newer version during execution
    * this replaces the ones using the old version with the new version
    */
-  checkNodeTypes(): void {
+  checkNodeTypes() {
     const { _nodes } = this
     for (const [i, node] of _nodes.entries()) {
       const ctor = LiteGraph.registered_node_types[node.type]
-      if (node.constructor === ctor) continue
+      if (node.constructor == ctor) continue
 
       console.warn('node being replaced by newer version:', node.type)
       const newnode = LiteGraph.createNode(node.type)
       if (!newnode) continue
       _nodes[i] = newnode
-      newnode.configure(node.serialize())
+      newnode.configure?.(node.serialize())
       newnode.graph = this
       this._nodes_by_id[newnode.id] = newnode
 
-      newnode.inputs = [...node.inputs]
-      newnode.outputs = [...node.outputs]
+      if (node.inputs) newnode.inputs = [...node.inputs]
+      if (node.outputs) newnode.outputs = [...node.outputs]
     }
     this.updateExecutionOrder()
   }
@@ -1340,9 +1363,9 @@ getSnapToGridSize(): number {
     param: LGraphTriggerParam<A>
   ): void
   trigger(action: string, param: unknown): void
-  trigger(action: string, param: unknown): void {
+  trigger(action: string, param: unknown) {
     if (!isLGraphTriggerAction(action)) return
-    if (param === null || param === undefined || typeof param !== 'object') return
+    if (!param || typeof param !== 'object') return
 
     this.onTrigger?.({ type: action, ...param } as LGraphTriggerEvent)
     this.events.dispatch(action, param as never)
@@ -1353,10 +1376,7 @@ getSnapToGridSize(): number {
     const nodes = this.findNodesByTitle(name)
     for (const node of nodes) {
       // @ts-expect-error: Bypass external type check - onTrigger method may not exist on all node types
-      const handler = node.onTrigger as ((value: unknown) => void) | undefined
-      if (typeof handler === 'function') {
-        handler(value)
-      }
+      node.onTrigger(value)
     }
   }
 
@@ -1365,10 +1385,7 @@ getSnapToGridSize(): number {
     const nodes = this.findNodesByTitle(name)
     for (const node of nodes) {
       // @ts-expect-error: Bypass external type check - setTrigger method may not exist on all node types
-      const handler = node.setTrigger as ((func?: () => void) => void) | undefined
-      if (typeof handler === 'function') {
-        handler(func)
-      }
+      node.setTrigger(func)
     }
   }
 
@@ -1389,18 +1406,20 @@ getSnapToGridSize(): number {
    */
   clearTriggeredSlots(): void {
     for (const link_info of this._links.values()) {
-      if (link_info._last_time !== undefined) link_info._last_time = 0
+      if (!link_info) continue
+
+      if (link_info._last_time) link_info._last_time = 0
     }
   }
 
   /* Called when something visually changed (not the graph!) */
   change(): void {
-    this.canvasAction((c) => { c.setDirty(true, true); })
+    this.canvasAction((c) => c.setDirty(true, true))
     this.on_change?.(this)
   }
 
   setDirtyCanvas(fg: boolean, bg?: boolean): void {
-    this.canvasAction((c) => { c.setDirty(fg, bg); })
+    this.canvasAction((c) => c.setDirty(fg, bg))
   }
 
   addFloatingLink(link: LLink): LLink {
@@ -1411,14 +1430,14 @@ getSnapToGridSize(): number {
 
     const slot =
       link.target_id !== -1
-        ? this.getNodeById(link.target_id)?.inputs[link.target_slot]
-        : this.getNodeById(link.origin_id)?.outputs[link.origin_slot]
+        ? this.getNodeById(link.target_id)?.inputs?.[link.target_slot]
+        : this.getNodeById(link.origin_id)?.outputs?.[link.origin_slot]
     if (slot) {
       slot._floatingLinks ??= new Set()
       slot._floatingLinks.add(link)
     } else {
       console.warn(
-        `Adding invalid floating link: target/slot: [${toString(link.target_id)}/${toString(link.target_slot)}] origin/slot: [${toString(link.origin_id)}/${toString(link.origin_slot)}]`
+        `Adding invalid floating link: target/slot: [${link.target_id}/${link.target_slot}] origin/slot: [${link.origin_id}/${link.origin_slot}]`
       )
     }
 
@@ -1434,8 +1453,8 @@ getSnapToGridSize(): number {
 
     const slot =
       link.target_id !== -1
-        ? this.getNodeById(link.target_id)?.inputs[link.target_slot]
-        : this.getNodeById(link.origin_id)?.outputs[link.origin_slot]
+        ? this.getNodeById(link.target_id)?.inputs?.[link.target_slot]
+        : this.getNodeById(link.origin_id)?.outputs?.[link.origin_slot]
     if (slot) {
       slot._floatingLinks?.delete(link)
     }
@@ -1459,7 +1478,7 @@ getSnapToGridSize(): number {
   getLink(id: null | undefined): undefined
   getLink(id: LinkId | null | undefined): LLink | undefined
   getLink(id: LinkId | null | undefined): LLink | undefined {
-    return id !== null && id !== undefined ? this._links.get(id) : undefined
+    return id == null ? undefined : this._links.get(id)
   }
 
   /**
@@ -1470,7 +1489,7 @@ getSnapToGridSize(): number {
   getReroute(id: null | undefined): undefined
   getReroute(id: RerouteId | null | undefined): Reroute | undefined
   getReroute(id: RerouteId | null | undefined): Reroute | undefined {
-    return id !== null && id !== undefined ? this.reroutes.get(id) : undefined
+    return id == null ? undefined : this.reroutes.get(id)
   }
 
   /**
@@ -1561,7 +1580,7 @@ getSnapToGridSize(): number {
     const reroute = reroutes.get(id)
     if (!reroute) return
 
-    this.canvasAction((c) => { c.deselect(reroute); })
+    this.canvasAction((c) => c.deselect(reroute))
 
     // Extract reroute from the reroute chain
     const { parentId, linkIds, floatingLinkIds } = reroute
@@ -1571,14 +1590,14 @@ getSnapToGridSize(): number {
 
     for (const linkId of linkIds) {
       const link = this._links.get(linkId)
-      if (link?.parentId === id) link.parentId = parentId
+      if (link && link.parentId === id) link.parentId = parentId
     }
 
     for (const linkId of floatingLinkIds) {
       const link = this.floatingLinks.get(linkId)
       if (!link) {
         console.warn(
-          `Removed reroute had floating link ID that did not exist [${toString(linkId)}]`
+          `Removed reroute had floating link ID that did not exist [${linkId}]`
         )
         continue
       }
@@ -1678,7 +1697,7 @@ getSnapToGridSize(): number {
 
     // Record state before conversion for proper undo support
     this.beforeChange()
-    this.canvasAction((c) => { c.emitBeforeChange(); })
+    this.canvasAction((c) => c.emitBeforeChange())
 
     try {
       function extractNodes(item: Positionable): Positionable[] {
@@ -1693,7 +1712,7 @@ getSnapToGridSize(): number {
     } finally {
       // Mark state change complete for proper undo support
       this.afterChange()
-      this.canvasAction((c) => { c.emitAfterChange(); })
+      this.canvasAction((c) => c.emitAfterChange())
     }
   }
 
@@ -1786,24 +1805,16 @@ getSnapToGridSize(): number {
     alignOutsideContainer(outputRect, Alignment.MidRight, boundingRect, [50, 0])
 
     // Remove items converted to subgraph
-    for (const resolved of resolvedInputLinks) {
-      const input = resolved.input
-      if (input !== undefined) {
-        resolved.inputNode?.disconnectInput(
-          resolved.inputNode.inputs.indexOf(input),
-          true
-        )
-      }
-    }
-    for (const resolved of resolvedOutputLinks) {
-      const output = resolved.output
-      if (output !== undefined) {
-        resolved.outputNode?.disconnectOutput(
-          resolved.outputNode.outputs.indexOf(output),
-          resolved.inputNode
-        )
-      }
-    }
+    for (const resolved of resolvedInputLinks)
+      resolved.inputNode?.disconnectInput(
+        resolved.inputNode.inputs.indexOf(resolved.input!),
+        true
+      )
+    for (const resolved of resolvedOutputLinks)
+      resolved.outputNode?.disconnectOutput(
+        resolved.outputNode.outputs.indexOf(resolved.output!),
+        resolved.inputNode
+      )
 
     for (const node of nodes) this.remove(node)
     for (const reroute of reroutes) this.removeReroute(reroute.id)
@@ -1965,7 +1976,7 @@ getSnapToGridSize(): number {
   unpackSubgraph(
     subgraphNode: SubgraphNode,
     options?: { skipMissingNodes?: boolean }
-  ): void {
+  ) {
     if (!(subgraphNode instanceof SubgraphNode))
       throw new Error('Can only unpack Subgraph Nodes')
 
@@ -1982,8 +1993,9 @@ getSnapToGridSize(): number {
 
   private _unpackSubgraphImpl(
     subgraphNode: SubgraphNode,
-    _options?: { skipMissingNodes?: boolean }
-  ): void {
+    options?: { skipMissingNodes?: boolean }
+  ) {
+    const skipMissingNodes = options?.skipMissingNodes ?? false
 
     //NOTE: Create bounds can not be called on positionables directly as the subgraph is not being displayed and boundingRect is not initialized.
     //NOTE: NODE_TITLE_HEIGHT is explicitly excluded here
@@ -2005,17 +2017,17 @@ getSnapToGridSize(): number {
     const movedNodes = multiClone(subgraphNode.subgraph.nodes)
     const nodeIdMap = new Map<NodeId, NodeId>()
     for (const n_info of movedNodes) {
-      const node = LiteGraph.createNode(n_info.type, n_info.title)
-        ?? new LGraphNode(n_info.title ?? 'Missing Node')
-      if (node.type === '') node.type = n_info.type
-      if (node.has_errors !== true && !LiteGraph.registered_node_types[n_info.type]) {
+      const node = LiteGraph.createNode(String(n_info.type), n_info.title)
+        ?? new LGraphNode(n_info.title || n_info.type || 'Missing Node')
+      if (!node.type) node.type = String(n_info.type)
+      if (!node.has_errors && !LiteGraph.registered_node_types[n_info.type]) {
         node.last_serialization = n_info
         node.has_errors = true
       }
 
-      nodeIdMap.set(n_info.id, ++this.state.lastNodeId)
-      node.id = this.state.lastNodeId
-      n_info.id = this.state.lastNodeId
+      nodeIdMap.set(n_info.id, ++this.last_node_id)
+      node.id = this.last_node_id
+      n_info.id = this.last_node_id
 
       // Strip links from serialized data before configure to prevent
       // onConnectionsChange from resolving subgraph-internal link IDs
@@ -2028,17 +2040,18 @@ getSnapToGridSize(): number {
         output.links = []
       }
 
-      this.add(node, { skipComputeOrder: true })
-      node.configure(n_info)
-      node.setPos(node.pos[0] + offsetX, node.pos[1] + offsetY)
-      toSelect.push(node)
+      this.add(node, true)
+      if (!node) continue
+      node!.configure(n_info)
+      node!.setPos(node!.pos[0] + offsetX, node!.pos[1] + offsetY)
+      toSelect.push(node!)
     }
     const groups = structuredClone(
       [...subgraphNode.subgraph.groups].map((g) => g.serialize())
     )
     for (const g_info of groups) {
       const group = new LGraphGroup(g_info.title, g_info.id)
-      this.add(group, { skipComputeOrder: true })
+      this.add(group, true)
       group.configure(g_info)
       group.pos[0] += offsetX
       group.pos[1] += offsetY
@@ -2046,7 +2059,7 @@ getSnapToGridSize(): number {
     }
     //cleanup reoute.linkIds now, but leave link.parentIds dangling
     for (const islot of subgraphNode.inputs) {
-      if (islot.link === null || islot.link === undefined) continue
+      if (!islot.link) continue
       const link = this.links.get(islot.link)
       if (!link) {
         console.warn('Broken link', islot, islot.link)
@@ -2087,7 +2100,7 @@ getSnapToGridSize(): number {
           continue
         }
         const outerLinkId = inputSlot.link
-        if (outerLinkId === null || outerLinkId === undefined) {
+        if (!outerLinkId) {
           console.error('Missing Link ID when unpacking')
           continue
         }
@@ -2101,7 +2114,7 @@ getSnapToGridSize(): number {
         externalParentId = outerLink.parentId
       } else {
         const origin_id = nodeIdMap.get(link.origin_id)
-        if (origin_id === undefined) {
+        if (!origin_id) {
           console.error('Missing Link ID when unpacking')
           continue
         }
@@ -2134,7 +2147,7 @@ getSnapToGridSize(): number {
         continue
       } else {
         const target_id = nodeIdMap.get(link.target_id)
-        if (target_id === undefined) {
+        if (!target_id) {
           console.error('Missing Link ID when unpacking')
           continue
         }
@@ -2157,7 +2170,7 @@ getSnapToGridSize(): number {
     // disconnect/reconnect cycles on widget inputs that can shift slot indices.
     const seenLinks = new Set<string>()
     const dedupedNewLinks = newLinks.filter((link) => {
-      const key = `${toString(link.oid)}\0${toString(link.oslot)}\0${toString(link.tid)}\0${toString(link.tslot)}`
+      const key = `${link.oid}\0${link.oslot}\0${link.tid}\0${link.tslot}`
       if (seenLinks.has(key)) return false
       seenLinks.add(key)
       return true
@@ -2166,7 +2179,7 @@ getSnapToGridSize(): number {
     const linkIdMap = new Map<LinkId, LinkId[]>()
     for (const newLink of dedupedNewLinks) {
       let created: LLink | null | undefined
-      if (newLink.oid === SUBGRAPH_INPUT_ID) {
+      if (newLink.oid == SUBGRAPH_INPUT_ID) {
         if (!(this instanceof Subgraph)) {
           console.error('Ignoring link to subgraph outside subgraph')
           continue
@@ -2183,7 +2196,7 @@ getSnapToGridSize(): number {
           continue
         }
         created = slot.connect(inputSlot, tnode)
-      } else if (newLink.tid === SUBGRAPH_OUTPUT_ID) {
+      } else if (newLink.tid == SUBGRAPH_OUTPUT_ID) {
         if (!(this instanceof Subgraph)) {
           console.error('Ignoring link to subgraph outside subgraph')
           continue
@@ -2252,7 +2265,7 @@ getSnapToGridSize(): number {
       if (newLink.externalFirst) {
         parentId = newLink.eparent
         //TODO: recursion check/helper method? Probably exists, but wouldn't mesh with the reference tracking used by this implementation
-        while (parentId !== undefined) {
+        while (parentId) {
           instance.parentId = parentId
           instance = this.reroutes.get(parentId)
           if (!instance) {
@@ -2267,9 +2280,9 @@ getSnapToGridSize(): number {
       }
       if (!instance) continue
       parentId = newLink.iparent
-      while (parentId !== undefined) {
+      while (parentId) {
         const migratedId = rerouteIdMap.get(parentId)
-        if (migratedId === undefined) {
+        if (!migratedId) {
           console.error('Broken Id link when unpacking')
           break
         }
@@ -2292,7 +2305,7 @@ getSnapToGridSize(): number {
       if (!instance) break
       if (!newLink.externalFirst) {
         parentId = newLink.eparent
-        while (parentId !== undefined) {
+        while (parentId) {
           instance.parentId = parentId
           instance = this.reroutes.get(parentId)
           if (!instance) {
@@ -2314,7 +2327,7 @@ getSnapToGridSize(): number {
       node.arrange()
     }
 
-    this.canvasAction((c) => { c.selectItems(toSelect); })
+    this.canvasAction((c) => c.selectItems(toSelect))
   }
 
   /**
@@ -2331,11 +2344,11 @@ getSnapToGridSize(): number {
       const node: LGraphNode | null = currentGraph.getNodeById(nodeId)
       if (!node)
         throw new Error(
-          `Node [${toString(nodeId)}] not found.  ID Path: ${nodeIds.map(toString).join(':')}`
+          `Node [${nodeId}] not found.  ID Path: ${nodeIds.join(':')}`
         )
       if (!node.isSubgraphNode())
         throw new Error(
-          `Node [${toString(nodeId)}] is not a SubgraphNode.  ID Path: ${nodeIds.map(toString).join(':')}`
+          `Node [${nodeId}] is not a SubgraphNode.  ID Path: ${nodeIds.join(':')}`
         )
 
       result.push(node)
@@ -2362,17 +2375,16 @@ getSnapToGridSize(): number {
     } = this.asSerialisable(option)
     const extra = { ...this.extra }
     const linkArray = [...this._links.values()]
-    const links = linkArray.map((x) => x.asSerialisable())
+    const links = linkArray.map((x) => x.serialize())
 
-    const reroutesArray = reroutes
-    if (reroutesArray && reroutesArray.length > 0) {
+    if (reroutes?.length) {
       // Link parent IDs cannot go in 0.4 schema arrays
       extra.linkExtensions = linkArray
         .filter((x) => x.parentId !== undefined)
         .map((x) => ({ id: x.id, parentId: x.parentId }))
     }
 
-    extra.reroutes = (reroutesArray && reroutesArray.length > 0) ? reroutesArray : undefined
+    extra.reroutes = reroutes?.length ? reroutes : undefined
     return {
       id: this.id,
       revision: this.revision,
@@ -2418,11 +2430,11 @@ getSnapToGridSize(): number {
     Required<Pick<SerialisableGraph, 'nodes' | 'groups' | 'extra'>> {
     const { id, revision, config, state } = this
 
-  const nodeList =
-       !LiteGraph.use_uuids && options?.sortNodes === true
-         ? // @ts-expect-error: Bypass external type check If LiteGraph.use_uuids is false, ids are numbers.
-           [...this._nodes].sort((a, b) => a.id - b.id)
-         : this._nodes
+    const nodeList =
+      !LiteGraph.use_uuids && options?.sortNodes
+        ? // @ts-expect-error: Bypass external type check If LiteGraph.use_uuids is false, ids are numbers.
+          [...this._nodes].sort((a, b) => a.id - b.id)
+        : this._nodes
 
     const nodes = nodeList.map((node) => node.serialize())
     const groups = this._groups.map((x) => x.serialize())
@@ -2500,13 +2512,14 @@ getSnapToGridSize(): number {
     const layoutMutations = getLayoutMutations()
     const options: LGraphEventMap['configuring'] = {
       data,
-      clearGraph: keep_old !== true
+      clearGraph: !keep_old
     }
     const mayContinue = this.events.dispatch('configuring', options)
     if (!mayContinue) return
 
     try {
       // TODO: Finish typing configure()
+      if (!data) return
       if (options.clearGraph) this.clear()
 
       this._configureBase(data)
@@ -2519,7 +2532,7 @@ getSnapToGridSize(): number {
         // Deprecated - old schema version, links are arrays
         if (Array.isArray(data.links)) {
           for (const linkData of data.links) {
-            const link = LLink.create(linkData)
+            const link = LLink.createFromArray(linkData)
             this._links.set(link.id, link)
           }
         }
@@ -2541,13 +2554,19 @@ getSnapToGridSize(): number {
         // New schema - one version so far, no check required.
 
         // State - use max to prevent ID collisions across root and subgraphs
-        const { lastGroupId, lastLinkId, lastNodeId, lastRerouteId } =
-          data.state
-        const { state } = this
-        state.lastGroupId = Math.max(state.lastGroupId, lastGroupId)
-        state.lastLinkId = Math.max(state.lastLinkId, lastLinkId)
-        state.lastNodeId = Math.max(state.lastNodeId, lastNodeId)
-        state.lastRerouteId = Math.max(state.lastRerouteId, lastRerouteId)
+        if (data.state) {
+          const { lastGroupId, lastLinkId, lastNodeId, lastRerouteId } =
+            data.state
+          const { state } = this
+          if (lastGroupId != null)
+            state.lastGroupId = Math.max(state.lastGroupId, lastGroupId)
+          if (lastLinkId != null)
+            state.lastLinkId = Math.max(state.lastLinkId, lastLinkId)
+          if (lastNodeId != null)
+            state.lastNodeId = Math.max(state.lastNodeId, lastNodeId)
+          if (lastRerouteId != null)
+            state.lastRerouteId = Math.max(state.lastRerouteId, lastRerouteId)
+        }
 
         // Links
         if (Array.isArray(data.links)) {
@@ -2574,11 +2593,7 @@ getSnapToGridSize(): number {
         if (LGraph.ConfigureProperties.has(i)) continue
 
         // @ts-expect-error: Bypass external type check #574 Legacy property assignment
-        const value = data[i as keyof typeof data]
-        if (value !== undefined) {
-          // @ts-expect-error: Bypass external type check #574 Legacy property assignment
-          this[i] = value
-        }
+        this[i] = data[i]
       }
 
       // Subgraph definitions — deduplicate node IDs before configuring.
@@ -2630,7 +2645,7 @@ getSnapToGridSize(): number {
       if (effectiveNodesData) {
         for (const n_info of effectiveNodesData) {
           // stored info
-          let node = LiteGraph.createNode(n_info.type, n_info.title)
+          let node = LiteGraph.createNode(String(n_info.type), n_info.title)
           if (!node) {
             if (LiteGraph.debug)
               console.warn('Node not found or has errors:', n_info.type)
@@ -2646,7 +2661,7 @@ getSnapToGridSize(): number {
           // id it or it will create a new id
           node.id = n_info.id
           // add before configure, otherwise configure cannot create links
-          this.add(node, { skipComputeOrder: true })
+          this.add(node, true)
           nodeDataMap.set(node.id, n_info)
         }
 
@@ -2655,7 +2670,7 @@ getSnapToGridSize(): number {
           const node = this.getNodeById(id)
           node?.configure(nodeData)
 
-          if (LiteGraph.alwaysSnapToGrid === true && node !== null) {
+          if (LiteGraph.alwaysSnapToGrid && node) {
             const snapTo = this.getSnapToGridSize()
             if (node.snapToGrid(snapTo)) {
               // snapToGrid mutates the internal _pos array in-place, bypassing the setter
@@ -2711,7 +2726,7 @@ getSnapToGridSize(): number {
 
       for (const node of this._nodes) {
         if (!(node instanceof SubgraphNode)) continue
-        if ('proxyWidgets' in node.properties) {
+        if (node.properties?.proxyWidgets !== undefined) {
           const nodeData = nodeDataMap.get(node.id)
           if (LGraph.proxyWidgetMigrationFlush) {
             LGraph.proxyWidgetMigrationFlush(node, nodeData)
@@ -2734,7 +2749,7 @@ getSnapToGridSize(): number {
       // Ensure the primary canvas is set to the correct graph
       const { primaryCanvas } = this
       const subgraphId = primaryCanvas?.subgraph?.id
-      if (subgraphId !== undefined) {
+      if (subgraphId) {
         const subgraph = this.subgraphs.get(subgraphId)
         if (subgraph) {
           primaryCanvas.setGraph(subgraph)
@@ -2772,18 +2787,18 @@ getSnapToGridSize(): number {
           const oldId = node.id
           while (usedNodeIds.has(++state.lastNodeId));
           const newId = state.lastNodeId
-          graph._nodes_by_id[String(oldId)] = undefined as never
+          delete graph._nodes_by_id[oldId]
           node.id = newId
           graph._nodes_by_id[newId] = node
           usedNodeIds.add(newId)
           remappedIds.set(oldId, newId)
           console.warn(
-            `LiteGraph: duplicate node ID ${toString(oldId)} reassigned to ${toString(newId)} in graph ${graph.id}`
+            `LiteGraph: duplicate node ID ${oldId} reassigned to ${newId} in graph ${graph.id}`
           )
         } else {
-          usedNodeIds.add(node.id)
-          if ((node.id) > state.lastNodeId)
-            state.lastNodeId = node.id
+          usedNodeIds.add(node.id as number)
+          if ((node.id as number) > state.lastNodeId)
+            state.lastNodeId = node.id as number
         }
       }
 
@@ -2799,19 +2814,19 @@ getSnapToGridSize(): number {
     return this.rootGraph._canvas
   }
 
-  set primaryCanvas(canvas: LGraphCanvas | undefined) {
+  set primaryCanvas(canvas: LGraphCanvas) {
     this.rootGraph._canvas = canvas
   }
 
-  load(url: string | Blob | URL | File, callback: () => void): void {
+  load(url: string | Blob | URL | File, callback: () => void) {
     // from file
     if (url instanceof Blob || url instanceof File) {
       const reader = new FileReader()
       reader.addEventListener('load', (event) => {
-        const result = event.target?.result !== null && event.target?.result !== undefined ? toString(event.target.result) : ''
-        const data = JSON.parse(result) as SerialisableGraph | ISerialisedGraph
+        const result = toString(event.target?.result)
+        const data = JSON.parse(result)
         this.configure(data)
-        callback()
+        callback?.()
       })
 
       reader.readAsText(url)
@@ -2827,9 +2842,9 @@ getSnapToGridSize(): number {
         console.error('Error loading graph:', req.status, req.response)
         return
       }
-      const data = JSON.parse(req.response as string) as SerialisableGraph | ISerialisedGraph
+      const data = JSON.parse(req.response)
       this.configure(data)
-      callback()
+      callback?.()
     })
     req.addEventListener('error', (err) => {
       console.error('Error loading graph:', err)
@@ -2857,7 +2872,7 @@ export class Subgraph
   static MAX_NESTED_SUBGRAPHS = 1000
 
   /** The display name of the subgraph. */
-  name = 'Unnamed Subgraph'
+  name: string = 'Unnamed Subgraph'
   /** Optional description shown as tooltip when hovering over the subgraph node. */
   description?: string | undefined
 
@@ -2885,6 +2900,8 @@ export class Subgraph
   }
 
   constructor(rootGraph: LGraph, data: ExportedSubgraph) {
+    if (!rootGraph) throw new Error('Root graph is required')
+
     super()
 
     this._rootGraph = rootGraph
@@ -3008,6 +3025,10 @@ export class Subgraph
   }
 
   addInput(name: string, type: string): SubgraphInput {
+    if (name === null || type === null) {
+      throw new Error('Name and type are required for subgraph input')
+    }
+
     this.events.dispatch('adding-input', { name, type })
 
     const input = new SubgraphInput(
@@ -3026,6 +3047,10 @@ export class Subgraph
   }
 
   addOutput(name: string, type: string): SubgraphOutput {
+    if (name === null || type === null) {
+      throw new Error('Name and type are required for subgraph output')
+    }
+
     this.events.dispatch('adding-output', { name, type })
 
     const output = new SubgraphOutput(
@@ -3146,7 +3171,7 @@ export class Subgraph
    * Clones the subgraph, creating an identical copy with a new ID.
    * @returns A new subgraph with the same configuration, but a new ID.
    */
-  clone(keepId = false): Subgraph {
+  clone(keepId: boolean = false): Subgraph {
     const exported = this.asSerialisable()
     if (!keepId) exported.id = createUuidv4()
 
@@ -3164,7 +3189,7 @@ export class Subgraph
       revision: this.revision,
       config: this.config,
       name: this.name,
-      ...(this.description !== undefined ? { description: this.description } : {}),
+      ...(this.description && { description: this.description }),
       inputNode: this.inputNode.asSerialisable(),
       outputNode: this.outputNode.asSerialisable(),
       inputs: this.inputs.map((x) => x.asSerialisable()),

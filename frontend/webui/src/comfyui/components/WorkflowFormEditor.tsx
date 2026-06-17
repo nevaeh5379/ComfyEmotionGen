@@ -12,12 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { ComfyWorkflow, NodeInputValue } from "../../lib/workflow"
+import type { ComfyWorkflow } from "../../lib/workflow"
 import type { ObjectInfo, ObjectInfoInputSpec } from "../types/renderTypes"
 import type { WorkerView } from "../types/Message"
-
-type PrimitiveValue = string | number | boolean
-type WorkflowInputValue = PrimitiveValue | PrimitiveValue[] | null | undefined
 import { useBackendUrl } from "../hooks/useBackendUrl"
 import { WorkflowInput } from "./WorkflowInput"
 
@@ -58,7 +55,7 @@ const getInputTypeLabel = (
   const spec = getNodeInputSpec(objectInfo, parsedWorkflowData, nodeId, inputKey)
   if (!spec) return ""
   if (Array.isArray(spec[0])) return "COMBO"
-  return spec[0]
+  return String(spec[0])
 }
 
 const isLink = (val: StrictJSONValue): boolean => {
@@ -70,25 +67,6 @@ const isLink = (val: StrictJSONValue): boolean => {
   )
 }
 
-const toWorkflowInputValue = (
-  val: NodeInputValue
-): WorkflowInputValue | string => {
-  if (val === null) return null
-  if (typeof val === "string") return val
-  if (typeof val === "number") return val
-  if (typeof val === "boolean") return val
-  if (Array.isArray(val)) {
-    return val.map((item) => {
-      if (typeof item === "string") return item
-      if (typeof item === "number") return item
-      if (typeof item === "boolean") return item
-      if (Array.isArray(item) && item.length === 2) return JSON.stringify(item)
-      return JSON.stringify(item)
-    })
-  }
-  return JSON.stringify(val)
-}
-
 export function WorkflowFormEditor({
   workflowJson,
   onChangeWorkflowJson,
@@ -97,7 +75,7 @@ export function WorkflowFormEditor({
   onBackToCode,
   workers,
   setObjectInfo,
-}: WorkflowFormEditorProps): JSX.Element {
+}: WorkflowFormEditorProps) {
   const backendUrl = useBackendUrl()
   const [searchQuery, setSearchQuery] = useState("")
   const [hideReadOnly, setHideReadOnly] = useState(true)
@@ -110,12 +88,11 @@ export function WorkflowFormEditor({
   const hasAliveWorker = useMemo(() => workers.some((w) => w.alive), [workers])
 
   // Handle value editing
-  const handleValueChange = (nodeId: string, inputKey: string, newValue: StrictJSONValue): void => {
+  const handleValueChange = (nodeId: string, inputKey: string, newValue: StrictJSONValue) => {
     try {
-      const parsed = JSON.parse(workflowJson) as ComfyWorkflow
-      const node = parsed[nodeId]
-      if (node?.inputs) {
-        node.inputs[inputKey] = newValue
+      const parsed = JSON.parse(workflowJson)
+      if (parsed[nodeId] && parsed[nodeId].inputs) {
+        parsed[nodeId].inputs[inputKey] = newValue
         onChangeWorkflowJson(JSON.stringify(parsed, null, 2))
       }
     } catch (err) {
@@ -124,7 +101,7 @@ export function WorkflowFormEditor({
   }
 
   // Fetch object_info for a specific worker
-  const handleWorkerChange = async (workerId: string): Promise<void> => {
+  const handleWorkerChange = async (workerId: string) => {
     setSelectedWorkerId(workerId)
     setIsFetchingInfo(true)
     try {
@@ -135,7 +112,7 @@ export function WorkflowFormEditor({
 
       const res = await fetch(url)
       if (res.ok) {
-        const data = await res.json() as ObjectInfo
+        const data = await res.json()
         setObjectInfo(data)
       } else {
         console.error("Failed to fetch object_info:", res.statusText)
@@ -150,9 +127,9 @@ export function WorkflowFormEditor({
   // Filter nodes based on search query and read-only preference
   const filteredNodes = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
-    return Object.entries(parsedWorkflowData ?? {}).filter(([nodeId, node]) => {
+    return Object.entries(parsedWorkflowData || {}).filter(([nodeId, node]) => {
       // Find editable inputs (excluding links)
-      const literalInputs = Object.entries(node.inputs).filter(
+      const literalInputs = Object.entries(node.inputs || {}).filter(
         ([_, val]) => !isLink(val)
       )
 
@@ -162,9 +139,9 @@ export function WorkflowFormEditor({
       }
 
       // Apply search query filter
-      if (q.length > 0) {
-        const title = (node._meta?.title ?? "").toLowerCase()
-        const classType = node.class_type.toLowerCase()
+      if (q !== "") {
+        const title = (node._meta?.title || "").toLowerCase()
+        const classType = (node.class_type || "").toLowerCase()
         const matchesQuery =
           nodeId.includes(q) || title.includes(q) || classType.includes(q)
         if (!matchesQuery) return false
@@ -177,12 +154,12 @@ export function WorkflowFormEditor({
   // Auto-fallback to select the first node in filtered list if selection is invalid or null
   const activeNodeId = useMemo(() => {
     if (
-      selectedNodeId !== null &&
+      selectedNodeId &&
       filteredNodes.some(([id]) => id === selectedNodeId)
     ) {
       return selectedNodeId
     }
-    return filteredNodes.length > 0 ? filteredNodes[0][0] : null
+    return filteredNodes.length > 0 && filteredNodes[0] ? filteredNodes[0][0] : null
   }, [selectedNodeId, filteredNodes])
 
 
@@ -217,12 +194,12 @@ export function WorkflowFormEditor({
               type="text"
               placeholder="노드 이름, 타입, ID 검색..."
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-8 h-9 text-xs"
             />
             {searchQuery && (
               <button
-                onClick={() => { setSearchQuery(""); }}
+                onClick={() => setSearchQuery("")}
                 className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -239,7 +216,7 @@ export function WorkflowFormEditor({
                 </Label>
                 <Select
                   value={selectedWorkerId}
-                  onValueChange={(workerId) => { void handleWorkerChange(workerId); }}
+                  onValueChange={handleWorkerChange}
                 >
                   <SelectTrigger id="worker-select" className="h-8 w-36 text-[10px] bg-background shadow-xs">
                     <SelectValue placeholder="자동 선택..." />
@@ -295,7 +272,7 @@ export function WorkflowFormEditor({
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {filteredNodes.length > 0 ? (
               filteredNodes.map(([nodeId, node]) => {
-                const allInputs = Object.entries(node.inputs)
+                const allInputs = Object.entries(node.inputs || {})
                 const literalInputs = allInputs.filter(([_, val]) => !isLink(val))
                 const editCount = literalInputs.length
                 const isActive = activeNodeId === nodeId
@@ -303,7 +280,7 @@ export function WorkflowFormEditor({
                 return (
                   <button
                     key={nodeId}
-                    onClick={() => { setSelectedNodeId(nodeId); }}
+                    onClick={() => setSelectedNodeId(nodeId)}
                     className={cn(
                       "w-full flex items-center justify-between text-left px-3 py-2.5 rounded-lg text-xs transition-all border border-transparent select-none cursor-pointer",
                       isActive
@@ -313,7 +290,7 @@ export function WorkflowFormEditor({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-semibold leading-tight">
-                        {node._meta?.title ?? node.class_type}
+                        {node._meta?.title || node.class_type}
                       </div>
                       <div className="text-[10px] text-muted-foreground/60 font-mono mt-1">
                         #{nodeId} · {node.class_type}
@@ -344,10 +321,10 @@ export function WorkflowFormEditor({
 
         {/* Right Panel: Selected Node Inputs Form */}
         <div className="flex-1 flex flex-col min-h-0 bg-card overflow-y-auto">
-          {activeNodeId !== null && parsedWorkflowData[activeNodeId] ? (
-            (function renderForm(): JSX.Element {
+          {activeNodeId && parsedWorkflowData[activeNodeId] ? (
+            (() => {
               const node = parsedWorkflowData[activeNodeId]
-              const allInputs = Object.entries(node.inputs)
+              const allInputs = Object.entries(node.inputs || {})
               const literalInputs = allInputs.filter(([_, val]) => !isLink(val))
               const linkInputs = allInputs.filter(([_, val]) => isLink(val))
 
@@ -357,7 +334,7 @@ export function WorkflowFormEditor({
                   <div className="border-b border-line pb-3 flex justify-between items-center">
                     <div>
                       <h3 className="text-xs font-black text-foreground">
-                        {node._meta?.title ?? node.class_type}
+                        {node._meta?.title || node.class_type}
                       </h3>
                       <p className="text-[10px] text-muted-foreground mt-1 font-mono">
                         Node ID: {activeNodeId} · Class Type: {node.class_type}
@@ -398,7 +375,7 @@ export function WorkflowFormEditor({
                           <WorkflowInput
                             nodeId={activeNodeId}
                             inputKey={inputKey}
-                            value={toWorkflowInputValue(val)}
+                            value={val as any}
                             spec={getNodeInputSpec(
                               objectInfo,
                               parsedWorkflowData,
@@ -406,7 +383,7 @@ export function WorkflowFormEditor({
                               inputKey
                             )}
                             onSave={(newVal) =>
-                              { handleValueChange(activeNodeId, inputKey, newVal); }
+                              handleValueChange(activeNodeId, inputKey, newVal)
                             }
                           />
                         </div>
@@ -426,9 +403,9 @@ export function WorkflowFormEditor({
                           const targetId = linkTuple[0]
                           const targetNode = parsedWorkflowData[targetId]
                           const targetTitle =
-                             targetNode?._meta?.title ??
-                             targetNode?.class_type ??
-                             "Unknown"
+                            targetNode?._meta?.title ||
+                            targetNode?.class_type ||
+                            "Unknown"
 
                           return (
                             <div

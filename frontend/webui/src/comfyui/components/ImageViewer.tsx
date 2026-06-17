@@ -402,9 +402,9 @@ export function ImageViewer({
   /* ---- 6. Effects ---- */
   useEffect(() => {
     const onResize = () =>
-      { setWinSize({ w: window.innerWidth, h: window.innerHeight }); }
+      setWinSize({ w: window.innerWidth, h: window.innerHeight })
     window.addEventListener("resize", onResize)
-    return () => { window.removeEventListener("resize", onResize); }
+    return () => window.removeEventListener("resize", onResize)
   }, [])
 
   /* lock body scroll when open */
@@ -448,7 +448,7 @@ export function ImageViewer({
         draggingRef.current = false
         shiftSelectRef.current = false
       }
-      return () => { clearTimeout(timer); }
+      return () => clearTimeout(timer)
     }
     return undefined
   }, [isOpen, setZoomAndRef, setPanAndRef])
@@ -523,11 +523,11 @@ export function ImageViewer({
         }
         onClose()
       }}
-      onWheel={(e) => { e.preventDefault(); }}
+      onWheel={(e) => e.preventDefault()}
     >
       <div
         className="relative flex max-h-[92vh] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-white/10 bg-black shadow-2xl"
-        onClick={(e) => { e.stopPropagation(); }}
+        onClick={(e) => e.stopPropagation()}
       >
         <button
           className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-bad"
@@ -557,8 +557,8 @@ export function ImageViewer({
           })()}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
-          onMouseEnter={() => { setShowLens(true); }}
-          onMouseLeave={() => { setShowLens(false); }}
+          onMouseEnter={() => setShowLens(true)}
+          onMouseLeave={() => setShowLens(false)}
           onContextMenu={handleContextMenu}
           onWheel={handleWheel}
         >
@@ -574,7 +574,7 @@ export function ImageViewer({
                 opacity: imgStatus === "loaded" ? 1 : 0,
               }}
               draggable={false}
-              onDragStart={(e) => { e.preventDefault(); }}
+              onDragStart={(e) => e.preventDefault()}
               onLoad={(e) => {
                 const img = e.currentTarget
                 setImgNaturalAndRef({
@@ -583,7 +583,7 @@ export function ImageViewer({
                 })
                 setImgStatus("loaded")
               }}
-              onError={() => { setImgStatus("error"); }}
+              onError={() => setImgStatus("error")}
             />
             {imgStatus !== "loaded" && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/40 text-white/70">
@@ -645,7 +645,7 @@ export function ImageViewer({
                         : "text-white/40 hover:text-white/60"
                     }`}
                     aria-label={lensEnabled ? "돋보기 끄기" : "돋보기 켜기"}
-                    onMouseDown={(e) => { e.stopPropagation(); }}
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
                       setLensEnabled(!lensEnabled)
@@ -656,7 +656,7 @@ export function ImageViewer({
                   <button
                     className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-xs font-bold text-white/60 backdrop-blur-sm hover:text-white/90"
                     aria-label="돋보기 설정"
-                    onMouseDown={(e) => { e.stopPropagation(); }}
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
                       setShowLensSettings(true)
@@ -669,8 +669,8 @@ export function ImageViewer({
               {showLensSettings && (
                 <div
                   className="flex flex-col gap-2 rounded bg-black/70 px-3 py-2 text-xs font-bold text-white/80 backdrop-blur-sm"
-                  onMouseDown={(e) => { e.stopPropagation(); }}
-                  onClick={(e) => { e.stopPropagation(); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center gap-2">
                     <span className="w-8">크기</span>
@@ -681,7 +681,7 @@ export function ImageViewer({
                       max={300}
                       value={lensSize}
                       onChange={(e) =>
-                        { setLensSizeAndRef(Number(e.target.value)); }
+                        setLensSizeAndRef(Number(e.target.value))
                       }
                       className="h-1 w-20 accent-info"
                     />
@@ -700,7 +700,7 @@ export function ImageViewer({
                       step={0.5}
                       value={lensZoom}
                       onChange={(e) =>
-                        { setLensZoomAndRef(Number(e.target.value)); }
+                        setLensZoomAndRef(Number(e.target.value))
                       }
                       className="h-1 w-20 accent-info"
                     />
@@ -714,14 +714,14 @@ export function ImageViewer({
                     <button
                       className={`rounded px-2 py-0.5 ${lensShape === "circle" ? "bg-info text-white" : "bg-white/10 text-white/50"}`}
                       aria-label="원형 렌즈"
-                      onClick={() => { setLensShape("circle"); }}
+                      onClick={() => setLensShape("circle")}
                     >
                       ⭕
                     </button>
                     <button
                       className={`rounded px-2 py-0.5 ${lensShape === "square" ? "bg-info text-white" : "bg-white/10 text-white/50"}`}
                       aria-label="사각형 렌즈"
-                      onClick={() => { setLensShape("square"); }}
+                      onClick={() => setLensShape("square")}
                     >
                       ⬜
                     </button>
@@ -729,7 +729,7 @@ export function ImageViewer({
                   <button
                     className="self-end text-xs text-white/40 hover:text-white/80"
                     aria-label="설정 닫기"
-                    onClick={() => { setShowLensSettings(false); }}
+                    onClick={() => setShowLensSettings(false)}
                   >
                     닫기
                   </button>

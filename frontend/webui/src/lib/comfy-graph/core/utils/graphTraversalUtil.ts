@@ -6,7 +6,7 @@ export function forEachNode(
   graph: LGraph,
   callback: (node: LGraphNode) => void
 ): void {
-  if (!graph?._nodes) return
+  if (!graph || !graph._nodes) return
   
   for (const node of graph._nodes) {
     callback(node)
@@ -14,7 +14,7 @@ export function forEachNode(
       node.isSubgraphNode &&
       node.isSubgraphNode()
     ) {
-      const subgraphNode = node
+      const subgraphNode = node as SubgraphNode
       if (subgraphNode.subgraph) {
         forEachNode(subgraphNode.subgraph, callback)
       }

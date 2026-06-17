@@ -26,7 +26,7 @@ export type ExecutableLGraphNode = Omit<
  * The end result of resolving a DTO input.
  * When a widget value is returned, {@link widgetInfo} is present and {@link origin_slot} is `-1`.
  */
-interface ResolvedInput {
+type ResolvedInput = {
   /** DTO for the node that the link originates from. */
   node: ExecutableLGraphNode
   /** Full unique execution ID of the node that the link originates from. In the case of a widget value, this is the ID of the subgraph node. */

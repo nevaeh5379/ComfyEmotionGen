@@ -128,10 +128,8 @@ function buildPageList(current: number, totalPages: number): (number | "…")[] 
   const sorted = Array.from(pages).sort((a, b) => a - b)
   const out: (number | "…")[] = []
   for (let i = 0; i < sorted.length; i++) {
-    const current = sorted[i]
-    out.push(current)
-    const next = sorted[i + 1]
-    if (next !== undefined && next - current > 1) out.push("…")
+    out.push(sorted[i]!)
+    if (i < sorted.length - 1 && sorted[i + 1]! - sorted[i]! > 1) out.push("…")
   }
   return out
 }
@@ -219,42 +217,38 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // 그룹 접기/펴기 상태
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const toggleGroupCollapse = (name: string): void => {
+  const toggleGroupCollapse = (name: string) =>
     setCollapsedGroups((prev) =>
       prev.has(name)
         ? new Set([...prev].filter((a) => a !== name))
         : new Set([...prev, name])
     )
-  }
-  const collapseAll = (): void => {
+  const collapseAll = () =>
     setCollapsedGroups(new Set(groups.map((g) => g.filename)))
-  }
-  const expandAll = (): void => {
-    setCollapsedGroups(new Set())
-  }
+  const expandAll = () => setCollapsedGroups(new Set())
 
   // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
-  const setStatusFilter = (v: CurationStatus | "all"): void => {
+  const setStatusFilter = (v: CurationStatus | "all") => {
     setStatusFilterState(v)
     setPage(1)
     setGroupPage(1)
   }
-  const setFilenameFilter = (v: string): void => {
+  const setFilenameFilter = (v: string) => {
     setFilenameFilterState(v)
     setPage(1)
     setGroupPage(1)
   }
-  const setTagFilter = (v: string): void => {
+  const setTagFilter = (v: string) => {
     setTagFilterState(v)
     setPage(1)
     setGroupPage(1)
   }
-  const setMetadataFilter = (v: string): void => {
+  const setMetadataFilter = (v: string) => {
     setMetadataFilterState(v)
     setPage(1)
     setGroupPage(1)
   }
-  const setGroupMode = (v: boolean): void => {
+  const setGroupMode = (v: boolean) => {
     setGroupModeState(v)
     setGroupPage(1)
   }
@@ -281,7 +275,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // Dynamic token extractor
   const getTokens = useCallback((img: SavedImage): string[] => {
-    return img.tags
+    return img.tags && Array.isArray(img.tags) ? img.tags : []
   }, [])
 
   // 핀 고정 + 뷰 모드
@@ -304,7 +298,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const cleanupListenersRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
-    return (): void => {
+    return () => {
       cleanupListenersRef.current?.()
     }
   }, [])
@@ -335,7 +329,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
       const scrollContainer = target.closest(
         ".overflow-y-auto"
-      )
+      ) as HTMLElement | null
       scrollContainerRef.current = scrollContainer
       if (scrollContainer) {
         initialScrollPosRef.current = {
@@ -357,7 +351,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // Cache the bounding rects of all selectable cards to avoid layout thrashing in mousemove
       const cardElements = document.querySelectorAll('[data-selectable="true"]')
       cachedCardsRef.current = Array.from(cardElements).map((el) => ({
-        hash: el.getAttribute("data-image-hash") ?? "",
+        hash: el.getAttribute("data-image-hash") || "",
         rect: el.getBoundingClientRect(),
       }))
 
@@ -369,7 +363,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // Clean up any stray listeners
       cleanupListenersRef.current?.()
 
-      const handleMouseMove = (ev: MouseEvent): void => {
+      const handleMouseMove = (ev: MouseEvent) => {
         const start = dragStartRef.current
         if (!start) return
 
@@ -380,10 +374,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
         // 1. Direct DOM manipulation for marquee box (Zero React renders during dragging!)
         if (marqueeRef.current) {
-          marqueeRef.current.style.left = String(left) + "px"
-          marqueeRef.current.style.top = String(top) + "px"
-          marqueeRef.current.style.width = String(right - left) + "px"
-          marqueeRef.current.style.height = String(bottom - top) + "px"
+          marqueeRef.current.style.left = `${left}px`
+          marqueeRef.current.style.top = `${top}px`
+          marqueeRef.current.style.width = `${right - left}px`
+          marqueeRef.current.style.height = `${bottom - top}px`
           marqueeRef.current.style.display = "block"
         }
 
@@ -445,7 +439,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         }
       }
 
-      const handleMouseUp = (): void => {
+      const handleMouseUp = () => {
         cleanup()
 
         if (marqueeRef.current) {
@@ -464,7 +458,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         })
       }
 
-      const cleanup = (): void => {
+      const cleanup = () => {
         window.removeEventListener("mousemove", handleMouseMove)
         window.removeEventListener("mouseup", handleMouseUp)
         cleanupListenersRef.current = null
@@ -484,11 +478,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     toolbarState?.setThumbnailSize ?? setLocalThumbnailSize
 
   const effectiveFilenameFilter =
-    filenameFilter ?? localFilenameFilter
+    filenameFilter !== undefined ? filenameFilter : localFilenameFilter
   const effectiveTagFilter =
-    tagFilter ?? localTagFilter
+    tagFilter !== undefined ? tagFilter : localTagFilter
   const effectiveMetadataFilter =
-    metadataFilter ?? localMetadataFilter
+    metadataFilter !== undefined ? metadataFilter : localMetadataFilter
   const effectiveGeneralFilters = useMemo(
     () => generalFilters ?? [],
     [generalFilters]
@@ -552,22 +546,15 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }, [onReloadReady, reload])
 
   const setStatus = useCallback(
-    async (hash: string, status: CurationStatus): Promise<void> => {
+    async (hash: string, status: CurationStatus) => {
       try {
         await curationApi.patchStatus(backendUrl, hash, status)
         reload()
       } catch (err) {
-        void err
+        console.error("setStatus failed", err)
       }
     },
     [backendUrl, reload]
-  )
-
-  const setStatusVoid = useCallback(
-    (hash: string, status: CurationStatus): void => {
-      void setStatus(hash, status)
-    },
-    [setStatus]
   )
 
   // 1. 파일명 필터링 (부분 일치)
@@ -585,6 +572,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     if (!effectiveTagFilter.trim()) return filenameFilteredImages
     const terms = effectiveTagFilter.toLowerCase().trim().split(/\s+/)
     return filenameFilteredImages.filter((img) => {
+      if (!img.tags || !Array.isArray(img.tags)) return false
       return terms.every((term) =>
         img.tags.some((t) => t.toLowerCase().includes(term))
       )
@@ -610,8 +598,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         const inFilename = img.originalFilename
           ? img.originalFilename.toLowerCase().includes(lowerTerm)
           : false
-        const inTags = img.tags.some((t) => t.toLowerCase().includes(lowerTerm))
-        const inPrompt = img.prompt.toLowerCase().includes(lowerTerm)
+        const inTags = img.tags
+          ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm))
+          : false
+        const inPrompt = img.prompt
+          ? img.prompt.toLowerCase().includes(lowerTerm)
+          : false
         return inFilename || inTags || inPrompt
       })
     })
@@ -633,7 +625,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       const tokens = getTokens(img)
       tokens.forEach((token) => {
         if (!breadcrumbTags.includes(token)) {
-          freqMap.set(token, (freqMap.get(token) ?? 0) + 1)
+          freqMap.set(token, (freqMap.get(token) || 0) + 1)
         }
       })
     })
@@ -686,9 +678,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   // 그룹 모드: groups + groupImagesMap 기반 visible 데이터
   const visibleGroups = useMemo(() => {
     if (!effectiveGroupMode) return []
-    const lowerMeta = effectiveMetadataFilter.trim().toLowerCase() || ""
-    const lowerFilename = effectiveFilenameFilter.trim().toLowerCase() || ""
-    const tagTerms = effectiveTagFilter.trim() ? effectiveTagFilter.toLowerCase().trim().split(/\s+/) : []
+    const lowerMeta = effectiveMetadataFilter.trim().toLowerCase() || null
+    const lowerFilename = effectiveFilenameFilter.trim().toLowerCase() || null
+    const tagTerms = effectiveTagFilter.trim() ? effectiveTagFilter.toLowerCase().trim().split(/\s+/) : null
 
     const result: { name: string; items: SavedImage[] }[] = []
     for (const g of groups) {
@@ -702,8 +694,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           img.prompt.toLowerCase().includes(lowerMeta)
         )
       }
-      if (tagTerms.length > 0) {
+      if (tagTerms) {
         items = items.filter((img) => {
+          if (!img.tags || !Array.isArray(img.tags)) return false
           return tagTerms.every((term) =>
             img.tags.some((t) => t.toLowerCase().includes(term))
           )
@@ -716,8 +709,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             const inFilename = img.originalFilename
               ? img.originalFilename.toLowerCase().includes(lowerTerm)
               : false
-            const inTags = img.tags.some((t) => t.toLowerCase().includes(lowerTerm))
-            const inPrompt = img.prompt.toLowerCase().includes(lowerTerm)
+            const inTags = img.tags
+              ? img.tags.some((t) => t.toLowerCase().includes(lowerTerm))
+              : false
+            const inPrompt = img.prompt
+              ? img.prompt.toLowerCase().includes(lowerTerm)
+              : false
             return inFilename || inTags || inPrompt
           })
         })
@@ -855,7 +852,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }, [effectiveGroupMode, flatGroupImages, visibleImages])
 
   useEffect(() => {
-    if (focusedHash !== null && navImages.length > 0) {
+    if (focusedHash && navImages.length > 0) {
       const index = navImages.findIndex((img) => img.hash === focusedHash)
       if (index === -1) {
         // Auto focus the item at the same position or fallback to first
@@ -865,7 +862,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }, [navImages, focusedHash])
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in editable element
       const activeEl = document.activeElement
       if (
@@ -886,7 +883,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         } else if (selectionMode) {
           exitSelectionMode()
           e.preventDefault()
-        } else if (focusedHash !== null) {
+        } else if (focusedHash) {
           setFocusedHash(null)
           e.preventDefault()
         }
@@ -894,7 +891,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       }
 
       // If detail view is open, handle prev/next image navigation on Left/Right keys
-      if (selected !== null) {
+      if (selected) {
         if (e.key === "ArrowLeft" || e.key === "h") {
           e.preventDefault()
           const currentIndex = navImages.findIndex((img) => img.hash === selected.hash)
@@ -961,7 +958,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         (img) => img.hash === focusedHash
       )
 
-      const focusIndex = (index: number): void => {
+      const focusIndex = (index: number) => {
         if (index >= 0 && index < navImages.length) {
           const nextImg = navImages[index]
           if (nextImg) {
@@ -1036,7 +1033,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
       // Enter / Space -> toggle select in selectionMode, otherwise open details
       if (e.key === "Enter" || e.key === " ") {
-        if (focusedHash !== null && currentIndex !== -1) {
+        if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
           if (img) {
@@ -1052,11 +1049,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
       // 1 -> approved
       if (e.key === "1") {
-        if (focusedHash !== null && currentIndex !== -1) {
+        if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
           if (img) {
-            void setStatus(img.hash, "approved")
+            setStatus(img.hash, "approved")
             toast.success("선택된 이미지를 통과시켰습니다.")
           }
         }
@@ -1065,11 +1062,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
       // 2 -> rejected
       if (e.key === "2") {
-        if (focusedHash !== null && currentIndex !== -1) {
+        if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
           if (img) {
-            void setStatus(img.hash, "rejected")
+            setStatus(img.hash, "rejected")
             toast.success("선택된 이미지를 탈락시켰습니다.")
           }
         }
@@ -1078,13 +1075,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
       // 3 -> trashed / restore
       if (e.key === "3") {
-        if (focusedHash !== null && currentIndex !== -1) {
+        if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
           if (img) {
             const targetStatus =
               img.status === "trashed" ? "pending" : "trashed"
-            void setStatus(img.hash, targetStatus)
+            setStatus(img.hash, targetStatus)
             toast.success(
               targetStatus === "trashed"
                 ? "휴지통으로 이동했습니다."
@@ -1097,7 +1094,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
       // p -> pin toggle
       if (e.key === "p") {
-        if (focusedHash !== null && currentIndex !== -1) {
+        if (focusedHash && currentIndex !== -1) {
           e.preventDefault()
           const img = navImages[currentIndex]
           if (img) {
@@ -1113,7 +1110,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return (): void => { window.removeEventListener("keydown", handleKeyDown); }
+    return () => window.removeEventListener("keydown", handleKeyDown)
   }, [
     focusedHash,
     navImages,
@@ -1144,9 +1141,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       }
 
       // 2. 태그 추가
-      img.tags.forEach((tag) => {
-        if (tag.trim()) tokenMap.set(tag.trim(), "tag")
-      })
+      if (img.tags && Array.isArray(img.tags)) {
+        img.tags.forEach((tag) => {
+          if (tag.trim()) tokenMap.set(tag.trim(), "tag")
+        })
+      }
 
       // 3. 프롬프트 단어들 추가 (특수문자 제외)
       if (img.prompt) {
@@ -1193,7 +1192,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // 일괄 상태 변경
   const handleBulkAction = useCallback(
-    async (targetStatus: CurationStatus): Promise<void> => {
+    async (targetStatus: CurationStatus) => {
       if (bulkActionLoading || selectedHashes.size === 0) return
       setBulkActionLoading(true)
       setBulkActionMessage(null)
@@ -1203,13 +1202,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           await curationApi.patchStatus(backendUrl, hash, targetStatus)
           count++
         }
-        setBulkActionMessage(`${String(count)}개 → ${STATUS_LABEL[targetStatus]} 완료`)
+        setBulkActionMessage(`${count}개 → ${STATUS_LABEL[targetStatus]} 완료`)
         exitSelectionMode()
-        setTimeout(() => { setBulkActionMessage(null); }, 3000)
+        setTimeout(() => setBulkActionMessage(null), 3000)
         reload()
       } catch {
         setBulkActionMessage("일괄 작업 실패")
-        setTimeout(() => { setBulkActionMessage(null); }, 3000)
+        setTimeout(() => setBulkActionMessage(null), 3000)
       } finally {
         setBulkActionLoading(false)
       }
@@ -1226,7 +1225,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const confirmRef = useLatestRef(confirm)
 
   // 일괄 자동 태그 생성
-  const handleBulkAutoTag = useCallback(async (): Promise<void> => {
+  const handleBulkAutoTag = useCallback(async () => {
     if (bulkActionLoadingRef.current || selectedHashesRef.current.size === 0) return
     setBulkActionLoading(true)
     setBulkActionMessage("태그 일괄 완성 중...")
@@ -1234,23 +1233,23 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       const hashes = Array.from(selectedHashesRef.current)
       const results = await curationApi.bulkAutoTags(backendUrlRef.current, hashes)
       const successCount = Object.keys(results).length
-      toast.success(`${String(successCount)}개 이미지의 자동 태그가 완성되었습니다.`)
+      toast.success(`${successCount}개 이미지의 자동 태그가 완성되었습니다.`)
       setBulkActionMessage(`태그 일괄 완성 완료`)
       exitSelectionModeRef.current()
-      setTimeout(() => { setBulkActionMessage(null); }, 3000)
+      setTimeout(() => setBulkActionMessage(null), 3000)
       reloadRef.current()
     } catch (err) {
-      void err
+      console.error(err)
       toast.error("일괄 자동 태그 생성에 실패했습니다.")
       setBulkActionMessage("일괄 태그 완성 실패")
-      setTimeout(() => { setBulkActionMessage(null); }, 3000)
+      setTimeout(() => setBulkActionMessage(null), 3000)
     } finally {
       setBulkActionLoading(false)
     }
-  }, [backendUrlRef, bulkActionLoadingRef, exitSelectionModeRef, reloadRef, selectedHashesRef])
+  }, [])
 
   // 태그가 없는 모든 이미지 일괄 자동 태그 생성
-  const handleAutoTagAllEmpty = useCallback(async (): Promise<void> => {
+  const handleAutoTagAllEmpty = useCallback(async () => {
     if (bulkActionLoadingRef.current) return
     if (
       !(await confirmRef.current({
@@ -1268,16 +1267,16 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     try {
       const results = await curationApi.autoTagsAllEmpty(backendUrlRef.current)
       const successCount = Object.keys(results).length
-      toast.success(`${String(successCount)}개 이미지에 자동 태그가 성공적으로 완성되었습니다.`)
+      toast.success(`${successCount}개 이미지에 자동 태그가 성공적으로 완성되었습니다.`)
       reloadRef.current()
     } catch (err) {
-      void err
+      console.error(err)
       toast.error("전체 태그 자동 완성 작업 도중 오류가 발생했습니다.")
     } finally {
       setBulkActionLoading(false)
       setBulkActionMessage(null)
     }
-  }, [backendUrlRef, bulkActionLoadingRef, confirmRef, reloadRef])
+  }, [])
 
   // Build combined image lookup from all available sources
   const imageLookup = useMemo(() => {
@@ -1291,11 +1290,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   const imageLookupRef = useLatestRef(imageLookup)
 
-  const handleBulkDownload = useCallback(async (): Promise<void> => {
+  const handleBulkDownload = useCallback(async () => {
     if (selectedHashesRef.current.size === 0) return
     setBulkDownloadLoading(true)
     try {
-      const downloads: { url: string; filename: string }[] = []
+      const downloads: Array<{ url: string; filename: string }> = []
       for (const hash of selectedHashesRef.current) {
         const img = imageLookupRef.current.get(hash)
         const filename = img ? getImageFilename(img) : `${hash}.png`
@@ -1305,9 +1304,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     } finally {
       setBulkDownloadLoading(false)
     }
-  }, [backendUrlRef, imageLookupRef, selectedHashesRef])
+  }, [])
 
-  const handleEmptyTrash = async (): Promise<void> => {
+  const handleEmptyTrash = async () => {
     if (
       !(await confirm({
         title: "휴지통 비우기",
@@ -1319,10 +1318,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       return
     try {
       const n = await curationApi.emptyTrash(backendUrl)
-      toast.success(`${String(n)}개 영구 삭제됨`)
+      toast.success(`${n}개 영구 삭제됨`)
       reload()
     } catch (err) {
-      void err
+      console.error(err)
       toast.error("삭제 실패")
     }
   }
@@ -1330,7 +1329,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   // 재생성 다이얼로그 상태
   const [regenImages, setRegenImages] = useState<SavedImage[]>([])
 
-  const handleRegenerate = (filename: string): void => {
+  const handleRegenerate = (filename: string) => {
     const images = groupImagesMap.get(filename) ?? []
     setRegenImages(images)
   }
@@ -1451,7 +1450,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   {/* 3. Sort: key select + direction toggle */}
                   <Select
                     value={sortKey}
-                    onValueChange={(k) => { toggleSort(k as GallerySortKey); }}
+                    onValueChange={(k) => toggleSort(k as GallerySortKey)}
                   >
                     <SelectTrigger className="h-8 w-[72px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
                       <SelectValue />
@@ -1480,7 +1479,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => { toggleSort(sortKey); }}
+                    onClick={() => toggleSort(sortKey)}
                     className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
                   >
                     {sortDir === "asc" ? (
@@ -1511,7 +1510,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         step="10"
                         value={thumbnailSize}
                         onChange={(e) =>
-                          { setThumbnailSize(Number(e.target.value)); }
+                          setThumbnailSize(Number(e.target.value))
                         }
                         className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                       />
@@ -1529,7 +1528,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => { void handleAutoTagAllEmpty(); }}
+                        onClick={handleAutoTagAllEmpty}
                         disabled={bulkActionLoading}
                         className="h-8 gap-1 px-2.5 text-xs font-bold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 shadow-none transition-colors"
                       >
@@ -1564,7 +1563,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     size="sm"
                     variant={showFilters ? "secondary" : "outline"}
-                    onClick={() => { setShowFilters(!showFilters); }}
+                    onClick={() => setShowFilters(!showFilters)}
                     className="relative h-8 w-8 p-0"
                   >
                     <FilterIcon className="h-4 w-4" />
@@ -1594,7 +1593,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={() => { void handleEmptyTrash(); }}
+                        onClick={handleEmptyTrash}
                         className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                       >
                         <Trash2Icon className="mr-2 h-3.5 w-3.5" />
@@ -1618,24 +1617,24 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         type="search"
                         placeholder="파일명 필터"
                         value={filenameFilter}
-                        onChange={(e) => { setFilenameFilter(e.target.value); }}
-                        onContextMenu={(e) => { e.stopPropagation(); }}
+                        onChange={(e) => setFilenameFilter(e.target.value)}
+                        onContextMenu={(e) => e.stopPropagation()}
                       />
                       <Input
                         className="h-9 w-full text-sm md:h-7 md:w-36 md:text-xs"
                         type="search"
                         placeholder="태그 필터"
                         value={tagFilter}
-                        onChange={(e) => { setTagFilter(e.target.value); }}
-                        onContextMenu={(e) => { e.stopPropagation(); }}
+                        onChange={(e) => setTagFilter(e.target.value)}
+                        onContextMenu={(e) => e.stopPropagation()}
                       />
                       <Input
                         className="h-9 w-full text-sm sm:col-span-2 md:h-7 md:w-48 md:text-xs"
                         type="search"
                         placeholder="메타데이터/prompt 검색"
                         value={metadataFilter}
-                        onChange={(e) => { setMetadataFilter(e.target.value); }}
-                        onContextMenu={(e) => { e.stopPropagation(); }}
+                        onChange={(e) => setMetadataFilter(e.target.value)}
+                        onContextMenu={(e) => e.stopPropagation()}
                       />
                     </div>
                   </div>
@@ -1647,7 +1646,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       <Checkbox
                         id="hide-rejected"
                         checked={hideRejected}
-                        onCheckedChange={(v) => { setHideRejected(v === true); }}
+                        onCheckedChange={(v) => setHideRejected(v === true)}
                       />
                       <Label
                         htmlFor="hide-rejected"
@@ -1693,7 +1692,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold text-ok"
-                    onClick={() => { void handleBulkAction("approved"); }}
+                    onClick={() => handleBulkAction("approved")}
                     disabled={bulkActionLoading}
                   >
                     <CheckCircleIcon className="h-3.5 w-3.5" />
@@ -1706,7 +1705,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold text-bad"
-                    onClick={() => { void handleBulkAction("rejected"); }}
+                    onClick={() => handleBulkAction("rejected")}
                     disabled={bulkActionLoading}
                   >
                     <XCircleIcon className="h-3.5 w-3.5" />
@@ -1719,7 +1718,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold text-info"
-                    onClick={() => { void handleBulkAction("pending"); }}
+                    onClick={() => handleBulkAction("pending")}
                     disabled={bulkActionLoading}
                   >
                     <RotateCcwIcon className="h-3.5 w-3.5" />
@@ -1734,7 +1733,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold"
-                    onClick={() => { void handleBulkAction("trashed"); }}
+                    onClick={() => handleBulkAction("trashed")}
                     disabled={bulkActionLoading}
                   >
                     <Trash2Icon className="h-3.5 w-3.5" />
@@ -1744,7 +1743,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold"
-                    onClick={() => { void handleBulkDownload(); }}
+                    onClick={handleBulkDownload}
                     disabled={bulkDownloadLoading}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
@@ -1754,7 +1753,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
-                    onClick={() => { void handleBulkAutoTag(); }}
+                    onClick={handleBulkAutoTag}
                     disabled={bulkActionLoading}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
@@ -1771,7 +1770,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <span>선택 종료</span>
                   <Kbd className="ml-1 bg-muted/40">Esc</Kbd>
                 </Button>
-                {bulkActionMessage !== null && (
+                {bulkActionMessage && (
                   <span className="text-xs font-bold text-blue-600">
                     {bulkActionMessage}
                   </span>
@@ -1880,9 +1879,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                                   <ContextMenuSeparator />
                                   <ContextMenuItem
                                     onClick={() => {
-                                      void navigator.clipboard
+                                      navigator.clipboard
                                         .writeText(tag)
-                                        .catch(() => { /* empty */ })
+                                        .catch(() => {})
                                     }}
                                     className="gap-2 font-bold"
                                   >
@@ -1905,7 +1904,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     variant="outline"
                     size="sm"
                     className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
-                    onClick={() => { setTagSortOrder(tagSortOrder === "count" ? "name" : "count"); }}
+                    onClick={() => setTagSortOrder(tagSortOrder === "count" ? "name" : "count")}
                   >
                     <Sliders className="h-3 w-3 text-muted-foreground" />
                     <span>{tagSortOrder === "count" ? "개수순" : "이름순"}</span>
@@ -1916,7 +1915,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     variant={isTagPanelExpanded ? "secondary" : "outline"}
                     size="sm"
                     className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
-                    onClick={() => { setIsTagPanelExpanded(!isTagPanelExpanded); }}
+                    onClick={() => setIsTagPanelExpanded(!isTagPanelExpanded)}
                   >
                     {isTagPanelExpanded ? (
                       <>
@@ -1943,8 +1942,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       type="text"
                       placeholder="폴더(태그) 검색..."
                       value={subTagQuery}
-                      onChange={(e) => { setSubTagQuery(e.target.value); }}
-                      onContextMenu={(e) => { e.stopPropagation(); }}
+                      onChange={(e) => setSubTagQuery(e.target.value)}
+                      onContextMenu={(e) => e.stopPropagation()}
                       className="h-7 w-full rounded-md border border-input bg-transparent pr-2.5 pl-7 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
@@ -1999,9 +1998,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <ContextMenuSeparator />
                             <ContextMenuItem
                               onClick={() => {
-                                void navigator.clipboard
+                                navigator.clipboard
                                   .writeText(token)
-                                  .catch(() => { /* empty */ })
+                                  .catch(() => {})
                               }}
                               className="gap-2 font-bold"
                             >
@@ -2080,9 +2079,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <ContextMenuSeparator />
                             <ContextMenuItem
                               onClick={() => {
-                                void navigator.clipboard
+                                navigator.clipboard
                                   .writeText(token)
-                                  .catch(() => { /* empty */ })
+                                  .catch(() => {})
                               }}
                               className="gap-2 font-bold"
                             >
@@ -2117,7 +2116,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
               )}
             </div>
 
-            {error !== null && (
+            {error && (
               <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
                 {error}
               </div>
@@ -2130,10 +2129,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     key={i}
                     className="m-1 break-inside-avoid overflow-hidden rounded-lg border bg-card"
                   >
-                   <Skeleton
-                       className="w-full"
-                       style={{ height: String(140 + ((i * 47) % 120)) + "px" }}
-                     />
+                    <Skeleton
+                      className="w-full"
+                      style={{ height: `${140 + ((i * 47) % 120)}px` }}
+                    />
                   </div>
                 ))}
               </div>
@@ -2161,7 +2160,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                           <div className="relative cursor-pointer overflow-hidden rounded-lg border bg-black/5 shadow-inner">
                             <button
                               type="button"
-                              onClick={() => { togglePin(hash); }}
+                              onClick={() => togglePin(hash)}
                               className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl transition-colors hover:bg-blue-600"
                             >
                               <PinIcon className="h-5 w-5" />
@@ -2183,40 +2182,40 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         {img && (
                           <ContextMenuContent className="w-48">
                             <ContextMenuItem
-                              onClick={() => { togglePin(hash); }}
+                              onClick={() => togglePin(hash)}
                               className="gap-2 font-bold"
                             >
                               <PinIcon className="h-3.5 w-3.5" />
                               비교에서 제거
                             </ContextMenuItem>
                             <ContextMenuSeparator />
-                           <ContextMenuItem
-                               onClick={() => { void setStatus(hash, "approved"); }}
-                               className="gap-2 font-bold text-ok"
-                               disabled={img.status === "approved"}
-                             >
-                               <CheckCircleIcon className="h-3.5 w-3.5" />
-                               통과
-                             </ContextMenuItem>
-                             <ContextMenuItem
-                               onClick={() => { void setStatus(hash, "rejected"); }}
-                               className="gap-2 font-bold text-bad"
-                               disabled={img.status === "rejected"}
-                             >
-                               <XCircleIcon className="h-3.5 w-3.5" />
-                               탈락
-                             </ContextMenuItem>
-                             <ContextMenuItem
-                               onClick={() => { void setStatus(hash, "pending"); }}
-                               className="gap-2 font-bold text-info"
-                               disabled={img.status === "pending"}
-                             >
-                               <RotateCcwIcon className="h-3.5 w-3.5" />
-                               대기
-                             </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => setStatus(hash, "approved")}
+                              className="gap-2 font-bold text-ok"
+                              disabled={img.status === "approved"}
+                            >
+                              <CheckCircleIcon className="h-3.5 w-3.5" />
+                              통과
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => setStatus(hash, "rejected")}
+                              className="gap-2 font-bold text-bad"
+                              disabled={img.status === "rejected"}
+                            >
+                              <XCircleIcon className="h-3.5 w-3.5" />
+                              탈락
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => setStatus(hash, "pending")}
+                              className="gap-2 font-bold text-info"
+                              disabled={img.status === "pending"}
+                            >
+                              <RotateCcwIcon className="h-3.5 w-3.5" />
+                              대기
+                            </ContextMenuItem>
                             <ContextMenuSeparator />
                             <ContextMenuItem
-                              onClick={() => { setSelected(img); }}
+                              onClick={() => setSelected(img)}
                               className="gap-2 font-bold"
                             >
                               <Eye className="h-3.5 w-3.5" />
@@ -2225,9 +2224,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <ContextMenuItem
                               onClick={() => {
                                 const url = `${backendUrl}/saved-images/${hash}`
-                                void navigator.clipboard
+                                navigator.clipboard
                                   .writeText(url)
-                                  .catch(() => { /* empty */ })
+                                  .catch(() => {})
                               }}
                               className="gap-2 font-bold"
                             >
@@ -2272,11 +2271,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         {/* Collapse toggle */}
                         <button
-                           type="button"
-                           onClick={() => { toggleGroupCollapse(name); }}
-                           className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-transform hover:bg-muted/50 ${isCollapsed ? "rotate-180" : ""}`}
-                           aria-label={isCollapsed ? "펴기" : "접기"}
-                         >
+                          type="button"
+                          onClick={() => toggleGroupCollapse(name)}
+                          className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-transform hover:bg-muted/50 ${isCollapsed && "rotate-180"}`}
+                          aria-label={isCollapsed ? "펴기" : "접기"}
+                        >
                           {isCollapsed ? (
                             <ChevronDown className="h-4 w-4" />
                           ) : (
@@ -2297,7 +2296,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => { handleRegenerate(name); }}
+                              onClick={() => handleRegenerate(name)}
                             >
                               재생성
                             </Button>
@@ -2308,7 +2307,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         <ImageGrid
                           items={items}
                           backendUrl={backendUrl}
-setStatus={setStatusVoid}
+                          setStatus={setStatus}
                           onOpen={setSelected}
                           selectionMode={selectionMode}
                           selectedHashes={selectedHashes}
@@ -2333,47 +2332,48 @@ setStatus={setStatusVoid}
                     <Pagination>
                       <PaginationContent>
                         <PaginationItem>
-                           <PaginationPrevious
-                             onClick={() => {
-                               if (groupPage > 1) setGroupPage(groupPage - 1)
-                             }}
-                             aria-disabled={groupPage <= 1}
-                             className={
-                               groupPage <= 1
-                                 ? "pointer-events-none opacity-50"
-                                 : undefined
-                             }
-                           />
-                         </PaginationItem>
+                          <PaginationPrevious
+                            onClick={() =>
+                              groupPage > 1 && setGroupPage(groupPage - 1)
+                            }
+                            aria-disabled={groupPage <= 1}
+                            className={
+                              groupPage <= 1
+                                ? "pointer-events-none opacity-50"
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
                         {groupPageList.map((p, i) =>
                           p === "…" ? (
-                            <PaginationItem key={"ge-" + String(i)}>
+                            <PaginationItem key={`ge-${i}`}>
                               <PaginationEllipsis />
                             </PaginationItem>
                           ) : (
                             <PaginationItem key={p}>
                               <PaginationLink
                                 isActive={p === groupPage}
-                                onClick={() => { setGroupPage(p); }}
+                                onClick={() => setGroupPage(p)}
                               >
                                 {p}
                               </PaginationLink>
                             </PaginationItem>
                           )
                         )}
-                       <PaginationItem>
-                           <PaginationNext
-                             onClick={() => {
-                               if (groupPage < groupTotalPages) setGroupPage(groupPage + 1)
-                             }}
-                             aria-disabled={groupPage >= groupTotalPages}
-                             className={
-                               groupPage >= groupTotalPages
-                                 ? "pointer-events-none opacity-50"
-                                 : undefined
-                             }
-                           />
-                         </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() =>
+                              groupPage < groupTotalPages &&
+                              setGroupPage(groupPage + 1)
+                            }
+                            aria-disabled={groupPage >= groupTotalPages}
+                            className={
+                              groupPage >= groupTotalPages
+                                ? "pointer-events-none opacity-50"
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
                       </PaginationContent>
                     </Pagination>
                     <p className="text-xs text-muted-foreground">
@@ -2382,8 +2382,9 @@ setStatus={setStatusVoid}
                   </div>
                 )}
               </div>
-          ) : effectiveGalleryViewMode === "grid" ||
-               pinnedHashes.length === 0 ? (
+            ) : effectiveGalleryViewMode === "grid" ||
+              (effectiveGalleryViewMode === "compare" &&
+                pinnedHashes.length === 0) ? (
               <>
                 {effectiveGalleryViewMode === "compare" &&
                   pinnedHashes.length === 0 && (
@@ -2403,7 +2404,7 @@ setStatus={setStatusVoid}
                 <ImageGrid
                   items={paginatedVisibleImages}
                   backendUrl={backendUrl}
-                  setStatus={setStatusVoid}
+                  setStatus={setStatus}
                   onOpen={setSelected}
                   selectionMode={selectionMode}
                   selectedHashes={selectedHashes}
@@ -2428,9 +2429,7 @@ setStatus={setStatusVoid}
                     <PaginationContent>
                       <PaginationItem>
                         <PaginationPrevious
-                          onClick={() => {
-                            if (page > 1) setPage(page - 1)
-                          }}
+                          onClick={() => page > 1 && setPage(page - 1)}
                           aria-disabled={page <= 1}
                           className={
                             page <= 1
@@ -2441,14 +2440,14 @@ setStatus={setStatusVoid}
                       </PaginationItem>
                       {pageList.map((p, i) =>
                         p === "…" ? (
-                          <PaginationItem key={"e-" + String(i)}>
+                          <PaginationItem key={`e-${i}`}>
                             <PaginationEllipsis />
                           </PaginationItem>
                         ) : (
                           <PaginationItem key={p}>
                             <PaginationLink
                               isActive={p === page}
-                              onClick={() => { setPage(p); }}
+                              onClick={() => setPage(p)}
                             >
                               {p}
                             </PaginationLink>
@@ -2457,9 +2456,7 @@ setStatus={setStatusVoid}
                       )}
                       <PaginationItem>
                         <PaginationNext
-                          onClick={() => {
-                            if (page < totalPages) setPage(page + 1)
-                          }}
+                          onClick={() => page < totalPages && setPage(page + 1)}
                           aria-disabled={page >= totalPages}
                           className={
                             page >= totalPages
@@ -2496,7 +2493,7 @@ setStatus={setStatusVoid}
                 key={selected.hash}
                 backendUrl={backendUrl}
                 image={selected}
-                onClose={() => { setSelected(null); }}
+                onClose={() => setSelected(null)}
                 onChanged={reload}
                 singleDownloadMode={singleDownloadMode}
               />
@@ -2522,8 +2519,8 @@ setStatus={setStatusVoid}
                 headers: HEADERS.json,
                 body: JSON.stringify({ items }),
               })
-              if (!res.ok) throw new Error("HTTP " + String(res.status))
-              toast.success(String(items.length) + "개 작업 생성 완료")
+              if (!res.ok) throw new Error(`HTTP ${res.status}`)
+              toast.success(`${items.length}개 작업 생성 완료`)
               setRegenImages([])
             }}
             isLoading={false}
@@ -2590,11 +2587,11 @@ setStatus={setStatusVoid}
         <ContextMenuSeparator />
         {selectionMode && selectedHashes.size > 0 && (
           <>
-          <ContextMenuItem
-               onClick={() => { void handleBulkAutoTag(); }}
-               disabled={bulkActionLoading}
-               className="gap-2 font-bold text-primary"
-             >
+            <ContextMenuItem
+              onClick={handleBulkAutoTag}
+              disabled={bulkActionLoading}
+              className="gap-2 font-bold text-primary"
+            >
               <Sparkles className="h-3.5 w-3.5" />
               선택한 이미지 일괄 자동 태그 ({selectedHashes.size})
             </ContextMenuItem>

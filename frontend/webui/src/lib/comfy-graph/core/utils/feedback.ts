@@ -3,7 +3,7 @@ import { LiteGraph } from '../litegraph'
 
 /** Guard against unbound allocation. */
 const UNIQUE_MESSAGE_LIMIT = 10_000
-const sentWarnings = new Set<string>()
+const sentWarnings: Set<string> = new Set()
 
 /**
  * Warns that a deprecated function has been used via the public

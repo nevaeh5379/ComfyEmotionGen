@@ -12,7 +12,7 @@ export interface SlotPositionContext {
   slotStartY?: number | undefined
   inputs: INodeInputSlot[]
   outputs: INodeOutputSlot[]
-  widgets?: { name?: string | undefined }[] | undefined
+  widgets?: Array<{ name?: string | undefined }> | undefined
 }
 
 interface NodeConstructorWithSlotHeight {
@@ -61,9 +61,9 @@ export function getSlotPosition(
 
   const index = typeof slotIndex === 'number'
     ? slotIndex
-    : (isInput ? node.inputs?.indexOf(slotIndex) : node.outputs?.indexOf(slotIndex))
+    : (isInput ? node.inputs?.indexOf(slotIndex as INodeInputSlot) : node.outputs?.indexOf(slotIndex as INodeOutputSlot))
 
-  if (slot?.pos) {
+  if (slot && slot.pos) {
     return [node.pos[0] + slot.pos[0], node.pos[1] + slot.pos[1]]
   }
 

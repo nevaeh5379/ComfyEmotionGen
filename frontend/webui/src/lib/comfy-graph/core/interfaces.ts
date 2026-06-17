@@ -17,7 +17,7 @@ import type {
 } from './types/globalEnums'
 import type { IBaseWidget } from './types/widgets'
 
-export type Dictionary<T> = Record<string, T>;
+export type Dictionary<T> = { [key: string]: T }
 
 /** Allows all properties to be null.  The same as `Partial<T>`, but adds null instead of undefined. */
 export type NullableProperties<T> = {
@@ -86,7 +86,7 @@ interface Parent<TChild> {
  * May contain other {@link Positionable} objects.
  */
 export interface Positionable extends Parent<Positionable>, HasBoundingRect {
-  readonly id: NodeId | RerouteId  
+  readonly id: NodeId | RerouteId | number
   /**
    * Position in graph coordinates. This may be the top-left corner,
    * the centre, or another point depending on concrete type.
@@ -204,7 +204,7 @@ export interface ItemLocator {
 /** Contains a cached 2D canvas path and a centre point, with an optional forward angle. */
 export interface LinkSegment {
   /** Link / reroute ID */
-  readonly id: LinkId  
+  readonly id: LinkId | RerouteId
   /** The {@link id} of the reroute that this segment starts from (output side), otherwise `undefined`.  */
   readonly parentId?: RerouteId | undefined
 
@@ -440,11 +440,11 @@ export interface IContextMenuOptions<
   autoopen?: boolean | undefined
   callback?:
     | ((
-        value?: string | IContextMenuValue<TValue>  ,
-        options?: unknown  ,
-        event?: MouseEvent  ,
-        previous_menu?: ContextMenu<TValue>  ,
-        extra?: unknown  
+        value?: string | IContextMenuValue<TValue> | undefined,
+        options?: unknown | undefined,
+        event?: MouseEvent | undefined,
+        previous_menu?: ContextMenu<TValue> | undefined,
+        extra?: unknown | undefined
       ) => void | boolean | Promise<void | boolean>)
     | undefined
 }
@@ -531,7 +531,7 @@ export interface PanelWidgetOptions {
   label?: string | undefined
   type?: string | undefined
   widget?: string | undefined
-  values?: (string | IContextMenuValue | null)[]
+  values?: Array<string | IContextMenuValue<unknown, unknown, unknown> | null>
   callback?: PanelWidgetCallback | undefined
 }
 
@@ -574,8 +574,8 @@ export interface Panel extends HTMLDivElement {
     type: string,
     name: string,
     value: TWidgetValue,
-    options?: PanelWidgetOptions  ,
-    callback?: PanelWidgetCallback  
+    options?: PanelWidgetOptions | undefined,
+    callback?: PanelWidgetCallback | undefined
   ): PanelWidget
   inner_showCodePad?(property: string): void | undefined
 }

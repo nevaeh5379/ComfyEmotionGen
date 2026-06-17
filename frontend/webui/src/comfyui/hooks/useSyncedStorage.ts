@@ -137,7 +137,7 @@ export function useSyncedStorage<T>(
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
-    return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
+    return () => window.removeEventListener(SETTINGS_READY_EVENT, onReady)
   }, [key, deserialize, handlePendingConflict, serialize])
 
   useEffect(() => {
@@ -154,7 +154,7 @@ export function useSyncedStorage<T>(
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
-    return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
+    return () => window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
   }, [key, deserialize, handlePendingConflict, serialize])
 
   useEffect(() => {
@@ -191,7 +191,7 @@ export function useSyncedStorage<T>(
         lastServerValueRef.current = serialized
         setIsDirty(false)
       }
-    }).catch((err) => { console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err); })
+    }).catch((err) => console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err))
   }, [key, value, serialize, options?.manual])
 
   const saveToServer = useCallback(() => {

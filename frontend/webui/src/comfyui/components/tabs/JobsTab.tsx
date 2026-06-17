@@ -314,25 +314,25 @@ export function JobsTab({
               setTargetWorkerId={setTargetWorkerId}
               compositionTab={compositionTab}
               setCompositionTab={setCompositionTab}
-              onPreviewOpen={() => { setIsSheetOpen(true); }}
-              onAxisFilterOpen={() => { setIsAxisFilterOpen(true); }}
-              onSelectionOpen={() => { setIsSelectionOpen(true); }}
+              onPreviewOpen={() => setIsSheetOpen(true)}
+              onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
+              onSelectionOpen={() => setIsSelectionOpen(true)}
               hasActiveFilter={hasActiveFilter}
-              onGraphOpen={() => { setIsGraphOpen(true); }}
+              onGraphOpen={() => setIsGraphOpen(true)}
               isFloating={false}
               jobsLayoutOrientation={jobsLayoutOrientation}
               onToggleJobsLayoutOrientation={() =>
-                { setJobsLayoutOrientation(
+                setJobsLayoutOrientation(
                   jobsLayoutOrientation === "horizontal"
                     ? "vertical"
                     : "horizontal"
-                ); }
+                )
               }
               {...(useWindowMode
                 ? {
-                    onFloatToggle: () => { setIsCompositionFloating(true); },
+                    onFloatToggle: () => setIsCompositionFloating(true),
                     onHeaderDragStart: (e: React.MouseEvent) =>
-                      { handleHeaderDragStart(e, "composition"); },
+                      handleHeaderDragStart(e, "composition"),
                   }
                 : {})}
             />
@@ -367,9 +367,9 @@ export function JobsTab({
                 isFloating={false}
                 {...(useWindowMode
                   ? {
-                      onFloatToggle: () => { setIsJobManagerFloating(true); },
+                      onFloatToggle: () => setIsJobManagerFloating(true),
                       onHeaderDragStart: (e: React.MouseEvent) =>
-                        { handleHeaderDragStart(e, "jobManager"); },
+                        handleHeaderDragStart(e, "jobManager"),
                     }
                   : {})}
               />
@@ -392,7 +392,7 @@ export function JobsTab({
           )
 
           // ── 패널 리스트 구성 ────────────────────────────────────
-          interface PanelItem {
+          type PanelItem = {
             id: string
             el: React.ReactNode
             minSize?: number
@@ -440,7 +440,7 @@ export function JobsTab({
                           )}
                         {panelBtn(
                           <XIcon className="h-3.5 w-3.5" />,
-                          () => { setIsStatsDocked(false); },
+                          () => setIsStatsDocked(false),
                           "패널 닫기"
                         )}
                       </div>
@@ -476,7 +476,7 @@ export function JobsTab({
                           )}
                         {panelBtn(
                           <XIcon className="h-3.5 w-3.5" />,
-                          () => { setIsGalleryDocked(false); },
+                          () => setIsGalleryDocked(false),
                           "패널 닫기"
                         )}
                       </div>
@@ -527,7 +527,7 @@ export function JobsTab({
                           )}
                         {panelBtn(
                           <XIcon className="h-3.5 w-3.5" />,
-                          () => { setIsCurationDocked(false); },
+                          () => setIsCurationDocked(false),
                           "패널 닫기"
                         )}
                       </div>
@@ -658,11 +658,11 @@ export function JobsTab({
               setTargetWorkerId={setTargetWorkerId}
               compositionTab={compositionTab}
               setCompositionTab={setCompositionTab}
-              onPreviewOpen={() => { setIsSheetOpen(true); }}
-              onAxisFilterOpen={() => { setIsAxisFilterOpen(true); }}
-              onSelectionOpen={() => { setIsSelectionOpen(true); }}
+              onPreviewOpen={() => setIsSheetOpen(true)}
+              onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
+              onSelectionOpen={() => setIsSelectionOpen(true)}
               hasActiveFilter={hasActiveFilter}
-              onGraphOpen={() => { setIsGraphOpen(true); }}
+              onGraphOpen={() => setIsGraphOpen(true)}
             />
           </div>
         )}
@@ -710,7 +710,7 @@ export function JobsTab({
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => { setMobileJobTab(tab.id); }}
+                onClick={() => setMobileJobTab(tab.id)}
                 className={cn(
                   "flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-black transition-all duration-200",
                   mobileJobTab === tab.id

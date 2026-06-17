@@ -28,9 +28,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   undoStack: [],
   redoStack: [],
 
-  setWorkflow: (workflow) => { set({ workflow, isDirty: false }); },
+  setWorkflow: (workflow) => set({ workflow, isDirty: false }),
 
-  markDirty: () => { set({ isDirty: true }); },
+  markDirty: () => set({ isDirty: true }),
 
   saveState: () => {
     const { workflow, undoStack } = get()

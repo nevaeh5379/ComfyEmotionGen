@@ -143,7 +143,7 @@ export function NodeMappingProvider({
 
   const updateMapping = useCallback(
     (id: string, patch: Partial<NodeMapping>) =>
-      { setNodeMappings((prev) =>
+      setNodeMappings((prev) =>
         prev.map((m) => {
           if (m.id !== id) return m
           // sourceType가 image에서 다른 값으로 변경되면 imageValue 초기화
@@ -158,7 +158,7 @@ export function NodeMappingProvider({
           }
           return { ...m, ...patch }
         })
-      ); },
+      ),
     [setNodeMappings]
   )
 

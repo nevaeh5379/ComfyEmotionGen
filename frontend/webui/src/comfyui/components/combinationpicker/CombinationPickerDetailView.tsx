@@ -135,7 +135,7 @@ export function CombinationPickerDetailView({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return () => { window.removeEventListener("keydown", handleKeyDown); }
+    return () => window.removeEventListener("keydown", handleKeyDown)
   }, [viewMode, visibleImages, focusedIdx, onSelectImage, selectedFilename])
   return (
     <div
@@ -177,7 +177,7 @@ export function CombinationPickerDetailView({
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
-                      onClick={() => { onNavigate("prev"); }}
+                      onClick={() => onNavigate("prev")}
                     >
                       <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
                     </Button>
@@ -212,7 +212,7 @@ export function CombinationPickerDetailView({
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
-                      onClick={() => { onNavigate("next"); }}
+                      onClick={() => onNavigate("next")}
                     >
                       <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
                     </Button>
@@ -397,7 +397,7 @@ export function CombinationPickerDetailView({
                               onSelectImage(selectedFilename, img.hash)
                             }
                           }}
-                          onFocus={() => { setFocusedIdx(idx); }}
+                          onFocus={() => setFocusedIdx(idx)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault()
@@ -423,10 +423,10 @@ export function CombinationPickerDetailView({
                           <button
                             type="button"
                             onClick={(e) =>
-                              { onToggleCompareImage(
+                              onToggleCompareImage(
                                 `${selectedFilename}::${img.hash}`,
                                 e
-                              ); }
+                              )
                             }
                             className={`absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors md:h-7 md:w-7 ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
                           >
@@ -487,7 +487,7 @@ export function CombinationPickerDetailView({
                     </HoverCard>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="w-44">
-                    <ContextMenuItem onClick={() => { onSetPreviewHash(img.hash); }}>
+                    <ContextMenuItem onClick={() => onSetPreviewHash(img.hash)}>
                       <Maximize2Icon className="h-4 w-4" /> 이미지 보기
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => onOpenDetail?.(img)}>
@@ -547,7 +547,7 @@ export function CombinationPickerDetailView({
                   <button
                     type="button"
                     onClick={(e) =>
-                      { onToggleCompareImage(`${filename}::${hash}`, e); }
+                      onToggleCompareImage(`${filename}::${hash}`, e)
                     }
                     className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
                   >

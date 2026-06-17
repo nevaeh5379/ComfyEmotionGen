@@ -448,7 +448,7 @@ export function useWindowManager({
             window.innerWidth,
             window.innerHeight,
             false,
-            session.windowType
+            session.windowType as "stats" | "curation" | "gallery"
           )
         }
       }
@@ -467,7 +467,7 @@ export function useWindowManager({
             window.innerWidth,
             window.innerHeight,
             true,
-            session.windowType
+            session.windowType as "stats" | "curation" | "gallery"
           )
 
           setTimeout(() => {

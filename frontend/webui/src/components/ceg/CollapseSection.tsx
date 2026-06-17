@@ -58,7 +58,7 @@ export function CollapseSection({
           {actions && (
             <div
               className="flex items-center"
-              onClick={(e) => { e.stopPropagation(); }}
+              onClick={(e) => e.stopPropagation()}
             >
               {actions}
             </div>

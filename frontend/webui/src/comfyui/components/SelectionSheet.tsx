@@ -81,7 +81,7 @@ export const SelectionSheet = ({
               type="search"
               placeholder="filename/prompt 검색..."
               value={previewFilter}
-              onChange={(e) => { onPreviewFilterChange(e.target.value); }}
+              onChange={(e) => onPreviewFilterChange(e.target.value)}
               className="h-9 text-sm"
             />
           </div>
@@ -144,16 +144,16 @@ export const SelectionSheet = ({
                       "flex cursor-pointer transition-opacity items-center hover:bg-muted/30 border-b",
                       !uncheckedItems.has(key) ? "" : "opacity-40"
                     )}
-                    onClick={() => { toggleItemCheck(key); }}
+                    onClick={() => toggleItemCheck(key)}
                   >
                     <TableCell
-                      onClick={(e) => { e.stopPropagation(); }}
+                      onClick={(e) => e.stopPropagation()}
                       className="w-10 px-2 py-3 flex items-center justify-center shrink-0"
                     >
                       <input
                         type="checkbox"
                         checked={!uncheckedItems.has(key)}
-                        onChange={() => { toggleItemCheck(key); }}
+                        onChange={() => toggleItemCheck(key)}
                         className="size-4 shrink-0 rounded-[4px] border border-input accent-primary cursor-pointer focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
                       />
                     </TableCell>

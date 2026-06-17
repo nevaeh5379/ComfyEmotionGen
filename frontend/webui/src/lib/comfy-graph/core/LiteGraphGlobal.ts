@@ -17,7 +17,7 @@ import type {
   Rect,
   WhenNullish
 } from './interfaces'
-import { distance, isInRectangle, overlapBounding } from './measure'
+import { distance, isInsideRectangle, overlapBounding } from './measure'
 import { SubgraphIONodeBase } from './subgraph/SubgraphIONodeBase'
 import { SubgraphSlot } from './subgraph/SubgraphSlotBase'
 import {
@@ -280,7 +280,7 @@ export class LiteGraphGlobal {
    * Debugging flag. Repeats deprecation warnings every time they are reported.
    * May impact performance.
    */
-  alwaysRepeatWarnings = false
+  alwaysRepeatWarnings: boolean = false
 
   /**
    * Array of callbacks to execute when Litegraph first reports a deprecated API being used.
@@ -297,7 +297,7 @@ export class LiteGraphGlobal {
    * @default false
    * @see macGesturesRequireMac
    */
-  macTrackpadGestures = false
+  macTrackpadGestures: boolean = false
 
   /**
    * @deprecated Removed; has no effect.
@@ -306,7 +306,7 @@ export class LiteGraphGlobal {
    * @default true
    * @see macTrackpadGestures
    */
-  macGesturesRequireMac = true
+  macGesturesRequireMac: boolean = true
 
   /**
    * "standard": change the dragging on left mouse button click to select, enable middle-click or spacebar+left-click dragging
@@ -327,20 +327,20 @@ export class LiteGraphGlobal {
    * Otherwise, the label will be truncated completely before the value is truncated.
    * @default false
    */
-  truncateWidgetTextEvenly = false
+  truncateWidgetTextEvenly: boolean = false
 
   /**
    * If `true`, widget values will be completely truncated when shrinking a widget,
    * before truncating widget labels.  {@link truncateWidgetTextEvenly} must be `false`.
    * @default false
    */
-  truncateWidgetValuesFirst = false
+  truncateWidgetValuesFirst: boolean = false
 
   /**
    * If `true`, the current viewport scale & offset of the first attached canvas will be included with the graph when exporting.
    * @default true
    */
-  saveViewportWithGraph = true
+  saveViewportWithGraph: boolean = true
 
   /**
    * Enable Vue nodes mode for rendering and positioning.
@@ -352,7 +352,7 @@ export class LiteGraphGlobal {
    * This should be set by the frontend when the Vue nodes feature is enabled.
    * @default false
    */
-  vueNodesMode = false
+  vueNodesMode: boolean = false
 
   // Special Rendering Values pulled out of app.ts patches
   nodeOpacity = 1
@@ -374,20 +374,20 @@ export class LiteGraphGlobal {
   }
 
   Classes = {
-    get SubgraphSlot(): typeof SubgraphSlot {
+    get SubgraphSlot() {
       return SubgraphSlot
     },
-    get SubgraphIONodeBase(): typeof SubgraphIONodeBase {
+    get SubgraphIONodeBase() {
       return SubgraphIONodeBase
     },
 
     // Rich drawing
-    get Rectangle(): typeof Rectangle {
+    get Rectangle() {
       return Rectangle
     },
 
     // Debug / helpers
-    get InputIndicators(): typeof InputIndicators {
+    get InputIndicators() {
       return InputIndicators
     }
   }
@@ -404,7 +404,9 @@ export class LiteGraphGlobal {
    * @param type name of the node and path
    * @param base_class class containing the structure of a node
    */
- registerNodeType(type: string, base_class: typeof LGraphNode): void {
+  registerNodeType(type: string, base_class: typeof LGraphNode): void {
+    if (!base_class.prototype)
+      throw 'Cannot register a simple object, it must be a class with a prototype'
     base_class.type = type
 
     const classname = base_class.name
@@ -412,12 +414,12 @@ export class LiteGraphGlobal {
     const pos = type.lastIndexOf('/')
     base_class.category = type.substring(0, pos)
 
-    base_class.title ??= classname
+    base_class.title ||= classname
 
     // extend class
     for (const i in this.LGraphNode.prototype) {
       // @ts-expect-error: Bypass external type check #576 This functionality is deprecated and should be removed.
-      base_class.prototype[i] ??= this.LGraphNode.prototype[i]
+      base_class.prototype[i] ||= this.LGraphNode.prototype[i]
     }
 
     const prev = this.registered_node_types[type]
@@ -438,27 +440,22 @@ export class LiteGraphGlobal {
       )
 
     // TODO one would want to know input and output :: this would allow through registerNodeAndSlotType to get all the slots types
-    if (this.auto_load_slot_types) new base_class(base_class.title ?? 'tmpnode')
+    if (this.auto_load_slot_types) new base_class(base_class.title || 'tmpnode')
   }
 
   /**
    * removes a node type from the system
    * @param type name of the node or the node constructor itself
    */
- unregisterNodeType(type: string | typeof LGraphNode): void {
+  unregisterNodeType(type: string | typeof LGraphNode): void {
     const base_class =
       typeof type === 'string' ? this.registered_node_types[type] : type
-    if (!base_class) throw new Error(`node type not found: ${String(type)}`)
+    if (!base_class) throw `node type not found: ${String(type)}`
 
-    const key = String(base_class.type)
-    if (key in this.registered_node_types) {
-      Reflect.deleteProperty(this.registered_node_types, key)
-    }
+    delete this.registered_node_types[String(base_class.type)]
 
     const name = base_class.constructor.name
-    if (name in this.Nodes) {
-      Reflect.deleteProperty(this.Nodes, name)
-    }
+    if (name) delete this.Nodes[name]
   }
 
   /**
@@ -471,7 +468,7 @@ export class LiteGraphGlobal {
     slot_type: ISlotType,
     out?: boolean
   ): void {
-    out ??= false
+    out ||= false
     const base_class =
       typeof type === 'string' &&
       // @ts-expect-error: Bypass external type check Confirm this function no longer supports string types - base_class should always be an instance not a constructor.
@@ -480,12 +477,12 @@ export class LiteGraphGlobal {
         : type
 
     // @ts-expect-error: Bypass external type check Confirm this function no longer supports string types - base_class should always be an instance not a constructor.
-    const class_type = base_class.constructor.type as string
+    const class_type = base_class.constructor.type
 
     let allTypes: string[]
     if (typeof slot_type === 'string') {
       allTypes = slot_type.split(',')
-    } else if (slot_type === this.EVENT || slot_type === this.ACTION) {
+    } else if (slot_type == this.EVENT || slot_type == this.ACTION) {
       allTypes = ['_event_']
     } else {
       allTypes = ['*']
@@ -518,9 +515,11 @@ export class LiteGraphGlobal {
   /**
    * Removes all previously registered node's types
    */
- clearRegisteredTypes(): void {
+  clearRegisteredTypes(): void {
     this.registered_node_types = {}
+    this.node_types_by_file_extension = {}
     this.Nodes = {}
+    this.searchbox_extras = {}
   }
 
   /**
@@ -529,7 +528,7 @@ export class LiteGraphGlobal {
    * @param title a name to distinguish from other nodes
    * @param options to set options
    */
-createNode(
+  createNode(
     type: string,
     title?: string,
     options?: CreateNodeOptions
@@ -540,24 +539,31 @@ createNode(
       return null
     }
 
-    const resolvedTitle = title ?? base_class.title ?? type
+    title = title || base_class.title || type
 
     let node: LGraphNode
 
     if (this.catch_exceptions) {
       try {
-        node = new base_class(resolvedTitle)
+        node = new base_class(title)
       } catch (error) {
         console.error(error)
         return null
       }
     } else {
-      node = new base_class(resolvedTitle)
+      node = new base_class(title)
     }
 
     node.type = type
 
-    if (!node.title && resolvedTitle) node.title = resolvedTitle
+    if (!node.title && title) node.title = title
+    node.properties ||= {}
+    node.properties_info ||= []
+    node.flags ||= {}
+    // call onresize?
+    node.size ||= node.computeSize()
+    node.pos ||= [this.DEFAULT_POSITION[0] ?? 10, this.DEFAULT_POSITION[1] ?? 10]
+    node.mode ||= LGraphEventMode.ALWAYS
 
     // extra options
     if (options) {
@@ -582,16 +588,16 @@ createNode(
    * @param category category name
    * @returns array with all the node classes
    */
-  getNodeTypesInCategory(category: string, filter?: string): typeof LGraphNode[] {
-    const r: typeof LGraphNode[] = []
+  getNodeTypesInCategory(category: string, filter?: string) {
+    const r = []
     for (const i in this.registered_node_types) {
       const type = this.registered_node_types[i]
       if (!type) continue
-      if (type.filter !== filter) continue
+      if (type.filter != filter) continue
 
-      if (category === '') {
-        if (type.category === undefined) r.push(type)
-      } else if (type.category === category) {
+      if (category == '') {
+        if (type.category == null) r.push(type)
+      } else if (type.category == category) {
         r.push(type)
       }
     }
@@ -609,13 +615,13 @@ createNode(
     for (const i in this.registered_node_types) {
       const type = this.registered_node_types[i]
       if (!type) continue
-      if (type.category !== undefined && type.skip_list !== true) {
-        if (type.filter !== filter) continue
+      if (type.category && !type.skip_list) {
+        if (type.filter != filter) continue
 
         categories[type.category] = 1
       }
     }
-    const result: string[] = []
+    const result = []
     for (const i in categories) {
       result.push(i)
     }
@@ -626,7 +632,7 @@ createNode(
   reloadNodes(folder_wildcard: string): void {
     const tmp = document.getElementsByTagName('script')
     // weird, this array changes by its own, so we use a copy
-    const script_files: HTMLScriptElement[] = []
+    const script_files = []
     for (const element of tmp) {
       script_files.push(element)
     }
@@ -637,7 +643,7 @@ createNode(
 
     for (const script_file of script_files) {
       const src = script_file.src
-      if (!src.startsWith(folder_wildcard))
+      if (!src || src.substr(0, folder_wildcard.length) != folder_wildcard)
         continue
 
       try {
@@ -659,13 +665,14 @@ createNode(
     obj: T,
     target?: T
   ): WhenNullish<T, null> {
-    if (obj === null) return null as WhenNullish<T, null>
+    if (obj == null) return null as WhenNullish<T, null>
 
-    const r = JSON.parse(JSON.stringify(obj)) as Record<string, unknown>
-    if (!target) return r as WhenNullish<T, null>
+    const r = JSON.parse(JSON.stringify(obj))
+    if (!target) return r
 
     for (const i in r) {
-      target[i as keyof T] = r[i] as never
+      // @ts-expect-error: Bypass external type check deprecated
+      target[i] = r[i]
     }
     return target
   }
@@ -680,14 +687,14 @@ createNode(
    * @returns true if they can be connected
    */
   isValidConnection(type_a: ISlotType, type_b: ISlotType): boolean {
-    if (type_a === '' || type_a === '*') type_a = 0
-    if (type_b === '' || type_b === '*') type_b = 0
+    if (type_a == '' || type_a === '*') type_a = 0
+    if (type_b == '' || type_b === '*') type_b = 0
     // If generic in/output, matching types (valid for triggers), or event/action types
     if (
-      type_a === 0 ||
-      type_b === 0 ||
-      type_a === type_b ||
-      (type_a === this.EVENT && type_b === this.ACTION)
+      !type_a ||
+      !type_b ||
+      type_a == type_b ||
+      (type_a == this.EVENT && type_b == this.ACTION)
     ) {
       return true
     }
@@ -699,7 +706,7 @@ createNode(
     type_b = type_b.toLowerCase()
 
     // For nodes supporting multiple connection types
-    if (!type_a.includes(',') && !type_b.includes(',')) return type_a === type_b
+    if (!type_a.includes(',') && !type_b.includes(',')) return type_a == type_b
 
     // Check all permutations to see if one is valid
     const supported_types_a = type_a.split(',')
@@ -720,7 +727,7 @@ createNode(
       .replaceAll(/\s+/g, '') // strip white space
       .replaceAll(/\/\*[^*/]*\*\//g, '') // strip multi-line comments  /**/
     const paramsPart = funcStr.split('){', 1)[0]
-    if (paramsPart === '') return []
+    if (!paramsPart) return []
     const result = paramsPart
       .replace(/^[^(]*\(/, '') // extract the parameters
       .replaceAll(/=[^,]+/g, '') // strip any ES6 defaults
@@ -734,11 +741,13 @@ createNode(
   pointerListenerAdd(
     oDOM: Node,
     sEvIn: string,
-    fCall: (e: Event) => boolean | undefined,
+    fCall: (e: Event) => boolean | void,
     capture = false
   ): void {
     if (
-      sEvIn === '' ||
+      !oDOM ||
+      !oDOM.addEventListener ||
+      !sEvIn ||
       typeof fCall !== 'function'
     )
       return
@@ -748,7 +757,7 @@ createNode(
 
     // UNDER CONSTRUCTION
     // convert pointerevents to touch event when not available
-    if (sMethod === 'pointer' && !('PointerEvent' in window)) {
+    if (sMethod == 'pointer' && !window.PointerEvent) {
       console.warn("sMethod=='pointer' && !window.PointerEvent")
       console.warn(
         `Converting pointer[${sEvent}] : down move up cancel enter TO touchstart touchmove touchend, etc ..`
@@ -805,25 +814,27 @@ createNode(
       case 'gotpointercapture':
       // @ts-expect-error: Bypass external type check - intentional fallthrough
       case 'lostpointercapture': {
-        if (sMethod !== 'mouse') {
-          oDOM.addEventListener(sMethod + sEvent, fCall, capture); return;
+        if (sMethod != 'mouse') {
+          return oDOM.addEventListener(sMethod + sEvent, fCall, capture)
         }
       }
       // not "pointer" || "mouse"
       // falls through
       default:
-        { oDOM.addEventListener(sEvent, fCall, capture); return; }
+        return oDOM.addEventListener(sEvent, fCall, capture)
     }
   }
 
   pointerListenerRemove(
     oDOM: Node,
     sEvent: string,
-    fCall: (e: Event) => boolean | undefined,
+    fCall: (e: Event) => boolean | void,
     capture = false
   ): void {
     if (
-      sEvent === '' ||
+      !oDOM ||
+      !oDOM.removeEventListener ||
+      !sEvent ||
       typeof fCall !== 'function'
     )
       return
@@ -838,8 +849,8 @@ createNode(
       // @ts-expect-error: Bypass external type check - intentional fallthrough
       case 'enter': {
         if (
-          this.pointerevents_method === 'pointer' ||
-          this.pointerevents_method === 'mouse'
+          this.pointerevents_method == 'pointer' ||
+          this.pointerevents_method == 'mouse'
         ) {
           oDOM.removeEventListener(
             this.pointerevents_method + sEvent,
@@ -855,18 +866,18 @@ createNode(
       case 'gotpointercapture':
       // @ts-expect-error: Bypass external type check - intentional fallthrough
       case 'lostpointercapture': {
-        if (this.pointerevents_method === 'pointer') {
-          oDOM.removeEventListener(
+        if (this.pointerevents_method == 'pointer') {
+          return oDOM.removeEventListener(
             this.pointerevents_method + sEvent,
             fCall,
             capture
-          ); return;
+          )
         }
       }
       // not "pointer" || "mouse"
       // falls through
       default:
-        { oDOM.removeEventListener(sEvent, fCall, capture); return; }
+        return oDOM.removeEventListener(sEvent, fCall, capture)
     }
   }
 
@@ -880,11 +891,11 @@ createNode(
     return `rgba(${Math.round(c[0] * 255).toFixed()},${Math.round(
       c[1] * 255
     ).toFixed()},${Math.round(c[2] * 255).toFixed()},${
-      c[3].toFixed(2)
+      c.length == 4 ? c[3].toFixed(2) : '1.0'
     })`
   }
 
-  isInsideRectangle = isInRectangle
+  isInsideRectangle = isInsideRectangle
 
   // [minx,miny,maxx,maxy]
   growBounding(bounding: Rect, x: number, y: number): void {
@@ -927,15 +938,15 @@ createNode(
   // format of a hex triplet - the kind we use for HTML colours. The function
   // will return an array with three values.
   hex2num(hex: string): number[] {
-    if (hex.startsWith('#')) {
+    if (hex.charAt(0) == '#') {
       hex = hex.slice(1)
       // Remove the '#' char - if there is one.
     }
     hex = hex.toUpperCase()
     const hex_alphabets = '0123456789ABCDEF'
-    const value: number[] = [0, 0, 0]
+    const value = new Array(3)
     let k = 0
-    let int1: number, int2: number
+    let int1, int2
     for (let i = 0; i < 6; i += 2) {
       int1 = hex_alphabets.indexOf(hex.charAt(i))
       int2 = hex_alphabets.indexOf(hex.charAt(i + 1))
@@ -968,9 +979,8 @@ createNode(
     if (!elements.length) return
 
     for (const element of elements) {
-      const el = element as HTMLElement & { close?: () => void }
-      if ('close' in el && typeof el.close === 'function') {
-        el.close()
+      if ('close' in element && typeof element.close === 'function') {
+        element.close()
       } else {
         element.remove()
       }
@@ -983,7 +993,8 @@ createNode(
   ): void {
     for (const i in origin) {
       // copy class properties
-      if (Object.hasOwn(target, i)) continue
+      // eslint-disable-next-line no-prototype-builtins
+      if (target.hasOwnProperty(i)) continue
       target[i] = origin[i]
     }
 
@@ -994,10 +1005,12 @@ createNode(
       // copy prototype properties
       for (const i in originProto) {
         // only enumerable
-        if (!Object.hasOwn(originProto, i)) continue
+        // eslint-disable-next-line no-prototype-builtins
+        if (!originProto.hasOwnProperty(i)) continue
 
         // avoid overwriting existing ones
-        if (Object.hasOwn(targetProto, i)) continue
+        // eslint-disable-next-line no-prototype-builtins
+        if (targetProto.hasOwnProperty(i)) continue
 
         // Use Object.getOwnPropertyDescriptor to copy getters/setters properly
         const descriptor = Object.getOwnPropertyDescriptor(originProto, i)

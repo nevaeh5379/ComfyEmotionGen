@@ -3,7 +3,7 @@
 /** Unwraps a ref to its value. No-op for non-ref values. */
 export function toValue<T>(v: T | { value: T }): T {
   if (v && typeof v === 'object' && 'value' in v) {
-    return (v).value
+    return (v as { value: T }).value
   }
   return v
 }

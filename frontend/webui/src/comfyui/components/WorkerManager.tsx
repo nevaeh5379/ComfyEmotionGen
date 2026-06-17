@@ -170,7 +170,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
           type="url"
           placeholder={newWorkerType === "nai" ? "https://api.novelai.net" : DEFAULT_WORKER_URL}
           value={newUrl}
-          onChange={(e) => { setNewUrl(e.target.value); }}
+          onChange={(e) => setNewUrl(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAdd()
           }}
@@ -209,7 +209,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setConflict(null); }}
+              onClick={() => setConflict(null)}
               disabled={busy}
             >
               취소

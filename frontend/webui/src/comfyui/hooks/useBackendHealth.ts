@@ -22,7 +22,7 @@ export function useBackendHealth() {
         const response = await fetch(`${backendUrl}${API.health}`)
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
-        return data.backend === "ok"
+        return data["backend"] === "ok"
       } catch (error) {
         console.warn("Backend health check failed:", error)
         return false

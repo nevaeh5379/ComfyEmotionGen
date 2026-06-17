@@ -100,7 +100,7 @@ export abstract class SubgraphSlot
     this.parent = parent
   }
 
-  isPointerOver = false
+  isPointerOver: boolean = false
 
   containsPoint(point: Point): boolean {
     return this.boundingRect.containsPoint(point)

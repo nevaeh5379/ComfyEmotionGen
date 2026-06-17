@@ -175,14 +175,16 @@ export const SessionPopover = memo(function SessionPopover({
 
   if (markers.length === 0) return null
 
-  const m = markers.find((mm) => mm.id === selectedId)
-  const count = sessionJobCounts.get(selectedId) ?? 0
-  const sessionButtonLabel = m ? `${m.label} (${String(count)})` : `(${String(count)})`
+  const sessionButtonLabel = (() => {
+    const m = markers.find((mm) => mm.id === selectedId)
+    const count = sessionJobCounts.get(selectedId) ?? 0
+    return m ? `${m.label} (${count})` : `(${count})`
+  })()
 
   const isActive = activeState?.activeSessionId
 
   const dropdownStyle = rect
-    ? (function(): { top: number; left: number; width: number } {
+    ? (() => {
         const popupWidth = window.innerWidth < 768 ? window.innerWidth - 32 : 304
         let left = rect.left
         if (left + popupWidth > window.innerWidth - 16) {
@@ -197,7 +199,7 @@ export const SessionPopover = memo(function SessionPopover({
       })()
     : null
 
-  const dropdownContent = isOpen && dropdownStyle !== null ? (
+  const dropdownContent = isOpen && dropdownStyle && (
     <div
       className="fixed z-50 rounded-xl border border-line-strong/60 bg-popover/85 p-1 shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 duration-200"
       style={dropdownStyle}
@@ -273,13 +275,13 @@ export const SessionPopover = memo(function SessionPopover({
             </div>
           </ScrollArea>
     </div>
-  ) : null
+  )
 
   return (
     <>
       <div ref={ref}>
         <button
-          onClick={() => { onOpenChange(!isOpen); }}
+          onClick={() => onOpenChange(!isOpen)}
           className={cn(
             "flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-black transition-all hover:bg-muted/70 active:scale-95",
             isOpen ? "bg-muted/65" : ""
@@ -434,7 +436,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
         {jobs.map((j) => {
           const overallPercent = getOverallProgress(j)
           const etaStr =
-            j.startedAt !== null && overallPercent > 0 && overallPercent < 100
+            j.startedAt && overallPercent > 0 && overallPercent < 100
               ? formatETA(j.startedAt, overallPercent, allJobs)
               : null
           return (
@@ -446,7 +448,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                 <span className="truncate font-mono text-[13px] font-black text-info">
                   {j.filename}
                 </span>
-                {etaStr !== null && (
+                {etaStr != null && (
                   <span className="shrink-0 text-[11px] font-black text-info/70 tabular-nums">
                     {etaStr}
                   </span>
@@ -491,7 +493,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
       {workers.map((w) => {
         const runningJob = jobs.find(
           (j) => j.workerId === w.id && (j.status === "running" || j.status === "queued")
-        ) ?? (w.currentJobId !== null ? jobs.find((j) => j.id === w.currentJobId) : undefined)
+        ) || (w.currentJobId ? jobs.find((j) => j.id === w.currentJobId) : undefined)
 
         if (!w.alive) {
           return (
@@ -506,7 +508,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     {w.id}
                   </span>
                   <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground/85 border">
-                    {w.workerType}
+                    {w.workerType ?? "comfyui"}
                   </span>
                 </div>
                 <span className="text-[10px] font-black text-destructive uppercase tracking-wider">
@@ -523,7 +525,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
         if (w.busy) {
           const overallPercent = runningJob ? getOverallProgress(runningJob) : 0
           const etaStr =
-            runningJob?.startedAt !== null && overallPercent > 0 && overallPercent < 100
+            runningJob?.startedAt && overallPercent > 0 && overallPercent < 100
               ? formatETA(runningJob.startedAt, overallPercent, allJobs)
               : null
 
@@ -539,11 +541,11 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     {w.id}
                   </span>
                   <span className="rounded bg-info/10 border border-info/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-info">
-                    {w.workerType}
+                    {w.workerType ?? "comfyui"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-             {etaStr !== null && (
+                  {etaStr != null && (
                     <span className="shrink-0 text-[10px] font-black text-info/80 tabular-nums">
                       {etaStr}
                     </span>
@@ -564,7 +566,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
                       <span className="truncate">
-                        {runningJob?.currentNodeName !== null
+                        {runningJob?.currentNodeName
                           ? `노드 (${runningJob.currentNodeName})`
                           : runningJob?.status === "queued"
                           ? "작업 준비 중..."
@@ -592,9 +594,9 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     </div>
                   )}
                 </div>
-                {w.workerType === "comfyui" && workerPreviews[w.id] !== null && (
+                {w.workerType === "comfyui" && workerPreviews[w.id] && (
                   <img
-                    src={`${backendUrl}/workers/${w.id}/preview?t=${String(workerPreviews[w.id])}`}
+                    src={`${backendUrl}/workers/${w.id}/preview?t=${workerPreviews[w.id]}`}
                     alt={`preview ${w.id}`}
                     className="h-80 flex-none rounded-lg border border-info/20 object-cover shadow-sm"
                   />
@@ -617,7 +619,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                   {w.id}
                 </span>
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground/85 border">
-                  {w.workerType}
+                  {w.workerType ?? "comfyui"}
                 </span>
               </div>
               <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-wider">
@@ -671,7 +673,7 @@ export const JobRow = memo(function JobRow({
     queued: "bg-warn",
     pending: "bg-ink-2",
   }
-  const accentColor = statusColorMap[job.status] ?? "bg-muted-foreground/30"
+  const accentColor = statusColorMap[job.status] || "bg-muted-foreground/30"
 
   // String-to-color hash for filename dot indicator
   let hash = 0
@@ -681,16 +683,16 @@ export const JobRow = memo(function JobRow({
   const c = (hash & 0x00ffffff).toString(16).toUpperCase()
   const dotColor = "#" + "00000".substring(0, 6 - c.length) + c
 
-  const workerLabel = job.workerId !== null ? job.workerId.slice(0, 8) : "—"
+  const workerLabel = job.workerId ? job.workerId.slice(0, 8) : "—"
 
   const workerCell = (
-    <TableCell onClick={(e) => { e.stopPropagation(); }} className="px-2 font-mono text-[11px] w-[80px]">
-      {job.workerId !== null ? (
+    <TableCell onClick={(e) => e.stopPropagation()} className="px-2 font-mono text-[11px] w-[80px]">
+      {job.workerId ? (
         <span
           className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground select-none"
           onMouseEnter={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
-            onWorkerMouseEnter(job, job.workerId, rect)
+            onWorkerMouseEnter(job, job.workerId!, rect)
           }}
           onMouseLeave={onWorkerMouseLeave}
         >
@@ -706,7 +708,7 @@ export const JobRow = memo(function JobRow({
     <TableRow
       key={job.id}
       className="group/row relative cursor-pointer transition-all duration-300 hover:bg-muted/30 hover:shadow-sm"
-      onClick={() => { fetchJobImages(job.id); }} // open detail via click (handled by parent's onClick)
+      onClick={() => fetchJobImages(job.id)} // open detail via click (handled by parent's onClick)
       onMouseEnter={(e) => {
         if (job.status === "done") {
           const rect = e.currentTarget.getBoundingClientRect()
@@ -719,7 +721,7 @@ export const JobRow = memo(function JobRow({
         <TableCell className="px-2 py-4">
           <Checkbox
             checked={selectedForDelete.has(job.id)}
-            onCheckedChange={() => { onToggleSelect(job.id); }}
+            onCheckedChange={() => onToggleSelect(job.id)}
           />
         </TableCell>
       )}
@@ -747,14 +749,14 @@ export const JobRow = memo(function JobRow({
         {timeAgo(job.createdAt)}
       </TableCell>
       <TableCell className="w-16 text-[10px] text-muted-foreground tabular-nums">
-        {dur !== null ? formatDuration(dur) : "—"}
+        {dur != null ? formatDuration(dur) : "—"}
       </TableCell>
       {workerCell}
-      <TableCell onClick={(e) => { e.stopPropagation(); }} className="px-2">
+      <TableCell onClick={(e) => e.stopPropagation()} className="px-2">
         {job.status === "pending" ? (
           <select
-                        value={job.targetWorkerId ?? "auto"}
-            onChange={(e) => { onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value); }}
+            value={job.targetWorkerId || "auto"}
+            onChange={(e) => onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value)}
             className="h-6 w-24 rounded-md border border-input bg-background px-1.5 py-0.5 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
           >
             <option value="auto">자동</option>
@@ -810,47 +812,47 @@ export const JobTableSection = memo(function JobTableSection({
   const jobTimeoutRef = useRef<number | null>(null)
   const workerTimeoutRef = useRef<number | null>(null)
 
-  const handleJobMouseEnter = useCallback((job: JobView, rect: DOMRect): void => {
-    if (jobTimeoutRef.current !== null) clearTimeout(jobTimeoutRef.current)
+  const handleJobMouseEnter = useCallback((job: JobView, rect: DOMRect) => {
+    if (jobTimeoutRef.current) clearTimeout(jobTimeoutRef.current)
     jobTimeoutRef.current = window.setTimeout(() => {
       setHoveredJob({ job, rect })
     }, 400)
   }, [])
 
-  const handleJobMouseLeave = useCallback((): void => {
-    if (jobTimeoutRef.current !== null) clearTimeout(jobTimeoutRef.current)
+  const handleJobMouseLeave = useCallback(() => {
+    if (jobTimeoutRef.current) clearTimeout(jobTimeoutRef.current)
     setHoveredJob(null)
   }, [])
 
-  const handleWorkerMouseEnter = useCallback((job: JobView, workerId: string, rect: DOMRect): void => {
-    if (workerTimeoutRef.current !== null) clearTimeout(workerTimeoutRef.current)
+  const handleWorkerMouseEnter = useCallback((job: JobView, workerId: string, rect: DOMRect) => {
+    if (workerTimeoutRef.current) clearTimeout(workerTimeoutRef.current)
     workerTimeoutRef.current = window.setTimeout(() => {
       setHoveredWorker({ job, workerId, rect })
     }, 200)
   }, [])
 
-  const handleWorkerMouseLeave = useCallback((): void => {
-    if (workerTimeoutRef.current !== null) clearTimeout(workerTimeoutRef.current)
+  const handleWorkerMouseLeave = useCallback(() => {
+    if (workerTimeoutRef.current) clearTimeout(workerTimeoutRef.current)
     setHoveredWorker(null)
   }, [])
 
   useEffect(() => {
-    return (): void => {
-      if (jobTimeoutRef.current !== null) clearTimeout(jobTimeoutRef.current)
-      if (workerTimeoutRef.current !== null) clearTimeout(workerTimeoutRef.current)
+    return () => {
+      if (jobTimeoutRef.current) clearTimeout(jobTimeoutRef.current)
+      if (workerTimeoutRef.current) clearTimeout(workerTimeoutRef.current)
     }
   }, [])
 
   const jobStyle: React.CSSProperties | undefined = hoveredJob ? {
-    left: `${String(hoveredJob.rect.left - 12)}px`,
-    top: `${String(hoveredJob.rect.top)}px`,
+    left: `${hoveredJob.rect.left - 12}px`,
+    top: `${hoveredJob.rect.top}px`,
     transform: "translateX(-100%)",
     pointerEvents: "none",
   } : undefined
 
   const workerStyle: React.CSSProperties | undefined = hoveredWorker ? {
-    left: `${String(hoveredWorker.rect.left)}px`,
-    top: `${String(hoveredWorker.rect.top - 8)}px`,
+    left: `${hoveredWorker.rect.left}px`,
+    top: `${hoveredWorker.rect.top - 8}px`,
     transform: "translateY(-100%)",
     pointerEvents: "none",
   } : undefined
@@ -862,27 +864,28 @@ export const JobTableSection = memo(function JobTableSection({
           className="fixed z-[100] rounded-xl border border-line-strong/60 bg-popover/90 p-2.5 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 pointer-events-none hidden md:block"
           style={jobStyle}
         >
-          {(() => {
-            const images = fetchedImages.get(hoveredJob.job.id) ?? []
-            return images.length > 0 ? (
-              <div className="flex gap-1.5">
-                {images.slice(0, 6).map((h, i) => (
+          {fetchedImages.get(hoveredJob.job.id) &&
+          fetchedImages.get(hoveredJob.job.id)!.length > 0 ? (
+            <div className="flex gap-1.5">
+              {fetchedImages
+                .get(hoveredJob.job.id)!
+                .slice(0, 6)
+                .map((h, i) => (
                   <img
                     key={h}
                     src={`${backendUrl}/saved-images/${h}`}
-                    alt={`Preview ${String(i + 1)}`}
+                    alt={`Preview ${i + 1}`}
                     className="h-16 w-16 rounded-lg border border-line object-cover"
                   />
                 ))}
-              </div>
-            ) : (
-              <div className="flex gap-1.5">
-                <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
-                <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
-                <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
-              </div>
-            )
-          })() as React.ReactElement}
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
+              <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
+              <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
+            </div>
+          )}
         </div>
       )}
 
@@ -891,7 +894,7 @@ export const JobTableSection = memo(function JobTableSection({
           className="fixed z-[100] w-72 rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 pointer-events-none"
           style={workerStyle}
         >
-          {(function(): React.ReactElement {
+          {(() => {
             const { job, workerId } = hoveredWorker
             const workerInfo = workers.find((w) => w.id === workerId)
             const statusColor = workerInfo
@@ -918,7 +921,7 @@ export const JobTableSection = memo(function JobTableSection({
                   </span>
                   {workerInfo && (
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
-                      {workerInfo.workerType}
+                      {workerInfo.workerType ?? "comfyui"}
                     </span>
                   )}
                   <span className={cn("font-bold text-[10px]", statusColor)}>
@@ -968,14 +971,14 @@ export const JobTableSection = memo(function JobTableSection({
                     <Checkbox
                       checked={selectedForDelete.size > 0}
                       onCheckedChange={(checked) => {
-                        if (checked === true) return // handled by parent
+                        if (checked) return // handled by parent
                       }}
                     />
                   </TableHead>
                 ) : null}
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("status"); }}
+                    onClick={() => onSort("status")}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     상태
@@ -984,7 +987,7 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("filename"); }}
+                    onClick={() => onSort("filename")}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     파일명
@@ -993,7 +996,7 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("createdAt"); }}
+                    onClick={() => onSort("createdAt")}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     생성
@@ -1002,7 +1005,7 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("duration"); }}
+                    onClick={() => onSort("duration")}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     소요
@@ -1070,7 +1073,7 @@ export const JobTableSection = memo(function JobTableSection({
                 pending: "bg-ink-2",
               }
               const accentColor =
-                statusColorMap[job.status] ?? "bg-muted-foreground/30"
+                statusColorMap[job.status] || "bg-muted-foreground/30"
 
               // String-to-color hash for filename dot indicator
               let hash = 0
@@ -1083,7 +1086,7 @@ export const JobTableSection = memo(function JobTableSection({
               return (
                 <div
                   key={job.id}
-                  onClick={() => { fetchJobImages(job.id); }}
+                  onClick={() => fetchJobImages(job.id)}
                   className="relative flex cursor-pointer items-center justify-between rounded-xl border border-line bg-card p-3.5 shadow-xs transition-colors hover:bg-muted/10 active:bg-muted/20"
                 >
                   {/* Left accent color indicator */}
@@ -1097,12 +1100,12 @@ export const JobTableSection = memo(function JobTableSection({
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
                     {selectedForDelete.size > 0 && (
                       <div
-                        onClick={(e) => { e.stopPropagation(); }}
+                        onClick={(e) => e.stopPropagation()}
                         className="mr-1 flex items-center"
                       >
                         <Checkbox
                           checked={selectedForDelete.has(job.id)}
-                          onCheckedChange={() => { onToggleSelect(job.id); }}
+                          onCheckedChange={() => onToggleSelect(job.id)}
                         />
                       </div>
                     )}
@@ -1127,7 +1130,7 @@ export const JobTableSection = memo(function JobTableSection({
                         />
                         <span className="opacity-40">•</span>
                         <span>{timeAgo(job.createdAt)}</span>
-                        {dur !== null && (
+                        {dur != null && (
                           <>
                             <span className="opacity-40">•</span>
                             <span className="scale-95 rounded bg-muted/80 px-1 font-mono text-foreground/80">
@@ -1135,7 +1138,7 @@ export const JobTableSection = memo(function JobTableSection({
                             </span>
                           </>
                         )}
-                        {job.workerId !== null && (
+                        {job.workerId && (
                           <>
                             <span className="opacity-40">•</span>
                             <span className="scale-95 rounded bg-muted/80 px-1 font-mono text-[9px] font-bold text-foreground/80">
@@ -1150,10 +1153,10 @@ export const JobTableSection = memo(function JobTableSection({
                   {/* Right side indicator */}
                   <div className="flex shrink-0 items-center gap-1 pl-2 text-muted-foreground/30">
                     {job.status === "pending" ? (
-                      <div onClick={(e) => { e.stopPropagation(); }}>
+                      <div onClick={(e) => e.stopPropagation()}>
                         <select
-value={job.targetWorkerId ?? "auto"}
-                          onChange={(e) => { onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value); }}
+                          value={job.targetWorkerId || "auto"}
+                          onChange={(e) => onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value)}
                           className="h-6 w-20 rounded-md border border-input bg-background px-1 py-0 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
                         >
                           <option value="auto">자동</option>
@@ -1201,7 +1204,7 @@ value={job.targetWorkerId ?? "auto"}
             <PaginationContent className="gap-1">
               <PaginationItem>
                 <PaginationPrevious
-                  onClick={() => { if (page > 1) onPageChange(page - 1); }}
+                  onClick={() => page > 1 && onPageChange(page - 1)}
                   className={cn(
                     "h-9 w-9 rounded-lg p-0",
                     page <= 1 && "pointer-events-none opacity-20"
@@ -1213,7 +1216,7 @@ value={job.targetWorkerId ?? "auto"}
               </div>
               <PaginationItem>
                 <PaginationNext
-                  onClick={() => { if (page < totalPages) onPageChange(page + 1); }}
+                  onClick={() => page < totalPages && onPageChange(page + 1)}
                   className={cn(
                     "h-9 w-9 rounded-lg p-0",
                     page >= totalPages && "pointer-events-none opacity-20"

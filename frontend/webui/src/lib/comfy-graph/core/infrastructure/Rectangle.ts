@@ -1,3 +1,4 @@
+
 import type {
   CompassCorners,
   Point,
@@ -23,10 +24,10 @@ export class Rectangle extends Float64Array {
   private _size: Float64Array<ArrayBuffer> | undefined
 
   constructor(
-    x = 0,
-    y = 0,
-    width = 0,
-    height = 0
+    x: number = 0,
+    y: number = 0,
+    width: number = 0,
+    height: number = 0
   ) {
     super(4)
 
@@ -64,7 +65,7 @@ export class Rectangle extends Float64Array {
   }
 
   override subarray(
-    begin = 0,
+    begin: number = 0,
     end?: number
   ): Float64Array<ArrayBuffer> {
     const byteOffset = begin << 3
@@ -79,12 +80,12 @@ export class Rectangle extends Float64Array {
    */
   get pos(): Point {
     this._pos ??= this.subarray(0, 2)
-    return this._pos as unknown as Point
+    return this._pos! as unknown as Point
   }
 
   set pos(value: Readonly<Point>) {
-    this[0] = value[0]
-    this[1] = value[1]
+    this[0] = value[0]!
+    this[1] = value[1]!
   }
 
   /**
@@ -94,18 +95,18 @@ export class Rectangle extends Float64Array {
    */
   get size(): Size {
     this._size ??= this.subarray(2, 4)
-    return this._size as unknown as Size
+    return this._size! as unknown as Size
   }
 
   set size(value: Readonly<Size>) {
-    this[2] = value[0]
-    this[3] = value[1]
+    this[2] = value[0]!
+    this[3] = value[1]!
   }
 
   // #region Property accessors
   /** The x co-ordinate of the top-left corner of this rectangle. */
   get x(): number {
-    return this[0] ?? 0
+    return this[0]!
   }
 
   set x(value: number) {
@@ -114,7 +115,7 @@ export class Rectangle extends Float64Array {
 
   /** The y co-ordinate of the top-left corner of this rectangle. */
   get y(): number {
-    return this[1] ?? 0
+    return this[1]!
   }
 
   set y(value: number) {
@@ -123,7 +124,7 @@ export class Rectangle extends Float64Array {
 
   /** The width of this rectangle. */
   get width(): number {
-    return this[2] ?? 0
+    return this[2]!
   }
 
   set width(value: number) {
@@ -132,7 +133,7 @@ export class Rectangle extends Float64Array {
 
   /** The height of this rectangle. */
   get height(): number {
-    return this[3] ?? 0
+    return this[3]!
   }
 
   set height(value: number) {
@@ -141,7 +142,7 @@ export class Rectangle extends Float64Array {
 
   /** The x co-ordinate of the left edge of this rectangle. */
   get left(): number {
-    return this[0] ?? 0
+    return this[0]!
   }
 
   set left(value: number) {
@@ -150,7 +151,7 @@ export class Rectangle extends Float64Array {
 
   /** The y co-ordinate of the top edge of this rectangle. */
   get top(): number {
-    return this[1] ?? 0
+    return this[1]!
   }
 
   set top(value: number) {
@@ -159,30 +160,30 @@ export class Rectangle extends Float64Array {
 
   /** The x co-ordinate of the right edge of this rectangle. */
   get right(): number {
-    return (this[0] ?? 0) + (this[2] ?? 0)
+    return this[0]! + this[2]!
   }
 
   set right(value: number) {
-    this[0] = value - (this[2] ?? 0)
+    this[0] = value - this[2]!
   }
 
   /** The y co-ordinate of the bottom edge of this rectangle. */
   get bottom(): number {
-    return (this[1] ?? 0) + (this[3] ?? 0)
+    return this[1]! + this[3]!
   }
 
   set bottom(value: number) {
-    this[1] = value - (this[3] ?? 0)
+    this[1] = value - this[3]!
   }
 
   /** The x co-ordinate of the centre of this rectangle. */
   get centreX(): number {
-    return (this[0] ?? 0) + (this[2] ?? 0) * 0.5
+    return this[0]! + this[2]! * 0.5
   }
 
   /** The y co-ordinate of the centre of this rectangle. */
   get centreY(): number {
-    return (this[1] ?? 0) + (this[3] ?? 0) * 0.5
+    return this[1]! + this[3]! * 0.5
   }
   // #endregion Property accessors
 
@@ -190,11 +191,11 @@ export class Rectangle extends Float64Array {
    * Updates the rectangle to the values of {@link rect}.
    * @param rect The rectangle to update to.
    */
-  updateTo(rect: ReadOnlyRect): void {
-    this[0] = rect[0]
-    this[1] = rect[1]
-    this[2] = rect[2]
-    this[3] = rect[3]
+  updateTo(rect: ReadOnlyRect) {
+    this[0] = rect[0]!
+    this[1] = rect[1]!
+    this[2] = rect[2]!
+    this[3] = rect[3]!
   }
 
   /**
@@ -204,8 +205,8 @@ export class Rectangle extends Float64Array {
    * @returns `true` if the point is inside this rectangle, otherwise `false`.
    */
   containsXy(x: number, y: number): boolean {
-    const [left = 0, top = 0, width = 0, height = 0] = this
-    return x >= left && x < left + width && y >= top && y < top + height
+    const [left, top, width, height] = this
+    return x >= left! && x < left! + width! && y >= top! && y < top! + height!
   }
 
   /**
@@ -214,8 +215,8 @@ export class Rectangle extends Float64Array {
    * @returns `true` if {@link point} is inside this rectangle, otherwise `false`.
    */
   containsPoint([x, y]: Readonly<Point>): boolean {
-    const [left = 0, top = 0, width = 0, height = 0] = this
-    return x >= left && x < left + width && y >= top && y < top + height
+    const [left, top, width, height] = this
+    return x >= left! && x < left! + width! && y >= top! && y < top! + height!
   }
 
   /**
@@ -226,8 +227,8 @@ export class Rectangle extends Float64Array {
    */
   containsRect(other: ReadOnlyRect): boolean {
     const { right, bottom } = this
-    const otherRight = other[0] + other[2]
-    const otherBottom = other[1] + other[3]
+    const otherRight = other[0]! + other[2]!
+    const otherBottom = other[1]! + other[3]!
 
     const identical =
       this.x === other[0] &&
@@ -237,8 +238,8 @@ export class Rectangle extends Float64Array {
 
     return (
       !identical &&
-      this.x <= other[0] &&
-      this.y <= other[1] &&
+      this.x <= other[0]! &&
+      this.y <= other[1]! &&
       right >= otherRight &&
       bottom >= otherBottom
     )
@@ -251,10 +252,10 @@ export class Rectangle extends Float64Array {
    */
   overlaps(rect: ReadOnlyRect): boolean {
     return (
-      this.x < rect[0] + rect[2] &&
-      this.y < rect[1] + rect[3] &&
-      this.x + this.width > rect[0] &&
-      this.y + this.height > rect[1]
+      this.x < rect[0]! + rect[2]! &&
+      this.y < rect[1]! + rect[3]! &&
+      this.x + this.width > rect[0]! &&
+      this.y + this.height > rect[1]!
     )
   }
 
@@ -369,7 +370,7 @@ export class Rectangle extends Float64Array {
 
   /** @returns The top-left corner of this rectangle, as a new {@link Point}. */
   getTopLeft(): Point {
-    return [this[0] ?? 0, this[1] ?? 0]
+    return [this[0]!, this[1]!]
   }
 
   /** @returns The bottom-right corner of this rectangle, as a new {@link Point}. */
@@ -379,62 +380,62 @@ export class Rectangle extends Float64Array {
 
   /** @returns The width and height of this rectangle, as a new {@link Size}. */
   getSize(): Size {
-    return [this[2] ?? 0, this[3] ?? 0]
+    return [this[2]!, this[3]!]
   }
 
   /** @returns The offset from the top-left of this rectangle to the point [{@link x}, {@link y}], as a new {@link Point}. */
   getOffsetTo([x, y]: Readonly<Point>): Point {
-    return [x - (this[0] ?? 0), y - (this[1] ?? 0)]
+    return [x - this[0]!, y - this[1]!]
   }
 
   /** @returns The offset from the point [{@link x}, {@link y}] to the top-left of this rectangle, as a new {@link Point}. */
   getOffsetFrom([x, y]: Readonly<Point>): Point {
-    return [(this[0] ?? 0) - x, (this[1] ?? 0) - y]
+    return [this[0]! - x, this[1]! - y]
   }
 
   /** Resizes the rectangle without moving it, setting its top-left corner to [{@link x}, {@link y}]. */
-  resizeTopLeft(x1: number, y1: number): void {
-    this[2] = (this[2] ?? 0) + (this[0] ?? 0) - x1
-    this[3] = (this[3] ?? 0) + (this[1] ?? 0) - y1
+  resizeTopLeft(x1: number, y1: number) {
+    this[2] = this[2]! + this[0]! - x1
+    this[3] = this[3]! + this[1]! - y1
 
     this[0] = x1
     this[1] = y1
   }
 
   /** Resizes the rectangle without moving it, setting its bottom-left corner to [{@link x}, {@link y}]. */
-  resizeBottomLeft(x1: number, y2: number): void {
-    this[2] = (this[2] ?? 0) + (this[0] ?? 0) - x1
-    this[3] = y2 - (this[1] ?? 0)
+  resizeBottomLeft(x1: number, y2: number) {
+    this[2] = this[2]! + this[0]! - x1
+    this[3] = y2 - this[1]!
 
     this[0] = x1
   }
 
   /** Resizes the rectangle without moving it, setting its top-right corner to [{@link x}, {@link y}]. */
-  resizeTopRight(x2: number, y1: number): void {
-    this[2] = x2 - (this[0] ?? 0)
-    this[3] = (this[3] ?? 0) + (this[1] ?? 0) - y1
+  resizeTopRight(x2: number, y1: number) {
+    this[2] = x2 - this[0]!
+    this[3] = this[3]! + this[1]! - y1
 
     this[1] = y1
   }
 
   /** Resizes the rectangle without moving it, setting its bottom-right corner to [{@link x}, {@link y}]. */
-  resizeBottomRight(x2: number, y2: number): void {
-    this[2] = x2 - (this[0] ?? 0)
-    this[3] = y2 - (this[1] ?? 0)
+  resizeBottomRight(x2: number, y2: number) {
+    this[2] = x2 - this[0]!
+    this[3] = y2 - this[1]!
   }
 
   /** Sets the width without moving the right edge (changes position) */
-  setWidthRightAnchored(width: number): void {
-    const currentWidth = this[2] ?? 0
-    const currentX = this[0] ?? 0
+  setWidthRightAnchored(width: number) {
+    const currentWidth = this[2]!
+    const currentX = this[0]!
     this[2] = width
     this[0] = currentX + currentWidth - width
   }
 
   /** Sets the height without moving the bottom edge (changes position) */
-  setHeightBottomAnchored(height: number): void {
-    const currentHeight = this[3] ?? 0
-    const currentY = this[1] ?? 0
+  setHeightBottomAnchored(height: number) {
+    const currentHeight = this[3]!
+    const currentY = this[1]!
     this[3] = height
     this[1] = currentY + currentHeight - height
   }
@@ -444,7 +445,7 @@ export class Rectangle extends Float64Array {
   }
 
   /** Alias of {@link export}. */
-  toArray(): [number, number, number, number] {
+  toArray() {
     return this.export()
   }
 
@@ -457,13 +458,13 @@ export class Rectangle extends Float64Array {
    * Draws a debug outline of this rectangle.
    * @internal Convenience debug/development interface; not for production use.
    */
-  _drawDebug(ctx: CanvasRenderingContext2D, colour = 'red'): void {
+  _drawDebug(ctx: CanvasRenderingContext2D, colour = 'red') {
     const { strokeStyle, lineWidth } = ctx
     try {
       ctx.strokeStyle = colour
       ctx.lineWidth = 0.5
       ctx.beginPath()
-      ctx.strokeRect(this[0] ?? 0, this[1] ?? 0, this[2] ?? 0, this[3] ?? 0)
+      ctx.strokeRect(this[0]!, this[1]!, this[2]!, this[3]!)
     } finally {
       ctx.strokeStyle = strokeStyle
       ctx.lineWidth = lineWidth
@@ -479,6 +480,6 @@ export type ReadOnlyRectangle = Omit<
   | 'resizeBottomLeft'
   | 'resizeTopRight'
   | 'resizeBottomRight'
-   
+  | 'resizeBottomRight'
   | 'updateTo'
 >

@@ -13,7 +13,7 @@ export function truncateText(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
-  ellipsis = '...'
+  ellipsis: string = '...'
 ): string {
   const textWidth = cachedMeasureText(ctx, text)
 

@@ -136,11 +136,11 @@ const BarTooltip = ({
   payload,
 }: {
   active?: boolean
-  payload?: {
+  payload?: Array<{
     dataKey: string
     value: number
     payload: BarTooltipPayload
-  }[]
+  }>
 }) => {
   if (!active || !payload) return null
   const data = payload[0]?.payload
@@ -180,7 +180,7 @@ const PieTooltip = ({
   payload,
 }: {
   active?: boolean
-  payload?: { payload: PieTooltipPayload }[]
+  payload?: Array<{ payload: PieTooltipPayload }>
 }) => {
   if (!active || !payload?.[0]) return null
   const d = payload[0].payload
@@ -450,7 +450,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
                 ).map((r) => (
                   <button
                     key={r.id}
-                    onClick={() => { setChartRange(r.id); }}
+                    onClick={() => setChartRange(r.id)}
                     className={cn(
                       "rounded-md px-2.5 py-0.5 text-[10px] font-black transition-all",
                       chartRange === r.id

@@ -44,11 +44,11 @@ export interface FloatingRerouteSlot {
 export class Reroute
   implements Positionable, LinkSegment, Serialisable<SerialisableReroute>
 {
-  static radius = 10
+  static radius: number = 10
   /** Maximum distance from reroutes to their bezier curve control points. */
-  static maxSplineOffset = 80
-  static drawIdBadge = false
-  static slotRadius = 5
+  static maxSplineOffset: number = 80
+  static drawIdBadge: boolean = false
+  static slotRadius: number = 5
   /** Distance from reroute centre to slot centre. */
   static get slotOffset(): number {
     const gap = Reroute.slotRadius * 0.33
@@ -126,8 +126,8 @@ export class Reroute
   floatingLinkIds: Set<LinkId>
 
   /** Cached cos */
-  cos = 0
-  sin = 0
+  cos: number = 0
+  sin: number = 0
 
   /** Bezier curve control point for the "target" (input) side of the link */
   controlPoint: Point = [0, 0]
@@ -154,7 +154,7 @@ export class Reroute
    * Used to ensure reroute angles are only executed once per frame.
    * @todo Calculate on change instead.
    */
-  private lastRenderTime = -Infinity
+  private lastRenderTime: number = -Infinity
 
   private readonly inputSlot = new RerouteSlot(this, true)
   private readonly outputSlot = new RerouteSlot(this, false)
@@ -227,9 +227,9 @@ export class Reroute
    */
   update(
     parentId: RerouteId | undefined,
-    pos?: Point  ,
-    linkIds?: Iterable<LinkId>  ,
-    floating?: FloatingRerouteSlot  
+    pos?: Point | undefined,
+    linkIds?: Iterable<LinkId> | undefined,
+    floating?: FloatingRerouteSlot | undefined
   ): void {
     this.parentId = parentId
     if (pos) this.pos = pos
@@ -709,7 +709,7 @@ class RerouteSlot {
   }
 
   /** Whether any changes require a redraw. */
-  dirty = false
+  dirty: boolean = false
 
   private hoveringInternal = false
   /** Whether the pointer is hovering over the slot itself. */

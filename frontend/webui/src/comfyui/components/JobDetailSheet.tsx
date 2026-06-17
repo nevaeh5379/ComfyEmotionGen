@@ -40,7 +40,7 @@ function ClipButton({ text }: { text: string }) {
     e.stopPropagation()
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
-      setTimeout(() => { setCopied(false); }, COPIED_RESET_DELAY_MS)
+      setTimeout(() => setCopied(false), COPIED_RESET_DELAY_MS)
     })
   }
   return (
@@ -349,7 +349,7 @@ export function JobDetailSheet({
           <ImageViewer
             src={lightboxUrls[lightboxIndex]!}
             isOpen={lightboxUrls !== null}
-            onClose={() => { setLightboxUrls(null); }}
+            onClose={() => setLightboxUrls(null)}
           >
             {lightboxUrls.length > 1 && (
               <div className="flex w-full flex-col items-center gap-3">
@@ -358,7 +358,7 @@ export function JobDetailSheet({
                     size="sm"
                     variant="outline"
                     className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
-                    onClick={() => { setLightboxIndex((i) => Math.max(0, i - 1)); }}
+                    onClick={() => setLightboxIndex((i) => Math.max(0, i - 1))}
                     disabled={lightboxIndex === 0}
                   >
                     <ChevronDown className="h-4 w-4 rotate-90" />
@@ -371,9 +371,9 @@ export function JobDetailSheet({
                     variant="outline"
                     className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
                     onClick={() =>
-                      { setLightboxIndex((i) =>
+                      setLightboxIndex((i) =>
                         Math.min(lightboxUrls.length - 1, i + 1)
-                      ); }
+                      )
                     }
                     disabled={lightboxIndex === lightboxUrls.length - 1}
                   >
@@ -393,7 +393,7 @@ export function JobDetailSheet({
                             ? "scale-100 border-info shadow-md ring-2 ring-info/30"
                             : "border-transparent opacity-50 hover:scale-98 hover:opacity-100"
                         )}
-                        onClick={() => { setLightboxIndex(i); }}
+                        onClick={() => setLightboxIndex(i)}
                       >
                         <img
                           src={url}

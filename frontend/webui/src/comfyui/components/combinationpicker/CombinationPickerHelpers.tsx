@@ -102,7 +102,7 @@ export function ImageWithSkeleton({
             src={src}
             alt={alt}
             className={`h-full w-full ${objectFit} transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"} ${showBlurredBg ? "relative z-10" : ""}`}
-            onLoad={() => { setLoading(false); }}
+            onLoad={() => setLoading(false)}
             onError={() => {
               setLoading(false)
               setError(true)

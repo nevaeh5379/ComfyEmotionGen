@@ -56,7 +56,7 @@ export function useLocalStorage<T>(key: string, defaultValue: T) {
       }
     }
     window.addEventListener("storage", handleStorage)
-    return () => { window.removeEventListener("storage", handleStorage); }
+    return () => window.removeEventListener("storage", handleStorage)
   }, [key, defaultValue, isStringDefault])
 
   // 래핑된 setter: localStorage 저장 + 같은 탭 내 동기화를 위해 storage 이벤트 dispatch

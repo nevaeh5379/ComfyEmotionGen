@@ -20,8 +20,8 @@ export function getImageFilename(img: {
 }
 
 export async function downloadImagesAsZip(
-  imageUrls: { url: string; filename: string }[],
-  zipName = "images.zip"
+  imageUrls: Array<{ url: string; filename: string }>,
+  zipName: string = "images.zip"
 ): Promise<void> {
   if (imageUrls.length === 0) return
 

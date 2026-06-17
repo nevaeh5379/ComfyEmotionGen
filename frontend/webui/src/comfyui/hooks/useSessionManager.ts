@@ -109,7 +109,7 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
           setSelectedSessionId(serverActiveState.activeSessionId)
         }
       }
-    ).catch((err) => { console.warn("세션 데이터 로드 실패:", err); })
+    ).catch((err) => console.warn("세션 데이터 로드 실패:", err))
     return () => {
       aborted = true
     }
@@ -129,7 +129,7 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
     active: 0,
   })
   const [statsTick, setStatsTick] = useState(0)
-  const refetchStats = useCallback(() => { setStatsTick((t) => t + 1); }, [])
+  const refetchStats = useCallback(() => setStatsTick((t) => t + 1), [])
 
   // 활성 잡들의 상태 변화가 생기면 실시간 카운트 리프레시
   const activeJobsKey = useMemo(() => jobs.map((j) => `${j.id}:${j.status}`).join(","), [jobs])
