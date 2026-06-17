@@ -19,7 +19,7 @@ type CommonIoSlotProps = SharedIntersection<
   ISerialisableNodeOutput
 >
 
-function shallowCloneCommonProps(slot: INodeSlot): CommonIoSlotProps {
+function shallowCloneCommonProps(slot: CommonIoSlotProps): CommonIoSlotProps {
   const {
     color_off,
     color_on,

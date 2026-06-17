@@ -95,7 +95,7 @@ export class LLink implements LinkSegment, Serialisable<SerialisableLLink> {
 
   /** Link ID */
   id: LinkId
-  parentId?: RerouteId | undefined
+  parentId?: RerouteId
   type: ISlotType
   /** Output node ID */
   origin_id: NodeId
@@ -159,7 +159,7 @@ export class LLink implements LinkSegment, Serialisable<SerialisableLLink> {
     origin_slot: number,
     target_id: NodeId,
     target_slot: number,
-  parentId?: RerouteId | undefined
+    parentId?: RerouteId
   ) {
     this.id = id
     this.type = type

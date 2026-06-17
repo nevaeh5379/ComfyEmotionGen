@@ -33,21 +33,21 @@ export enum LabelPosition {
 
 export interface IDrawBoundingOptions {
   /** The shape to render */
-  shape?: RenderShape | undefined
+  shape?: RenderShape
   /** The radius of the rounded corners for {@link RenderShape.ROUND} and {@link RenderShape.CARD} */
-  round_radius?: number | undefined
+  round_radius?: number
   /** Shape will extend above the Y-axis 0 by this amount @deprecated This is node-specific: it should be removed entirely, and behaviour defined by the caller more explicitly */
-  title_height?: number | undefined
+  title_height?: number
   /** @deprecated This is node-specific: it should be removed entirely, and behaviour defined by the caller more explicitly */
-  title_mode?: TitleMode | undefined
+  title_mode?: TitleMode
   /** The color that should be drawn */
-  color?: CanvasColour | undefined
+  color?: CanvasColour
   /** The distance between the edge of the {@link area} and the middle of the line */
-  padding?: number | undefined
+  padding?: number
   /** @deprecated This is node-specific: it should be removed entirely, and behaviour defined by the caller more explicitly */
-  collapsed?: boolean | undefined
+  collapsed?: boolean
   /** Thickness of the line drawn (`lineWidth`) */
-  lineWidth?: number | undefined
+  lineWidth?: number
 }
 
 interface IDrawTextInAreaOptions {

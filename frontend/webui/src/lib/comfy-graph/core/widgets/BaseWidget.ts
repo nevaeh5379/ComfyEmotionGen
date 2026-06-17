@@ -74,9 +74,9 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
   declare serialize?: boolean
   computeLayoutSize?(node: LGraphNode): {
     minHeight: number
-    maxHeight?: number | undefined
+    maxHeight?: number
     minWidth: number
-    maxWidth?: number | undefined
+    maxWidth?: number
   }
 
   private _node: LGraphNode
@@ -252,8 +252,8 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
     return this.computedDisabled ? '' : String(this.value)
   }
 
-  get labelBaseline(): string {
-    return String(this.y + this.height * 0.7)
+  get labelBaseline() {
+    return this.y + this.height * 0.7
   }
 
   /**

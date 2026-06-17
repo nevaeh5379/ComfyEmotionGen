@@ -93,9 +93,9 @@ export interface Positionable extends Parent<Positionable>, HasBoundingRect {
    * @default 0,0
    */
   readonly pos: Point
-  readonly size?: Size | undefined
+  readonly size?: Size
   /** true if this object is part of the selection, otherwise false. */
-  selected?: boolean | undefined
+  selected?: boolean
 
   /** See {@link IPinnable.pinned} */
   readonly pinned?: boolean
@@ -145,12 +145,6 @@ export interface ColorOption {
 export interface IColorable {
   setColorOption(colorOption: ColorOption | null): void
   getColorOption(): ColorOption | null
-  /** The overridden fg color used to render the colorable. */
-  color?: string | undefined
-  /** The overridden bg color used to render the colorable. */
-  bgcolor?: string | undefined
-  /** The overridden box color used to render the colorable. */
-  boxcolor?: string | undefined
 }
 
 /**
@@ -206,10 +200,10 @@ export interface LinkSegment {
   /** Link / reroute ID */
   readonly id: LinkId | RerouteId
   /** The {@link id} of the reroute that this segment starts from (output side), otherwise `undefined`.  */
-  readonly parentId?: RerouteId | undefined
+  readonly parentId?: RerouteId
 
   /** The last canvas 2D path that was used to render this segment */
-  path?: Path2D | undefined
+  path?: Path2D
   /** Centre point of the {@link path}.  Calculated during render only - can be inaccurate */
   readonly _pos: Point
   /**
@@ -217,10 +211,10 @@ export interface LinkSegment {
    * `undefined` if using circles for link centres.
    * Calculated during render only - can be inaccurate.
    */
-  _centreAngle?: number | undefined
+  _centreAngle?: number
 
   /** Whether the link is currently being moved. @internal */
-  _dragging?: boolean | undefined
+  _dragging?: boolean
 
   /** Output node ID */
   readonly origin_id: NodeId | undefined
@@ -230,9 +224,9 @@ export interface LinkSegment {
 
 interface IInputOrOutput {
   // If an input, this will be defined
-  input?: INodeInputSlot | null | undefined
+  input?: INodeInputSlot | null
   // If an output, this will be defined
-  output?: INodeOutputSlot | null | undefined
+  output?: INodeOutputSlot | null
 }
 
 export interface IFoundSlot extends IInputOrOutput {
@@ -314,45 +308,45 @@ export interface INodeSlot extends HasBoundingRect {
    * Takes higher priority than {@link name} if set.
    * Will be included in the serialized data.
    */
-  localized_name?: string | undefined
+  localized_name?: string
   /**
    * The name of the slot to display in the UI, modified by the user.
    * Takes higher priority than {@link display_name} if set.
    * Will be included in the serialized data.
    */
-  label?: string | undefined
+  label?: string
 
   type: ISlotType
-  dir?: LinkDirection | undefined
-  removable?: boolean | undefined
-  shape?: RenderShape | undefined
-  color_off?: CanvasColour | undefined
-  color_on?: CanvasColour | undefined
-  locked?: boolean | undefined
-  nameLocked?: boolean | undefined
-  pos?: Point | undefined
+  dir?: LinkDirection
+  removable?: boolean
+  shape?: RenderShape
+  color_off?: CanvasColour
+  color_on?: CanvasColour
+  locked?: boolean
+  nameLocked?: boolean
+  pos?: Point
   /** @remarks Automatically calculated; not included in serialisation. */
   boundingRect: ReadOnlyRect
   /**
    * A list of floating link IDs that are connected to this slot.
    * This is calculated at runtime; it is **not** serialized.
    */
-  _floatingLinks?: Set<LLink> | undefined
+  _floatingLinks?: Set<LLink>
   /**
    * Whether the slot has errors. It is **not** serialized.
    */
-  hasErrors?: boolean | undefined
+  hasErrors?: boolean
 }
 
 export interface INodeFlags {
-  skip_repeated_outputs?: boolean | undefined
-  allow_interaction?: boolean | undefined
-  pinned?: boolean | undefined
-  collapsed?: boolean | undefined
+  skip_repeated_outputs?: boolean
+  allow_interaction?: boolean
+  pinned?: boolean
+  collapsed?: boolean
   /** Configuration setting for {@link LGraphNode.connectInputToOutput} */
-  keepAllLinksOnBypass?: boolean | undefined
+  keepAllLinksOnBypass?: boolean
   /** Node is in ghost placement mode (semi-transparent, following cursor) */
-  ghost?: boolean | undefined
+  ghost?: boolean
 }
 
 /**
@@ -363,18 +357,18 @@ export interface INodeFlags {
  */
 export interface IWidgetLocator {
   name: string
-  type?: string | undefined
+  type?: string
 }
 
 export interface INodeInputSlot extends INodeSlot {
-  link?: LinkId | null | undefined
-  widget?: IWidgetLocator | undefined
-  alwaysVisible?: boolean | undefined
+  link: LinkId | null
+  widget?: IWidgetLocator
+  alwaysVisible?: boolean
 
   /**
    * Internal use only; API is not finalised and may change at any time.
    */
-  _widget?: IBaseWidget | undefined
+  _widget?: IBaseWidget
 }
 
 export interface IWidgetInputSlot extends INodeInputSlot {
@@ -382,9 +376,9 @@ export interface IWidgetInputSlot extends INodeInputSlot {
 }
 
 export interface INodeOutputSlot extends INodeSlot {
-  links?: LinkId[] | null | undefined
-  _data?: unknown | undefined
-  slot_index?: SlotIndex | undefined
+  links: LinkId[] | null
+  _data?: unknown
+  slot_index?: SlotIndex
 }
 
 /** Options for {@link LiteGraphGlobal.createNode}. Shallow-copied onto the new node. */
@@ -408,17 +402,17 @@ export interface ConnectingLink extends IInputOrOutput {
   node: LGraphNode
   slot: SlotIndex
   pos: Point
-  direction?: LinkDirection | undefined
-  afterRerouteId?: RerouteId | undefined
+  direction?: LinkDirection
+  afterRerouteId?: RerouteId
   /** The first reroute on a chain */
-  firstRerouteId?: RerouteId | undefined
+  firstRerouteId?: RerouteId
   /** The link being moved, or `undefined` if creating a new link. */
-  link?: LLink | undefined
+  link?: LLink
 }
 
 interface IContextMenuBase {
-  title?: string | undefined
-  className?: string | undefined
+  title?: string
+  className?: string
 }
 
 /** ContextMenu */
@@ -426,27 +420,25 @@ export interface IContextMenuOptions<
   TValue = unknown,
   TExtra = unknown
 > extends IContextMenuBase {
-  ignore_item_callbacks?: boolean | undefined
-  parentMenu?: ContextMenu<TValue> | undefined
-  event?: MouseEvent | undefined
-  extra?: TExtra | undefined
+  ignore_item_callbacks?: boolean
+  parentMenu?: ContextMenu<TValue>
+  event?: MouseEvent
+  extra?: TExtra
   /** @deprecated Context menu scrolling is now controlled by the browser */
-  scroll_speed?: number | undefined
-  left?: number | undefined
-  top?: number | undefined
+  scroll_speed?: number
+  left?: number
+  top?: number
   /** @deprecated Context menus no longer scale using transform */
-  scale?: number | undefined
-  node?: LGraphNode | undefined
-  autoopen?: boolean | undefined
-  callback?:
-    | ((
-        value?: string | IContextMenuValue<TValue> | undefined,
-        options?: unknown | undefined,
-        event?: MouseEvent | undefined,
-        previous_menu?: ContextMenu<TValue> | undefined,
-        extra?: unknown | undefined
-      ) => void | boolean | Promise<void | boolean>)
-    | undefined
+  scale?: number
+  node?: LGraphNode
+  autoopen?: boolean
+  callback?(
+    value?: string | IContextMenuValue<TValue>,
+    options?: unknown,
+    event?: MouseEvent,
+    previous_menu?: ContextMenu<TValue>,
+    extra?: unknown
+  ): void | boolean | Promise<void | boolean>
 }
 
 export interface IContextMenuValue<
@@ -454,14 +446,14 @@ export interface IContextMenuValue<
   TExtra = unknown,
   TCallbackValue = unknown
 > extends IContextMenuBase {
-  value?: TValue | undefined
+  value?: TValue
   content: string | undefined
-  has_submenu?: boolean | undefined
-  disabled?: boolean | undefined
-  submenu?: IContextMenuSubmenu<TValue> | undefined
-  property?: string | undefined
-  type?: string | undefined
-  slot?: IFoundSlot | undefined
+  has_submenu?: boolean
+  disabled?: boolean
+  submenu?: IContextMenuSubmenu<TValue>
+  property?: string
+  type?: string
+  slot?: IFoundSlot
   callback?(
     this: ContextMenuDivElement<TValue>,
     value?: TCallbackValue,
@@ -481,7 +473,7 @@ interface IContextMenuSubmenu<
 export interface ContextMenuDivElement<
   TValue = unknown
 > extends HTMLDivElement {
-  value?: string | IContextMenuValue<TValue> | undefined
+  value?: string | IContextMenuValue<TValue>
   onclick_callback?: never
 }
 
@@ -497,7 +489,7 @@ export interface DefaultConnectionColors {
 }
 
 export interface ISubgraphInput extends INodeInputSlot {
-  _listenerController?: AbortController | undefined
+  _listenerController?: AbortController
   _subgraphSlot: SubgraphInput
 }
 
@@ -528,26 +520,26 @@ export type PanelWidgetCallback = (
  * Options for panel widgets.
  */
 export interface PanelWidgetOptions {
-  label?: string | undefined
-  type?: string | undefined
-  widget?: string | undefined
+  label?: string
+  type?: string
+  widget?: string
   values?: Array<string | IContextMenuValue<unknown, unknown, unknown> | null>
-  callback?: PanelWidgetCallback | undefined
+  callback?: PanelWidgetCallback
 }
 
 /**
  * A button element with optional options property.
  */
 export interface PanelButton extends HTMLButtonElement {
-  options?: unknown | undefined
+  options?: unknown
 }
 
 /**
  * A widget element with options and value properties.
  */
 export interface PanelWidget extends HTMLDivElement {
-  options?: PanelWidgetOptions | undefined
-  value?: TWidgetValue | undefined
+  options?: PanelWidgetOptions
+  value?: TWidgetValue
 }
 
 /**
@@ -560,9 +552,9 @@ export interface Panel extends HTMLDivElement {
   content: HTMLDivElement
   alt_content: HTMLDivElement
   footer: HTMLDivElement
-  node?: LGraphNode | undefined
-  onOpen?: (() => void) | undefined
-  onClose?: (() => void) | undefined
+  node?: LGraphNode
+  onOpen?: () => void
+  onClose?: () => void
   close(): void
   toggleAltContent(force?: boolean): void
   toggleFooterVisibility(force?: boolean): void
@@ -574,8 +566,8 @@ export interface Panel extends HTMLDivElement {
     type: string,
     name: string,
     value: TWidgetValue,
-    options?: PanelWidgetOptions | undefined,
-    callback?: PanelWidgetCallback | undefined
+    options?: PanelWidgetOptions,
+    callback?: PanelWidgetCallback
   ): PanelWidget
-  inner_showCodePad?(property: string): void | undefined
+  inner_showCodePad?(property: string): void
 }

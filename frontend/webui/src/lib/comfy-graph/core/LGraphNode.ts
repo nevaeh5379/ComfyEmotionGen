@@ -107,48 +107,46 @@ export type NodeId = string | number
 export type NodeProperty = string | number | boolean | WidgetObjectValue | null
 
 interface INodePropertyInfo {
-  name?: string | undefined
-  type?: string | undefined
-  default_value?: NodeProperty | undefined
-  widget?: string | undefined
-  label?: string | undefined
-  values?: TWidgetValue[] | undefined
+  name?: string
+  type?: string
+  default_value?: NodeProperty
+  widget?: string
+  label?: string
+  values?: TWidgetValue[]
 }
 
 interface IMouseOverData {
-  inputId?: number | undefined
-  outputId?: number | undefined
-  overWidget?: IBaseWidget | undefined
+  inputId?: number
+  outputId?: number
+  overWidget?: IBaseWidget
 }
-
-type MouseOverValue = IMouseOverData | undefined
 
 interface ConnectByTypeOptions {
   /** @deprecated Events */
-  createEventInCase?: boolean | undefined
+  createEventInCase?: boolean
   /** Allow our wildcard slot to connect to typed slots on remote node. Default: true */
-  wildcardToTyped?: boolean | undefined
+  wildcardToTyped?: boolean
   /** Allow our typed slot to connect to wildcard slots on remote node. Default: true */
-  typedToWildcard?: boolean | undefined
+  typedToWildcard?: boolean
   /** The {@link Reroute.id} that the connection is being dragged from. */
-  afterRerouteId?: RerouteId | undefined
+  afterRerouteId?: RerouteId
 }
 
 /** Internal type used for type safety when implementing generic checks for inputs & outputs */
 interface IGenericLinkOrLinks {
-  links?: INodeOutputSlot['links'] | undefined
-  link?: INodeInputSlot['link'] | undefined
+  links?: INodeOutputSlot['links']
+  link?: INodeInputSlot['link']
 }
 
 interface FindFreeSlotOptions {
   /** Slots matching these types will be ignored.  Default: [] */
-  typesNotAccepted?: ISlotType[] | undefined
+  typesNotAccepted?: ISlotType[]
   /** If true, the slot itself is returned instead of the index.  Default: false */
-  returnObj?: boolean | undefined
+  returnObj?: boolean
 }
 
 interface DrawSlotsOptions {
-  fromSlot?: (INodeInputSlot | INodeOutputSlot) | undefined
+  fromSlot?: INodeInputSlot | INodeOutputSlot
   colorContext: DefaultConnectionColors
   editorAlpha: number
   lowQuality: boolean
@@ -317,17 +315,17 @@ export class LGraphNode
    * The overridden fg color used to render the node.
    * @see {@link renderingColor}
    */
-  color?: string | undefined
+  color?: string
   /**
    * The overridden bg color used to render the node.
    * @see {@link renderingBgColor}
    */
-  bgcolor?: string | undefined
+  bgcolor?: string
   /**
    * The overridden box color used to render the node.
    * @see {@link renderingBoxColor}
    */
-  boxcolor?: string | undefined
+  boxcolor?: string
 
   /** The fg color used to render the node. */
   get renderingColor(): string {
@@ -434,8 +432,8 @@ export class LGraphNode
   onBounding?(this: LGraphNode, out: Rect): void
   console?: string[]
   _level?: number
-  _shape?: RenderShape | undefined
-  mouseOver?: MouseOverValue
+  _shape?: RenderShape
+  mouseOver?: IMouseOverData
   redraw_on_mouse?: boolean
   resizable?: boolean
   clonable?: boolean
@@ -484,7 +482,7 @@ export class LGraphNode
       pos: [posX, posY],
       boundingRect: [bX, bY]
     } = this
-    return [posX - (bX ?? 0), posY - (bY ?? 0)]
+    return [posX - bX, posY - bY]
   }
 
   /** {@link pos} and {@link size} values are backed by this {@link Rectangle}. */
@@ -563,7 +561,7 @@ export class LGraphNode
         this._shape = RenderShape.CARD
         break
       default:
-        this._shape = v as RenderShape
+        this._shape = v
     }
     if (oldValue !== this._shape) {
       this.graph?.trigger('node:property:changed', {
@@ -804,7 +802,6 @@ export class LGraphNode
         color: LiteGraph.NODE_ERROR_COLOUR
       }
     }
-    return undefined
   }
 
   private _getSelectedStrokeStyle(
@@ -815,7 +812,6 @@ export class LGraphNode
         padding: this.has_errors ? 20 : undefined
       }
     }
-    return undefined
   }
 
   get ctor(): LGraphNodeConstructor {
@@ -1106,8 +1102,7 @@ export class LGraphNode
     if (!this.graph) throw new NullGraphError()
 
     // if there are connections, pass the data to the connections
-    const outputSlot = outputs[slot]
-    const links = outputSlot?.links
+    const { links } = outputs[slot]
     if (links) {
       for (const id of links) {
         const link = this.graph._links.get(id)
@@ -1131,8 +1126,7 @@ export class LGraphNode
     if (!this.graph) throw new NullGraphError()
 
     // if there are connections, pass the data to the connections
-    const outputSlot = outputs[slot]
-    const links = outputSlot?.links
+    const { links } = outputs[slot]
     if (links) {
       for (const id of links) {
         const link = this.graph._links.get(id)
@@ -1150,14 +1144,11 @@ export class LGraphNode
   getInputData(slot: number, force_update?: boolean): unknown {
     if (!this.inputs) return
 
-    if (slot >= this.inputs.length || this.inputs[slot]?.link == null) return
+    if (slot >= this.inputs.length || this.inputs[slot].link == null) return
     if (!this.graph) throw new NullGraphError()
 
-    const input = this.inputs[slot]
-    if (!input) return
-
-    const link_id = input.link
-    const link = link_id != null ? this.graph._links.get(link_id) : undefined
+    const link_id = this.inputs[slot].link
+    const link = this.graph._links.get(link_id)
     // bug: weird case but it happens sometimes
     if (!link) return null
 
@@ -1183,22 +1174,19 @@ export class LGraphNode
    */
   getInputDataType(slot: SlotIndex): ISlotType | null {
     if (!this.inputs) return null
-    if (slot >= this.inputs.length || this.inputs[slot]?.link == null)
+    if (slot >= this.inputs.length || this.inputs[slot].link == null)
       return null
     if (!this.graph) throw new NullGraphError()
 
-    const input = this.inputs[slot]
-    if (!input) return null
-
-    const link_id = input.link
-    const link = link_id != null ? this.graph._links.get(link_id) : undefined
+    const link_id = this.inputs[slot].link
+    const link = this.graph._links.get(link_id)
     // bug: weird case but it happens sometimes
     if (!link) return null
 
     const node = this.graph.getNodeById(link.origin_id)
     if (!node) return link.type
 
-    const output_info = node.outputs?.[link.origin_slot]
+    const output_info = node.outputs[link.origin_slot]
     return output_info ? output_info.type : null
   }
 
@@ -1220,7 +1208,7 @@ export class LGraphNode
    */
   isInputConnected(slot: number): boolean {
     if (!this.inputs) return false
-    return slot < this.inputs.length && this.inputs[slot]?.link != null
+    return slot < this.inputs.length && this.inputs[slot].link != null
   }
 
   /**
@@ -1230,7 +1218,7 @@ export class LGraphNode
   getInputInfo(slot: number): INodeInputSlot | null {
     return !this.inputs || !(slot < this.inputs.length)
       ? null
-      : (this.inputs[slot] ?? null)
+      : this.inputs[slot]
   }
 
   /**
@@ -1252,7 +1240,7 @@ export class LGraphNode
       if (!this.graph) throw new NullGraphError()
 
       const input = this.inputs[slot]
-      if (input?.link != null) {
+      if (input.link != null) {
         return this.graph._links.get(input.link) ?? null
       }
     }
@@ -1271,7 +1259,7 @@ export class LGraphNode
     if (!input || input.link === null) return null
     if (!this.graph) throw new NullGraphError()
 
-    const link_info = input.link != null ? this.graph._links.get(input.link) : undefined
+    const link_info = this.graph._links.get(input.link)
     if (!link_info) return null
 
     return this.graph.getNodeById(link_info.origin_id)
@@ -1306,7 +1294,7 @@ export class LGraphNode
     if (slot >= this.outputs.length) return null
 
     const info = this.outputs[slot]
-    return info?._data ?? null
+    return info._data
   }
 
   /**
@@ -1316,7 +1304,7 @@ export class LGraphNode
   getOutputInfo(slot: number): INodeOutputSlot | null {
     return !this.outputs || !(slot < this.outputs.length)
       ? null
-      : (this.outputs[slot] ?? null)
+      : this.outputs[slot]
   }
 
   /**
@@ -1325,7 +1313,7 @@ export class LGraphNode
   isOutputConnected(slot: number): boolean {
     if (!this.outputs) return false
     return (
-      slot < this.outputs.length && Number(this.outputs[slot]?.links?.length) > 0
+      slot < this.outputs.length && Number(this.outputs[slot].links?.length) > 0
     )
   }
 
@@ -1351,8 +1339,7 @@ export class LGraphNode
 
     if (slot >= outputs.length) return null
 
-    const outputSlot = outputs[slot]
-    const links = outputSlot?.links
+    const { links } = outputs[slot]
     if (!links || links.length == 0) return null
     if (!this.graph) throw new NullGraphError()
 
@@ -1575,7 +1562,6 @@ export class LGraphNode
           options.action_call = `${this.id}_act_${Math.floor(Math.random() * 9999)}`
         // pass the action name
         const target_connection = node.inputs[link_info.target_slot]
-        if (!target_connection) return
         node.actionDo(target_connection.name, param, options)
       }
     }
@@ -1754,7 +1740,7 @@ export class LGraphNode
         if (link) link.target_slot--
       }
     }
-    this.onInputRemoved?.(slot, slot_info[0] as INodeInputSlot)
+    this.onInputRemoved?.(slot, slot_info[0])
     this.setDirtyCanvas(true, true)
   }
 
@@ -1930,7 +1916,7 @@ export class LGraphNode
       }
     }
     // litescene mode using the constructor
-    const ctorWithIndex = this.ctor as unknown as Record<string, string | number | boolean | null | undefined | object | (() => void) | string[]>
+    const ctorWithIndex = this.ctor as Record<string, string | number | boolean | null | undefined | object | (() => void) | string[]>
     if (ctorWithIndex[`@${property}`])
       info = ctorWithIndex[`@${property}`] as Record<string, string | number | boolean | null | undefined | object | (() => void) | string[]>
 
@@ -2160,12 +2146,12 @@ export class LGraphNode
     const renderArea = this._renderArea
     renderArea.set(bounds)
     // 4 offset for collapsed node connection points
-    renderArea[0] = (renderArea[0] ?? 0) - 4
-    renderArea[1] = (renderArea[1] ?? 0) - 4
+    renderArea[0] -= 4
+    renderArea[1] -= 4
     // Add shadow & left offset
-    renderArea[2] = (renderArea[2] ?? 0) + 6 + 4
+    renderArea[2] += 6 + 4
     // Add shadow & top offsets
-    renderArea[3] = (renderArea[3] ?? 0) + 5 + 4
+    renderArea[3] += 5 + 4
   }
 
   /**
@@ -2279,7 +2265,6 @@ export class LGraphNode
     const x = canvasX - pos[0]
     const y = canvasY - pos[1]
     const nodeWidth = size[0]
-    if (nodeWidth === undefined) return
 
     for (const widget of widgets) {
       if (
@@ -2291,7 +2276,7 @@ export class LGraphNode
 
       const h =
         widget.computedHeight ??
-        widget.computeSize?.(nodeWidth)?.[1] ??
+        widget.computeSize?.(nodeWidth)[1] ??
         LiteGraph.NODE_WIDGET_HEIGHT
 
       const maybeDOMWidget = widget as { margin?: number }
@@ -2314,7 +2299,6 @@ export class LGraphNode
         return widget
       }
     }
-    return undefined
   }
 
   /**
@@ -2416,14 +2400,13 @@ export class LGraphNode
     if (!(length > 0)) return -1
 
     for (let i = 0; i < length; ++i) {
-      const slot = slots[i] as TSlot & IGenericLinkOrLinks
+      const slot: TSlot & IGenericLinkOrLinks = slots[i]
       if (!slot || slot.link || slot.links?.length) continue
       if (opts.typesNotAccepted?.includes?.(slot.type)) continue
       return !opts.returnObj ? i : slot
     }
     return -1
   }
-
 
   /**
    * findSlotByType for INPUTS
@@ -2565,9 +2548,9 @@ export class LGraphNode
     const sourceTypes = String(type).toLowerCase().split(',')
 
     // Run the search
-    let occupiedSlot: number | (TSlot & IGenericLinkOrLinks) | null = null
+    let occupiedSlot: number | TSlot | null = null
     for (let i = 0; i < length; ++i) {
-      const slot = slots[i] as TSlot & IGenericLinkOrLinks
+      const slot: TSlot & IGenericLinkOrLinks = slots[i]
       const destTypes =
         slot.type == '0' || slot.type == '*'
           ? ['0']
@@ -2641,7 +2624,6 @@ export class LGraphNode
     if (opts.createEventInCase && slotType == LiteGraph.EVENT) {
       if (findInputs) return -1
       if (LiteGraph.do_add_triggers_slots) return node.addOnExecutedOutput()
-      return undefined
     }
 
     // connect to the first general output slot if not found a specific type and
@@ -2660,8 +2642,6 @@ export class LGraphNode
         : node.findOutputSlotFree(opt)
       if (nonEventSlot >= 0) return nonEventSlot
     }
-
-    return undefined
   }
 
   /**
@@ -2874,7 +2854,6 @@ export class LGraphNode
     }
 
     const input = target_node.inputs[targetIndex]
-    if (!input) return null
     const output = outputs[slot]
 
     if (!output) return null
@@ -2988,7 +2967,6 @@ export class LGraphNode
     output.links.push(link.id)
     // connect in input
     const targetInput = inputNode.inputs[inputIndex]
-    if (!targetInput) return null
     targetInput.link = link.id
     if (targetInput.widget) {
       graph.trigger('node:slot-links:changed', {
@@ -3002,23 +2980,23 @@ export class LGraphNode
 
     // Reroutes
     const reroutes = LLink.getReroutes(graph, link)
-    let lastReroute: Reroute | undefined
     for (const reroute of reroutes) {
       reroute.linkIds.add(link.id)
       if (reroute.floating) reroute.floating = undefined
       reroute._dragging = undefined
-      lastReroute = reroute
     }
 
     // If this is the terminus of a floating link, remove it
+    const lastReroute = reroutes.at(-1)
     if (lastReroute) {
       for (const linkId of lastReroute.floatingLinkIds) {
-        const floatingLink = graph.floatingLinks.get(linkId)
-        if (floatingLink?.parentId === lastReroute.id) {
-          graph.removeFloatingLink(floatingLink)
+        const link = graph.floatingLinks.get(linkId)
+        if (link?.parentId === lastReroute.id) {
+          graph.removeFloatingLink(link)
         }
       }
     }
+    graph.incrementVersion()
 
     // link has been created now, so its updated
     this.onConnectionsChange?.(
@@ -3153,7 +3131,6 @@ export class LGraphNode
         // remove here
         links.splice(i, 1)
         const input = target.inputs[link_info.target_slot]
-        if (!input) continue
         // remove there
         input.link = null
         if (input.widget) {
@@ -3210,7 +3187,6 @@ export class LGraphNode
 
         if (target) {
           const input = target.inputs[link_info.target_slot]
-          if (!input) continue
           // remove other side link
           input.link = null
           if (input.widget) {
@@ -3288,9 +3264,9 @@ export class LGraphNode
       }
     }
 
-    const link_id = input.link
+    const link_id = this.inputs[slot].link
     if (link_id != null) {
-      input.link = null
+      this.inputs[slot].link = null
       if (input.widget) {
         graph.trigger('node:slot-links:changed', {
           nodeId: this.id,
@@ -3308,8 +3284,6 @@ export class LGraphNode
         if (link_info.origin_id === -10 && 'inputNode' in graph) {
           graph.inputNode._disconnectNodeInput(this, input, link_info)
           return true
-        } else if (link_info.origin_id === -10) {
-          return false
         }
 
         const target_node = graph.getNodeById(link_info.origin_id)
@@ -3321,7 +3295,7 @@ export class LGraphNode
           return false
         }
 
-        const output = target_node.outputs?.[link_info.origin_slot]
+        const output = target_node.outputs[link_info.origin_slot]
         if (!output?.links?.length) {
           // Output not found - may have been removed
           return false
@@ -3408,8 +3382,8 @@ export class LGraphNode
     // default vertical slots
     const offset = LiteGraph.NODE_SLOT_HEIGHT * 0.5
     const slotIndex = is_input
-      ? this._defaultVerticalInputs.indexOf(this.inputs[slot_number] as INodeInputSlot)
-      : this._defaultVerticalOutputs.indexOf(this.outputs[slot_number] as INodeOutputSlot)
+      ? this._defaultVerticalInputs.indexOf(this.inputs[slot_number])
+      : this._defaultVerticalOutputs.indexOf(this.outputs[slot_number])
 
     out[0] = is_input ? nodeX + offset : nodeX + this.size[0] + 1 - offset
     out[1] =
@@ -4090,7 +4064,7 @@ export class LGraphNode
     if (mouseOverId === -1) {
       return null
     }
-    return (isInput ? this.inputs[mouseOverId] : this.outputs[mouseOverId]) ?? null
+    return isInput ? this.inputs[mouseOverId] : this.outputs[mouseOverId]
   }
 
   private _isMouseOverSlot(slot: INodeSlot): boolean {
@@ -4112,7 +4086,6 @@ export class LGraphNode
       return this.inputs.find(
         (slot) => isWidgetInputSlot(slot) && slot.widget.name === widget.name
       )
-    return undefined
   }
 
   /**
@@ -4181,7 +4154,7 @@ export class LGraphNode
     let fixedWidgetHeight = 0
     const growableWidgets: {
       minHeight: number
-      prefHeight?: number | undefined
+      prefHeight?: number
       w: IBaseWidget
     }[] = []
 
@@ -4213,7 +4186,7 @@ export class LGraphNode
     // Prepare space requests for distribution
     const spaceRequests = growableWidgets.map((d) => ({
       minSize: d.minHeight,
-      maxSize: d.prefHeight as number | undefined
+      maxSize: d.prefHeight
     }))
 
     // Distribute space among DOM widgets

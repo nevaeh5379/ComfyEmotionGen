@@ -139,45 +139,45 @@ type ParamsArray<T, K extends MethodNames<T>> = Parameters<
 /** Configuration used by {@link LGraph} `config`. */
 export interface LGraphConfig {
   /** @deprecated Legacy config - unused */
-  align_to_grid?: boolean | undefined
-  links_ontop?: boolean | undefined
+  align_to_grid?: boolean
+  links_ontop?: boolean
 }
 
 /** Options for {@link LGraph.add} method. */
 export interface GraphAddOptions {
   /** If true, skip recomputing execution order after adding the node. */
-  skipComputeOrder?: boolean | undefined
+  skipComputeOrder?: boolean
   /** If true, the node will be semi-transparent and follow the cursor until placed or cancelled. */
-  ghost?: boolean | undefined
+  ghost?: boolean
   /** Mouse event for ghost placement. Used to position node under cursor. */
-  dragEvent?: MouseEvent | undefined
+  dragEvent?: MouseEvent
 }
 
 export interface GroupNodeConfigEntry {
-  input?: Record<string, { name?: string | undefined; visible?: boolean | undefined }>
-  output?: Record<number, { name?: string | undefined; visible?: boolean | undefined }>
+  input?: Record<string, { name?: string; visible?: boolean }>
+  output?: Record<number, { name?: string; visible?: boolean }>
 }
 
 export interface GroupNodeWorkflowData {
   external: (number | string)[][]
   links: SerialisedLLinkArray[]
   nodes: {
-    index?: number | undefined
-    type?: string | undefined
-    title?: string | undefined
-    inputs?: unknown[] | undefined
-    outputs?: unknown[] | undefined
-    widgets_values?: unknown[] | undefined
+    index?: number
+    type?: string
+    title?: string
+    inputs?: unknown[]
+    outputs?: unknown[]
+    widgets_values?: unknown[]
   }[]
-  config?: Record<number, GroupNodeConfigEntry> | undefined
+  config?: Record<number, GroupNodeConfigEntry>
 }
 
 export interface LGraphExtra extends Dictionary<unknown> {
-  reroutes?: SerialisableReroute[] | undefined
-  linkExtensions?: { id: LinkId; parentId: RerouteId | undefined }[] | undefined
-  ds?: DragAndScaleState | undefined
-  workflowRendererVersion?: RendererType | undefined
-  groupNodes?: Record<string, GroupNodeWorkflowData> | undefined
+  reroutes?: SerialisableReroute[]
+  linkExtensions?: { id: LinkId; parentId: RerouteId | undefined }[]
+  ds?: DragAndScaleState
+  workflowRendererVersion?: RendererType
+  groupNodes?: Record<string, GroupNodeWorkflowData>
 }
 
 export interface BaseLGraph {
@@ -592,7 +592,6 @@ export class LGraph
       for (let i = 0; i < num; i++) {
         for (let j = 0; j < limit; ++j) {
           const node = nodes[j]
-          if (!node) continue
           // FIXME: Looks like copy/paste broken logic - checks for "on", executes "do"
           if (node.mode == LGraphEventMode.ALWAYS && node.onExecute) {
             // wrap node.onExecute();
@@ -608,7 +607,6 @@ export class LGraph
         for (let i = 0; i < num; i++) {
           for (let j = 0; j < limit; ++j) {
             const node = nodes[j]
-            if (!node) continue
             if (node.mode == LGraphEventMode.ALWAYS) {
               node.onExecute?.()
             }
@@ -738,19 +736,17 @@ export class LGraph
           // mark as visited
           visited_links[link.id] = true
           // reduce the number of links remaining
-          const remainingBefore = remaining_links[target_node.id]!
-          remaining_links[target_node.id] = remainingBefore - 1
+          remaining_links[target_node.id] -= 1
 
           // if no more links, then add to starters array
-          if (remainingBefore == 1) S.push(target_node)
+          if (remaining_links[target_node.id] == 0) S.push(target_node)
         }
       }
     }
 
     // the remaining ones (loops)
     for (const i in M) {
-      const node = M[i]
-      if (node) L.push(node)
+      L.push(M[i])
     }
 
     if (L.length != this._nodes.length && LiteGraph.debug)
@@ -765,8 +761,7 @@ export class LGraph
     ): asserts nodes is OrderedLGraphNode[] {
       const l = nodes.length
       for (let i = 0; i < l; ++i) {
-        const node = nodes[i]
-        if (node) node.order = i
+        nodes[i].order = i
       }
     }
 
@@ -1167,7 +1162,7 @@ export class LGraph
    * Returns a node by its id.
    */
   getNodeById(id: NodeId | null | undefined): LGraphNode | null {
-    return id != null ? this._nodes_by_id[id] ?? null : null
+    return id != null ? this._nodes_by_id[id] : null
   }
 
   /**
@@ -1245,7 +1240,7 @@ export class LGraph
     let i = nodes.length
     while (--i >= 0) {
       const node = nodes[i]
-      if (node?.isPointInside(x, y)) return node
+      if (node.isPointInside(x, y)) return node
     }
     return null
   }
@@ -1260,7 +1255,7 @@ export class LGraph
     // Iterate backwards through groups to find top-most
     for (let i = this._groups.length - 1; i >= 0; i--) {
       const group = this._groups[i]
-      if (group?.isPointInside(x, y)) {
+      if (group.isPointInside(x, y)) {
         return group
       }
     }
@@ -1277,7 +1272,7 @@ export class LGraph
     // Iterate backwards through groups to find top-most
     for (let i = this._groups.length - 1; i >= 0; i--) {
       const group = this._groups[i]
-      if (group?.isPointInTitlebar(x, y)) {
+      if (group.isPointInTitlebar(x, y)) {
         return group
       }
     }
@@ -1298,7 +1293,6 @@ export class LGraph
     for (const reroute of reroutes ?? this.reroutes.values()) {
       if (reroute.containsPoint([x, y])) return reroute
     }
-    return undefined
   }
 
   /**
@@ -1656,15 +1650,8 @@ export class LGraph
     for (const ids of groups.values()) {
       if (ids.length <= 1) continue
 
-      const firstId = ids[0]
-      if (firstId === undefined) continue
-
-      const sampleLink = this._links.get(firstId)
-      if (!sampleLink) continue
-
+      const sampleLink = this._links.get(ids[0])!
       const node = this.getNodeById(sampleLink.target_id)
-      if (!node) continue
-
       const keepId = selectSurvivorLink(ids, node)
 
       purgeOrphanedLinks(ids, keepId, this._links, (id) => this.getNodeById(id))
@@ -1837,9 +1824,7 @@ export class LGraph
     })
     if (!subgraphNode) throw new Error('Failed to create subgraph node')
     for (let i = 0; i < inputs.length; i++) {
-      const inputSlot = subgraphNode.inputs[i]
-      if (!inputSlot) continue
-      Object.assign(inputSlot, inputs[i])
+      Object.assign(subgraphNode.inputs[i], inputs[i])
     }
 
     // Resize to inputs/outputs
@@ -1868,10 +1853,6 @@ export class LGraph
     let i = 0
     for (const [, connections] of groupedByOutput.entries()) {
       const [firstResolved, ...others] = connections
-      if (!firstResolved) {
-        console.warn('Convert to Subgraph reconnect: No resolved input link')
-        continue
-      }
       const { output, outputNode, link, subgraphInput } = firstResolved
 
       // Special handling: Subgraph input node
@@ -1904,12 +1885,6 @@ export class LGraph
       }
 
       const input = subgraphNode.inputs[i - 1]
-      if (!input) {
-        console.warn(
-          'Convert to Subgraph reconnect: Failed to find subgraph input slot'
-        )
-        continue
-      }
       outputNode.connectSlots(output, subgraphNode, input, link.parentId)
     }
 
@@ -1948,12 +1923,6 @@ export class LGraph
         }
 
         const output = subgraphNode.outputs[i - 1]
-        if (!output) {
-          console.warn(
-            'Convert to Subgraph reconnect: Failed to find subgraph output slot'
-          )
-          continue
-        }
         subgraphNode.connectSlots(output, inputNode, input, link.parentId)
       }
     }
@@ -2009,7 +1978,7 @@ export class LGraph
       }
     })
     const bounds = createBounds(positionables) ?? [0, 0, 0, 0]
-    const center: Point = [bounds[0] + bounds[2] / 2, bounds[1] + bounds[3] / 2]
+    const center = [bounds[0] + bounds[2] / 2, bounds[1] + bounds[3] / 2]
 
     const toSelect: Positionable[] = []
     const offsetX = subgraphNode.pos[0] - center[0] + subgraphNode.size[0] / 2
@@ -2017,12 +1986,21 @@ export class LGraph
     const movedNodes = multiClone(subgraphNode.subgraph.nodes)
     const nodeIdMap = new Map<NodeId, NodeId>()
     for (const n_info of movedNodes) {
-      const node = LiteGraph.createNode(String(n_info.type), n_info.title)
-        ?? new LGraphNode(n_info.title || n_info.type || 'Missing Node')
-      if (!node.type) node.type = String(n_info.type)
-      if (!node.has_errors && !LiteGraph.registered_node_types[n_info.type]) {
-        node.last_serialization = n_info
-        node.has_errors = true
+      let node = LiteGraph.createNode(String(n_info.type), n_info.title)
+      if (!node) {
+        if (skipMissingNodes) {
+          console.warn(
+            `Cannot unpack node of type "${n_info.type}" - node type not found. Creating placeholder node.`
+          )
+          node = new LGraphNode(n_info.title || n_info.type || 'Missing Node')
+          node.last_serialization = n_info
+          node.has_errors = true
+          node.type = String(n_info.type)
+        } else {
+          throw new Error(
+            `Cannot unpack: node type "${n_info.type}" is not registered`
+          )
+        }
       }
 
       nodeIdMap.set(n_info.id, ++this.last_node_id)
@@ -2041,10 +2019,9 @@ export class LGraph
       }
 
       this.add(node, true)
-      if (!node) continue
-      node!.configure(n_info)
-      node!.setPos(node!.pos[0] + offsetX, node!.pos[1] + offsetY)
-      toSelect.push(node!)
+      node.configure(n_info)
+      node.setPos(node.pos[0] + offsetX, node.pos[1] + offsetY)
+      toSelect.push(node)
     }
     const groups = structuredClone(
       [...subgraphNode.subgraph.groups].map((g) => g.serialize())
@@ -2087,28 +2064,19 @@ export class LGraph
       tid: NodeId
       tslot: number
       id: LinkId
-      iparent?: RerouteId | undefined
-      eparent?: RerouteId | undefined
+      iparent?: RerouteId
+      eparent?: RerouteId
       externalFirst: boolean
     }[] = []
     for (const [, link] of subgraphNode.subgraph._links) {
       let externalParentId: RerouteId | undefined
       if (link.origin_id === SUBGRAPH_INPUT_ID) {
-        const inputSlot = subgraphNode.inputs[link.origin_slot]
-        if (!inputSlot) {
-          console.error('Missing input slot when unpacking')
-          continue
-        }
-        const outerLinkId = inputSlot.link
+        const outerLinkId = subgraphNode.inputs[link.origin_slot].link
         if (!outerLinkId) {
           console.error('Missing Link ID when unpacking')
           continue
         }
         const outerLink = this.links[outerLinkId]
-        if (!outerLink) {
-          console.error('Missing outer link when unpacking')
-          continue
-        }
         link.origin_id = outerLink.origin_id
         link.origin_slot = outerLink.origin_slot
         externalParentId = outerLink.parentId
@@ -2121,17 +2089,9 @@ export class LGraph
         link.origin_id = origin_id
       }
       if (link.target_id === SUBGRAPH_OUTPUT_ID) {
-        const outputSlot = subgraphNode.outputs[link.target_slot]
-        if (!outputSlot) {
-          console.error('Missing output slot when unpacking')
-          continue
-        }
-        for (const linkId of outputSlot.links ?? []) {
+        for (const linkId of subgraphNode.outputs[link.target_slot].links ??
+          []) {
           const sublink = this.links[linkId]
-          if (!sublink) {
-            console.error('Missing sublink when unpacking')
-            continue
-          }
           newLinks.push({
             oid: link.origin_id,
             oslot: link.origin_slot,
@@ -2185,44 +2145,24 @@ export class LGraph
           continue
         }
         const tnode = this._nodes_by_id[newLink.tid]
-        const slot = this.inputNode.slots[newLink.oslot]
-        if (!tnode || !slot) {
-          console.error('Missing node or slot when unpacking input link')
-          continue
-        }
-        const inputSlot = tnode.inputs[newLink.tslot]
-        if (!inputSlot) {
-          console.error('Missing input slot when unpacking input link')
-          continue
-        }
-        created = slot.connect(inputSlot, tnode)
+        created = this.inputNode.slots[newLink.oslot].connect(
+          tnode.inputs[newLink.tslot],
+          tnode
+        )
       } else if (newLink.tid == SUBGRAPH_OUTPUT_ID) {
         if (!(this instanceof Subgraph)) {
           console.error('Ignoring link to subgraph outside subgraph')
           continue
         }
         const tnode = this._nodes_by_id[newLink.oid]
-        const slot = this.outputNode.slots[newLink.tslot]
-        if (!tnode || !slot) {
-          console.error('Missing node or slot when unpacking output link')
-          continue
-        }
-        const outputSlot = tnode.outputs[newLink.oslot]
-        if (!outputSlot) {
-          console.error('Missing output slot when unpacking output link')
-          continue
-        }
-        created = slot.connect(outputSlot, tnode)
+        created = this.outputNode.slots[newLink.tslot].connect(
+          tnode.outputs[newLink.oslot],
+          tnode
+        )
       } else {
-        const originNode = this._nodes_by_id[newLink.oid]
-        const targetNode = this._nodes_by_id[newLink.tid]
-        if (!originNode || !targetNode) {
-          console.error('Missing node when unpacking link')
-          continue
-        }
-        created = originNode.connect(
+        created = this._nodes_by_id[newLink.oid].connect(
           newLink.oslot,
-          targetNode,
+          this._nodes_by_id[newLink.tid],
           newLink.tslot
         )
       }
@@ -2322,7 +2262,6 @@ export class LGraph
 
     for (const nodeId of nodeIdMap.values()) {
       const node = this._nodes_by_id[nodeId]
-      if (!node) continue
       node._setConcreteSlots()
       node.arrange()
     }
@@ -2370,10 +2309,10 @@ export class LGraph
       groups,
       nodes,
       reroutes,
+      extra,
       floatingLinks,
       definitions
     } = this.asSerialisable(option)
-    const extra = { ...this.extra }
     const linkArray = [...this._links.values()]
     const links = linkArray.map((x) => x.serialize())
 
@@ -2390,10 +2329,10 @@ export class LGraph
       revision: this.revision,
       last_node_id: state.lastNodeId,
       last_link_id: state.lastLinkId,
-      nodes: nodes ?? [],
+      nodes,
       links,
       floatingLinks,
-      groups: groups ?? [],
+      groups,
       definitions,
       config,
       extra,
@@ -2413,7 +2352,6 @@ export class LGraph
   private _getDragAndScale(): DragAndScaleState | undefined {
     const ds = this.list_of_graphcanvas?.at(0)?.ds
     if (ds) return { scale: ds.scale, offset: ds.offset }
-    return undefined
   }
 
   /**
@@ -2874,7 +2812,7 @@ export class Subgraph
   /** The display name of the subgraph. */
   name: string = 'Unnamed Subgraph'
   /** Optional description shown as tooltip when hovering over the subgraph node. */
-  description?: string | undefined
+  description?: string
 
   readonly inputNode = new SubgraphInputNode(this)
   readonly outputNode = new SubgraphOutputNode(this)
@@ -2918,7 +2856,6 @@ export class Subgraph
     const { inputNode, outputNode } = this
     if (inputNode.containsPoint([x, y])) return inputNode
     if (outputNode.containsPoint([x, y])) return outputNode
-    return undefined
   }
 
   private _configureSubgraph(
@@ -3016,7 +2953,6 @@ export class Subgraph
       )
         return link
     }
-    return undefined
   }
 
   override attachCanvas(canvas: LGraphCanvas): void {
@@ -3125,7 +3061,7 @@ export class Subgraph
 
     const { length } = this.inputs
     for (let i = index; i < length; i++) {
-      this.inputs[i]?.decrementSlots('inputs')
+      this.inputs[i].decrementSlots('inputs')
     }
   }
 
@@ -3149,7 +3085,7 @@ export class Subgraph
 
     const { length } = this.outputs
     for (let i = index; i < length; i++) {
-      this.outputs[i]?.decrementSlots('outputs')
+      this.outputs[i].decrementSlots('outputs')
     }
   }
 

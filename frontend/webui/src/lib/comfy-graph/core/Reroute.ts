@@ -58,13 +58,13 @@ export class Reroute
   /** The network this reroute belongs to.  Contains all valid links and reroutes. */
   private readonly network: WeakRef<LinkNetwork>
 
-  private parentIdInternal?: RerouteId | undefined
+  private parentIdInternal?: RerouteId
   public get parentId(): RerouteId | undefined {
     return this.parentIdInternal
   }
 
   /** Ignores attempts to create an infinite loop. @inheritdoc */
-  public set parentId(value: RerouteId | undefined) {
+  public set parentId(value) {
     if (value === this.id) return
     if (this.getReroutes() === null) return
     this.parentIdInternal = value
@@ -75,7 +75,7 @@ export class Reroute
   }
 
   /** This property is only defined on the last reroute of a floating reroute chain (closest to input end). */
-  floating?: FloatingRerouteSlot | undefined
+  floating?: FloatingRerouteSlot
 
   private readonly posInternal: Point = [0, 0]
   /** @inheritdoc */
@@ -88,8 +88,8 @@ export class Reroute
       throw new TypeError(
         'Reroute.pos is an x,y point, and expects an indexable with at least two values.'
       )
-    this.posInternal[0] = value[0]!
-    this.posInternal[1] = value[1]!
+    this.posInternal[0] = value[0]
+    this.posInternal[1] = value[1]
   }
 
   /** @inheritdoc */
@@ -140,7 +140,7 @@ export class Reroute
   _pos: Point = [0, 0]
 
   /** @inheritdoc */
-  _dragging?: boolean | undefined
+  _dragging?: boolean
 
   /** Colour of the first link that rendered this reroute */
   _colour?: CanvasColour
@@ -227,9 +227,9 @@ export class Reroute
    */
   update(
     parentId: RerouteId | undefined,
-    pos?: Point | undefined,
-    linkIds?: Iterable<LinkId> | undefined,
-    floating?: FloatingRerouteSlot | undefined
+    pos?: Point,
+    linkIds?: Iterable<LinkId>,
+    floating?: FloatingRerouteSlot
   ): void {
     this.parentId = parentId
     if (pos) this.pos = pos
@@ -274,7 +274,7 @@ export class Reroute
     const parent = this.network.deref()?.reroutes.get(this.parentIdInternal)
     // Invalid parent (or network) - drop silently to recover
     if (!parent) {
-      this.parentIdInternal = undefined as RerouteId | undefined
+      this.parentIdInternal = undefined
       return [this]
     }
 
@@ -317,12 +317,9 @@ export class Reroute
     const node = this.network.deref()?.getNodeById(link.origin_id)
     if (!node) return
 
-    const output = node.outputs[link.origin_slot]
-    if (!output) return
-
     return {
       node,
-      output
+      output: node.outputs[link.origin_slot]
     }
   }
 

@@ -27,11 +27,11 @@ export class CurveEditor {
   }
 
   static sampleCurve(f: number, points: Point[]): number | undefined {
-    if (!points) return undefined
+    if (!points) return
 
     for (let i = 0; i < points.length - 1; ++i) {
-      const p = points[i]!
-      const pn = points[i + 1]!
+      const p = points[i]
+      const pn = points[i + 1]
       if (pn[0] < f) continue
 
       const r = pn[0] - p[0]
@@ -94,8 +94,8 @@ export class CurveEditor {
   // localpos is mouse in curve editor space
   onMouseDown(localpos: Point, graphcanvas: LGraphCanvas): boolean | undefined {
     const points = this.points
-    if (!points) return undefined
-    if (localpos[1] < 0) return undefined
+    if (!points) return
+    if (localpos[1] < 0) return
 
     // this.captureInput(true);
     if (this.size == null)
@@ -119,7 +119,6 @@ export class CurveEditor {
       this.must_update = true
     }
     if (this.selected != -1) return true
-    return undefined
   }
 
   onMouseMove(localpos: Point, graphcanvas: LGraphCanvas): void {
@@ -186,7 +185,7 @@ export class CurveEditor {
     let closest = -1
 
     for (let i = 0; i < num; ++i) {
-      const p = points[i]!
+      const p = points[i]
       p2[0] = p[0] * w
       p2[1] = (1.0 - p[1]) * h
       const dist = distance(pos, p2)

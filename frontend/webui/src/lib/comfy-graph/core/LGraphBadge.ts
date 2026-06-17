@@ -18,7 +18,7 @@ export interface LGraphBadgeOptions {
   height?: number
   cornerRadius?: number
   iconOptions?: LGraphIconOptions
-  onClick?: ((e: MouseEvent) => void) | undefined
+  onClick?: (e: MouseEvent) => void
   xOffset?: number
   yOffset?: number
 }
@@ -32,7 +32,7 @@ export class LGraphBadge {
   height: number
   cornerRadius: number
   icon?: LGraphIcon
-  onClick?: ((e: MouseEvent) => void) | undefined
+  onClick?: (e: MouseEvent) => void
   xOffset: number
   yOffset: number
 

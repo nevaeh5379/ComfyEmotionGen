@@ -420,19 +420,19 @@ export interface IBaseWidget<
 > {
   [symbol: symbol]: boolean
 
-  linkedWidgets?: IBaseWidget[] | undefined
-  onRemove?: (() => void) | undefined
+  linkedWidgets?: IBaseWidget[]
+  onRemove?: () => void
 
-  readonly entityId?: WidgetEntityId | undefined
+  readonly entityId?: WidgetEntityId
 
   name: string
   options: TOptions
 
-  label?: string | undefined
+  label?: string
   /** Widget type (see {@link TWidgetType}) */
   type: TType
-  value?: TValue | undefined
-  element?: HTMLElement | undefined
+  value?: TValue
+  element?: HTMLElement
 
   /**
    * Whether the widget value is persisted in the workflow JSON
@@ -443,16 +443,16 @@ export interface IBaseWidget<
    * whether the value is included in the API prompt sent for execution.
    *
    * @default true
-   * @see IWidgetOptions.serialize — workflow persistence
+   * @see IWidgetOptions.serialize — API prompt inclusion
    */
-  serialize?: boolean | undefined
+  serialize?: boolean
 
   /**
    * The computed height of the widget. Used by customized node resize logic.
    * See scripts/domWidget.ts for more details.
    * @readonly [Computed] This property is computed by the node.
    */
-  computedHeight?: number | undefined
+  computedHeight?: number
 
   /**
    * The starting y position of the widget after layout.
@@ -466,35 +466,35 @@ export interface IBaseWidget<
    * @deprecated There is no longer dynamic y adjustment on rendering anymore.
    * Use {@link IBaseWidget.y} instead.
    */
-  last_y?: number | undefined
+  last_y?: number
 
-  width?: number | undefined
+  width?: number
   /**
    * Whether the widget is disabled. Disabled widgets are rendered at half opacity.
    * See also {@link IBaseWidget.computedDisabled}.
    */
-  disabled?: boolean | undefined
+  disabled?: boolean
 
   /**
    * The disabled state used for rendering based on various conditions including
    * {@link IBaseWidget.disabled}.
    * @readonly [Computed] This property is computed by the node.
    */
-  computedDisabled?: boolean | undefined
+  computedDisabled?: boolean
 
-  hidden?: boolean | undefined
-  advanced?: boolean | undefined
-  tooltip?: string | undefined
+  hidden?: boolean
+  advanced?: boolean
+  tooltip?: string
 
-  outline_color?: string | undefined
-  background_color?: string | undefined
-  height?: number | undefined
-  text_color?: string | undefined
-  secondary_text_color?: string | undefined
-  disabledTextColor?: string | undefined
-  displayName?: string | undefined
-  displayValue?: string | undefined
-  labelBaseline?: string | undefined
+  outline_color?: string
+  background_color?: string
+  height?: number
+  text_color?: string
+  secondary_text_color?: string
+  disabledTextColor?: string
+  displayName?: string
+  displayValue?: string
+  labelBaseline?: string
 
   // TODO: Confirm this format
   callback?(
@@ -561,9 +561,9 @@ export interface IBaseWidget<
     node: LGraphNode
   ): {
     minHeight: number
-    maxHeight?: number | undefined
+    maxHeight?: number
     minWidth: number
-    maxWidth?: number | undefined
+    maxWidth?: number
   }
 
   /**

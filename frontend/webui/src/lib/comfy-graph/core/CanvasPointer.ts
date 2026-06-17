@@ -74,13 +74,13 @@ export class CanvasPointer {
   /** The element this PointerState should capture input against when dragging. */
   element: Element
   /** Pointer ID used by drag capture. */
-  pointerId?: number | undefined
+  pointerId?: number
 
   /** Set to true when if the pointer moves far enough after a down event, before the corresponding up event is fired. */
   dragStarted: boolean = false
 
   /** The {@link eUp} from the last successful click */
-  eLastDown?: CanvasPointerEvent | undefined
+  eLastDown?: CanvasPointerEvent
 
   /** Used downstream for touch event support. */
   isDouble: boolean = false
@@ -88,7 +88,7 @@ export class CanvasPointer {
   isDown: boolean = false
 
   /** The resize handle currently being hovered or dragged */
-  resizeDirection?: CompassCorners | undefined
+  resizeDirection?: CompassCorners
 
   /**
    * If `true`, {@link eDown}, {@link eMove}, and {@link eUp} will be set to
@@ -99,11 +99,11 @@ export class CanvasPointer {
   clearEventsOnReset: boolean = true
 
   /** The last pointerdown event for the primary button */
-  eDown?: CanvasPointerEvent | undefined
+  eDown?: CanvasPointerEvent
   /** The last pointermove event for the primary button */
-  eMove?: CanvasPointerEvent | undefined
+  eMove?: CanvasPointerEvent
   /** The last pointerup event for the primary button */
-  eUp?: CanvasPointerEvent | undefined
+  eUp?: CanvasPointerEvent
 
   /** Currently detected input device type */
   detectedDevice: 'mouse' | 'trackpad' = 'mouse'
@@ -115,13 +115,13 @@ export class CanvasPointer {
   hasReceivedWheelEvent: boolean = false
 
   /** Buffered Linux wheel event awaiting confirmation */
-  bufferedLinuxEvent?: WheelEvent | undefined
+  bufferedLinuxEvent?: WheelEvent
 
   /** Timestamp when Linux event was buffered */
   bufferedLinuxEventTime: number = 0
 
   /** Timer ID for Linux buffer clearing */
-  linuxBufferTimeoutId?: ReturnType<typeof setTimeout> | undefined
+  linuxBufferTimeoutId?: ReturnType<typeof setTimeout>
 
   /**
    * If set, as soon as the mouse moves outside the click drift threshold, this action is run once.
@@ -150,7 +150,7 @@ export class CanvasPointer {
    * Callback that will be run once, the next time a pointerup event appears to be a normal click.
    * @param upEvent The pointerup or pointermove event that triggered this callback
    */
-  onClick?: ((upEvent: CanvasPointerEvent) => unknown) | undefined
+  onClick?(upEvent: CanvasPointerEvent): unknown
 
   /**
    * Callback that will be run once, the next time a pointerup event appears to be a normal click.
@@ -176,7 +176,7 @@ export class CanvasPointer {
     }
   }
 
-  private _finally?: (() => unknown) | undefined
+  private _finally?: () => unknown
 
   constructor(element: Element) {
     this.element = element

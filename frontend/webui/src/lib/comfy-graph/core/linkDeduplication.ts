@@ -29,14 +29,14 @@ export function selectSurvivorLink(
   ids: LinkId[],
   node: LGraphNode | null
 ): LinkId {
-  if (!node) return ids[0]!
+  if (!node) return ids[0]
 
   for (const input of node.inputs ?? []) {
     if (!input) continue
     const match = ids.find((id) => input.link === id)
     if (match != null) return match
   }
-  return ids[0]!
+  return ids[0]
 }
 
 /** Removes duplicate links from origin outputs and the graph's link map. */

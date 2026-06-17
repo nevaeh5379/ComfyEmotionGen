@@ -10,14 +10,14 @@ export type NodeId = string
  * 노드들의 위치, 크기, 위젯 값 등을 포함
  */
 export interface ComfyWorkflowJSON {
-  last_node_id?: number | undefined
-  last_link_id?: number | undefined
+  last_node_id?: number
+  last_link_id?: number
   nodes: ComfyWorkflowNode[]
   links: ComfyWorkflowLink[]
-  groups?: ComfyWorkflowGroup[] | undefined
-  config?: Record<string, unknown> | undefined
-  extra?: Record<string, unknown> | undefined
-  version?: number | undefined
+  groups?: ComfyWorkflowGroup[]
+  config?: Record<string, unknown>
+  extra?: Record<string, unknown>
+  version?: number
 }
 
 export interface ComfyWorkflowNode {
@@ -25,33 +25,33 @@ export interface ComfyWorkflowNode {
   type: string
   pos: [number, number]
   size: [number, number]
-  flags?: Record<string, unknown> | undefined
-  order?: number | undefined
-  mode?: number | undefined
-  inputs?: ComfyNodeInput[] | undefined
-  outputs?: ComfyNodeOutput[] | undefined
-  properties?: Record<string, unknown> | undefined
-  widgets_values?: unknown[] | undefined
-  color?: string | undefined
-  bgcolor?: string | undefined
-  shape?: number | undefined
+  flags?: Record<string, unknown>
+  order?: number
+  mode?: number
+  inputs?: ComfyNodeInput[]
+  outputs?: ComfyNodeOutput[]
+  properties?: Record<string, unknown>
+  widgets_values?: unknown[]
+  color?: string
+  bgcolor?: string
+  shape?: number
 }
 
 export interface ComfyNodeInput {
   name: string
   type: string
-  link?: number | undefined
+  link?: number
   widget?: {
     name: string
-    config?: Record<string, unknown> | undefined
-  } | undefined
+    config?: Record<string, unknown>
+  }
 }
 
 export interface ComfyNodeOutput {
   name: string
   type: string
-  links?: number[] | undefined
-  slot_index?: number | undefined
+  links?: number[]
+  slot_index?: number
 }
 
 export interface ComfyWorkflowLink {
@@ -66,9 +66,9 @@ export interface ComfyWorkflowLink {
 export interface ComfyWorkflowGroup {
   title: string
   bounding: [number, number, number, number]
-  color?: string | undefined
-  fontSize?: number | undefined
-  locked?: boolean | undefined
+  color?: string
+  fontSize?: number
+  locked?: boolean
 }
 
 /**
@@ -81,7 +81,7 @@ export type ComfyApiWorkflow = Record<
     inputs: Record<string, unknown>
     class_type: string
     _meta?: {
-      title?: string | undefined
-    } | undefined
+      title?: string
+    }
   }
 >

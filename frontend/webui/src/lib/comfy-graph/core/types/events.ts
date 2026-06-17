@@ -38,8 +38,8 @@ export type CanvasPointerExtensions = ICanvasPosition &
 
 interface LegacyMouseEvent {
   /** @deprecated Part of DragAndScale mouse API - incomplete / not maintained */
-  dragging?: boolean | undefined
-  click_time?: number | undefined
+  dragging?: boolean
+  click_time?: number
 }
 
 /** PointerEvent with canvasX/Y and deltaX/Y properties */

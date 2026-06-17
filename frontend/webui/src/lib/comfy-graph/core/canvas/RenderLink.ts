@@ -42,12 +42,12 @@ export interface RenderLink {
   /** The index of the slot that the link is being connected from. */
   readonly fromSlotIndex: SlotIndex
   /** The reroute that the link is being connected from. */
-  readonly fromReroute?: Reroute | undefined
+  readonly fromReroute?: Reroute
 
-  readonly isIoNodeLink?: boolean | undefined
+  readonly isIoNodeLink?: boolean
 
-  disconnectOnDrop?: boolean | undefined
-  readonly disconnectOrigin?: Point | undefined
+  disconnectOnDrop?: boolean
+  readonly disconnectOrigin?: Point
 
   /**
    * Capability checks used for hit-testing and validation during drag.

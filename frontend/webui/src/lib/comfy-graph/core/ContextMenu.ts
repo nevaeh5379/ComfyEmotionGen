@@ -69,10 +69,10 @@ function sanitizeMenuHTML(html: string): string {
 
 export class ContextMenu<TValue = unknown> {
   options: IContextMenuOptions<TValue>
-  parentMenu?: ContextMenu<TValue> | undefined
+  parentMenu?: ContextMenu<TValue>
   root: ContextMenuDivElement<TValue>
-  current_submenu?: ContextMenu<TValue> | undefined
-  lock?: boolean | undefined
+  current_submenu?: ContextMenu<TValue>
+  lock?: boolean
 
   controller: AbortController = new AbortController()
 
@@ -192,7 +192,7 @@ export class ContextMenu<TValue = unknown> {
             : name
       }
 
-      this.addItem(String(name), value as string | IContextMenuValue<TValue> | null, options)
+      this.addItem(name, value, options)
     }
 
     // insert before checking position
@@ -306,6 +306,9 @@ export class ContextMenu<TValue = unknown> {
     }
 
     this.root.append(element)
+    if (!disabled) element.addEventListener('click', inner_onclick)
+    if (!disabled && options.autoopen)
+      element.addEventListener('pointerenter', inner_over)
 
     const setAriaExpanded = () => {
       const entries = this.root.querySelectorAll(
@@ -369,10 +372,10 @@ export class ContextMenu<TValue = unknown> {
             callback: value.submenu.callback,
             event: e,
             parentMenu: this,
-            ignore_item_callbacks: value.submenu.ignore_item_callbacks ?? undefined,
-            title: value.submenu.title ?? undefined,
-            extra: value.submenu.extra ?? undefined,
-            autoopen: options.autoopen ?? undefined
+            ignore_item_callbacks: value.submenu.ignore_item_callbacks,
+            title: value.submenu.title,
+            extra: value.submenu.extra,
+            autoopen: options.autoopen
           })
           close_parent = false
         }
@@ -394,10 +397,6 @@ export class ContextMenu<TValue = unknown> {
       inner_onclick_handler(target, e)
       setAriaExpanded()
     }
-
-    if (!disabled) element.addEventListener('click', inner_onclick)
-    if (!disabled && options.autoopen)
-      element.addEventListener('pointerenter', inner_over)
 
     return element
   }

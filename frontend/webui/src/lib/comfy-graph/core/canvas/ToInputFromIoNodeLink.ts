@@ -24,9 +24,9 @@ export class ToInputFromIoNodeLink implements RenderLink {
   readonly fromSlotIndex: SlotIndex
   readonly fromPos: Point
   fromDirection: LinkDirection = LinkDirection.RIGHT
-  readonly existingLink?: LLink | undefined
+  readonly existingLink?: LLink
   disconnectOnDrop: boolean
-  readonly disconnectOrigin?: Point | undefined
+  readonly disconnectOrigin?: Point
   readonly isIoNodeLink = true
 
   constructor(
