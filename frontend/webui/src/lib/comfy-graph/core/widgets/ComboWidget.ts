@@ -136,8 +136,8 @@ export class ComboWidget
     }
 
     // Determine if clicked on left/right arrows
-    if (x < 40) return this.decrementValue({ e, node, canvas })
-    if (x > width - 40) return this.incrementValue({ e, node, canvas })
+    if (x < 40) { this.decrementValue({ e, node, canvas }); return; }
+    if (x > width - 40) { this.incrementValue({ e, node, canvas }); return; }
 
     // Otherwise, show dropdown menu
     const values = this.getValues(node)

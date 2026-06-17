@@ -89,7 +89,7 @@ export function useJobRunner() {
           data.items.forEach((item) => {
             Object.entries(item.meta).forEach(([key, value]) => {
               if (!next[key]) next[key] = {}
-              if (next[key]![value] === undefined) next[key]![value] = true
+              if (next[key][value] === undefined) next[key][value] = true
             })
           })
           return next
@@ -148,8 +148,8 @@ export function useJobRunner() {
     for (const m of nodeMappingsRef.current) {
       if (m.sourceType === "image" && m.imageValue) {
         imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
-        const match = m.imageValue.match(/^__upload__([a-f0-9]{64})\.\w+$/)
-        if (match && match[1]) {
+        const match = /^__upload__([a-f0-9]{64})\.\w+$/.exec(m.imageValue)
+        if (match?.[1]) {
           imageUploads[match[1]] = { name: m.imageValue }
         }
       }
@@ -240,7 +240,7 @@ export function useJobRunner() {
     if (!ok) toast.error("작업 실행에 실패했습니다.")
   }, [callParser, submitJobs])
 
-  const handleRandomRun = useCallback(async (count: number = 1) => {
+  const handleRandomRun = useCallback(async (count = 1) => {
     const af = applyAxisFilters(activeFakeJobQueue, axisValueFilterRef.current)
     if (!workflowJsonRef.current || !isAliveBackendRef.current || af.length === 0)
       return
@@ -328,18 +328,18 @@ export function useJobRunner() {
     })
   }, [])
 
-  const checkAllItems = useCallback(() => setUncheckedItems(new Set()), [])
+  const checkAllItems = useCallback(() => { setUncheckedItems(new Set()); }, [])
   
   const uncheckAllItems = useCallback(() =>
-    setUncheckedItems(new Set(activeFakeJobQueue.map(itemKey))), [activeFakeJobQueue])
+    { setUncheckedItems(new Set(activeFakeJobQueue.map(itemKey))); }, [activeFakeJobQueue])
 
   const toggleAxisCollapse = useCallback((axis: string) =>
-    setCollapsedAxes((prev) => {
+    { setCollapsedAxes((prev) => {
       const next = new Set(prev)
       if (next.has(axis)) next.delete(axis)
       else next.add(axis)
       return next
-    }), [])
+    }); }, [])
 
   const estimatedRunCount = useMemo(
     () =>

@@ -11,15 +11,15 @@ import type { ReadOnlyRect, Size } from '../interfaces'
  * - Width and height are then updated, clamped to min/max values
  */
 export class ConstrainedSize {
-  private _width: number = 0
-  private _height: number = 0
-  private _desiredWidth: number = 0
-  private _desiredHeight: number = 0
+  private _width = 0
+  private _height = 0
+  private _desiredWidth = 0
+  private _desiredHeight = 0
 
-  minWidth: number = 0
-  minHeight: number = 0
-  maxWidth: number = Infinity
-  maxHeight: number = Infinity
+  minWidth = 0
+  minHeight = 0
+  maxWidth = Infinity
+  maxHeight = Infinity
 
   get width() {
     return this._width

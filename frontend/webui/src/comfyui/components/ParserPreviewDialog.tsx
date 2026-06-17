@@ -85,7 +85,7 @@ export const ParserPreviewDialog = ({
     navigator.clipboard.writeText(text)
     toast.success("프롬프트가 클립보드에 복사되었습니다.")
     setCopiedIndex(index)
-    setTimeout(() => setCopiedIndex(null), 2000)
+    setTimeout(() => { setCopiedIndex(null); }, 2000)
   }, [])
 
   const isLineHighlighted = useCallback(
@@ -191,13 +191,13 @@ export const ParserPreviewDialog = ({
               <input
                 type="text"
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={(e) => { setSearchInput(e.target.value); }}
                 placeholder="파일명, 프롬프트, 변수값 검색..."
                 className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
               />
               {searchInput && (
                 <button
-                  onClick={() => setSearchInput("")}
+                  onClick={() => { setSearchInput(""); }}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -345,7 +345,7 @@ export const ParserPreviewDialog = ({
 
         {/* Footer */}
         <div className="flex shrink-0 justify-end border-t px-5 py-3">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="font-bold">
+          <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); }} className="font-bold">
             확인
           </Button>
         </div>

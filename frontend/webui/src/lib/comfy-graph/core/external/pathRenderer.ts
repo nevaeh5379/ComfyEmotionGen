@@ -28,11 +28,11 @@ export interface LinkRenderData {
   flow?: boolean
   disabled?: boolean
   // Optional multi-segment support
-  segments?: Array<{
+  segments?: {
     start: Point
     end: Point
     controlPoints?: Point[]
-  }>
+  }[]
   // Center point storage (for hit detection and menu)
   centerPos?: Point
   centerAngle?: number

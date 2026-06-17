@@ -24,10 +24,10 @@ export class Rectangle extends Float64Array {
   private _size: Float64Array<ArrayBuffer> | undefined
 
   constructor(
-    x: number = 0,
-    y: number = 0,
-    width: number = 0,
-    height: number = 0
+    x = 0,
+    y = 0,
+    width = 0,
+    height = 0
   ) {
     super(4)
 
@@ -65,7 +65,7 @@ export class Rectangle extends Float64Array {
   }
 
   override subarray(
-    begin: number = 0,
+    begin = 0,
     end?: number
   ): Float64Array<ArrayBuffer> {
     const byteOffset = begin << 3
@@ -80,7 +80,7 @@ export class Rectangle extends Float64Array {
    */
   get pos(): Point {
     this._pos ??= this.subarray(0, 2)
-    return this._pos! as unknown as Point
+    return this._pos as unknown as Point
   }
 
   set pos(value: Readonly<Point>) {
@@ -95,7 +95,7 @@ export class Rectangle extends Float64Array {
    */
   get size(): Size {
     this._size ??= this.subarray(2, 4)
-    return this._size! as unknown as Size
+    return this._size as unknown as Size
   }
 
   set size(value: Readonly<Size>) {
@@ -477,6 +477,6 @@ export type ReadOnlyRectangle = Omit<
   | 'resizeBottomLeft'
   | 'resizeTopRight'
   | 'resizeBottomRight'
-  | 'resizeBottomRight'
+   
   | 'updateTo'
 >

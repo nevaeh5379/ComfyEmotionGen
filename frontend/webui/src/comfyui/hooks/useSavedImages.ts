@@ -231,7 +231,7 @@ export const useSavedImages = (
   useEffect(() => {
     if (groupMode && groups.length > 0) {
       const filenames = groups.map((g) => g.filename)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       fetchGroupImages(filenames, status)
     } else if (groups.length === 0) {
       setGroupImagesMap(new Map())

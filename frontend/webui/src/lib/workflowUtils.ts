@@ -143,27 +143,27 @@ export const buildWorkflowForItem = (
       if (!workflow[nodeId]) return
       switch (sourceType) {
         case "prompt":
-          workflow[nodeId]!.inputs[inputKey] = item.prompt
+          workflow[nodeId].inputs[inputKey] = item.prompt
           break
         case "filename":
-          workflow[nodeId]!.inputs[inputKey] = item.filename
+          workflow[nodeId].inputs[inputKey] = item.filename
           break
         case "seed": {
           const v = seedRandom
             ? Math.floor(Math.random() * MAX_RANDOM_SEED)
             : (seedValue ?? 0)
-          workflow[nodeId]!.inputs[inputKey] = v
+          workflow[nodeId].inputs[inputKey] = v
           break
         }
         case "image": {
           const name = imageNameMap[`${nodeId}.${inputKey}`]
           if (name) {
-            workflow[nodeId]!.inputs[inputKey] = name
+            workflow[nodeId].inputs[inputKey] = name
           }
           break
         }
         case "fixed":
-          workflow[nodeId]!.inputs[inputKey] = fixedValue ?? ""
+          workflow[nodeId].inputs[inputKey] = fixedValue ?? ""
           break
       }
     }

@@ -109,7 +109,7 @@ export class LinkConnector {
   /** Existing floating links that are being moved to a new slot. */
   readonly floatingLinks: LLink[] = []
 
-  readonly hiddenReroutes: Set<Reroute> = new Set()
+  readonly hiddenReroutes = new Set<Reroute>()
 
   /** The widget beneath the pointer, if it is a valid connection target. */
   overWidget?: IBaseWidget
@@ -166,7 +166,7 @@ export class LinkConnector {
           'before-move-input',
           renderLink
         )
-        if (mayContinue === false) return
+        if (!mayContinue) return
 
         renderLinks.push(renderLink)
       } catch (error) {
@@ -241,7 +241,7 @@ export class LinkConnector {
             'before-move-input',
             renderLink
           )
-          if (mayContinue === false) return
+          if (!mayContinue) return
 
           renderLinks.push(renderLink)
 
@@ -296,7 +296,7 @@ export class LinkConnector {
             'before-move-output',
             renderLink
           )
-          if (mayContinue === false) continue
+          if (!mayContinue) continue
 
           renderLinks.push(renderLink)
           this.floatingLinks.push(floatingLink)
@@ -358,7 +358,7 @@ export class LinkConnector {
             'before-move-output',
             renderLink
           )
-          if (mayContinue === false) continue
+          if (!mayContinue) continue
 
           renderLinks.push(renderLink)
         } catch (error) {
@@ -630,7 +630,7 @@ export class LinkConnector {
         renderLinks: this.renderLinks,
         event
       })
-      if (mayContinue === false) return
+      if (!mayContinue) return
     }
 
     try {
@@ -692,7 +692,7 @@ export class LinkConnector {
           // Only reuse the slot if the next link's type would be compatible
           // Otherwise, keep using EmptySubgraphOutput to create a new slot
           const nextLink = renderLinks[renderLinks.indexOf(link) + 1]
-          if (nextLink && link.fromSlot.type === nextLink.fromSlot.type) {
+          if (link.fromSlot.type === nextLink?.fromSlot.type) {
             targetSlot = createdSlot
           } else {
             // Reset to EmptySubgraphOutput for different types
@@ -738,7 +738,7 @@ export class LinkConnector {
           // Only reuse the slot if the next link's type would be compatible
           // Otherwise, keep using EmptySubgraphInput to create a new slot
           const nextLink = renderLinks[renderLinks.indexOf(link) + 1]
-          if (nextLink && link.fromSlot.type === nextLink.fromSlot.type) {
+          if (link.fromSlot.type === nextLink?.fromSlot.type) {
             targetSlot = createdSlot
           } else {
             // Reset to EmptySubgraphInput for different types
@@ -792,7 +792,7 @@ export class LinkConnector {
       reroute,
       event
     })
-    if (mayContinue === false) return
+    if (!mayContinue) return
 
     // Connecting to input
     if (this.state.connectingTo === 'input') {
@@ -877,11 +877,11 @@ export class LinkConnector {
     remove<RenderLinkUnion>(
       this.renderLinks,
       (link: RenderLink) => !!link.disconnectOnDrop
-    ).forEach((link) => (link as { disconnect(): void }).disconnect())
+    ).forEach((link) => { (link as { disconnect(): void }).disconnect(); })
     if (this.renderLinks.length === 0) return
     // For external event only.
     const mayContinue = this.events.dispatch('dropped-on-canvas', event)
-    if (mayContinue === false) return
+    if (!mayContinue) return
 
     this.disconnectLinks()
   }
@@ -913,7 +913,7 @@ export class LinkConnector {
     } = this
 
     const mayContinue = this.events.dispatch('dropped-on-node', { node, event })
-    if (mayContinue === false) return
+    if (!mayContinue) return
 
     // Assume all links are the same type, disallow loopback
     const firstLink = this.renderLinks[0]
@@ -965,7 +965,7 @@ export class LinkConnector {
             link.outputSlot,
             link.inputNode,
             link.inputSlot,
-            undefined!
+            undefined
           )
         }
         continue
@@ -1085,7 +1085,7 @@ export class LinkConnector {
     this.events.addEventListener(eventName, listener, options)
     this.events.addEventListener(
       'reset',
-      () => this.events.removeEventListener(eventName, listener),
+      () => { this.events.removeEventListener(eventName, listener); },
       { once: true }
     )
   }
@@ -1097,7 +1097,7 @@ export class LinkConnector {
    */
   reset(force = false): void {
     const mayContinue = this.events.dispatch('reset', force)
-    if (mayContinue === false) return
+    if (!mayContinue) return
 
     const {
       state,

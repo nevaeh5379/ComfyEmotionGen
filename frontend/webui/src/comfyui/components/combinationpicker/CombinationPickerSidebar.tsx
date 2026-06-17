@@ -20,7 +20,7 @@ export function CombinationPickerSidebar({
       style={
         {
           maxHeight: "calc(100vh - 45px - var(--toolbar-height, 60px) - 20px)",
-        } as React.CSSProperties
+        }
       }
     >
       <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
@@ -34,7 +34,7 @@ export function CombinationPickerSidebar({
           return (
             <button
               key={item.filename}
-              onClick={() => setSelectedFilename(item.filename)}
+              onClick={() => { setSelectedFilename(item.filename); }}
               className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-sm"

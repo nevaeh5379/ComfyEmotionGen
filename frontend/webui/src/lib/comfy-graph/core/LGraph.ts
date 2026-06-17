@@ -228,11 +228,11 @@ export class LGraph
   ])
 
   id: UUID = zeroUuid
-  revision: number = 0
+  revision = 0
 
-  _version: number = -1
+  _version = -1
   /** The backing store for links.  Keys are wrapped in String() */
-  _links: Map<LinkId, LLink> = new Map()
+  _links = new Map<LinkId, LLink>()
   /**
    * Indexed property access is deprecated.
    * Backwards compatibility with a Proxy has been added, but will eventually be removed.
@@ -264,23 +264,23 @@ export class LGraph
   }
 
   readonly events = new CustomEventTarget<LGraphEventMap>()
-  readonly _subgraphs: Map<SubgraphId, Subgraph> = new Map()
+  readonly _subgraphs = new Map<SubgraphId, Subgraph>()
 
   _nodes: (LGraphNode | SubgraphNode)[] = []
   _nodes_by_id: Record<NodeId, LGraphNode> = {}
   _nodes_in_order: LGraphNode[] = []
   _nodes_executable: LGraphNode[] | null = null
   _groups: LGraphGroup[] = []
-  iteration: number = 0
-  globaltime: number = 0
+  iteration = 0
+  globaltime = 0
   /** @deprecated Unused */
-  runningtime: number = 0
-  fixedtime: number = 0
-  fixedtime_lapse: number = 0.01
-  elapsed_time: number = 0.01
-  last_update_time: number = 0
-  starttime: number = 0
-  catch_errors: boolean = true
+  runningtime = 0
+  fixedtime = 0
+  fixedtime_lapse = 0.01
+  elapsed_time = 0.01
+  last_update_time = 0
+  starttime = 0
+  catch_errors = true
   execution_timer_id?: number | null
   errors_in_execution?: boolean
   /** @deprecated Unused */
@@ -312,9 +312,9 @@ export class LGraph
   }
 
   /** Internal only.  Not required for serialisation; calculated on deserialise. */
-  private _lastFloatingLinkId: number = 0
+  private _lastFloatingLinkId = 0
 
-  private readonly floatingLinksInternal: Map<LinkId, LLink> = new Map()
+  private readonly floatingLinksInternal = new Map<LinkId, LLink>()
   get floatingLinks(): ReadonlyMap<LinkId, LLink> {
     return this.floatingLinksInternal
   }
@@ -325,7 +325,7 @@ export class LGraph
     return this.reroutesInternal
   }
 
-  get rootGraph(): LGraph {
+  get rootGraph(): this {
     return this
   }
 
@@ -361,7 +361,7 @@ export class LGraph
   onSerialize?(data: ISerialisedGraph | SerialisableGraph): void
   onConfigure?(data: ISerialisedGraph | SerialisableGraph): void
   onGetNodeMenuOptions?(
-    options: (IContextMenuValue<unknown> | null)[],
+    options: (IContextMenuValue | null)[],
     node: LGraphNode
   ): void
 
@@ -464,7 +464,7 @@ export class LGraph
     // notify canvas to redraw
     this.change()
 
-    this.canvasAction((c) => c.clear())
+    this.canvasAction((c) => { c.clear(); })
   }
 
   get subgraphs(): Map<SubgraphId, Subgraph> {
@@ -531,7 +531,7 @@ export class LGraph
     // execute once per frame
     if (
       interval == 0 &&
-      typeof window != 'undefined' &&
+      typeof window !== 'undefined' &&
       window.requestAnimationFrame
     ) {
       const on_frame = () => {
@@ -917,7 +917,7 @@ export class LGraph
       if (typeof method === 'function') {
         const args =
           params == null ? [] : Array.isArray(params) ? params : [params]
-        ;(method as (...args: unknown[]) => unknown).apply(c, args)
+        ;(method).apply(c, args)
       }
     }
   }
@@ -1031,7 +1031,7 @@ export class LGraph
     this.change()
 
     if (opts.ghost) {
-      this.canvasAction((c) => c.startGhostPlacement(node, opts.dragEvent))
+      this.canvasAction((c) => { c.startGhostPlacement(node, opts.dragEvent); })
     }
 
     if (node.isSubgraphNode?.()) {
@@ -1052,7 +1052,7 @@ export class LGraph
   remove(node: LGraphNode | LGraphGroup): void {
     // LEGACY: This was changed from constructor === LiteGraph.LGraphGroup
     if (node instanceof LGraphGroup) {
-      this.canvasAction((c) => c.deselect(node))
+      this.canvasAction((c) => { c.deselect(node); })
 
       const index = this._groups.indexOf(node)
       if (index != -1) {
@@ -1148,7 +1148,7 @@ export class LGraph
     this.onNodeRemoved?.(node)
 
     // close panels
-    this.canvasAction((c) => c.checkPanels())
+    this.canvasAction((c) => { c.checkPanels(); })
 
     this.setDirtyCanvas(true, true)
     // sure? - almost sure is wrong
@@ -1408,12 +1408,12 @@ export class LGraph
 
   /* Called when something visually changed (not the graph!) */
   change(): void {
-    this.canvasAction((c) => c.setDirty(true, true))
+    this.canvasAction((c) => { c.setDirty(true, true); })
     this.on_change?.(this)
   }
 
   setDirtyCanvas(fg: boolean, bg?: boolean): void {
-    this.canvasAction((c) => c.setDirty(fg, bg))
+    this.canvasAction((c) => { c.setDirty(fg, bg); })
   }
 
   addFloatingLink(link: LLink): LLink {
@@ -1574,7 +1574,7 @@ export class LGraph
     const reroute = reroutes.get(id)
     if (!reroute) return
 
-    this.canvasAction((c) => c.deselect(reroute))
+    this.canvasAction((c) => { c.deselect(reroute); })
 
     // Extract reroute from the reroute chain
     const { parentId, linkIds, floatingLinkIds } = reroute
@@ -1584,7 +1584,7 @@ export class LGraph
 
     for (const linkId of linkIds) {
       const link = this._links.get(linkId)
-      if (link && link.parentId === id) link.parentId = parentId
+      if (link?.parentId === id) link.parentId = parentId
     }
 
     for (const linkId of floatingLinkIds) {
@@ -1684,7 +1684,7 @@ export class LGraph
 
     // Record state before conversion for proper undo support
     this.beforeChange()
-    this.canvasAction((c) => c.emitBeforeChange())
+    this.canvasAction((c) => { c.emitBeforeChange(); })
 
     try {
       function extractNodes(item: Positionable): Positionable[] {
@@ -1699,7 +1699,7 @@ export class LGraph
     } finally {
       // Mark state change complete for proper undo support
       this.afterChange()
-      this.canvasAction((c) => c.emitAfterChange())
+      this.canvasAction((c) => { c.emitAfterChange(); })
     }
   }
 
@@ -2266,7 +2266,7 @@ export class LGraph
       node.arrange()
     }
 
-    this.canvasAction((c) => c.selectItems(toSelect))
+    this.canvasAction((c) => { c.selectItems(toSelect); })
   }
 
   /**
@@ -2734,9 +2734,9 @@ export class LGraph
             `LiteGraph: duplicate node ID ${oldId} reassigned to ${newId} in graph ${graph.id}`
           )
         } else {
-          usedNodeIds.add(node.id as number)
-          if ((node.id as number) > state.lastNodeId)
-            state.lastNodeId = node.id as number
+          usedNodeIds.add(node.id)
+          if ((node.id) > state.lastNodeId)
+            state.lastNodeId = node.id
         }
       }
 
@@ -2810,7 +2810,7 @@ export class Subgraph
   static MAX_NESTED_SUBGRAPHS = 1000
 
   /** The display name of the subgraph. */
-  name: string = 'Unnamed Subgraph'
+  name = 'Unnamed Subgraph'
   /** Optional description shown as tooltip when hovering over the subgraph node. */
   description?: string
 
@@ -3107,7 +3107,7 @@ export class Subgraph
    * Clones the subgraph, creating an identical copy with a new ID.
    * @returns A new subgraph with the same configuration, but a new ID.
    */
-  clone(keepId: boolean = false): Subgraph {
+  clone(keepId = false): Subgraph {
     const exported = this.asSerialisable()
     if (!keepId) exported.id = createUuidv4()
 

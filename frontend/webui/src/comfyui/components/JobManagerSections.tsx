@@ -281,7 +281,7 @@ export const SessionPopover = memo(function SessionPopover({
     <>
       <div ref={ref}>
         <button
-          onClick={() => onOpenChange(!isOpen)}
+          onClick={() => { onOpenChange(!isOpen); }}
           className={cn(
             "flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-black transition-all hover:bg-muted/70 active:scale-95",
             isOpen ? "bg-muted/65" : ""
@@ -686,7 +686,7 @@ export const JobRow = memo(function JobRow({
   const workerLabel = job.workerId ? job.workerId.slice(0, 8) : "—"
 
   const workerCell = (
-    <TableCell onClick={(e) => e.stopPropagation()} className="px-2 font-mono text-[11px] w-[80px]">
+    <TableCell onClick={(e) => { e.stopPropagation(); }} className="px-2 font-mono text-[11px] w-[80px]">
       {job.workerId ? (
         <span
           className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground select-none"
@@ -708,7 +708,7 @@ export const JobRow = memo(function JobRow({
     <TableRow
       key={job.id}
       className="group/row relative cursor-pointer transition-all duration-300 hover:bg-muted/30 hover:shadow-sm"
-      onClick={() => fetchJobImages(job.id)} // open detail via click (handled by parent's onClick)
+      onClick={() => { fetchJobImages(job.id); }} // open detail via click (handled by parent's onClick)
       onMouseEnter={(e) => {
         if (job.status === "done") {
           const rect = e.currentTarget.getBoundingClientRect()
@@ -721,7 +721,7 @@ export const JobRow = memo(function JobRow({
         <TableCell className="px-2 py-4">
           <Checkbox
             checked={selectedForDelete.has(job.id)}
-            onCheckedChange={() => onToggleSelect(job.id)}
+            onCheckedChange={() => { onToggleSelect(job.id); }}
           />
         </TableCell>
       )}
@@ -752,11 +752,11 @@ export const JobRow = memo(function JobRow({
         {dur != null ? formatDuration(dur) : "—"}
       </TableCell>
       {workerCell}
-      <TableCell onClick={(e) => e.stopPropagation()} className="px-2">
+      <TableCell onClick={(e) => { e.stopPropagation(); }} className="px-2">
         {job.status === "pending" ? (
           <select
             value={job.targetWorkerId || "auto"}
-            onChange={(e) => onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value)}
+            onChange={(e) => { onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value); }}
             className="h-6 w-24 rounded-md border border-input bg-background px-1.5 py-0.5 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
           >
             <option value="auto">자동</option>
@@ -978,7 +978,7 @@ export const JobTableSection = memo(function JobTableSection({
                 ) : null}
                 <TableHead className="px-2">
                   <button
-                    onClick={() => onSort("status")}
+                    onClick={() => { onSort("status"); }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     상태
@@ -987,7 +987,7 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => onSort("filename")}
+                    onClick={() => { onSort("filename"); }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     파일명
@@ -996,7 +996,7 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => onSort("createdAt")}
+                    onClick={() => { onSort("createdAt"); }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     생성
@@ -1005,7 +1005,7 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => onSort("duration")}
+                    onClick={() => { onSort("duration"); }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     소요
@@ -1086,7 +1086,7 @@ export const JobTableSection = memo(function JobTableSection({
               return (
                 <div
                   key={job.id}
-                  onClick={() => fetchJobImages(job.id)}
+                  onClick={() => { fetchJobImages(job.id); }}
                   className="relative flex cursor-pointer items-center justify-between rounded-xl border border-line bg-card p-3.5 shadow-xs transition-colors hover:bg-muted/10 active:bg-muted/20"
                 >
                   {/* Left accent color indicator */}
@@ -1100,12 +1100,12 @@ export const JobTableSection = memo(function JobTableSection({
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
                     {selectedForDelete.size > 0 && (
                       <div
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); }}
                         className="mr-1 flex items-center"
                       >
                         <Checkbox
                           checked={selectedForDelete.has(job.id)}
-                          onCheckedChange={() => onToggleSelect(job.id)}
+                          onCheckedChange={() => { onToggleSelect(job.id); }}
                         />
                       </div>
                     )}
@@ -1153,10 +1153,10 @@ export const JobTableSection = memo(function JobTableSection({
                   {/* Right side indicator */}
                   <div className="flex shrink-0 items-center gap-1 pl-2 text-muted-foreground/30">
                     {job.status === "pending" ? (
-                      <div onClick={(e) => e.stopPropagation()}>
+                      <div onClick={(e) => { e.stopPropagation(); }}>
                         <select
                           value={job.targetWorkerId || "auto"}
-                          onChange={(e) => onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value)}
+                          onChange={(e) => { onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value); }}
                           className="h-6 w-20 rounded-md border border-input bg-background px-1 py-0 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
                         >
                           <option value="auto">자동</option>

@@ -299,12 +299,12 @@ export function CombinationContextMenu({
         {filename}
       </ContextMenuLabel>
       <ContextMenuSeparator />
-      <ContextMenuItem onClick={() => onOpen(filename)}>
+      <ContextMenuItem onClick={() => { onOpen(filename); }}>
         <FolderIcon className="h-4 w-4" /> 열기
       </ContextMenuItem>
       <ContextMenuItem
         onClick={() =>
-          selectionMode ? onToggleSelect(filename) : onLongPress(filename)
+          { selectionMode ? onToggleSelect(filename) : onLongPress(filename); }
         }
       >
         {isSelected ? (
@@ -317,7 +317,7 @@ export function CombinationContextMenu({
       {onRegenerate && (
         <>
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={() => onRegenerate(filename)}>
+          <ContextMenuItem onClick={() => { onRegenerate(filename); }}>
             <RefreshCwIcon className="h-4 w-4" /> 재생성
           </ContextMenuItem>
         </>
@@ -356,7 +356,7 @@ export interface RegenerateDialogProps {
   savedWorkflows: SavedWorkflow[]
   saveMappingPreset: (workflowId: string, name: string, mappings: NodeMapping[]) => SavedWorkflow | null
   deleteMappingPreset: (workflowId: string, presetId: string) => SavedWorkflow | null
-  onSubmit: (items: Array<{
+  onSubmit: (items: {
     filename: string
     prompt: string
     workflow: ComfyWorkflow
@@ -364,7 +364,7 @@ export interface RegenerateDialogProps {
     cegTemplate: string
     imageUploads: Record<string, Record<string, string>>
     workerType: string
-  }>) => Promise<void>
+  }[]) => Promise<void>
   isLoading: boolean
 }
 
@@ -480,12 +480,12 @@ export function RegenerateDialog({
     const controller = new AbortController()
     fetch(`${backendUrl}/object_info`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setObjectInfo(d))
+      .then((d) => { setObjectInfo(d); })
       .catch((e) => {
         if (e instanceof Error && e.name === "AbortError") return
         setObjectInfo(null)
       })
-    return () => controller.abort()
+    return () => { controller.abort(); }
   }, [open, backendUrl])
 
   const availableNodeOptions = useMemo(() => {
@@ -514,7 +514,7 @@ export function RegenerateDialog({
 
   const updateMapping = useCallback(
     (id: string, patch: Partial<NodeMapping>) =>
-      setNodeMappings((prev) =>
+      { setNodeMappings((prev) =>
         prev.map((m) => {
           if (m.id !== id) return m
           if (
@@ -528,7 +528,7 @@ export function RegenerateDialog({
           }
           return { ...m, ...patch }
         })
-      ),
+      ); },
     []
   )
 
@@ -584,7 +584,7 @@ export function RegenerateDialog({
       revokeAllPreviewUrls()
       setImageUploads({})
     }, 0)
-    return () => window.clearTimeout(resetTimer)
+    return () => { window.clearTimeout(resetTimer); }
   }, [open, revokeAllPreviewUrls])
 
   useEffect(() => revokeAllPreviewUrls, [revokeAllPreviewUrls])
@@ -651,7 +651,7 @@ export function RegenerateDialog({
       ]
     }
 
-    const allItems: Array<{
+    const allItems: {
       filename: string
       prompt: string
       workflow: ComfyWorkflow
@@ -659,7 +659,7 @@ export function RegenerateDialog({
       cegTemplate: string
       imageUploads: Record<string, Record<string, string>>
       workerType: string
-    }> = []
+    }[] = []
 
     for (let i = 0; i < countRef.current; i++) {
       for (const item of renderItems) {
@@ -710,7 +710,7 @@ export function RegenerateDialog({
               min={1}
               max={64}
               value={count}
-              onChange={(e) => setCount(parseInt(e.target.value) || 1)}
+              onChange={(e) => { setCount(parseInt(e.target.value) || 1); }}
               className="font-mono font-bold"
             />
           </div>
@@ -788,13 +788,13 @@ export function RegenerateDialog({
                 const result = saveMappingPreset(selectedWorkflow.id, trimmed, [...nodeMappings])
                 return result !== null
               }}
-              onLoadNodeMapping={(m) => setNodeMappings(m.mappings)}
+              onLoadNodeMapping={(m) => { setNodeMappings(m.mappings); }}
               onDeleteNodeMapping={(presetId) => {
                 if (!selectedWorkflow?.id) return
                 deleteMappingPreset(selectedWorkflow.id, presetId)
               }}
               onUpdateNodeMapping={() => {}}
-              onImportFromPreset={(mappings) => setNodeMappings(mappings)}
+              onImportFromPreset={(mappings) => { setNodeMappings(mappings); }}
               handleImageUpload={handleImageUpload}
               imageUploads={imageUploads}
             />
@@ -867,7 +867,7 @@ export function RegenerateDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:justify-end">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => { onOpenChange(false); }}>
             취소
           </Button>
           <Button onClick={handleConfirm} disabled={canConfirm}>

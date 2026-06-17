@@ -132,7 +132,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       }
     }
     window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
+    return () => { window.removeEventListener("scroll", handleScroll); }
   }, [])
 
   const scrollToTop = useCallback(() => {
@@ -466,7 +466,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     if (bulkDownloadAction.isLoading || selectedFilenames.size === 0) return
     await bulkDownloadAction.execute(
       async () => {
-        const downloads: Array<{ url: string; filename: string }> = []
+        const downloads: { url: string; filename: string }[] = []
         for (const filename of selectedFilenames) {
           const imgs = imagesByFilename.get(filename) ?? []
           for (const img of imgs) {
@@ -514,8 +514,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // autoAdvance 초기값을 autoApplyReject prop에서 동기화
   useEffect(() => {
     if (autoApplyReject) {
-      const timer = window.setTimeout(() => curationToolbarCtx.setAutoAdvance(true), 0)
-      return () => window.clearTimeout(timer)
+      const timer = window.setTimeout(() => { curationToolbarCtx.setAutoAdvance(true); }, 0)
+      return () => { window.clearTimeout(timer); }
     }
   }, [autoApplyReject, curationToolbarCtx])
 
@@ -553,7 +553,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       }
     }
     document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
+    return () => { document.removeEventListener("keydown", handleKeyDown); }
   }, [
     selectedFilename,
     navigateTo,
@@ -807,8 +807,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 onCancelAllRejects={handleCancelAllRejects}
                 onCancelApproval={handleCancelApproval}
                 onNavigate={navigateTo}
-                onOpenList={() => setIsMobileSidebarOpen(true)}
-                onOpenDetail={(img) => setDetailImage(img)}
+                onOpenList={() => { setIsMobileSidebarOpen(true); }}
+                onOpenDetail={(img) => { setDetailImage(img); }}
               />
               {viewMode === "tournament" && (
                 <div className="flex-1 overflow-hidden">
@@ -859,7 +859,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         <RegenerateDialog
           open={regenDialogState.open}
           onOpenChange={(open) =>
-            setRegenDialogState((prev) => ({ ...prev, open }))
+            { setRegenDialogState((prev) => ({ ...prev, open })); }
           }
           sourceImages={regenDialogState.sourceImages}
           backendUrl={backendUrl}
@@ -894,7 +894,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         <ImageViewer
           src={`${backendUrl}/saved-images/${previewHash}`}
           isOpen={previewHash !== null}
-          onClose={() => setPreviewHash(null)}
+          onClose={() => { setPreviewHash(null); }}
         />
 
         {/* 이미지 상세 정보 모달 */}
@@ -902,7 +902,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           <ImageDetail
             backendUrl={backendUrl}
             image={detailImage}
-            onClose={() => setDetailImage(null)}
+            onClose={() => { setDetailImage(null); }}
             onChanged={fetchData}
           />
         )}

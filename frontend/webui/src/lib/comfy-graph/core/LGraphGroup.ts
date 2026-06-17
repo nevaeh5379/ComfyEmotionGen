@@ -50,7 +50,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
   _size: Size = this._bounding.size
   /** @deprecated See {@link _children} */
   _nodes: LGraphNode[] = []
-  _children: Set<Positionable> = new Set()
+  _children = new Set<Positionable>()
   graph?: LGraph
   flags: IGraphGroupFlags = {}
   selected?: boolean
@@ -228,12 +228,12 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
     return true
   }
 
-  move(deltaX: number, deltaY: number, skipChildren: boolean = false): void {
+  move(deltaX: number, deltaY: number, skipChildren = false): void {
     if (this.pinned) return
 
     this._pos[0] += deltaX
     this._pos[1] += deltaY
-    if (skipChildren === true) return
+    if (skipChildren) return
 
     for (const item of this._children) {
       item.move(deltaX, deltaY)
@@ -252,8 +252,8 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
    * @param visited Set of already visited group IDs to prevent redundant computation.
    */
   recomputeInsideNodes(
-    maxDepth: number = 100,
-    visited: Set<GroupId> = new Set()
+    maxDepth = 100,
+    visited = new Set<GroupId>()
   ): void {
     if (!this.graph) throw new NullGraphError()
     if (maxDepth <= 0 || visited.has(this.id)) return
@@ -305,7 +305,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
    * @param objects All objects that should be inside the group
    * @param padding Value in graph units to add to all sides of the group.  Default: 10
    */
-  resizeTo(objects: Iterable<Positionable>, padding: number = 10): void {
+  resizeTo(objects: Iterable<Positionable>, padding = 10): void {
     const boundingBox = createBounds(objects, padding)
     if (boundingBox === null) return
 
@@ -320,7 +320,7 @@ export class LGraphGroup implements Positionable, IPinnable, IColorable {
    * @param nodes The nodes to add to the group
    * @param padding The padding around the group
    */
-  addNodes(nodes: LGraphNode[], padding: number = 10): void {
+  addNodes(nodes: LGraphNode[], padding = 10): void {
     if (!this._nodes && nodes.length === 0) return
     this.resizeTo([...this.children, ...this._nodes, ...nodes], padding)
   }

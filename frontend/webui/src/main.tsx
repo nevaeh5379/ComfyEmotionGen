@@ -139,7 +139,7 @@ try {
   if (options.beforeResize || options.afterResize) {
     const oldResize = this.onResize;
     this.onResize = function(this: any) {
-      if (oldResize) (oldResize as any).apply(this, arguments as any);
+      if (oldResize) (oldResize).apply(this, arguments as any);
       if (options.beforeResize) options.beforeResize.call(widget, this);
       if (options.afterResize) options.afterResize.call(widget, this);
     };
@@ -169,7 +169,7 @@ import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 
 // Initialize window.api as a persistent EventTarget instance
 window.api = window.api || (new EventTarget() as any);
-const apiObj = window.api as any;
+const apiObj = window.api;
 apiObj.api_base = apiObj.api_base || DEFAULT_BACKEND_URL;
 apiObj.getExtensions = apiObj.getExtensions || (async () => {
   const { comfyApi } = await import("@/lib/comfy-graph/api");
@@ -234,7 +234,7 @@ const settingsLookupProxy = new Proxy({
 
 // Initialize window.app as a persistent object
 window.app = window.app || {} as any
-const appObj = window.app as any
+const appObj = window.app
 appObj.extensions = appObj.extensions || []
 appObj.registerExtension = appObj.registerExtension || function (ext: any) {
   appObj.extensions.push(ext)
@@ -278,8 +278,8 @@ const installApiSettingsHook = (apiInstance: any) => {
   const originalGetSettings = apiInstance.getSettings;
   apiInstance.getSettings = async function(this: any) {
     const settings = originalGetSettings ? await originalGetSettings.call(this) : {};
-    if (settings && settings['Comfy.CustomColorPalettes']) {
-      let val = settings['Comfy.CustomColorPalettes'];
+    if (settings?.['Comfy.CustomColorPalettes']) {
+      const val = settings['Comfy.CustomColorPalettes'];
       if (typeof val === 'string') {
         try {
           let parsed = JSON.parse(val);
@@ -494,7 +494,7 @@ if (!w.ClipspaceDialog) {
     static registerButton() {}
   };
 } else {
-  ;(w.ClipspaceDialog as any).registerButton = (w.ClipspaceDialog as any).registerButton || function() {}
+  ;(w.ClipspaceDialog).registerButton = (w.ClipspaceDialog).registerButton || function() {}
 }
 
 if (w.LGraphCanvas) {
@@ -562,7 +562,7 @@ if (!w.ue_callbacks) {
 if (!w.create) {
   w.create = (tag: string, clss: string, parent: HTMLElement, properties: any) => {
     const nd = document.createElement(tag);
-    if (clss) clss.split(" ").forEach((s) => nd.classList.add(s));
+    if (clss) clss.split(" ").forEach((s) => { nd.classList.add(s); });
     if (parent) parent.appendChild(nd);
     if (properties) Object.assign(nd, properties);
     return nd;

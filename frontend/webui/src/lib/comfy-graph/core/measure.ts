@@ -309,7 +309,7 @@ export function findPointOnCurve(
   b: Readonly<Point>,
   controlA: Readonly<Point>,
   controlB: Readonly<Point>,
-  t: number = 0.5
+  t = 0.5
 ): void {
   const iT = 1 - t
 
@@ -324,7 +324,7 @@ export function findPointOnCurve(
 
 export function createBounds(
   objects: Iterable<HasBoundingRect>,
-  padding: number = 10
+  padding = 10
 ): ReadOnlyRect | null {
   const bounds: Rect = [Infinity, Infinity, -Infinity, -Infinity]
 

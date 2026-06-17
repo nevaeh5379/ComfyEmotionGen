@@ -24,8 +24,8 @@ interface ReactGraphState {
   selectedNodeIds: Set<number>
 
   // Undo/Redo stacks
-  undoStack: Array<{ nodes: ComfyWorkflowNode[]; links: ComfyWorkflowLink[] }>
-  redoStack: Array<{ nodes: ComfyWorkflowNode[]; links: ComfyWorkflowLink[] }>
+  undoStack: { nodes: ComfyWorkflowNode[]; links: ComfyWorkflowLink[] }[]
+  redoStack: { nodes: ComfyWorkflowNode[]; links: ComfyWorkflowLink[] }[]
 
   // Actions
   setGraph: (workflow: ComfyWorkflowJSON) => void
@@ -164,7 +164,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
           // Add default widgets from required inputs
           if (def.input?.required) {
             for (const [name, spec] of Object.entries(def.input.required)) {
-              const [typeVal, config = {}] = spec as [string | string[], Record<string, unknown>]
+              const [typeVal, config] = spec as [string | string[], Record<string, unknown>]
               if (Array.isArray(typeVal)) {
                 liveNode.addWidget("combo", name, typeVal[0], () => {}, { values: typeVal })
               } else if (typeVal === "INT" || typeVal === "FLOAT") {
@@ -560,7 +560,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
 
     if ((window as any).app?.graph) {
       const liveNode = (window as any).app.graph.getNodeById(nodeId)
-      if (liveNode && liveNode.widgets) {
+      if (liveNode?.widgets) {
         const widget = liveNode.widgets.find((w: any) => w.name === widgetName)
         if (widget) {
           widget.value = value
@@ -584,7 +584,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
         if (node.id !== nodeId) return node
 
         // widget_names 배열을 통해 해당 위젯의 인덱스 검색
-        let widgetNames = (node.properties?.widget_names as string[]) || []
+        const widgetNames = (node.properties?.widget_names as string[]) || []
 
         // nodeDef fallback: widget_names가 없으면 nodeDef에서 유추
         if (widgetNames.length === 0) {
@@ -641,8 +641,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     })
   },
 
-  setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(zoom, 3.0)) }),
-  setPan: (pan) => set({ pan }),
+  setZoom: (zoom) => { set({ zoom: Math.max(0.1, Math.min(zoom, 3.0)) }); },
+  setPan: (pan) => { set({ pan }); },
 
   selectNode: (id, accumulate) => {
     set((state) => {
@@ -656,7 +656,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get) => ({
     })
   },
 
-  deselectAll: () => set({ selectedNodeIds: new Set<number>() }),
+  deselectAll: () => { set({ selectedNodeIds: new Set<number>() }); },
 
   clearGraph: () => {
     get().takeSnapshot()

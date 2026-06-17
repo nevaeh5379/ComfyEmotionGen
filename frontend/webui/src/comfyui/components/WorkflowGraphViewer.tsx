@@ -103,7 +103,7 @@ function WorkflowGraphViewer({
             lgNode.addInput(name, Array.isArray(typeSpec) ? "COMBO" : typeSpec)
           }
           for (const [name, spec] of Object.entries(opt)) {
-            const [typeSpec] = spec as InputSpec
+            const [typeSpec] = spec
             lgNode.addInput(name, Array.isArray(typeSpec) ? "COMBO" : typeSpec)
           }
           for (let i = 0; i < info.output.length; i++) {

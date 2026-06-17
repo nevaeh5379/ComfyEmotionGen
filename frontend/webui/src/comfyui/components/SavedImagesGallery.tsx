@@ -218,14 +218,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   // 그룹 접기/펴기 상태
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const toggleGroupCollapse = (name: string) =>
-    setCollapsedGroups((prev) =>
+    { setCollapsedGroups((prev) =>
       prev.has(name)
         ? new Set([...prev].filter((a) => a !== name))
         : new Set([...prev, name])
-    )
+    ); }
   const collapseAll = () =>
-    setCollapsedGroups(new Set(groups.map((g) => g.filename)))
-  const expandAll = () => setCollapsedGroups(new Set())
+    { setCollapsedGroups(new Set(groups.map((g) => g.filename))); }
+  const expandAll = () => { setCollapsedGroups(new Set()); }
 
   // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
   const setStatusFilter = (v: CurationStatus | "all") => {
@@ -329,7 +329,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
       const scrollContainer = target.closest(
         ".overflow-y-auto"
-      ) as HTMLElement | null
+      )
       scrollContainerRef.current = scrollContainer
       if (scrollContainer) {
         initialScrollPosRef.current = {
@@ -1110,7 +1110,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    return () => { window.removeEventListener("keydown", handleKeyDown); }
   }, [
     focusedHash,
     navImages,
@@ -1204,11 +1204,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         }
         setBulkActionMessage(`${count}개 → ${STATUS_LABEL[targetStatus]} 완료`)
         exitSelectionMode()
-        setTimeout(() => setBulkActionMessage(null), 3000)
+        setTimeout(() => { setBulkActionMessage(null); }, 3000)
         reload()
       } catch {
         setBulkActionMessage("일괄 작업 실패")
-        setTimeout(() => setBulkActionMessage(null), 3000)
+        setTimeout(() => { setBulkActionMessage(null); }, 3000)
       } finally {
         setBulkActionLoading(false)
       }
@@ -1236,13 +1236,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       toast.success(`${successCount}개 이미지의 자동 태그가 완성되었습니다.`)
       setBulkActionMessage(`태그 일괄 완성 완료`)
       exitSelectionModeRef.current()
-      setTimeout(() => setBulkActionMessage(null), 3000)
+      setTimeout(() => { setBulkActionMessage(null); }, 3000)
       reloadRef.current()
     } catch (err) {
       console.error(err)
       toast.error("일괄 자동 태그 생성에 실패했습니다.")
       setBulkActionMessage("일괄 태그 완성 실패")
-      setTimeout(() => setBulkActionMessage(null), 3000)
+      setTimeout(() => { setBulkActionMessage(null); }, 3000)
     } finally {
       setBulkActionLoading(false)
     }
@@ -1294,7 +1294,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     if (selectedHashesRef.current.size === 0) return
     setBulkDownloadLoading(true)
     try {
-      const downloads: Array<{ url: string; filename: string }> = []
+      const downloads: { url: string; filename: string }[] = []
       for (const hash of selectedHashesRef.current) {
         const img = imageLookupRef.current.get(hash)
         const filename = img ? getImageFilename(img) : `${hash}.png`
@@ -1450,7 +1450,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   {/* 3. Sort: key select + direction toggle */}
                   <Select
                     value={sortKey}
-                    onValueChange={(k) => toggleSort(k as GallerySortKey)}
+                    onValueChange={(k) => { toggleSort(k as GallerySortKey); }}
                   >
                     <SelectTrigger className="h-8 w-[72px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
                       <SelectValue />
@@ -1479,7 +1479,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => toggleSort(sortKey)}
+                    onClick={() => { toggleSort(sortKey); }}
                     className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
                   >
                     {sortDir === "asc" ? (
@@ -1510,7 +1510,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         step="10"
                         value={thumbnailSize}
                         onChange={(e) =>
-                          setThumbnailSize(Number(e.target.value))
+                          { setThumbnailSize(Number(e.target.value)); }
                         }
                         className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                       />
@@ -1563,7 +1563,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     size="sm"
                     variant={showFilters ? "secondary" : "outline"}
-                    onClick={() => setShowFilters(!showFilters)}
+                    onClick={() => { setShowFilters(!showFilters); }}
                     className="relative h-8 w-8 p-0"
                   >
                     <FilterIcon className="h-4 w-4" />
@@ -1617,24 +1617,24 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         type="search"
                         placeholder="파일명 필터"
                         value={filenameFilter}
-                        onChange={(e) => setFilenameFilter(e.target.value)}
-                        onContextMenu={(e) => e.stopPropagation()}
+                        onChange={(e) => { setFilenameFilter(e.target.value); }}
+                        onContextMenu={(e) => { e.stopPropagation(); }}
                       />
                       <Input
                         className="h-9 w-full text-sm md:h-7 md:w-36 md:text-xs"
                         type="search"
                         placeholder="태그 필터"
                         value={tagFilter}
-                        onChange={(e) => setTagFilter(e.target.value)}
-                        onContextMenu={(e) => e.stopPropagation()}
+                        onChange={(e) => { setTagFilter(e.target.value); }}
+                        onContextMenu={(e) => { e.stopPropagation(); }}
                       />
                       <Input
                         className="h-9 w-full text-sm sm:col-span-2 md:h-7 md:w-48 md:text-xs"
                         type="search"
                         placeholder="메타데이터/prompt 검색"
                         value={metadataFilter}
-                        onChange={(e) => setMetadataFilter(e.target.value)}
-                        onContextMenu={(e) => e.stopPropagation()}
+                        onChange={(e) => { setMetadataFilter(e.target.value); }}
+                        onContextMenu={(e) => { e.stopPropagation(); }}
                       />
                     </div>
                   </div>
@@ -1646,7 +1646,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       <Checkbox
                         id="hide-rejected"
                         checked={hideRejected}
-                        onCheckedChange={(v) => setHideRejected(v === true)}
+                        onCheckedChange={(v) => { setHideRejected(v === true); }}
                       />
                       <Label
                         htmlFor="hide-rejected"
@@ -1904,7 +1904,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     variant="outline"
                     size="sm"
                     className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
-                    onClick={() => setTagSortOrder(tagSortOrder === "count" ? "name" : "count")}
+                    onClick={() => { setTagSortOrder(tagSortOrder === "count" ? "name" : "count"); }}
                   >
                     <Sliders className="h-3 w-3 text-muted-foreground" />
                     <span>{tagSortOrder === "count" ? "개수순" : "이름순"}</span>
@@ -1915,7 +1915,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     variant={isTagPanelExpanded ? "secondary" : "outline"}
                     size="sm"
                     className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
-                    onClick={() => setIsTagPanelExpanded(!isTagPanelExpanded)}
+                    onClick={() => { setIsTagPanelExpanded(!isTagPanelExpanded); }}
                   >
                     {isTagPanelExpanded ? (
                       <>
@@ -1942,8 +1942,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       type="text"
                       placeholder="폴더(태그) 검색..."
                       value={subTagQuery}
-                      onChange={(e) => setSubTagQuery(e.target.value)}
-                      onContextMenu={(e) => e.stopPropagation()}
+                      onChange={(e) => { setSubTagQuery(e.target.value); }}
+                      onContextMenu={(e) => { e.stopPropagation(); }}
                       className="h-7 w-full rounded-md border border-input bg-transparent pr-2.5 pl-7 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
@@ -2160,7 +2160,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                           <div className="relative cursor-pointer overflow-hidden rounded-lg border bg-black/5 shadow-inner">
                             <button
                               type="button"
-                              onClick={() => togglePin(hash)}
+                              onClick={() => { togglePin(hash); }}
                               className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl transition-colors hover:bg-blue-600"
                             >
                               <PinIcon className="h-5 w-5" />
@@ -2182,7 +2182,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         {img && (
                           <ContextMenuContent className="w-48">
                             <ContextMenuItem
-                              onClick={() => togglePin(hash)}
+                              onClick={() => { togglePin(hash); }}
                               className="gap-2 font-bold"
                             >
                               <PinIcon className="h-3.5 w-3.5" />
@@ -2215,7 +2215,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             </ContextMenuItem>
                             <ContextMenuSeparator />
                             <ContextMenuItem
-                              onClick={() => setSelected(img)}
+                              onClick={() => { setSelected(img); }}
                               className="gap-2 font-bold"
                             >
                               <Eye className="h-3.5 w-3.5" />
@@ -2272,7 +2272,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         {/* Collapse toggle */}
                         <button
                           type="button"
-                          onClick={() => toggleGroupCollapse(name)}
+                          onClick={() => { toggleGroupCollapse(name); }}
                           className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-transform hover:bg-muted/50 ${isCollapsed && "rotate-180"}`}
                           aria-label={isCollapsed ? "펴기" : "접기"}
                         >
@@ -2296,7 +2296,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleRegenerate(name)}
+                              onClick={() => { handleRegenerate(name); }}
                             >
                               재생성
                             </Button>
@@ -2353,7 +2353,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <PaginationItem key={p}>
                               <PaginationLink
                                 isActive={p === groupPage}
-                                onClick={() => setGroupPage(p)}
+                                onClick={() => { setGroupPage(p); }}
                               >
                                 {p}
                               </PaginationLink>
@@ -2447,7 +2447,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                           <PaginationItem key={p}>
                             <PaginationLink
                               isActive={p === page}
-                              onClick={() => setPage(p)}
+                              onClick={() => { setPage(p); }}
                             >
                               {p}
                             </PaginationLink>
@@ -2493,7 +2493,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 key={selected.hash}
                 backendUrl={backendUrl}
                 image={selected}
-                onClose={() => setSelected(null)}
+                onClose={() => { setSelected(null); }}
                 onChanged={reload}
                 singleDownloadMode={singleDownloadMode}
               />

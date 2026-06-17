@@ -86,7 +86,7 @@ export function WorkCompositionToolbar({
               전체 미완료 실행
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => handleRandomRun(randomRunCount)}
+              onClick={() => { handleRandomRun(randomRunCount); }}
               disabled={!canRun}
             >
               <Shuffle className="mr-2 h-4 w-4" /> 랜덤 실행
@@ -97,7 +97,7 @@ export function WorkCompositionToolbar({
               min={1}
               value={randomRunCount}
               onChange={(e) =>
-                setRandomRunCount(Math.max(1, Number(e.target.value) || 1))
+                { setRandomRunCount(Math.max(1, Number(e.target.value) || 1)); }
               }
             />
             <DropdownMenuSeparator />
@@ -114,7 +114,7 @@ export function WorkCompositionToolbar({
               min={1}
               value={repeatCount}
               onChange={(e) =>
-                setRepeatCount(Math.max(1, Number(e.target.value) || 1))
+                { setRepeatCount(Math.max(1, Number(e.target.value) || 1)); }
               }
             />
           </DropdownMenuContent>
@@ -122,7 +122,7 @@ export function WorkCompositionToolbar({
         {workers.length > 0 && (
           <Select
             value={targetWorkerId || "auto"}
-            onValueChange={(v) => setTargetWorkerId(v === "auto" ? null : v)}
+            onValueChange={(v) => { setTargetWorkerId(v === "auto" ? null : v); }}
           >
             <SelectTrigger className="h-8 w-28 text-xs" disabled={!canRun}>
               <SelectValue placeholder="워커" />

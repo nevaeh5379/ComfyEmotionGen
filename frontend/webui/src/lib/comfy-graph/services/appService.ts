@@ -449,14 +449,14 @@ export class ComfyAppService {
     // 입력 슬롯
     if (nodeDef.input?.required) {
       for (const [name, spec] of Object.entries(nodeDef.input.required)) {
-        const typeStr = Array.isArray(spec[0]) ? "COMBO" : (spec[0] as string)
+        const typeStr = Array.isArray(spec[0]) ? "COMBO" : (spec[0])
         node.addInput(name, typeStr)
       }
     }
 
     if (nodeDef.input?.optional) {
       for (const [name, spec] of Object.entries(nodeDef.input.optional)) {
-        const typeStr = Array.isArray(spec[0]) ? "COMBO" : (spec[0] as string)
+        const typeStr = Array.isArray(spec[0]) ? "COMBO" : (spec[0])
         node.addInput(name, typeStr)
       }
     }
@@ -506,7 +506,7 @@ export class ComfyAppService {
 
     for (const [name, spec] of Object.entries(nodeDef.input.required)) {
       // @ts-ignore InputSpec tuple destructuring
-      const [type, config = {}] = spec as [string | string[], Record<string, unknown>]
+      const [type, config] = spec as [string | string[], Record<string, unknown>]
 
       if (Array.isArray(type)) {
         // COMBO 위젯

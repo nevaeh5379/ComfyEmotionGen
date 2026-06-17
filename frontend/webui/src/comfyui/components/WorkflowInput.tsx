@@ -34,7 +34,7 @@ export function WorkflowInput({
     setLocalValue(value)
   }, [value])
 
-  const enumOptions = Array.isArray(spec?.[0]) ? (spec[0] as string[]) : null
+  const enumOptions = Array.isArray(spec?.[0]) ? (spec[0]) : null
   const typeStr = typeof spec?.[0] === "string" ? spec[0] : null
   const extraParams = spec?.[1] || {}
 
@@ -164,7 +164,7 @@ export function WorkflowInput({
     return (
       <Textarea
         value={localValue ?? ""}
-        onChange={(e) => setLocalValue(e.target.value)}
+        onChange={(e) => { setLocalValue(e.target.value); }}
         onBlur={handleTextBlurOrSubmit}
         placeholder="텍스트 입력..."
         className="min-h-[80px] text-xs bg-background shadow-xs leading-normal py-1.5"
@@ -176,7 +176,7 @@ export function WorkflowInput({
     <Input
       type="text"
       value={localValue ?? ""}
-      onChange={(e) => setLocalValue(e.target.value)}
+      onChange={(e) => { setLocalValue(e.target.value); }}
       onBlur={handleTextBlurOrSubmit}
       onKeyDown={(e) => {
         if (e.key === "Enter") {

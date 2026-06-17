@@ -201,7 +201,7 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
+                  { tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc"); }
                 }
                 className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
               >
@@ -237,7 +237,7 @@ export function GalleryFloatingWindow({
                 step="10"
                 value={tb.thumbnailSize}
                 onChange={(e) =>
-                  tb.setThumbnailSize(Number(e.target.value))
+                  { tb.setThumbnailSize(Number(e.target.value)); }
                 }
                 className="h-1 w-12 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
               />
@@ -307,7 +307,7 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant={tb.showFilters ? "secondary" : "outline"}
                 className="relative !h-7 !w-7 p-0"
-                onClick={() => tb.setShowFilters(!tb.showFilters)}
+                onClick={() => { tb.setShowFilters(!tb.showFilters); }}
               >
                 <FilterIcon className="h-3.5 w-3.5" />
                 {tb.hasAnyFilter && (
@@ -334,7 +334,7 @@ export function GalleryFloatingWindow({
                     return c.value.toLowerCase().includes(valClean)
                   })}
                   placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
-                  onValueChange={(val: string) => tb.setSearchInput(val)}
+                  onValueChange={(val: string) => { tb.setSearchInput(val); }}
                   onAddTag={(tag: string) => {
                     if (!tb.searchTags.includes(tag)) {
                       tb.setSearchTags([...tb.searchTags, tag])

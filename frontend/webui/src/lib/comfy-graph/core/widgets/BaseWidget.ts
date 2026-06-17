@@ -90,7 +90,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
   name: string
   options: TWidget['options']
   type: TWidget['type']
-  y: number = 0
+  y = 0
   last_y?: number
   width?: number
   computedDisabled?: boolean
@@ -137,7 +137,7 @@ export abstract class BaseWidget<TWidget extends IBaseWidget = IBaseWidget>
   ): boolean
 
   get value(): TWidget['value'] {
-    return this._state.value as TWidget['value']
+    return this._state.value
   }
   set value(value: TWidget['value']) {
     this._state.value = value

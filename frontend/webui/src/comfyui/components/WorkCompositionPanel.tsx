@@ -241,7 +241,7 @@ export function WorkCompositionPanel({
     const active = template.savedTemplates.find(
       (t) => t.id === template.activeTemplateId
     )
-    if (!active || !active.template.trim()) return
+    if (!active?.template.trim()) return
     const blob = new Blob([active.template], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -268,7 +268,7 @@ export function WorkCompositionPanel({
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <Tabs
           value={compositionTab}
-          onValueChange={(v) => setCompositionTab(v as "ceg" | "workflow")}
+          onValueChange={(v) => { setCompositionTab(v as "ceg" | "workflow"); }}
           className="flex min-h-0 flex-1 flex-col"
         >
           <div
@@ -365,7 +365,7 @@ export function WorkCompositionPanel({
               activeTemplateId={template.activeTemplateId}
               onSaveTemplate={makeSaveCallback(
                 template.savedTemplates,
-                (name) => template.onPendingSave(name, "template"),
+                (name) => { template.onPendingSave(name, "template"); },
                 (name) => template.saveTemplate(name, template.cegTemplate),
                 template.setActiveTemplateId
               )}
@@ -426,7 +426,7 @@ export function WorkCompositionPanel({
                   key={workflow.workflowResetKey}
                   onSave={makeSaveCallback(
                     workflow.savedWorkflows,
-                    (name) => workflow.onPendingSave(name, "workflow"),
+                    (name) => { workflow.onPendingSave(name, "workflow"); },
                     (name) =>
                       workflow.saveWorkflow(name, workflow.workflowJson),
                     workflow.setActiveWorkflowId
@@ -442,7 +442,7 @@ export function WorkCompositionPanel({
                     nodeMapping.setActiveNodeMappingPresetId(null)
                     workflow.loadWorkflowItem(
                       w,
-                      () => nodeMapping.setNodeMappings([]),
+                      () => { nodeMapping.setNodeMappings([]); },
                       (m, presetId) => {
                         nodeMapping.setNodeMappings(m)
                         nodeMapping.setActiveNodeMappingPresetId(presetId)
@@ -469,7 +469,7 @@ export function WorkCompositionPanel({
                   variant={viewMode === "code" ? "secondary" : "ghost"}
                   size="sm"
                   className="h-6 px-2 text-[10px] font-extrabold shadow-xs cursor-pointer"
-                  onClick={() => handleSetViewMode("code")}
+                  onClick={() => { handleSetViewMode("code"); }}
                 >
                   <Code2 className="h-3 w-3 mr-1 text-muted-foreground" />
                   코드
@@ -478,7 +478,7 @@ export function WorkCompositionPanel({
                   variant={viewMode === "form" ? "secondary" : "ghost"}
                   size="sm"
                   className="h-6 px-2 text-[10px] font-extrabold shadow-xs cursor-pointer"
-                  onClick={() => handleSetViewMode("form")}
+                  onClick={() => { handleSetViewMode("form"); }}
                 >
                   <SlidersHorizontal className="h-3 w-3 mr-1 text-muted-foreground" />
                   속성 편집
@@ -625,7 +625,7 @@ export function WorkCompositionPanel({
                       : null
                   }
                   objectInfo={nodeMapping.objectInfo}
-                  onBackToCode={() => handleSetViewMode("code")}
+                  onBackToCode={() => { handleSetViewMode("code"); }}
                   workers={workers}
                   setObjectInfo={nodeMapping.setObjectInfo}
                 />

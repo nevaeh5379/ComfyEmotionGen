@@ -280,7 +280,7 @@ export class LiteGraphGlobal {
    * Debugging flag. Repeats deprecation warnings every time they are reported.
    * May impact performance.
    */
-  alwaysRepeatWarnings: boolean = false
+  alwaysRepeatWarnings = false
 
   /**
    * Array of callbacks to execute when Litegraph first reports a deprecated API being used.
@@ -297,7 +297,7 @@ export class LiteGraphGlobal {
    * @default false
    * @see macGesturesRequireMac
    */
-  macTrackpadGestures: boolean = false
+  macTrackpadGestures = false
 
   /**
    * @deprecated Removed; has no effect.
@@ -306,7 +306,7 @@ export class LiteGraphGlobal {
    * @default true
    * @see macTrackpadGestures
    */
-  macGesturesRequireMac: boolean = true
+  macGesturesRequireMac = true
 
   /**
    * "standard": change the dragging on left mouse button click to select, enable middle-click or spacebar+left-click dragging
@@ -327,20 +327,20 @@ export class LiteGraphGlobal {
    * Otherwise, the label will be truncated completely before the value is truncated.
    * @default false
    */
-  truncateWidgetTextEvenly: boolean = false
+  truncateWidgetTextEvenly = false
 
   /**
    * If `true`, widget values will be completely truncated when shrinking a widget,
    * before truncating widget labels.  {@link truncateWidgetTextEvenly} must be `false`.
    * @default false
    */
-  truncateWidgetValuesFirst: boolean = false
+  truncateWidgetValuesFirst = false
 
   /**
    * If `true`, the current viewport scale & offset of the first attached canvas will be included with the graph when exporting.
    * @default true
    */
-  saveViewportWithGraph: boolean = true
+  saveViewportWithGraph = true
 
   /**
    * Enable Vue nodes mode for rendering and positioning.
@@ -352,7 +352,7 @@ export class LiteGraphGlobal {
    * This should be set by the frontend when the Vue nodes feature is enabled.
    * @default false
    */
-  vueNodesMode: boolean = false
+  vueNodesMode = false
 
   // Special Rendering Values pulled out of app.ts patches
   nodeOpacity = 1
@@ -638,7 +638,7 @@ export class LiteGraphGlobal {
 
     for (const script_file of script_files) {
       const src = script_file.src
-      if (!src || src.substr(0, folder_wildcard.length) != folder_wildcard)
+      if (src?.substr(0, folder_wildcard.length) != folder_wildcard)
         continue
 
       try {
@@ -737,8 +737,7 @@ export class LiteGraphGlobal {
     capture = false
   ): void {
     if (
-      !oDOM ||
-      !oDOM.addEventListener ||
+      !oDOM?.addEventListener ||
       !sEvIn ||
       typeof fCall !== 'function'
     )
@@ -807,13 +806,13 @@ export class LiteGraphGlobal {
       // @ts-expect-error - intentional fallthrough
       case 'lostpointercapture': {
         if (sMethod != 'mouse') {
-          return oDOM.addEventListener(sMethod + sEvent, fCall, capture)
+          oDOM.addEventListener(sMethod + sEvent, fCall, capture); return;
         }
       }
       // not "pointer" || "mouse"
       // falls through
       default:
-        return oDOM.addEventListener(sEvent, fCall, capture)
+        { oDOM.addEventListener(sEvent, fCall, capture); return; }
     }
   }
 
@@ -824,8 +823,7 @@ export class LiteGraphGlobal {
     capture = false
   ): void {
     if (
-      !oDOM ||
-      !oDOM.removeEventListener ||
+      !oDOM?.removeEventListener ||
       !sEvent ||
       typeof fCall !== 'function'
     )
@@ -859,17 +857,17 @@ export class LiteGraphGlobal {
       // @ts-expect-error - intentional fallthrough
       case 'lostpointercapture': {
         if (this.pointerevents_method == 'pointer') {
-          return oDOM.removeEventListener(
+          oDOM.removeEventListener(
             this.pointerevents_method + sEvent,
             fCall,
             capture
-          )
+          ); return;
         }
       }
       // not "pointer" || "mouse"
       // falls through
       default:
-        return oDOM.removeEventListener(sEvent, fCall, capture)
+        { oDOM.removeEventListener(sEvent, fCall, capture); return; }
     }
   }
 
@@ -923,7 +921,7 @@ export class LiteGraphGlobal {
   // format of a hex triplet - the kind we use for HTML colours. The function
   // will return an array with three values.
   hex2num(hex: string): number[] {
-    if (hex.charAt(0) == '#') {
+    if (hex.startsWith('#')) {
       hex = hex.slice(1)
       // Remove the '#' char - if there is one.
     }

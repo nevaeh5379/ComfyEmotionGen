@@ -133,7 +133,7 @@ export class ContextMenu<TValue = unknown> {
     }
 
     // this prevents the default context browser menu to open in case this menu was created when pressing right button
-    root.addEventListener('pointerup', (e) => e.preventDefault(), eventOptions)
+    root.addEventListener('pointerup', (e) => { e.preventDefault(); }, eventOptions)
 
     // Right button
     root.addEventListener(
@@ -231,7 +231,7 @@ export class ContextMenu<TValue = unknown> {
    * @param visited A set of visited menus to avoid circular references
    * @returns `true` if {@link node} is inside this context menu or any of its submenus
    */
-  containsNode(node: Node, visited: Set<this> = new Set()): boolean {
+  containsNode(node: Node, visited = new Set<this>()): boolean {
     if (visited.has(this)) return false
     visited.add(this)
 
@@ -285,10 +285,10 @@ export class ContextMenu<TValue = unknown> {
       element.setAttribute('role', 'menuitem')
 
       if (typeof value === 'function') {
-        element.dataset['value'] = String(name)
+        element.dataset.value = String(name)
         element.onclick_callback = value
       } else {
-        element.dataset['value'] = String(value)
+        element.dataset.value = String(value)
       }
     }
 

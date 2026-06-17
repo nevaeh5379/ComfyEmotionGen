@@ -103,7 +103,7 @@ function findNextAvailableId(
       throw new Error('Node ID space exhausted')
     }
     state.lastNodeId = nextId
-    if (!usedNodeIds.has(nextId)) return nextId as NodeId
+    if (!usedNodeIds.has(nextId)) return nextId
   }
 }
 

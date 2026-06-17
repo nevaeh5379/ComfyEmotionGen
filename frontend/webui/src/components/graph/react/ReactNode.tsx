@@ -245,7 +245,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
     return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
   }, [nodeDef, nodeData, liveNode])
 
-  const nodeMode = (nodeData?.mode ?? LGraphEventMode.ALWAYS) as LGraphEventMode
+  const nodeMode = (nodeData?.mode ?? LGraphEventMode.ALWAYS)
   const isBypassed = nodeMode === LGraphEventMode.BYPASS
   const isMuted    = nodeMode === LGraphEventMode.NEVER
   const isDisabled = isBypassed || isMuted
@@ -482,7 +482,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps) {
             <div
               className="border-t border-border/50 p-2 overflow-auto max-h-[250px] text-xs text-foreground bg-accent/5 select-text lm-custom-html"
               dangerouslySetInnerHTML={{ __html: String(customHtml) }}
-              onMouseDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => { e.stopPropagation(); }}
             />
           );
         })()}

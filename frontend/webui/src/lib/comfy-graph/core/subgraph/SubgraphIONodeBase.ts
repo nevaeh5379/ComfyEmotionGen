@@ -47,11 +47,11 @@ export abstract class SubgraphIONodeBase<
     return this._boundingRect
   }
 
-  selected: boolean = false
-  pinned: boolean = false
+  selected = false
+  pinned = false
   readonly removable = false
 
-  isPointerOver: boolean = false
+  isPointerOver = false
 
   abstract readonly emptySlot: EmptySubgraphInput | EmptySubgraphOutput
 

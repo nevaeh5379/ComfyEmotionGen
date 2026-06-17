@@ -154,7 +154,7 @@ export function timeAgo(epochSec: number): string {
  * 세션 전체 남은 예상 시간을 계산한다.
  * 남은 작업 수 × 평균 지속 시간으로 추정하며, 활성 워커 수로 나누어 병렬성을 보정한다.
  */
-export function estimateSessionRemaining(jobs: JobView[], activeWorkersCount: number = 1): number | null {
+export function estimateSessionRemaining(jobs: JobView[], activeWorkersCount = 1): number | null {
   const avgDuration = getAverageCompletedDuration(jobs)
   if (avgDuration == null) return null
 

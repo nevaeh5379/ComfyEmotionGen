@@ -12,7 +12,7 @@ export interface SlotPositionContext {
   slotStartY?: number
   inputs: INodeInputSlot[]
   outputs: INodeOutputSlot[]
-  widgets?: Array<{ name?: string }>
+  widgets?: { name?: string }[]
 }
 
 interface NodeConstructorWithSlotHeight {
@@ -63,7 +63,7 @@ export function getSlotPosition(
     ? slotIndex
     : (isInput ? node.inputs?.indexOf(slotIndex as INodeInputSlot) : node.outputs?.indexOf(slotIndex as INodeOutputSlot))
 
-  if (slot && slot.pos) {
+  if (slot?.pos) {
     return [node.pos[0] + slot.pos[0], node.pos[1] + slot.pos[1]]
   }
 

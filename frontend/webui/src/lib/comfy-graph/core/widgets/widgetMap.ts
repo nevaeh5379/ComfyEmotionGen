@@ -36,7 +36,7 @@ import { TextWidget } from './TextWidget'
 import { TextareaWidget } from './TextareaWidget'
 import { TreeSelectWidget } from './TreeSelectWidget'
 
-export type WidgetTypeMap = {
+export interface WidgetTypeMap {
   button: ButtonWidget
   toggle: BooleanWidget
   slider: SliderWidget

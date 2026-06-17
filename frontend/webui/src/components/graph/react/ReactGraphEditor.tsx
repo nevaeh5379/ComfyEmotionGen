@@ -37,7 +37,7 @@ export function ReactGraphEditor() {
   useEffect(() => {
     let cancelled = false
     async function initApp() {
-      const app = window.app as any
+      const app = window.app
       console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + !!hiddenCanvasRef.current, "hiddenContainer=" + !!hiddenContainerRef.current, "extensionsLoaded=" + !!app.extensionsLoaded, "app.graph=" + !!app.graph, "nodeDefs=" + Object.keys(nodeDefs).length, "extensions=" + (app.extensions?.length || 0));
 
       if (!hiddenCanvasRef.current || !hiddenContainerRef.current) {
@@ -261,7 +261,7 @@ export function ReactGraphEditor() {
     }
 
     container.addEventListener("wheel", handleWheel, { passive: false })
-    return () => container.removeEventListener("wheel", handleWheel)
+    return () => { container.removeEventListener("wheel", handleWheel); }
   }, [zoom, pan, setZoom, setPan])
 
   // 화면 좌표(Screen) -> 캔버스 월드 좌표(World) 변환
@@ -603,7 +603,7 @@ export function ReactGraphEditor() {
         <div
           className="context-menu-container absolute bg-zinc-900/95 border border-zinc-800 rounded-lg shadow-2xl p-1 text-xs text-zinc-200 z-[1000] w-48 backdrop-blur-md flex flex-col"
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); }}
         >
           {contextMenu.nodeId !== undefined ? (
             <>
@@ -631,7 +631,7 @@ export function ReactGraphEditor() {
               {/* Add Node Submenu */}
               <div
                 className="relative flex items-center justify-between w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
-                onMouseEnter={() => setActiveSubmenu("categories")}
+                onMouseEnter={() => { setActiveSubmenu("categories"); }}
               >
                 <span>Add Node</span>
                 <ChevronRight className="h-3 w-3 text-zinc-400" />
@@ -648,7 +648,7 @@ export function ReactGraphEditor() {
                       <div
                         key={category}
                         className="relative flex items-center justify-between w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
-                        onMouseEnter={() => setHoveredCategory(category)}
+                        onMouseEnter={() => { setHoveredCategory(category); }}
                       >
                         <span className="truncate pr-2">{category}</span>
                         <ChevronRight className="h-3 w-3 text-zinc-400" />
@@ -656,7 +656,7 @@ export function ReactGraphEditor() {
                         {hoveredCategory === category && (
                           <div
                             className="absolute left-full top-0 ml-1 bg-zinc-900/95 border border-zinc-800 rounded-lg shadow-2xl p-1 text-xs text-zinc-200 w-56 max-h-80 overflow-y-auto backdrop-blur-md flex flex-col"
-                            onClick={(ev) => ev.stopPropagation()}
+                            onClick={(ev) => { ev.stopPropagation(); }}
                           >
                             {nodeDefsByCategory[category]?.map((def) => (
                               <button

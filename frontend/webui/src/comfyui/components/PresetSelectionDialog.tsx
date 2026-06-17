@@ -41,7 +41,7 @@ export const PresetSelectionDialog = ({
             key={preset.id}
             variant="outline"
             className="justify-start"
-            onClick={() => onSelectPreset(preset.mappings, preset.id)}
+            onClick={() => { onSelectPreset(preset.mappings, preset.id); }}
           >
             {preset.name}
             <span className="ml-auto text-xs text-muted-foreground">

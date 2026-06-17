@@ -91,7 +91,7 @@ export function WorkflowFormEditor({
   const handleValueChange = (nodeId: string, inputKey: string, newValue: any) => {
     try {
       const parsed = JSON.parse(workflowJson)
-      if (parsed[nodeId] && parsed[nodeId].inputs) {
+      if (parsed[nodeId]?.inputs) {
         parsed[nodeId].inputs[inputKey] = newValue
         onChangeWorkflowJson(JSON.stringify(parsed, null, 2))
       }
@@ -199,12 +199,12 @@ export function WorkflowFormEditor({
               type="text"
               placeholder="노드 이름, 타입, ID 검색..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); }}
               className="pl-9 pr-8 h-9 text-xs"
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery("")}
+                onClick={() => { setSearchQuery(""); }}
                 className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -285,7 +285,7 @@ export function WorkflowFormEditor({
                 return (
                   <button
                     key={nodeId}
-                    onClick={() => setSelectedNodeId(nodeId)}
+                    onClick={() => { setSelectedNodeId(nodeId); }}
                     className={cn(
                       "w-full flex items-center justify-between text-left px-3 py-2.5 rounded-lg text-xs transition-all border border-transparent select-none cursor-pointer",
                       isActive
@@ -388,7 +388,7 @@ export function WorkflowFormEditor({
                               inputKey
                             )}
                             onSave={(newVal) =>
-                              handleValueChange(activeNodeId, inputKey, newVal)
+                              { handleValueChange(activeNodeId, inputKey, newVal); }
                             }
                           />
                         </div>

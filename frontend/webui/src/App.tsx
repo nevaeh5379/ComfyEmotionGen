@@ -91,7 +91,7 @@ export function App() {
     DEFAULT_BACKEND_URL
   )
   const backendUrl = IS_PACKAGE_MODE
-    ? (PACKAGE_BACKEND_URL as string)
+    ? (PACKAGE_BACKEND_URL!)
     : storedBackendUrl
 
   return (
@@ -376,7 +376,7 @@ function AppContent() {
     handleSave: handleQuickSave,
     handleGalleryRefresh: tb.handleRefresh,
     setActiveTab,
-    toggleShortcuts: () => setShortcutsOpen((prev) => !prev),
+    toggleShortcuts: () => { setShortcutsOpen((prev) => !prev); },
   })
 
   // ── Name conflict helpers ──
@@ -591,12 +591,12 @@ function AppContent() {
           hasActiveFilter={hasActiveFilter}
           setIsAxisFilterOpen={setIsAxisFilterOpen}
           setIsGraphOpen={setIsGraphOpen}
-          onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
+          onStatsDragStart={(cx, cy) => { handleNavTabDragStart("stats", cx, cy); }}
           onCurationDragStart={(cx, cy) =>
-            handleNavTabDragStart("curation", cx, cy)
+            { handleNavTabDragStart("curation", cx, cy); }
           }
           onGalleryDragStart={(cx, cy) =>
-            handleNavTabDragStart("gallery", cx, cy)
+            { handleNavTabDragStart("gallery", cx, cy); }
           }
           sessionMarkers={session.markers}
           sessionJobCounts={session.sessionJobCounts}
@@ -751,14 +751,14 @@ function AppContent() {
           <WorkflowGraphViewer
             workflow={workflow.parsedWorkflow.data}
             isOpen={isGraphOpen}
-            onClose={() => setIsGraphOpen(false)}
+            onClose={() => { setIsGraphOpen(false); }}
             backendUrl={backendUrl}
           />
         )}
 
         <NameConflictDialog
           pendingSave={pendingSave}
-          onClose={() => setPendingSave(null)}
+          onClose={() => { setPendingSave(null); }}
           newName={nextFreeName(pendingSave?.name ?? "", pendingSaveItems)}
           onSaveNew={handleNameConflictSaveNew}
           onOverwrite={handleNameConflictOverwrite}
@@ -770,14 +770,14 @@ function AppContent() {
             paused={paused}
             backendUrl={backendUrl}
             isAliveBackend={isAliveBackend}
-            onNavigateToJobs={() => setActiveTab("jobs")}
+            onNavigateToJobs={() => { setActiveTab("jobs"); }}
             cycleMinimizedProgress={settings.cycleMinimizedProgress}
           />
         )}
 
         <PresetSelectionDialog
           pendingWorkflow={pendingPresetSelection}
-          onClose={() => setPendingPresetSelection(null)}
+          onClose={() => { setPendingPresetSelection(null); }}
           onSelectPreset={(mappings: NodeMapping[], presetId: string) => {
             nodeMapping.setNodeMappings(mappings)
             nodeMapping.setActiveNodeMappingPresetId(presetId)
@@ -792,7 +792,7 @@ function AppContent() {
 
         <VersionDiffDialog
           open={pendingDiff !== null}
-          onClose={() => setPendingDiff(null)}
+          onClose={() => { setPendingDiff(null); }}
           onConfirm={() => {
             if (!pendingDiff) return
             if (pendingDiff.type === "template") {
@@ -825,15 +825,15 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-composition"
             isOpen={isCompositionFloating}
-            onClose={() => setIsCompositionFloating(false)}
-            onDock={() => setIsCompositionFloating(false)}
+            onClose={() => { setIsCompositionFloating(false); }}
+            onDock={() => { setIsCompositionFloating(false); }}
             initialPos={compositionFloatingPos}
             initialSize={compositionFloatingSize}
             onPosChange={setCompositionFloatingPos}
             onSizeChange={setCompositionFloatingSize}
             title="작업 구성 패널"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "composition")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "composition"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
@@ -853,13 +853,13 @@ function AppContent() {
                 setTargetWorkerId={setTargetWorkerId}
                 compositionTab={compositionTab}
                 setCompositionTab={setCompositionTab}
-                onPreviewOpen={() => setIsSheetOpen(true)}
-                onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
-                onSelectionOpen={() => setIsSelectionOpen(true)}
+                onPreviewOpen={() => { setIsSheetOpen(true); }}
+                onAxisFilterOpen={() => { setIsAxisFilterOpen(true); }}
+                onSelectionOpen={() => { setIsSelectionOpen(true); }}
                 hasActiveFilter={hasActiveFilter}
-                onGraphOpen={() => setIsGraphOpen(true)}
+                onGraphOpen={() => { setIsGraphOpen(true); }}
                 isFloating={true}
-                onFloatToggle={() => setIsCompositionFloating(false)}
+                onFloatToggle={() => { setIsCompositionFloating(false); }}
               />
             </div>
           </FloatingWindow>
@@ -870,15 +870,15 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-jobManager"
             isOpen={isJobManagerFloating}
-            onClose={() => setIsJobManagerFloating(false)}
-            onDock={() => setIsJobManagerFloating(false)}
+            onClose={() => { setIsJobManagerFloating(false); }}
+            onDock={() => { setIsJobManagerFloating(false); }}
             initialPos={jobManagerFloatingPos}
             initialSize={jobManagerFloatingSize}
             onPosChange={setJobManagerFloatingPos}
             onSizeChange={setJobManagerFloatingSize}
             title="작업 큐 매니저"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
@@ -908,7 +908,7 @@ function AppContent() {
                   handleDeleteAllFailed={jobActions.handleDeleteAllFailed}
                   refetchStats={session.refetchStats}
                   isFloating={true}
-                  onFloatToggle={() => setIsJobManagerFloating(false)}
+                  onFloatToggle={() => { setIsJobManagerFloating(false); }}
                 />
               </div>
             </div>
@@ -919,7 +919,7 @@ function AppContent() {
         {activeTab !== "gallery" && !isGalleryDocked && isGalleryFloating && (
           <GalleryFloatingWindow
             isOpen={true}
-            onClose={() => setIsGalleryFloating(false)}
+            onClose={() => { setIsGalleryFloating(false); }}
             onDock={() => {
               setIsGalleryFloating(false)
               setActiveTab("gallery")
@@ -929,7 +929,7 @@ function AppContent() {
             onPosChange={setGalleryFloatingPos}
             onSizeChange={setGalleryFloatingSize}
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "gallery"); }
             }
             backendUrl={backendUrl}
             enableHover={settings.enableHover}
@@ -945,7 +945,7 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-stats"
             isOpen={isStatsFloating}
-            onClose={() => setIsStatsFloating(false)}
+            onClose={() => { setIsStatsFloating(false); }}
             onDock={() => {
               setIsStatsFloating(false)
               setActiveTab("stats")
@@ -956,7 +956,7 @@ function AppContent() {
             onSizeChange={setStatsFloatingSize}
             title="통계"
             onDragProgress={(cx, cy, _sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, _sw, sh, isEnding, "stats")
+              { handleDragProgress(cx, cy, _sw, sh, isEnding, "stats"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
@@ -970,7 +970,7 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-curation"
             isOpen={isCurationFloating}
-            onClose={() => setIsCurationFloating(false)}
+            onClose={() => { setIsCurationFloating(false); }}
             onDock={() => {
               setIsCurationFloating(false)
               setActiveTab("curation")
@@ -981,7 +981,7 @@ function AppContent() {
             onSizeChange={setCurationFloatingSize}
             title="큐레이션"
             onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "curation")
+              { handleDragProgress(cx, cy, sw, sh, isEnding, "curation"); }
             }
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">

@@ -35,7 +35,7 @@ export async function fetchAllSettings(): Promise<Record<
       toast.error(`설정 로드 실패: HTTP ${res.status}`)
       return null
     }
-    return res.json() as unknown as Record<string, string>
+    return res.json()
   } catch (err) {
     console.warn("serverStorage: 설정 목록 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")

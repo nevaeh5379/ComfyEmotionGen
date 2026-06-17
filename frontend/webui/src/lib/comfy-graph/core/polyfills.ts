@@ -8,7 +8,7 @@ Symbol.asyncDispose ??= Symbol('Symbol.asyncDispose')
 // like rect but rounded corners
 export function loadPolyfills() {
   if (
-    typeof window != 'undefined' &&
+    typeof window !== 'undefined' &&
     window.CanvasRenderingContext2D &&
     !window.CanvasRenderingContext2D.prototype.roundRect
   ) {
@@ -81,7 +81,7 @@ export function loadPolyfills() {
     }
   }
 
-  if (typeof window != 'undefined' && !window['requestAnimationFrame']) {
+  if (typeof window !== 'undefined' && !window.requestAnimationFrame) {
     window.requestAnimationFrame =
       // @ts-expect-error Legacy code
       window.webkitRequestAnimationFrame ||

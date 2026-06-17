@@ -125,7 +125,7 @@ export function useGlobalShortcuts({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    return () => { window.removeEventListener("keydown", handleKeyDown); }
   }, [
     activeTab,
     mobileJobTab,

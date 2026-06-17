@@ -266,7 +266,7 @@ export function Header(props: HeaderProps) {
     })
 
     observer.observe(headerRef.current)
-    return () => observer.disconnect()
+    return () => { observer.disconnect(); }
   }, [props.activeTab, isGalleryToolbarCompact, isGalleryToolbarUltraCompact])
 
   const toggleSort = (key: "createdAt" | "filename" | "sizeBytes") => {
@@ -431,7 +431,7 @@ export function Header(props: HeaderProps) {
                     return (
                       <DropdownMenuItem
                         key={tab.id}
-                        onClick={() => props.setActiveTab(tab.id)}
+                        onClick={() => { props.setActiveTab(tab.id); }}
                         className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold ${
                           isActive
                             ? "bg-accent text-accent-foreground"
@@ -499,7 +499,7 @@ export function Header(props: HeaderProps) {
                       isDraggableTab && dragCb
                         ? (e) => {
                             tabDragRef.current = {
-                              tabId: tab.id as "stats" | "curation" | "gallery",
+                              tabId: tab.id,
                               startX: e.clientX,
                               startY: e.clientY,
                               wasDragged: false,
@@ -573,7 +573,7 @@ export function Header(props: HeaderProps) {
               <Tabs
                 value={props.compositionTab}
                 onValueChange={(v) =>
-                  props.setCompositionTab(v as "ceg" | "workflow")
+                  { props.setCompositionTab(v as "ceg" | "workflow"); }
                 }
               >
                 <CompositionTabsList />
@@ -591,10 +591,10 @@ export function Header(props: HeaderProps) {
                 workers={props.workers}
                 targetWorkerId={props.targetWorkerId}
                 setTargetWorkerId={props.setTargetWorkerId}
-                onSelectionOpen={() => props.setIsSelectionOpen(true)}
+                onSelectionOpen={() => { props.setIsSelectionOpen(true); }}
                 hasActiveFilter={props.hasActiveFilter}
-                onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                onGraphOpen={() => props.setIsGraphOpen(true)}
+                onAxisFilterOpen={() => { props.setIsAxisFilterOpen(true); }}
+                onGraphOpen={() => { props.setIsGraphOpen(true); }}
               />
             </div>
           )}
@@ -696,7 +696,7 @@ export function Header(props: HeaderProps) {
               {/* Save Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={() => setIsSaveDialogOpen(true)} disabled={!generatorToolbarProps.generatedCode} className="!h-7 gap-1 shrink-0 px-2 text-[10px] font-bold border-line hover:bg-muted">
+                  <Button variant="outline" size="sm" onClick={() => { setIsSaveDialogOpen(true); }} disabled={!generatorToolbarProps.generatedCode} className="!h-7 gap-1 shrink-0 px-2 text-[10px] font-bold border-line hover:bg-muted">
                     <Save className="h-3 w-3" />
                     <span className="hidden sm:inline">저장</span>
                   </Button>
@@ -718,7 +718,7 @@ export function Header(props: HeaderProps) {
               <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
               <Select
                 value={curToolbar.selectedAxis}
-                onValueChange={(v) => curToolbar.setSelectedAxis(v)}
+                onValueChange={(v) => { curToolbar.setSelectedAxis(v); }}
               >
                 <SelectTrigger className="!h-7 w-[150px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[200px] hidden md:inline-flex">
                   <SelectValue />
@@ -777,7 +777,7 @@ export function Header(props: HeaderProps) {
             <div className="flex items-center gap-1 md:hidden">
               <Select
                 value={curToolbar.selectedAxis}
-                onValueChange={(v) => curToolbar.setSelectedAxis(v)}
+                onValueChange={(v) => { curToolbar.setSelectedAxis(v); }}
               >
                 <SelectTrigger className="!h-7 w-[120px] border-line bg-background px-1.5 !py-1 text-[10px] font-bold shadow-none focus:ring-0">
                   <SelectValue />
@@ -835,7 +835,7 @@ export function Header(props: HeaderProps) {
                 variant={curToolbar.filtersExpanded ? "secondary" : "outline"}
                 className="!h-7 !w-7 shrink-0 p-0"
                 onClick={() =>
-                  curToolbar.setFiltersExpanded(!curToolbar.filtersExpanded)
+                  { curToolbar.setFiltersExpanded(!curToolbar.filtersExpanded); }
                 }
               >
                 <FilterIcon className="h-3.5 w-3.5" />
@@ -922,7 +922,7 @@ export function Header(props: HeaderProps) {
               <Select
                 value={tb.sortKey}
                 onValueChange={(k) =>
-                  toggleSort(k as "createdAt" | "filename" | "sizeBytes")
+                  { toggleSort(k as "createdAt" | "filename" | "sizeBytes"); }
                 }
               >
                 <SelectTrigger
@@ -957,7 +957,7 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => toggleSort(tb.sortKey)}
+                    onClick={() => { toggleSort(tb.sortKey); }}
                     className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                   >
                     {tb.sortDir === "asc" ? (
@@ -991,7 +991,7 @@ export function Header(props: HeaderProps) {
                     step="10"
                     value={tb.thumbnailSize}
                     onChange={(e) =>
-                      tb.setThumbnailSize(Number(e.target.value))
+                      { tb.setThumbnailSize(Number(e.target.value)); }
                     }
                     className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
@@ -1006,7 +1006,7 @@ export function Header(props: HeaderProps) {
                   <Button
                     size="sm"
                     variant={tb.showFilters ? "secondary" : "outline"}
-                    onClick={() => tb.setShowFilters(!tb.showFilters)}
+                    onClick={() => { tb.setShowFilters(!tb.showFilters); }}
                     className={`relative !h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
                   >
                     <FilterIcon className="h-3.5 w-3.5" />
@@ -1097,7 +1097,7 @@ export function Header(props: HeaderProps) {
                             ).map((s) => (
                               <DropdownMenuItem
                                 key={s}
-                                onClick={() => tb.setStatusFilter(s)}
+                                onClick={() => { tb.setStatusFilter(s); }}
                                 className="text-[12px] font-bold"
                               >
                                 {s === "all"
@@ -1130,7 +1130,7 @@ export function Header(props: HeaderProps) {
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-[120px] p-1">
                             <DropdownMenuItem
-                              onClick={() => tb.setGroupMode(true)}
+                              onClick={() => { tb.setGroupMode(true); }}
                               className="text-[12px] font-bold"
                             >
                               그룹
@@ -1172,19 +1172,19 @@ export function Header(props: HeaderProps) {
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-[120px] p-1">
                             <DropdownMenuItem
-                              onClick={() => toggleSort("createdAt")}
+                              onClick={() => { toggleSort("createdAt"); }}
                               className="text-[12px] font-bold"
                             >
                               날짜순
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => toggleSort("filename")}
+                              onClick={() => { toggleSort("filename"); }}
                               className="text-[12px] font-bold"
                             >
                               파일명순
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => toggleSort("sizeBytes")}
+                              onClick={() => { toggleSort("sizeBytes"); }}
                               className="text-[12px] font-bold"
                             >
                               크기순
@@ -1195,7 +1195,7 @@ export function Header(props: HeaderProps) {
 
                       {/* 정렬 방향 토글 아이템 */}
                       <DropdownMenuItem
-                        onClick={() => toggleSort(tb.sortKey)}
+                        onClick={() => { toggleSort(tb.sortKey); }}
                         className="mb-1 flex items-center gap-2 border-b border-line/45 pb-2 text-[12px] font-bold"
                       >
                         {tb.sortDir === "asc" ? (
@@ -1217,7 +1217,7 @@ export function Header(props: HeaderProps) {
                     isGalleryToolbarUltraCompact) && (
                     <>
                       <DropdownMenuItem
-                        onClick={() => tb.setShowFilters(!tb.showFilters)}
+                        onClick={() => { tb.setShowFilters(!tb.showFilters); }}
                         className="flex items-center gap-2 text-[12px] font-bold"
                       >
                         <FilterIcon
@@ -1268,10 +1268,10 @@ export function Header(props: HeaderProps) {
                             step="10"
                             value={tb.thumbnailSize}
                             onChange={(e) =>
-                              tb.setThumbnailSize(Number(e.target.value))
+                              { tb.setThumbnailSize(Number(e.target.value)); }
                             }
                             className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => { e.stopPropagation(); }}
                           />
                         </div>
                       )}
@@ -1279,7 +1279,7 @@ export function Header(props: HeaderProps) {
                     </>
                   )}
                   <DropdownMenuItem
-                    onClick={() => tb.handleRefresh()}
+                    onClick={() => { tb.handleRefresh(); }}
                     className="text-[12px] font-bold"
                   >
                     <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
@@ -1328,7 +1328,7 @@ export function Header(props: HeaderProps) {
                       <DropdownMenuPortal>
                         <DropdownMenuSubContent className="w-[120px] p-1">
                           {(["all","pending","approved","rejected","trashed"] as const).map((s) => (
-                            <DropdownMenuItem key={s} onClick={() => tb.setStatusFilter(s)} className="text-[12px] font-bold">
+                            <DropdownMenuItem key={s} onClick={() => { tb.setStatusFilter(s); }} className="text-[12px] font-bold">
                               {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
                             </DropdownMenuItem>
                           ))}
@@ -1341,7 +1341,7 @@ export function Header(props: HeaderProps) {
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
                         <DropdownMenuSubContent className="w-[120px] p-1">
-                          <DropdownMenuItem onClick={() => tb.setGroupMode(true)} className="text-[12px] font-bold">그룹</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { tb.setGroupMode(true); }} className="text-[12px] font-bold">그룹</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { tb.setGroupMode(false); tb.setViewMode("grid") }} className="text-[12px] font-bold">그리드</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { tb.setGroupMode(false); tb.setViewMode("compare") }} className="text-[12px] font-bold">비교</DropdownMenuItem>
                         </DropdownMenuSubContent>
@@ -1353,13 +1353,13 @@ export function Header(props: HeaderProps) {
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
                         <DropdownMenuSubContent className="w-[120px] p-1">
-                          <DropdownMenuItem onClick={() => toggleSort("createdAt")} className="text-[12px] font-bold">날짜순</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleSort("filename")} className="text-[12px] font-bold">파일명순</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleSort("sizeBytes")} className="text-[12px] font-bold">크기순</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { toggleSort("createdAt"); }} className="text-[12px] font-bold">날짜순</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { toggleSort("filename"); }} className="text-[12px] font-bold">파일명순</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { toggleSort("sizeBytes"); }} className="text-[12px] font-bold">크기순</DropdownMenuItem>
                         </DropdownMenuSubContent>
                       </DropdownMenuPortal>
                     </DropdownMenuSub>
-                    <DropdownMenuItem onClick={() => toggleSort(tb.sortKey)} className="mb-1 flex items-center gap-2 border-b border-line/45 pb-2 text-[12px] font-bold">
+                    <DropdownMenuItem onClick={() => { toggleSort(tb.sortKey); }} className="mb-1 flex items-center gap-2 border-b border-line/45 pb-2 text-[12px] font-bold">
                       {tb.sortDir === "asc" ? (
                         <><ArrowUp className="h-3.5 w-3.5 opacity-60" /><span>정렬 방향: 오름차순</span></>
                       ) : (
@@ -1370,7 +1370,7 @@ export function Header(props: HeaderProps) {
                 )}
                 {(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) && (
                   <>
-                    <DropdownMenuItem onClick={() => tb.setShowFilters(!tb.showFilters)} className="flex items-center gap-2 text-[12px] font-bold">
+                    <DropdownMenuItem onClick={() => { tb.setShowFilters(!tb.showFilters); }} className="flex items-center gap-2 text-[12px] font-bold">
                       <FilterIcon className={`h-3.5 w-3.5 ${tb.showFilters ? "text-primary" : "opacity-60"}`} />
                       <span>필터 {tb.showFilters ? "숨기기" : "표시"}</span>
                       {tb.hasAnyFilter && <span className="ml-auto h-2 w-2 rounded-full bg-primary" />}
@@ -1391,13 +1391,13 @@ export function Header(props: HeaderProps) {
                           <span className="flex items-center gap-1.5"><LayoutGrid className="h-3.5 w-3.5" />크기 조절</span>
                           <span className="font-mono text-[10px] text-primary">{tb.thumbnailSize}px</span>
                         </div>
-                        <input type="range" min="120" max="320" step="10" value={tb.thumbnailSize} onChange={(e) => tb.setThumbnailSize(Number(e.target.value))} className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none" onClick={(e) => e.stopPropagation()} />
+                        <input type="range" min="120" max="320" step="10" value={tb.thumbnailSize} onChange={(e) => { tb.setThumbnailSize(Number(e.target.value)); }} className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none" onClick={(e) => { e.stopPropagation(); }} />
                       </div>
                     )}
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onClick={() => tb.handleRefresh()} className="text-[12px] font-bold">
+                <DropdownMenuItem onClick={() => { tb.handleRefresh(); }} className="text-[12px] font-bold">
                   <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
                   새로고침
                 </DropdownMenuItem>
@@ -1498,21 +1498,21 @@ export function Header(props: HeaderProps) {
               </Tooltip>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => setTheme("light")}
+                  onClick={() => { setTheme("light"); }}
                   className="gap-2"
                 >
                   <Sun className="h-4 w-4" />
                   라이트
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => setTheme("dark")}
+                  onClick={() => { setTheme("dark"); }}
                   className="gap-2"
                 >
                   <Moon className="h-4 w-4" />
                   다크
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => setTheme("system")}
+                  onClick={() => { setTheme("system"); }}
                   className="gap-2"
                 >
                   <Monitor className="h-4 w-4" />
@@ -1578,7 +1578,7 @@ export function Header(props: HeaderProps) {
                 <Checkbox
                   id="gallery-hide-rejected"
                   checked={tb.hideRejected}
-                  onCheckedChange={(v) => tb.setHideRejected(v === true)}
+                  onCheckedChange={(v) => { tb.setHideRejected(v === true); }}
                 />
                 <Label
                   htmlFor="gallery-hide-rejected"
@@ -1621,7 +1621,7 @@ export function Header(props: HeaderProps) {
               <Input
                 id="dialog-save-name"
                 value={generatorToolbarProps.saveName}
-                onChange={(e) => generatorToolbarProps.setSaveName(e.target.value)}
+                onChange={(e) => { generatorToolbarProps.setSaveName(e.target.value); }}
                 placeholder="저장 이름 입력..."
                 className="h-9 font-mono text-sm w-full"
                 onKeyDown={(e) => {
@@ -1634,7 +1634,7 @@ export function Header(props: HeaderProps) {
               />
             </div>
             <DialogFooter className="flex flex-row justify-end gap-2 border-t pt-3 mt-2">
-              <Button variant="outline" size="sm" onClick={() => setIsSaveDialogOpen(false)} className="h-8 px-4 text-xs font-semibold">취소</Button>
+              <Button variant="outline" size="sm" onClick={() => { setIsSaveDialogOpen(false); }} className="h-8 px-4 text-xs font-semibold">취소</Button>
               <Button size="sm" onClick={() => {
                 generatorToolbarProps.handleSave();
                 setIsSaveDialogOpen(false);

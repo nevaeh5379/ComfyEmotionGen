@@ -258,7 +258,7 @@ export class LGraphNode
   static resizeEdgeSize = 5
 
   /** Default setting for {@link LGraphNode.connectInputToOutput}. @see {@link INodeFlags.keepAllLinksOnBypass} */
-  static keepAllLinksOnBypass: boolean = false
+  static keepAllLinksOnBypass = false
 
   /** The title text of the node. */
   title: string
@@ -279,7 +279,7 @@ export class LGraphNode
 
   graph: LGraph | Subgraph | null = null
   id: NodeId
-  type: string = ''
+  type = ''
   inputs: INodeInputSlot[] = []
   outputs: INodeOutputSlot[] = []
 
@@ -309,7 +309,7 @@ export class LGraphNode
   locked?: boolean
 
   /** Execution order, automatically computed during run @see {@link LGraph.computeExecutionOrder} */
-  order: number = 0
+  order = 0
   mode: LGraphEventMode = LGraphEventMode.ALWAYS
   last_serialization?: ISerialisedNode
   serialize_widgets?: boolean
@@ -675,8 +675,8 @@ export class LGraphNode
   getExtraMenuOptions?(
     this: LGraphNode,
     canvas: LGraphCanvas,
-    options: (IContextMenuValue<unknown> | null)[]
-  ): (IContextMenuValue<unknown> | null)[]
+    options: (IContextMenuValue | null)[]
+  ): (IContextMenuValue | null)[]
   getMenuOptions?(this: LGraphNode, canvas: LGraphCanvas): IContextMenuValue[]
   onAdded?(this: LGraphNode, graph: LGraph): void
   onDrawCollapsed?(
@@ -855,7 +855,7 @@ export class LGraphNode
       if (info[j] == null) {
         continue
         // @ts-expect-error #594
-      } else if (typeof info[j] == 'object') {
+      } else if (typeof info[j] === 'object') {
         // @ts-expect-error #594
         if (this[j]?.configure) {
           // @ts-expect-error #594
@@ -1483,7 +1483,7 @@ export class LGraphNode
     options: { action_call?: string }
   ): void {
     const { outputs } = this
-    if (!outputs || !outputs.length) {
+    if (!outputs?.length) {
       return
     }
 
@@ -1491,8 +1491,7 @@ export class LGraphNode
 
     for (const [i, output] of outputs.entries()) {
       if (
-        !output ||
-        output.type !== LiteGraph.EVENT ||
+        output?.type !== LiteGraph.EVENT ||
         (action && output.name != action)
       ) {
         continue
@@ -1529,7 +1528,7 @@ export class LGraphNode
     if (!output) return
 
     const links = output.links
-    if (!links || !links.length) return
+    if (!links?.length) return
 
     if (!this.graph) throw new NullGraphError()
     this.graph._last_trigger_time = LiteGraph.getTime()
@@ -1577,7 +1576,7 @@ export class LGraphNode
     if (!output) return
 
     const links = output.links
-    if (!links || !links.length) return
+    if (!links?.length) return
 
     if (!this.graph) throw new NullGraphError()
 
@@ -1674,7 +1673,7 @@ export class LGraphNode
 
     for (let i = slot; i < outputs.length; ++i) {
       const output = outputs[i]
-      if (!output || !output.links) continue
+      if (!output?.links) continue
 
       // Only update link indices if node is part of a graph
       if (this.graph) {
@@ -2314,7 +2313,7 @@ export class LGraphNode
     name: string,
     returnObj?: TReturn
   ): INodeInputSlot
-  findInputSlot(name: string, returnObj: boolean = false) {
+  findInputSlot(name: string, returnObj = false) {
     const { inputs } = this
     if (!inputs) return -1
 
@@ -2340,7 +2339,7 @@ export class LGraphNode
     name: string,
     returnObj?: TReturn
   ): INodeOutputSlot
-  findOutputSlot(name: string, returnObj: boolean = false) {
+  findOutputSlot(name: string, returnObj = false) {
     const { outputs } = this
     if (!outputs) return -1
 
@@ -3124,7 +3123,7 @@ export class LGraphNode
 
       for (const [i, link_id] of links.entries()) {
         const link_info = graph._links.get(link_id)
-        if (!link_info || link_info.target_id != target.id) continue
+        if (link_info?.target_id != target.id) continue
 
         // is the link we are searching for...
         // remove here
@@ -3489,7 +3488,7 @@ export class LGraphNode
   /* Forces to redraw or the main canvas (LGraphNode) or the bg canvas (links) */
   setDirtyCanvas(dirty_foreground: boolean, dirty_background?: boolean): void {
     this.graph?.canvasAction((c) =>
-      c.setDirty(dirty_foreground, dirty_background)
+      { c.setDirty(dirty_foreground, dirty_background); }
     )
   }
 
@@ -3502,7 +3501,7 @@ export class LGraphNode
     img.src = LiteGraph.node_images_path + url
     img.ready = false
 
-    const dirty = () => this.setDirtyCanvas(true)
+    const dirty = () => { this.setDirtyCanvas(true); }
     img.addEventListener('load', function (this: AsyncImageElement) {
       this.ready = true
       dirty()
@@ -3518,7 +3517,7 @@ export class LGraphNode
     warnDeprecated(
       '[DEPRECATED] captureInput will be removed in a future version. Please use LGraphCanvas.pointer (CanvasPointer) instead.'
     )
-    if (!this.graph || !this.graph.list_of_graphcanvas) return
+    if (!this.graph?.list_of_graphcanvas) return
 
     const list = this.graph.list_of_graphcanvas
 
@@ -4141,7 +4140,7 @@ export class LGraphNode
    * @param widgetStartY The y-coordinate of the first widget
    */
   private _arrangeWidgets(widgetStartY: number): void {
-    if (!this.widgets || !this.widgets.length) return
+    if (!this.widgets?.length) return
 
     const bodyHeight = this.bodyHeight
     const startY =

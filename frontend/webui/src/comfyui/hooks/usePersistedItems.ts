@@ -25,7 +25,7 @@ export function usePersistedItems<T>(
       if (e.key === storageKey) setItems(loadFn())
     }
     window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
+    return () => { window.removeEventListener("storage", onStorage); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -41,7 +41,7 @@ export function usePersistedItems<T>(
       }
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
-    return () => window.removeEventListener(SETTINGS_READY_EVENT, onReady)
+    return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
   }, [storageKey])
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export function usePersistedItems<T>(
       }
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
-    return () => window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
+    return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
   }, [storageKey])
 
   const persist = useCallback((next: T[]) => {
@@ -82,7 +82,7 @@ export function usePersistedItems<T>(
       } else {
         clearSyncQueueFor(storageKey)
       }
-    }).catch((err) => console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err))
+    }).catch((err) => { console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err); })
   }, [storageKey])
 
   return { items, persist }
