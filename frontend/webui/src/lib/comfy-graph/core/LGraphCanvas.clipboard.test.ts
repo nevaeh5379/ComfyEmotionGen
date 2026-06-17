@@ -32,7 +32,7 @@ vi.mock('@/services/litegraphService', () => ({
 function createSerialisedNode(
   id: number,
   type: string,
-  proxyWidgets?: [string, string][]
+  proxyWidgets?: Array<[string, string]>
 ): ISerialisedNode {
   return {
     id,

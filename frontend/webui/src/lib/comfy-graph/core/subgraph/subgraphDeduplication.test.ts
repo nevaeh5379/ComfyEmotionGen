@@ -25,7 +25,7 @@ function makeSubgraph(id: string, nodeTypes: string[] = []): ExportedSubgraph {
     })),
     inputNode: { id: -10, bounding: [0, 0, 100, 100] },
     outputNode: { id: -20, bounding: [0, 0, 100, 100] }
-  }
+  } as ExportedSubgraph
 }
 
 describe('topologicalSortSubgraphs', () => {

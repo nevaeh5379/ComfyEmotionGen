@@ -1,16 +1,17 @@
-import React from "react"
 import { useBackend } from "../hooks/useBackend"
-import type { JobView } from "../types/Message"
 import { API } from "@/lib/api"
 import { Loader2, AlertCircle } from "lucide-react"
 
-export function InlineImagePreview({ filename, backendUrl }: { filename: string; backendUrl: string }): React.ReactElement | null {
-  const { jobs } = useBackend() as { jobs: JobView[] }
-  const jobsList = [...jobs]
+export function InlineImagePreview({ filename, backendUrl }: { filename: string; backendUrl: string }) {
+  const { jobs } = useBackend()
 
-  const job: JobView | undefined = [...jobsList].reverse().find((j: JobView) => j.filename === filename)
+  // Find latest job matching filename
+  // Using reverse to find the latest appended job since they are usually appended to the array
+  const job = [...jobs].reverse().find(j => j.filename === filename)
   
-  if (job === undefined) return null
+  const show = !!job
+
+  if (!show || !job) return null
   
   return (
     <div className="mt-3 rounded-md border p-3 bg-background flex flex-col justify-center items-center relative overflow-hidden">
@@ -25,9 +26,9 @@ export function InlineImagePreview({ filename, backendUrl }: { filename: string;
           <Loader2 className="h-6 w-6 animate-spin" />
           <span className="text-[11px] font-medium">생성 중... ({job.progressPercent}%)</span>
         </div>
-      ) : job.status === "done" && job.savedImageHashes.length > 0 ? (
+      ) : job.status === "done" && job.savedImageHashes && job.savedImageHashes.length > 0 ? (
         <img 
-          src={`${backendUrl}${API.savedImages.detail(job.savedImageHashes[0])}`} 
+          src={`${backendUrl}${API.savedImages.detail(job.savedImageHashes[0]!)}`} 
           alt="Preview" 
           className="max-w-full max-h-[350px] object-contain rounded" 
         />

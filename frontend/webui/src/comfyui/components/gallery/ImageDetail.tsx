@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import { useState } from "react"
 import { Copy, Download, ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -16,7 +16,7 @@ import { STATUS_LABEL, STATUS_TINT, type SavedImage } from "../../types/Message"
 import { Badge } from "@/components/ui/badge"
 import { triggerBlobDownload, getImageFilename } from "../../utils/downloadImages"
 
-function defaultName(filename: string): string {
+function defaultName(filename: string) {
   return filename.replace(/\.[^/.]+$/, "")
 }
 
@@ -34,14 +34,14 @@ export function ImageDetailPanel({
   onClose,
   onChanged,
   singleDownloadMode = "newtab",
-}: DetailProps): React.ReactElement {
+}: DetailProps) {
   const [note, setNote] = useState(image.note)
   const [newTag, setNewTag] = useState("")
   const [tags, setTags] = useState<string[]>(image.tags)
   const [imgError, setImgError] = useState(false)
   const [autoTagLoading, setAutoTagLoading] = useState(false)
 
-  const handleAutoTag = async (): Promise<void> => {
+  const handleAutoTag = async () => {
     setAutoTagLoading(true)
     try {
       const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
@@ -53,7 +53,7 @@ export function ImageDetailPanel({
       setTags(data.tags)
       onChanged()
       toast.success("태그가 자동으로 완성되었습니다.")
-    } catch (err: unknown) {
+    } catch (err) {
       console.error(err)
       toast.error("자동 태그 생성에 실패했습니다.")
     } finally {
@@ -73,7 +73,7 @@ export function ImageDetailPanel({
   const { saveWorkflow } = useWorkflowContext()
   const { saveTemplate } = useTemplateContext()
 
-  const saveNote = async (): Promise<void> => {
+  const saveNote = async () => {
     try {
       await curationApi.patchNote(backendUrl, image.hash, note)
       onChanged()
@@ -81,7 +81,7 @@ export function ImageDetailPanel({
       toast.error("태그/노트 저장에 실패했습니다.")
     }
   }
-  const addTag = async (): Promise<void> => {
+  const addTag = async () => {
     const t = newTag.trim()
     if (!t) return
     try {
@@ -93,7 +93,7 @@ export function ImageDetailPanel({
       toast.error("태그/노트 저장에 실패했습니다.")
     }
   }
-  const removeTag = async (tag: string): Promise<void> => {
+  const removeTag = async (tag: string) => {
     try {
       await curationApi.removeTag(backendUrl, image.hash, tag)
       setTags((prev) => prev.filter((x) => x !== tag))
@@ -103,15 +103,15 @@ export function ImageDetailPanel({
     }
   }
 
-  const handleSaveWorkflow = (): void => {
-    if (image.workflow === undefined || workflowName.trim() === "") return
+  const handleSaveWorkflow = () => {
+    if (!image.workflow || !workflowName.trim()) return
     saveWorkflow(workflowName.trim(), JSON.stringify(image.workflow))
     setWorkflowSaved(true)
     setTimeout(() => { setWorkflowSaved(false); }, 2000)
   }
 
-  const handleSaveTemplate = (): void => {
-    if (image.cegTemplate === undefined || image.cegTemplate === "" || templateName.trim() === "") return
+  const handleSaveTemplate = () => {
+    if (!image.cegTemplate || !templateName.trim()) return
     saveTemplate(templateName.trim(), image.cegTemplate)
     setTemplateSaved(true)
     setTimeout(() => { setTemplateSaved(false); }, 2000)
@@ -136,25 +136,23 @@ export function ImageDetailPanel({
               size="sm"
               variant="ghost"
               className="ml-auto"
-              onClick={() => {
+              onClick={async () => {
                 const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
                 const url = `${cleanBackendUrl}/saved-images/${image.hash}`
                 if (singleDownloadMode === "direct") {
-                  void (async (): Promise<void> => {
-                    try {
-                      const response = await fetch(url)
-                      if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${String(response.status)}`)
-                      }
-                      const blob = await response.blob()
-                      triggerBlobDownload(blob, getImageFilename(image))
-                    } catch (err: unknown) {
-                      console.error("Direct download failed:", err)
-                      toast.error(
-                        "이미지 다운로드에 실패했습니다. CORS 정책 또는 네트워크 연결을 확인해주세요."
-                      )
+                  try {
+                    const response = await fetch(url)
+                    if (!response.ok) {
+                      throw new Error(`HTTP error! status: ${response.status}`)
                     }
-                  })()
+                    const blob = await response.blob()
+                    triggerBlobDownload(blob, getImageFilename(image))
+                  } catch (err) {
+                    console.error("Direct download failed:", err)
+                    toast.error(
+                      "이미지 다운로드에 실패했습니다. CORS 정책 또는 네트워크 연결을 확인해주세요."
+                    )
+                  }
                 } else {
                   window.open(url, "_blank")
                 }
@@ -211,9 +209,9 @@ export function ImageDetailPanel({
           {image.workerId ?? "—"}
         </div>
       </div>
-      {(image.workflow !== undefined || image.cegTemplate !== undefined) && (
+      {(image.workflow || image.cegTemplate) && (
         <div className="space-y-2 rounded-md border p-3">
-          {image.workflow !== undefined && (
+          {image.workflow && (
             <div className="space-y-1">
               <label className="text-xs font-semibold">워크플로우 저장</label>
               <div className="flex items-center gap-2">
@@ -240,7 +238,7 @@ export function ImageDetailPanel({
               )}
             </div>
           )}
-          {image.cegTemplate !== undefined && (
+          {image.cegTemplate && (
             <div className="space-y-1">
               <label className="text-xs font-semibold">템플릿 저장</label>
               <div className="flex items-center gap-2">
@@ -276,7 +274,7 @@ export function ImageDetailPanel({
           onChange={(e) => { setNote(e.target.value); }}
           rows={3}
         />
-        <Button size="sm" variant="outline" onClick={() => { void saveNote(); }}>
+        <Button size="sm" variant="outline" onClick={saveNote}>
           노트 저장
         </Button>
       </div>
@@ -293,7 +291,7 @@ export function ImageDetailPanel({
                 >
                   <button
                     type="button"
-                    onClick={() => { void removeTag(t); }}
+                    onClick={() => removeTag(t)}
                     aria-label={`${t} 태그 제거`}
                   >
                     #{t} ×
@@ -308,7 +306,7 @@ export function ImageDetailPanel({
               size="sm"
               variant="outline"
               className="h-7 text-[10px] gap-1 font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
-              onClick={() => { void handleAutoTag(); }}
+              onClick={handleAutoTag}
               disabled={autoTagLoading}
             >
               {autoTagLoading ? "생성 중..." : "태그 자동 완성"}
@@ -322,10 +320,10 @@ export function ImageDetailPanel({
             value={newTag}
             onChange={(e) => { setNewTag(e.target.value); }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void addTag()
+              if (e.key === "Enter") addTag()
             }}
           />
-          <Button size="sm" variant="outline" onClick={() => { void addTag(); }}>
+          <Button size="sm" variant="outline" onClick={addTag}>
             추가
           </Button>
         </div>
@@ -334,7 +332,7 @@ export function ImageDetailPanel({
   )
 }
 
-export function ImageDetail(props: DetailProps): React.ReactElement {
+export function ImageDetail(props: DetailProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 select-text"

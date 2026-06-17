@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 
 export type KbdProps = React.HTMLAttributes<HTMLElement>
 
-export function Kbd({ className, ...props }: KbdProps): React.ReactNode {
+export function Kbd({ className, ...props }: KbdProps) {
   return (
     <kbd
       className={cn(

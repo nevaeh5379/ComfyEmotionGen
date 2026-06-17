@@ -27,7 +27,7 @@ describe('SubgraphIO - Input Slot Dual-Nature Behavior', () => {
       }).not.toThrow()
 
       expect(
-        externalNode.outputs[0].links?.includes(subgraphNode.inputs[0].link)
+        externalNode.outputs[0].links?.includes(subgraphNode.inputs[0].link!)
       ).toBe(true)
       expect(subgraphNode.inputs[0].link).not.toBe(null)
     }

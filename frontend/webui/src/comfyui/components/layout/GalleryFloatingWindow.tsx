@@ -1,4 +1,3 @@
-import type React from "react"
 import {
   Select,
   SelectContent,
@@ -72,7 +71,7 @@ export function GalleryFloatingWindow({
   imageLazyLoad,
   singleDownloadMode,
   tb,
-}: GalleryFloatingWindowProps): React.ReactElement | null {
+}: GalleryFloatingWindowProps) {
   if (!isOpen) return null
 
   return (
@@ -274,7 +273,7 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0"
-                onClick={() => { void tb.handleExport(); }}
+                onClick={tb.handleExport}
               >
                 <DownloadIcon className="h-3.5 w-3.5" />
               </Button>
@@ -291,7 +290,7 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-                onClick={() => { void tb.handleEmptyTrash(); }}
+                onClick={tb.handleEmptyTrash}
               >
                 <Trash2Icon className="h-3.5 w-3.5" />
               </Button>

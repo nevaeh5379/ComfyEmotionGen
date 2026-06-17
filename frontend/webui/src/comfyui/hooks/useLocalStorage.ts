@@ -22,7 +22,7 @@ function safeSetItem(key: string, value: string): boolean {
   }
 }
 
-export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T | ((prev: T) => T)) => void] {
+export function useLocalStorage<T>(key: string, defaultValue: T) {
   const isStringDefault = typeof defaultValue === "string"
 
   const [value, setValue] = useState<T>(() => {
@@ -39,7 +39,7 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T 
 
   // storage 이벤트 구독: 다른 탭의 변경 + 같은 탭 내 커스텀 dispatch 모두 감지
   useEffect(() => {
-    const handleStorage = (e: StorageEvent): void => {
+    const handleStorage = (e: StorageEvent) => {
       if (e.key !== key) return
       const newValue = e.newValue
       if (newValue === null) {
@@ -56,7 +56,7 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T 
       }
     }
     window.addEventListener("storage", handleStorage)
-    return (): void => { window.removeEventListener("storage", handleStorage); }
+    return () => { window.removeEventListener("storage", handleStorage); }
   }, [key, defaultValue, isStringDefault])
 
   // 래핑된 setter: localStorage 저장 + 같은 탭 내 동기화를 위해 storage 이벤트 dispatch

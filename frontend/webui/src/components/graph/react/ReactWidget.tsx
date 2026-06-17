@@ -5,18 +5,18 @@ interface HTMLElementWidgetProps {
   element: HTMLElement
 }
 
-export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.ReactElement {
+export function HTMLElementWidget({ element }: HTMLElementWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
+    if (!container || !element) return
 
     // Clear container first
     container.innerHTML = ""
     container.appendChild(element)
 
-    return (): void => {
+    return () => {
       if (element.parentNode === container) {
         container.removeChild(element)
       }
@@ -36,19 +36,18 @@ interface ReactWidgetProps {
   element?: HTMLElement | null | undefined
 }
 
-export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element }: ReactWidgetProps): React.ReactElement {
+export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element }: ReactWidgetProps) {
   if (element) {
     return <HTMLElementWidget element={element} />
   }
 
   const typeSpec = spec?.[0]
-  const config = spec?.[1] ?? {}
+  const config = spec?.[1] || {}
 
   // 1. COMBO 타입 (배열 형식의 후보군이 지정된 경우)
   if (Array.isArray(typeSpec)) {
     const options = typeSpec
-    const primitiveVal = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : null
-    const strVal = primitiveVal !== null ? String(primitiveVal) : options[0] ?? ""
+    const strVal = String(value ?? options[0] ?? "")
 
     return (
       <div className="flex flex-col gap-0.5">
@@ -64,8 +63,8 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
           className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring select-none disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {options.map((opt) => (
-            <option key={String(opt as string | number)} value={String(opt as string | number)}>
-              {String(opt as string | number)}
+            <option key={String(opt)} value={String(opt)}>
+              {String(opt)}
             </option>
           ))}
         </select>
@@ -77,7 +76,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
 
   // 2. BOOLEAN 타입 (토글 스위치/체크박스)
   if (typeName === "BOOLEAN") {
-    const boolVal = value === true
+    const boolVal = !!value
 
     return (
       <div className="flex items-center justify-between hover:bg-accent/10 rounded px-1 py-0.5">
@@ -137,8 +136,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
   }
 
   // 4. STRING 또는 기타 기본 텍스트 필드
-  const primitiveVal = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : null
-  const strVal = primitiveVal !== null ? String(primitiveVal) : ""
+  const strVal = String(value ?? "")
 
   return (
     <div className="flex flex-col gap-0.5">

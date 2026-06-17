@@ -14,7 +14,7 @@ describe('outputAsSerialisable', () => {
     const output = node.addOutput('out', 'number')
     output.links = [1, 2, 3]
 
-    const serialised = outputAsSerialisable(output)
+    const serialised = outputAsSerialisable(output as OutputSlotParam)
 
     expect(serialised.links).toEqual([1, 2, 3])
     expect(serialised.links).not.toBe(output.links)
@@ -29,7 +29,7 @@ describe('outputAsSerialisable', () => {
     const output = node.addOutput('out', 'number')
     output.links = null
 
-    const serialised = outputAsSerialisable(output)
+    const serialised = outputAsSerialisable(output as OutputSlotParam)
     expect(serialised.links).toBeNull()
   })
 })

@@ -124,7 +124,7 @@ export function CombinationPickerToolbar({
   exportActionIsLoading,
   exportActionMessage,
   regenActionMessage,
-}: ToolbarProps): React.ReactElement {
+}: ToolbarProps) {
   const { savedTemplates, data, selection, thumbnailSize, setThumbnailSize } =
     useCurationContext()
   const {
@@ -155,20 +155,20 @@ export function CombinationPickerToolbar({
   const [isMobile, setIsMobile] = useState(false)
 
   useLayoutEffect(() => {
-    const handleResize = (): void => { setIsMobile(window.innerWidth < 768); }
+    const handleResize = () => { setIsMobile(window.innerWidth < 768); }
     handleResize()
     window.addEventListener("resize", handleResize)
-    return (): void => { window.removeEventListener("resize", handleResize); }
+    return () => { window.removeEventListener("resize", handleResize); }
   }, [])
 
   useLayoutEffect(() => {
     const el = toolbarRef.current
-    if (el === null) return
-    const update = (): void => { setToolbarHeight(el.offsetHeight); }
+    if (!el) return
+    const update = () => { setToolbarHeight(el.offsetHeight); }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
-    return (): void => { ro.disconnect(); }
+    return () => { ro.disconnect(); }
   }, [])
 
   // 필터 변경 시 자동 확장 헬퍼
@@ -185,13 +185,13 @@ export function CombinationPickerToolbar({
       ref={toolbarRef}
       className="sticky z-40 shrink-0 border-t border-line bg-panel shadow-sm"
       style={
-        { "--toolbar-height": `${String(toolbarHeight)}px` } as React.CSSProperties
+        { "--toolbar-height": `${toolbarHeight}px` } as React.CSSProperties
       }
     >
       {/* 메인 툴바: 모바일에서는 헤더로 이동했으므로 숨김 */}
       <div className="hidden flex-wrap items-center gap-2 border-b bg-muted/5 px-4 py-2 md:flex md:gap-3">
         {/* 분류 축 선택 (hideTopSection일 때 숨김) */}
-        {hideTopSection !== true && (
+        {!hideTopSection && (
           <>
             <Select value={selectedAxis} onValueChange={setSelectedAxis}>
               <SelectTrigger className="h-8 w-full border-0 bg-transparent text-[12px] font-bold shadow-none focus:ring-0 sm:w-56 sm:text-[13px]">
@@ -272,7 +272,7 @@ export function CombinationPickerToolbar({
             </TabsTrigger>
             <TabsTrigger
               value="grid"
-              disabled={selectedFilename === null}
+              disabled={!selectedFilename}
               className="px-3.5 py-1 text-xs font-bold gap-1.5 data-[state=active]:bg-background"
             >
               <Maximize2Icon className="h-3.5 w-3.5" />
@@ -442,7 +442,7 @@ export function CombinationPickerToolbar({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { void fetchData(); }}
+                onClick={fetchData}
                 disabled={loading}
                 className="h-9 w-9 p-0 md:h-8 md:w-8 shrink-0"
               >
@@ -472,7 +472,7 @@ export function CombinationPickerToolbar({
               <DropdownMenuLabel className="text-xs">설정</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => { void fetchData(); }}
+                onClick={fetchData}
                 className="py-2.5 md:py-1.5"
               >
                 <RefreshCwIcon className="mr-2 h-4 w-4 md:h-3.5 md:w-3.5" />
@@ -582,27 +582,27 @@ export function CombinationPickerToolbar({
       )}
 
       {/* 메시지 영역 (툴바 아래 고정 높이 방지 위해 절대 위치 지양) */}
-      {(exportActionMessage !== null ||
-        regenActionMessage !== null ||
-        bulkRegenActionMessage !== null ||
-        bulkDownloadMessage !== null) && (
+      {(exportActionMessage ||
+        regenActionMessage ||
+        bulkRegenActionMessage ||
+        bulkDownloadMessage) && (
         <div className="border-b bg-muted/10 px-4 py-1 text-center">
-          {exportActionMessage !== null && (
+          {exportActionMessage && (
             <span className="text-[10px] font-bold text-green-600">
               {exportActionMessage}
             </span>
           )}
-          {regenActionMessage !== null && (
+          {regenActionMessage && (
             <span className="text-[10px] font-bold text-blue-600">
               {regenActionMessage}
             </span>
           )}
-          {bulkRegenActionMessage !== null && (
+          {bulkRegenActionMessage && (
             <span className="text-[10px] font-bold text-blue-600">
               {bulkRegenActionMessage}
             </span>
           )}
-          {bulkDownloadMessage !== null && (
+          {bulkDownloadMessage && (
             <span className="text-[10px] font-bold text-green-600">
               {bulkDownloadMessage}
             </span>
@@ -860,7 +860,7 @@ export function CombinationPickerToolbar({
               <Button
                 variant="outline"
                 className="w-full h-10 text-xs font-bold gap-2"
-                onClick={() => { void fetchData(); }}
+                onClick={fetchData}
               >
                 <RefreshCwIcon className="h-3.5 w-3.5" />
                 데이터 새로고침

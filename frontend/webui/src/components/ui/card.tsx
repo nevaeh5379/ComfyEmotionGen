@@ -6,7 +6,7 @@ function Card({
   className,
   size = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }): React.ReactElement {
+}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
   return (
     <div
       data-slot="card"
@@ -20,7 +20,7 @@ function Card({
   )
 }
 
-function CardHeader({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
+function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-header"
@@ -33,7 +33,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">): React
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
+function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
@@ -46,7 +46,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">): React.
   )
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
+function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
@@ -56,7 +56,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">): 
   )
 }
 
-function CardAction({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
+function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-action"
@@ -69,7 +69,7 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">): React
   )
 }
 
-function CardContent({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
+function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
@@ -79,7 +79,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">): Reac
   )
 }
 
-function CardFooter({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
+function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"

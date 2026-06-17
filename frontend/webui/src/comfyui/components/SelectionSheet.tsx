@@ -1,4 +1,3 @@
-import React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -54,7 +53,7 @@ export const SelectionSheet = ({
   toggleItemCheck,
   onRunSelected,
   onExcludeApproved,
-}: SelectionSheetProps): React.ReactElement => {
+}: SelectionSheetProps) => {
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
 
   const rowVirtualizer = useVirtualizer({
@@ -125,21 +124,21 @@ export const SelectionSheet = ({
                 <TableHead className="flex-1 px-2 flex items-center font-bold">프롬프트</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody style={{ height: `${String(totalSize)}px`, position: "relative", display: "block", width: "100%" }}>
+            <TableBody style={{ height: `${totalSize}px`, position: "relative", display: "block", width: "100%" }}>
               {virtualItems.map((virtualItem) => {
                 const item = filteredPreview[virtualItem.index]
                 if (!item) return null
                 const key = itemKey(item)
                 return (
                   <TableRow
-                    key={`sel-${key}-${String(virtualItem.index)}`}
+                    key={`sel-${key}-${virtualItem.index}`}
                     style={{
                       position: "absolute",
                       top: 0,
                       left: 0,
                       width: "100%",
-                      height: `${String(virtualItem.size)}px`,
-                      transform: `translateY(${String(virtualItem.start)}px)`,
+                      height: `${virtualItem.size}px`,
+                      transform: `translateY(${virtualItem.start}px)`,
                     }}
                     className={cn(
                       "flex cursor-pointer transition-opacity items-center hover:bg-muted/30 border-b",
@@ -181,7 +180,7 @@ export const SelectionSheet = ({
           <Button
             variant="default"
             size="lg"
-            onClick={() => { void onRunSelected(); }}
+            onClick={onRunSelected}
             disabled={!canRun || selectedCount === 0}
             className="h-11 w-full text-base font-black sm:h-10 sm:w-auto sm:text-sm"
           >

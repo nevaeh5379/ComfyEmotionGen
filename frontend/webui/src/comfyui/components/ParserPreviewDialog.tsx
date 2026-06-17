@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback } from "react"
-import React from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 
 import {
@@ -26,14 +25,14 @@ interface ParserPreviewDialogProps {
 }
 
 /* ---------- helpers ---------- */
-function substitute(text: string, item: RenderItem): string {
-  let res = text
+function substitute(text: string, item: RenderItem) {
+  let res = text || ""
   Object.entries(item.meta).forEach(([k, v]) => {
     res = res.split(`{{${k}}}`).join(v)
     res = res.split(`{${k}}`).join(v)
   })
-  res = res.split("{{input}}").join(item.prompt)
-  res = res.split("{input}").join(item.prompt)
+  res = res.split("{{input}}").join(item.prompt || "")
+  res = res.split("{input}").join(item.prompt || "")
   return res
 }
 
@@ -43,7 +42,7 @@ export const ParserPreviewDialog = ({
   onOpenChange,
   renderResponse,
   filteredByAxisSet,
-}: ParserPreviewDialogProps): React.ReactElement => {
+}: ParserPreviewDialogProps) => {
   const [searchInput, setSearchInput] = useState("")
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
@@ -83,7 +82,7 @@ export const ParserPreviewDialog = ({
   const totalSize = rowVirtualizer.getTotalSize()
 
   const handleCopyPrompt = useCallback((text: string, index: number) => {
-    void navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text)
     toast.success("프롬프트가 클립보드에 복사되었습니다.")
     setCopiedIndex(index)
     setTimeout(() => { setCopiedIndex(null); }, 2000)
@@ -127,7 +126,7 @@ export const ParserPreviewDialog = ({
           <DialogDescription className="text-xs">
             작성한 템플릿 문법에 따라 생성될{" "}
             <strong>{items.length}개</strong>의 작업 목록입니다.
-            {searchInput.trim() ? ` (검색 결과 ${String(filteredItems.length)}개)` : ""}
+            {searchInput.trim() ? ` (검색 결과 ${filteredItems.length}개)` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -224,7 +223,7 @@ export const ParserPreviewDialog = ({
             >
               <div
                 style={{
-                  height: `${String(totalSize)}px`,
+                  height: `${totalSize}px`,
                   width: "100%",
                   position: "relative",
                 }}
@@ -242,7 +241,7 @@ export const ParserPreviewDialog = ({
 
                   return (
                     <div
-                      key={`item-${key}-${String(index)}`}
+                      key={`item-${key}-${index}`}
                       onClick={(e) => {
                         e.preventDefault()
                         handleItemClick(item)
@@ -252,8 +251,8 @@ export const ParserPreviewDialog = ({
                         top: 0,
                         left: 0,
                         width: "100%",
-                        height: `${String(virtualItem.size)}px`,
-                        transform: `translateY(${String(virtualItem.start)}px)`,
+                        height: `${virtualItem.size}px`,
+                        transform: `translateY(${virtualItem.start}px)`,
                         paddingBottom: "8px",
                       }}
                     >
@@ -279,7 +278,7 @@ export const ParserPreviewDialog = ({
                             className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation()
-                              void navigator.clipboard.writeText(rf)
+                              navigator.clipboard.writeText(rf)
                               toast.success("파일명이 복사되었습니다.")
                             }}
                           >
@@ -302,7 +301,7 @@ export const ParserPreviewDialog = ({
                                     : "border-line bg-muted/40 text-foreground"
                                 )}
                               >
-                                {k}: {matched?.value ?? v}
+                                {k}: {matched?.value || v}
                               </span>
                             )
                           })}

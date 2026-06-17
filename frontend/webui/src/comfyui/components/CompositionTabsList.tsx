@@ -1,11 +1,10 @@
-import React from "react"
 import { TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface CompositionTabsListProps {
   className?: string
 }
 
-export function CompositionTabsList({ className }: CompositionTabsListProps): React.ReactElement {
+export function CompositionTabsList({ className }: CompositionTabsListProps) {
   return (
     <TabsList variant="default" className={className}>
       <TabsTrigger value="ceg">템플릿</TabsTrigger>

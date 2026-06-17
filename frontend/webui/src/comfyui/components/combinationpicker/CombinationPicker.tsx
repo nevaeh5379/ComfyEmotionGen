@@ -67,7 +67,7 @@ export const CombinationPicker = memo(function CombinationPicker({
   })
 
   useEffect(() => {
-    void data.fetchData()
+    data.fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendUrl, activeTemplate, freeGroupMode])
 

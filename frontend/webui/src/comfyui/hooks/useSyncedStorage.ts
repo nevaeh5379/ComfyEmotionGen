@@ -17,7 +17,7 @@ interface PendingSyncItem {
 
 export function getSyncQueue(): PendingSyncItem[] {
   try {
-    return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]") as PendingSyncItem[]
+    return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]")
   } catch (err) {
     console.warn("useSyncedStorage: 동기화 큐 파싱 실패:", err)
     return []
@@ -64,7 +64,7 @@ export function useSyncedStorage<T>(
   key: string,
   defaultValue: T,
   options?: { manual?: boolean }
-): [T, React.Dispatch<React.SetStateAction<T>>, { isDirty: boolean; saveToServer: () => Promise<boolean>; revert: () => void }] {
+) {
   const isStringDefault = typeof defaultValue === "string"
   const initializedRef = useRef(false)
   const saveIdRef = useRef(0)
@@ -126,7 +126,7 @@ export function useSyncedStorage<T>(
   }, [key, serialize])
 
   useEffect(() => {
-    const onReady = (e: Event): void => {
+    const onReady = (e: Event) => {
       const all = (e as CustomEvent<Record<string, string>>).detail
       const raw = all[key]
       if (raw === undefined || handlePendingConflict()) return
@@ -137,11 +137,11 @@ export function useSyncedStorage<T>(
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
-    return (): void => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
+    return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
   }, [key, deserialize, handlePendingConflict, serialize])
 
   useEffect(() => {
-    const onUpdated = (e: Event): void => {
+    const onUpdated = (e: Event) => {
       const { key: updatedKey, value: raw } = (
         e as CustomEvent<SettingsUpdatedDetail>
       ).detail
@@ -154,7 +154,7 @@ export function useSyncedStorage<T>(
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
-    return (): void => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
+    return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
   }, [key, deserialize, handlePendingConflict, serialize])
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export function useSyncedStorage<T>(
     const isCurrentDirty = serialized !== lastServerValueRef.current
     setIsDirty(isCurrentDirty)
 
-    if (options?.manual === true) {
+    if (options?.manual) {
       return
     }
 
@@ -191,7 +191,7 @@ export function useSyncedStorage<T>(
         lastServerValueRef.current = serialized
         setIsDirty(false)
       }
-    }).catch((err: unknown) => { console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err); })
+    }).catch((err) => { console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err); })
   }, [key, value, serialize, options?.manual])
 
   const saveToServer = useCallback(() => {

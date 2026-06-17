@@ -21,11 +21,7 @@ function load(): SavedTemplate[] {
   }
 }
 
-export function useSavedTemplates(): {
-  templates: SavedTemplate[]
-  saveTemplate: (name: string, template: string) => SavedTemplate
-  deleteTemplate: (id: string) => void
-} {
+export function useSavedTemplates() {
   const { items: templates, persist } = usePersistedItems(STORAGE_KEY, load)
 
   const saveTemplate = useCallback(
@@ -39,7 +35,7 @@ export function useSavedTemplates(): {
         return updated
       } else {
         const next: SavedTemplate = {
-          id: `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           name: trimmed,
           template,
           savedAt: Date.now(),

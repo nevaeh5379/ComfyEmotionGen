@@ -1,4 +1,3 @@
-import * as React from "react"
 import { useTheme } from "@/components/theme-provider"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import {
@@ -9,7 +8,7 @@ import {
   Loader2Icon,
 } from "lucide-react"
 
-const Toaster = ({ ...props }: ToasterProps): React.ReactNode => {
+const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useTheme()
 
   return (

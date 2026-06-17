@@ -47,7 +47,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
 import { useBackend } from "../hooks/useBackend"
-import type { BackendContextValue } from "../contexts/BackendContext"
 import type { JobStatus, JobView, WorkerView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
@@ -419,8 +418,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   allJobs,
   workers,
 }: RunningJobsBannerProps) {
-  const backend = useBackend() as BackendContextValue
-  const { workerPreviews, backendUrl } = backend
+  const { workerPreviews, backendUrl } = useBackend()
 
   if (workers.length === 0) {
     if (jobs.length === 0) {
@@ -566,7 +564,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
                       <span className="truncate">
-                        {runningJob !== undefined && runningJob.currentNodeName !== ""
+                        {runningJob?.currentNodeName !== null
                           ? `노드 (${runningJob.currentNodeName})`
                           : runningJob?.status === "queued"
                           ? "작업 준비 중..."
@@ -594,7 +592,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     </div>
                   )}
                 </div>
-                {w.workerType === "comfyui" && workerPreviews[w.id] !== undefined && (
+                {w.workerType === "comfyui" && workerPreviews[w.id] !== null && (
                   <img
                     src={`${backendUrl}/workers/${w.id}/preview?t=${String(workerPreviews[w.id])}`}
                     alt={`preview ${w.id}`}
@@ -864,7 +862,7 @@ export const JobTableSection = memo(function JobTableSection({
           className="fixed z-[100] rounded-xl border border-line-strong/60 bg-popover/90 p-2.5 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 pointer-events-none hidden md:block"
           style={jobStyle}
         >
-          {(function(): React.ReactElement {
+          {(() => {
             const images = fetchedImages.get(hoveredJob.job.id) ?? []
             return images.length > 0 ? (
               <div className="flex gap-1.5">
@@ -884,7 +882,7 @@ export const JobTableSection = memo(function JobTableSection({
                 <Skeleton className="h-16 w-16 rounded-lg bg-muted-foreground/10" />
               </div>
             )
-          })()}
+          })() as React.ReactElement}
         </div>
       )}
 

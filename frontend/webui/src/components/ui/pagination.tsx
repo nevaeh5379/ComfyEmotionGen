@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import type { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 
-function Pagination({ className, ...props }: React.ComponentProps<"nav">): React.ReactElement {
+function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
       role="navigation"
@@ -24,7 +24,7 @@ function Pagination({ className, ...props }: React.ComponentProps<"nav">): React
 function PaginationContent({
   className,
   ...props
-}: React.ComponentProps<"ul">): React.ReactElement {
+}: React.ComponentProps<"ul">) {
   return (
     <ul
       data-slot="pagination-content"
@@ -34,7 +34,7 @@ function PaginationContent({
   )
 }
 
-function PaginationItem({ ...props }: React.ComponentProps<"li">): React.ReactElement {
+function PaginationItem({ ...props }: React.ComponentProps<"li">) {
   return <li data-slot="pagination-item" {...props} />
 }
 
@@ -48,15 +48,15 @@ function PaginationLink({
   isActive,
   size = "icon-sm",
   ...props
-}: PaginationLinkProps): React.ReactElement {
+}: PaginationLinkProps) {
   return (
     <a
-      aria-current={isActive === true ? "page" : undefined}
+      aria-current={isActive ? "page" : undefined}
       data-slot="pagination-link"
-      data-active={isActive === true}
+      data-active={isActive}
       className={cn(
         buttonVariants({
-          variant: isActive === true ? "outline" : "ghost",
+          variant: isActive ? "outline" : "ghost",
           size,
         }),
         "cursor-pointer",
@@ -70,7 +70,7 @@ function PaginationLink({
 function PaginationPrevious({
   className,
   ...props
-}: React.ComponentProps<typeof PaginationLink>): React.ReactElement {
+}: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
       aria-label="이전 페이지"
@@ -87,7 +87,7 @@ function PaginationPrevious({
 function PaginationNext({
   className,
   ...props
-}: React.ComponentProps<typeof PaginationLink>): React.ReactElement {
+}: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
       aria-label="다음 페이지"
@@ -104,7 +104,7 @@ function PaginationNext({
 function PaginationEllipsis({
   className,
   ...props
-}: React.ComponentProps<"span">): React.ReactElement {
+}: React.ComponentProps<"span">) {
   return (
     <span
       aria-hidden

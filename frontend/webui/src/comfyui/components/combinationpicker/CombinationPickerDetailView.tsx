@@ -87,7 +87,7 @@ export function CombinationPickerDetailView({
   onNavigate,
   onOpenList,
   onOpenDetail,
-}: DetailViewProps): React.ReactElement {
+}: DetailViewProps) {
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } = useCurationContext()
   const { setStatus, imagesByFilename, renderItems } = data
 
@@ -113,7 +113,7 @@ export function CombinationPickerDetailView({
   useEffect(() => {
     if (viewMode !== "grid") return
 
-    const handleKeyDown = (e: KeyboardEvent): void => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -135,7 +135,7 @@ export function CombinationPickerDetailView({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return (): void => { window.removeEventListener("keydown", handleKeyDown); }
+    return () => { window.removeEventListener("keydown", handleKeyDown); }
   }, [viewMode, visibleImages, focusedIdx, onSelectImage, selectedFilename])
   return (
     <div
@@ -273,9 +273,9 @@ export function CombinationPickerDetailView({
               <LoadingButton
                 size="sm"
                 className="h-9 w-9"
-                onClick={() => {
-                  if (selectedFilename) onRegenerate(selectedFilename);
-                }}
+                onClick={() =>
+                  selectedFilename && onRegenerate(selectedFilename)
+                }
                 isLoading={regenActionIsLoading}
                 icon={RefreshCwIcon}
               ></LoadingButton>
@@ -288,7 +288,7 @@ export function CombinationPickerDetailView({
               {selectedFilename}
             </span>
             <div className="no-scrollbar overflow-x-auto">
-              <MetaTags meta={selectedItem?.meta ?? {}} variant="compact" />
+              <MetaTags meta={selectedItem?.meta || {}} variant="compact" />
             </div>
           </div>
 
@@ -339,7 +339,7 @@ export function CombinationPickerDetailView({
             <LoadingButton
               size="sm"
               className="h-7 w-7 p-0 px-4 md:h-6 md:w-6"
-              onClick={() => { if (selectedFilename) onRegenerate(selectedFilename); }}
+              onClick={() => selectedFilename && onRegenerate(selectedFilename)}
               isLoading={regenActionIsLoading}
               icon={RefreshCwIcon}
             ></LoadingButton>
@@ -356,7 +356,7 @@ export function CombinationPickerDetailView({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { if (selectedFilename) onRegenerate(selectedFilename); }}
+              onClick={() => selectedFilename && onRegenerate(selectedFilename)}
               className="font-bold"
             >
               이미지 생성 시작
@@ -367,8 +367,8 @@ export function CombinationPickerDetailView({
             className="grid gap-3 sm:gap-4"
             style={{
               gridTemplateColumns: fluidGridLayout
-                ? `repeat(auto-fill, minmax(${String(thumbnailSize)}px, 1fr))`
-                : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
+                ? `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`
+                : `repeat(auto-fill, ${thumbnailSize}px)`,
             }}
           >
             {visibleImages.map((img, idx) => {
@@ -500,7 +500,7 @@ export function CombinationPickerDetailView({
                       </ContextMenuItem>
                     ) : isRejected ? (
                       <ContextMenuItem
-                        onClick={() => { void setStatus(img.hash, "pending"); }}
+                        onClick={() => setStatus(img.hash, "pending")}
                       >
                         <RefreshCwIcon className="h-4 w-4" /> 리젝 취소
                       </ContextMenuItem>
@@ -514,8 +514,8 @@ export function CombinationPickerDetailView({
                         >
                           <CheckIcon className="h-4 w-4" /> 선택
                         </ContextMenuItem>
-                      <ContextMenuItem
-                        onClick={() => { void setStatus(img.hash, "rejected"); }}
+                        <ContextMenuItem
+                          onClick={() => setStatus(img.hash, "rejected")}
                         >
                           <XIcon className="h-4 w-4" /> 리젝
                         </ContextMenuItem>

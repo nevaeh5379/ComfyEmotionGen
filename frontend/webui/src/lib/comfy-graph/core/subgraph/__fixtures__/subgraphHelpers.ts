@@ -72,8 +72,8 @@ interface TestSubgraphOptions {
   nodeCount?: number
   inputCount?: number
   outputCount?: number
-  inputs?: { name: string; type: ISlotType }[]
-  outputs?: { name: string; type: ISlotType }[]
+  inputs?: Array<{ name: string; type: ISlotType }>
+  outputs?: Array<{ name: string; type: ISlotType }>
 }
 
 interface TestSubgraphNodeOptions {
@@ -282,7 +282,7 @@ export function setupComplexPromotionFixture(): {
     FixtureStringConcatenateNode
   )
 
-  for (const node of subgraphData.nodes as { type: string }[]) {
+  for (const node of subgraphData.nodes as Array<{ type: string }>) {
     if (node.type === 'StringConcatenate')
       node.type = FIXTURE_STRING_CONCAT_TYPE
   }
@@ -292,12 +292,12 @@ export function setupComplexPromotionFixture(): {
     throw new Error('Expected fixture to contain subgraph instance node id 21')
 
   const graph = createTestRootGraph()
-  const subgraph = graph.createSubgraph(subgraphData)
-  subgraph.configure(subgraphData)
+  const subgraph = graph.createSubgraph(subgraphData as ExportedSubgraph)
+  subgraph.configure(subgraphData as ExportedSubgraph)
   const hostNode = new SubgraphNode(
     graph,
     subgraph,
-    hostNodeData
+    hostNodeData as ExportedSubgraphInstance
   )
   graph.add(hostNode)
 
@@ -497,10 +497,10 @@ export function createTestSubgraphData(
  */
 export function createEventCapture<TEventMap extends object = object>(
   eventTarget: EventTarget,
-  eventTypes: (keyof TEventMap & string)[]
+  eventTypes: Array<keyof TEventMap & string>
 ): EventCapture<TEventMap> {
   const capturedEvents: CapturedEvent<TEventMap[keyof TEventMap]>[] = []
-  const listeners: (() => void)[] = []
+  const listeners: Array<() => void> = []
 
   // Set up listeners for each event type
   for (const eventType of eventTypes) {
@@ -513,7 +513,7 @@ export function createEventCapture<TEventMap extends object = object>(
     }
 
     eventTarget.addEventListener(eventType, listener)
-    listeners.push(() => { eventTarget.removeEventListener(eventType, listener); })
+    listeners.push(() => eventTarget.removeEventListener(eventType, listener))
   }
 
   return {

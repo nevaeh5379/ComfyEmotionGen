@@ -15,12 +15,12 @@ const STORAGE_KEY = STORAGE_KEYS.editorWorkflows
 
 function load(): EditorSavedWorkflow[] {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
     if (!Array.isArray(parsed)) return []
     return parsed.map((w: unknown) => {
       const item = w as Partial<EditorSavedWorkflow>
       return {
-        id: item.id ?? `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+        id: item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name: item.name ?? "Untitled",
         workflow: item.workflow ?? { nodes: [], links: [] },
         savedAt: item.savedAt ?? Date.now(),
@@ -31,11 +31,7 @@ function load(): EditorSavedWorkflow[] {
   }
 }
 
-export function useEditorSavedWorkflows(): {
-  workflows: EditorSavedWorkflow[]
-  saveWorkflow: (name: string, workflow: ComfyWorkflowJSON) => EditorSavedWorkflow
-  deleteWorkflow: (id: string) => void
-} {
+export function useEditorSavedWorkflows() {
   const { items: workflows, persist } = usePersistedItems<EditorSavedWorkflow>(
     STORAGE_KEY,
     load
@@ -54,7 +50,7 @@ export function useEditorSavedWorkflows(): {
         nextAll = all.map((w) => (w.id === existing.id ? nextW : w))
       } else {
         nextW = {
-          id: `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           name: trimmed,
           workflow,
           savedAt: Date.now(),

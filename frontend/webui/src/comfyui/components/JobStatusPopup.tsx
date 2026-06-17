@@ -71,7 +71,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     const interval = setInterval(() => {
       setCurrentPage((prev) => (prev + 1) % totalPages)
     }, 3000)
-    return (): void => { clearInterval(interval); }
+    return () => { clearInterval(interval); }
   }, [cycleMinimizedProgress, runningJobs.length, totalPages])
 
   const queuedJobs = useMemo(
@@ -90,7 +90,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   useEffect(() => {
     if (runningJobs.length === 0) return
     const id = setInterval(() => { setTick((t) => t + 1); }, 1000)
-    return (): void => { clearInterval(id); }
+    return () => { clearInterval(id); }
   }, [runningJobs])
 
   // ── Refs for latest values ────────────────────────────────────────
@@ -100,26 +100,32 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 
   // ── actions ────────────────────────────────────────────────────────────
 
-  const handleTogglePause = useCallback((): void => {
-    fetch(`${backendUrlRef.current}/jobs/${pausedRef.current ? "resume" : "pause"}`, {
-      method: "POST",
-    }).catch(() => {
+  const handleTogglePause = useCallback(async () => {
+    try {
+      await fetch(`${backendUrlRef.current}/jobs/${pausedRef.current ? "resume" : "pause"}`, {
+        method: "POST",
+      })
+    } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
-    })
-  }, [backendUrlRef, pausedRef])
+    }
+  }, [])
 
-  const handleCancelAll = useCallback((): void => {
-    void confirmRef.current({
-      title: "작업 취소",
-      description: "진행 중인 모든 작업을 취소하시겠습니까?",
-      variant: "destructive",
-      confirmText: "모두 취소",
-    }).then((confirmed) => {
-      if (!confirmed) return
-      fetch(`${backendUrlRef.current}/jobs/cancel-all`, { method: "POST" })
-        .catch(() => { toast.error("전체 취소 요청에 실패했습니다."); })
-    })
-  }, [backendUrlRef, confirmRef])
+  const handleCancelAll = useCallback(async () => {
+    if (
+      !(await confirmRef.current({
+        title: "작업 취소",
+        description: "진행 중인 모든 작업을 취소하시겠습니까?",
+        variant: "destructive",
+        confirmText: "모두 취소",
+      }))
+    )
+      return
+    try {
+      await fetch(`${backendUrlRef.current}/jobs/cancel-all`, { method: "POST" })
+    } catch {
+      toast.error("전체 취소 요청에 실패했습니다.")
+    }
+  }, [])
 
   // ── no active jobs → don't render ──────────────────────────────────────
 
@@ -135,11 +141,11 @@ export const JobStatusPopup = memo(function JobStatusPopup({
       (safeCurrentPage + 1) * itemsPerPage
     )
     const progressStr = currentPageJobs
-      .map((j) => `${String(Math.round(j.progressPercent))}%`)
+      .map((j) => `${Math.round(j.progressPercent)}%`)
       .join(" | ")
     const mainJobOverall = mainJob ? getOverallProgress(mainJob) : 0
     const etaStr =
-      mainJob?.startedAt !== undefined && mainJobOverall > 0 && mainJobOverall < 100
+      mainJob?.startedAt && mainJobOverall > 0 && mainJobOverall < 100
         ? formatETA(mainJob.startedAt, mainJobOverall, jobs)
         : null
 
@@ -165,7 +171,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
               ? "중지"
               : "대기"}
         </span>
-        {etaStr !== null && (
+        {etaStr != null && (
           <span className="text-[10px] text-muted-foreground tabular-nums">
             {etaStr}
           </span>
@@ -247,7 +253,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           {runningJobs.slice(0, 5).map((j) => {
             const overall = getOverallProgress(j)
             const etaStr =
-              j.startedAt !== null && overall > 0 && overall < 100
+              j.startedAt && overall > 0 && overall < 100
                 ? formatETA(j.startedAt, overall, jobs)
                 : null
             return (
@@ -262,20 +268,20 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                       </TooltipTrigger>
                       <TooltipContent>{j.filename}</TooltipContent>
                     </Tooltip>
-                    {j.workerId !== null && (
+                    {j.workerId && (
                       <span className="shrink-0 rounded bg-muted/80 px-1 font-mono text-[9px] font-bold text-muted-foreground">
                         {j.workerId.slice(0, 8)}
                       </span>
                     )}
                   </div>
-        {etaStr !== null && (
+                  {etaStr != null && (
                     <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                       {etaStr}
                     </span>
                   )}
                 </div>
                 <div className="truncate text-[10px] text-muted-foreground">
-                  {j.currentNodeName !== ""
+                  {j.currentNodeName
                     ? `노드 (${j.currentNodeName}) 처리 중...`
                     : "노드 처리 중..."}
                 </div>

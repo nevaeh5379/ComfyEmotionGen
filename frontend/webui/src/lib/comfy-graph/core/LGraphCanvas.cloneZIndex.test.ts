@@ -62,7 +62,7 @@ function createCanvas(graph: LGraph): LGraphCanvas {
 
   el.getContext = vi
     .fn()
-    .mockReturnValue(ctx)
+    .mockReturnValue(ctx as unknown as CanvasRenderingContext2D)
   el.getBoundingClientRect = vi.fn().mockReturnValue({
     left: 0,
     top: 0,

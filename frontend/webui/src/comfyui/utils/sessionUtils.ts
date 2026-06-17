@@ -64,7 +64,7 @@ export function saveMarkers(ms: SessionMarkerRaw[]): void {
     // ignore quota errors
   }
   // 서버 비동기 저장
-  saveSetting(SESSIONS_KEY, serialized).catch(() => undefined)
+  saveSetting(SESSIONS_KEY, serialized).catch(() => {})
 }
 
 /** 로컬 액티브 상태 저장 (localStorage 캐시 + 서버 비동기) */
@@ -77,13 +77,13 @@ export function saveActiveState(state: ActiveStateRaw): void {
     // ignore quota errors
   }
   // 서버 비동기 저장
-  saveSetting(ACTIVE_STATE_KEY, serialized).catch(() => undefined)
+  saveSetting(ACTIVE_STATE_KEY, serialized).catch(() => {})
 }
 
 /** localStorage 에서만 읽기 (동기) */
 export function loadMarkersLocal(): SessionMarkerRaw[] {
   try {
-    return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]") as SessionMarkerRaw[]
+    return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]")
   } catch {
     return []
   }
@@ -93,7 +93,7 @@ export function loadMarkersLocal(): SessionMarkerRaw[] {
 export function loadActiveStateLocal(): ActiveStateRaw | null {
   try {
     const raw = localStorage.getItem(ACTIVE_STATE_KEY)
-    if (raw === null || raw === "") return null
+    if (!raw) return null
     return JSON.parse(raw) as ActiveStateRaw
   } catch {
     return null
@@ -134,10 +134,7 @@ export function initActiveState(markers: SessionMarkerRaw[]): ActiveStateRaw {
   const stored = loadActiveState()
   if (stored) return stored
   const sorted = [...markers].sort((a, b) => b.startAt - a.startAt)
-  const newest = sorted[0]
-  if (newest === undefined) {
-    return { activeSessionId: "", activatedAt: 0 }
-  }
+  const newest = sorted[0]!
   return { activeSessionId: newest.id, activatedAt: newest.startAt }
 }
 
@@ -164,5 +161,5 @@ export function makeSessionLabel(count: number): string {
   const dd = String(d.getDate()).padStart(2, "0")
   const hh = String(d.getHours()).padStart(2, "0")
   const mi = String(d.getMinutes()).padStart(2, "0")
-  return `세션 ${String(count)} · ${mm}/${dd} ${hh}:${mi}`
+  return `세션 ${count} · ${mm}/${dd} ${hh}:${mi}`
 }

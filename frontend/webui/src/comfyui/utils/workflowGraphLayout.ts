@@ -79,12 +79,11 @@ export function computeLayout(workflow: ComfyWorkflow): LayoutResult {
   let maxLayer = 0
 
   while (queue.length > 0) {
-    const current = queue.shift()
-    if (current === undefined) break
-    const currentLayer = layer.get(current) ?? 0
+    const current = queue.shift()!
+    const currentLayer = layer.get(current)!
     for (const neighbor of adj.get(current) ?? []) {
       const candidate = currentLayer + 1
-      if (!layer.has(neighbor) || (layer.get(neighbor) ?? 0) < candidate) {
+      if (!layer.has(neighbor) || layer.get(neighbor)! < candidate) {
         layer.set(neighbor, candidate)
         maxLayer = Math.max(maxLayer, candidate)
       }

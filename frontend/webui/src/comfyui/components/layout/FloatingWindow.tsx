@@ -10,7 +10,7 @@ import {
 // 전역 z-index 카운터 — 창이 클릭/드래그될 때마다 가장 위로 올라옴
 let globalZCounter = 50
 
-function bringToFront(el: HTMLDivElement): void {
+function bringToFront(el: HTMLDivElement) {
   globalZCounter += 1
   el.style.zIndex = String(globalZCounter)
 }
@@ -49,7 +49,7 @@ export function FloatingWindow({
   title = "플로팅 윈도우",
   toolbar,
   onDragProgress,
-}: FloatingWindowProps): React.ReactElement | null {
+}: FloatingWindowProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const posRef = useRef(initialPos)
   const sizeRef = useRef(initialSize)
@@ -57,10 +57,10 @@ export function FloatingWindow({
   // 초기 위치 및 크기 설정
   useEffect(() => {
     if (containerRef.current) {
-      containerRef.current.style.left = `${String(initialPos.x)}px`
-      containerRef.current.style.top = `${String(initialPos.y)}px`
-      containerRef.current.style.width = `${String(initialSize.w)}px`
-      containerRef.current.style.height = `${String(initialSize.h)}px`
+      containerRef.current.style.left = `${initialPos.x}px`
+      containerRef.current.style.top = `${initialPos.y}px`
+      containerRef.current.style.width = `${initialSize.w}px`
+      containerRef.current.style.height = `${initialSize.h}px`
     }
     posRef.current = initialPos
     sizeRef.current = initialSize
@@ -69,7 +69,7 @@ export function FloatingWindow({
   if (!isOpen) return null
 
   // 1. 드래그(이동) 핸들러 - Zero-lag DOM 조작
-  const handleDragMouseDown = (e: React.MouseEvent): void => {
+  const handleDragMouseDown = (e: React.MouseEvent) => {
     // 버튼 클릭이나 입력 요소 클릭 시에는 드래그 차단
     const target = e.target as HTMLElement
     if (
@@ -87,7 +87,7 @@ export function FloatingWindow({
     const startLeft = posRef.current.x
     const startTop = posRef.current.y
 
-    const handleMouseMove = (moveEvent: MouseEvent): void => {
+    const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startX
       const deltaY = moveEvent.clientY - startY
 
@@ -104,8 +104,8 @@ export function FloatingWindow({
       nextTop = Math.max(0, Math.min(nextTop, screenH - 40)) // 헤더 영역은 무조건 보이게 방어
 
       if (containerRef.current) {
-        containerRef.current.style.left = `${String(nextLeft)}px`
-        containerRef.current.style.top = `${String(nextTop)}px`
+        containerRef.current.style.left = `${nextLeft}px`
+        containerRef.current.style.top = `${nextTop}px`
       }
 
       // 실시간 드래그 진행 상황 및 좌표 버블링
@@ -118,7 +118,7 @@ export function FloatingWindow({
       )
     }
 
-    const handleMouseUp = (upEvent: MouseEvent): void => {
+    const handleMouseUp = (upEvent: MouseEvent) => {
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseup", handleMouseUp)
 
@@ -143,7 +143,7 @@ export function FloatingWindow({
   }
 
   // 2. 리사이즈 핸들러 - Zero-lag DOM 조작
-  const handleResizeMouseDown = (e: React.MouseEvent): void => {
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -152,7 +152,7 @@ export function FloatingWindow({
     const startWidth = sizeRef.current.w
     const startHeight = sizeRef.current.h
 
-    const handleMouseMove = (moveEvent: MouseEvent): void => {
+    const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startX
       const deltaY = moveEvent.clientY - startY
 
@@ -168,12 +168,12 @@ export function FloatingWindow({
       nextHeight = Math.min(nextHeight, window.innerHeight - posRef.current.y)
 
       if (containerRef.current) {
-        containerRef.current.style.width = `${String(nextWidth)}px`
-        containerRef.current.style.height = `${String(nextHeight)}px`
+        containerRef.current.style.width = `${nextWidth}px`
+        containerRef.current.style.height = `${nextHeight}px`
       }
     }
 
-    const handleMouseUp = (): void => {
+    const handleMouseUp = () => {
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseup", handleMouseUp)
 
@@ -256,7 +256,7 @@ export function FloatingWindow({
       </div>
 
       {/* 윈도우 전용 툴바 (옵션) */}
-      {toolbar !== null && toolbar !== undefined && (
+      {toolbar && (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line/50 bg-panel/30 px-3 py-1.5">
           {toolbar}
         </div>

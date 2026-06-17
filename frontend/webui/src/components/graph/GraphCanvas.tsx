@@ -20,7 +20,7 @@ export function GraphCanvas({
   workflow,
   onWorkflowChange,
   className = "",
-}: GraphCanvasProps): React.ReactElement {
+}: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<ComfyAppService | null>(null)
@@ -42,7 +42,7 @@ export function GraphCanvas({
       nodeDefs,
     })
 
-    app.onGraphChanged = (wf): void => {
+    app.onGraphChanged = (wf) => {
       onWorkflowChange?.(wf)
     }
 
@@ -52,13 +52,16 @@ export function GraphCanvas({
     setAppService(app)
 
     // Bind legacy app properties to window.app
-    window.app.graph = app.graph
-    window.app.canvas = app.canvas
-    window.app.loadGraphData = app.loadGraphData.bind(app)
-    ;(window.app as unknown as Record<string, unknown>).serializeGraph = app.serializeGraph.bind(app)
+    if (window.app) {
+      window.app.graph = app.graph
+      window.app.canvas = app.canvas
+      window.app.loadGraphData = app.loadGraphData.bind(app)
+      ;(window.app as unknown as Record<string, unknown>).serializeGraph = app.serializeGraph.bind(app)
+    }
 
     // 리사이즈 핸들러
-    const handleResize = (): void => {
+    const handleResize = () => {
+      if (!container) return
       const rect = container.getBoundingClientRect()
       app.canvas.resize(rect.width, rect.height)
     }
@@ -67,15 +70,17 @@ export function GraphCanvas({
     resizeObserver.observe(container)
     handleResize()
 
-    return (): void => {
+    return () => {
       resizeObserver.disconnect()
       app.dispose()
       appRef.current = null
       setCanvas(null)
       setCurrentGraph(null)
       setAppService(null)
-      window.app.graph = null
-      window.app.canvas = null
+      if (window.app) {
+        window.app.graph = null
+        window.app.canvas = null
+      }
     }
   }, [nodeDefs, setCanvas, setCurrentGraph, setAppService, onWorkflowChange])
 

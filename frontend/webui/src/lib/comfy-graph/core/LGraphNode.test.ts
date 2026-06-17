@@ -659,7 +659,7 @@ describe('LGraphNode', () => {
     let out: Rect
 
     beforeEach(() => {
-      out = [0, 0, 0, 0]
+      out = [0, 0, 0, 0] as unknown as Rect
       node.flags.collapsed = true
       node.size[0] = 150
       node.size[1] = 10

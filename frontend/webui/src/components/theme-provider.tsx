@@ -40,7 +40,7 @@ function getSystemTheme(): ResolvedTheme {
   return "light"
 }
 
-function disableTransitionsTemporarily(): () => void {
+function disableTransitionsTemporarily() {
   const style = document.createElement("style")
   style.appendChild(
     document.createTextNode(
@@ -59,7 +59,7 @@ function disableTransitionsTemporarily(): () => void {
   }
 }
 
-function isEditableTarget(target: EventTarget | null): boolean {
+function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false
   }
@@ -78,13 +78,13 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return false
 }
 
-const persistTheme = (key: string, value: Theme): void => {
+const persistTheme = (key: string, value: Theme) => {
   try {
     localStorage.setItem(key, value)
   } catch {
     // ignore quota errors
   }
-  saveSetting(key, value).catch((err: unknown) => { console.warn("테마 저장 실패:", err); })
+  saveSetting(key, value).catch((err) => { console.warn("테마 저장 실패:", err); })
 }
 
 const loadThemeFromServer = async (key: string): Promise<Theme | null> => {
@@ -100,7 +100,7 @@ export function ThemeProvider({
   storageKey = "theme",
   disableTransitionOnChange = true,
   ...props
-}: ThemeProviderProps): React.ReactElement {
+}: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
     try {
       const storedTheme = localStorage.getItem(storageKey)
@@ -120,11 +120,11 @@ export function ThemeProvider({
     if (loadedRef.current) return
     loadedRef.current = true
     let aborted = false
-    void loadThemeFromServer(storageKey).then((serverTheme) => {
+    loadThemeFromServer(storageKey).then((serverTheme) => {
       if (aborted || !serverTheme) return
       setThemeState(serverTheme)
     })
-    return (): void => {
+    return () => {
       aborted = true
     }
   }, [storageKey])
@@ -164,19 +164,19 @@ export function ThemeProvider({
     }
 
     const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
-    const handleChange = (): void => {
+    const handleChange = () => {
       applyTheme("system")
     }
 
     mediaQuery.addEventListener("change", handleChange)
 
-    return (): void => {
+    return () => {
       mediaQuery.removeEventListener("change", handleChange)
     }
   }, [theme, applyTheme])
 
   React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent): void => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) {
         return
       }
@@ -210,13 +210,13 @@ export function ThemeProvider({
 
     window.addEventListener("keydown", handleKeyDown)
 
-    return (): void => {
+    return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [storageKey])
 
   React.useEffect(() => {
-    const handleStorageChange = (event: StorageEvent): void => {
+    const handleStorageChange = (event: StorageEvent) => {
       if (event.storageArea !== localStorage) {
         return
       }
@@ -235,7 +235,7 @@ export function ThemeProvider({
 
     window.addEventListener("storage", handleStorageChange)
 
-    return (): void => {
+    return () => {
       window.removeEventListener("storage", handleStorageChange)
     }
   }, [defaultTheme, storageKey])
@@ -255,7 +255,7 @@ export function ThemeProvider({
   )
 }
 
-export const useTheme = (): ThemeProviderState => {
+export const useTheme = () => {
   const context = React.useContext(ThemeProviderContext)
 
   if (context === undefined) {

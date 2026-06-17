@@ -16,7 +16,7 @@ export function getImageFilename(img: {
   hash: string
   extension?: string
 }): string {
-  return img.originalFilename ?? `${img.hash}.${img.extension ?? "png"}`
+  return img.originalFilename || `${img.hash}.${img.extension || "png"}`
 }
 
 export async function downloadImagesAsZip(
@@ -55,10 +55,10 @@ function deduplicateFilename(filename: string, used: Set<string>): string {
   const base = dot >= 0 ? filename.slice(0, dot) : filename
   const ext = dot >= 0 ? filename.slice(dot) : ""
   let counter = 1
-  let candidate = `${base}_${String(counter)}${ext}`
+  let candidate = `${base}_${counter}${ext}`
   while (used.has(candidate)) {
     counter++
-    candidate = `${base}_${String(counter)}${ext}`
+    candidate = `${base}_${counter}${ext}`
   }
   return candidate
 }

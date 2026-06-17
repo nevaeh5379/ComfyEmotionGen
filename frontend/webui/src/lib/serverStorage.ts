@@ -8,17 +8,16 @@
 import { STORAGE_KEYS } from "../lib/storageKeys"
 import { DEFAULT_BACKEND_URL } from "../lib/runtime"
 import { toast } from "sonner"
-import { reportClientError } from "./logger"
 
 export const CLIENT_ID = Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 const readBackendUrl = (): string => {
   try {
     return (
-      localStorage.getItem(STORAGE_KEYS.backendUrl) ?? DEFAULT_BACKEND_URL
+      localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
     )
   } catch (err) {
-    reportClientError("warning", `serverStorage: 백엔드 URL 읽기 실패: ${err instanceof Error ? err.message : String(err)}`)
+    console.warn("serverStorage: 백엔드 URL 읽기 실패:", err)
     return DEFAULT_BACKEND_URL
   }
 }
@@ -33,12 +32,12 @@ export async function fetchAllSettings(): Promise<Record<
       cache: "no-store",
     })
     if (!res.ok) {
-      toast.error(`설정 로드 실패: HTTP ${String(res.status)}`)
+      toast.error(`설정 로드 실패: HTTP ${res.status}`)
       return null
     }
-    return (await res.json()) as Record<string, string>
+    return res.json()
   } catch (err) {
-    reportClientError("warning", `serverStorage: 설정 목록 로드 실패: ${err instanceof Error ? err.message : String(err)}`)
+    console.warn("serverStorage: 설정 목록 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
@@ -53,13 +52,13 @@ export async function fetchSetting(key: string): Promise<string | null> {
     )
     if (res.status === 404) return null
     if (!res.ok) {
-      toast.error(`설정 로드 실패: HTTP ${String(res.status)}`)
+      toast.error(`설정 로드 실패: HTTP ${res.status}`)
       return null
     }
     const data = (await res.json()) as { value: string }
     return data.value
   } catch (err) {
-    reportClientError("warning", `serverStorage: 설정 로드 실패: ${err instanceof Error ? err.message : String(err)}`)
+    console.warn("serverStorage: 설정 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
     return null
   }
@@ -83,12 +82,12 @@ export async function saveSetting(
       }
     )
     if (!res.ok) {
-      toast.error(`설정 저장 실패: HTTP ${String(res.status)}`)
+      toast.error(`설정 저장 실패: HTTP ${res.status}`)
       return false
     }
     return res.ok
   } catch (err) {
-    reportClientError("warning", `serverStorage: 설정 저장 실패: ${err instanceof Error ? err.message : String(err)}`)
+    console.warn("serverStorage: 설정 저장 실패:", err)
     toast.error("설정 저장 실패: 서버에 연결할 수 없습니다.")
     return false
   }
@@ -107,12 +106,12 @@ export async function deleteSetting(key: string): Promise<boolean> {
       }
     )
     if (!res.ok) {
-      toast.error(`설정 삭제 실패: HTTP ${String(res.status)}`)
+      toast.error(`설정 삭제 실패: HTTP ${res.status}`)
       return false
     }
     return res.ok
   } catch (err) {
-    reportClientError("warning", `serverStorage: 설정 삭제 실패: ${err instanceof Error ? err.message : String(err)}`)
+    console.warn("serverStorage: 설정 삭제 실패:", err)
     toast.error("설정 삭제 실패: 서버에 연결할 수 없습니다.")
     return false
   }

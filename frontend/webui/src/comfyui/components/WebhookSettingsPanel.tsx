@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react"
+import { useCallback, useState } from "react"
 import { Bell, BellOff, Plus, Trash2, Send, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,7 +42,7 @@ interface Props {
   backendUrl: string
 }
 
-export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactElement {
+export function WebhookSettingsPanel({ backendUrl }: Props) {
   const confirm = useConfirm()
   const {
     configs,
@@ -76,7 +76,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactElement 
     []
   )
 
-  const handleAdd = async (): Promise<void> => {
+  const handleAdd = async () => {
     if (!newConfig.name.trim()) {
       toast.error("이름을 입력하세요.")
       return
@@ -107,7 +107,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactElement 
     }
   }
 
-  const handleToggleEnabled = async (cfg: WebhookConfig): Promise<void> => {
+  const handleToggleEnabled = async (cfg: WebhookConfig) => {
     try {
       const ok = await updateConfig(cfg.id, { enabled: !cfg.enabled })
       if (!ok) throw new Error("update failed")
@@ -117,7 +117,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactElement 
     }
   }
 
-  const handleToggleImage = async (cfg: WebhookConfig): Promise<void> => {
+  const handleToggleImage = async (cfg: WebhookConfig) => {
     try {
       const ok = await updateConfig(cfg.id, { include_image: !cfg.include_image })
       if (!ok) throw new Error("update failed")
@@ -127,7 +127,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactElement 
     }
   }
 
-  const handleDelete = async (cfg: WebhookConfig): Promise<void> => {
+  const handleDelete = async (cfg: WebhookConfig) => {
     if (
       !(await confirm({
         title: "웹훅 삭제",
@@ -149,7 +149,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactElement 
     }
   }
 
-  const handleTest = async (cfg: WebhookConfig): Promise<void> => {
+  const handleTest = async (cfg: WebhookConfig) => {
     setTestingId(cfg.id)
     try {
       const ok = await testConfig(cfg.id)
@@ -165,11 +165,11 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactElement 
     }
   }
 
-  const handleToggleEvent = (cfg: WebhookConfig, event: string): void => {
+  const handleToggleEvent = (cfg: WebhookConfig, event: string) => {
     const events = cfg.events.includes(event)
       ? cfg.events.filter((e) => e !== event)
       : [...cfg.events, event]
-    void updateConfig(cfg.id, { events })
+    updateConfig(cfg.id, { events })
   }
 
   return (
@@ -232,11 +232,11 @@ interface WebhookCardProps {
   isEditing: boolean
   setEditingId: (id: string | null) => void
   isTesting: boolean
-  onToggleEnabled: (cfg: WebhookConfig) => Promise<void>
-  onDelete: (cfg: WebhookConfig) => Promise<void>
-  onTest: (cfg: WebhookConfig) => Promise<void>
+  onToggleEnabled: (cfg: WebhookConfig) => void
+  onDelete: (cfg: WebhookConfig) => void
+  onTest: (cfg: WebhookConfig) => void
   onToggleEvent: (cfg: WebhookConfig, event: string) => void
-  onToggleImage: (cfg: WebhookConfig) => Promise<void>
+  onToggleImage: (cfg: WebhookConfig) => void
 }
 
 function WebhookCard({
@@ -249,7 +249,7 @@ function WebhookCard({
   onTest,
   onToggleEvent,
   onToggleImage,
-}: WebhookCardProps): React.ReactElement {
+}: WebhookCardProps) {
   const [showUrl, setShowUrl] = useState(false)
 
   return (
@@ -260,7 +260,7 @@ function WebhookCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={() => { void onToggleEnabled(config); }} className="shrink-0">
+          <button onClick={() => { onToggleEnabled(config); }} className="shrink-0">
             {config.enabled ? (
               <Bell className="h-4 w-4 text-ok" />
             ) : (
@@ -279,7 +279,7 @@ function WebhookCard({
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
-            onClick={() => { void onTest(config); }}
+            onClick={() => { onTest(config); }}
             disabled={isTesting || !config.enabled}
           >
             {isTesting ? (
@@ -304,7 +304,7 @@ function WebhookCard({
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 text-destructive"
-            onClick={() => { void onDelete(config); }}
+            onClick={() => { onDelete(config); }}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -360,7 +360,7 @@ function WebhookCard({
             <div className="flex items-center gap-2">
               <Switch
                 checked={config.include_image}
-                onCheckedChange={() => { void onToggleImage(config); }}
+                onCheckedChange={() => { onToggleImage(config); }}
               />
               <span className="text-xs">결과 이미지 포함</span>
             </div>
@@ -398,7 +398,7 @@ interface WebhookFormProps {
     key: K,
     value: WebhookConfig[K]
   ) => void
-  onSubmit: () => Promise<void>
+  onSubmit: () => void
   onCancel: () => void
   isSubmitting: boolean
 }
@@ -409,7 +409,7 @@ function WebhookForm({
   onSubmit,
   onCancel,
   isSubmitting,
-}: WebhookFormProps): React.ReactElement {
+}: WebhookFormProps) {
   return (
     <div className="space-y-3 rounded-lg border border-line p-3">
       <div>
@@ -479,7 +479,7 @@ function WebhookForm({
                 id={`new-evt-${event}`}
                 checked={config.events.includes(event)}
                 onCheckedChange={(checked) => {
-                  const events = checked === true
+                  const events = checked
                     ? [...config.events, event]
                     : config.events.filter((e) => e !== event)
                   onUpdate("events", events)
@@ -505,7 +505,7 @@ function WebhookForm({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           취소
         </Button>
-        <Button size="sm" onClick={() => { void onSubmit(); }} disabled={isSubmitting}>
+        <Button size="sm" onClick={onSubmit} disabled={isSubmitting}>
           추가
         </Button>
       </div>

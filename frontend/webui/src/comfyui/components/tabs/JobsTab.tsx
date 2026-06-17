@@ -23,8 +23,6 @@ import { CombinationPicker } from "../combinationpicker/CombinationPicker"
 import type { JobView, WorkerView, JobStatus } from "../../types/Message"
 import type { SessionMarkerRaw, ActiveStateRaw } from "../../utils/sessionUtils"
 import type { GalleryToolbarValue } from "../../contexts/GalleryToolbarContext"
-import type { useTemplateContext } from "../../contexts/useTemplateContext"
-import type { useWorkflowContext } from "../../contexts/WorkflowContext"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -166,9 +164,9 @@ export interface JobsTabProps {
   setCurationSelectedAxis: (axis: string) => void
 
   // Template / workflow context values (for curation/gallery panels)
-  cegTemplate: ReturnType<typeof useTemplateContext>["cegTemplate"]
-  savedTemplates: ReturnType<typeof useTemplateContext>["savedTemplates"]
-  savedWorkflows: ReturnType<typeof useWorkflowContext>["savedWorkflows"]
+  cegTemplate: ReturnType<typeof import("../../contexts/useTemplateContext").useTemplateContext>["cegTemplate"]
+  savedTemplates: ReturnType<typeof import("../../contexts/useTemplateContext").useTemplateContext>["savedTemplates"]
+  savedWorkflows: ReturnType<typeof import("../../contexts/WorkflowContext").useWorkflowContext>["savedWorkflows"]
 
   // Gallery toolbar
   tb: GalleryToolbarValue
@@ -231,7 +229,7 @@ export function JobsTab({
   setIsGraphOpen,
 
   canRun,
-}: JobsTabProps): React.ReactElement {
+}: JobsTabProps) {
   const {
     isCompositionFloating,
     setIsCompositionFloating,
@@ -297,7 +295,7 @@ export function JobsTab({
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Desktop: Resizable, Mobile: Single Panel */}
       <div className="hidden md:contents">
-        {((): React.ReactNode => {
+        {(() => {
           // ── 패널 콘텐츠 ──────────────────────────────────────────
           const compositionEl = !isCompositionFloating ? (
             <WorkCompositionPanel
@@ -332,8 +330,8 @@ export function JobsTab({
               }
               {...(useWindowMode
                 ? {
-                    onFloatToggle: (): void => { setIsCompositionFloating(true); },
-                    onHeaderDragStart: (e: React.MouseEvent): void =>
+                    onFloatToggle: () => { setIsCompositionFloating(true); },
+                    onHeaderDragStart: (e: React.MouseEvent) =>
                       { handleHeaderDragStart(e, "composition"); },
                   }
                 : {})}
@@ -369,8 +367,8 @@ export function JobsTab({
                 isFloating={false}
                 {...(useWindowMode
                   ? {
-                      onFloatToggle: (): void => { setIsJobManagerFloating(true); },
-                      onHeaderDragStart: (e: React.MouseEvent): void =>
+                      onFloatToggle: () => { setIsJobManagerFloating(true); },
+                      onHeaderDragStart: (e: React.MouseEvent) =>
                         { handleHeaderDragStart(e, "jobManager"); },
                     }
                   : {})}
@@ -383,7 +381,7 @@ export function JobsTab({
             icon: React.ReactNode,
             onClick: () => void,
             title: string
-          ): React.ReactElement => (
+          ) => (
             <button
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={onClick}
@@ -419,9 +417,8 @@ export function JobsTab({
           // 추가 도킹 패널 — snap 방향에 따라 start/end 분리
           const startExtra: PanelItem[] = []
           const endExtra: PanelItem[] = []
-          const addExtra = (item: PanelItem, side: "start" | "end"): void => {
+          const addExtra = (item: PanelItem, side: "start" | "end") =>
             (side === "start" ? startExtra : endExtra).push(item)
-          }
 
           if (isStatsDocked)
             addExtra(
@@ -548,7 +545,7 @@ export function JobsTab({
                           selectedAxis: curationSelectedAxis,
                           setSelectedAxis: setCurationSelectedAxis,
                           viewMode: "gallery" as const,
-                          setViewMode: () => undefined,
+                          setViewMode: () => {},
                           hideTopSection: true,
                         }}
                       />
@@ -601,7 +598,7 @@ export function JobsTab({
           if (panels.length === 1) {
             return (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
-                {panels[0] !== undefined ? panels[0].el : null}
+                {panels[0]!.el}
               </div>
             )
           }
@@ -708,7 +705,7 @@ export function JobsTab({
               { id: "status" as const, label: "현황" },
               {
                 id: "list" as const,
-                label: `기록 (${String(jobs.length)})`,
+                label: `기록 (${jobs.length})`,
               },
             ].map((tab) => (
               <button

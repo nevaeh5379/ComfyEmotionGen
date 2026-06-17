@@ -1,5 +1,4 @@
 import { GITHUB_REPO, BUNDLE_VERSION } from "@/version"
-import { reportClientError } from "./logger"
 
 export interface UpdateInfo {
   tag: string
@@ -23,12 +22,12 @@ export async function checkForUpdate(
       { headers: { Accept: "application/vnd.github+json" } }
     )
     if (!res.ok) {
-      reportClientError("warning", `GitHub API 응답 실패: ${String(res.status)}`)
+      console.warn("GitHub API 응답 실패:", res.status)
       return null
     }
     releases = (await res.json()) as GithubRelease[]
   } catch (err) {
-    reportClientError("warning", `업데이트 확인 실패: ${err instanceof Error ? err.message : String(err)}`)
+    console.warn("업데이트 확인 실패:", err)
     return null
   }
 
@@ -36,6 +35,7 @@ export async function checkForUpdate(
     if (r.draft) return false
     if (channel === "dev") return true
     if (channel === "stable") return !r.prerelease
+    // beta: stable + prerelease, but exclude dev builds
     return !r.tag_name.includes("-dev")
   })
 

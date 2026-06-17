@@ -14,7 +14,7 @@ describe('LGraphCanvas.renderInfo', () => {
       translate: vi.fn(),
       font: '',
       fillStyle: '',
-      textAlign: 'left',
+      textAlign: 'left' as CanvasTextAlign,
       fillText: vi.fn()
     } as Partial<CanvasRenderingContext2D> as CanvasRenderingContext2D
 

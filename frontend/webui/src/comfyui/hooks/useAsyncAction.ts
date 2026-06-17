@@ -66,7 +66,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
   )
 
   useEffect(() => {
-    return (): void => { clearTimer(); }
+    return () => { clearTimer(); }
   }, [clearTimer])
 
   return { isLoading, message, execute, showMessage, clearMessage }

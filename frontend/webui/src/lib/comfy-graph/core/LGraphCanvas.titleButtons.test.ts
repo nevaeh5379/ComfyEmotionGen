@@ -41,8 +41,8 @@ describe('LGraphCanvas Title Button Rendering', () => {
       strokeStyle: '',
       lineWidth: 1,
       globalAlpha: 1,
-      textAlign: 'left',
-      textBaseline: 'alphabetic'
+      textAlign: 'left' as CanvasTextAlign,
+      textBaseline: 'alphabetic' as CanvasTextBaseline
     } as Partial<CanvasRenderingContext2D> as CanvasRenderingContext2D
 
     canvasElement.getContext = vi.fn().mockReturnValue(ctx)

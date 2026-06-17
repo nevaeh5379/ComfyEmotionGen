@@ -24,7 +24,7 @@ export interface CurationContextValue {
 
 const CurationContext = createContext<CurationContextValue | null>(null)
 
-export function useCurationContext(): CurationContextValue {
+export function useCurationContext() {
   const context = useContext(CurationContext)
   if (!context) {
     throw new Error("useCurationContext must be used within a CurationProvider")

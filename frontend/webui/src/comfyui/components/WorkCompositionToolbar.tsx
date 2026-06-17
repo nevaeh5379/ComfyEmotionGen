@@ -60,9 +60,9 @@ export function WorkCompositionToolbar({
   workers,
   targetWorkerId,
   setTargetWorkerId,
-}: WorkCompositionToolbarProps): JSX.Element {
+}: WorkCompositionToolbarProps) {
   return (
-    <div className={` ${className ?? ""}`}>
+    <div className={` ${className || ""}`}>
       <ButtonGroup>
         <DropdownMenu>
           <Tooltip>
@@ -103,7 +103,7 @@ export function WorkCompositionToolbar({
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onAxisFilterOpen}>
               축 필터
-              {hasActiveFilter ? ` (${String(estimatedRunCount)})` : ""}
+              {hasActiveFilter ? ` (${estimatedRunCount})` : ""}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onGraphOpen}>
               그래프 보기
@@ -121,7 +121,7 @@ export function WorkCompositionToolbar({
         </DropdownMenu>
         {workers.length > 0 && (
           <Select
-            value={targetWorkerId ?? "auto"}
+            value={targetWorkerId || "auto"}
             onValueChange={(v) => { setTargetWorkerId(v === "auto" ? null : v); }}
           >
             <SelectTrigger className="h-8 w-28 text-xs" disabled={!canRun}>

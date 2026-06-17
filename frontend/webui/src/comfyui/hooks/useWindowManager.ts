@@ -47,55 +47,7 @@ export function useWindowManager({
   setActiveTab,
   setJobsLayoutOrientation,
   setJobsPanelOrder,
-}: UseWindowManagerOptions): {
-  isCompositionFloating: boolean
-  setIsCompositionFloating: (v: boolean) => void
-  compositionFloatingPos: { x: number; y: number }
-  setCompositionFloatingPos: (v: { x: number; y: number }) => void
-  compositionFloatingSize: { w: number; h: number }
-  setCompositionFloatingSize: (v: { w: number; h: number }) => void
-  isJobManagerFloating: boolean
-  setIsJobManagerFloating: (v: boolean) => void
-  jobManagerFloatingPos: { x: number; y: number }
-  setJobManagerFloatingPos: (v: { x: number; y: number }) => void
-  jobManagerFloatingSize: { w: number; h: number }
-  setJobManagerFloatingSize: (v: { w: number; h: number }) => void
-  isGalleryFloating: boolean
-  setIsGalleryFloating: (v: boolean) => void
-  galleryFloatingPos: { x: number; y: number }
-  setGalleryFloatingPos: (v: { x: number; y: number }) => void
-  galleryFloatingSize: { w: number; h: number }
-  setGalleryFloatingSize: (v: { w: number; h: number }) => void
-  isGalleryDocked: boolean
-  setIsGalleryDocked: (v: boolean) => void
-  galleryDockedSide: "start" | "end"
-  setGalleryDockedSide: (v: "start" | "end") => void
-  isStatsFloating: boolean
-  setIsStatsFloating: (v: boolean) => void
-  statsFloatingPos: { x: number; y: number }
-  setStatsFloatingPos: (v: { x: number; y: number }) => void
-  statsFloatingSize: { w: number; h: number }
-  setStatsFloatingSize: (v: { w: number; h: number }) => void
-  isStatsDocked: boolean
-  setIsStatsDocked: (v: boolean) => void
-  statsDockedSide: "start" | "end"
-  setStatsDockedSide: (v: "start" | "end") => void
-  isCurationFloating: boolean
-  setIsCurationFloating: (v: boolean) => void
-  curationFloatingPos: { x: number; y: number }
-  setCurationFloatingPos: (v: { x: number; y: number }) => void
-  curationFloatingSize: { w: number; h: number }
-  setCurationFloatingSize: (v: { w: number; h: number }) => void
-  isCurationDocked: boolean
-  setIsCurationDocked: (v: boolean) => void
-  curationDockedSide: "start" | "end"
-  setCurationDockedSide: (v: "start" | "end") => void
-  snapDockZone: SnapDockZone | null
-  setSnapDockZone: (v: SnapDockZone | null) => void
-  handleDragProgress: (clientX: number, clientY: number, screenW: number, screenH: number, isEnding: boolean, windowType: WindowType) => void
-  handleHeaderDragStart: (e: React.MouseEvent, windowType: "composition" | "jobManager") => void
-  handleNavTabDragStart: (tabId: "stats" | "curation" | "gallery", clientX: number, clientY: number) => void
-} {
+}: UseWindowManagerOptions) {
   const panel = usePanelLayout()
 
   // Destructure for stable refs in callbacks
@@ -241,7 +193,7 @@ export function useWindowManager({
             )
             setActiveTab("jobs")
             toast.success("통계 패널이 메인 패널에 결합되었습니다.")
-          } else {
+          } else if (windowType === "curation") {
             setIsCurationFloating(false)
             setIsCurationDocked(true)
             setCurationDockedSide(
@@ -300,9 +252,9 @@ export function useWindowManager({
         size,
       }
 
-      const handleGlobalMouseMove = (moveEvent: MouseEvent): void => {
+      const handleGlobalMouseMove = (moveEvent: MouseEvent) => {
         const session = dragSessionRef.current
-        if (session === null) return
+        if (!session) return
 
         if (!session.isPopoutTriggered) {
           const dx = moveEvent.clientX - session.startX
@@ -347,9 +299,9 @@ export function useWindowManager({
           nextLeft = Math.max(0, Math.min(nextLeft, window.innerWidth - w))
           nextTop = Math.max(0, Math.min(nextTop, window.innerHeight - 40))
 
-          if (el !== null) {
-            el.style.left = `${String(nextLeft)}px`
-            el.style.top = `${String(nextTop)}px`
+          if (el) {
+            el.style.left = `${nextLeft}px`
+            el.style.top = `${nextTop}px`
           }
 
           handleDragProgress(
@@ -363,7 +315,7 @@ export function useWindowManager({
         }
       }
 
-      const handleGlobalMouseUp = (upEvent: MouseEvent): void => {
+      const handleGlobalMouseUp = (upEvent: MouseEvent) => {
         document.removeEventListener("mousemove", handleGlobalMouseMove)
         document.removeEventListener("mouseup", handleGlobalMouseUp)
 
@@ -434,9 +386,9 @@ export function useWindowManager({
         size,
       }
 
-      const handleGlobalMouseMove = (moveEvent: MouseEvent): void => {
+      const handleGlobalMouseMove = (moveEvent: MouseEvent) => {
         const session = dragSessionRef.current
-        if (session === null) return
+        if (!session) return
 
         if (!session.isPopoutTriggered) {
           const dx = moveEvent.clientX - session.startX
@@ -485,9 +437,9 @@ export function useWindowManager({
           nextLeft = Math.max(0, Math.min(nextLeft, window.innerWidth - w))
           nextTop = Math.max(0, Math.min(nextTop, window.innerHeight - 40))
 
-          if (el !== null) {
-            el.style.left = `${String(nextLeft)}px`
-            el.style.top = `${String(nextTop)}px`
+          if (el) {
+            el.style.left = `${nextLeft}px`
+            el.style.top = `${nextTop}px`
           }
 
           handleDragProgress(
@@ -501,12 +453,12 @@ export function useWindowManager({
         }
       }
 
-      const handleGlobalMouseUp = (upEvent: MouseEvent): void => {
+      const handleGlobalMouseUp = (upEvent: MouseEvent) => {
         document.removeEventListener("mousemove", handleGlobalMouseMove)
         document.removeEventListener("mouseup", handleGlobalMouseUp)
 
         const session = dragSessionRef.current
-        if (session === null) return
+        if (!session) return
 
         if (session.isPopoutTriggered) {
           handleDragProgress(

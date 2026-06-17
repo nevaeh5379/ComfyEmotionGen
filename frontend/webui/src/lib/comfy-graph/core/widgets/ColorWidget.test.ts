@@ -61,7 +61,7 @@ describe('ColorWidget', () => {
     vi.useRealTimers()
     document
       .querySelectorAll('input[type="color"]')
-      .forEach((el) => { el.remove(); })
+      .forEach((el) => el.remove())
   })
 
   describe('onClick', () => {
@@ -72,7 +72,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       expect(input).toBeTruthy()
       expect(input.parentElement).toBe(document.body)
     })
@@ -87,7 +87,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       expect(input.value).toBe('#00ff00')
     })
 
@@ -98,7 +98,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       expect(input.value).toBe('#000000')
     })
 
@@ -110,7 +110,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       expect(input.style.left).toBe('150px')
       expect(input.style.top).toBe('250px')
     })
@@ -122,7 +122,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       const clickSpy = vi.spyOn(input, 'click')
 
       expect(clickSpy).not.toHaveBeenCalled()
@@ -156,7 +156,7 @@ describe('ColorWidget', () => {
       widget1.onClick({ e: mockEvent, node, canvas: mockCanvas })
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       expect(input.value).toBe('#ff0000')
 
       widget2.onClick({ e: mockEvent, node, canvas: mockCanvas })
@@ -176,7 +176,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       input.value = '#00ff00'
       input.dispatchEvent(new Event('change'))
 
@@ -194,7 +194,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       input.value = '#00ff00'
       input.dispatchEvent(new Event('change'))
 
@@ -209,7 +209,7 @@ describe('ColorWidget', () => {
 
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
 
       input.value = '#00ff00'
       input.dispatchEvent(new Event('change'))
@@ -229,7 +229,7 @@ describe('ColorWidget', () => {
       widget.onClick({ e: mockEvent, node, canvas: mockCanvas })
       const input = document.querySelector(
         'input[type="color"]'
-      )!
+      ) as HTMLInputElement
       input.value = '#00ff00'
       input.dispatchEvent(new Event('change'))
 

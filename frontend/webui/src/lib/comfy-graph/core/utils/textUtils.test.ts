@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { truncateText } from '../litegraph'
 
 describe('truncateText', () => {
-  const createMockContext = (charWidth = 10) => {
+  const createMockContext = (charWidth: number = 10) => {
     return {
       measureText: vi.fn(
         (text: string) =>

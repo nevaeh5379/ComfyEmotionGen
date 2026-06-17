@@ -150,7 +150,7 @@ export const NodeMappingSection = React.memo(({
   }, [savedWorkflows])
 
   const safeImageUploads = imageUploads ?? {}
-  const safeHandleImageUpload = handleImageUpload ?? ((): void => undefined)
+  const safeHandleImageUpload = handleImageUpload ?? (() => {})
 
   return (
     <CollapseSection
@@ -159,7 +159,7 @@ export const NodeMappingSection = React.memo(({
       title="노드 매핑"
       className="border-t"
       meta={
-        nodeMappings.length > 0 ? `${String(nodeMappings.length)}개 매핑` : undefined
+        nodeMappings.length > 0 ? `${nodeMappings.length}개 매핑` : undefined
       }
     >
       <div className="border-t py-2">
@@ -185,7 +185,7 @@ export const NodeMappingSection = React.memo(({
 
         {/* ── 저장 / 가져오기 바 ───────────────── */}
         <div className="mx-3.5 pb-2">
-          {activeWorkflowId !== null && activeWorkflowId !== undefined && activeWorkflowId !== "" ? (
+          {activeWorkflowId ? (
             <SaveInputBar
               key={nodeMappingResetKey}
               onSave={onSaveNodeMapping}
@@ -228,7 +228,7 @@ export const NodeMappingSection = React.memo(({
                           setShowImportMenu(false)
                           const presets = w.mappingPresets
                           if (presets.length > 0) {
-                            onImportFromPreset(presets[0].mappings)
+                            onImportFromPreset?.(presets[0]?.mappings ?? [])
                           }
                         }}
                       >
@@ -301,7 +301,7 @@ export const NodeMappingSection = React.memo(({
                         >
                           <TableCell className="px-3 py-2.5">
                             <div className="text-[11px] leading-tight font-medium text-foreground">
-                              {node?._meta?.title ?? "Untitled"}
+                              {node?._meta?.title || "Untitled"}
                             </div>
                             <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
                               #{m.nodeId} · {m.inputKey}
@@ -357,11 +357,11 @@ export const NodeMappingSection = React.memo(({
                                       <InputGroupButton
                                         onClick={() =>
                                           { updateMapping(m.id, {
-                                            seedRandom: m.seedRandom !== true,
+                                            seedRandom: !m.seedRandom,
                                           }); }
                                         }
                                         className={
-                                          m.seedRandom === true
+                                          m.seedRandom
                                             ? "text-foreground"
                                             : "text-muted-foreground"
                                         }
@@ -371,7 +371,7 @@ export const NodeMappingSection = React.memo(({
                                       </InputGroupButton>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      {m.seedRandom === true
+                                      {m.seedRandom
                                         ? "랜덤 — 클릭하여 고정"
                                         : "고정 — 클릭하여 랜덤"}
                                     </TooltipContent>
@@ -398,24 +398,24 @@ export const NodeMappingSection = React.memo(({
                                     }}
                                   />
                                 </label>
-                                {upload !== undefined && upload.uploading && (
+                                {upload?.uploading && (
                                   <span className="animate-pulse text-[10px] text-muted-foreground">
                                     업로드 중...
                                   </span>
                                 )}
-                                {upload !== undefined && upload.error !== null && upload.error !== "" && (
+                                {upload?.error && (
                                   <span className="text-[10px] font-medium text-red-600 dark:text-red-400">
                                     {upload.error}
                                   </span>
                                 )}
-                                {m.imageValue !== undefined && m.imageValue !== "" && upload !== undefined && upload.previewUrl !== null && upload.previewUrl !== "" && (
+                                {m.imageValue && upload?.previewUrl && (
                                   <img
                                     src={upload.previewUrl}
                                     alt="미리보기"
                                     className="h-7 w-7 rounded object-cover ring-1 ring-border"
                                   />
                                 )}
-                                {m.imageValue !== undefined && m.imageValue !== "" && (
+                                {m.imageValue && (
                                   <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500">
                                     완료
                                   </span>

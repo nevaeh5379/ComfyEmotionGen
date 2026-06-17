@@ -833,7 +833,7 @@ describe('SubgraphNode duplicate input pruning (#9977)', () => {
     const node = new SubgraphNode(
       parentGraph,
       subgraph,
-      instanceData
+      instanceData as ExportedSubgraphInstance
     )
 
     expect(node.inputs).toHaveLength(2)

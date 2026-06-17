@@ -1,5 +1,5 @@
-import { type ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { type ReactNode } from "react"
 
 interface SectionLabelProps {
   children: ReactNode
@@ -11,7 +11,7 @@ export function SectionLabel({
   children,
   right,
   className,
-}: SectionLabelProps): React.ReactNode {
+}: SectionLabelProps) {
   return (
     <div
       className={cn(

@@ -1,4 +1,3 @@
-import React from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -43,8 +42,8 @@ export const AxisFilterSheet = ({
   axisExcludedItems,
   uncheckedItems,
   toggleItemCheck,
-}: AxisFilterSheetProps): React.ReactElement => {
-  const itemKey = (item: RenderItem): string => `${item.filename} ${item.prompt}`
+}: AxisFilterSheetProps) => {
+  const itemKey = (item: RenderItem) => `${item.filename} ${item.prompt}`
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -54,7 +53,7 @@ export const AxisFilterSheet = ({
           <SheetDescription className="text-xs">
             체크 해제된 값은 실행에서 제외됩니다.
             {estimatedRunCount !== null
-              ? ` 현재 ${String(estimatedRunCount)}개 실행 예정.`
+              ? ` 현재 ${estimatedRunCount}개 실행 예정.`
               : ""}
           </SheetDescription>
         </SheetHeader>
@@ -214,7 +213,7 @@ export const AxisFilterSheet = ({
               title="포함된 항목"
               items={axisFilteredItems}
               accent="text-green-600"
-              summary={`전체 ${String(fakeJobQueue.length)}개 중 ${String(axisFilteredItems.length)}개 실행 예정`}
+              summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
               onItemClick={(item) => { filterByItem(item, setAxisValueFilter); }}
               showCheckboxes
               getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}

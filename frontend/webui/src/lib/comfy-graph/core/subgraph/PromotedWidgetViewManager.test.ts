@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { PromotedWidgetViewManager } from 'PromotedWidgetViewManager'
 
-interface TestPromotionEntry {
+type TestPromotionEntry = {
   sourceNodeId: string
   sourceWidgetName: string
   viewKey?: string

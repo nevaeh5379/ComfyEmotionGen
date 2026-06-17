@@ -21,16 +21,16 @@ export function usePersistedItems<T>(
   const effectVersionRef = useRef(0)
 
   useEffect(() => {
-    const onStorage = (e: StorageEvent): void => {
+    const onStorage = (e: StorageEvent) => {
       if (e.key === storageKey) setItems(loadFn())
     }
     window.addEventListener("storage", onStorage)
-    return (): void => { window.removeEventListener("storage", onStorage); }
+    return () => { window.removeEventListener("storage", onStorage); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    const onReady = (e: Event): void => {
+    const onReady = (e: Event) => {
       const all = (e as CustomEvent<Record<string, string>>).detail
       const raw = all[storageKey]
       if (raw === undefined) return
@@ -41,11 +41,11 @@ export function usePersistedItems<T>(
       }
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
-    return (): void => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
+    return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
   }, [storageKey])
 
   useEffect(() => {
-    const onUpdated = (e: Event): void => {
+    const onUpdated = (e: Event) => {
       const { key: updatedKey, value: raw } = (
         e as CustomEvent<SettingsUpdatedDetail>
       ).detail
@@ -58,7 +58,7 @@ export function usePersistedItems<T>(
       }
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
-    return (): void => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
+    return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
   }, [storageKey])
 
   const persist = useCallback((next: T[]) => {
@@ -82,7 +82,7 @@ export function usePersistedItems<T>(
       } else {
         clearSyncQueueFor(storageKey)
       }
-    }).catch((err: unknown) => { console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err); })
+    }).catch((err) => { console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err); })
   }, [storageKey])
 
   return { items, persist }

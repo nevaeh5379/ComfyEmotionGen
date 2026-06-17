@@ -17,36 +17,12 @@ interface UseCombinationDataProps {
   hideEmptyCurationFolders?: boolean
 }
 
-interface UseCombinationDataReturn {
-  renderItems: RenderItem[]
-  allImages: SavedImage[]
-  setAllImages: React.Dispatch<React.SetStateAction<SavedImage[]>>
-  loading: boolean
-  error: string | null
-  fetchData: () => Promise<void>
-  imagesByFilename: Map<string, SavedImage[]>
-  doneCount: number
-  filteredRenderItems: RenderItem[]
-  unassignedGroups: Map<string, SavedImage[]>
-  unassignedTotalCount: number
-  statusFilter: "all" | "done" | "pending"
-  setStatusFilter: React.Dispatch<React.SetStateAction<"all" | "done" | "pending">>
-  searchTags: string[]
-  setSearchTags: React.Dispatch<React.SetStateAction<string[]>>
-  searchInput: string
-  setSearchInput: React.Dispatch<React.SetStateAction<string>>
-  candidates: { value: string; type: "filename" | "metadata" }[]
-  setStatus: (hash: string, status: SavedImage["status"]) => Promise<void>
-  batchUpdateStatus: (filename: string, filter: (img: SavedImage) => boolean, status: SavedImage["status"]) => Promise<void>
-  approveImage: (filename: string, selectedHash: string) => Promise<void>
-}
-
 export function useCombinationData({
   backendUrl,
   activeTemplate,
   freeGroupMode,
   hideEmptyCurationFolders = false,
-}: UseCombinationDataProps): UseCombinationDataReturn {
+}: UseCombinationDataProps) {
   const [rawRenderItems, setRawRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])
   const [loading, setLoading] = useState(false)
@@ -71,7 +47,7 @@ export function useCombinationData({
       try {
         const imagesRes = await fetch(`${backendUrlRef.current}/saved-images?limit=5000`)
         if (!imagesRes.ok)
-        throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
+          throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
         const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
         setAllImages(imagesData.items)
         setRawRenderItems(
@@ -100,9 +76,9 @@ export function useCombinationData({
         }),
         fetch(`${backendUrlRef.current}/saved-images?limit=5000`),
       ])
-      if (!renderRes.ok) throw new Error(`렌더 실패: HTTP ${String(renderRes.status)}`)
+      if (!renderRes.ok) throw new Error(`렌더 실패: HTTP ${renderRes.status}`)
       if (!imagesRes.ok)
-        throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
+        throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
       const renderData = (await renderRes.json()) as { items: RenderItem[] }
       const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
       setRawRenderItems(renderData.items)
@@ -112,7 +88,7 @@ export function useCombinationData({
     } finally {
       setLoading(false)
     }
-  }, [activeTemplateRef, backendUrlRef, freeGroupModeRef])
+  }, [])
 
   const imagesByFilename = useMemo(() => {
     if (freeGroupMode !== null) {
@@ -121,9 +97,8 @@ export function useCombinationData({
     const map = new Map<string, SavedImage[]>()
     for (const img of allImages) {
       if (img.status === "trashed") continue
-      const existing = map.get(img.originalFilename) ?? []
-      existing.push(img)
-      map.set(img.originalFilename, existing)
+      if (!map.has(img.originalFilename)) map.set(img.originalFilename, [])
+      map.get(img.originalFilename)!.push(img)
     }
     return map
   }, [allImages, freeGroupMode])
@@ -156,7 +131,7 @@ export function useCombinationData({
         list.push({ value: `@${ri.filename}`, type: "filename" })
       }
       for (const v of Object.values(ri.meta)) {
-        const cleanV = v.trim()
+        const cleanV = String(v).trim()
         if (cleanV && !metaValuesSeen.has(cleanV)) {
           metaValuesSeen.add(cleanV)
           list.push({ value: `$${cleanV}`, type: "metadata" })
@@ -233,9 +208,8 @@ export function useCombinationData({
     for (const img of allImages) {
       if (img.status === "trashed") continue
       if (!renderFilenames.has(img.originalFilename)) {
-        const existing2 = map.get(img.originalFilename) ?? []
-        existing2.push(img)
-        map.set(img.originalFilename, existing2)
+        if (!map.has(img.originalFilename)) map.set(img.originalFilename, [])
+        map.get(img.originalFilename)!.push(img)
       }
     }
     return map

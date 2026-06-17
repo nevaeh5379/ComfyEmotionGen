@@ -601,7 +601,7 @@ describe('SubgraphWidgetPromotion', () => {
     })
 
     describe('host widget values', () => {
-      interface SourceSpec {
+      type SourceSpec = {
         inputName: string
         title: string
         widgetType: TWidgetType
@@ -611,7 +611,7 @@ describe('SubgraphWidgetPromotion', () => {
         hugeMaxSeed?: boolean
       }
       type EditValue = string | number | boolean
-      interface EditSpec {
+      type EditSpec = {
         via: 'viewKey' | 'vue'
         index: number
         value: EditValue
@@ -729,7 +729,7 @@ describe('SubgraphWidgetPromotion', () => {
         return marker ? { ...base, [IS_CONTROL_WIDGET]: true } : base
       }
 
-      interface ReorderCase {
+      type ReorderCase = {
         name: string
         sources: SourceSpec[]
         edits: EditSpec[]
@@ -826,7 +826,7 @@ describe('SubgraphWidgetPromotion', () => {
         }
       })
 
-      interface ControlCase {
+      type ControlCase = {
         name: string
         editVia: 'viewKey' | 'vue'
         controlMode: 'increment' | 'fixed'
@@ -1149,7 +1149,7 @@ describe('SubgraphWidgetPromotion', () => {
         ).toEqual([{ name: 'preview', ...exposure12 }])
       })
 
-      interface SerializeCase {
+      type SerializeCase = {
         name: string
         addExposures: (typeof exposure12)[]
         staleProperty?: {

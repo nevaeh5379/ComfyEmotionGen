@@ -1,4 +1,3 @@
-import type React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 
@@ -26,7 +25,7 @@ function ButtonGroup({
   className,
   orientation,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof buttonGroupVariants>): React.ReactElement {
+}: React.ComponentProps<"div"> & VariantProps<typeof buttonGroupVariants>) {
   return (
     <div
       role="group"
@@ -44,7 +43,7 @@ function ButtonGroupText({
   ...props
 }: React.ComponentProps<"div"> & {
   asChild?: boolean
-}): React.ReactElement {
+}) {
   const Comp = asChild ? Slot.Root : "div"
 
   return (
@@ -62,7 +61,7 @@ function ButtonGroupSeparator({
   className,
   orientation = "vertical",
   ...props
-}: React.ComponentProps<typeof Separator>): React.ReactElement {
+}: React.ComponentProps<typeof Separator>) {
   return (
     <Separator
       data-slot="button-group-separator"

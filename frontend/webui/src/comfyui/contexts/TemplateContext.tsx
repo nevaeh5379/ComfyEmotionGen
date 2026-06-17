@@ -84,7 +84,7 @@ export function TemplateProvider({
     (name: string, templateContent: string) => {
       try {
         const res = originalSaveTemplate(name, templateContent)
-        void saveCegToServer()
+        saveCegToServer()
         return res
       } catch (err) {
         toast.error("템플릿 저장에 실패했습니다.")

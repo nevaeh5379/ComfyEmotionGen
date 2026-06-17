@@ -146,7 +146,7 @@ export function GalleryToolbarProvider({
     )
   }, [searchTags])
 
-  const hasAnyFilter: boolean = searchTags.length > 0 || hideRejected
+  const hasAnyFilter = !!(searchTags.length > 0 || hideRejected)
 
   // Reload ref
   const reloadRef = useRef<(() => void) | null>(null)
@@ -177,7 +177,7 @@ export function GalleryToolbarProvider({
     } catch {
       toast.error("내보내기 요청에 실패했습니다.")
     }
-  }, [backendUrlRef, settingsRef])
+  }, [])
 
   const handleRefresh = useCallback(() => {
     reloadRef.current?.()
@@ -195,12 +195,12 @@ export function GalleryToolbarProvider({
       return
     try {
       const n = await curationApi.emptyTrash(backendUrlRef.current)
-      toast.success(`${String(n)}개 영구 삭제됨`)
+      toast.success(`${n}개 영구 삭제됨`)
       reloadRef.current?.()
     } catch {
       toast.error("휴지통 비우기에 실패했습니다.")
     }
-  }, [backendUrlRef, confirmRef])
+  }, [])
 
   const clearAllFilters = useCallback(() => {
     setSearchTags([])

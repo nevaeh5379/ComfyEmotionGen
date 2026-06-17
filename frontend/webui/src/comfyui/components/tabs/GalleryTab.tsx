@@ -1,4 +1,3 @@
-import { type ReactNode } from "react"
 import { SavedImagesGallery } from "../SavedImagesGallery"
 import type { GalleryToolbarValue } from "../../contexts/GalleryToolbarContext"
 import type { AppSettings } from "../../hooks/useSettings"
@@ -29,7 +28,7 @@ export function GalleryTab({
   singleDownloadMode,
   fluidGridLayout,
   tb,
-}: GalleryTabProps): ReactNode {
+}: GalleryTabProps) {
   return (
     <div className="flex flex-1 flex-col bg-background">
       <SavedImagesGallery

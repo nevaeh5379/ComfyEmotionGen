@@ -151,7 +151,7 @@ declare module "./lib/comfy-graph/core/LGraphNode" {
       options?: Record<string, unknown>
       [key: string]: unknown
     }[]
-    onResize?: (this: LGraphNode) => void
+    onResize?: (this: LGraphNode) => void | undefined
   }
 }
 
@@ -162,7 +162,7 @@ declare module "./lib/comfy-graph/core/LGraphCanvas" {
     app?: ComfyApp
     allow_zoom?: boolean
     prompt_box?: { close: () => void } | null
-    search_box?: { close: () => void; querySelector?: (s: string) => HTMLElement | null } | null
+    search_box?: { close: () => void; querySelector?: <T extends HTMLElement = HTMLElement>(s: string) => T | null } | null
   }
 }
 

@@ -71,19 +71,19 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   activeItemId,
   onUpdate,
   allowEmptySave,
-}: SaveInputProps<T>): React.ReactElement {
+}: SaveInputProps<T>) {
   const [name, setName] = useState("")
   const [open, setOpen] = useState(false)
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasItems = items !== undefined
-  const hasActivePreset = activeName !== undefined && activeName !== ""
+  const hasActivePreset = !!activeName
   const canSave =
-    !saveDisabled && (name.trim() !== "" || hasActivePreset || allowEmptySave === true)
+    !saveDisabled && (name.trim() || hasActivePreset || !!allowEmptySave)
 
   const filteredItems = hasItems
-    ? items.filter((item) => {
+    ? (items ?? []).filter((item) => {
         const q = name.trim().toLowerCase()
         if (!q) return true
         return (
@@ -99,10 +99,10 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
     const el = listRef.current.querySelectorAll("[data-item]")[
       focusedIndex
     ] as HTMLElement
-    el.scrollIntoView({ block: "nearest" })
+    el?.scrollIntoView({ block: "nearest" })
   }, [focusedIndex])
 
-  const handleSave = (): void => {
+  const handleSave = () => {
     const trimmed = name.trim()
     if (!trimmed && hasActivePreset && onUpdate) {
       onUpdate()
@@ -113,7 +113,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (open && filteredItems.length > 0) {
       if (e.key === "ArrowDown" || e.key === "Tab") {
         e.preventDefault()
@@ -205,7 +205,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
         className="p-0"
         onOpenAutoFocus={(e) => { e.preventDefault(); }}
         onInteractOutside={(e) => {
-          if (inputRef.current?.contains(e.target as Node) === true) return
+          if (inputRef.current?.contains(e.target as Node)) return
           setOpen(false)
           setFocusedIndex(-1)
         }}
@@ -283,7 +283,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                     </ContextMenuItem>
                     <ContextMenuItem
                       onClick={() => {
-          navigator.clipboard.writeText(item.name).catch(() => undefined)
+                        navigator.clipboard.writeText(item.name).catch(() => {})
                       }}
                       className="gap-2 font-bold"
                     >
@@ -318,7 +318,7 @@ export function SavedItemsList<T extends SaveableItem>({
   activeItemId,
 
   className,
-}: SavedListProps<T>): React.ReactElement {
+}: SavedListProps<T>) {
   if (items.length === 0) {
     return (
       <p className="py-2 text-center text-xs text-muted-foreground">
@@ -381,7 +381,7 @@ export function SavedItemsList<T extends SaveableItem>({
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => {
-                  navigator.clipboard.writeText(item.name).catch(() => undefined)
+                  navigator.clipboard.writeText(item.name).catch(() => {})
                 }}
                 className="gap-2 font-bold"
               >
@@ -425,7 +425,7 @@ export function SavedItemsManager<T extends SaveableItem>({
   saveDisabled,
   activeItemId,
   onUpdate,
-}: SavedItemsManagerProps<T>): React.ReactElement {
+}: SavedItemsManagerProps<T>) {
   return (
     <div className="flex flex-col gap-2">
       <SaveInputBar

@@ -1,4 +1,3 @@
-import * as React from "react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -34,12 +33,12 @@ export const PreviewTable = ({
   showCheckboxes,
   getItemChecked,
   onToggleItem,
-}: PreviewTableProps): React.ReactElement => (
+}: PreviewTableProps) => (
   <div className={`flex min-h-0 flex-col ${className ?? "flex-1"}`}>
     <div className="mb-1 flex shrink-0 items-baseline gap-2">
       <span className="text-sm font-semibold">{title}</span>
       <span className={accent}>{items.length}</span>
-      {summary !== undefined && summary !== "" && (
+      {summary && (
         <span className="text-xs text-muted-foreground">{summary}</span>
       )}
     </div>
@@ -47,7 +46,7 @@ export const PreviewTable = ({
       <Table>
         <TableHeader>
           <TableRow>
-            {showCheckboxes === true && <TableHead className="w-8" />}
+            {showCheckboxes && <TableHead className="w-8" />}
             <TableHead className="w-[40%]">FileName</TableHead>
             <TableHead>Prompt</TableHead>
           </TableRow>
@@ -55,15 +54,15 @@ export const PreviewTable = ({
         <TableBody>
           {items.map((item, i) => (
             <TableRow
-              key={`${title}-${itemKey(item)}-${String(i)}`}
+              key={`${title}-${itemKey(item)}-${i}`}
               className={onItemClick ? "cursor-pointer" : ""}
-              onClick={onItemClick !== undefined ? (): void => { onItemClick(item); } : undefined}
+              onClick={onItemClick ? () => { onItemClick(item); } : undefined}
             >
-              {showCheckboxes === true && (
+              {showCheckboxes && (
                 <TableCell onClick={(e) => { e.stopPropagation(); }}>
                   <Checkbox
                     checked={getItemChecked?.(item) ?? true}
-                    onCheckedChange={(): void => onToggleItem?.(item)}
+                    onCheckedChange={() => onToggleItem?.(item)}
                   />
                 </TableCell>
               )}
@@ -76,7 +75,7 @@ export const PreviewTable = ({
           {items.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={showCheckboxes === true ? 3 : 2}
+                colSpan={showCheckboxes ? 3 : 2}
                 className="text-center text-xs text-muted-foreground"
               >
                 없음

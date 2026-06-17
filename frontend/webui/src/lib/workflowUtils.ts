@@ -5,19 +5,18 @@ import {
 } from "./workflow"
 import { MAX_RANDOM_SEED } from "./constants"
 import type { RenderItem } from "../comfyui/types/renderTypes"
-import { reportClientError } from "./logger"
 
 export const parseWorkflow = (json: string): ComfyWorkflow => {
   let obj: unknown
   try {
     obj = JSON.parse(json)
   } catch (e) {
-    reportClientError("error", `Workflow JSON parse error: ${e instanceof Error ? e.message : String(e)}`)
+    console.error("Workflow JSON parse error:", e)
     throw new Error("Invalid workflow format: " + (e instanceof Error ? e.message : String(e)))
   }
   const parsed = ComfyWorkflowSchema.safeParse(obj)
   if (!parsed.success) {
-    reportClientError("error", `Workflow validation error: ${parsed.error.message}`)
+    console.error("Workflow validation error:", parsed.error)
     throw new Error("Invalid workflow format: " + parsed.error.message)
   }
   return parsed.data
@@ -32,7 +31,7 @@ export const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
   const clipNode =
     Object.entries(workflow).find(([, n]) => {
       if (n.class_type !== "CLIPTextEncode") return false
-      const title = (n._meta?.title ?? "").toLowerCase()
+      const title = (n._meta?.title || "").toLowerCase()
       return title.includes("positive") || title.includes("prompt")
     }) ??
     Object.entries(workflow).find(([, n]) => n.class_type === "CLIPTextEncode")
@@ -73,7 +72,7 @@ export const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
           nodeId,
           inputKey,
           sourceType: "seed",
-          seedValue: value,
+          seedValue: Number(value),
           seedRandom: true,
         })
     })
@@ -104,8 +103,7 @@ export const randomSelect = <T>(items: T[], count: number): T[] => {
   const selected: T[] = []
   for (let i = 0; i < count && pool.length > 0; i++) {
     const idx = Math.floor(Math.random() * pool.length)
-    const spliced = pool.splice(idx, 1)[0]
-    if (spliced !== undefined) selected.push(spliced)
+    selected.push(pool.splice(idx, 1)[0]!)
   }
   return selected
 }
@@ -115,7 +113,7 @@ export const filterByItem = (
   setFilter: React.Dispatch<
     React.SetStateAction<Record<string, Record<string, boolean>>>
   >
-): void => {
+) => {
   setFilter((prev) => {
     const next: Record<string, Record<string, boolean>> = {}
     for (const axis of Object.keys(prev)) {
@@ -123,14 +121,9 @@ export const filterByItem = (
       if (itemValue === undefined) {
         next[axis] = { ...prev[axis] }
       } else {
-        const axisKeys = prev[axis]
-        if (axisKeys === undefined) {
-          next[axis] = { ...prev[axis] }
-        } else {
-          next[axis] = Object.fromEntries(
-            Object.keys(axisKeys).map((v) => [v, v === itemValue])
-          )
-        }
+        next[axis] = Object.fromEntries(
+          Object.keys(prev[axis]!).map((v) => [v, v === itemValue])
+        )
       }
     }
     return next
@@ -156,7 +149,7 @@ export const buildWorkflowForItem = (
           workflow[nodeId].inputs[inputKey] = item.filename
           break
         case "seed": {
-          const v = seedRandom === true
+          const v = seedRandom
             ? Math.floor(Math.random() * MAX_RANDOM_SEED)
             : (seedValue ?? 0)
           workflow[nodeId].inputs[inputKey] = v
@@ -164,7 +157,7 @@ export const buildWorkflowForItem = (
         }
         case "image": {
           const name = imageNameMap[`${nodeId}.${inputKey}`]
-          if (name !== undefined && name !== "") {
+          if (name) {
             workflow[nodeId].inputs[inputKey] = name
           }
           break

@@ -17,7 +17,7 @@ beforeEach(() => {
   resetSubgraphFixtureState()
 })
 
-interface InputWithWidget {
+type InputWithWidget = {
   _widget?: IWidget | { type: string; value: unknown; name: string }
   _connection?: { id: number; type: string }
   _listenerController?: AbortController
