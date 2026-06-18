@@ -36,7 +36,7 @@ export function ReactGraphEditor() {
   // 백그라운드 LiteGraph 및 익스텐션 초기화
   useEffect(() => {
     let cancelled = false
-    async function initApp() {
+    async function initApp(): Promise<void> {
       const app = window.app
       console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + !!hiddenCanvasRef.current, "hiddenContainer=" + !!hiddenContainerRef.current, "extensionsLoaded=" + !!app.extensionsLoaded, "app.graph=" + !!app.graph, "nodeDefs=" + Object.keys(nodeDefs).length, "extensions=" + (app.extensions?.length || 0));
 
@@ -77,12 +77,17 @@ export function ReactGraphEditor() {
         return res
       }
 
-      // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)
+      // extensions/core 필요할 경우 필터링 코드 주석화하고 import 코드를 풀면 될듯 근데 이거 쓰려면 이거저것 깔아야 되서...
+      // await import('../../../../packages/litegraph/src/extensions/core/index')
+        await import('../../../../packages/litegraph/src/scripts/app')
+      // 2. 익스텐션 로드 및 init
       if (!app.extensionsLoaded) {
         try {
           const extensionUrls = await comfyApi.getExtensions()
+          // core 확장은 이미 번들로 로드했으므로 제외
+          const filteredUrls = extensionUrls.filter((url: string) => !url.includes("extensions/core"))
           console.log("[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:", extensionUrls.length, extensionUrls);
-          for (const url of extensionUrls) {
+          for (const url of filteredUrls) {
             try {
               const fullUrl = url.startsWith("http") ? url : `${comfyApi.api_base}${url}`;
               console.log("[CEG:DEBUG ReactGraphEditor] Importing extension:", fullUrl);
