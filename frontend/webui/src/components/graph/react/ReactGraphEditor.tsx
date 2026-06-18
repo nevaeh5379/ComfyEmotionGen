@@ -8,7 +8,6 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
-import { comfyApi } from "@/comfyui/api"
 import { ComfyAppService } from "@/comfyui/services/appService"
 import { LGraph, LGraphNode, LGraphCanvas } from "comfy-litegraph"
 
@@ -55,6 +54,8 @@ export function ReactGraphEditor() {
       })
       app.graph = appService.graph
       app.canvas = appService.canvas
+      app.extensionManager = appService.extensionManager
+      app.api = appService.api
       // @ts-ignore
       app.graph._canvas = appService.canvas
       // @ts-ignore
@@ -80,11 +81,11 @@ export function ReactGraphEditor() {
       // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)
       if (!app.extensionsLoaded) {
         try {
-          const extensionUrls = await comfyApi.getExtensions()
+          const extensionUrls = await window.api.getExtensions()
           console.log("[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:", extensionUrls.length, extensionUrls);
           for (const url of extensionUrls) {
             try {
-              const fullUrl = url.startsWith("http") ? url : `${comfyApi.api_base}${url}`;
+              const fullUrl = url.startsWith("http") ? url : `${window.api.api_base}${url}`;
               console.log("[CEG:DEBUG ReactGraphEditor] Importing extension:", fullUrl);
               await import(/* @vite-ignore */ fullUrl)
               console.log("[CEG:DEBUG ReactGraphEditor] Import success:", fullUrl);

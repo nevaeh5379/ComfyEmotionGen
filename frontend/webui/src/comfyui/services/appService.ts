@@ -19,7 +19,12 @@ import type {
   ComfyWorkflowLink,
 } from "@/comfyui/types/workflow"
 import type { ComfyNodeDef } from "@/comfyui/types/nodeDef"
+import type { NodeExecutionOutput } from "@/comfyui/types/apiSchema"
+import type { ComfyExtension } from "@/comfyui/types/extensionTypes"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { useExtensionStore } from "@/comfyui/stores/extensionStore"
+import { extensionManager } from "@/comfyui/services/extensionService"
+import { api } from "@/comfyui/api"
 
 export interface ComfyAppConfig {
   canvas: HTMLCanvasElement
@@ -48,6 +53,21 @@ export class ComfyAppService {
   nodeDefs: Record<string, ComfyNodeDef> = {}
   /** 그래프 변경 시 호출될 콜백 */
   onGraphChanged?: (workflow: ComfyWorkflowJSON) => void
+
+  // ── ComfyApp 호환 속성 ─────────────────────────────────────────
+  /** 커스텀 노드 extensionManager */
+  extensionManager = extensionManager
+  /** ComfyApi 인스턴스 */
+  api = api
+  /** 노드 실행 출력 데이터 */
+  nodeOutputs: Record<string, NodeExecutionOutput> = {}
+  /** 노드 프리뷰 이미지 데이터 */
+  nodePreviewImages: Record<string, string[]> = {}
+
+  /** 등록된 익스텐션 목록 (extensionStore 위임) */
+  get extensions(): ComfyExtension[] {
+    return useExtensionStore.getState().extensions
+  }
 
   constructor(config: ComfyAppConfig) {
     this.nodeDefs = config.nodeDefs

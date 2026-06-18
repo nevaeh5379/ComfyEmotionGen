@@ -1,3 +1,4 @@
 packages:
   - '.'
-  - 'packages/litegraph/src/lib/litegraph'
+allowBuilds:
+  esbuild: true

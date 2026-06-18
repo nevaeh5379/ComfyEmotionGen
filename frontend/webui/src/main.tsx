@@ -166,59 +166,12 @@ try {
 };
 
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
+import { api as comfyApiInstance } from "@/comfyui/api"
 
-// Initialize window.api as a persistent EventTarget instance
-window.api = window.api || (new EventTarget() as any);
+// Initialize window.api as a persistent ComfyApi instance
+window.api = window.api || (comfyApiInstance as any);
 const apiObj = window.api;
 apiObj.api_base = apiObj.api_base || DEFAULT_BACKEND_URL;
-apiObj.getExtensions = apiObj.getExtensions || (async () => {
-  const { comfyApi } = await import("@/comfyui/api");
-  return comfyApi.getExtensions();
-});
-apiObj.getObjectInfo = apiObj.getObjectInfo || (async () => {
-  const { comfyApi } = await import("@/comfyui/api");
-  return comfyApi.getObjectInfo();
-});
-const _fetchApiMocks: Record<string, () => Promise<Response>> = {
-  "/system_stats": async () => {
-    const stats = await apiObj.getSystemStats();
-    return new Response(JSON.stringify(stats), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  },
-};
-
-apiObj.fetchApi = apiObj.fetchApi || (async (url: string, options: any) => {
-  const cleanUrl = url.startsWith("/") ? url : `/${url}`;
-  const fullUrl = cleanUrl.startsWith("/api/") ? cleanUrl : `/api${cleanUrl}`;
-  const route = fullUrl.replace(/^\/api/, "");
-  if (_fetchApiMocks[route]) {
-    return _fetchApiMocks[route]();
-  }
-  return fetch(`${apiObj.api_base}${fullUrl}`, options);
-});
-apiObj.getSystemStats = apiObj.getSystemStats || (async () => {
-  return {
-    system: {
-      os: "linux",
-      ram_total: 32 * 1024 * 1024 * 1024,
-      ram_free: 16 * 1024 * 1024 * 1024,
-      comfyui_version: "1.16.9",
-      required_frontend_version: "",
-      installed_templates_version: "",
-      required_templates_version: "",
-      python_version: "3.11",
-      pytorch_version: "2.0",
-      embedded_python: false,
-      argv: [],
-      comfy_package_versions: [],
-    },
-    devices: [],
-  };
-});
-apiObj.addEventListener = apiObj.addEventListener || apiObj.addEventListener?.bind(apiObj) || (() => {});
-apiObj.removeEventListener = apiObj.removeEventListener || apiObj.removeEventListener?.bind(apiObj) || (() => {});
 
 // Proxy for settingsLookup to dynamically handle any settings access without crashing
 const settingsLookupProxy = new Proxy({
@@ -237,7 +190,11 @@ window.app = window.app || {} as any
 const appObj = window.app
 appObj.extensions = appObj.extensions || []
 appObj.registerExtension = appObj.registerExtension || function (ext: any) {
-  appObj.extensions.push(ext)
+  if (appObj.extensionManager) {
+    appObj.extensionManager.registerExtension(ext)
+  } else {
+    appObj.extensions.push(ext)
+  }
 }
 
 // app.ui.settings 및 app.settings 의 getSettingValue 안전 후킹 유틸
@@ -517,14 +474,14 @@ if (!w.NodeTypesString) {
   w.NodeTypesString = {};
 }
 
-// Initialize window.app extensionManager commands
+// Initialize window.app extensionManager (fallback until ReactGraphEditor injects the real one)
 appObj.extensionManager = appObj.extensionManager || {
   command: {
     commands: [
       { id: 'Comfy.ExportWorkflowAPI' }
     ]
   }
-}
+} as any
 
 if (!w.rgthreeConfig) {
   w.rgthreeConfig = {
