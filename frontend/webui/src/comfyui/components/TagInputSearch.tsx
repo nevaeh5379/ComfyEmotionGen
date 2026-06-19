@@ -101,8 +101,10 @@ export const TagInputSearch = memo(function TagInputSearch({
           activeIndex < candidates.length
         ) {
           const cand = candidates[activeIndex]
-          onAddTag(getPrefix(cand.type) + cand.value)
-          setIsOpen(false)
+          if (cand !== undefined) {
+            onAddTag(getPrefix(cand.type) + cand.value)
+            setIsOpen(false)
+          }
         } else {
           const trimmed = value.trim()
           if (trimmed) {
@@ -135,7 +137,9 @@ export const TagInputSearch = memo(function TagInputSearch({
         setIsOpen(false)
       } else if (e.key === "Backspace" && !value && tags.length > 0) {
         const lastTag = tags[tags.length - 1]
-        onRemoveTag(lastTag)
+        if (lastTag !== undefined) {
+          onRemoveTag(lastTag)
+        }
       }
     },
     [candidates, tags, value, activeIndex, isOpen, onAddTag, onRemoveTag]

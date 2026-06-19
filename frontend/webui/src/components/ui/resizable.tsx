@@ -10,16 +10,17 @@ function ResizablePanelGroup({
   onLayoutChanged: onLayoutChangedProp,
   ...props
 }: ResizablePrimitive.GroupProps & { autoSaveId?: string }): React.JSX.Element {
-  const defaultLayout: number[] | undefined | string = useMemo(
+  const defaultLayout: ResizablePrimitive.Layout | undefined = useMemo(
     () => {
-      if (autoSaveId !== undefined && autoSaveId !== "") return defaultLayoutProp
-      try {
-        const saved = localStorage.getItem(`resizable-layout:${String(autoSaveId)}`)
-        if (saved !== null) {
-          return JSON.parse(saved) as number[]
+      if (autoSaveId !== undefined && autoSaveId !== "") {
+        try {
+          const saved = localStorage.getItem(`resizable-layout:${String(autoSaveId)}`)
+          if (saved !== null) {
+            return JSON.parse(saved) as ResizablePrimitive.Layout
+          }
+        } catch {
+          // intentionally silent
         }
-      } catch {
-        // intentionally silent
       }
       return defaultLayoutProp
     },
@@ -27,8 +28,8 @@ function ResizablePanelGroup({
   )
 
   const handleLayoutChanged = useCallback(
-    (_layout: ResizablePrimitive.Layout) => {
-      if (autoSaveId !== undefined) {
+    (layout: ResizablePrimitive.Layout) => {
+      if (autoSaveId !== undefined && autoSaveId !== "") {
         try {
           localStorage.setItem(
             `resizable-layout:${autoSaveId}`,
@@ -39,7 +40,7 @@ function ResizablePanelGroup({
         }
       }
       if (onLayoutChangedProp !== undefined) {
-        onLayoutChangedProp(layout as ResizablePrimitive.Layout)
+        onLayoutChangedProp(layout)
       }
     },
     [autoSaveId, onLayoutChangedProp]

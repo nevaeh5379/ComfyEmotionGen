@@ -9,7 +9,11 @@ import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { ComfyAppService } from "@/comfyui/services/appService"
-import { LGraph, LGraphNode } from "comfy-litegraph"
+// import { LGraph, LGraphNode } from "comfy-litegraph"
+const LGraph = (window as any).LGraph
+const LGraphNode = (window as any).LGraphNode
+type LGraph = any
+type LGraphNode = any
 import type { ComfyExtension } from "@/comfyui/types/extensionTypes"
 
 interface ComfyApp {
@@ -68,9 +72,7 @@ export function ReactGraphEditor(): JSX.Element {
       rawApp.canvas = appService.canvas
       rawApp.extensionManager = appService.extensionManager
       rawApp.api = appService.api
-       // @ts-expect-error LiteGraph fork property
       ;(rawApp.graph as { _canvas: unknown })._canvas = appService.canvas
-      // @ts-expect-error LiteGraph fork property
       ;(appService.canvas as { app: unknown }).app = rawApp
 
       window.__comfyAppService = appService

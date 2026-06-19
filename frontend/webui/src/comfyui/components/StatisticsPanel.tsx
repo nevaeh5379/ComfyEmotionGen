@@ -384,7 +384,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.
   const stats: StatItem[] = [
     {
       label: "총 작업 수",
-      value: total,
+      value: String(total),
       icon: ClipboardList,
     },
     {

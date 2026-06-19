@@ -503,7 +503,7 @@ export function TemplateGeneratorPanel({
 
   const insertToCombine = useCallback((combineId: string, text: string): void => {
     const el = combineInputRefs.current[combineId]
-    if (el !== null) {
+    if (el) {
       const start = el.selectionStart ?? el.value.length
       const end = el.selectionEnd ?? el.value.length
       const before = el.value.slice(0, start)
@@ -521,7 +521,7 @@ export function TemplateGeneratorPanel({
 
   const insertToExclude = useCallback((excludeId: string, text: string): void => {
     const el = excludeInputRefs.current[excludeId]
-    if (el !== null) {
+    if (el) {
       const start = el.selectionStart ?? el.value.length
       const end = el.selectionEnd ?? el.value.length
       const before = el.value.slice(0, start)

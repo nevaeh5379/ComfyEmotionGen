@@ -1,5 +1,5 @@
 import { CombinationPicker } from "../combinationpicker/CombinationPicker"
-import type { CurationToolbarState } from "../combinationpicker/CurationToolbarTypes"
+import type { CurationToolbarState, CurationViewMode } from "../combinationpicker/CurationToolbarTypes"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 import type { AppSettings } from "../../hooks/useSettings"
@@ -41,7 +41,7 @@ export function CurationTab({
     selectedAxis: curationSelectedAxis,
     setSelectedAxis: setCurationSelectedAxis,
     viewMode: "gallery" as const,
-    setViewMode: (_mode: "gallery" | "grid") => void 0,
+    setViewMode: (_mode: CurationViewMode) => void 0,
     hideTopSection: true,
   }
 

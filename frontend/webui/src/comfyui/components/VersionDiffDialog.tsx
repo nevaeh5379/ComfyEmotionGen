@@ -31,8 +31,8 @@ function computeDiff(oldText: string, newText: string): DiffLine[] {
 
   while (oldIdx < oldLines.length || newIdx < newLines.length) {
     if (oldIdx < oldLines.length && newIdx < newLines.length) {
-      const oldLine = oldLines[oldIdx]
-      const newLine = newLines[newIdx]
+      const oldLine = oldLines[oldIdx] ?? ""
+      const newLine = newLines[newIdx] ?? ""
       if (oldLine === newLine) {
         result.push({ type: "unchanged", content: oldLine })
         oldIdx++

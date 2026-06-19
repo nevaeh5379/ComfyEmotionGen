@@ -49,7 +49,7 @@ export function FloatingWindow({
   title = "플로팅 윈도우",
   toolbar,
   onDragProgress,
-}: FloatingWindowProps): JSX.Element {
+}: FloatingWindowProps): JSX.Element | null {
   const containerRef = useRef<HTMLDivElement>(null)
   const posRef = useRef(initialPos)
   const sizeRef = useRef(initialSize)

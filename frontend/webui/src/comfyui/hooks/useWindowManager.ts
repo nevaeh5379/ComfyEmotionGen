@@ -68,8 +68,8 @@ export function useWindowManager({
   setGalleryFloatingSize: (v: { w: number; h: number }) => void
   isGalleryDocked: boolean
   setIsGalleryDocked: (v: boolean) => void
-  galleryDockedSide: "start" | "end" | undefined
-  setGalleryDockedSide: (v: "start" | "end" | undefined) => void
+  galleryDockedSide: "start" | "end"
+  setGalleryDockedSide: (v: "start" | "end") => void
   isStatsFloating: boolean
   setIsStatsFloating: (v: boolean) => void
   statsFloatingPos: { x: number; y: number }
@@ -78,8 +78,8 @@ export function useWindowManager({
   setStatsFloatingSize: (v: { w: number; h: number }) => void
   isStatsDocked: boolean
   setIsStatsDocked: (v: boolean) => void
-  statsDockedSide: "start" | "end" | undefined
-  setStatsDockedSide: (v: "start" | "end" | undefined) => void
+  statsDockedSide: "start" | "end"
+  setStatsDockedSide: (v: "start" | "end") => void
   isCurationFloating: boolean
   setIsCurationFloating: (v: boolean) => void
   curationFloatingPos: { x: number; y: number }
@@ -88,8 +88,8 @@ export function useWindowManager({
   setCurationFloatingSize: (v: { w: number; h: number }) => void
   isCurationDocked: boolean
   setIsCurationDocked: (v: boolean) => void
-  curationDockedSide: "start" | "end" | undefined
-  setCurationDockedSide: (v: "start" | "end" | undefined) => void
+  curationDockedSide: "start" | "end"
+  setCurationDockedSide: (v: "start" | "end") => void
   snapDockZone: SnapDockZone | null
   setSnapDockZone: React.Dispatch<React.SetStateAction<SnapDockZone | null>>
   handleDragProgress: (

@@ -1,0 +1,261 @@
+src/App.tsx(336,82): error TS2345: Argument of type 'Record<string, unknown>' is not assignable to parameter of type 'ObjectInfo'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type '{ input: { required?: Record<string, ObjectInfoInputSpec>; optional?: Record<string, ObjectInfoInputSpec>; }; }'.
+src/App.tsx(692,15): error TS2322: Type '{ isCompositionFloating: boolean; setIsCompositionFloating: (v: boolean) => void; compositionFloatingPos: { x: number; y: number; }; setCompositionFloatingPos: (v: { x: number; y: number; }) => void; ... 35 more ...; handleHeaderDragStart: (e: React.MouseEvent, windowType: "composition" | "jobManager") => void; }' is not assignable to type 'WindowManagerState'.
+  Types of property 'galleryDockedSide' are incompatible.
+    Type '"start" | "end" | undefined' is not assignable to type '"start" | "end"'.
+      Type 'undefined' is not assignable to type '"start" | "end"'.
+src/comfyui/api.ts(264,12): error TS2416: Property 'addEventListener' in type 'ComfyApi' is not assignable to the same property in base type 'EventTarget'.
+  Type '<TEvent extends keyof ApiEvents>(type: TEvent, callback: ((event: AsCustomEvents<ApiToEventType<ApiCalls>>[TEvent]) => void) | null, options?: boolean | ... 1 more ... | undefined) => void' is not assignable to type '(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions | undefined) => void'.
+    Types of parameters 'callback' and 'callback' are incompatible.
+      Type 'EventListenerOrEventListenerObject | null' is not assignable to type '((event: CustomEvent<ProgressWsMessage> | CustomEvent<StatusWsMessageStatus> | CustomEvent<string> | ... 18 more ... | CustomEvent<...>) => void) | null'.
+        Type 'EventListenerObject' is not assignable to type '(event: CustomEvent<ProgressWsMessage> | CustomEvent<StatusWsMessageStatus> | CustomEvent<string> | ... 18 more ... | CustomEvent<...>) => void'.
+          Type 'EventListenerObject' provides no match for the signature '(event: CustomEvent<ProgressWsMessage> | CustomEvent<StatusWsMessageStatus> | CustomEvent<string> | ... 18 more ... | CustomEvent<...>): void'.
+src/comfyui/api.ts(273,12): error TS2416: Property 'removeEventListener' in type 'ComfyApi' is not assignable to the same property in base type 'EventTarget'.
+  Type '<TEvent extends keyof ApiEvents>(type: TEvent, callback: ((event: AsCustomEvents<ApiToEventType<ApiCalls>>[TEvent]) => void) | null, options?: boolean | ... 1 more ... | undefined) => void' is not assignable to type '(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions | undefined) => void'.
+    Types of parameters 'callback' and 'callback' are incompatible.
+      Type 'EventListenerOrEventListenerObject | null' is not assignable to type '((event: CustomEvent<ProgressWsMessage> | CustomEvent<StatusWsMessageStatus> | CustomEvent<string> | ... 18 more ... | CustomEvent<...>) => void) | null'.
+        Type 'EventListenerObject' is not assignable to type '(event: CustomEvent<ProgressWsMessage> | CustomEvent<StatusWsMessageStatus> | CustomEvent<string> | ... 18 more ... | CustomEvent<...>) => void'.
+          Type 'EventListenerObject' provides no match for the signature '(event: CustomEvent<ProgressWsMessage> | CustomEvent<StatusWsMessageStatus> | CustomEvent<string> | ... 18 more ... | CustomEvent<...>): void'.
+src/comfyui/api.ts(321,44): error TS2345: Argument of type 'null' is not assignable to parameter of type 'StatusWsMessageStatus | undefined'.
+src/comfyui/api.ts(379,44): error TS2345: Argument of type 'null' is not assignable to parameter of type 'StatusWsMessageStatus | undefined'.
+src/comfyui/api.ts(492,11): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/comfyui/api.ts(493,11): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/comfyui/api.ts(494,46): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/comfyui/api.ts(496,44): error TS2345: Argument of type 'StatusWsMessageStatus | null' is not assignable to parameter of type 'StatusWsMessageStatus | undefined'.
+  Type 'null' is not assignable to type 'StatusWsMessageStatus | undefined'.
+src/comfyui/components/ImageViewer.tsx(501,16): error TS2322: Type 'null' is not assignable to type 'Element'.
+src/comfyui/components/InlineImagePreview.tsx(13,13): error TS7030: Not all code paths return a value.
+src/comfyui/components/InlineImagePreview.tsx(20,30): error TS2322: Type 'null' is not assignable to type 'Element'.
+src/comfyui/components/JobManagerSections.tsx(138,5): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/JobManagerSections.tsx(696,37): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/comfyui/components/JobManagerSections.tsx(896,17): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/NodeMappingSection.tsx(153,9): error TS2322: Type '(file: File, nodeId: string, inputKey: string) => void' is not assignable to type '() => void'.
+  Target signature provides too few arguments. Expected 3 or more, but got 0.
+src/comfyui/components/NodeMappingSection.tsx(394,43): error TS2554: Expected 0 arguments, but got 3.
+src/comfyui/components/NodeMappingSection.tsx(408,38): error TS18048: 'upload' is possibly 'undefined'.
+src/comfyui/components/NodeMappingSection.tsx(413,42): error TS18048: 'upload' is possibly 'undefined'.
+src/comfyui/components/SavedImagesGallery.tsx(131,14): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number | "…"'.
+  Type 'undefined' is not assignable to type 'number | "…"'.
+src/comfyui/components/SavedImagesGallery.tsx(132,34): error TS2532: Object is possibly 'undefined'.
+src/comfyui/components/SavedImagesGallery.tsx(132,50): error TS2532: Object is possibly 'undefined'.
+src/comfyui/components/SavedImagesGallery.tsx(337,7): error TS2322: Type 'Element | null' is not assignable to type 'HTMLElement | null'.
+  Type 'Element' is missing the following properties from type 'HTMLElement': accessKey, accessKeyLabel, autocapitalize, autocorrect, and 129 more.
+src/comfyui/components/SettingsPanel.tsx(502,33): error TS2322: Type '{ id: number; name: string; template: string; savedAt: number; }[]' is not assignable to type 'SavedTemplate[]'.
+  Type '{ id: number; name: string; template: string; savedAt: number; }' is not assignable to type 'SavedTemplate'.
+    Types of property 'id' are incompatible.
+      Type 'number' is not assignable to type 'string'.
+src/comfyui/components/SettingsPanel.tsx(601,33): error TS2322: Type '{ id: number; name: string; workflow: string; mappingPresets: SavedNodeMappingPreset[]; savedAt: number; }[]' is not assignable to type 'SavedWorkflow[]'.
+  Type '{ id: number; name: string; workflow: string; mappingPresets: SavedNodeMappingPreset[]; savedAt: number; }' is not assignable to type 'SavedWorkflow'.
+    Types of property 'id' are incompatible.
+      Type 'number' is not assignable to type 'string'.
+src/comfyui/components/StatisticsPanel.tsx(387,7): error TS2322: Type 'number' is not assignable to type 'string'.
+src/comfyui/components/TagInputSearch.tsx(104,30): error TS18048: 'cand' is possibly 'undefined'.
+src/comfyui/components/TagInputSearch.tsx(104,43): error TS18048: 'cand' is possibly 'undefined'.
+src/comfyui/components/TagInputSearch.tsx(138,21): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(507,21): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(507,42): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(508,19): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(508,38): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(509,22): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(510,21): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(525,21): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(525,42): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(526,19): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(526,38): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(527,22): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/TemplateGeneratorPanel.tsx(528,21): error TS18048: 'el' is possibly 'undefined'.
+src/comfyui/components/VersionDiffDialog.tsx(37,42): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/comfyui/components/VersionDiffDialog.tsx(60,42): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/comfyui/components/WebhookSettingsPanel.tsx(80,31): error TS2366: Function lacks ending return statement and return type does not include 'undefined'.
+src/comfyui/components/WebhookSettingsPanel.tsx(83,7): error TS2322: Type 'undefined' is not assignable to type 'boolean'.
+src/comfyui/components/WebhookSettingsPanel.tsx(87,7): error TS2322: Type 'undefined' is not assignable to type 'boolean'.
+src/comfyui/components/WebhookSettingsPanel.tsx(91,7): error TS2322: Type 'undefined' is not assignable to type 'boolean'.
+src/comfyui/components/WorkflowFormEditor.tsx(159,39): error TS2532: Object is possibly 'undefined'.
+src/comfyui/components/WorkflowFormEditor.tsx(163,13): error TS7030: Not all code paths return a value.
+src/comfyui/components/WorkflowFormEditor.tsx(330,13): error TS2352: Conversion of type '() => JSX.Element' to type 'ReactNode' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/comfyui/components/WorkflowFormEditor.tsx(332,48): error TS18048: 'node' is possibly 'undefined'.
+src/comfyui/components/WorkflowFormEditor.tsx(342,26): error TS18048: 'node' is possibly 'undefined'.
+src/comfyui/components/WorkflowFormEditor.tsx(342,47): error TS18048: 'node' is possibly 'undefined'.
+src/comfyui/components/WorkflowFormEditor.tsx(345,64): error TS18048: 'node' is possibly 'undefined'.
+src/comfyui/components/WorkflowFormEditor.tsx(383,29): error TS2322: Type 'NodeInputValue' is not assignable to type 'string | number | boolean | string[] | Record<string, unknown>'.
+  Type 'null' is not assignable to type 'string | number | boolean | string[] | Record<string, unknown>'.
+src/comfyui/components/WorkflowGraphViewer.tsx(14,50): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/comfyui/components/WorkflowInput.tsx(73,63): error TS2352: Conversion of type 'number | boolean | string[] | Record<string, unknown>' to type 'string' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is not comparable to type 'string'.
+src/comfyui/components/WorkflowInput.tsx(97,17): error TS18048: 'extraParams' is possibly 'undefined'.
+src/comfyui/components/WorkflowInput.tsx(97,56): error TS18048: 'extraParams' is possibly 'undefined'.
+src/comfyui/components/WorkflowInput.tsx(98,17): error TS18048: 'extraParams' is possibly 'undefined'.
+src/comfyui/components/WorkflowInput.tsx(98,56): error TS18048: 'extraParams' is possibly 'undefined'.
+src/comfyui/components/WorkflowInput.tsx(100,7): error TS18048: 'extraParams' is possibly 'undefined'.
+src/comfyui/components/WorkflowInput.tsx(101,18): error TS18048: 'extraParams' is possibly 'undefined'.
+src/comfyui/components/WorkflowInput.tsx(156,5): error TS18048: 'extraParams' is possibly 'undefined'.
+src/comfyui/components/WorkflowInput.tsx(170,63): error TS2352: Conversion of type 'number | boolean | string[] | Record<string, unknown>' to type 'string' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is not comparable to type 'string'.
+src/comfyui/components/WorkflowInput.tsx(182,61): error TS2352: Conversion of type 'number | boolean | string[] | Record<string, unknown>' to type 'string' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is not comparable to type 'string'.
+src/comfyui/components/combinationpicker/CombinationPickerContent.tsx(340,29): error TS2532: Object is possibly 'undefined'.
+src/comfyui/components/combinationpicker/CombinationPickerContent.tsx(562,54): error TS2532: Object is possibly 'undefined'.
+src/comfyui/components/combinationpicker/CombinationPickerContent.tsx(588,29): error TS2532: Object is possibly 'undefined'.
+src/comfyui/components/gallery/ImageDetail.tsx(37,18): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/gallery/ImageDetail.tsx(338,50): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/gallery/ImageGrid.tsx(79,16): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/layout/FloatingWindow.tsx(52,26): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/layout/GalleryFloatingWindow.tsx(74,33): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/layout/Header.tsx(146,45): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/layout/Header.tsx(147,11): error TS2339: Property 'theme' does not exist on type 'Theme'.
+src/comfyui/components/layout/Header.tsx(147,18): error TS2339: Property 'setTheme' does not exist on type 'Theme'.
+src/comfyui/components/layout/Header.tsx(406,27): error TS2503: Cannot find namespace 'JSX'.
+src/comfyui/components/tabs/CurationTab.tsx(44,5): error TS2322: Type '(_mode: "gallery" | "grid") => undefined' is not assignable to type '(v: CurationViewMode) => void'.
+  Types of parameters '_mode' and 'v' are incompatible.
+    Type 'CurationViewMode' is not assignable to type '"gallery" | "grid"'.
+      Type '"table"' is not assignable to type '"gallery" | "grid"'.
+src/comfyui/components/tabs/EditorTab.tsx(144,30): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ComfyWorkflowJSON' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is missing the following properties from type 'ComfyWorkflowJSON': nodes, links
+src/comfyui/components/tabs/JobsTab.tsx(423,13): error TS2322: Type 'number' is not assignable to type 'void'.
+src/comfyui/components/tabs/JobsTab.tsx(550,27): error TS2322: Type '(_mode: "gallery" | "grid") => void' is not assignable to type '(v: CurationViewMode) => void'.
+  Types of parameters '_mode' and 'v' are incompatible.
+    Type 'CurationViewMode' is not assignable to type '"gallery" | "grid"'.
+      Type '"table"' is not assignable to type '"gallery" | "grid"'.
+src/comfyui/contexts/WorkflowContext.tsx(148,21): error TS18048: 'first' is possibly 'undefined'.
+src/comfyui/contexts/WorkflowContext.tsx(148,37): error TS18048: 'first' is possibly 'undefined'.
+src/comfyui/hooks/useBackend.ts(4,68): error TS2749: 'BackendContext' refers to a value, but is being used as a type here. Did you mean 'typeof BackendContext'?
+src/comfyui/hooks/useConfirm.ts(5,29): error TS2749: 'ConfirmContext' refers to a value, but is being used as a type here. Did you mean 'typeof ConfirmContext'?
+src/comfyui/hooks/useJobActions.ts(25,74): error TS2304: Cannot find name 'useContextRequired'.
+src/comfyui/hooks/useJobActions.ts(25,93): error TS2304: Cannot find name 'ConfirmContext'.
+src/comfyui/hooks/useJobRunner.ts(194,24): error TS18047: 'match' is possibly 'null'.
+src/comfyui/hooks/useJobRunner.ts(194,24): error TS2538: Type 'undefined' cannot be used as an index type.
+src/comfyui/hooks/useJobRunner.ts(428,3): error TS2739: Type '{ fakeJobQueue: RenderItem[]; renderResponse: RenderItemsResponse | null; parserError: string | null; axisValueFilter: Record<string, Record<string, boolean>>; ... 26 more ...; handleRunSingle: (item: RenderItem) => Promise<...>; }' is missing the following properties from type '{ fakeJobQueue: RenderItem[]; renderResponse: RenderItemsResponse | null; parserError: string | null; axisValueFilter: Record<string, Record<string, boolean>>; ... 29 more ...; fetchApprovedFilenames: () => Promise<...>; }': callParser, submitJobs, fetchApprovedFilenames
+src/comfyui/hooks/useSavedImages.ts(106,61): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/comfyui/hooks/useSavedImages.ts(107,62): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/comfyui/hooks/useSavedImages.ts(108,52): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/comfyui/hooks/useSavedImages.ts(223,5): error TS2345: Argument of type '() => void' is not assignable to parameter of type '() => (() => void) | undefined'.
+  Type 'void' is not assignable to type '(() => void) | undefined'.
+src/comfyui/hooks/useSavedWorkflows.ts(38,9): error TS2588: Cannot assign to 'mappingPresets' because it is a constant.
+src/comfyui/hooks/useSavedWorkflows.ts(121,23): error TS18048: 'w' is possibly 'undefined'.
+src/comfyui/hooks/useSavedWorkflows.ts(141,15): error TS2345: Argument of type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }[]' is not assignable to parameter of type 'SavedWorkflow[]'.
+  Type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' is not assignable to type 'SavedWorkflow'.
+    Property 'id' is optional in type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' but required in type 'SavedWorkflow'.
+src/comfyui/hooks/useSavedWorkflows.ts(142,7): error TS2322: Type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' is not assignable to type 'SavedWorkflow'.
+  Property 'id' is optional in type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' but required in type 'SavedWorkflow'.
+src/comfyui/hooks/useSavedWorkflows.ts(154,27): error TS18048: 'w' is possibly 'undefined'.
+src/comfyui/hooks/useSavedWorkflows.ts(158,15): error TS2345: Argument of type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }[]' is not assignable to parameter of type 'SavedWorkflow[]'.
+  Type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' is not assignable to type 'SavedWorkflow'.
+    Property 'id' is optional in type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' but required in type 'SavedWorkflow'.
+src/comfyui/hooks/useSavedWorkflows.ts(159,7): error TS2322: Type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' is not assignable to type 'SavedWorkflow'.
+  Property 'id' is optional in type '{ mappingPresets: SavedNodeMappingPreset[]; id?: string; name?: string; workflow?: string; savedAt?: number; }' but required in type 'SavedWorkflow'.
+src/comfyui/hooks/useSessionManager.ts(97,37): error TS2532: Object is possibly 'undefined'.
+src/comfyui/hooks/useSessionManager.ts(142,22): error TS7006: Parameter 'j' implicitly has an 'any' type.
+src/comfyui/hooks/useSyncedStorage.ts(161,17): error TS7030: Not all code paths return a value.
+src/comfyui/hooks/useWindowManager.ts(575,3): error TS2322: Type '{ isCompositionFloating: boolean; setIsCompositionFloating: (v: boolean) => void; compositionFloatingPos: { x: number; y: number; }; setCompositionFloatingPos: (p: { x: number; y: number; }) => void; ... 42 more ...; handleNavTabDragStart: (tabId: "stats" | "curation" | "gallery", clientX: number, clientY: number) =...' is not assignable to type '{ isCompositionFloating: boolean; setIsCompositionFloating: (v: boolean) => void; compositionFloatingPos: { x: number; y: number; }; setCompositionFloatingPos: (v: { x: number; y: number; }) => void; ... 42 more ...; handleNavTabDragStart: (tabId: "stats" | ... 1 more ... | "curation", clientX: number, clientY: numb...'.
+  Types of property 'setGalleryDockedSide' are incompatible.
+    Type '(s: "start" | "end") => void' is not assignable to type '(v: "start" | "end" | undefined) => void'.
+      Types of parameters 's' and 'v' are incompatible.
+        Type '"start" | "end" | undefined' is not assignable to type '"start" | "end"'.
+          Type 'undefined' is not assignable to type '"start" | "end"'.
+src/comfyui/services/appService.ts(17,8): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/comfyui/services/appService.ts(187,42): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/comfyui/services/appService.ts(197,43): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/comfyui/services/appService.ts(311,41): error TS7006: Parameter 'input' implicitly has an 'any' type.
+src/comfyui/services/appService.ts(319,43): error TS7006: Parameter 'output' implicitly has an 'any' type.
+src/comfyui/services/appService.ts(319,51): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/comfyui/services/appService.ts(328,50): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/comfyui/services/appService.ts(348,43): error TS7006: Parameter 'g' implicitly has an 'any' type.
+src/comfyui/services/comfyApiBridge.ts(8,8): error TS2571: Object is of type 'unknown'.
+src/comfyui/services/comfyApiBridge.ts(10,8): error TS2571: Object is of type 'unknown'.
+src/comfyui/services/extensionService.ts(48,18): error TS2304: Cannot find name 'ToastMessageOptions'.
+src/comfyui/stores/canvasStore.ts(9,43): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/comfyui/stores/graphStore.ts(51,9): error TS2345: Argument of type '{ undoStack: ComfyWorkflowJSON[]; redoStack: ComfyWorkflowJSON[]; workflow: ComfyWorkflowJSON | undefined; isDirty: true; }' is not assignable to parameter of type 'GraphState | Partial<GraphState> | ((state: GraphState) => GraphState | Partial<GraphState>)'.
+  Type '{ undoStack: ComfyWorkflowJSON[]; redoStack: ComfyWorkflowJSON[]; workflow: ComfyWorkflowJSON | undefined; isDirty: true; }' is not assignable to type 'Partial<GraphState>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'workflow' are incompatible.
+      Type 'ComfyWorkflowJSON | undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+        Type 'undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+src/comfyui/stores/graphStore.ts(58,5): error TS2322: Type 'ComfyWorkflowJSON | undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+  Type 'undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+src/comfyui/stores/graphStore.ts(68,9): error TS2345: Argument of type '{ undoStack: ComfyWorkflowJSON[]; redoStack: ComfyWorkflowJSON[]; workflow: ComfyWorkflowJSON | undefined; isDirty: true; }' is not assignable to parameter of type 'GraphState | Partial<GraphState> | ((state: GraphState) => GraphState | Partial<GraphState>)'.
+  Type '{ undoStack: ComfyWorkflowJSON[]; redoStack: ComfyWorkflowJSON[]; workflow: ComfyWorkflowJSON | undefined; isDirty: true; }' is not assignable to type 'Partial<GraphState>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'workflow' are incompatible.
+      Type 'ComfyWorkflowJSON | undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+        Type 'undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+src/comfyui/stores/graphStore.ts(75,5): error TS2322: Type 'ComfyWorkflowJSON | undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+  Type 'undefined' is not assignable to type 'ComfyWorkflowJSON | null'.
+src/comfyui/stores/nodeDefStore.ts(38,18): error TS2538: Type 'undefined' cannot be used as an index type.
+src/comfyui/stores/nodeDefStore.ts(40,18): error TS2538: Type 'undefined' cannot be used as an index type.
+src/comfyui/stores/reactGraphStore.ts(18,27): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/comfyui/stores/reactGraphStore.ts(250,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/comfyui/stores/reactGraphStore.ts(358,13): error TS2322: Type 'string | string[]' is not assignable to type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/comfyui/stores/reactGraphStore.ts(410,39): error TS2322: Type 'boolean' is not assignable to type 'void'.
+src/comfyui/types/extensionTypes.ts(7,47): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/components/ceg/StatusPill.tsx(30,9): error TS18048: 's' is possibly 'undefined'.
+src/components/ceg/StatusPill.tsx(31,9): error TS18048: 's' is possibly 'undefined'.
+src/components/ceg/StatusPill.tsx(38,11): error TS18048: 's' is possibly 'undefined'.
+src/components/ceg/StatusPill.tsx(41,8): error TS18048: 's' is possibly 'undefined'.
+src/components/graph/react/ReactGraphEditor.tsx(12,36): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/components/graph/react/ReactGraphEditor.tsx(26,37): error TS2503: Cannot find namespace 'JSX'.
+src/components/graph/react/ReactGraphEditor.tsx(71,8): error TS2578: Unused '@ts-expect-error' directive.
+src/components/graph/react/ReactGraphEditor.tsx(73,7): error TS2578: Unused '@ts-expect-error' directive.
+src/components/graph/react/ReactNode.tsx(11,33): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/components/graph/react/ReactNode.tsx(251,29): error TS18048: 'nodeDef' is possibly 'undefined'.
+src/components/graph/react/ReactNode.tsx(253,19): error TS18048: 'nodeDef' is possibly 'undefined'.
+src/components/graph/react/ReactNode.tsx(253,45): error TS18048: 'nodeDef' is possibly 'undefined'.
+src/components/graph/react/ReactNode.tsx(254,19): error TS18048: 'nodeDef' is possibly 'undefined'.
+src/components/graph/react/ReactNode.tsx(438,26): error TS2375: Type '{ name: string; value: unknown; spec: InputSpec | undefined; onChange: (newVal: unknown) => void; showLabel: false; disabled: boolean; element: HTMLElement | null | undefined; }' is not assignable to type 'ReactWidgetProps' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'element' are incompatible.
+    Type 'HTMLElement | null | undefined' is not assignable to type 'HTMLElement | null'.
+      Type 'undefined' is not assignable to type 'HTMLElement | null'.
+src/components/graph/react/ReactNode.tsx(484,20): error TS2375: Type '{ name: string; value: unknown; spec: InputSpec | undefined; onChange: (newVal: unknown) => void; disabled: boolean; element: HTMLElement | null | undefined; }' is not assignable to type 'ReactWidgetProps' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'element' are incompatible.
+    Type 'HTMLElement | null | undefined' is not assignable to type 'HTMLElement | null'.
+      Type 'undefined' is not assignable to type 'HTMLElement | null'.
+src/components/theme-provider.tsx(119,19): error TS2345: Argument of type '() => (() => (() => void)) | undefined' is not assignable to parameter of type 'EffectCallback'.
+  Type '(() => () => void) | undefined' is not assignable to type 'void | Destructor'.
+    Type '() => (() => void)' is not assignable to type 'void | Destructor'.
+      Type '() => (() => void)' is not assignable to type 'Destructor'.
+        Type '() => void' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+src/components/theme-provider.tsx(127,16): error TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.
+src/components/theme-provider.tsx(159,19): error TS2345: Argument of type '() => (() => (() => void)) | undefined' is not assignable to parameter of type 'EffectCallback'.
+  Type '(() => () => void) | undefined' is not assignable to type 'void | Destructor'.
+    Type '() => (() => void)' is not assignable to type 'void | Destructor'.
+      Type '() => (() => void)' is not assignable to type 'Destructor'.
+        Type '() => void' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+src/components/theme-provider.tsx(173,16): error TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.
+src/components/theme-provider.tsx(178,19): error TS2345: Argument of type '() => () => (() => void)' is not assignable to parameter of type 'EffectCallback'.
+  Type '() => (() => void)' is not assignable to type 'void | Destructor'.
+    Type '() => (() => void)' is not assignable to type 'Destructor'.
+      Type '() => void' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+src/components/theme-provider.tsx(213,16): error TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.
+src/components/theme-provider.tsx(218,19): error TS2345: Argument of type '() => () => (() => void)' is not assignable to parameter of type 'EffectCallback'.
+  Type '() => (() => void)' is not assignable to type 'void | Destructor'.
+    Type '() => (() => void)' is not assignable to type 'Destructor'.
+      Type '() => void' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+src/components/theme-provider.tsx(238,16): error TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.
+src/components/theme-provider.tsx(265,3): error TS2322: Type 'ThemeProviderState' is not assignable to type 'Theme'.
+src/components/ui/resizable.tsx(13,9): error TS2322: Type 'number[] | Layout | undefined' is not assignable to type 'string | number[] | undefined'.
+  Type 'Layout' is not assignable to type 'string | number[] | undefined'.
+    Type 'Layout' is missing the following properties from type 'number[]': length, pop, push, concat, and 29 more.
+src/components/ui/resizable.tsx(35,28): error TS2552: Cannot find name 'layout'. Did you mean '_layout'?
+src/components/ui/resizable.tsx(42,29): error TS2552: Cannot find name 'layout'. Did you mean '_layout'?
+src/components/ui/resizable.tsx(55,7): error TS2322: Type 'string | number[] | undefined' is not assignable to type 'Layout | undefined'.
+  Type 'string' is not assignable to type 'Layout'.
+src/components/ui/sonner.tsx(12,11): error TS2339: Property 'theme' does not exist on type 'Theme'.
+src/components/ui/sonner.tsx(15,6): error TS2375: Type '{ id?: string; invert?: boolean; theme: "dark" | "light" | "system" | undefined; position?: Position; hotkey?: string[]; richColors?: boolean; expand?: boolean; duration?: number; gap?: number; ... 12 more ...; key?: Key | ... 1 more ... | undefined; }' is not assignable to type 'ToasterProps' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'theme' are incompatible.
+    Type '"dark" | "light" | "system" | undefined' is not assignable to type '"dark" | "light" | "system"'.
+      Type 'undefined' is not assignable to type '"dark" | "light" | "system"'.
+src/lib/logger.ts(34,4): error TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.
+src/lib/workflowUtils.ts(108,21): error TS2345: Argument of type 'T | undefined' is not assignable to parameter of type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+src/main.tsx(5,81): error TS2307: Cannot find module 'comfy-litegraph' or its corresponding type declarations.
+src/main.tsx(158,2): error TS2571: Object is of type 'unknown'.

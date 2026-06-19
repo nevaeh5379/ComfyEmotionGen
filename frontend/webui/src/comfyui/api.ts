@@ -261,18 +261,22 @@ export class ComfyApi extends EventTarget {
 
   // ── Event system ────────────────────────────────────────────────
 
-  override addEventListener<TEvent extends keyof ApiEvents>(
+  override addEventListener<TEvent extends string>(
     type: TEvent,
-    callback: ((event: ApiEvents[TEvent]) => void) | null,
+    callback: (TEvent extends keyof ApiEvents
+      ? (event: ApiEvents[TEvent]) => void
+      : EventListenerOrEventListenerObject) | null,
     options?: AddEventListenerOptions | boolean
   ): void {
     super.addEventListener(type, callback as EventListener, options)
     this._registered.add(type)
   }
 
-  override removeEventListener<TEvent extends keyof ApiEvents>(
+  override removeEventListener<TEvent extends string>(
     type: TEvent,
-    callback: ((event: ApiEvents[TEvent]) => void) | null,
+    callback: (TEvent extends keyof ApiEvents
+      ? (event: ApiEvents[TEvent]) => void
+      : EventListenerOrEventListenerObject) | null,
     options?: EventListenerOptions | boolean
   ): void {
     super.removeEventListener(type, callback as EventListener, options)
@@ -318,7 +322,7 @@ export class ComfyApi extends EventTarget {
         const status = (await resp.json()) as StatusWsMessageStatus
         this.dispatchCustomEvent('status', status)
       }).catch(() => {
-        this.dispatchCustomEvent('status', null)
+        this.dispatchCustomEvent('status', undefined)
       })
     }, 1000)
   }
@@ -376,7 +380,7 @@ export class ComfyApi extends EventTarget {
         this.createSocket(true)
       }, 300)
       if (opened) {
-        this.dispatchCustomEvent('status', null)
+        this.dispatchCustomEvent('status', undefined)
         this.dispatchCustomEvent('reconnecting')
       }
     })
@@ -487,13 +491,13 @@ export class ComfyApi extends EventTarget {
     const msg = JSON.parse(data) as ApiMessageUnion
     switch (msg.type) {
       case 'status':
-        if (msg.data.sid !== undefined) {
+        if (msg.data.sid !== undefined && msg.data.sid !== null) {
           const clientId = msg.data.sid
           this.clientId = clientId
           window.name = clientId
           sessionStorage.setItem('clientId', clientId)
         }
-        this.dispatchCustomEvent('status', msg.data.status ?? null)
+        this.dispatchCustomEvent('status', msg.data.status ?? undefined)
         break
       case 'executing':
         this.dispatchCustomEvent(

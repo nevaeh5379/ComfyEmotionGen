@@ -4,20 +4,21 @@ import { useBackend } from "../hooks/useBackend"
 import { API } from "@/lib/api"
 import { Loader2, AlertCircle } from "lucide-react"
 
-export function InlineImagePreview({ filename, backendUrl }: { filename: string; backendUrl: string }): React.JSX.Element {
+export function InlineImagePreview({ filename, backendUrl }: { filename: string; backendUrl: string }): React.JSX.Element | null {
   const { jobs } = useBackend()
   const [show, setShow] = useState(false)
 
   const job = [...jobs].reverse().find(j => j.filename === filename)
   
   useEffect(() => {
-    if (job !== null) {
+    if (job !== undefined && job !== null) {
       const timer = setTimeout((): void => { setShow(true); }, 0)
       return (): void => { clearTimeout(timer); }
     }
+    return undefined
   }, [job])
 
-  if (!show || job === null) return null
+  if (!show || job === undefined || job === null) return null
 
   const doneHash = job.status === "done" && job.savedImageHashes.length > 0
     ? job.savedImageHashes[0]

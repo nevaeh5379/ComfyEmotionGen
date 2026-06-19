@@ -45,7 +45,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const { undoStack, redoStack, workflow } = get()
     if (undoStack.length === 0) return null
 
-    const previous = undoStack[undoStack.length - 1]
+    const previous = undoStack[undoStack.length - 1] as ComfyWorkflowJSON
     const newUndo = undoStack.slice(0, -1)
 
     set({
@@ -62,7 +62,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const { undoStack, redoStack, workflow } = get()
     if (redoStack.length === 0) return null
 
-    const next = redoStack[0]
+    const next = redoStack[0] as ComfyWorkflowJSON
     const newRedo = redoStack.slice(1)
 
     set({

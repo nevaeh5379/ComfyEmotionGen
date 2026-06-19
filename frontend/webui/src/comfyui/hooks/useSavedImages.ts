@@ -103,9 +103,9 @@ export const useSavedImages = (
         limit: String(pageSizeRef.current),
         offset: String(offset),
       })
-      if (statusRef.current !== "all") params.set("status", statusRef.current)
-      if (filenameRef.current !== "") params.set("filename", filenameRef.current)
-      if (tagRef.current !== "") params.set("tag", tagRef.current)
+      if (statusRef.current && statusRef.current !== "all") params.set("status", statusRef.current)
+      if (filenameRef.current && filenameRef.current !== "") params.set("filename", filenameRef.current)
+      if (tagRef.current && tagRef.current !== "") params.set("tag", tagRef.current)
       const res = await fetch(`${urlToUseRef.current}${API.savedImages.root}?${params.toString()}`, {
         signal: ac.signal,
       })
@@ -220,7 +220,7 @@ export const useSavedImages = (
   // ──── 메인 effect ────
   useEffectLog(
     "이미지 fetch",
-    (): void => {
+    () => {
       if (groupMode) {
         void fetchGroups(false)
       } else {

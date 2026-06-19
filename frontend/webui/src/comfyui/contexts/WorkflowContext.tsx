@@ -145,7 +145,9 @@ export function WorkflowProvider({
       onClearMappings()
     } else if (w.mappingPresets.length === 1) {
       const first = w.mappingPresets[0]
-      onSetMappings(first.mappings, first.id)
+      if (first !== undefined) {
+        onSetMappings(first.mappings, first.id)
+      }
     } else {
       setPendingPresetSelection(w)
     }

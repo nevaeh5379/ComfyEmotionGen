@@ -6,7 +6,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
 
 import { create } from "zustand"
-import type { LGraphCanvas, LGraph } from "comfy-litegraph"
+// import type { LGraphCanvas, LGraph } from "comfy-litegraph"
+type LGraphCanvas = any
+type LGraph = any
 import type { ComfyAppService } from "../services/appService"
 
 interface CanvasState {

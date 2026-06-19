@@ -4,7 +4,7 @@
  * 커스텀 노드 익스텐션 생명주기 관리
  */
 
-import type { ComfyExtension, SidebarTabExt, ExtensionManager } from "@/comfyui/types/extensionTypes"
+import type { ComfyExtension, SidebarTabExt, ExtensionManager, ToastMessageOptions } from "@/comfyui/types/extensionTypes"
 import type { ExecutionErrorWsMessage, NodeError } from "@/comfyui/types/apiSchema"
 import type { NodeId } from "@/comfyui/types/workflow"
 import { useExtensionStore } from "@/comfyui/stores/extensionStore"

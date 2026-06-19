@@ -128,8 +128,14 @@ function buildPageList(current: number, totalPages: number): (number | "…")[] 
   const sorted = Array.from(pages).sort((a, b) => a - b)
   const out: (number | "…")[] = []
   for (let i = 0; i < sorted.length; i++) {
-    out.push(sorted[i])
-    if (i < sorted.length - 1 && sorted[i + 1] - sorted[i] > 1) out.push("…")
+    const val = sorted[i]
+    if (val !== undefined) {
+      out.push(val)
+      const nextVal = sorted[i + 1]
+      if (i < sorted.length - 1 && nextVal !== undefined && nextVal - val > 1) {
+        out.push("…")
+      }
+    }
   }
   return out
 }
@@ -333,7 +339,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
       const scrollContainer = target.closest(
         ".overflow-y-auto"
-      )
+      ) as HTMLElement | null
       scrollContainerRef.current = scrollContainer
       if (scrollContainer) {
         initialScrollPosRef.current = {

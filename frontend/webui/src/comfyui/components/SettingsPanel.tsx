@@ -503,7 +503,7 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: now + Number(Math.random().toString(36).slice(2, 7)),
+                                id: String(now) + "-" + Math.random().toString(36).slice(2, 7),
                                 name: (typeof p.name === "string" && p.name !== "") ? p.name : "미명 템플릿",
                                 template: (p.template as string) || "",
                                 savedAt: (p.savedAt as number) || now,
@@ -602,7 +602,7 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: now + Number(Math.random().toString(36).slice(2, 7)),
+                                id: String(now) + "-" + Math.random().toString(36).slice(2, 7),
                                 name: (typeof p.name === "string" && p.name !== "") ? p.name : "미명 워크플로우",
                                 workflow: (typeof p.workflow === "string") ? p.workflow : "",
                                 mappingPresets:

@@ -22,7 +22,7 @@ export function useJobActions(): {
     activeState,
     refetchStats,
   } = useSessionManager()
-  const confirm = useConfirm() as (payload: Parameters<ReturnType<typeof useContextRequired<ConfirmContext>>["confirm"]>[0]) => Promise<boolean>
+  const confirm = useConfirm()
 
   const sessionRange = useMemo(() => {
     if (sortedMarkers.length === 0 || selectedSessionId === "") return { from: null, to: null }

@@ -693,7 +693,7 @@ export const JobRow = memo(function JobRow({
           className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground select-none"
           onMouseEnter={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
-            onWorkerMouseEnter(job, job.workerId, rect)
+            onWorkerMouseEnter(job, job.workerId as string, rect)
           }}
           onMouseLeave={onWorkerMouseLeave}
         >

@@ -43,7 +43,7 @@ export function useWatchValues(label: string, values: Record<string, unknown>): 
 
 export function useEffectLog(
   label: string,
-  effect: () => (() => void) | undefined,
+  effect: () => (() => void) | void,
   deps?: DependencyList
 ): void {
   useEffect(() => {

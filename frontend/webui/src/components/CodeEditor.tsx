@@ -309,7 +309,7 @@ const CodeEditor = (
     },
     [handleFile]
   )
-  const rawTheme = useTheme()
+  const { theme: rawTheme } = useTheme()
   const resolvedTheme: "dark" | "light" =
     rawTheme === "system"
       ? window.matchMedia("(prefers-color-scheme: dark)").matches

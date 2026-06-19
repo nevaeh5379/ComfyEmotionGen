@@ -13,7 +13,8 @@ const Toaster = (props: Parameters<typeof Sonner>[0]): React.JSX.Element => {
 
   return (
     <Sonner
-      theme={theme as Parameters<typeof Sonner>[0]["theme"]}
+      {...props}
+      theme={theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
@@ -35,7 +36,6 @@ const Toaster = (props: Parameters<typeof Sonner>[0]): React.JSX.Element => {
           toast: "cn-toast",
         },
       }}
-      {...props}
     />
   )
 }

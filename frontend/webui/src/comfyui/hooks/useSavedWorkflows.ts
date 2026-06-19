@@ -29,7 +29,7 @@ function load(): SavedWorkflow[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return parsed.map((w: any) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-      const mappingPresets: SavedNodeMappingPreset[] = w.mappingPresets ?? []
+      let mappingPresets: SavedNodeMappingPreset[] = w.mappingPresets ?? []
       // Migrate old nodeMappings to a default preset
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (w.nodeMappings !== null && mappingPresets.length === 0) {
@@ -117,7 +117,7 @@ export function useSavedWorkflows(): {
       const wIdx = all.findIndex((w) => w.id === workflowId)
       if (wIdx === -1) return null
 
-      const w = all[wIdx]
+      const w = all[wIdx] as SavedWorkflow
       const presets = w.mappingPresets
       const existing = presets.find((p) => p.name === trimmed)
 
@@ -150,7 +150,7 @@ export function useSavedWorkflows(): {
       const wIdx = all.findIndex((w) => w.id === workflowId)
       if (wIdx === -1) return null
 
-      const w = all[wIdx]
+      const w = all[wIdx] as SavedWorkflow
       const nextPresets = w.mappingPresets.filter(
         (p) => p.id !== presetId
       )

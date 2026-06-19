@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/restrict-plus-operands */
 import { useEffect, useRef, useState, useCallback, type JSX } from "react"
-import "comfy-litegraph/public/css/litegraph.css"
+// import "comfy-litegraph/public/css/litegraph.css"
 import {
   Sheet,
   SheetContent,
@@ -11,7 +11,13 @@ import {
 import type { ComfyWorkflow } from "@/lib/workflow"
 import { computeLayout } from "../utils/workflowGraphLayout"
 import { getCategoryStyle } from "../utils/workflowGraphCategories"
-import { LGraph, LGraphCanvas, LGraphNode } from "comfy-litegraph"
+// import { LGraph, LGraphCanvas, LGraphNode } from "comfy-litegraph"
+type LGraph = any
+type LGraphCanvas = any
+type LGraphNode = any
+const LGraph = (window as any).LGraph
+const LGraphCanvas = (window as any).LGraphCanvas
+const LGraphNode = (window as any).LGraphNode
 
 type InputSpec = [string | string[], Record<string, unknown>]
 

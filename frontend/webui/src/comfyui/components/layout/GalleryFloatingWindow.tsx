@@ -71,7 +71,7 @@ export function GalleryFloatingWindow({
   imageLazyLoad,
   singleDownloadMode,
   tb,
-}: GalleryFloatingWindowProps): JSX.Element {
+}: GalleryFloatingWindowProps): JSX.Element | null {
   if (!isOpen) return null
 
   return (

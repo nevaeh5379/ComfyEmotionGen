@@ -337,7 +337,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       )
       const nextIdx = direction === "next" ? currentIdx + 1 : currentIdx - 1
       if (nextIdx >= 0 && nextIdx < renderItems.length) {
-        setSelectedFilename(renderItems[nextIdx].filename)
+        const item = renderItems[nextIdx]
+        if (item !== undefined) {
+          setSelectedFilename(item.filename)
+        }
       }
     },
     [renderItems, selectedFilename, setSelectedFilename]
@@ -559,7 +562,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         } else if (e.key >= "1" && e.key <= "9") {
           const idx = parseInt(e.key) - 1
           if (idx < visibleImages.length) {
-            void handleSelectImage(selectedFilename, visibleImages[idx].hash)
+            const img = visibleImages[idx]
+            if (img !== undefined) {
+              void handleSelectImage(selectedFilename, img.hash)
+            }
           }
         }
       }
@@ -585,7 +591,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         setSelectedFilename(null)
         exitSelectionMode()
       } else if (selectedFilename === null && renderItems.length > 0) {
-        setSelectedFilename(renderItems[0].filename)
+        const firstItem = renderItems[0]
+        if (firstItem !== undefined) {
+          setSelectedFilename(firstItem.filename)
+        }
       }
     },
     [

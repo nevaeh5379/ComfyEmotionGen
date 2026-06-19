@@ -77,7 +77,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
     []
   )
 
-  const handleAdd = async (): Promise<boolean> => {
+  const handleAdd = async (): Promise<void> => {
     if (!newConfig.name.trim()) {
       toast.error("이름을 입력하세요.")
       return

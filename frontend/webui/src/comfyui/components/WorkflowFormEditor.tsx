@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { ComfyWorkflow } from "../../lib/workflow"
+import type { ComfyWorkflow, ComfyNode } from "../../lib/workflow"
 import type { ObjectInfo, ObjectInfoInputSpec } from "../types/renderTypes"
 import type { WorkerView } from "../types/Message"
 import { useBackendUrl } from "../hooks/useBackendUrl"
@@ -148,7 +148,6 @@ export function WorkflowFormEditor({
     })
   }, [parsedWorkflowData, searchQuery, hideReadOnly])
 
-  // Auto-fallback to select the first node in filtered list if selection is invalid or null
   const activeNodeId = useMemo(() => {
     if (
       selectedNodeId !== null &&
@@ -156,7 +155,8 @@ export function WorkflowFormEditor({
     ) {
       return selectedNodeId
     }
-    return filteredNodes.length > 0 ? filteredNodes[0][0] : null
+    const firstNode = filteredNodes[0]
+    return firstNode !== undefined ? firstNode[0] : null
   }, [selectedNodeId, filteredNodes])
 
   // Reset selected node if it falls out of activeNodeId
@@ -167,6 +167,7 @@ export function WorkflowFormEditor({
       }, 0)
       return (): void => { clearTimeout(timer) }
     }
+    return undefined
   }, [activeNodeId, selectedNodeId])
 
   // Error State: If workflow data is invalid
@@ -328,7 +329,7 @@ export function WorkflowFormEditor({
         <div className="flex-1 flex flex-col min-h-0 bg-card overflow-y-auto">
           {activeNodeId !== null && parsedWorkflowData[activeNodeId] !== undefined ? (
             (() => {
-              const node = parsedWorkflowData[activeNodeId]
+              const node = parsedWorkflowData[activeNodeId] as ComfyNode
               const allInputs = Object.entries(node.inputs)
               const literalInputs = allInputs.filter(([_, val]) => !isLink(val))
               const linkInputs = allInputs.filter(([_, val]) => isLink(val))
@@ -380,7 +381,7 @@ export function WorkflowFormEditor({
                           <WorkflowInput
                             nodeId={activeNodeId}
                             inputKey={inputKey}
-                            value={val}
+                            value={val as any}
                             spec={getNodeInputSpec(
                               objectInfo,
                               parsedWorkflowData,
@@ -434,7 +435,7 @@ export function WorkflowFormEditor({
                   )}
                 </div>
               )
-            }) as React.ReactNode
+            })()
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
               <AlertTriangle className="h-6 w-6 text-muted-foreground/50 mb-2" />

@@ -19,6 +19,7 @@ import { JobManagerPanel } from "../JobManagerPanel"
 import { StatisticsPanel } from "../StatisticsPanel"
 import { SavedImagesGallery } from "../SavedImagesGallery"
 import { CombinationPicker } from "../combinationpicker/CombinationPicker"
+import type { CurationViewMode } from "../combinationpicker/CurationToolbarTypes"
 
 import type { JobView, WorkerView, JobStatus } from "../../types/Message"
 import type { SessionMarkerRaw, ActiveStateRaw } from "../../utils/sessionUtils"
@@ -419,8 +420,9 @@ export function JobsTab({
           // 추가 도킹 패널 — snap 방향에 따라 start/end 분리
           const startExtra: PanelItem[] = []
           const endExtra: PanelItem[] = []
-          const addExtra = (item: PanelItem, side: "start" | "end"): void =>
-            (side === "start" ? startExtra : endExtra).push(item)
+          const addExtra = (item: PanelItem, side: "start" | "end"): void => {
+            ;(side === "start" ? startExtra : endExtra).push(item)
+          }
 
           if (isStatsDocked)
             addExtra(
@@ -547,7 +549,7 @@ export function JobsTab({
                           selectedAxis: curationSelectedAxis,
                           setSelectedAxis: setCurationSelectedAxis,
                           viewMode: "gallery" as const,
-                          setViewMode: (_mode: "gallery" | "grid"): void => void 0,
+                          setViewMode: (_mode: CurationViewMode): void => void 0,
                           hideTopSection: true,
                         }}
                       />

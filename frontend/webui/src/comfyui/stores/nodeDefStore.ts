@@ -34,7 +34,7 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
   setNodeDefs: (defs): void => {
     const byCategory: Record<string, ComfyNodeDef[]> = {}
     for (const def of Object.values(defs)) {
-      const category = def.category ? def.category.split("/")[0] : "Other"
+      const category = (def.category ? def.category.split("/")[0] : null) || "Other"
       byCategory[category] ??= []
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       byCategory[category].push(def)

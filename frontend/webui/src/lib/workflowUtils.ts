@@ -104,8 +104,9 @@ export const randomSelect = <T>(items: T[], count: number): T[] => {
   for (let i = 0; i < count && pool.length > 0; i++) {
     const idx = Math.floor(Math.random() * pool.length)
     const removed = pool.splice(idx, 1)
-    if (removed.length > 0) {
-      selected.push(removed[0])
+    const val = removed[0]
+    if (val !== undefined) {
+      selected.push(val)
     }
   }
   return selected

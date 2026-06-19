@@ -1,7 +1,24 @@
-import type { LiteGraphGlobal, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
+// import type { LiteGraphGlobal, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
+export type LiteGraphGlobal = any
+export type LGraph = any
+export type LGraphNode = any
+export type LGraphCanvas = any
+export type LLink = any
+export type LGraphGroup = any
+export type LGraphEventMode = any
+
+export declare const LiteGraphGlobal: any
+export declare const LGraph: any
+export declare const LGraphNode: any
+export declare const LGraphCanvas: any
+export declare const LLink: any
+export declare const LGraphGroup: any
+export declare const LGraphEventMode: any
+
 import type { ComfyApi } from "@/comfyui/api"
 import type { ComfyAppService } from "@/comfyui/services/appService"
 
+/*
 declare module "comfy-litegraph" {
   interface LGraphNode {
     addDOMWidget?(
@@ -12,8 +29,13 @@ declare module "comfy-litegraph" {
     ): WidgetType
   }
 }
+*/
 
 declare global {
+  namespace JSX {
+    type Element = import("react").JSX.Element
+  }
+
   interface AddDOMWidgetOptions {
     getValue?(): string
     setValue?(v: string): void

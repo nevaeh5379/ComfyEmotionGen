@@ -189,9 +189,11 @@ export function useJobRunner(): {
       if (m.sourceType === "image" && m.imageValue !== undefined && m.imageValue !== "") {
         imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
         const match = /^__upload__([a-f0-9]{64})\.\w+$/.exec(m.imageValue)
-        const filename = match?.[1]
-        if (filename !== undefined && filename !== "") {
-          imageUploads[match[1]] = { name: m.imageValue }
+        if (match) {
+          const filename = match[1]
+          if (filename !== undefined && filename !== "") {
+            imageUploads[filename] = { name: m.imageValue }
+          }
         }
       }
     }
@@ -457,5 +459,8 @@ export function useJobRunner(): {
     isAliveBackend,
     backendUrl,
     handleRunSingle,
+    callParser,
+    submitJobs,
+    fetchApprovedFilenames,
   }
 }

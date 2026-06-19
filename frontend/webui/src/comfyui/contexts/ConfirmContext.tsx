@@ -18,7 +18,7 @@ export interface ConfirmOptions {
   variant?: "default" | "destructive"
 }
 
-interface ConfirmContextValue {
+export interface ConfirmContextValue {
   confirm: (options: ConfirmOptions) => Promise<boolean>
 }
 

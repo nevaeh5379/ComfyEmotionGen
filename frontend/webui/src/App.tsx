@@ -43,6 +43,7 @@ import { API } from "./lib/api"
 import { STORAGE_KEYS } from "./lib/storageKeys"
 import { NAME_CONFLICT_START_NUMBER } from "./lib/constants"
 import type { NodeMapping } from "./lib/workflow"
+import type { ObjectInfo } from "./comfyui/types/renderTypes"
 import { toast } from "sonner"
 
 // ── Layout ──
@@ -333,7 +334,7 @@ function AppContent(): React.JSX.Element {
     fetch(`${backendUrl}${API.objectInfo}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data !== null && typeof data === "object") nodeMapping.setObjectInfo(data as Record<string, unknown>)
+        if (data !== null && typeof data === "object") nodeMapping.setObjectInfo(data as ObjectInfo)
       })
       .catch(() => { /* intentionally empty - fire and forget */ })
     // eslint-disable-next-line react-hooks/exhaustive-deps

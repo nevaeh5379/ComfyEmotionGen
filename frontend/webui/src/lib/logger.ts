@@ -35,6 +35,7 @@ window.onerror = (
   const msg = typeof message === "string" ? message : ((message as { type: string }).type || "unknown")
   const stack = error ? error.stack : `${source ?? "unknown"}:${String(lineno ?? 0)}:${String(colno ?? 0)}`
   reportClientError("error", `Unhandled error: ${msg}`, stack)
+  return false
 }
 
 // Global unhandled promise rejections

@@ -8,7 +8,15 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
 import { X } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
-import { LGraphEventMode } from "comfy-litegraph"
+// import { LGraphEventMode } from "comfy-litegraph"
+const LGraphEventMode = ((window as any).LiteGraph?.LGraphEventMode ?? {
+  ALWAYS: 0,
+  ON_TRIGGER: 1,
+  NEVER: 2,
+  ON_REQUEST: 3,
+  BYPASS: 4,
+}) as any
+type LGraphEventMode = any
 import type { InputSpec } from "@/comfyui/types/nodeDef"
 
 interface LiveWidget {
@@ -247,7 +255,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
         }
       }
 
-      if (outs.length === 0) {
+      if (outs.length === 0 && nodeDef) {
         for (let i = 0; i < nodeDef.output.length; i++) {
           outs.push({
             name: nodeDef.output_name[i] ?? nodeDef.output[i] ?? `out_${String(i)}`,
@@ -456,7 +464,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
                           }}
                           showLabel={false}
                           disabled={isDisabled}
-                          element={liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)?.element}
+                          element={liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)?.element ?? null}
                         />
                       )}
                     </div>
@@ -501,7 +509,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
                       getApp()?.syncGraphNode?.(id)
                     }}
                     disabled={isDisabled}
-                    element={liveNode?.widgets?.find((w: LiveWidget) => w.name === name)?.element}
+                    element={liveNode?.widgets?.find((w: LiveWidget) => w.name === name)?.element ?? null}
                   />
                 </div>
               ))}

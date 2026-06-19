@@ -2,14 +2,20 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
-import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
+// import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
+const LiteGraph = (window as any).LiteGraph
+const LGraph = (window as any).LGraph
+const LGraphNode = (window as any).LGraphNode
+const LGraphCanvas = (window as any).LGraphCanvas
+const LLink = (window as any).LLink
+const LGraphGroup = (window as any).LGraphGroup
 
-;(window as unknown as Record<string, unknown>).LiteGraph = LiteGraph
-;(window as unknown as Record<string, unknown>).LGraph = LGraph
-;(window as unknown as Record<string, unknown>).LGraphNode = LGraphNode
-;(window as unknown as Record<string, unknown>).LGraphCanvas = LGraphCanvas
-;(window as unknown as Record<string, unknown>).LLink = LLink
-;(window as unknown as Record<string, unknown>).LGraphGroup = LGraphGroup
+type LiteGraph = any
+type LGraph = any
+type LGraphNode = any
+type LGraphCanvas = any
+type LLink = any
+type LGraphGroup = any
 ;(window as unknown as Record<string, unknown>).comfyExtensions ??= []
 
 // LocalStorage 오염 복구 가드 및 런타임 후킹
@@ -154,8 +160,8 @@ const addDOMWidgetFn = function (
   return widget
 }
 
-;(LGraphNode as unknown as Record<string, unknown>).prototype ??= {}
-;(LGraphNode as unknown as Record<string, unknown>).prototype.addDOMWidget = addDOMWidgetFn
+;(LGraphNode as any).prototype ??= {}
+;(LGraphNode as any).prototype.addDOMWidget = addDOMWidgetFn
 
 // LiteGraph color palettes stub
 const liteGraph = window.LiteGraph as unknown as Record<string, unknown>

@@ -37,7 +37,7 @@ export function ImageViewer({
   onClose,
   alt,
   children,
-}: ImageViewerProps): React.JSX.Element {
+}: ImageViewerProps): React.JSX.Element | null {
   /* ---- 1. Refs & State ---- */
   const zoomRef = useRef(MIN_ZOOM)
   const panRef = useRef({ x: 0, y: 0 })

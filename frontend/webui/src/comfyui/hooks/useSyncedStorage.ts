@@ -158,7 +158,7 @@ export function useSyncedStorage<T>(
     return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
   }, [key, deserialize, handlePendingConflict, serialize])
 
-  useEffect((): (() => void) | undefined => {
+  useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true
       return

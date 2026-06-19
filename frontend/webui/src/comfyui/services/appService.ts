@@ -6,6 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
+/*
 import {
   LGraph,
   LGraphCanvas,
@@ -15,6 +16,20 @@ import {
   type Point,
   type ISerialisedNode,
 } from "comfy-litegraph"
+*/
+const LGraph = (window as any).LGraph
+const LGraphCanvas = (window as any).LGraphCanvas
+const LGraphNode = (window as any).LGraphNode
+const LGraphGroup = (window as any).LGraphGroup
+const LiteGraph = (window as any).LiteGraph
+type LGraph = any
+type LGraphCanvas = any
+type LGraphNode = any
+type LGraphGroup = any
+type LiteGraph = any
+type Point = [number, number]
+type ISerialisedNode = any
+
 import type {
   ComfyWorkflowJSON,
   ComfyApiWorkflow,
@@ -184,7 +199,7 @@ export class ComfyAppService {
       // Inputs
       if (nodeData.inputs !== undefined) {
         for (const input of nodeData.inputs) {
-          const slot = node.inputs.find((s) => s.name === input.name)
+          const slot = node.inputs.find((s: any) => s.name === input.name)
           if (slot !== undefined) {
             slot.link = input.link ?? null
           }
@@ -194,7 +209,7 @@ export class ComfyAppService {
       // Outputs
       if (nodeData.outputs !== undefined) {
         for (const output of nodeData.outputs) {
-          const slot = node.outputs.find((s) => s.name === output.name)
+          const slot = node.outputs.find((s: any) => s.name === output.name)
           if (slot !== undefined) {
             slot.links = output.links ?? null
           }
@@ -308,7 +323,7 @@ export class ComfyAppService {
       }
 
       if (n.inputs.length > 0) {
-        nodeData.inputs = n.inputs.map((input) => ({
+        nodeData.inputs = n.inputs.map((input: any) => ({
           name: input.name,
           type: input.type as string,
           link: input.link ?? undefined,
@@ -316,7 +331,7 @@ export class ComfyAppService {
       }
 
       if (n.outputs.length > 0) {
-        nodeData.outputs = n.outputs.map((output, i) => ({
+        nodeData.outputs = n.outputs.map((output: any, i: number) => ({
           name: output.name,
           type: output.type as string,
           links: (output.links !== null && output.links.length > 0) ? output.links : undefined,
@@ -325,7 +340,7 @@ export class ComfyAppService {
       }
 
       if (n.widgets !== undefined) {
-        nodeData.widgets_values = n.widgets.map((w) => w.value)
+        nodeData.widgets_values = n.widgets.map((w: any) => w.value)
       }
 
       if (n.color !== undefined) nodeData.color = n.color
@@ -345,7 +360,7 @@ export class ComfyAppService {
       })
     }
 
-    const groups = this.graph.groups.map((g) => ({
+    const groups = this.graph.groups.map((g: any) => ({
       title: g.title,
       bounding: [g.pos[0], g.pos[1], g.size[0], g.size[1]] as [number, number, number, number],
       color: g.color,

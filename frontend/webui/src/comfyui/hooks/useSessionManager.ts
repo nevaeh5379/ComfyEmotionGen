@@ -94,7 +94,8 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
     () => {
       const sorted = [...initialMarkers].sort((a, b) => b.startAt - a.startAt)
       if (activeState.activeSessionId !== "") return activeState.activeSessionId
-      if (sorted.length > 0) return sorted[0].id
+      const first = sorted[0]
+      if (first !== undefined) return first.id
       return ""
     }
   )

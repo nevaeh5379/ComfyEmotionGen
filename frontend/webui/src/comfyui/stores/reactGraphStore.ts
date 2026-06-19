@@ -15,7 +15,8 @@ import type {
 } from "../types/workflow"
 import type { ComfyNodeDef } from "../types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
-import { LiteGraph } from "comfy-litegraph"
+// import { LiteGraph } from "comfy-litegraph"
+const LiteGraph = (window as any).LiteGraph
 
 interface LiveWidget {
   name: string;
@@ -245,8 +246,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
             }
           }
           for (let i = 0; i < def.output.length; i++) {
-            const outType = def.output[i]
-            const outName = def.output_name[i] ?? outType
+            const outType = def.output[i] ?? "*"
+            const outName = (def.output_name ? def.output_name[i] : null) ?? outType
             liveNode.addOutput(outName, outType)
           }
           if (def.input?.required) {
@@ -355,7 +356,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
         } else {
           inputs.push({
             name,
-            type: typeSpec,
+            type: Array.isArray(typeSpec) ? "COMBO" : typeSpec,
           })
         }
       }
@@ -407,7 +408,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     )
 
     const nextSelected = new Set(selectedNodeIds)
-    ids.forEach((id: number): void => nextSelected.delete(id))
+    ids.forEach((id: number): void => { nextSelected.delete(id); })
 
     const cleanedNodes = filteredNodes.map((node: ComfyWorkflowNode): ComfyWorkflowNode => {
       const nextInputs = node.inputs?.map((input: ComfyNodeInput): ComfyNodeInput => {

@@ -40,7 +40,7 @@ export function WorkflowInput({
 
   const enumOptions = Array.isArray(spec?.[0]) ? spec[0] : null
   const typeStr = typeof spec?.[0] === "string" ? spec[0] : null
-  const extraParams = spec?.[1] ?? undefined
+  const extraParams = spec?.[1] ?? {}
 
   // 1. Boolean input
   const isBoolean = typeStr === "BOOLEAN" || typeof value === "boolean"
@@ -70,7 +70,7 @@ export function WorkflowInput({
   if (enumOptions) {
     return (
       <Select
-        value={typeof localValue === "string" ? localValue : (localValue as string)}
+        value={typeof localValue === "string" ? localValue : String(localValue)}
         onValueChange={(val) => {
           setLocalValue(val)
           onSave(val)
@@ -131,7 +131,7 @@ export function WorkflowInput({
     return (
       <Input
         type="number"
-        value={typeof localValue === "number" ? localValue : (localValue as string)}
+        value={localValue as any}
         onChange={(e) => {
           const val = e.target.value
           setLocalValue(val === "" ? "" : val)
@@ -167,7 +167,7 @@ export function WorkflowInput({
   if (isMultiline) {
     return (
       <Textarea
-        value={typeof localValue === "string" ? localValue : (localValue as string)}
+        value={typeof localValue === "string" ? localValue : String(localValue)}
         onChange={(e) => { setLocalValue(e.target.value); }}
         onBlur={handleTextBlurOrSubmit}
         placeholder="텍스트 입력..."
@@ -179,7 +179,7 @@ export function WorkflowInput({
   return (
     <Input
       type="text"
-      value={typeof localValue === "string" ? localValue : (localValue as string)}
+      value={typeof localValue === "string" ? localValue : String(localValue)}
       onChange={(e) => { setLocalValue(e.target.value); }}
       onBlur={handleTextBlurOrSubmit}
       onKeyDown={(e) => {

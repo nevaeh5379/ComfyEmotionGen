@@ -25,8 +25,9 @@ function resolveCommit(): string {
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: [
-    ]
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
   },
   optimizeDeps: {
     entries: [

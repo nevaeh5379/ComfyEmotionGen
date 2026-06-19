@@ -124,7 +124,7 @@ export function ThemeProvider({
       if (aborted || !serverTheme) return
       setThemeState(serverTheme)
     })
-    return (): (() => void) => {
+    return () => {
       aborted = true
     }
   }, [storageKey])
@@ -170,7 +170,7 @@ export function ThemeProvider({
 
     mediaQuery.addEventListener("change", handleChange)
 
-    return (): (() => void) => {
+    return () => {
       mediaQuery.removeEventListener("change", handleChange)
     }
   }, [theme, applyTheme])
@@ -210,7 +210,7 @@ export function ThemeProvider({
 
     window.addEventListener("keydown", handleKeyDown)
 
-    return (): (() => void) => {
+    return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [storageKey])
@@ -235,7 +235,7 @@ export function ThemeProvider({
 
     window.addEventListener("storage", handleStorageChange)
 
-    return (): (() => void) => {
+    return () => {
       window.removeEventListener("storage", handleStorageChange)
     }
   }, [defaultTheme, storageKey])
@@ -255,7 +255,7 @@ export function ThemeProvider({
   )
 }
 
-export const useTheme = (): Theme => {
+export const useTheme = (): ThemeProviderState => {
   const context = React.useContext(ThemeProviderContext)
 
   if (context === undefined) {

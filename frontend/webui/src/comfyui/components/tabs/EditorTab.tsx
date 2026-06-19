@@ -141,7 +141,7 @@ export function EditorTab(): React.JSX.Element {
               return l
             })
           }
-          setCurrentWorkflow(workflow as ComfyWorkflowJSON)
+          setCurrentWorkflow(workflow as unknown as ComfyWorkflowJSON)
         } catch (err) {
           console.error("[EditorTab] Failed to import workflow file:", err)
           alert("워크플로우 파일을 불러오는데 실패했습니다. 올바른 JSON 파일인지 확인해주세요.")
