@@ -18,7 +18,7 @@ interface QuickTestPopoverProps {
   onToggleFavorite: (key: string) => void
 }
 
-function substitute(text: string, item: RenderItem) {
+function substitute(text: string, item: RenderItem): string {
   let r = text || ""
   Object.entries(item.meta).forEach(([k, v]) => {
     r = r.split(`{{${k}}}`).join(v)
@@ -37,7 +37,7 @@ export function QuickTestPopover({
   favoriteCombinations,
   onRunTest,
   onToggleFavorite,
-}: QuickTestPopoverProps) {
+}: QuickTestPopoverProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
 
@@ -67,7 +67,7 @@ export function QuickTestPopover({
   const favorites = useMemo(() => filteredItems.filter((item) => favoriteCombinations.has(itemKey(item))), [filteredItems, favoriteCombinations])
   const others = useMemo(() => filteredItems.filter((item) => !favoriteCombinations.has(itemKey(item))), [filteredItems, favoriteCombinations])
 
-  const handleSelect = (item: RenderItem) => {
+  const handleSelect = (item: RenderItem): void => {
     setOpen(false)
     onRunTest(item)
   }
@@ -125,7 +125,7 @@ export function QuickTestPopover({
   )
 }
 
-function ItemRow({ item, isFavorite, onSelect, onToggleFavorite }: { item: RenderItem; isFavorite: boolean; onSelect: () => void; onToggleFavorite: () => void }) {
+function ItemRow({ item, isFavorite, onSelect, onToggleFavorite }: { item: RenderItem; isFavorite: boolean; onSelect: () => void; onToggleFavorite: () => void }): React.JSX.Element {
   return (
     <div className="flex w-full items-start gap-1 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent group">
       <button onClick={onSelect} className="flex-1 flex flex-col gap-1 items-start text-left">

@@ -75,7 +75,7 @@ export const useSavedImages = (
   const [error, setError] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
-  const urlToUse = backendUrl || DEFAULT_BACKEND_URL
+  const urlToUse = backendUrl ?? DEFAULT_BACKEND_URL
 
   // ── Refs for latest values ────────────────────────────────────────
   const groupModeRef = useLatestRef(groupMode)
@@ -90,12 +90,12 @@ export const useSavedImages = (
   const groupTotalRef = useLatestRef(groupTotal)
 
   // ── Async internals (no useCallback) ─────────────────────────────
-  const fetchImagesInternal = async (silent = false) => {
+  const fetchImagesInternal = async (silent?: boolean): Promise<void> => {
     if (groupModeRef.current) return
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
-    if (!silent) setLoading(true)
+    if (silent === true) setLoading(true)
     setError(null)
     try {
       const offset = Math.max(0, (pageRef.current - 1) * pageSizeRef.current)
@@ -103,13 +103,13 @@ export const useSavedImages = (
         limit: String(pageSizeRef.current),
         offset: String(offset),
       })
-      if (statusRef.current && statusRef.current !== "all") params.set("status", statusRef.current)
-      if (filenameRef.current) params.set("filename", filenameRef.current)
-      if (tagRef.current) params.set("tag", tagRef.current)
-      const res = await fetch(`${urlToUseRef.current}${API.savedImages.root}?${params}`, {
+      if (statusRef.current !== "all") params.set("status", statusRef.current)
+      if (filenameRef.current !== "") params.set("filename", filenameRef.current)
+      if (tagRef.current !== "") params.set("tag", tagRef.current)
+      const res = await fetch(`${urlToUseRef.current}${API.savedImages.root}?${params.toString()}`, {
         signal: ac.signal,
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       const data = (await res.json()) as {
         items: SavedImage[]
         total?: number
@@ -120,16 +120,16 @@ export const useSavedImages = (
       if ((err as Error).name === "AbortError") return
       setError((err as Error).message)
     } finally {
-      if (!silent) setLoading(false)
+      if (silent !== true) setLoading(false)
     }
   }
 
-  const fetchGroupsInternal = async (silent = false) => {
+  const fetchGroupsInternal = async (silent?: boolean): Promise<void> => {
     if (!groupModeRef.current) return
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
-    if (!silent) setLoading(true)
+    if (silent === true) setLoading(true)
     setError(null)
     try {
       const offset = Math.max(0, (groupPageRef.current - 1) * groupPageSizeRef.current)
@@ -138,10 +138,10 @@ export const useSavedImages = (
         offset: String(offset),
         sort: "latest",
       })
-      const res = await fetch(`${urlToUseRef.current}${API.assetGroups.root}?${params}`, {
+      const res = await fetch(`${urlToUseRef.current}${API.assetGroups.root}?${params.toString()}`, {
         signal: ac.signal,
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       const data = (await res.json()) as {
         groups: AssetGroup[]
         limit: number
@@ -157,18 +157,18 @@ export const useSavedImages = (
         // 다음 페이지가 있을 수 있으므로 여유 있게
         setGroupTotal(Math.max(groupTotalRef.current, offset + data.groups.length + 1))
       }
-    } catch (err) {
+    } catch (err: unknown) {
       if ((err as Error).name === "AbortError") return
       setError((err as Error).message)
     } finally {
-      if (!silent) setLoading(false)
+      if (silent !== true) setLoading(false)
     }
   }
 
   const fetchGroupImagesInternal = async (
     filenames: string[],
     currentStatus: CurationStatus | "all" | undefined
-  ) => {
+  ): Promise<void> => {
     if (!groupModeRef.current || filenames.length === 0) return
     const newMap = new Map<string, SavedImage[]>()
     const statusParam =
@@ -180,13 +180,14 @@ export const useSavedImages = (
         const res = await fetch(
           `${urlToUseRef.current}${API.assetGroups.detail(fn)}${statusParam}`
         )
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
         const data = (await res.json()) as {
           filename: string
           items: SavedImage[]
         }
         newMap.set(fn, data.items)
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error(`fetch group images failed for ${fn}`, err)
         toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
         newMap.set(fn, [])
@@ -198,29 +199,32 @@ export const useSavedImages = (
 
   // ── Sync callbacks (call async internals) ────────────────────────
   const fetchImages = useCallback(
-    (silent = false) => fetchImagesInternal(silent),
+    (silent?: boolean): Promise<void> => fetchImagesInternal(silent),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 
   const fetchGroups = useCallback(
-    (silent = false) => fetchGroupsInternal(silent),
+    (silent?: boolean): Promise<void> => fetchGroupsInternal(silent),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 
   const fetchGroupImages = useCallback(
-    (filenames: string[], currentStatus: CurationStatus | "all" | undefined) =>
+    (filenames: string[], currentStatus: CurationStatus | "all" | undefined): Promise<void> =>
       fetchGroupImagesInternal(filenames, currentStatus),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 
   // ──── 메인 effect ────
   useEffectLog(
     "이미지 fetch",
-    () => {
+    (): void => {
       if (groupMode) {
-        fetchGroups(false)
+        void fetchGroups(false)
       } else {
-        fetchImages(false)
+        void fetchImages(false)
       }
     },
     [fetchImages, fetchGroups, groupMode]
@@ -228,19 +232,20 @@ export const useSavedImages = (
 
   // 그룹 목록이 바뀌면 이미지 fetch
   // (fetchGroupImages는 내부적으로 setState를 호출하는 비동기 함수)
-  useEffect(() => {
+  useEffect((): void => {
     if (groupMode && groups.length > 0) {
       const filenames = groups.map((g) => g.filename)
-       
-      fetchGroupImages(filenames, status)
+
+      void fetchGroupImages(filenames, status)
     } else if (groups.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGroupImagesMap(new Map())
     }
   }, [groups, groupMode, fetchGroupImages, status])
 
   // ──── Global WebSocket 이벤트를 ceg-image-event를 통해 수신 → 백그라운드 silent 갱신 ────
-  useEffect(() => {
-    const handleImageEvent = (e: Event) => {
+  useEffect((): (() => void) | undefined => {
+    const handleImageEvent = (e: Event): void => {
       const event = (e as CustomEvent).detail as BackendEvent
       if (
         event.type === "image.saved" ||
@@ -248,9 +253,9 @@ export const useSavedImages = (
         event.type === "image.deleted"
       ) {
         if (groupMode) {
-          fetchGroups(true)
+          void fetchGroups(true)
         } else {
-          fetchImages(true)
+          void fetchImages(true)
         }
       }
     }
@@ -300,7 +305,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ status }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async patchNote(
     backendUrl: string,
@@ -312,7 +317,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ note }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async addTags(
     backendUrl: string,
@@ -324,7 +329,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ tags }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async removeTag(
     backendUrl: string,
@@ -334,19 +339,19 @@ export const curationApi = {
     const res = await fetch(`${backendUrl}${API.savedImages.tag(hash, tag)}`, {
       method: "DELETE",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async restore(backendUrl: string, hash: string): Promise<void> {
     const res = await fetch(`${backendUrl}${API.savedImages.restore(hash)}`, {
       method: "POST",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async emptyTrash(backendUrl: string): Promise<number> {
     const res = await fetch(`${backendUrl}${API.trash.empty}`, {
       method: "POST",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const data = (await res.json()) as { deleted: number }
     return data.deleted
   },
@@ -364,7 +369,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify(body),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -385,7 +390,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ hashes }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const data = (await res.json()) as { results: Record<string, string[]> }
     return data.results
   },
@@ -396,7 +401,7 @@ export const curationApi = {
     const res = await fetch(`${cleanUrl}/saved-images/auto-tags/empty`, {
       method: "POST",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const data = (await res.json()) as { results: Record<string, string[]> }
     return data.results
   },

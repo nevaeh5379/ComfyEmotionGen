@@ -21,10 +21,10 @@ export const PresetSelectionDialog = ({
   onClose,
   onSelectPreset,
   onStartWithoutMapping,
-}: PresetSelectionDialogProps) => (
+}: PresetSelectionDialogProps): React.JSX.Element => (
   <Dialog
     open={pendingWorkflow !== null}
-    onOpenChange={(open) => {
+    onOpenChange={(open): void => {
       if (!open) onClose()
     }}
   >

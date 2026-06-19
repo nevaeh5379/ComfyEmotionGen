@@ -9,13 +9,13 @@ const Breadcrumb = React.forwardRef<
   React.ComponentPropsWithoutRef<"nav"> & {
     separator?: React.ReactNode
   }
->(({ ...props }, ref) => <nav ref={ref} aria-label="breadcrumb" {...props} />)
+>(({ ...props }, ref): React.JSX.Element => <nav ref={ref} aria-label="breadcrumb" {...props} />)
 Breadcrumb.displayName = "Breadcrumb"
 
 const BreadcrumbList = React.forwardRef<
   HTMLOListElement,
   React.ComponentPropsWithoutRef<"ol">
->(({ className, ...props }, ref) => (
+>(({ className, ...props }, ref): React.JSX.Element => (
   <ol
     ref={ref}
     className={cn(
@@ -30,7 +30,7 @@ BreadcrumbList.displayName = "BreadcrumbList"
 const BreadcrumbItem = React.forwardRef<
   HTMLLIElement,
   React.ComponentPropsWithoutRef<"li">
->(({ className, ...props }, ref) => (
+>(({ className, ...props }, ref): React.JSX.Element => (
   <li
     ref={ref}
     className={cn("inline-flex items-center gap-1.5", className)}
@@ -44,8 +44,8 @@ const BreadcrumbLink = React.forwardRef<
   React.ComponentPropsWithoutRef<"a"> & {
     asChild?: boolean
   }
->(({ asChild, className, ...props }, ref) => {
-  const Comp = asChild ? Slot.Root : "a"
+>(({ asChild, className, ...props }, ref): React.JSX.Element => {
+  const Comp = asChild === true ? Slot.Root : "a"
 
   return (
     <Comp
@@ -63,7 +63,7 @@ BreadcrumbLink.displayName = "BreadcrumbLink"
 const BreadcrumbPage = React.forwardRef<
   HTMLSpanElement,
   React.ComponentPropsWithoutRef<"span">
->(({ className, ...props }, ref) => (
+>(({ className, ...props }, ref): React.JSX.Element => (
   <span
     ref={ref}
     role="link"
@@ -79,7 +79,7 @@ const BreadcrumbSeparator = ({
   children,
   className,
   ...props
-}: React.ComponentProps<"li">) => (
+}: React.ComponentProps<"li">): React.JSX.Element => (
   <li
     role="presentation"
     aria-hidden="true"
@@ -94,7 +94,7 @@ BreadcrumbSeparator.displayName = "BreadcrumbSeparator"
 const BreadcrumbEllipsis = ({
   className,
   ...props
-}: React.ComponentProps<"span">) => (
+}: React.ComponentProps<"span">): React.JSX.Element => (
   <span
     role="presentation"
     aria-hidden="true"

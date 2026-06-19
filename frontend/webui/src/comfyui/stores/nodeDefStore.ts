@@ -31,17 +31,18 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  setNodeDefs: (defs) => {
+  setNodeDefs: (defs): void => {
     const byCategory: Record<string, ComfyNodeDef[]> = {}
     for (const def of Object.values(defs)) {
-      const category = def.category?.split("/")[0] || "Other"
-      if (!byCategory[category]) byCategory[category] = []
+      const category = def.category ? def.category.split("/")[0] : "Other"
+      byCategory[category] ??= []
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       byCategory[category].push(def)
     }
     set({ nodeDefs: defs, nodeDefsByCategory: byCategory })
   },
 
-  getNodeDef: (type) => {
+  getNodeDef: (type): ComfyNodeDef | undefined => {
     const defs = get().nodeDefs
     // 1. Exact match
     if (defs[type]) return defs[type]
@@ -65,8 +66,8 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
     return undefined
   },
 
-  setShowDeprecated: (showDeprecated) => { set({ showDeprecated }); },
-  setShowExperimental: (showExperimental) => { set({ showExperimental }); },
-  setLoading: (isLoading) => { set({ isLoading }); },
-  setError: (error) => { set({ error }); },
+  setShowDeprecated: (showDeprecated): void => { set({ showDeprecated }); },
+  setShowExperimental: (showExperimental): void => { set({ showExperimental }); },
+  setLoading: (isLoading): void => { set({ isLoading }); },
+  setError: (error): void => { set({ error }); },
 }))

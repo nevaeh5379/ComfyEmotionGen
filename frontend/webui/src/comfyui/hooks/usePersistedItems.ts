@@ -20,8 +20,8 @@ export function usePersistedItems<T>(
   const lastSavedVersionRef = useRef(0)
   const effectVersionRef = useRef(0)
 
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
+  useEffect((): (() => void) | undefined => {
+    const onStorage = (e: StorageEvent): void => {
       if (e.key === storageKey) setItems(loadFn())
     }
     window.addEventListener("storage", onStorage)
@@ -29,14 +29,14 @@ export function usePersistedItems<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    const onReady = (e: Event) => {
+  useEffect((): (() => void) | undefined => {
+    const onReady = (e: Event): void => {
       const all = (e as CustomEvent<Record<string, string>>).detail
       const raw = all[storageKey]
       if (raw === undefined) return
       try {
         setItems(JSON.parse(raw) as T[])
-      } catch (err) {
+      } catch (err: unknown) {
         console.warn(`usePersistedItems: ${storageKey} 파싱 실패:`, err)
       }
     }
@@ -44,8 +44,8 @@ export function usePersistedItems<T>(
     return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
   }, [storageKey])
 
-  useEffect(() => {
-    const onUpdated = (e: Event) => {
+  useEffect((): (() => void) | undefined => {
+    const onUpdated = (e: Event): void => {
       const { key: updatedKey, value: raw } = (
         e as CustomEvent<SettingsUpdatedDetail>
       ).detail
@@ -53,7 +53,7 @@ export function usePersistedItems<T>(
       try {
         const nextValue = raw === null ? [] : (JSON.parse(raw) as T[])
         setItems(nextValue)
-      } catch (err) {
+      } catch (err: unknown) {
         console.warn(`usePersistedItems: ${storageKey} 업데이트 파싱 실패:`, err)
       }
     }
@@ -82,7 +82,7 @@ export function usePersistedItems<T>(
       } else {
         clearSyncQueueFor(storageKey)
       }
-    }).catch((err) => { console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err); })
+    }).catch((err: unknown) => { console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err); })
   }, [storageKey])
 
   return { items, persist }

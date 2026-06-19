@@ -31,7 +31,7 @@ export const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
   const clipNode =
     Object.entries(workflow).find(([, n]) => {
       if (n.class_type !== "CLIPTextEncode") return false
-      const title = (n._meta?.title || "").toLowerCase()
+      const title = n._meta?.title ?? ""
       return title.includes("positive") || title.includes("prompt")
     }) ??
     Object.entries(workflow).find(([, n]) => n.class_type === "CLIPTextEncode")
@@ -72,7 +72,7 @@ export const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
           nodeId,
           inputKey,
           sourceType: "seed",
-          seedValue: Number(value),
+          seedValue: value,
           seedRandom: true,
         })
     })
@@ -103,7 +103,10 @@ export const randomSelect = <T>(items: T[], count: number): T[] => {
   const selected: T[] = []
   for (let i = 0; i < count && pool.length > 0; i++) {
     const idx = Math.floor(Math.random() * pool.length)
-    selected.push(pool.splice(idx, 1)[0]!)
+    const removed = pool.splice(idx, 1)
+    if (removed.length > 0) {
+      selected.push(removed[0])
+    }
   }
   return selected
 }
@@ -113,7 +116,7 @@ export const filterByItem = (
   setFilter: React.Dispatch<
     React.SetStateAction<Record<string, Record<string, boolean>>>
   >
-) => {
+): void => {
   setFilter((prev) => {
     const next: Record<string, Record<string, boolean>> = {}
     for (const axis of Object.keys(prev)) {
@@ -121,9 +124,12 @@ export const filterByItem = (
       if (itemValue === undefined) {
         next[axis] = { ...prev[axis] }
       } else {
-        next[axis] = Object.fromEntries(
-          Object.keys(prev[axis]!).map((v) => [v, v === itemValue])
-        )
+        const axisValues = prev[axis]
+        if (axisValues) {
+          next[axis] = Object.fromEntries(
+            Object.keys(axisValues).map((v) => [v, v === itemValue])
+          )
+        }
       }
     }
     return next
@@ -149,15 +155,15 @@ export const buildWorkflowForItem = (
           workflow[nodeId].inputs[inputKey] = item.filename
           break
         case "seed": {
-          const v = seedRandom
-            ? Math.floor(Math.random() * MAX_RANDOM_SEED)
-            : (seedValue ?? 0)
+      const v = seedRandom === true
+        ? Math.floor(Math.random() * MAX_RANDOM_SEED)
+        : (seedValue ?? 0)
           workflow[nodeId].inputs[inputKey] = v
           break
         }
         case "image": {
           const name = imageNameMap[`${nodeId}.${inputKey}`]
-          if (name) {
+          if (name !== undefined && name !== "") {
             workflow[nodeId].inputs[inputKey] = name
           }
           break

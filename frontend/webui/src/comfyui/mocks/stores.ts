@@ -1,18 +1,18 @@
 export function useWidgetValueStore() {
   return {
-    clearGraph: () => {},
-    registerWidget: (id: string, config: any) => ({}),
-    deleteWidget: (id: string) => {},
-    setValue: (id: string, value: any) => {},
-    getWidget: (id: string) => undefined,
+    clearGraph: () => { /* no-op */ },
+    registerWidget: (_id: string, _config: unknown) => ({ /* no-op */ }),
+    deleteWidget: (_id: string) => { /* no-op */ },
+    setValue: (_id: string, _value: unknown) => { /* no-op */ },
+    getWidget: (_id: string) => undefined,
   };
 }
 
 export function usePreviewExposureStore() {
   return {
-    clearGraph: () => {},
+    clearGraph: () => { /* no-op */ },
     getExposures: () => [],
-    addExposure: () => {},
-    removeExposure: () => {},
+    addExposure: () => { /* no-op */ },
+    removeExposure: () => { /* no-op */ },
   };
 }

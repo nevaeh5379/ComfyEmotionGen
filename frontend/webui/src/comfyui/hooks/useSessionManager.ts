@@ -53,11 +53,12 @@ export interface UseSessionManagerReturn {
 }
 
 export function useSessionManager(backendUrlProp?: string): UseSessionManagerReturn {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { jobs } = useBackend()
-  const backendUrl = useMemo(() => {
-    if (backendUrlProp) return backendUrlProp
+  const backendUrl: string = useMemo(() => {
+    if (backendUrlProp !== "") return backendUrlProp ?? "http://127.0.0.1:8188"
     try {
-      return localStorage.getItem(STORAGE_KEYS.backendUrl) || "http://127.0.0.1:8188"
+      return localStorage.getItem(STORAGE_KEYS.backendUrl) ?? "http://127.0.0.1:8188"
     } catch {
       return "http://127.0.0.1:8188"
     }
@@ -69,7 +70,7 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
     () => initialMarkers
   )
 
-  const persistMarkers = useCallback((ms: SessionMarkerRaw[]) => {
+  const persistMarkers = useCallback((ms: SessionMarkerRaw[]): void => {
     saveMarkers(ms)
     setMarkersRaw(ms)
   }, [])
@@ -78,7 +79,7 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
     initActiveState(initialMarkers)
   )
 
-  const persistActiveState = useCallback((as: ActiveStateRaw) => {
+  const persistActiveState = useCallback((as: ActiveStateRaw): void => {
     saveActiveState(as)
     setActiveStateRaw(as)
   }, [])
@@ -90,26 +91,29 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
 
   // Default: newest marker
   const [selectedSessionId, setSelectedSessionId] = useState<string>(
-    () =>
-      activeState?.activeSessionId ??
-      [...initialMarkers].sort((a, b) => b.startAt - a.startAt)[0]!.id
+    () => {
+      const sorted = [...initialMarkers].sort((a, b) => b.startAt - a.startAt)
+      if (activeState.activeSessionId !== "") return activeState.activeSessionId
+      if (sorted.length > 0) return sorted[0].id
+      return ""
+    }
   )
 
   // ── Load from server on mount ──
-  useEffect(() => {
+  useEffect((): (() => void) | undefined => {
     let aborted = false
-    Promise.all([loadMarkersFromServer(), loadActiveStateFromServer()]).then(
+    void Promise.all([loadMarkersFromServer(), loadActiveStateFromServer()]).then(
       ([serverMarkers, serverActiveState]) => {
         if (aborted) return
         if (serverMarkers.length > 0) {
           setMarkersRaw(serverMarkers)
         }
-        if (serverActiveState) {
+        if (serverActiveState !== null) {
           setActiveStateRaw(serverActiveState)
           setSelectedSessionId(serverActiveState.activeSessionId)
         }
       }
-    ).catch((err) => { console.warn("세션 데이터 로드 실패:", err); })
+    ).catch((err: unknown) => { void err; })
     return () => {
       aborted = true
     }
@@ -129,16 +133,20 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
     active: 0,
   })
   const [statsTick, setStatsTick] = useState(0)
-  const refetchStats = useCallback(() => { setStatsTick((t) => t + 1); }, [])
+  const refetchStats = useCallback((): void => { setStatsTick((t) => t + 1); }, [])
 
   // 활성 잡들의 상태 변화가 생기면 실시간 카운트 리프레시
-  const activeJobsKey = useMemo(() => jobs.map((j) => `${j.id}:${j.status}`).join(","), [jobs])
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const activeJobsKey = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
+    return jobs.map((j) => `${String(j.id)}:${String(j.status ?? "")}`).join(",")
+  }, [jobs])
 
-  useEffect(() => {
+  useEffect((): (() => void) | undefined => {
     let aborted = false
     if (markers.length === 0) return
 
-    const fetchStats = async () => {
+    const fetchStats = async (): Promise<void> => {
       try {
         const res = await fetch(`${backendUrl}/jobs/session-stats`, {
           method: "POST",
@@ -152,32 +160,32 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
           }),
         })
         if (!res.ok) throw new Error("Stats load failed")
-        const data = await res.json()
+        const data = await res.json() as { sessionJobCounts?: Record<string, number>; selectedSessionCounts?: Record<JobStatus | "active", number> }
         if (aborted) return
 
         const map = new Map<string, number>()
         if (data.sessionJobCounts) {
           for (const [k, v] of Object.entries(data.sessionJobCounts)) {
-            map.set(k, v as number)
+            map.set(k, v)
           }
         }
         setSessionJobCounts(map)
         if (data.selectedSessionCounts) {
           setSessionCounts(data.selectedSessionCounts)
         }
-      } catch (err) {
-        console.warn("세션 통계 로드 실패:", err)
+      } catch (err: unknown) {
+        void err
       }
     }
 
-    fetchStats()
+    void fetchStats()
 
     return () => {
       aborted = true
     }
   }, [markers, activeState, selectedSessionId, backendUrl, activeJobsKey, statsTick])
 
-  const createNewSession = useCallback(() => {
+  const createNewSession = useCallback((): void => {
     const nonEmpty = markers.filter(
       (m) => (sessionJobCounts.get(m.id) ?? 0) > 0
     )

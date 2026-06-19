@@ -1494,21 +1494,21 @@ export function Header(props: HeaderProps): JSX.Element {
               </Tooltip>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => { setTheme("light"); }}
+                  onClick={() => { (setTheme as (t: string) => void)("light"); }}
                   className="gap-2"
                 >
                   <Sun className="h-4 w-4" />
                   라이트
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => { setTheme("dark"); }}
+                  onClick={() => { (setTheme as (t: string) => void)("dark"); }}
                   className="gap-2"
                 >
                   <Moon className="h-4 w-4" />
                   다크
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => { setTheme("system"); }}
+                  onClick={() => { (setTheme as (t: string) => void)("system"); }}
                   className="gap-2"
                 >
                   <Monitor className="h-4 w-4" />

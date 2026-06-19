@@ -53,7 +53,7 @@ declare global {
 
   interface ExtensionManager {
     command: {
-      commands: Array<{ id: string }>
+      commands: { id: string }[]
     }
     registerExtension?(ext: unknown): void
   }
@@ -115,9 +115,9 @@ declare global {
       applyTextReplacements(node: unknown, text: string): string
     }
     ui: {
-      ComfyDialog: { new(): Record<string, never> }
+      ComfyDialog: new () => Record<string, never>
       $el: (tag: string, attrs: Record<string, unknown> | null, children?: unknown) => HTMLElement
-      ComfyUI: { new(): Record<string, never> }
+      ComfyUI: new () => Record<string, never>
     }
     widgets: {
       updateControlWidgetLabel(): void
@@ -128,15 +128,15 @@ declare global {
       isValidWidgetType(): void
     }
     widgetInputs: {
-      PrimitiveNode: { new(): Record<string, never> }
+      PrimitiveNode: new () => Record<string, never>
       getWidgetConfig(): Record<string, unknown>
       convertToInput(): void
       setWidgetConfig(): void
       mergeIfValid(): void
     }
     groupNode: {
-      GroupNodeConfig: { new(): Record<string, never>; registerFromWorkflow(): Promise<void> }
-      GroupNodeHandler: { new(): Record<string, never> }
+        GroupNodeConfig: new () => Record<string, never> & { registerFromWorkflow(): Promise<void> }
+        GroupNodeHandler: new () => Record<string, never>
     }
     pnginfo: {
       getPngMetadata(): Promise<Record<string, unknown>>
@@ -159,9 +159,9 @@ declare global {
     addStylesheet: (url: string) => HTMLLinkElement
     getUrl: (path: string, base?: string | URL) => string
     ComfyWidgets: ComfyWidgetsAPI
-    ComfyApp: { new(): Record<string, never> }
-    ComfyDialog: { new(): Record<string, never> }
-    ClipspaceDialog: { new(): Record<string, never>; registerButton?(): void }
+    ComfyApp: new () => Record<string, never>
+    ComfyDialog: new () => Record<string, never>
+    ClipspaceDialog: new () => Record<string, never> & { registerButton?: () => void }
     isBeforeFrontendVersion: () => boolean
     comfyAPI: ComfyAPIObject
     rgthree: RgthreeAPI

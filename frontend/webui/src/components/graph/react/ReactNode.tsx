@@ -276,9 +276,14 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
     return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
   }, [nodeDef, nodeData, liveNode])
 
-  const nodeMode = (nodeData?.mode as LGraphEventMode | undefined) ?? LGraphEventMode.ALWAYS
-  const isBypassed = nodeMode === LGraphEventMode.BYPASS
-  const isMuted    = nodeMode === LGraphEventMode.NEVER
+  const LGraphEventModeValues = LGraphEventMode as unknown as {
+    ALWAYS: number
+    BYPASS: number
+    NEVER: number
+  }
+  const nodeMode = nodeData?.mode ?? LGraphEventModeValues.ALWAYS
+  const isBypassed = nodeMode === LGraphEventModeValues.BYPASS
+  const isMuted    = nodeMode === LGraphEventModeValues.NEVER
   const isDisabled = isBypassed || isMuted
 
   // ─── 렌더 ───────────────────────────────────────────────────
@@ -322,7 +327,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
             onClick={(e) => {
               e.stopPropagation()
               // Cycle: ALWAYS → BYPASS → NEVER → ALWAYS
-              const next = isBypassed ? LGraphEventMode.NEVER : isMuted ? LGraphEventMode.ALWAYS : LGraphEventMode.BYPASS
+              const next = isBypassed ? LGraphEventModeValues.NEVER : isMuted ? LGraphEventModeValues.ALWAYS : LGraphEventModeValues.BYPASS
               changeNodeMode(id, next)
             }}
             className={`text-[9px] font-bold px-1 py-0.5 rounded leading-none transition-colors ${

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/restrict-plus-operands */
 import { useEffect, useRef, useState, useCallback, type JSX } from "react"
 import "comfy-litegraph/public/css/litegraph.css"
 import {

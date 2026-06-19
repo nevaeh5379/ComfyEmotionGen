@@ -3,6 +3,8 @@
  * 리액트 기반 노드 에디터의 코어 상태와 액션을 관리하는 스토어
  */
 
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
 import { create } from "zustand"
 import type {
   ComfyWorkflowJSON,
@@ -223,6 +225,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     get().takeSnapshot()
     const win = window as unknown as WindowWithComfy
     if (win.app?.graph !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const liveNode = LiteGraph.createNode(type) as LiveNode | null
       if (liveNode !== null) {
         liveNode.pos = pos

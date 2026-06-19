@@ -33,12 +33,12 @@ export const PreviewTable = ({
   showCheckboxes,
   getItemChecked,
   onToggleItem,
-}: PreviewTableProps) => (
+}: PreviewTableProps): React.JSX.Element => (
   <div className={`flex min-h-0 flex-col ${className ?? "flex-1"}`}>
     <div className="mb-1 flex shrink-0 items-baseline gap-2">
       <span className="text-sm font-semibold">{title}</span>
       <span className={accent}>{items.length}</span>
-      {summary && (
+      {summary !== "" && (
         <span className="text-xs text-muted-foreground">{summary}</span>
       )}
     </div>
@@ -46,7 +46,7 @@ export const PreviewTable = ({
       <Table>
         <TableHeader>
           <TableRow>
-            {showCheckboxes && <TableHead className="w-8" />}
+            {showCheckboxes === true && <TableHead className="w-8" />}
             <TableHead className="w-[40%]">FileName</TableHead>
             <TableHead>Prompt</TableHead>
           </TableRow>
@@ -54,11 +54,11 @@ export const PreviewTable = ({
         <TableBody>
           {items.map((item, i) => (
             <TableRow
-              key={`${title}-${itemKey(item)}-${i}`}
+              key={`${title}-${itemKey(item)}-${String(i)}`}
               className={onItemClick ? "cursor-pointer" : ""}
-              onClick={onItemClick ? () => { onItemClick(item); } : undefined}
+              onClick={onItemClick ? (): void => { onItemClick(item); } : undefined}
             >
-              {showCheckboxes && (
+              {showCheckboxes === true && (
                 <TableCell onClick={(e) => { e.stopPropagation(); }}>
                   <Checkbox
                     checked={getItemChecked?.(item) ?? true}
@@ -75,7 +75,7 @@ export const PreviewTable = ({
           {items.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={showCheckboxes ? 3 : 2}
+                colSpan={showCheckboxes === true ? 3 : 2}
                 className="text-center text-xs text-muted-foreground"
               >
                 없음

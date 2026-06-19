@@ -12,6 +12,17 @@ import { ComfyAppService } from "@/comfyui/services/appService"
 import { LGraph, LGraphNode } from "comfy-litegraph"
 import type { ComfyExtension } from "@/comfyui/types/extensionTypes"
 
+interface ComfyApp {
+  graph: unknown
+  canvas: unknown
+  extensionManager: unknown
+  api: unknown
+  extensionsLoaded: boolean | undefined
+  extensions: readonly ComfyExtension[]
+  syncGraph: () => void
+  syncGraphNode?: (id: number) => void
+}
+
 export function ReactGraphEditor(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -37,8 +48,8 @@ export function ReactGraphEditor(): JSX.Element {
   useEffect(() => {
     let cancelled = false
     async function initApp(): Promise<void> {
-      const app = window.app
-      console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + String(!!hiddenCanvasRef.current), "hiddenContainer=" + String(!!hiddenContainerRef.current), "extensionsLoaded=" + String(app.extensionsLoaded ?? false), "app.graph=" + String(true), "nodeDefs=" + String(Object.keys(nodeDefs).length), "extensions=" + String(app.extensions.length));
+      const rawApp = window.app as unknown as ComfyApp
+      console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + String(!!hiddenCanvasRef.current), "hiddenContainer=" + String(!!hiddenContainerRef.current), "extensionsLoaded=" + String(rawApp.extensionsLoaded ?? false), "app.graph=" + String(true), "nodeDefs=" + String(Object.keys(nodeDefs).length), "extensions=" + String(rawApp.extensions.length));
 
       if (!hiddenCanvasRef.current || !hiddenContainerRef.current) {
         console.log("[CEG:DEBUG ReactGraphEditor] SKIPPED: refs null");
@@ -53,32 +64,36 @@ export function ReactGraphEditor(): JSX.Element {
         container: hiddenContainerRef.current,
         nodeDefs,
       })
-      app.graph = appService.graph
-      app.canvas = appService.canvas
-      app.extensionManager = appService.extensionManager
-      app.api = appService.api
+      rawApp.graph = appService.graph
+      rawApp.canvas = appService.canvas
+      rawApp.extensionManager = appService.extensionManager
+      rawApp.api = appService.api
+       // @ts-expect-error LiteGraph fork property
+      ;(rawApp.graph as { _canvas: unknown })._canvas = appService.canvas
       // @ts-expect-error LiteGraph fork property
-      app.graph._canvas = appService.canvas
-      // @ts-expect-error LiteGraph fork property
-      appService.canvas.app = app
+      ;(appService.canvas as { app: unknown }).app = rawApp
 
       window.__comfyAppService = appService
 
       // setDirtyCanvas 가로채기 (Zustand 동기화 트리거)
-      const origLGraphSetDirty = LGraph.prototype.setDirtyCanvas.bind(LGraph.prototype)
-      LGraph.prototype.setDirtyCanvas = function (this: LGraph, ...args: unknown[]): void {
-        origLGraphSetDirty.apply(this, args)
-        void app.syncGraph()
+      const lGraphProto = (LGraph as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype
+      const origLGraphSetDirty = lGraphProto.setDirtyCanvas
+      const boundOrigLGraph = origLGraphSetDirty.bind(lGraphProto)
+      ;(LGraph as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype.setDirtyCanvas = function (this: LGraph, ...args: unknown[]): void {
+        boundOrigLGraph.apply(lGraphProto, args)
+        rawApp.syncGraph()
       }
 
-      const origLGraphNodeSetDirty = LGraphNode.prototype.setDirtyCanvas.bind(LGraphNode.prototype)
-      LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, ...args: unknown[]): void {
-        origLGraphNodeSetDirty.apply(this, args)
-        void app.syncGraph()
+      const lGraphNodeProto = (LGraphNode as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype
+      const origLGraphNodeSetDirty = lGraphNodeProto.setDirtyCanvas
+      const boundOrigLGraphNode = origLGraphNodeSetDirty.bind(lGraphNodeProto)
+      ;(LGraphNode as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype.setDirtyCanvas = function (this: LGraphNode, ...args: unknown[]): void {
+        boundOrigLGraphNode.apply(lGraphNodeProto, args)
+        rawApp.syncGraph()
       }
 
       // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)
-      if (app.extensionsLoaded !== true) {
+      if (rawApp.extensionsLoaded !== true) {
         const apiClient: { getExtensions(): Promise<string[]>; api_base: string } = window.api
         try {
           const extensionUrls = await apiClient.getExtensions()
@@ -96,34 +111,32 @@ export function ReactGraphEditor(): JSX.Element {
         } catch (err) {
           console.error("Failed to fetch extension list:", err)
         }
-        app.extensionsLoaded = true
+        rawApp.extensionsLoaded = true
 
-        console.log("[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:", String(app.extensions.length), app.extensions.map(e => (e as ComfyExtension).name));
+        console.log("[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:", String(rawApp.extensions.length), rawApp.extensions.map(e => e.name));
 
         // Re-register node defs NOW that extensions' beforeRegisterNodeDef hooks are available
         console.log("[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available");
         appService.registerNodeDefs(nodeDefs)
 
-        for (const ext of app.extensions) {
-          const extension = ext as ComfyExtension
-          if (extension.init !== undefined) {
+        for (const ext of rawApp.extensions) {
+          if (ext.init !== undefined) {
             try {
-              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.init for:", extension.name);
-              await extension.init(app)
+              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.init for:", ext.name);
+              await ext.init(rawApp)
             } catch (err) {
-              console.error(`Extension init failed for ${extension.name}:`, err)
+              console.error(`Extension init failed for ${ext.name}:`, err)
             }
           }
         }
 
-        for (const ext of app.extensions) {
-          const extension = ext as ComfyExtension
-          if (extension.registerCustomNodes !== undefined) {
+        for (const ext of rawApp.extensions) {
+          if (ext.registerCustomNodes !== undefined) {
             try {
-              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.registerCustomNodes for:", extension.name);
-              await extension.registerCustomNodes(app)
+              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.registerCustomNodes for:", ext.name);
+              await ext.registerCustomNodes(rawApp)
             } catch (err) {
-              console.error(`Extension registerCustomNodes failed for ${extension.name}:`, err)
+              console.error(`Extension registerCustomNodes failed for ${ext.name}:`, err)
             }
           }
         }
@@ -132,14 +145,13 @@ export function ReactGraphEditor(): JSX.Element {
       if (cancelled) return
 
       // setup 훅 실행
-      for (const ext of app.extensions) {
-        const extension = ext as ComfyExtension
-        if (extension.setup !== undefined) {
+      for (const ext of rawApp.extensions) {
+        if (ext.setup !== undefined) {
           try {
-            console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:", extension.name);
-            await extension.setup(app)
+            console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:", ext.name);
+            await ext.setup(rawApp)
           } catch (err) {
-            console.error(`Extension setup failed for ${extension.name}:`, err)
+            console.error(`Extension setup failed for ${ext.name}:`, err)
           }
         }
       }
@@ -157,7 +169,7 @@ export function ReactGraphEditor(): JSX.Element {
         }
         console.log("[CEG:DEBUG ReactGraphEditor] Calling loadGraphData with", String(workflow.nodes.length), "nodes");
         appService.loadGraphData(workflow)
-        console.log("[CEG:DEBUG ReactGraphEditor] loadGraphData complete, graph now has", String(appService.graph.nodes.length), "nodes");
+        console.log("[CEG:DEBUG ReactGraphEditor] loadGraphData complete, graph now has", String((appService.graph as unknown as { nodes: unknown[] }).nodes.length), "nodes");
       }
 
       setIsReady(true)

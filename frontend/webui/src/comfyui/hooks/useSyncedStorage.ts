@@ -17,6 +17,7 @@ interface PendingSyncItem {
 
 export function getSyncQueue(): PendingSyncItem[] {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]")
   } catch (err) {
     console.warn("useSyncedStorage: 동기화 큐 파싱 실패:", err)
@@ -64,7 +65,7 @@ export function useSyncedStorage<T>(
   key: string,
   defaultValue: T,
   options?: { manual?: boolean }
-) {
+): [value: T, setValue: React.Dispatch<React.SetStateAction<T>>, state: { isDirty: boolean; saveToServer: () => Promise<boolean>; revert: () => void }] {
   const isStringDefault = typeof defaultValue === "string"
   const initializedRef = useRef(false)
   const saveIdRef = useRef(0)
@@ -125,8 +126,8 @@ export function useSyncedStorage<T>(
     return false
   }, [key, serialize])
 
-  useEffect(() => {
-    const onReady = (e: Event) => {
+  useEffect((): (() => void) | undefined => {
+    const onReady = (e: Event): void => {
       const all = (e as CustomEvent<Record<string, string>>).detail
       const raw = all[key]
       if (raw === undefined || handlePendingConflict()) return
@@ -140,8 +141,8 @@ export function useSyncedStorage<T>(
     return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
   }, [key, deserialize, handlePendingConflict, serialize])
 
-  useEffect(() => {
-    const onUpdated = (e: Event) => {
+  useEffect((): (() => void) | undefined => {
+    const onUpdated = (e: Event): void => {
       const { key: updatedKey, value: raw } = (
         e as CustomEvent<SettingsUpdatedDetail>
       ).detail
@@ -157,7 +158,7 @@ export function useSyncedStorage<T>(
     return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
   }, [key, deserialize, handlePendingConflict, serialize])
 
-  useEffect(() => {
+  useEffect((): (() => void) | undefined => {
     if (!initializedRef.current) {
       initializedRef.current = true
       return
@@ -166,14 +167,14 @@ export function useSyncedStorage<T>(
     const serialized = serialize(value)
     try {
       localStorage.setItem(key, serialized)
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn(`useSyncedStorage: ${key} localStorage 저장 실패:`, err)
     }
 
     const isCurrentDirty = serialized !== lastServerValueRef.current
     setIsDirty(isCurrentDirty)
 
-    if (options?.manual) {
+    if (options?.manual === true) {
       return
     }
 
@@ -183,7 +184,7 @@ export function useSyncedStorage<T>(
     }
 
     const currentId = ++saveIdRef.current
-    saveSetting(key, serialized).then((ok) => {
+    void saveSetting(key, serialized).then((ok) => {
       if (saveIdRef.current !== currentId) return
       if (!ok) enqueueSync(key, serialized)
       else {
@@ -191,7 +192,7 @@ export function useSyncedStorage<T>(
         lastServerValueRef.current = serialized
         setIsDirty(false)
       }
-    }).catch((err) => { console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err); })
+    }).catch((err: unknown) => { console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err); })
   }, [key, value, serialize, options?.manual])
 
   const saveToServer = useCallback(() => {

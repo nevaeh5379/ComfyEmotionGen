@@ -32,14 +32,14 @@ export function Magnifier({
 }: {
   src: string
   className?: string
-}) {
+}): React.JSX.Element {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [show, setShow] = useState(false)
   const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(
     null
   )
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>): void => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - left) / width) * 100
     const y = ((e.clientY - top) / height) * 100
@@ -54,7 +54,7 @@ export function Magnifier({
       onMouseMove={handleMouseMove}
       style={
         imgNatural
-          ? { aspectRatio: `${imgNatural.w}/${imgNatural.h}` }
+          ? { aspectRatio: `${String(imgNatural.w)}/${String(imgNatural.h)}` }
           : undefined
       }
     >
@@ -72,7 +72,7 @@ export function Magnifier({
           className="pointer-events-none absolute inset-0 z-10"
           style={{
             backgroundImage: `url(${src})`,
-            backgroundPosition: `${pos.x}% ${pos.y}%`,
+            backgroundPosition: `${String(pos.x)}% ${String(pos.y)}%`,
             backgroundSize: "250%",
             backgroundRepeat: "no-repeat",
           }}
@@ -89,7 +89,7 @@ export function TournamentView({
 }: {
   images: SavedImage[]
   onComplete: (winnerHash: string) => void
-}) {
+}): React.JSX.Element {
   const { backendUrl } = useCurationContext()
   const [matches, setMatches] = useState<SavedImage[]>(() =>
     [...images].sort(() => Math.random() - 0.5)
@@ -110,7 +110,10 @@ export function TournamentView({
         setNextRound([])
       } else if (remaining.length === 1) {
         // Bye round for the last image
-        setMatches([...newNext, remaining[0]!].sort(() => Math.random() - 0.5))
+        const lastImg = remaining[0]
+        if (lastImg) {
+          setMatches([...newNext, lastImg].sort(() => Math.random() - 0.5))
+        }
         setNextRound([])
       } else {
         setNextRound(newNext)
@@ -130,7 +133,7 @@ export function TournamentView({
   }, [history])
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -139,15 +142,17 @@ export function TournamentView({
       if (matches.length < 2) return
 
       if (e.key === "ArrowLeft" || e.key === "a" || e.key === "h") {
-        handlePick(matches[0]!)
+        const first = matches[0]
+        if (first) handlePick(first)
       } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "l") {
-        handlePick(matches[1]!)
+        const second = matches[1]
+        if (second) handlePick(second)
       } else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         handleUndo()
       }
     }
     window.addEventListener("keydown", handleKeyDown)
-    return () => { window.removeEventListener("keydown", handleKeyDown); }
+    return (): void => { window.removeEventListener("keydown", handleKeyDown); }
   }, [matches, handlePick, handleUndo])
 
   if (matches.length === 0 && nextRound.length === 0) {
@@ -159,7 +164,14 @@ export function TournamentView({
   }
 
   if (matches.length === 1 && nextRound.length === 0) {
-    const winner = matches[0]!
+    const winner = matches[0]
+    if (!winner) {
+      return (
+        <div className="flex h-full items-center justify-center font-bold text-muted-foreground">
+          이미지 없음
+        </div>
+      )
+    }
     return (
       <div className="flex h-full flex-col items-center justify-center">
         <h2 className="mb-6 text-2xl font-bold text-green-500">
@@ -185,8 +197,15 @@ export function TournamentView({
     )
   }
 
-  const left = matches[0]!
-  const right = matches[1]!
+  const left = matches[0]
+  const right = matches[1]
+  if (!left || !right) {
+    return (
+      <div className="flex h-full items-center justify-center font-bold text-muted-foreground">
+        이미지 없음
+      </div>
+    )
+  }
 
   const totalMatchesThisRound = Math.floor(
     (matches.length + nextRound.length * 2) / 2
@@ -250,7 +269,7 @@ export function LongPressWrapper({
   onLongPress,
   onClick,
   className,
-  as: Component = "button",
+  as: Comp = "button",
   ...rest
 }: {
   children: ReactNode
@@ -261,7 +280,7 @@ export function LongPressWrapper({
 } & Omit<
   React.HTMLAttributes<HTMLElement>,
   "children" | "onClick" | "className"
->) {
+>): React.JSX.Element {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTriggeredRef = useRef(false)
   const [pressing, setPressing] = useState(false)
@@ -305,16 +324,16 @@ export function LongPressWrapper({
   }, [clear])
 
   useEffect(() => {
-    return () => { clear(); }
+    return (): void => { clear(); }
   }, [clear])
 
   return (
-    <Component
+    <Comp
       className={className}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
-      onContextMenu={(e: React.MouseEvent) => {
+      onContextMenu={(e: React.MouseEvent): void => {
         if (longPressTriggeredRef.current) {
           e.preventDefault()
         }
@@ -323,7 +342,7 @@ export function LongPressWrapper({
       {...rest}
     >
       {children}
-    </Component>
+    </Comp>
   )
 }
 
@@ -355,9 +374,9 @@ function GalleryGridItem({
   onOpen: (filename: string) => void
   onLongPress: (filename: string) => void
   onRegenerate?: (filename: string) => void
-}) {
+}): React.JSX.Element {
   const approved = findApproved(imgs)
-  const preview = approved || imgs[0]
+  const preview = approved ?? imgs[0]
   const isDone = hasApproved(imgs)
   const [aspect, setAspect] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -370,8 +389,8 @@ function GalleryGridItem({
             <HoverCardTrigger asChild>
               <LongPressWrapper
                 onLongPress={() => { onLongPress(item.filename); }}
-                onClick={(e) => {
-                  if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                onClick={(e: React.MouseEvent | React.KeyboardEvent) => {
+                  if (selectionMode || "shiftKey" in e && e.shiftKey || "ctrlKey" in e && e.ctrlKey || "metaKey" in e && e.metaKey) {
                     toggleSelect(item.filename, e)
                   } else {
                     onSelect(item.filename)
@@ -445,7 +464,7 @@ function GalleryGridItem({
                     <div className="truncate font-mono text-[11px] font-black tracking-tight text-white/95 md:text-[10px]">
                       {item.filename}
                     </div>
-                    {item.meta && Object.keys(item.meta).length > 0 && (
+                    {Object.keys(item.meta).length > 0 && (
                       <div className="flex flex-wrap justify-center gap-1">
                         {Object.values(item.meta)
                           .slice(0, 2)
@@ -480,7 +499,7 @@ function GalleryGridItem({
         onOpen={onOpen}
         onToggleSelect={(f) => { toggleSelect(f); }}
         onLongPress={onLongPress}
-        {...(onRegenerate && { onRegenerate })}
+        {...(onRegenerate !== undefined && { onRegenerate })}
       />
     </ContextMenu>
   )
@@ -497,7 +516,7 @@ export function GalleryView({
   onOpen: (filename: string) => void
   onLongPress: (filename: string) => void
   onRegenerate?: (filename: string) => void
-}) {
+}): React.JSX.Element {
   const { backendUrl, enableHover, data, selection, thumbnailSize, fluidGridLayout } =
     useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
@@ -508,8 +527,8 @@ export function GalleryView({
       className="grid items-start gap-2 sm:gap-3 md:gap-4"
       style={{
         gridTemplateColumns: fluidGridLayout
-          ? `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`
-          : `repeat(auto-fill, ${thumbnailSize}px)`,
+          ? `repeat(auto-fill, minmax(${String(thumbnailSize)}px, 1fr))`
+          : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
       }}
     >
       {items.map((item: RenderItem) => {
@@ -548,7 +567,7 @@ export function TableView({
   onOpen: (filename: string) => void
   onLongPress: (filename: string) => void
   onRegenerate?: (filename: string) => void
-}) {
+}): React.JSX.Element {
   const { backendUrl, enableHover, data, selection } = useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
   const { selectionMode, selectedFilenames, toggleSelect } = selection
@@ -586,12 +605,12 @@ export function TableView({
                 <ContextMenuTrigger asChild>
                   <LongPressWrapper
                     onLongPress={() => { onLongPress(item.filename); }}
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent | React.KeyboardEvent) => {
                       if (
                         selectionMode ||
-                        e.shiftKey ||
-                        e.ctrlKey ||
-                        e.metaKey
+                        "shiftKey" in e && e.shiftKey ||
+                        "ctrlKey" in e && e.ctrlKey ||
+                        "metaKey" in e && e.metaKey
                       ) {
                         toggleSelect(item.filename, e)
                       } else {
@@ -649,7 +668,7 @@ export function TableView({
                   onOpen={onOpen}
                   onToggleSelect={(f) => { toggleSelect(f); }}
                   onLongPress={onLongPress}
-                  {...(onRegenerate && { onRegenerate })}
+                    {...(onRegenerate !== undefined && { onRegenerate })}
                 />
               </ContextMenu>
             )

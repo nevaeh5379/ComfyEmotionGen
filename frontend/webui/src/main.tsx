@@ -4,12 +4,12 @@ import { createRoot } from "react-dom/client"
 import "./index.css"
 import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
 
-window.LiteGraph = LiteGraph
-window.LGraph = LGraph
-window.LGraphNode = LGraphNode
-window.LGraphCanvas = LGraphCanvas
-window.LLink = LLink
-window.LGraphGroup = LGraphGroup
+;(window as unknown as Record<string, unknown>).LiteGraph = LiteGraph
+;(window as unknown as Record<string, unknown>).LGraph = LGraph
+;(window as unknown as Record<string, unknown>).LGraphNode = LGraphNode
+;(window as unknown as Record<string, unknown>).LGraphCanvas = LGraphCanvas
+;(window as unknown as Record<string, unknown>).LLink = LLink
+;(window as unknown as Record<string, unknown>).LGraphGroup = LGraphGroup
 ;(window as unknown as Record<string, unknown>).comfyExtensions ??= []
 
 // LocalStorage 오염 복구 가드 및 런타임 후킹
@@ -98,7 +98,7 @@ const addDOMWidgetFn = function (
 ): WidgetType {
   const errStack: string | undefined = new Error().stack
   const stackStr: string = errStack?.split("\n").slice(2, 5).join(" <- ") ?? "N/A"
-  console.log("[CEG:DEBUG addDOMWidget]", "nodeId=" + String(this.id), "name=" + name, "type=" + type, "hasElement=true", "elementTag=" + element.tagName, "stack=" + stackStr)
+  console.log("[CEG:DEBUG addDOMWidget]", "nodeId=" + String((this as unknown as Record<string, unknown>).id), "name=" + name, "type=" + type, "hasElement=true", "elementTag=" + element.tagName, "stack=" + stackStr)
 
   const widget: WidgetType = {
     type,
@@ -154,7 +154,8 @@ const addDOMWidgetFn = function (
   return widget
 }
 
-LGraphNode.prototype.addDOMWidget = addDOMWidgetFn
+;(LGraphNode as unknown as Record<string, unknown>).prototype ??= {}
+;(LGraphNode as unknown as Record<string, unknown>).prototype.addDOMWidget = addDOMWidgetFn
 
 // LiteGraph color palettes stub
 const liteGraph = window.LiteGraph as unknown as Record<string, unknown>
@@ -220,8 +221,10 @@ function createDefaultApp(): ComfyApp {
   }
 
   const app: ComfyApp = {
-    graph: new LGraph(),
-    canvas: new LGraphCanvas(document.createElement("canvas"), new LGraph()),
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
+    graph: new (LGraph as unknown as new () => Record<string, unknown>)() as unknown as LGraph,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
+    canvas: new (LGraphCanvas as unknown as new (canvas: HTMLCanvasElement, graph: Record<string, unknown>) => Record<string, unknown>)(document.createElement("canvas"), new (LGraph as unknown as new () => Record<string, unknown>)()) as unknown as LGraphCanvas,
     async syncGraph(): Promise<void> {
       const { useReactGraphStore } = await import("@/comfyui/stores/reactGraphStore")
       useReactGraphStore.getState().syncGraphFromLive()
@@ -383,8 +386,10 @@ Object.defineProperty(appObj, 'settings', {
   configurable: true
 })
 
-appObj.graph = new LGraph()
-appObj.canvas = new LGraphCanvas(document.createElement("canvas"), appObj.graph)
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
+appObj.graph = new (LGraph as unknown as new () => Record<string, unknown>)() as unknown as LGraph
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
+appObj.canvas = new (LGraphCanvas as unknown as new (canvas: HTMLCanvasElement, graph: Record<string, unknown>) => Record<string, unknown>)(document.createElement("canvas"), appObj.graph as unknown as Record<string, unknown>) as unknown as LGraphCanvas
 appObj.syncGraph = async (): Promise<void> => {
   const { useReactGraphStore } = await import("@/comfyui/stores/reactGraphStore")
   useReactGraphStore.getState().syncGraphFromLive()

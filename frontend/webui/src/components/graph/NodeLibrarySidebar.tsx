@@ -5,6 +5,7 @@
 
 import { useState, useMemo } from "react"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import type { ComfyNodeDef } from "@/comfyui/types/nodeDef"
 import { Search, ChevronRight, ChevronDown, Plus } from "lucide-react"
 
 interface NodeLibrarySidebarProps {
@@ -12,13 +13,13 @@ interface NodeLibrarySidebarProps {
   className?: string
 }
 
-export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySidebarProps) {
+export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySidebarProps): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState("")
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
   const nodeDefsByCategory = useNodeDefStore((s) => s.nodeDefsByCategory)
 
-  const toggleCategory = (category: string) => {
+  const toggleCategory = (category: string): void => {
     setExpandedCategories((prev) => {
       const next = new Set(prev)
       if (next.has(category)) {
@@ -34,7 +35,7 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
     const query = searchQuery.toLowerCase().trim()
     if (!query) return nodeDefsByCategory
 
-    const result: Record<string, import("@/comfyui/types/nodeDef").ComfyNodeDef[]> = {}
+    const result: Record<string, ComfyNodeDef[]> = {}
     for (const [category, defs] of Object.entries(nodeDefsByCategory)) {
       const filtered = defs.filter(
         (def) =>
@@ -96,13 +97,13 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
                   <div className="ml-2">
                     {defs.map((def, idx) => (
                       <button
-                        key={`${category}-${def.name}-${idx}`}
+                        key={`${category}-${def.name}-${String(idx)}`}
                         className="flex items-center w-full px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors group"
                         onClick={() => onAddNode?.(def.name)}
-                        title={`${def.display_name || def.name} (${def.name})`}
+                        title={`${def.display_name ?? def.name} (${def.name})`}
                       >
                         <Plus className="h-3 w-3 mr-1.5 text-muted-foreground/40 group-hover:text-muted-foreground" />
-                        <span className="truncate">{def.display_name || def.name}</span>
+                        <span className="truncate">{def.display_name ?? def.name}</span>
                       </button>
                     ))}
                   </div>

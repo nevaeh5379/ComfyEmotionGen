@@ -38,15 +38,15 @@ const cegLanguage = StreamLanguage.define<CegState>({
   token: (stream: StringStream, state: CegState) => {
     // 1. Handle block comment
     if (state.inComment) {
-      if (stream.match(/^[\s\S]*?#\}\}/)) {
+      if (stream.match(/^[\s\S]*?#\}\}/) !== null) {
         state.inComment = false
         return "comment"
       }
       stream.skipToEnd()
       return "comment"
     }
-    if (stream.match(/^\{\{#/)) {
-      if (stream.match(/^[\s\S]*?#\}\}/)) {
+    if (stream.match(/^\{\{#/) !== null) {
+      if (stream.match(/^[\s\S]*?#\}\}/) !== null) {
         return "comment"
       }
       state.inComment = true
@@ -56,39 +56,39 @@ const cegLanguage = StreamLanguage.define<CegState>({
 
     // 2. If we are in tag context (inside a double-curly tag)
     if (state.inTag) {
-      if (stream.match(/^\s+/)) {
+      if (stream.match(/^\s+/) !== null) {
         return null // skip whitespace
       }
-      if (stream.match(/^\}\}/)) {
+      if (stream.match(/^\}\}/) !== null) {
         state.inTag = false
         return "tag"
       }
 
       // Keywords inside tag context
-      if (stream.match(/^(?:set|axis|combine|exclude|include|in|not)\b/i)) {
+      if (stream.match(/^(?:set|axis|combine|exclude|include|in|not)\b/i) !== null) {
         return "keyword"
       }
-      if (stream.match(/^(?:AND|OR)\b/)) {
+      if (stream.match(/^(?:AND|OR)\b/) !== null) {
         return "keyword"
       }
 
       // Strings inside tag
-      if (stream.match(/^"(?:[^"\\]|\\.)*"/)) {
+      if (stream.match(/^"(?:[^"\\]|\\.)*"/) !== null) {
         return "string"
       }
 
       // Numbers
-      if (stream.match(/^\d+(?:\.\d+)?\b/)) {
+      if (stream.match(/^\d+(?:\.\d+)?\b/) !== null) {
         return "number"
       }
 
       // Variable name (allow dashes inside NAME)
-      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*/)) {
+      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*/) !== null) {
         return "variableName"
       }
 
       // Operators inside tag
-      if (stream.match(/^[@~?+*()=:[\]]/)) {
+      if (stream.match(/^[@~?+*()=:[\]]/) !== null) {
         return "operator"
       }
 
@@ -98,37 +98,37 @@ const cegLanguage = StreamLanguage.define<CegState>({
     }
 
     // 3. Match opening tag blocks
-    if (stream.match(/^\{\{template\}\}/)) {
+    if (stream.match(/^\{\{template\}\}/) !== null) {
       state.inBlock = "template"
       return "tag"
     }
-    if (stream.match(/^\{\{filename\}\}/)) {
+    if (stream.match(/^\{\{filename\}\}/) !== null) {
       state.inBlock = "filename"
       return "tag"
     }
 
     // Closing template/filename blocks
-    if (stream.match(/^\{\{\/template\}\}/)) {
+    if (stream.match(/^\{\{\/template\}\}/) !== null) {
       state.inBlock = null
       return "tag"
     }
-    if (stream.match(/^\{\{\/filename\}\}/)) {
+    if (stream.match(/^\{\{\/filename\}\}/) !== null) {
       state.inBlock = null
       return "tag"
     }
 
     // Axis block tag opening/closing
-    if (stream.match(/^\{\{/)) {
-      if (stream.match(/^\/axis\}\}/)) {
+    if (stream.match(/^\{\{/) !== null) {
+      if (stream.match(/^\/axis\}\}/) !== null) {
         state.inBlock = null
         return "tag"
       }
-      if (stream.match(/^axis\b/)) {
+      if (stream.match(/^axis\b/) !== null) {
         state.inTag = true
         state.inBlock = "axis"
         return "tag"
       }
-      if (stream.match(/^(?:set|combine|exclude)\b/)) {
+      if (stream.match(/^(?:set|combine|exclude)\b/) !== null) {
         state.inTag = true
         return "tag"
       }
@@ -138,10 +138,10 @@ const cegLanguage = StreamLanguage.define<CegState>({
 
     // 4. If we are inside template/filename blocks, highlight placeholders like {{mood}} or {{mood.key}}
     if (state.inBlock === "template" || state.inBlock === "filename") {
-      if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)?\}\}/)) {
+      if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)?\}\}/) !== null) {
         return "variableName"
       }
-      if (stream.match(/^[^{]+/)) {
+      if (stream.match(/^[^{]+/) !== null) {
         return null
       }
       stream.next()
@@ -150,42 +150,42 @@ const cegLanguage = StreamLanguage.define<CegState>({
 
     // 5. If we are inside axis block, parse entries
     if (state.inBlock === "axis") {
-      if (stream.match(/^\s+/)) {
+      if (stream.match(/^\s+/) !== null) {
         return null
       }
 
-      if (stream.match(/^\{/)) {
+      if (stream.match(/^\{/) !== null) {
         state.curlyDepth++
         return "operator"
       }
-      if (stream.match(/^\}/)) {
+      if (stream.match(/^\}/) !== null) {
         state.curlyDepth = Math.max(0, state.curlyDepth - 1)
         return "operator"
       }
 
-      if (stream.match(/^"(?:[^"\\]|\\.)*"/)) {
+      if (stream.match(/^"(?:[^"\\]|\\.)*"/) !== null) {
         return "string"
       }
 
-      if (stream.match(/^\d+(?:\.\d+)?\b/)) {
+      if (stream.match(/^\d+(?:\.\d+)?\b/) !== null) {
         return "number"
       }
 
       if (state.curlyDepth > 0) {
-        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*(?=\s*:)/)) {
+        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*(?=\s*:)/) !== null) {
           return "propertyName"
         }
       } else {
-        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*(?=\s*:)/)) {
+        if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*(?=\s*:)/) !== null) {
           return "variableName"
         }
       }
 
-      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*/)) {
+      if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_-]*/) !== null) {
         return "variableName"
       }
 
-      if (stream.match(/^[:,]/)) {
+      if (stream.match(/^[:,]/) !== null) {
         return "operator"
       }
 
@@ -194,7 +194,7 @@ const cegLanguage = StreamLanguage.define<CegState>({
     }
 
     // 6. Default fallback for plain content outside tag/blocks
-    if (stream.match(/^[^{]+/)) {
+    if (stream.match(/^[^{]+/) !== null) {
       return null
     }
     stream.next()
@@ -220,17 +220,20 @@ const baseTheme = EditorView.theme({
   },
 })
 
-const CodeEditor = ({
-  value,
-  onChange,
-  language,
-  placeholder,
-  className = "",
-  minHeight = "8rem",
-  maxHeight,
-  bareWrapper = false,
-  onFileOpen,
-}: CodeEditorProps) => {
+const CodeEditor = (
+  props: CodeEditorProps
+): React.JSX.Element => {
+  const {
+    value,
+    onChange,
+    language,
+    placeholder,
+    className = "",
+    minHeight = "8rem",
+    maxHeight,
+    bareWrapper = false,
+    onFileOpen,
+  } = props
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -261,7 +264,7 @@ const CodeEditor = ({
 
   // Flush on unmount
   useEffect(() => {
-    return () => {
+    return (): void => {
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current)
         onChange(pendingValueRef.current)
@@ -272,7 +275,7 @@ const CodeEditor = ({
   const handleFile = useCallback(
     (file: File) => {
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = (e): void => {
         const content = e.target?.result
         if (typeof content === "string" && onFileOpen) {
           onFileOpen(content, file.name)
@@ -306,13 +309,13 @@ const CodeEditor = ({
     },
     [handleFile]
   )
-  const { theme } = useTheme()
-  const resolvedTheme =
-    theme === "system"
+  const rawTheme = useTheme()
+  const resolvedTheme: "dark" | "light" =
+    rawTheme === "system"
       ? window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light"
-      : theme
+      : rawTheme
 
   const extensions = useMemo(() => {
     const lang = language === "json" ? json() : cegLanguage
@@ -332,7 +335,7 @@ const CodeEditor = ({
     <div
       ref={dropZoneRef}
       className={`flex h-full min-h-0 flex-col overflow-hidden ${bareWrapper ? "" : "rounded-md border bg-muted/50"} ${className}`}
-      style={maxHeight ? { minHeight, maxHeight } : { minHeight }}
+      style={maxHeight !== undefined ? { minHeight, maxHeight } : { minHeight }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >

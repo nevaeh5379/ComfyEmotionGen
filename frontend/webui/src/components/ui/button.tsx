@@ -13,7 +13,7 @@ function Button({
 }: React.ComponentProps<"button"> &
   ButtonVariants & {
     asChild?: boolean
-  }) {
+  }): React.JSX.Element {
   const Comp = asChild ? Slot.Root : "button"
 
   return (

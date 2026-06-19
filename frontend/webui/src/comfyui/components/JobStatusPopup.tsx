@@ -37,6 +37,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [, setTick] = useState(0)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const confirm = useConfirm()
 
   // ── active jobs ────────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     const interval = setInterval(() => {
       setCurrentPage((prev) => (prev + 1) % totalPages)
     }, 3000)
-    return () => { clearInterval(interval); }
+    return (): void => { clearInterval(interval); }
   }, [cycleMinimizedProgress, runningJobs.length, totalPages])
 
   const queuedJobs = useMemo(
@@ -90,7 +91,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   useEffect(() => {
     if (runningJobs.length === 0) return
     const id = setInterval(() => { setTick((t) => t + 1); }, 1000)
-    return () => { clearInterval(id); }
+    return (): void => { clearInterval(id); }
   }, [runningJobs])
 
   // ── Refs for latest values ────────────────────────────────────────
@@ -108,24 +109,23 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
-  }, [])
+  }, [backendUrlRef, pausedRef])
 
   const handleCancelAll = useCallback(async () => {
-    if (
-      !(await confirmRef.current({
-        title: "작업 취소",
-        description: "진행 중인 모든 작업을 취소하시겠습니까?",
-        variant: "destructive",
-        confirmText: "모두 취소",
-      }))
-    )
-      return
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+    const confirmed = await confirmRef.current({
+      title: "작업 취소",
+      description: "진행 중인 모든 작업을 취소하시겠습니까?",
+      variant: "destructive",
+      confirmText: "모두 취소",
+    })
+    if (confirmed === false) return
     try {
       await fetch(`${backendUrlRef.current}/jobs/cancel-all`, { method: "POST" })
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
-  }, [])
+  }, [backendUrlRef, confirmRef])
 
   // ── no active jobs → don't render ──────────────────────────────────────
 
@@ -141,11 +141,13 @@ export const JobStatusPopup = memo(function JobStatusPopup({
       (safeCurrentPage + 1) * itemsPerPage
     )
     const progressStr = currentPageJobs
-      .map((j) => `${Math.round(j.progressPercent)}%`)
+      .map((j) => `${String(Math.round(j.progressPercent))}%`)
       .join(" | ")
     const mainJobOverall = mainJob ? getOverallProgress(mainJob) : 0
+    const canShowETA = mainJobOverall !== 0 && mainJobOverall > 0 && mainJobOverall < 100
     const etaStr =
-      mainJob?.startedAt && mainJobOverall > 0 && mainJobOverall < 100
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      mainJob?.startedAt && canShowETA
         ? formatETA(mainJob.startedAt, mainJobOverall, jobs)
         : null
 
@@ -171,7 +173,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
               ? "중지"
               : "대기"}
         </span>
-        {etaStr != null && (
+                  {etaStr !== null && (
           <span className="text-[10px] text-muted-foreground tabular-nums">
             {etaStr}
           </span>
@@ -252,8 +254,10 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           </span>
           {runningJobs.slice(0, 5).map((j) => {
             const overall = getOverallProgress(j)
+            const canShowETA = overall !== 0 && overall > 0 && overall < 100
             const etaStr =
-              j.startedAt && overall > 0 && overall < 100
+              // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+              j.startedAt && canShowETA
                 ? formatETA(j.startedAt, overall, jobs)
                 : null
             return (
@@ -268,13 +272,13 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                       </TooltipTrigger>
                       <TooltipContent>{j.filename}</TooltipContent>
                     </Tooltip>
-                    {j.workerId && (
+                    {j.workerId !== null && j.workerId !== "" && (
                       <span className="shrink-0 rounded bg-muted/80 px-1 font-mono text-[9px] font-bold text-muted-foreground">
                         {j.workerId.slice(0, 8)}
                       </span>
                     )}
                   </div>
-                  {etaStr != null && (
+        {etaStr !== null && (
                     <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                       {etaStr}
                     </span>
@@ -329,7 +333,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           variant="outline"
           size="sm"
           className="h-7 text-xs"
-          onClick={handleTogglePause}
+          onClick={() => { void handleTogglePause(); }}
           disabled={!isAliveBackend}
         >
           {paused ? (
@@ -346,7 +350,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           variant="destructive"
           size="sm"
           className="h-7 text-xs"
-          onClick={handleCancelAll}
+          onClick={() => { void handleCancelAll(); }}
           disabled={!isAliveBackend || activeJobs.length === 0}
         >
           <Trash2 className="mr-1 h-3 w-3" /> 전부 취소

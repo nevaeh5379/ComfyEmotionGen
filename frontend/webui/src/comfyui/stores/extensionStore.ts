@@ -21,7 +21,7 @@ export const useExtensionStore = create<ExtensionState>((set, get) => ({
   enabledExtensions: [],
   disabledExtensionNames: [],
 
-  registerExtension: (ext) => {
+  registerExtension: (ext): void => {
     const { extensions, disabledExtensionNames } = get()
     if (extensions.some((e) => e.name === ext.name)) return
 
@@ -36,7 +36,7 @@ export const useExtensionStore = create<ExtensionState>((set, get) => ({
     })
   },
 
-  loadDisabledExtensionNames: (names) => {
+  loadDisabledExtensionNames: (names): void => {
     const { extensions } = get()
     const disabledSet = new Set(names)
     set({

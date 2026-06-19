@@ -118,7 +118,7 @@ export function NodeMappingProvider({
   )
 
   const availableNodeOptions = useMemo<AvailableNodeOption[]>(() => {
-    if (!parsedWorkflow?.success) return []
+    if (parsedWorkflow?.success !== true) return []
     const inUse = new Set(nodeMappings.map((m) => `${m.nodeId}.${m.inputKey}`))
     const opts: AvailableNodeOption[] = []
     Object.entries(parsedWorkflow.data).forEach(([nodeId, node]) => {
@@ -129,7 +129,7 @@ export function NodeMappingProvider({
         ) {
           opts.push({
             nodeId,
-            title: node._meta?.title || node.class_type,
+            title: node._meta?.title ?? node.class_type,
             inputKey,
             isNumeric: typeof value === "number",
             isLoadImage:
@@ -163,13 +163,13 @@ export function NodeMappingProvider({
   )
 
   const handleAutoMap = useCallback(() => {
-    if (!parsedWorkflow?.success) return
+    if (parsedWorkflow?.success !== true) return
     setNodeMappings(buildAutoMappings(parsedWorkflow.data))
   }, [parsedWorkflow, setNodeMappings])
 
   // 워크플로우 로드 시 nodeMappings 자동 감지 (비어있을 때만)
   useEffect(() => {
-    if (!parsedWorkflow?.success || nodeMappings.length > 0) return
+    if (parsedWorkflow?.success !== true || nodeMappings.length > 0) return
     const auto = buildAutoMappings(parsedWorkflow.data)
     if (auto.length > 0) setNodeMappings(auto)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,11 +180,11 @@ export function NodeMappingProvider({
     const markerRe = /^__upload__([a-f0-9]{64})\.(png|jpg|jpeg|webp)$/
     const next: Record<string, ImageUploadState> = {}
     nodeMappings.forEach((m) => {
-      if (m.sourceType !== "image" || !m.imageValue) return
+      if (m.sourceType !== "image" || m.imageValue === undefined) return
       const match = markerRe.exec(m.imageValue)
       if (!match) return
       const [, hash, ext] = match
-      if (!hash || !ext) return
+      if (hash === undefined || ext === undefined) return
       const key = `${m.nodeId}.${m.inputKey}`
       next[key] = {
         uploadedName: hash,
@@ -215,7 +215,7 @@ export function NodeMappingProvider({
         method: "POST",
         body: fd,
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       const data = (await res.json()) as { hash: string; filename: string }
       // imageValue에 __upload__{hash}.{ext} 마커 저장
       const ext = file.name.split(".").pop() ?? "png"
@@ -253,7 +253,7 @@ export function NodeMappingProvider({
       setNodeMappings,
       updateMapping,
       handleAutoMap,
-      handleImageUpload,
+      handleImageUpload: (...a: Parameters<typeof handleImageUpload>): void => { void handleImageUpload(...a); },
       imageUploads,
       availableNodeOptions,
       objectInfo,

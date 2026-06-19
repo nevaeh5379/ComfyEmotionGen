@@ -27,7 +27,7 @@ export function SettingsTab({
   backendUrl,
   onBackendUrlChange,
   workers,
-}: SettingsTabProps) {
+}: SettingsTabProps): React.JSX.Element {
   return (
     <div className="flex-1 overflow-y-auto">
       <SettingsPanel

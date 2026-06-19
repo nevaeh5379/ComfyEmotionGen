@@ -25,7 +25,7 @@ export function CollapseSection({
   actions,
   children,
   className,
-}: CollapseSectionProps) {
+}: CollapseSectionProps): React.JSX.Element {
   return (
     <AccordionPrimitive.Root
       type="single"
@@ -45,17 +45,17 @@ export function CollapseSection({
                 open ? "" : "-rotate-90"
               )}
             />
-            {icon && <span className="shrink-0 text-ink-2">{icon}</span>}
+            {icon !== null && <span className="shrink-0 text-ink-2">{icon}</span>}
             <span className="text-xs font-semibold whitespace-nowrap">
               {title}
             </span>
-            {meta && (
+            {meta !== null && (
               <span className="flex items-center gap-1.5 text-[11px] whitespace-nowrap text-muted-foreground">
                 {meta}
               </span>
             )}
           </AccordionPrimitive.Trigger>
-          {actions && (
+          {actions !== null && (
             <div
               className="flex items-center"
               onClick={(e) => { e.stopPropagation(); }}

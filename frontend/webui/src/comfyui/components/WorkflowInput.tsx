@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -15,9 +15,9 @@ import type { ObjectInfoInputSpec } from "../types/renderTypes"
 interface WorkflowInputProps {
   nodeId: string
   inputKey: string
-  value: any
+  value: string | number | boolean | string[] | Record<string, unknown>
   spec: ObjectInfoInputSpec | null
-  onSave: (val: any) => void
+  onSave: (val: string | number | boolean | string[] | Record<string, unknown>) => void
 }
 
 export function WorkflowInput({
@@ -26,17 +26,21 @@ export function WorkflowInput({
   value,
   spec,
   onSave,
-}: WorkflowInputProps) {
-  const [localValue, setLocalValue] = useState<any>(value)
+}: WorkflowInputProps): React.ReactNode {
+  const [localValue, setLocalValue] = useState<string | number | boolean | string[] | Record<string, unknown>>(value)
+  const prevValueRef = useRef(value)
 
   // Sync state if value changes externally (e.g., workflow template loads)
   useEffect(() => {
-    setLocalValue(value)
+    if (prevValueRef.current !== value) {
+      prevValueRef.current = value
+      setLocalValue(value)
+    }
   }, [value])
 
-  const enumOptions = Array.isArray(spec?.[0]) ? (spec[0]) : null
+  const enumOptions = Array.isArray(spec?.[0]) ? spec[0] : null
   const typeStr = typeof spec?.[0] === "string" ? spec[0] : null
-  const extraParams = spec?.[1] || {}
+  const extraParams = spec?.[1] ?? undefined
 
   // 1. Boolean input
   const isBoolean = typeStr === "BOOLEAN" || typeof value === "boolean"
@@ -66,7 +70,7 @@ export function WorkflowInput({
   if (enumOptions) {
     return (
       <Select
-        value={String(localValue ?? "")}
+        value={typeof localValue === "string" ? localValue : (localValue as string)}
         onValueChange={(val) => {
           setLocalValue(val)
           onSave(val)
@@ -99,8 +103,8 @@ export function WorkflowInput({
           ? 0.01
           : 1
 
-    const handleBlurOrSubmit = () => {
-      if (localValue === "" || localValue === undefined || localValue === null) {
+    const handleBlurOrSubmit = (): void => {
+      if (localValue === "") {
         const fallback = typeStr === "INT" ? 0 : 0.0
         setLocalValue(fallback)
         onSave(fallback)
@@ -127,7 +131,7 @@ export function WorkflowInput({
     return (
       <Input
         type="number"
-        value={localValue === null || localValue === undefined ? "" : localValue}
+        value={typeof localValue === "number" ? localValue : (localValue as string)}
         onChange={(e) => {
           const val = e.target.value
           setLocalValue(val === "" ? "" : val)
@@ -154,7 +158,7 @@ export function WorkflowInput({
     inputKey === "prompt" ||
     (typeof value === "string" && (value.includes("\n") || value.length > 50))
 
-  const handleTextBlurOrSubmit = () => {
+  const handleTextBlurOrSubmit = (): void => {
     if (localValue !== value) {
       onSave(localValue)
     }
@@ -163,7 +167,7 @@ export function WorkflowInput({
   if (isMultiline) {
     return (
       <Textarea
-        value={localValue ?? ""}
+        value={typeof localValue === "string" ? localValue : (localValue as string)}
         onChange={(e) => { setLocalValue(e.target.value); }}
         onBlur={handleTextBlurOrSubmit}
         placeholder="텍스트 입력..."
@@ -175,7 +179,7 @@ export function WorkflowInput({
   return (
     <Input
       type="text"
-      value={localValue ?? ""}
+      value={typeof localValue === "string" ? localValue : (localValue as string)}
       onChange={(e) => { setLocalValue(e.target.value); }}
       onBlur={handleTextBlurOrSubmit}
       onKeyDown={(e) => {

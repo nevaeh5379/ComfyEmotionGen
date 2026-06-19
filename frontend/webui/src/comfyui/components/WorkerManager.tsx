@@ -25,14 +25,14 @@ interface ActiveJobConflict {
   jobId: string
 }
 
-export function WorkerManager({ backendUrl, workers }: Props) {
+export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
   const [newUrl, setNewUrl] = useState("")
   const [newWorkerType, setNewWorkerType] = useState("comfyui")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conflict, setConflict] = useState<ActiveJobConflict | null>(null)
 
-  const handleAdd = async () => {
+  const handleAdd = async (): Promise<void> => {
     const url = newUrl.trim()
     if (!url || busy) return
     setBusy(true)
@@ -44,8 +44,8 @@ export function WorkerManager({ backendUrl, workers }: Props) {
         body: JSON.stringify({ url, worker_type: newWorkerType }),
       })
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.detail ?? `HTTP ${res.status}`)
+        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+        throw new Error((typeof body.detail === "string" && body.detail) || `HTTP ${String(res.status)}`)
       }
       setNewUrl("")
       toast.success("워커가 추가되었습니다.")
@@ -58,29 +58,29 @@ export function WorkerManager({ backendUrl, workers }: Props) {
     }
   }
 
-  const sendDelete = async (workerId: string, force: boolean) => {
+  const sendDelete = async (workerId: string, force: boolean): Promise<Response> => {
     const qs = force ? "?force=true" : ""
     return fetch(`${backendUrl}${API.workers.detail(workerId)}${qs}`, {
       method: "DELETE",
     })
   }
 
-  const handleDelete = async (workerId: string) => {
+  const handleDelete = async (workerId: string): Promise<void> => {
     if (busy) return
     setBusy(true)
     setError(null)
     try {
       const res = await sendDelete(workerId, false)
       if (res.status === HTTP_STATUS.conflict) {
-        const body = await res.json().catch(() => ({}))
-        const detail = body.detail ?? {}
+        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+        const detail = (body.detail ?? {}) as Record<string, unknown>
         setConflict({
-          workerId: detail.workerId ?? workerId,
-          jobId: detail.jobId ?? "?",
+          workerId: (typeof detail.workerId === "string" && detail.workerId) || workerId,
+          jobId: (typeof detail.jobId === "string" && detail.jobId) || "?",
         })
         return
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       toast.success("워커가 삭제되었습니다.")
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -91,13 +91,13 @@ export function WorkerManager({ backendUrl, workers }: Props) {
     }
   }
 
-  const confirmForceDelete = async () => {
+  const confirmForceDelete = async (): Promise<void> => {
     if (!conflict || busy) return
     setBusy(true)
     setError(null)
     try {
       const res = await sendDelete(conflict.workerId, true)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       setConflict(null)
       toast.success("작업 취소 및 워커 삭제가 완료되었습니다.")
     } catch (e) {
@@ -118,7 +118,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
           </p>
         )}
         {workers.map((w) => {
-          const wt = w.workerType ?? "comfyui"
+          const wt = w.workerType
           const status = !w.alive
             ? { label: "down", dot: "bg-red-500", text: "text-red-500" }
             : w.busy
@@ -146,7 +146,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
                 variant="ghost"
                 size="sm"
                 className="h-7 w-7 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-                onClick={() => handleDelete(w.id)}
+                onClick={() => { void handleDelete(w.id); }}
                 disabled={busy}
               >
                 <X className="h-4 w-4" />
@@ -172,7 +172,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
           value={newUrl}
           onChange={(e) => { setNewUrl(e.target.value); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleAdd()
+            if (e.key === "Enter") { void handleAdd(); }
           }}
           className="h-8 text-sm"
           disabled={busy}
@@ -180,14 +180,14 @@ export function WorkerManager({ backendUrl, workers }: Props) {
         <Button
           variant="outline"
           size="sm"
-          onClick={handleAdd}
+          onClick={() => { void handleAdd(); }}
           disabled={busy || !newUrl.trim()}
         >
           추가
         </Button>
       </div>
 
-      {error && <p className="text-xs text-destructive">⚠ {error}</p>}
+      {error !== null && error !== "" && <p className="text-xs text-destructive">⚠ {error}</p>}
 
       {conflict && (
         <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm">
@@ -201,7 +201,7 @@ export function WorkerManager({ backendUrl, workers }: Props) {
             <Button
               variant="destructive"
               size="sm"
-              onClick={confirmForceDelete}
+              onClick={() => { void confirmForceDelete(); }}
               disabled={busy}
             >
               작업 취소 후 삭제

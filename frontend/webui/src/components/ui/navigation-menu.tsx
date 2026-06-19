@@ -12,7 +12,7 @@ function NavigationMenu({
   ...props
 }: React.ComponentProps<typeof NavigationMenuPrimitive.Root> & {
   viewport?: boolean
-}) {
+}): React.JSX.Element {
   return (
     <NavigationMenuPrimitive.Root
       data-slot="navigation-menu"
@@ -32,7 +32,7 @@ function NavigationMenu({
 function NavigationMenuList({
   className,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.List>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.List>): React.JSX.Element {
   return (
     <NavigationMenuPrimitive.List
       data-slot="navigation-menu-list"
@@ -48,7 +48,7 @@ function NavigationMenuList({
 function NavigationMenuItem({
   className,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Item>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Item>): React.JSX.Element {
   return (
     <NavigationMenuPrimitive.Item
       data-slot="navigation-menu-item"
@@ -66,7 +66,7 @@ function NavigationMenuTrigger({
   className,
   children,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Trigger>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Trigger>): React.JSX.Element {
   return (
     <NavigationMenuPrimitive.Trigger
       data-slot="navigation-menu-trigger"
@@ -85,7 +85,7 @@ function NavigationMenuTrigger({
 function NavigationMenuContent({
   className,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Content>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Content>): React.JSX.Element {
   return (
     <NavigationMenuPrimitive.Content
       data-slot="navigation-menu-content"
@@ -101,7 +101,7 @@ function NavigationMenuContent({
 function NavigationMenuViewport({
   className,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Viewport>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Viewport>): React.JSX.Element {
   return (
     <div
       className={cn(
@@ -123,7 +123,7 @@ function NavigationMenuViewport({
 function NavigationMenuLink({
   className,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Link>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Link>): React.JSX.Element {
   return (
     <NavigationMenuPrimitive.Link
       data-slot="navigation-menu-link"
@@ -139,7 +139,7 @@ function NavigationMenuLink({
 function NavigationMenuIndicator({
   className,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Indicator>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Indicator>): React.JSX.Element {
   return (
     <NavigationMenuPrimitive.Indicator
       data-slot="navigation-menu-indicator"

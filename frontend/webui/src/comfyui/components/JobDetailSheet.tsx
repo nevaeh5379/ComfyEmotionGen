@@ -20,25 +20,25 @@ import { MS_PER_SECOND, COPIED_RESET_DELAY_MS } from "@/lib/constants"
 import type { JobView } from "../types/Message"
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`
+  if (ms < 1000) return `${String(Math.round(ms))}ms`
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
   const m = Math.floor(ms / 60_000)
   const s = Math.round((ms % 60_000) / 1000)
-  return `${m}m ${s}s`
+  return `${String(m)}m ${String(s)}s`
 }
 
 function jobDuration(job: JobView): number | null {
-  if (job.executionDurationMs != null) return job.executionDurationMs
-  if (job.startedAt != null && job.finishedAt != null)
+  if (job.executionDurationMs !== null) return job.executionDurationMs
+  if (job.startedAt !== null && job.finishedAt !== null)
     return (job.finishedAt - job.startedAt) * MS_PER_SECOND
   return null
 }
 
-function ClipButton({ text }: { text: string }) {
+function ClipButton({ text }: { text: string }): React.JSX.Element {
   const [copied, setCopied] = useState(false)
-  const handleCopy = (e: React.MouseEvent) => {
+  const handleCopy = (e: React.MouseEvent): void => {
     e.stopPropagation()
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => { setCopied(false); }, COPIED_RESET_DELAY_MS)
     })
@@ -80,7 +80,7 @@ export function JobDetailSheet({
   onCancel,
   onRetry,
   onDelete,
-}: JobDetailSheetProps) {
+}: JobDetailSheetProps): React.JSX.Element {
   const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState(0)
 
@@ -113,7 +113,7 @@ export function JobDetailSheet({
                 <span className="mono rounded bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
                   ID: {job.id.slice(0, 8)}…
                 </span>
-                {job.workerId && (
+                {job.workerId !== null && (
                   <span className="mono rounded bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
                     작업 워커: {job.workerId}
                   </span>
@@ -139,7 +139,7 @@ export function JobDetailSheet({
                 </div>
               )}
 
-              {job.error && (
+              {job.error !== null && (
                 <div className="relative rounded-lg border border-destructive/20 bg-destructive/10 p-3 shadow-inner">
                   <div className="mb-1 flex items-center gap-1.5 text-[11px] font-black tracking-widest text-destructive uppercase">
                     <AlertCircle className="h-4 w-4" /> 에러 로그
@@ -162,7 +162,7 @@ export function JobDetailSheet({
                   <div
                     className={cn(
                       "absolute top-2.5 bottom-[-16px] left-2.25 w-0.5 bg-line-strong/60",
-                      job.startedAt && "bg-info/60"
+                      job.startedAt !== null && "bg-info/60"
                     )}
                   />
                   <div className="absolute top-1.5 left-1 h-2.5 w-2.5 rounded-full bg-ink-2 ring-4 ring-ink-2/15" />
@@ -176,12 +176,12 @@ export function JobDetailSheet({
                   </div>
                 </div>
 
-                {job.startedAt ? (
+                {job.startedAt !== null ? (
                   <div className="relative flex gap-3 pl-6">
                     <div
                       className={cn(
                         "absolute top-2.5 bottom-[-16px] left-2.25 w-0.5 bg-line-strong/60",
-                        job.finishedAt && "bg-ok/60"
+                        job.finishedAt !== null && "bg-ok/60"
                       )}
                     />
                     <div className="absolute top-1.5 left-1 h-2.5 w-2.5 animate-pulse rounded-full bg-info ring-4 ring-info/15" />
@@ -210,7 +210,7 @@ export function JobDetailSheet({
                   </div>
                 )}
 
-                {job.finishedAt ? (
+                {job.finishedAt !== null ? (
                   <div className="relative flex gap-3 pl-6">
                     <div
                       className={cn(
@@ -250,16 +250,21 @@ export function JobDetailSheet({
                 )}
               </div>
 
-              {jobDuration(job) != null && (
-                <div className="mt-3.5 flex items-center justify-between border-t border-line/60 pt-3.5 text-xs">
-                  <span className="font-extrabold text-muted-foreground">
-                    총 소요 시간
-                  </span>
-                  <span className="mono rounded bg-muted px-2 py-0.5 font-black text-foreground tabular-nums">
-                    {formatDuration(jobDuration(job)!)}
-                  </span>
-                </div>
-              )}
+              {/* eslint-disable-next-line @typescript-eslint/explicit-function-return-type */}
+              {(() => {
+                const duration = jobDuration(job)
+                if (duration === null) return null
+                return (
+                  <div className="mt-3.5 flex items-center justify-between border-t border-line/60 pt-3.5 text-xs">
+                    <span className="font-extrabold text-muted-foreground">
+                      총 소요 시간
+                    </span>
+                    <span className="mono rounded bg-muted px-2 py-0.5 font-black text-foreground tabular-nums">
+                      {formatDuration(duration)}
+                    </span>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Action buttons */}
@@ -308,14 +313,17 @@ export function JobDetailSheet({
             </div>
 
             {/* Generated images */}
-            {fetchedImages.get(job.id) &&
-              fetchedImages.get(job.id)!.length > 0 && (
+            {/* eslint-disable-next-line @typescript-eslint/explicit-function-return-type */}
+            {(() => {
+              const images = fetchedImages.get(job.id)
+              if (images === undefined || images.length === 0) return null
+              return (
                 <div className="space-y-3">
                   <h4 className="text-sm font-black tracking-widest text-muted-foreground uppercase">
-                    생성 이미지 ({fetchedImages.get(job.id)!.length})
+                    생성 이미지 ({String(images.length)})
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
-                    {fetchedImages.get(job.id)!.map((h, i) => {
+                    {images.map((h, i) => {
                       const url = `${backendUrl}/saved-images/${h}`
                       return (
                         <button
@@ -323,8 +331,8 @@ export function JobDetailSheet({
                           onClick={() => {
                             setLightboxUrls(
                               fetchedImages
-                                .get(job.id)!
-                                .map((hh) => `${backendUrl}/saved-images/${hh}`)
+                                .get(job.id)
+                                ?.map((hh) => `${backendUrl}/saved-images/${hh}`) ?? []
                             )
                             setLightboxIndex(i)
                           }}
@@ -332,7 +340,7 @@ export function JobDetailSheet({
                         >
                           <img
                             src={url}
-                            alt={`Generated ${i}`}
+                            alt={`Generated ${String(i)}`}
                             loading="lazy"
                             className="h-auto w-full object-cover transition-opacity hover:opacity-80"
                           />
@@ -341,16 +349,22 @@ export function JobDetailSheet({
                     })}
                   </div>
                 </div>
-              )}
+              )
+            })()}
           </div>
         )}
 
         {lightboxUrls && (
-          <ImageViewer
-            src={lightboxUrls[lightboxIndex]!}
-            isOpen={lightboxUrls !== null}
-            onClose={() => { setLightboxUrls(null); }}
-          >
+          // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+          (() => {
+            const currentUrl = lightboxUrls[lightboxIndex]
+            if (currentUrl === undefined) return null
+          return (
+            <ImageViewer
+              src={currentUrl}
+               isOpen
+              onClose={() => { setLightboxUrls(null); }}
+            >
             {lightboxUrls.length > 1 && (
               <div className="flex w-full flex-col items-center gap-3">
                 <div className="flex items-center justify-center gap-4">
@@ -397,7 +411,7 @@ export function JobDetailSheet({
                       >
                         <img
                           src={url}
-                          alt={`Thumbnail ${i}`}
+                          alt={`Thumbnail ${String(i)}`}
                           className="h-full w-full object-cover"
                         />
                       </button>
@@ -407,7 +421,8 @@ export function JobDetailSheet({
               </div>
             )}
           </ImageViewer>
-        )}
+        )
+      })())}
       </SheetContent>
     </Sheet>
   )

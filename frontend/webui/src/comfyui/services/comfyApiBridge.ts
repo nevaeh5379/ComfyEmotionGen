@@ -1,19 +1,20 @@
 import type { BackendEvent, JobView } from "../types/Message"
 
 function dispatch(type: string, detail?: unknown): void {
-  const api = (window as any).api
-  if (api && typeof api.dispatchCustomEvent === 'function') {
+  const w = window as unknown as Record<string, unknown>
+  const api = w.api
+  if (api !== undefined && typeof api === 'object' && api !== null && 'dispatchCustomEvent' in api && typeof (api as Record<string, unknown>).dispatchCustomEvent === 'function') {
     if (detail !== undefined) {
-      api.dispatchCustomEvent(type, detail)
+      ;(api as Record<string, unknown>).dispatchCustomEvent(type, detail)
     } else {
-      api.dispatchCustomEvent(type)
+      ;(api as Record<string, unknown>).dispatchCustomEvent(type)
     }
   }
 }
 
 function dispatchStatusFromJobs(jobs: JobView[]): void {
-  const running = jobs.filter((j) => j.status === 'running').length
-  const queued = jobs.filter((j) => j.status === 'queued').length
+  const running = jobs.filter((j): boolean => j.status === 'running').length
+  const queued = jobs.filter((j): boolean => j.status === 'queued').length
   const queueRemaining = running + queued
   dispatch('status', {
     status: {
@@ -55,7 +56,7 @@ export function applyComfyApiBridge(event: BackendEvent): void {
             prompt_id: job.id,
             node_id: '',
             node_type: '',
-            exception_message: job.error || 'Unknown error',
+            exception_message: job.error ?? 'Unknown error',
           })
           dispatch('executing', { node: null })
           break
@@ -70,7 +71,7 @@ export function applyComfyApiBridge(event: BackendEvent): void {
           break
       }
 
-      if (job.progressPercent > 0 && (job.status === 'running' || job.status === 'queued')) {
+      if (job.progressPercent > 0 && job.status === 'running' || job.status === 'queued') {
         dispatch('progress', {
           value: Math.round(job.completedNodeCount),
           max: Math.max(job.totalNodeCount, 1),

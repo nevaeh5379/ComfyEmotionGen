@@ -28,7 +28,7 @@ export function GalleryTab({
   singleDownloadMode,
   fluidGridLayout,
   tb,
-}: GalleryTabProps) {
+}: GalleryTabProps): React.JSX.Element {
   return (
     <div className="flex flex-1 flex-col bg-background">
       <SavedImagesGallery

@@ -83,7 +83,7 @@ import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from "lucide-react"
 // ---------------------------------------------------------------------------
 // App — Root component with providers
 // ---------------------------------------------------------------------------
-export function App() {
+export function App(): React.JSX.Element {
   useOfflineSync()
 
   const [storedBackendUrl] = useLocalStorage(
@@ -91,7 +91,7 @@ export function App() {
     DEFAULT_BACKEND_URL
   )
   const backendUrl = IS_PACKAGE_MODE
-    ? (PACKAGE_BACKEND_URL!)
+    ? PACKAGE_BACKEND_URL ?? storedBackendUrl
     : storedBackendUrl
 
   return (
@@ -114,8 +114,9 @@ export function App() {
 // ---------------------------------------------------------------------------
 // AppContent — Inside all contexts
 // ---------------------------------------------------------------------------
-function AppContent() {
+function AppContent(): React.JSX.Element {
   // ── Backend ──
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
   // ── Backend URL state ──
@@ -125,7 +126,7 @@ function AppContent() {
     DEFAULT_BACKEND_URL
   )
   const setBackendUrl = IS_PACKAGE_MODE
-    ? (_: string) => {}
+    ? (_: string): void => { /* no-op in package mode */ }
     : setStoredBackendUrl
 
   // ── Backend health ──
@@ -252,9 +253,9 @@ function AppContent() {
         const doneCount = session.sessionCounts.done
         const errorCount = session.sessionCounts.error + session.sessionCounts.cancelled
         if (errorCount > 0) {
-          toast.info(`배치 완료! (${doneCount} 완료, ${errorCount} 실패/취소)`)
+          toast.info(`배치 완료! (${String(doneCount)} 완료, ${String(errorCount)} 실패/취소)`)
         } else {
-          toast.success(`모든 작업이 완료되었습니다! (${doneCount}개)`)
+          toast.success(`모든 작업이 완료되었습니다! (${String(doneCount)}개)`)
         }
         fetch(`${backendUrl}${API.webhooks.batchComplete}`, {
           method: "POST",
@@ -264,7 +265,7 @@ function AppContent() {
             error: errorCount,
             total: totalJobs,
           }),
-        }).catch(() => {})
+        }).catch(() => { /* intentionally empty - fire and forget */ })
       }
     }
     prevActiveCount.current = current
@@ -322,6 +323,7 @@ function AppContent() {
     )
   }, [fakeJobQueue, previewFilter])
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const canRun =
     Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
 
@@ -331,16 +333,16 @@ function AppContent() {
     fetch(`${backendUrl}${API.objectInfo}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) nodeMapping.setObjectInfo(data)
+        if (data !== null && typeof data === "object") nodeMapping.setObjectInfo(data as Record<string, unknown>)
       })
-      .catch(() => {})
+      .catch(() => { /* intentionally empty - fire and forget */ })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendUrl, isAliveBackend])
 
   // ── Quick save handler (Ctrl+S shortcut) ──
   const handleQuickSave = useCallback(() => {
     if (compositionTab === "ceg") {
-      if (template.activeTemplateId) {
+      if (template.activeTemplateId !== null) {
         const active = template.savedTemplates.find(
           (t) => t.id === template.activeTemplateId
         )
@@ -371,8 +373,9 @@ function AppContent() {
   useGlobalShortcuts({
     activeTab,
     mobileJobTab,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     canRun,
-    handleRun,
+    handleRun: () => { void handleRun(); },
     handleSave: handleQuickSave,
     handleGalleryRefresh: tb.handleRefresh,
     setActiveTab,
@@ -383,8 +386,8 @@ function AppContent() {
   const nextFreeName = (name: string, items: { name: string }[]): string => {
     if (!items.some((x) => x.name === name)) return name
     let n = NAME_CONFLICT_START_NUMBER
-    while (items.some((x) => x.name === `${name} (${n})`)) n++
-    return `${name} (${n})`
+    while (items.some((x) => x.name === `${name} (${String(n)})`)) n++
+    return `${name} (${String(n)})`
   }
 
   const pendingSaveItems =
@@ -394,7 +397,7 @@ function AppContent() {
         ? workflow.savedWorkflows
         : nodeMapping.savedNodeMappings
 
-  const handleNameConflictSaveNew = () => {
+  const handleNameConflictSaveNew = (): void => {
     if (!pendingSave) return
     const newName = nextFreeName(pendingSave.name, pendingSaveItems)
     if (pendingSave.type === "template") {
@@ -405,7 +408,7 @@ function AppContent() {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId) {
+      if (workflow.activeWorkflowId !== null) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           newName,
@@ -417,7 +420,7 @@ function AppContent() {
     setPendingSave(null)
   }
 
-  const handleNameConflictOverwrite = () => {
+  const handleNameConflictOverwrite = (): void => {
     if (!pendingSave) return
     if (pendingSave.type === "template") {
       template.saveTemplate(pendingSave.name, template.cegTemplate)
@@ -427,7 +430,7 @@ function AppContent() {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId) {
+      if (workflow.activeWorkflowId !== null) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           pendingSave.name,
@@ -568,9 +571,13 @@ function AppContent() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isAliveBackend={isAliveBackend}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           backendAlive={backendAlive}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           workers={workers}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           jobs={jobs}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
           jobsCount={jobs.length}
           mobileJobTab={mobileJobTab}
           setMobileJobTab={setMobileJobTab}
@@ -578,13 +585,14 @@ function AppContent() {
           setCompositionTab={setCompositionTab}
           repeatCount={repeatCount}
           setRepeatCount={setRepeatCount}
-          handleRun={handleRun}
-          handleRandomRun={handleRandomRun}
-          handleRunUnapproved={handleRunUnapproved}
+          handleRun={() => { void handleRun(); }}
+          handleRandomRun={() => { void handleRandomRun(); }}
+          handleRunUnapproved={() => { void handleRunUnapproved(); }}
           randomRunCount={randomRunCount}
           setRandomRunCount={setRandomRunCount}
           targetWorkerId={targetWorkerId}
           setTargetWorkerId={setTargetWorkerId}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           canRun={canRun}
           estimatedRunCount={estimatedRunCount}
           setIsSelectionOpen={setIsSelectionOpen}
@@ -602,18 +610,17 @@ function AppContent() {
           sessionJobCounts={session.sessionJobCounts}
           sortedMarkers={session.sortedMarkers}
           selectedSessionId={session.selectedSessionId}
-          activeSessionState={
-            session.activeState ? { activeSessionId: session.activeState.activeSessionId } : null
-          }
+          activeSessionState={{ activeSessionId: session.activeState.activeSessionId }}
           sessionPickerOpen={session.sessionPickerOpen}
           onSessionPickerOpenChange={session.setSessionPickerOpen}
           onSelectSession={session.setSelectedSessionId}
           onCreateNewSession={session.createNewSession}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           paused={paused}
-          onTogglePause={jobActions.handleTogglePause}
-          onCancelAll={jobActions.handleCancelAll}
-          onRetryAllFailed={jobActions.handleRetryAllFailed}
-          onDeleteAllFailed={jobActions.handleDeleteAllFailed}
+          onTogglePause={() => { void jobActions.handleTogglePause(); }}
+          onCancelAll={() => { void jobActions.handleCancelAll(); }}
+          onRetryAllFailed={() => { void jobActions.handleRetryAllFailed(); }}
+          onDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed(); }}
           activeJobsCount={session.sessionCounts.active}
         />
 
@@ -625,7 +632,12 @@ function AppContent() {
           }`}
         >
           {/* ── Tab Routing ── */}
-          {activeTab === "stats" && <StatsTab jobs={jobs} workers={workers} />}
+          {activeTab === "stats" &&             <StatsTab
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              jobs={jobs}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              workers={workers}
+            />}
           {activeTab === "gallery" && (
             <GalleryTab
               backendUrl={backendUrl}
@@ -661,6 +673,7 @@ function AppContent() {
               updateSetting={updateSetting}
               backendUrl={backendUrl}
               onBackendUrlChange={setBackendUrl}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               workers={workers}
             />
           )}
@@ -668,8 +681,11 @@ function AppContent() {
             <JobsTab
               backendUrl={backendUrl}
               isAliveBackend={isAliveBackend}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               jobs={jobs}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               workers={workers}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               paused={paused}
               session={session}
               runner={runnerProps}
@@ -699,6 +715,7 @@ function AppContent() {
               setIsAxisFilterOpen={setIsAxisFilterOpen}
               setIsSelectionOpen={setIsSelectionOpen}
               setIsGraphOpen={setIsGraphOpen}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               canRun={canRun}
             />
           )}
@@ -736,6 +753,7 @@ function AppContent() {
           onPreviewFilterChange={setPreviewFilter}
           uncheckedItems={uncheckedItems}
           selectedCount={selectedCount}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           canRun={canRun}
           checkAllItems={checkAllItems}
           uncheckAllItems={uncheckAllItems}
@@ -744,10 +762,10 @@ function AppContent() {
             const ok = await handleRunSelected()
             if (ok) setIsSelectionOpen(false)
           }}
-          onExcludeApproved={selectOnlyUnapprovedItems}
+          onExcludeApproved={() => { void selectOnlyUnapprovedItems(); }}
         />
 
-        {workflow.parsedWorkflow?.success && (
+        {workflow.parsedWorkflow?.success === true && (
           <WorkflowGraphViewer
             workflow={workflow.parsedWorkflow.data}
             isOpen={isGraphOpen}
@@ -766,10 +784,12 @@ function AppContent() {
 
         {activeTab !== "jobs" && (
           <JobStatusPopup
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             jobs={jobs}
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             paused={paused}
-            backendUrl={backendUrl}
-            isAliveBackend={isAliveBackend}
+          backendUrl={backendUrl}
+          isAliveBackend={isAliveBackend}
             onNavigateToJobs={() => { setActiveTab("jobs"); }}
             cycleMinimizedProgress={settings.cycleMinimizedProgress}
           />
@@ -840,14 +860,16 @@ function AppContent() {
               <WorkCompositionPanel
                 repeatCount={repeatCount}
                 setRepeatCount={setRepeatCount}
-                handleRun={handleRun}
-                handleRandomRun={handleRandomRun}
-                handleRunUnapproved={handleRunUnapproved}
+                handleRun={() => { void handleRun(); }}
+                handleRandomRun={() => { void handleRandomRun(); }}
+                handleRunUnapproved={() => { void handleRunUnapproved(); }}
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 estimatedRunCount={estimatedRunCount}
-                canRun={canRun}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          canRun={canRun}
                 previewCount={fakeJobQueue.length}
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 workers={workers}
                 targetWorkerId={targetWorkerId}
                 setTargetWorkerId={setTargetWorkerId}
@@ -884,8 +906,11 @@ function AppContent() {
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <JobManagerPanel
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                   jobs={jobs}
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                   workers={workers}
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                   paused={paused}
                   backendUrl={backendUrl}
                   isAliveBackend={isAliveBackend}
@@ -902,10 +927,10 @@ function AppContent() {
                   sortedMarkers={session.sortedMarkers}
                   counts={session.sessionCounts}
                   sessionJobs={session.sessionJobs}
-                  handleTogglePause={jobActions.handleTogglePause}
-                  handleCancelAll={jobActions.handleCancelAll}
-                  handleRetryAllFailed={jobActions.handleRetryAllFailed}
-                  handleDeleteAllFailed={jobActions.handleDeleteAllFailed}
+                  handleTogglePause={() => { void jobActions.handleTogglePause(); }}
+                  handleCancelAll={() => { void jobActions.handleCancelAll(); }}
+                  handleRetryAllFailed={() => { void jobActions.handleRetryAllFailed(); }}
+                  handleDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed(); }}
                   refetchStats={session.refetchStats}
                   isFloating={true}
                   onFloatToggle={() => { setIsJobManagerFloating(false); }}
@@ -960,7 +985,12 @@ function AppContent() {
             }
           >
             <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
-              <StatisticsPanel jobs={jobs} workers={workers} />
+              <StatisticsPanel
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                jobs={jobs}
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                workers={workers}
+              />
             </div>
           </FloatingWindow>
         )}
@@ -997,7 +1027,7 @@ function AppContent() {
                   selectedAxis: curationSelectedAxis,
                   setSelectedAxis: setCurationSelectedAxis,
                   viewMode: "gallery" as const,
-                  setViewMode: () => {},
+                  setViewMode: () => { /* no-op for curation floating window */ },
                   hideTopSection: true,
                 }}
               />

@@ -4,7 +4,7 @@ interface CompositionTabsListProps {
   className?: string
 }
 
-export function CompositionTabsList({ className }: CompositionTabsListProps) {
+export function CompositionTabsList({ className }: CompositionTabsListProps): React.JSX.Element {
   return (
     <TabsList variant="default" className={className}>
       <TabsTrigger value="ceg">템플릿</TabsTrigger>

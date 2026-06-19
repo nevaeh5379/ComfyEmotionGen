@@ -4,6 +4,14 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useEffect, useState, type ReactNode } from "react"
 import { Settings2, X } from "lucide-react"
 
+interface CanvasLike {
+  graph: unknown
+  canvas: {
+    addEventListener(type: string, listener: unknown): void
+    removeEventListener(type: string, listener: unknown): void
+  }
+}
+
 interface NodePropertiesPanelProps {
   className?: string
   editorMode?: "canvas" | "react"
@@ -31,9 +39,9 @@ interface CanvasNodeData {
   color?: string
   bgcolor?: string
   is_selected?: boolean
-  widgets?: Array<{ name: string; value: unknown; type: string }>
-  inputs: Array<{ name: string; type: string | number; link: number | null }>
-  outputs: Array<{ name: string; type: string | number; links: number[] | null }>
+  widgets?: { name: string; value: unknown; type: string }[]
+  inputs: { name: string; type: string | number; link: number | null }[]
+  outputs: { name: string; type: string | number; links: number[] | null }[]
 }
 
 function isCanvasNode(value: unknown): value is CanvasNodeData {
@@ -42,7 +50,7 @@ function isCanvasNode(value: unknown): value is CanvasNodeData {
 }
 
 export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: NodePropertiesPanelProps): ReactNode {
-  const canvas = useCanvasStore((s) => s.canvas)
+  const canvas = useCanvasStore((s) => s.canvas as unknown as CanvasLike)
   const reactNodes = useReactGraphStore((s) => s.nodes)
   const reactSelectedIds = useReactGraphStore((s) => s.selectedNodeIds)
   const reactDeselectAll = useReactGraphStore((s) => s.deselectAll)
@@ -50,12 +58,12 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
   const [canvasSelectedNode, setCanvasSelectedNode] = useState<SelectedNode | null>(null)
 
   useEffect(() => {
-    if (editorMode !== "canvas" || canvas?.graph === null || canvas?.graph === undefined) return
+    if (editorMode !== "canvas" || canvas.graph === null || canvas.graph === undefined) return
 
     const updateSelection = (): void => {
       const g = canvas.graph
-      if (g === null) return
-      const rawNodes: unknown[] = [...g.nodes]
+      if (g === null || g === undefined) return
+      const rawNodes: unknown[] = [...(g as { nodes: unknown[] }).nodes]
       const selected = rawNodes.filter(isCanvasNode)
       if (selected.length === 1 && selected[0] !== undefined) {
         const node = selected[0]
@@ -95,8 +103,9 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
     const handleSelectionChange = (): void => {
       updateSelection()
     }
-    canvas.canvas.addEventListener("mouseup", handleSelectionChange)
-    canvas.canvas.addEventListener("click", handleSelectionChange)
+    const canvasEl = canvas.canvas
+    canvasEl.addEventListener("mouseup", handleSelectionChange)
+    canvasEl.addEventListener("click", handleSelectionChange)
 
     return (): void => {
       clearInterval(interval)
@@ -190,16 +199,17 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
             if (editorMode === "react") {
               reactDeselectAll()
             } else {
-              const currentCanvas = useCanvasStore.getState().canvas
-              if (currentCanvas?.graph !== null && currentCanvas?.graph !== undefined) {
-                const rawGraphNodes: unknown[] = [...currentCanvas.graph.nodes]
+              const currentCanvas = useCanvasStore.getState().canvas as unknown as CanvasLike
+              if (currentCanvas.graph !== null && currentCanvas.graph !== undefined) {
+                const rawGraphNodes: unknown[] = [...(currentCanvas.graph as { nodes: unknown[] }).nodes]
                 for (const drawNode of rawGraphNodes) {
                   if (typeof drawNode === "object" && drawNode !== null && "is_selected" in drawNode) {
                     const typedNode: { is_selected?: boolean } = drawNode as { is_selected?: boolean }
                     typedNode.is_selected = false
                   }
                 }
-                currentCanvas.graph.setDirtyCanvas(true, true)
+                const graph = currentCanvas.graph as { setDirtyCanvas(dirty: boolean, dirtyFlags: boolean): void }
+                graph.setDirtyCanvas(true, true)
               }
               setCanvasSelectedNode(null)
             }

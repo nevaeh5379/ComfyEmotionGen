@@ -1,7 +1,7 @@
 import { BackendContext } from "../contexts/BackendContext"
 import { useContextRequired } from "@/lib/context"
 
-export const useBackend = () => {
+export const useBackend = (): ReturnType<typeof useContextRequired<BackendContext>> => {
   return useContextRequired(BackendContext, "useBackend")
 }
 

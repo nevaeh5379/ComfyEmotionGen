@@ -14,8 +14,8 @@ export function StatusIcon({
 }: {
   done: boolean
   active?: boolean
-}) {
-  if (active) {
+}): React.JSX.Element {
+  if (active === true) {
     return done ? (
       <CheckCircle2Icon className="h-4 w-4" />
     ) : (
@@ -38,9 +38,9 @@ export function MetaTags({
   meta: Record<string, string>
   variant?: "default" | "compact" | "primary" | "sidebar"
   max?: number
-}) {
+}): React.JSX.Element {
   const values = Object.values(meta)
-  const display = max ? values.slice(0, max) : values
+  const display = max !== undefined && max > 0 ? values.slice(0, max) : values
   const variants = {
     default: "rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground",
     compact:
@@ -75,7 +75,7 @@ export function ImageWithSkeleton({
   aspectRatio?: string
   objectFit?: string
   showBlurredBg?: boolean
-}) {
+}): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -120,7 +120,7 @@ export function ImageWithSkeleton({
 export function useSetToggle<T>(
   setValue: Dispatch<SetStateAction<Set<T>>>,
   onEmpty?: () => void
-) {
+): (value: T) => void {
   return useCallback(
     (value: T) => {
       setValue((prev) => {

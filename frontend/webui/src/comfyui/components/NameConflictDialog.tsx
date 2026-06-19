@@ -24,7 +24,7 @@ export const NameConflictDialog = ({
   newName,
   onSaveNew,
   onOverwrite,
-}: NameConflictDialogProps) => (
+}: NameConflictDialogProps): React.JSX.Element => (
   <Dialog
     open={pendingSave !== null}
     onOpenChange={(open) => {

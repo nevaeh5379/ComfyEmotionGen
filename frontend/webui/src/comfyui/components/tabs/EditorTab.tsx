@@ -41,7 +41,7 @@ import {
   type EditorSavedWorkflow,
 } from "@/comfyui/hooks/useEditorSavedWorkflows"
 
-export function EditorTab() {
+export function EditorTab(): React.JSX.Element {
   const [currentWorkflow, setCurrentWorkflow] = useState<ComfyWorkflowJSON | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
@@ -59,7 +59,7 @@ export function EditorTab() {
   const setNodeDefs = useNodeDefStore((s) => s.setNodeDefs)
   const canUndo = useGraphStore((s) => s.canUndo())
   const canRedo = useGraphStore((s) => s.canRedo())
-  const graph = useCanvasStore((s) => s.currentGraph)
+  const graph = useCanvasStore.getState().currentGraph as unknown
 
   // ─── 이전 에디터 모드 추적 (루프 방지용) ─────────────────────
   const prevEditorModeRef = useRef<"canvas" | "react">("canvas")
@@ -77,12 +77,13 @@ export function EditorTab() {
     if (editorMode === "react" && prev === "canvas" && currentWorkflow) {
       useReactGraphStore.getState().setGraph(currentWorkflow)
     }
-  }, [editorMode]) // currentWorkflow를 의도적으로 제외: 전환 시점 스냅샷만 사용
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorMode])
 
   // object_info 로드
   useEffect(() => {
     let cancelled = false
-    async function load() {
+    async function load(): Promise<void> {
       try {
         setIsLoading(true)
         const defs = await window.api.getNodeDefs()
@@ -95,12 +96,12 @@ export function EditorTab() {
         if (!cancelled) setIsLoading(false)
       }
     }
-    load()
-    return () => { cancelled = true }
+    void load()
+    return (): void => { cancelled = true }
   }, [setNodeDefs])
 
-  const handleSaveWorkflow = useCallback(() => {
-    if (!saveName.trim()) return
+  const handleSaveWorkflow = useCallback((): void => {
+    if (saveName.trim() === "") return
     const state = useReactGraphStore.getState()
     const workflow: ComfyWorkflowJSON = {
       last_node_id: Math.max(0, ...state.nodes.map((n) => n.id)),
@@ -115,27 +116,32 @@ export function EditorTab() {
   }, [saveName, saveEditorWorkflow])
 
   const handleFileImport = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
+    (event: React.ChangeEvent<HTMLInputElement>): void => {
       const file = event.target.files?.[0]
       if (!file) return
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = (e: ProgressEvent<FileReader>): void => {
         try {
-          const text = e.target?.result as string
-          const parsed = JSON.parse(text) as ComfyWorkflowJSON
-          if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
+          const text = e.target?.result as string | undefined
+          if (typeof text !== "string") return
+          const parsed = JSON.parse(text) as unknown
+          if (parsed === null || parsed === undefined || typeof parsed !== "object") return
+          const workflow = parsed as Record<string, unknown>
+          const nodesVal = workflow.nodes
+          if (nodesVal === undefined || !Array.isArray(nodesVal)) {
             throw new Error("Invalid ComfyUI workflow JSON: missing nodes array")
           }
           // 링크 정규화: 배열 [id, origin_id, origin_slot, target_id, target_slot, type] → 객체
-          if (parsed.links) {
-            parsed.links = parsed.links.map((l: unknown) => {
+          const linksVal = workflow.links
+          if (linksVal !== undefined && Array.isArray(linksVal)) {
+            workflow.links = linksVal.map((l: unknown) => {
               if (Array.isArray(l)) {
-                return { id: l[0], origin_id: l[1], origin_slot: l[2], target_id: l[3], target_slot: l[4], type: l[5] ?? "*" }
+                return { id: l[0] as number, origin_id: l[1] as number, origin_slot: l[2] as number, target_id: l[3] as number, target_slot: l[4] as number, type: l[5] !== undefined && l[5] !== null ? (l[5] as string) : "*" }
               }
               return l
-            }) as ComfyWorkflowJSON["links"]
+            })
           }
-          setCurrentWorkflow(parsed)
+          setCurrentWorkflow(workflow as ComfyWorkflowJSON)
         } catch (err) {
           console.error("[EditorTab] Failed to import workflow file:", err)
           alert("워크플로우 파일을 불러오는데 실패했습니다. 올바른 JSON 파일인지 확인해주세요.")
@@ -151,7 +157,7 @@ export function EditorTab() {
   )
 
   const handleLoadWorkflow = useCallback(
-    (w: EditorSavedWorkflow) => {
+    (w: EditorSavedWorkflow): void => {
       setCurrentWorkflow(w.workflow)
       setLoadDialogOpen(false)
     },
@@ -159,13 +165,13 @@ export function EditorTab() {
   )
 
   const handleDeleteWorkflow = useCallback(
-    (id: string) => {
+    (id: string): void => {
       deleteEditorWorkflow(id)
     },
     [deleteEditorWorkflow]
   )
 
-  const handleNewWorkflow = useCallback(() => {
+  const handleNewWorkflow = useCallback((): void => {
     setCurrentWorkflow({
       last_node_id: 0,
       last_link_id: 0,
@@ -176,7 +182,7 @@ export function EditorTab() {
   }, [])
 
   // 노드 라이브러리에서 노드 추가
-  const handleAddNode = useCallback((type: string) => {
+  const handleAddNode = useCallback((type: string): void => {
     if (editorMode === "react") {
       const def = nodeDefs[type]
       const state = useReactGraphStore.getState()
@@ -188,17 +194,19 @@ export function EditorTab() {
       return
     }
 
-    // @ts-ignore - graph is LGraph from our store
-    if (!graph) return
+    // graph is LGraph from our store
+    if (graph === null || graph === undefined) return
 
     // 중앙에 노드 추가 (캔버스 중심)
-    // @ts-ignore
-    const center = graph?.list_of_graphcanvas?.[0]?.ds?.offset || [0, 0]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = graph as Record<string, any>
+    const list = g.list_of_graphcanvas as { ds?: { offset?: [number, number] } }[] | undefined
+    const center: [number, number] = list?.[0]?.ds?.offset ?? [0, 0]
     const pos: [number, number] = [center[0] + 100, center[1] + 100]
 
     // Use ComfyAppService through the canvas store
-    const app = useCanvasStore.getState().appService as any
-    if (app?.createNode) {
+    const app = useCanvasStore.getState().appService as { createNode?: (type: string, pos: [number, number]) => void } | undefined
+    if (app && typeof app.createNode === "function") {
       app.createNode(type, pos)
     }
   }, [graph, editorMode, nodeDefs])

@@ -1,7 +1,7 @@
 export class LitegraphLinkAdapter {
-  constructor(public readonly enableLayoutStoreWrites = true) {}
-  renderLinkDirect() {}
-  renderDraggingLink() {}
+  constructor(public readonly enableLayoutStoreWrites = true) { /* no-op */ }
+  renderLinkDirect() { /* no-op */ }
+  renderDraggingLink() { /* no-op */ }
 }
 
 export function calculateInputSlotPosFromSlot() {

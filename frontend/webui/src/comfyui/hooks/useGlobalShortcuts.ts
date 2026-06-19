@@ -36,13 +36,13 @@ export function useGlobalShortcuts({
   handleGalleryRefresh,
   setActiveTab,
   toggleShortcuts,
-}: UseGlobalShortcutsOptions) {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+}: UseGlobalShortcutsOptions): void {
+  useEffect((): (() => void) | undefined => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       // Ignore if typing in editable element
       const activeEl = document.activeElement
       const isEditable =
-        activeEl &&
+        activeEl !== null &&
         (activeEl.tagName === "INPUT" ||
           activeEl.tagName === "TEXTAREA" ||
           activeEl.tagName === "SELECT" ||
@@ -55,7 +55,7 @@ export function useGlobalShortcuts({
         return
       }
 
-      const isMac = navigator.platform.includes("Mac")
+      const isMac = navigator.userAgent.includes("Mac")
       const modifier = isMac ? e.metaKey : e.ctrlKey
 
       // Ctrl + Shift + 1..6 or Alt + 1..6 → Switch tabs

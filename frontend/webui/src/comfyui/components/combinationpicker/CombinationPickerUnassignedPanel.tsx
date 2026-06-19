@@ -49,7 +49,7 @@ function UnassignedGridItem({
   templateAffiliationCache: Map<string, string[]>
   affiliations: string[] | undefined
   handleUnassignedToggleSelect: (filename: string) => void
-}) {
+}): React.JSX.Element {
   const preview = imgs[0]
   const [aspect, setAspect] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -125,7 +125,7 @@ function UnassignedGridItem({
                 완전 고아
               </span>
             ) : (
-              affiliations!.map((name, i) => (
+              (affiliations ?? []).map((name, i) => (
                 <span
                   key={i}
                   className="rounded bg-green-100 px-1 py-0.5 text-[8px] font-bold text-green-700"
@@ -155,7 +155,7 @@ export function CombinationPickerUnassignedPanel({
   bulkTrashActionIsLoading,
   bulkTrashActionMessage,
   closeUnassignedPanel,
-}: UnassignedPanelProps) {
+}: UnassignedPanelProps): React.JSX.Element {
   const { backendUrl, data } = useCurationContext()
   const { unassignedGroups, unassignedTotalCount } = data
 
@@ -175,7 +175,7 @@ export function CombinationPickerUnassignedPanel({
             <Checkbox
               id="showTrueOrphansOnly"
               checked={showTrueOrphansOnly}
-              onCheckedChange={(checked) => { setShowTrueOrphansOnly(!!checked); }}
+              onCheckedChange={(checked) => { setShowTrueOrphansOnly(checked === true); }}
             />
             <Label
               htmlFor="showTrueOrphansOnly"
@@ -219,7 +219,7 @@ export function CombinationPickerUnassignedPanel({
           >
             선택 항목 휴지통으로 ({unassignedSelectedFilenames.size}개)
           </LoadingButton>
-          {bulkTrashActionMessage && (
+          {bulkTrashActionMessage !== null && (
             <span className="text-xs font-bold text-red-600">
               {bulkTrashActionMessage}
             </span>

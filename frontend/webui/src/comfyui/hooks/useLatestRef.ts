@@ -15,9 +15,9 @@ import { useEffect, useRef } from "react"
  * }, [])
  * ```
  */
-export function useLatestRef<T>(value: T) {
-  const ref = useRef(value)
-  useEffect(() => {
+export function useLatestRef<T>(value: T): React.RefObject<T> {
+  const ref = useRef<T>(value)
+  useEffect((): void => {
     ref.current = value
   })
   return ref

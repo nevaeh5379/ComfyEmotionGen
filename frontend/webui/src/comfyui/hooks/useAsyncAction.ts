@@ -18,7 +18,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
   const [message, setMessage] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const clearTimer = useCallback(() => {
+  const clearTimer = useCallback((): void => {
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current)
       timerRef.current = null
@@ -26,7 +26,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
   }, [])
 
   const showMessage = useCallback(
-    (msg: string, duration?: number) => {
+    (msg: string, duration?: number): void => {
       clearTimer()
       setMessage(msg)
       timerRef.current = setTimeout(() => {
@@ -37,7 +37,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
     [defaultDuration, clearTimer]
   )
 
-  const clearMessage = useCallback(() => {
+  const clearMessage = useCallback((): void => {
     clearTimer()
     setMessage(null)
   }, [clearTimer])
@@ -46,7 +46,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
     async <T>(
       fn: () => Promise<T>,
       getSuccessMessage: (result: T) => string,
-      errorMessage = "오류가 발생했습니다",
+      errorMessage?: string,
       duration?: number
     ): Promise<T | null> => {
       setIsLoading(true)
@@ -56,7 +56,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
         showMessage(getSuccessMessage(result), duration)
         return result
       } catch {
-        showMessage(errorMessage, duration)
+        showMessage(errorMessage ?? "오류가 발생했습니다", duration)
         return null
       } finally {
         setIsLoading(false)
@@ -65,7 +65,7 @@ export function useAsyncAction(defaultDuration = 3000): AsyncActionHandle {
     [showMessage]
   )
 
-  useEffect(() => {
+  useEffect((): (() => void) | undefined => {
     return () => { clearTimer(); }
   }, [clearTimer])
 

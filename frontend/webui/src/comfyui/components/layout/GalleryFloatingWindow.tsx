@@ -71,7 +71,7 @@ export function GalleryFloatingWindow({
   imageLazyLoad,
   singleDownloadMode,
   tb,
-}: GalleryFloatingWindowProps) {
+}: GalleryFloatingWindowProps): JSX.Element {
   if (!isOpen) return null
 
   return (
@@ -256,7 +256,7 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0"
-                onClick={tb.handleRefresh}
+                onClick={() => { tb.handleRefresh(); }}
               >
                 <RefreshCwIcon className="h-3.5 w-3.5" />
               </Button>
@@ -273,7 +273,7 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0"
-                onClick={tb.handleExport}
+                onClick={() => { void tb.handleExport(); }}
               >
                 <DownloadIcon className="h-3.5 w-3.5" />
               </Button>
@@ -290,7 +290,7 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-                onClick={tb.handleEmptyTrash}
+                onClick={() => { void tb.handleEmptyTrash(); }}
               >
                 <Trash2Icon className="h-3.5 w-3.5" />
               </Button>

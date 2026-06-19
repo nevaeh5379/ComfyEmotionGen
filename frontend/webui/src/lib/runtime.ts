@@ -16,7 +16,7 @@ export const IS_PACKAGE_MODE: boolean = PACKAGE_BACKEND_URL !== null
 const DEFAULT_BACKEND_PORT: string =
   typeof __DEFAULT_BACKEND_PORT__ !== "undefined"
     ? __DEFAULT_BACKEND_PORT__
-    : (import.meta.env.VITE_BACKEND_PORT ?? "8000")
+    : String(import.meta.env.VITE_BACKEND_PORT ?? "8000")
 
 export const DEFAULT_BACKEND_URL: string =
   PACKAGE_BACKEND_URL ?? `http://localhost:${DEFAULT_BACKEND_PORT}`

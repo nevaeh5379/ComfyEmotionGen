@@ -10,18 +10,18 @@ import { processSyncQueue } from "./useSyncedStorage"
 
 const SYNC_INTERVAL_MS = 30_000
 
-export function useOfflineSync() {
+export function useOfflineSync(): void {
   const intervalRef = useRef<number | null>(null)
 
-  useEffect(() => {
+  useEffect((): (() => void) | undefined => {
     // 마운트 시 즉시 한 번 시도
-    processSyncQueue().catch((err) => {
+    void processSyncQueue().catch((err: unknown) => {
       console.warn("Offline sync error:", err)
     })
 
     // 주기적 재시도
     intervalRef.current = window.setInterval(() => {
-      processSyncQueue().catch((err) => {
+      void processSyncQueue().catch((err: unknown) => {
         console.warn("Offline sync error:", err)
       })
     }, SYNC_INTERVAL_MS)

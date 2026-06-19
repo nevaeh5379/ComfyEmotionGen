@@ -56,7 +56,7 @@ function SvgIcon({
 }: {
   Icon: React.ElementType
   className?: string
-}) {
+}): React.ReactNode {
   return <Icon className={cn("h-3.5 w-3.5 shrink-0", className)} />
 }
 
@@ -79,7 +79,7 @@ function MetricCard({
   delta?: string
   trend?: "up" | "down"
   faded?: boolean
-}) {
+}): React.ReactNode {
   return (
     <div
       className={cn(
@@ -88,7 +88,7 @@ function MetricCard({
       )}
     >
       <div className="flex items-center gap-1.5 text-[9px] font-black tracking-widest text-muted-foreground uppercase opacity-75 md:gap-2 md:text-[10px]">
-        {Icon && <SvgIcon Icon={Icon} className="h-3.5 w-3.5" />}
+        {Icon !== undefined && <SvgIcon Icon={Icon} className="h-3.5 w-3.5" />}
         <span className="truncate">{label}</span>
       </div>
       <div className="mt-0.5 flex items-baseline gap-1 md:mt-1 md:gap-2">
@@ -101,7 +101,7 @@ function MetricCard({
         >
           {value}
         </div>
-        {delta != null && (
+        {delta !== undefined && (
           <div className="mono text-[11px] text-muted-foreground">
             {trend === "up" ? "▲" : trend === "down" ? "▼" : ""} {delta}
           </div>
@@ -115,12 +115,12 @@ function MetricCard({
 // Utility: format ms to human-readable
 // ---------------------------------------------------------------------------
 function formatDuration(ms: number): string {
-  if (!ms || ms < 1000) return "0s"
+  if (ms < 1000) return "0s"
   const seconds = Math.floor(ms / 1000)
   const minutes = Math.floor(seconds / 60)
   const remainSec = seconds % 60
-  if (minutes === 0) return `${remainSec}s`
-  return `${minutes}m ${remainSec}s`
+  if (minutes === 0) return `${String(remainSec)}s`
+  return `${String(minutes)}m ${String(remainSec)}s`
 }
 
 // ---------------------------------------------------------------------------
@@ -141,8 +141,8 @@ const BarTooltip = ({
     value: number
     payload: BarTooltipPayload
   }[]
-}) => {
-  if (!active || !payload) return null
+}): React.ReactNode => {
+  if (active === false || payload === undefined) return null
   const data = payload[0]?.payload
   if (!data) return null
 
@@ -150,7 +150,7 @@ const BarTooltip = ({
   for (const key of Object.keys(STATUS_COLORS)) {
     const p = payload.find((p) => p.dataKey === key)
     if (p && p.value > 0) {
-      lines.push(`${STATUS_LABELS[key as JobStatus]}: ${p.value}`)
+      lines.push(`${STATUS_LABELS[key as JobStatus]}: ${String(p.value)}`)
     }
   }
 
@@ -181,8 +181,8 @@ const PieTooltip = ({
 }: {
   active?: boolean
   payload?: { payload: PieTooltipPayload }[]
-}) => {
-  if (!active || !payload?.[0]) return null
+}): React.ReactNode => {
+  if (active === false || payload?.[0] === undefined) return null
   const d = payload[0].payload
   return (
     <div className="rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11px] font-bold shadow-sm">
@@ -200,7 +200,7 @@ interface StatisticsPanelProps {
   workers: WorkerView[]
 }
 
-export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
+export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.ReactNode {
   const total = jobs.length
 
   // ── Hooks must be called unconditionally ───────────────────────────
@@ -222,7 +222,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
       cutoff = new Date(0) // epoch
     }
 
-    const filterPredicate = (j: JobView) => {
+    const filterPredicate = (j: JobView): boolean => {
       const ts = j.createdAt * 1000
       return (
         ts >= cutoff.getTime() &&
@@ -240,7 +240,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
     if (chartRange === "today") {
       // Hourly buckets
       for (let h = 0; h < 24; h++) {
-        const key = `${h}`
+        const key = String(h)
         buckets.set(key, {
           pending: 0,
           queued: 0,
@@ -253,11 +253,13 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
       for (const j of filtered) {
         const hour = new Date(j.createdAt * 1000).getHours()
         const key = String(hour)
-        const bucket = buckets.get(key)!
-        if (bucket[j.status] != null) bucket[j.status]++
+        const bucket = buckets.get(key)
+        if (bucket !== undefined) {
+          bucket[j.status]++
+        }
       }
       return Array.from(buckets.entries()).map(([label, s]) => ({
-        label: `${String(label).padStart(2, "0")}:00`,
+        label: `${label.padStart(2, "0")}:00`,
         ...s,
       }))
     }
@@ -276,8 +278,10 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
           cancelled: 0,
         })
       }
-      const bucket = dailyMap.get(label)!
-      if (bucket[j.status] != null) bucket[j.status]++
+      const bucket = dailyMap.get(label)
+      if (bucket !== undefined) {
+        bucket[j.status]++
+      }
     }
     return Array.from(dailyMap.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
@@ -312,7 +316,8 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
     for (const j of jobs) {
       const key = j.workerId ?? "unassigned"
       if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(j)
+      const group = groups.get(key)
+      if (group !== undefined) group.push(j)
     }
 
     return Array.from(groups.entries())
@@ -320,12 +325,12 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
         const total = groupJobs.length
         const done = groupJobs.filter((j) => j.status === "done").length
         const durations = groupJobs
-          .filter((j) => j.status === "done" && j.executionDurationMs != null)
-          .map((j) => j.executionDurationMs!)
+          .filter((j): j is JobView & { executionDurationMs: number } => j.status === "done" && j.executionDurationMs !== null)
+          .map((j) => j.executionDurationMs)
         const avgD = durations.length
           ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
           : null
-        const successRate = done > 0 ? Math.round((done / total) * 100) : null
+        const successRate = done !== 0 ? Math.round((done / total) * 100) : null
 
         // Get worker alive/busy status from workers list
         const workerInfo = workers.find((w) => w.id === workerId)
@@ -341,7 +346,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
           label,
           total,
           done,
-          avgDuration: avgD ? formatDuration(avgD) : "N/A",
+            avgDuration: avgD !== null ? formatDuration(avgD) : "N/A",
           successRate,
           alive: workerInfo?.alive ?? false,
           busy: workerInfo?.busy ?? false,
@@ -368,8 +373,8 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
   ).length
   const retryJobs = jobs.filter((j) => j.retryCount > 0).length
   const doneDurations = jobs
-    .filter((j) => j.status === "done" && j.executionDurationMs != null)
-    .map((j) => j.executionDurationMs!)
+    .filter((j): j is JobView & { executionDurationMs: number } => j.status === "done" && j.executionDurationMs !== null)
+    .map((j) => j.executionDurationMs)
   const avgDuration = doneDurations.length
     ? Math.round(
         doneDurations.reduce((a, b) => a + b, 0) / doneDurations.length
@@ -379,33 +384,33 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
   const stats: StatItem[] = [
     {
       label: "총 작업 수",
-      value: String(total),
+      value: total,
       icon: ClipboardList,
     },
     {
       label: "성공률",
-      value: `${Math.round((doneCount / total) * 100)}%`,
+      value: `${String(Math.round((doneCount / total) * 100))}%`,
       color: "text-ok",
       icon: CheckCircle2,
       faded: doneCount === 0,
     },
     {
       label: "실패률",
-      value: `${Math.round((errorCount / total) * 100)}%`,
+      value: `${String(Math.round((errorCount / total) * 100))}%`,
       color: "text-bad",
       icon: AlertCircle,
       faded: errorCount === 0,
     },
     {
       label: "평균 실행 시간",
-      value: avgDuration ? formatDuration(avgDuration) : "N/A",
+      value: avgDuration !== null ? formatDuration(avgDuration) : "N/A",
       color: "text-info",
       icon: Activity,
-      faded: avgDuration == null,
+      faded: avgDuration === null,
     },
     {
       label: "재시도율",
-      value: `${Math.round((retryJobs / total) * 100)}%`,
+      value: `${String(Math.round((retryJobs / total) * 100))}%`,
       color: "text-warn",
       icon: RotateCcw,
       faded: retryJobs === 0,
@@ -532,7 +537,8 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
                   stroke="none"
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    // eslint-disable-next-line @typescript-eslint/no-deprecated
+                    <Cell key={`cell-${String(index)}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip content={<PieTooltip />} />
@@ -614,7 +620,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps) {
                   {ws.avgDuration}
                 </TableCell>
                 <TableCell className="text-center">
-                  {ws.successRate != null ? (
+                  {ws.successRate !== null ? (
                     <span
                       className={cn(
                         "mono text-[11px] font-black tabular-nums",

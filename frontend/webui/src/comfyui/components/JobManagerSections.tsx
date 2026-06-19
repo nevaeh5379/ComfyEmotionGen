@@ -311,7 +311,7 @@ export const JobStatBar = memo(function JobStatBar({
   counts,
   sessionJobs,
   progressCalculation,
-}: JobStatBarProps): JSX.Element {
+}: JobStatBarProps): React.JSX.Element {
   const total =
     counts.pending +
     counts.queued +
@@ -419,7 +419,8 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   jobs,
   allJobs,
   workers,
-}: RunningJobsBannerProps): JSX.Element {
+}: RunningJobsBannerProps): React.JSX.Element {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { workerPreviews, backendUrl } = useBackend()
 
   if (workers.length === 0) {
@@ -594,9 +595,9 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     </div>
                   )}
                 </div>
-                {w.workerType === "comfyui" && workerPreviews[w.id] !== undefined && (
+                {w.workerType === "comfyui" && (workerPreviews as Record<string, unknown>)[w.id] !== undefined && (
                   <img
-                    src={`${backendUrl}/workers/${w.id}/preview?t=${String(workerPreviews[w.id])}`}
+                    src={`${String(backendUrl)}/workers/${w.id}/preview?t=${String((workerPreviews as Record<string, unknown>)[w.id])}`}
                     alt={`preview ${w.id}`}
                     className="h-80 flex-none rounded-lg border border-info/20 object-cover shadow-sm"
                   />
@@ -657,7 +658,7 @@ export const JobRow = memo(function JobRow({
   onJobMouseLeave: () => void
   onWorkerMouseEnter: (job: JobView, workerId: string, rect: DOMRect) => void
   onWorkerMouseLeave: () => void
-}): JSX.Element {
+}): React.JSX.Element {
   const isActive =
     job.status === "pending" ||
     job.status === "queued" ||
@@ -797,7 +798,7 @@ export const JobTableSection = memo(function JobTableSection({
   showPagination,
   workers,
   onMoveJob,
-}: JobTableProps): JSX.Element {
+}: JobTableProps): React.JSX.Element {
   const [hoveredJob, setHoveredJob] = useState<{
     job: JobView
     rect: DOMRect

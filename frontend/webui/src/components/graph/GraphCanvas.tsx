@@ -10,6 +10,23 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useGraphStore } from "@/comfyui/stores/graphStore"
 import type { ComfyWorkflowJSON } from "@/comfyui/types/workflow"
 
+interface GraphData {
+  nodes: unknown[]
+  remove(node: unknown): void
+  setDirtyCanvas(dirty: boolean, dirtyFlags: boolean): void
+}
+
+interface CanvasData {
+  resize(width: number, height: number): void
+}
+
+interface LegacyApp {
+  graph: GraphData | null
+  canvas: CanvasData | null
+  loadGraphData(data: ComfyWorkflowJSON): void
+  serializeGraph(): ComfyWorkflowJSON
+}
+
 interface GraphCanvasProps {
   workflow?: ComfyWorkflowJSON | null
   onWorkflowChange?: (workflow: ComfyWorkflowJSON) => void
@@ -20,7 +37,7 @@ export function GraphCanvas({
   workflow,
   onWorkflowChange,
   className = "",
-}: GraphCanvasProps) {
+}: GraphCanvasProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<ComfyAppService | null>(null)
@@ -42,7 +59,7 @@ export function GraphCanvas({
       nodeDefs,
     })
 
-    app.onGraphChanged = (wf) => {
+    app.onGraphChanged = (wf: ComfyWorkflowJSON): void => {
       onWorkflowChange?.(wf)
     }
 
@@ -52,35 +69,32 @@ export function GraphCanvas({
     setAppService(app)
 
     // Bind legacy app properties to window.app
-    if (window.app) {
-      window.app.graph = app.graph
-      window.app.canvas = app.canvas
-      window.app.loadGraphData = app.loadGraphData.bind(app)
-      window.app.serializeGraph = app.serializeGraph.bind(app)
-    }
+    const winApp = window.app as unknown as LegacyApp
+    ;(winApp as unknown as Record<string, unknown>).graph = app.graph
+    ;(winApp as unknown as Record<string, unknown>).canvas = app.canvas
+    winApp.loadGraphData = app.loadGraphData.bind(app)
+    winApp.serializeGraph = app.serializeGraph.bind(app)
 
     // 리사이즈 핸들러
-    const handleResize = () => {
-      if (!container) return
+    const handleResize = (): void => {
       const rect = container.getBoundingClientRect()
-      app.canvas.resize(rect.width, rect.height)
+      ;(app.canvas as unknown as { resize(w: number, h: number): void }).resize(rect.width, rect.height)
     }
 
     const resizeObserver = new ResizeObserver(handleResize)
     resizeObserver.observe(container)
     handleResize()
 
-    return () => {
+    return (): void => {
       resizeObserver.disconnect()
       app.dispose()
       appRef.current = null
       setCanvas(null)
       setCurrentGraph(null)
       setAppService(null)
-      if (window.app) {
-        window.app.graph = null
-        window.app.canvas = null
-      }
+      const winApp = window.app as unknown as LegacyApp
+      winApp.graph = null
+      winApp.canvas = null
     }
   }, [nodeDefs, setCanvas, setCurrentGraph, setAppService, onWorkflowChange])
 
@@ -106,7 +120,7 @@ export function GraphCanvas({
 
   // 키보드 단축키
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: React.KeyboardEvent): void => {
       // Ctrl/Cmd + Z: Undo
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault()
@@ -127,13 +141,17 @@ export function GraphCanvas({
       if (e.key === "Delete" || e.key === "Backspace") {
         const app = appRef.current
         if (!app) return
-        const selected = app.graph.nodes.filter((n: any) => n.is_selected)
+        const graph = app.graph as unknown as GraphData
+        const selected = graph.nodes.filter((n: unknown) => {
+          const node = n as { is_selected?: boolean }
+          return node.is_selected === true
+        })
         if (selected.length > 0) {
           e.preventDefault()
           for (const node of selected) {
-            app.graph.remove(node as any)
+            graph.remove(node)
           }
-          app.graph.setDirtyCanvas(true, true)
+          graph.setDirtyCanvas(true, true)
         }
       }
     },

@@ -14,4 +14,4 @@ export function te(key: string) {
   return false;
 }
 
-export function mergeCustomNodesI18n() {}
+export function mergeCustomNodesI18n() { /* no-op */ }

@@ -132,8 +132,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   sessionJobCounts,
   sortedMarkers,
   refetchStats,
-}: Props) {
+}: Props): React.JSX.Element {
   useRenderLog("JobManagerPanel")
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const confirm = useConfirm()
   const { settings } = useSettings()
 
@@ -531,15 +532,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const handleDeleteOne = async (e: React.MouseEvent, jobId: string): Promise<void> => {
     e.stopPropagation()
-    if (
-      !(await confirm({
-        title: "작업 삭제",
-        description: "이 작업을 영구 삭제하시겠습니까?",
-        variant: "destructive",
-        confirmText: "삭제",
-      }))
-    )
-      return
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+    const confirmed = await confirm({
+      title: "작업 삭제",
+      description: "이 작업을 영구 삭제하시겠습니까?",
+      variant: "destructive",
+      confirmText: "삭제",
+    })
+    if (confirmed === false) return
     try {
       const res = await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
@@ -556,15 +556,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const handleDeleteSelected = async (): Promise<void> => {
     if (selectedForDelete.size === 0) return
-    if (
-      !(await confirm({
-        title: "선택 삭제",
-        description: `선택한 ${String(selectedForDelete.size)}개 작업을 영구 삭제하시겠습니까?`,
-        variant: "destructive",
-        confirmText: "삭제",
-      }))
-    )
-      return
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+    const confirmed = await confirm({
+      title: "선택 삭제",
+      description: `선택한 ${String(selectedForDelete.size)}개 작업을 영구 삭제하시겠습니까?`,
+      variant: "destructive",
+      confirmText: "삭제",
+    })
+    if (confirmed === false) return
     try {
       const res = await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",

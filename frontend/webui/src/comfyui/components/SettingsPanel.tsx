@@ -49,7 +49,7 @@ function Section({
 }: {
   title: string
   children: React.ReactNode
-}) {
+}): React.JSX.Element {
   return (
     <section className="space-y-1">
       <h3 className="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -68,12 +68,12 @@ function SettingRow({
   label: string
   description?: string
   children: React.ReactNode
-}) {
+}): React.JSX.Element {
   return (
     <div className="flex items-start justify-between gap-6 py-4">
       <div className="flex-1 space-y-0.5">
         <p className="text-sm font-medium">{label}</p>
-        {description && (
+        {description !== undefined && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </div>
@@ -88,7 +88,7 @@ export function SettingsPanel({
   backendUrl,
   onBackendUrlChange,
   workers,
-}: Props) {
+}: Props): React.JSX.Element {
   const template = useTemplateContext()
   const workflow = useWorkflowContext()
   const update = useUpdateCheck(settings.updateChannel)
@@ -106,11 +106,11 @@ export function SettingsPanel({
           </div>
           <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground/60">
             {IS_LOCAL_DEV ? (
-              <span className="mono">{COMMIT || "dev"}</span>
+              <span className="mono">{COMMIT ?? "dev"}</span>
             ) : (
               <>
                 <span className="mono">{BUNDLE_VERSION}</span>
-                {COMMIT && !BUNDLE_VERSION.includes(COMMIT) && (
+                {COMMIT !== null && !BUNDLE_VERSION.includes(COMMIT) && (
                   <span className="mono rounded bg-muted px-1.5 py-0.5">
                     {COMMIT.slice(0, 7)}
                   </span>
@@ -487,13 +487,13 @@ export function SettingsPanel({
                     const input = document.createElement("input")
                     input.type = "file"
                     input.accept = ".json"
-                    input.onchange = () => {
+                    input.onchange = (): void => {
                       const target = input.files?.[0]
                       if (!target) return
                       const reader = new FileReader()
-                      reader.onload = () => {
+                      reader.onload = (): void => {
                         try {
-                          const imported = JSON.parse(reader.result as string)
+                          const imported = JSON.parse(reader.result as string) as unknown[]
                           if (!Array.isArray(imported)) {
                             toast.error("유효한 템플릿 파일이 아닙니다.")
                             return
@@ -503,8 +503,8 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: now + Math.random().toString(36).slice(2, 7),
-                                name: (p.name as string) || "미명 템플릿",
+                                id: now + Number(Math.random().toString(36).slice(2, 7)),
+                                name: (typeof p.name === "string" && p.name !== "") ? p.name : "미명 템플릿",
                                 template: (p.template as string) || "",
                                 savedAt: (p.savedAt as number) || now,
                               }
@@ -514,7 +514,7 @@ export function SettingsPanel({
                           const merged = [...existing, ...newTemplates]
                           persistTemplates(merged)
                           toast.success(
-                            `${newTemplates.length}개의 템플릿을 가져왔습니다.`
+                            `${String(newTemplates.length)}개의 템플릿을 가져왔습니다.`
                           )
                         } catch {
                           toast.error("파일을 읽는 중 오류가 발생했습니다.")
@@ -586,13 +586,13 @@ export function SettingsPanel({
                     const input = document.createElement("input")
                     input.type = "file"
                     input.accept = ".json"
-                    input.onchange = () => {
+                    input.onchange = (): void => {
                       const target = input.files?.[0]
                       if (!target) return
                       const reader = new FileReader()
-                      reader.onload = () => {
+                      reader.onload = (): void => {
                         try {
-                          const imported = JSON.parse(reader.result as string)
+                          const imported = JSON.parse(reader.result as string) as unknown[]
                           if (!Array.isArray(imported)) {
                             toast.error("유효한 워크플로우 파일이 아닙니다.")
                             return
@@ -602,11 +602,11 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: now + Math.random().toString(36).slice(2, 7),
-                                name: (p.name as string) || "미명 워크플로우",
-                                workflow: (p.workflow as string) || "",
+                                id: now + Number(Math.random().toString(36).slice(2, 7)),
+                                name: (typeof p.name === "string" && p.name !== "") ? p.name : "미명 워크플로우",
+                                workflow: (typeof p.workflow === "string") ? p.workflow : "",
                                 mappingPresets:
-                                  (p.mappingPresets as SavedWorkflow["mappingPresets"]) ||
+                                  (Array.isArray(p.mappingPresets)) ? p.mappingPresets as SavedWorkflow["mappingPresets"] :
                                   [],
                                 savedAt: (p.savedAt as number) || now,
                               }
@@ -616,7 +616,7 @@ export function SettingsPanel({
                           const merged = [...existing, ...newWorkflows]
                           persistWorkflows(merged)
                           toast.success(
-                            `${newWorkflows.length}개의 워크플로우를 가져왔습니다.`
+                            `${String(newWorkflows.length)}개의 워크플로우를 가져왔습니다.`
                           )
                         } catch {
                           toast.error("파일을 읽는 중 오류가 발생했습니다.")
@@ -680,7 +680,7 @@ export function SettingsPanel({
                     const input = document.createElement("input")
                     input.type = "file"
                     input.accept = ".db"
-                    input.onchange = () => {
+                    input.onchange = (): void => {
                       const target = input.files?.[0]
                       if (!target) return
 
@@ -699,7 +699,7 @@ export function SettingsPanel({
                           const errText = await res.text()
                           throw new Error(errText || "데이터베이스 복원 실패")
                         }
-                        return res.json()
+                        return res.json() as Promise<unknown>
                       })
 
                       toast.promise(importPromise, {
@@ -707,8 +707,8 @@ export function SettingsPanel({
                           "데이터베이스를 서버에 업로드하고 복원하는 중...",
                         success:
                           "데이터베이스가 성공적으로 복원되고 UI가 동기화되었습니다.",
-                        error: (err) =>
-                          `데이터베이스 복원 실패: ${err.message || err}`,
+                        error: (err: unknown) =>
+                          `데이터베이스 복원 실패: ${err instanceof Error ? err.message : String(err)}`,
                       })
                     }
                     input.click()
@@ -745,7 +745,7 @@ function persistTemplates(templates: SavedTemplate[]): void {
     // ignore quota errors
   }
   // 서버 비동기 저장
-  saveSetting(STORAGE_KEYS.savedTemplates, serialized).catch(() => {})
+  saveSetting(STORAGE_KEYS.savedTemplates, serialized).catch((_err: unknown) => { void _err; })
   // 로컬 탭 즉시 동기화
   window.dispatchEvent(
     new StorageEvent("storage", {
@@ -773,7 +773,7 @@ function persistWorkflows(workflows: SavedWorkflow[]): void {
     // ignore quota errors
   }
   // 서버 비동기 저장
-  saveSetting(STORAGE_KEYS.savedWorkflows, serialized).catch(() => {})
+  saveSetting(STORAGE_KEYS.savedWorkflows, serialized).catch((_err: unknown) => { void _err; })
   // 로컬 탭 즉시 동기화
   window.dispatchEvent(
     new StorageEvent("storage", {

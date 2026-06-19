@@ -28,11 +28,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   undoStack: [],
   redoStack: [],
 
-  setWorkflow: (workflow) => { set({ workflow, isDirty: false }); },
+  setWorkflow: (workflow): void => { set({ workflow, isDirty: false }); },
 
-  markDirty: () => { set({ isDirty: true }); },
+  markDirty: (): void => { set({ isDirty: true }); },
 
-  saveState: () => {
+  saveState: (): void => {
     const { workflow, undoStack } = get()
     if (!workflow) return
     set({
@@ -41,11 +41,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     })
   },
 
-  undo: () => {
+  undo: (): ComfyWorkflowJSON | null => {
     const { undoStack, redoStack, workflow } = get()
     if (undoStack.length === 0) return null
 
-    const previous = undoStack[undoStack.length - 1]!
+    const previous = undoStack[undoStack.length - 1]
     const newUndo = undoStack.slice(0, -1)
 
     set({
@@ -58,11 +58,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     return previous
   },
 
-  redo: () => {
+  redo: (): ComfyWorkflowJSON | null => {
     const { undoStack, redoStack, workflow } = get()
     if (redoStack.length === 0) return null
 
-    const next = redoStack[0]!
+    const next = redoStack[0]
     const newRedo = redoStack.slice(1)
 
     set({
@@ -75,6 +75,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     return next
   },
 
-  canUndo: () => get().undoStack.length > 0,
-  canRedo: () => get().redoStack.length > 0,
+  canUndo: (): boolean => get().undoStack.length > 0,
+  canRedo: (): boolean => get().redoStack.length > 0,
 }))

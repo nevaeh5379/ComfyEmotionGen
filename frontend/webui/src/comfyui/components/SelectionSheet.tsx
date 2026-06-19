@@ -53,9 +53,10 @@ export const SelectionSheet = ({
   toggleItemCheck,
   onRunSelected,
   onExcludeApproved,
-}: SelectionSheetProps) => {
+}: SelectionSheetProps): React.JSX.Element => {
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: filteredPreview.length,
     getScrollElement: () => scrollElement,
@@ -124,21 +125,21 @@ export const SelectionSheet = ({
                 <TableHead className="flex-1 px-2 flex items-center font-bold">프롬프트</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody style={{ height: `${totalSize}px`, position: "relative", display: "block", width: "100%" }}>
+            <TableBody style={{ height: `${String(totalSize)}px`, position: "relative", display: "block", width: "100%" }}>
               {virtualItems.map((virtualItem) => {
                 const item = filteredPreview[virtualItem.index]
                 if (!item) return null
                 const key = itemKey(item)
                 return (
                   <TableRow
-                    key={`sel-${key}-${virtualItem.index}`}
+                    key={`sel-${key}-${String(virtualItem.index)}`}
                     style={{
                       position: "absolute",
                       top: 0,
                       left: 0,
                       width: "100%",
-                      height: `${virtualItem.size}px`,
-                      transform: `translateY(${virtualItem.start}px)`,
+                      height: `${String(virtualItem.size)}px`,
+                      transform: `translateY(${String(virtualItem.start)}px)`,
                     }}
                     className={cn(
                       "flex cursor-pointer transition-opacity items-center hover:bg-muted/30 border-b",
@@ -180,7 +181,7 @@ export const SelectionSheet = ({
           <Button
             variant="default"
             size="lg"
-            onClick={onRunSelected}
+            onClick={() => { void onRunSelected(); }}
             disabled={!canRun || selectedCount === 0}
             className="h-11 w-full text-base font-black sm:h-10 sm:w-auto sm:text-sm"
           >

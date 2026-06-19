@@ -10,7 +10,7 @@ interface SidebarProps {
 export function CombinationPickerSidebar({
   selectedFilename,
   setSelectedFilename,
-}: SidebarProps) {
+}: SidebarProps): React.JSX.Element {
   const { data } = useCurationContext()
   const { renderItems, imagesByFilename } = data
 

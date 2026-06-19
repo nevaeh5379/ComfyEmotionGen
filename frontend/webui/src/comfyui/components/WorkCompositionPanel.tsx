@@ -124,7 +124,7 @@ export function WorkCompositionPanel({
   onHeaderDragStart,
   jobsLayoutOrientation,
   onToggleJobsLayoutOrientation,
-}: WorkCompositionPanelProps) {
+}: WorkCompositionPanelProps): React.ReactNode {
   // ── Consume contexts ──
   const template = useTemplateContext()
   const workflow = useWorkflowContext()
@@ -149,7 +149,7 @@ export function WorkCompositionPanel({
     let name = trimmed
     let counter = 1
     while (existingNames.includes(name)) {
-      name = `${trimmed} (${counter})`
+      name = `${trimmed} (${String(counter)})`
       counter++
     }
     return name
@@ -157,10 +157,7 @@ export function WorkCompositionPanel({
 
   const handleUpdateWorkflow = useCallback(() => {
     if (!workflow.activeWorkflow) return
-    if (
-      workflow.activeWorkflow.workflow !== workflow.workflowJson &&
-      workflow.onPendingUpdate
-    ) {
+    if (workflow.activeWorkflow.workflow !== workflow.workflowJson) {
       workflow.onPendingUpdate(
         workflow.activeWorkflow.name,
         "workflow",
@@ -180,12 +177,8 @@ export function WorkCompositionPanel({
     (content: string, fileName: string) => {
       try {
         // Validate JSON
-        const parsed = JSON.parse(content)
-        if (
-          typeof parsed !== "object" ||
-          parsed === null ||
-          Array.isArray(parsed)
-        ) {
+        const parsed = JSON.parse(content) as Record<string, unknown>
+        if (typeof parsed !== "object" || Array.isArray(parsed)) {
           toast.error("유효한 워크플로우 JSON 파일이 아닙니다.")
           return
         }
@@ -241,7 +234,7 @@ export function WorkCompositionPanel({
     const active = template.savedTemplates.find(
       (t) => t.id === template.activeTemplateId
     )
-    if (!active?.template.trim()) return
+    if (active === undefined || active.template.trim() === "") return
     const blob = new Blob([active.template], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -296,7 +289,7 @@ export function WorkCompositionPanel({
                 setTargetWorkerId={setTargetWorkerId}
                 className="hidden md:flex"
               />
-              {onToggleJobsLayoutOrientation && jobsLayoutOrientation && (
+              {onToggleJobsLayoutOrientation !== undefined && jobsLayoutOrientation !== undefined && (
                 <>
                   <div className="h-4 w-px shrink-0 bg-line/60" />
                   <Tooltip>
@@ -333,7 +326,7 @@ export function WorkCompositionPanel({
                         className="h-7 w-7 text-muted-foreground hover:text-foreground"
                         onClick={onFloatToggle}
                       >
-                        {isFloating ? (
+                        {(isFloating ?? false) ? (
                           <ArrowUpRight className="h-4 w-4" />
                         ) : (
                           <ExternalLink className="h-4 w-4" />
@@ -341,7 +334,7 @@ export function WorkCompositionPanel({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
-                      {isFloating
+                      {(isFloating ?? false)
                         ? "원래대로 결합 (Dock)"
                         : "창으로 분리 (Pop out)"}
                     </TooltipContent>
@@ -382,15 +375,13 @@ export function WorkCompositionPanel({
                 template.savedTemplates.find(
                   (t) => t.id === template.activeTemplateId
                 )
-                  ? () => {
+                  ? (): void => {
                       const active = template.savedTemplates.find(
                         (t) => t.id === template.activeTemplateId
-                      )!
+                      )
+                      if (!active) return
                       // Check if content changed and show diff
-                      if (
-                        active.template !== template.cegTemplate &&
-                        template.onPendingUpdate
-                      ) {
+                      if (active.template !== template.cegTemplate) {
                         template.onPendingUpdate(
                           active.name,
                           "template",
@@ -417,7 +408,7 @@ export function WorkCompositionPanel({
             <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-1.5">
               <div className="relative flex items-center justify-center shrink-0">
                 <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
-                {workflow.isDirty && (
+                {workflow.isDirty === true && (
                   <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"></span>
                 )}
               </div>
@@ -458,7 +449,7 @@ export function WorkCompositionPanel({
                   onUpdate={handleUpdateWorkflow}
                 />
               </div>
-              {workflow.parsedWorkflow?.success && (
+              {workflow.parsedWorkflow?.success === true && (
                 <span className="mono shrink-0 text-[10px] text-muted-foreground mr-1">
                   {Object.keys(workflow.parsedWorkflow.data).length} Nodes
                 </span>
@@ -488,7 +479,7 @@ export function WorkCompositionPanel({
               <div className="h-4 w-px bg-line/65 shrink-0" />
 
               <div className="flex shrink-0 items-center gap-1">
-                {workflow.isDirty && workflow.revert && (
+                {workflow.isDirty === true && workflow.revert !== undefined && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -513,12 +504,12 @@ export function WorkCompositionPanel({
                         const input = document.createElement("input")
                         input.type = "file"
                         input.accept = ".json,.txt"
-                        input.onchange = (e) => {
+                        input.onchange = (e: Event): void => {
                           const file = (e.target as HTMLInputElement).files?.[0]
                           if (file) {
                             const reader = new FileReader()
-                            reader.onload = (ev) => {
-                              const content = ev.target?.result as string
+                            reader.onload = (_ev: ProgressEvent<FileReader>): void => {
+                              const content = _ev.target?.result as string
                               handleWorkflowFileOpen(content, file.name)
                             }
                             reader.readAsText(file)
@@ -539,9 +530,9 @@ export function WorkCompositionPanel({
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 text-muted-foreground"
-                      onClick={() =>
-                        navigator.clipboard.writeText(workflow.workflowJson)
-                      }
+                      onClick={() => {
+                        void navigator.clipboard.writeText(workflow.workflowJson)
+                      }}
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
@@ -620,7 +611,7 @@ export function WorkCompositionPanel({
                   workflowJson={workflow.workflowJson}
                   onChangeWorkflowJson={workflow.setWorkflowJson}
                   parsedWorkflowData={
-                    workflow.parsedWorkflow?.success
+                    workflow.parsedWorkflow?.success === true
                       ? workflow.parsedWorkflow.data
                       : null
                   }
@@ -632,13 +623,13 @@ export function WorkCompositionPanel({
               )}
             </div>
 
-            {workflow.parsedWorkflow && !workflow.parsedWorkflow.success && (
+            {workflow.parsedWorkflow !== undefined && !workflow.parsedWorkflow.success && (
               <div className="shrink-0 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
-                workflow 파싱 오류: {workflow.parsedWorkflow.error?.message}
+                workflow 파싱 오류: {workflow.parsedWorkflow.error.message}
               </div>
             )}
 
-            {workflow.parsedWorkflow?.success && (
+            {workflow.parsedWorkflow?.success === true && (
               <NodeMappingSection
                 nodeMappings={nodeMapping.nodeMappings}
                 setNodeMappings={nodeMapping.setNodeMappings}
@@ -666,7 +657,7 @@ export function WorkCompositionPanel({
                   ) {
                     return false
                   }
-                  if (workflow.activeWorkflowId) {
+                  if (workflow.activeWorkflowId !== null) {
                     const updatedWorkflow = nodeMapping.saveMappingPreset(
                       workflow.activeWorkflowId,
                       trimmed,
@@ -687,7 +678,7 @@ export function WorkCompositionPanel({
                 onDeleteNodeMapping={(presetId) => {
                   if (nodeMapping.activeNodeMappingPresetId === presetId)
                     nodeMapping.setActiveNodeMappingPresetId(null)
-                  if (workflow.activeWorkflowId)
+                  if (workflow.activeWorkflowId !== null)
                     nodeMapping.deleteMappingPreset(
                       workflow.activeWorkflowId,
                       presetId
@@ -695,8 +686,8 @@ export function WorkCompositionPanel({
                 }}
                 onUpdateNodeMapping={() => {
                   if (
-                    nodeMapping.activeNodeMappingPreset &&
-                    workflow.activeWorkflowId
+                    nodeMapping.activeNodeMappingPreset !== null &&
+                    workflow.activeWorkflowId !== null
                   )
                     nodeMapping.saveMappingPreset(
                       workflow.activeWorkflowId,

@@ -10,6 +10,10 @@ import { useLayoutEffect, useRef, useState } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import type { ComfyWorkflowNode } from "@/comfyui/types/workflow"
 
+function formatSvgNumber(n: number): string {
+  return n.toFixed(2)
+}
+
 function linkColor(type: string): string {
   const t = type.toUpperCase()
   if (t === "MODEL")       return "#a78bfa"
@@ -30,21 +34,21 @@ function queryPin(
 ): HTMLElement | null {
   // 1. Exact match by nodeId + type + index
   const exact = container.querySelector(
-    `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"][data-slot-index="${slotIdx}"]`
+    `[data-slot-node-id="${String(nodeId)}"][data-slot-type="${slotType}"][data-slot-index="${String(slotIdx)}"]`
   )
   if (exact) return exact as HTMLElement
 
   // 2. Fallback: try matching by slot name if provided
-  if (slotName) {
+  if (slotName !== undefined && slotName !== "") {
     const byName = container.querySelector(
-      `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"][data-slot-name="${slotName}"]`
+      `[data-slot-node-id="${String(nodeId)}"][data-slot-type="${slotType}"][data-slot-name="${slotName}"]`
     )
     if (byName) return byName as HTMLElement
   }
 
   // 3. Fallback: find closest pin within this node (any index)
   const anySlot = container.querySelector(
-    `[data-slot-node-id="${nodeId}"][data-slot-type="${slotType}"]`
+    `[data-slot-node-id="${String(nodeId)}"][data-slot-type="${slotType}"]`
   )
   return anySlot as HTMLElement | null
 }
@@ -55,10 +59,9 @@ interface PathData {
   color: string
 }
 
-export function SvgConnections() {
+export function SvgConnections(): React.JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null)
-  const pathsRef = useRef<PathData[]>([])
-  const [, redraw] = useState(0)
+  const [paths, setPaths] = useState<PathData[]>([])
 
   const nodes = useReactGraphStore((s) => s.nodes)
   const links = useReactGraphStore((s) => s.links)
@@ -71,7 +74,7 @@ export function SvgConnections() {
 
     const containerRect = container.getBoundingClientRect()
     const nodeMap = new Map<number, ComfyWorkflowNode>()
-    if (nodes) for (const n of nodes) nodeMap.set(n.id, n)
+    for (const n of nodes) nodeMap.set(n.id, n)
 
     const newPaths: PathData[] = []
 
@@ -95,17 +98,14 @@ export function SvgConnections() {
       const dx = x2 - x1
       const curve = Math.max(Math.abs(dx) * 0.55, 50)
 
-      const d = `M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}`
+      const d = `M ${formatSvgNumber(x1)} ${formatSvgNumber(y1)} C ${formatSvgNumber(x1 + curve)} ${formatSvgNumber(y1)}, ${formatSvgNumber(x2 - curve)} ${formatSvgNumber(y2)}, ${formatSvgNumber(x2)} ${formatSvgNumber(y2)}`
       const color = linkColor(link.type)
 
       newPaths.push({ id: link.id, d, color })
     }
 
-    pathsRef.current = newPaths
-    redraw((n) => n + 1)
+    setPaths(newPaths)
   }, [nodes, links, zoom])
-
-  const paths = pathsRef.current
 
   return (
     <svg
@@ -121,7 +121,7 @@ export function SvgConnections() {
       </defs>
 
       {paths.map((lp) => (
-        <g key={`link-${lp.id}`} className="pointer-events-auto group">
+        <g key={`link-${String(lp.id)}`} className="pointer-events-auto group">
           <path
             d={lp.d}
             fill="none"

@@ -42,7 +42,8 @@ interface Props {
   backendUrl: string
 }
 
-export function WebhookSettingsPanel({ backendUrl }: Props) {
+export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const confirm = useConfirm()
   const {
     configs,
@@ -76,7 +77,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     []
   )
 
-  const handleAdd = async () => {
+  const handleAdd = async (): Promise<boolean> => {
     if (!newConfig.name.trim()) {
       toast.error("이름을 입력하세요.")
       return
@@ -107,7 +108,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     }
   }
 
-  const handleToggleEnabled = async (cfg: WebhookConfig) => {
+  const handleToggleEnabled = async (cfg: WebhookConfig): Promise<void> => {
     try {
       const ok = await updateConfig(cfg.id, { enabled: !cfg.enabled })
       if (!ok) throw new Error("update failed")
@@ -117,7 +118,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     }
   }
 
-  const handleToggleImage = async (cfg: WebhookConfig) => {
+  const handleToggleImage = async (cfg: WebhookConfig): Promise<void> => {
     try {
       const ok = await updateConfig(cfg.id, { include_image: !cfg.include_image })
       if (!ok) throw new Error("update failed")
@@ -127,16 +128,15 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     }
   }
 
-  const handleDelete = async (cfg: WebhookConfig) => {
-    if (
-      !(await confirm({
-        title: "웹훅 삭제",
-        description: `'${cfg.name}' 웹훅을 삭제하시겠습니까?`,
-        variant: "destructive",
-        confirmText: "삭제",
-      }))
-    )
-      return
+  const handleDelete = async (cfg: WebhookConfig): Promise<void> => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+    const confirmed = await confirm({
+      title: "웹훅 삭제",
+      description: `'${cfg.name}' 웹훅을 삭제하시겠습니까?`,
+      variant: "destructive",
+      confirmText: "삭제",
+    })
+    if (confirmed === false) return
     try {
       const ok = await deleteConfig(cfg.id)
       if (ok) {
@@ -149,7 +149,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     }
   }
 
-  const handleTest = async (cfg: WebhookConfig) => {
+  const handleTest = async (cfg: WebhookConfig): Promise<void> => {
     setTestingId(cfg.id)
     try {
       const ok = await testConfig(cfg.id)
@@ -165,11 +165,11 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
     }
   }
 
-  const handleToggleEvent = (cfg: WebhookConfig, event: string) => {
+  const handleToggleEvent = (cfg: WebhookConfig, event: string): void => {
     const events = cfg.events.includes(event)
       ? cfg.events.filter((e) => e !== event)
       : [...cfg.events, event]
-    updateConfig(cfg.id, { events })
+    void updateConfig(cfg.id, { events })
   }
 
   return (
@@ -191,11 +191,11 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
               isEditing={editingId === cfg.id}
               setEditingId={setEditingId}
               isTesting={testingId === cfg.id}
-              onToggleEnabled={handleToggleEnabled}
-              onDelete={handleDelete}
-              onTest={handleTest}
-              onToggleEvent={handleToggleEvent}
-              onToggleImage={handleToggleImage}
+              onToggleEnabled={(cfg) => { void handleToggleEnabled(cfg); }}
+              onDelete={(cfg) => { void handleDelete(cfg); }}
+              onTest={(cfg) => { void handleTest(cfg); }}
+              onToggleEvent={(cfg, event) => { handleToggleEvent(cfg, event); }}
+              onToggleImage={(cfg) => { void handleToggleImage(cfg); }}
             />
           ))}
         </div>
@@ -206,7 +206,7 @@ export function WebhookSettingsPanel({ backendUrl }: Props) {
         <WebhookForm
           config={newConfig}
           onUpdate={updateNewConfig}
-          onSubmit={handleAdd}
+          onSubmit={() => { void handleAdd(); }}
           onCancel={() => { setIsAdding(false); }}
           isSubmitting={isLoading}
         />
@@ -249,7 +249,7 @@ function WebhookCard({
   onTest,
   onToggleEvent,
   onToggleImage,
-}: WebhookCardProps) {
+}: WebhookCardProps): React.ReactNode {
   const [showUrl, setShowUrl] = useState(false)
 
   return (
@@ -409,7 +409,7 @@ function WebhookForm({
   onSubmit,
   onCancel,
   isSubmitting,
-}: WebhookFormProps) {
+}: WebhookFormProps): React.ReactNode {
   return (
     <div className="space-y-3 rounded-lg border border-line p-3">
       <div>
@@ -479,7 +479,7 @@ function WebhookForm({
                 id={`new-evt-${event}`}
                 checked={config.events.includes(event)}
                 onCheckedChange={(checked) => {
-                  const events = checked
+                  const events = checked === true
                     ? [...config.events, event]
                     : config.events.filter((e) => e !== event)
                   onUpdate("events", events)

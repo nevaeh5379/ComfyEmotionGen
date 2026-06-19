@@ -14,7 +14,7 @@ export const CLIENT_ID = Math.random().toString(36).substring(2) + Date.now().to
 const readBackendUrl = (): string => {
   try {
     return (
-      localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
+      localStorage.getItem(STORAGE_KEYS.backendUrl) ?? DEFAULT_BACKEND_URL
     )
   } catch (err) {
     console.warn("serverStorage: 백엔드 URL 읽기 실패:", err)
@@ -32,10 +32,10 @@ export async function fetchAllSettings(): Promise<Record<
       cache: "no-store",
     })
     if (!res.ok) {
-      toast.error(`설정 로드 실패: HTTP ${res.status}`)
+      toast.error(`설정 로드 실패: HTTP ${String(res.status)}`)
       return null
     }
-    return res.json()
+    return await res.json() as Record<string, string>
   } catch (err) {
     console.warn("serverStorage: 설정 목록 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
@@ -52,7 +52,7 @@ export async function fetchSetting(key: string): Promise<string | null> {
     )
     if (res.status === 404) return null
     if (!res.ok) {
-      toast.error(`설정 로드 실패: HTTP ${res.status}`)
+      toast.error(`설정 로드 실패: HTTP ${String(res.status)}`)
       return null
     }
     const data = (await res.json()) as { value: string }
@@ -82,7 +82,7 @@ export async function saveSetting(
       }
     )
     if (!res.ok) {
-      toast.error(`설정 저장 실패: HTTP ${res.status}`)
+      toast.error(`설정 저장 실패: HTTP ${String(res.status)}`)
       return false
     }
     return res.ok
@@ -106,7 +106,7 @@ export async function deleteSetting(key: string): Promise<boolean> {
       }
     )
     if (!res.ok) {
-      toast.error(`설정 삭제 실패: HTTP ${res.status}`)
+      toast.error(`설정 삭제 실패: HTTP ${String(res.status)}`)
       return false
     }
     return res.ok

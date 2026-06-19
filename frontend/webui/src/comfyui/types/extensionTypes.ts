@@ -96,8 +96,10 @@ export interface ExtensionManager {
   }
   command: CommandManager
   setting: {
-    get: <T = unknown>(id: string) => T | undefined
-    set: <T = unknown>(id: string, value: T) => void
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+    get: <U = unknown>(id: string) => U | undefined
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+    set: <U = unknown>(id: string, value: U) => void
   }
   workflow: {
     activeWorkflow?: unknown
@@ -174,8 +176,10 @@ export interface ComfyExtension {
   ): Promise<Record<string, unknown>> | Record<string, unknown>
 
   getSelectionToolboxCommands?(selectedItem: unknown): string[]
-  getCanvasMenuItems?(canvas: LGraphCanvas): (unknown | null)[]
-  getNodeMenuItems?(node: LGraphNode): (unknown | null)[]
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  getCanvasMenuItems?(canvas: LGraphCanvas): (null | unknown)[]
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  getNodeMenuItems?(node: LGraphNode): (null | unknown)[]
 
   beforeRegisterNodeDef?(
     nodeType: typeof LGraphNode,

@@ -7,7 +7,8 @@ export function useBackendUrl(): string {
     STORAGE_KEYS.backendUrl,
     DEFAULT_BACKEND_URL
   )
-  return IS_PACKAGE_MODE
-    ? (PACKAGE_BACKEND_URL!)
-    : storedBackendUrl
+  if (IS_PACKAGE_MODE) {
+    return PACKAGE_BACKEND_URL ?? DEFAULT_BACKEND_URL
+  }
+  return storedBackendUrl
 }

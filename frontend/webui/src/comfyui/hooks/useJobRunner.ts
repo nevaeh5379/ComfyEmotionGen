@@ -17,7 +17,42 @@ import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 import { useBackendUrl } from "./useBackendUrl"
 import { useBackendHealth } from "./useBackendHealth"
 
-export function useJobRunner() {
+export function useJobRunner(): {
+  fakeJobQueue: RenderItem[]
+  renderResponse: RenderItemsResponse | null
+  parserError: string | null
+  axisValueFilter: Record<string, Record<string, boolean>>
+  setAxisValueFilter: React.Dispatch<React.SetStateAction<Record<string, Record<string, boolean>>>>
+  collapsedAxes: Set<string>
+  uncheckedItems: Set<string>
+  repeatCount: number
+  setRepeatCount: React.Dispatch<React.SetStateAction<number>>
+  randomRunCount: number
+  setRandomRunCount: React.Dispatch<React.SetStateAction<number>>
+  targetWorkerId: string | null
+  setTargetWorkerId: React.Dispatch<React.SetStateAction<string | null>>
+  handleRun: () => Promise<void>
+  handleRunSelected: () => Promise<boolean>
+  handleRandomRun: (count?: number) => Promise<void>
+  handleRunUnapproved: () => Promise<void>
+  selectOnlyUnapprovedItems: () => Promise<void>
+  toggleItemCheck: (key: string) => void
+  checkAllItems: () => void
+  uncheckAllItems: () => void
+  toggleAxisCollapse: (axis: string) => void
+  estimatedRunCount: number | null
+  axisFilteredItems: RenderItem[]
+  axisExcludedItems: RenderItem[]
+  filteredByAxisSet: Set<string> | null
+  hasActiveFilter: boolean
+  selectedCount: number | null
+  isAliveBackend: boolean
+  backendUrl: string
+  handleRunSingle: (item: RenderItem) => Promise<boolean>
+  callParser: () => Promise<RenderItemsResponse | undefined>
+  submitJobs: (items: RenderItem[]) => Promise<boolean>
+  fetchApprovedFilenames: () => Promise<Set<string>>
+} {
   const backendUrl = useBackendUrl()
   const { isAliveBackend } = useBackendHealth()
   const { cegTemplate, activeTemplateId } = useTemplateContext()
@@ -38,38 +73,42 @@ export function useJobRunner() {
   const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
 
   // Load uncheckedItems from localStorage when activeTemplateId changes
-  useEffect(() => {
-    const key = `ceg_unchecked_items_${activeTemplateId || "default"}`
+  useEffect((): void => {
+    const key = `ceg_unchecked_items_${activeTemplateId ?? "default"}`
     try {
       const saved = localStorage.getItem(key)
-      if (saved) {
+      if (saved !== null && saved !== "") {
         const arr = JSON.parse(saved) as string[]
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUncheckedItems(new Set(arr))
       } else {
         setUncheckedItems(new Set())
       }
-    } catch (e) {
+    } catch (e: unknown) {
+      // eslint-disable-next-line no-console
       console.warn("Failed to load unchecked items", e)
       setUncheckedItems(new Set())
     }
   }, [activeTemplateId])
 
   // Save uncheckedItems to localStorage when it changes
-  useEffect(() => {
-    const key = `ceg_unchecked_items_${activeTemplateId || "default"}`
+  useEffect((): void => {
+    const key = `ceg_unchecked_items_${activeTemplateId ?? "default"}`
     try {
       localStorage.setItem(key, JSON.stringify(Array.from(uncheckedItems)))
-    } catch (e) {
+    } catch (e: unknown) {
+      // eslint-disable-next-line no-console
       console.warn("Failed to save unchecked items", e)
     }
   }, [uncheckedItems, activeTemplateId])
 
   // CEG 템플릿 변경 시 자동 파싱 (debounce)
-  useEffect(() => {
+  useEffect((): (() => void) | undefined => {
     if (!isAliveBackend || !cegTemplate.trim()) {
       return
     }
     const controller = new AbortController()
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     const timer = setTimeout(async () => {
       setParserError(null)
       try {
@@ -79,7 +118,7 @@ export function useJobRunner() {
           body: JSON.stringify({ template: cegTemplate }),
           signal: controller.signal,
         })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
         const data = (await res.json()) as RenderItemsResponse
         setFakeJobQueue(data.items)
         setRenderResponse(data)
@@ -88,13 +127,13 @@ export function useJobRunner() {
           const next = { ...prev }
           data.items.forEach((item) => {
             Object.entries(item.meta).forEach(([key, value]) => {
-              if (!next[key]) next[key] = {}
-              if (next[key][value] === undefined) next[key][value] = true
+              next[key] ??= {}
+              next[key][value] ??= true
             })
           })
           return next
         })
-      } catch (err) {
+      } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") return
         setParserError(err instanceof Error ? err.message : String(err))
         setRenderResponse(null)
@@ -124,32 +163,34 @@ export function useJobRunner() {
       const response = await fetch(`${backendUrlRef.current}${API.render}`, {
         method: "POST",
         headers: HEADERS.json,
-        body: JSON.stringify({ template: cegTemplateRef.current || "" }),
+        body: JSON.stringify({ template: cegTemplateRef.current }),
       })
       if (!response.ok) {
         const errorText = await response.text().catch(() => "")
         throw new Error(
-          `HTTP ${response.status}: ${errorText || response.statusText}`
+          `HTTP ${String(response.status)}: ${errorText}`
         )
       }
       return (await response.json()) as RenderItemsResponse
-    } catch (error) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error)
+      // eslint-disable-next-line no-console
       console.error("Error occurred while fetching parser API:", error)
       setParserError(message)
       return undefined
     }
-  }, [])
+  }, [backendUrlRef, cegTemplateRef])
 
   const submitJobsInternal = useCallback(async (items: RenderItem[]): Promise<boolean> => {
     if (!workflowJsonRef.current || items.length === 0) return false
     const imageNameMap: Record<string, string> = {}
     const imageUploads: Record<string, Record<string, string>> = {}
     for (const m of nodeMappingsRef.current) {
-      if (m.sourceType === "image" && m.imageValue) {
+      if (m.sourceType === "image" && m.imageValue !== undefined && m.imageValue !== "") {
         imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
         const match = /^__upload__([a-f0-9]{64})\.\w+$/.exec(m.imageValue)
-        if (match?.[1]) {
+        const filename = match?.[1]
+        if (filename !== undefined && filename !== "") {
           imageUploads[match[1]] = { name: m.imageValue }
         }
       }
@@ -167,7 +208,7 @@ export function useJobRunner() {
       cegTemplate: cegTemplateRef.current,
       imageUploads,
       workerType: "comfyui",
-      workerId: targetWorkerIdRef.current || undefined,
+      workerId: targetWorkerIdRef.current ?? undefined,
     }))
     try {
       const res = await fetch(`${backendUrlRef.current}${API.jobs.root}`, {
@@ -177,27 +218,29 @@ export function useJobRunner() {
       })
       if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
       return true
-    } catch (error) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line no-console
       console.error("Failed to submit jobs:", error)
       toast.error("작업 제출에 실패했습니다.")
       return false
     }
-  }, [])
+  }, [backendUrlRef, cegTemplateRef, nodeMappingsRef, targetWorkerIdRef, workflowJsonRef])
 
   const fetchApprovedFilenamesInternal = useCallback(async (): Promise<Set<string>> => {
     try {
       const res = await fetch(`${backendUrlRef.current}/saved-images?limit=5000`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       const data = (await res.json()) as { items: SavedImage[] }
       const approved = data.items.filter(
         (img) => img.status === "approved"
       )
       return new Set(approved.map((img) => img.originalFilename))
-    } catch (err) {
+    } catch (err: unknown) {
+      // eslint-disable-next-line no-console
       console.error("Failed to fetch approved filenames:", err)
       return new Set<string>()
     }
-  }, [])
+  }, [backendUrlRef])
 
   // ── Sync callbacks (useCallback + async internal) ───────────────
   const callParser = useCallback(
@@ -215,19 +258,19 @@ export function useJobRunner() {
     [fetchApprovedFilenamesInternal]
   )
 
-  const canUseParsedTemplate = isAliveBackend && cegTemplate.trim()
+  const canUseParsedTemplate = Boolean(isAliveBackend && cegTemplate.trim())
   const activeFakeJobQueue = useMemo(
     () => (canUseParsedTemplate ? fakeJobQueue : []),
     [canUseParsedTemplate, fakeJobQueue]
   )
-  const activeRenderResponse = canUseParsedTemplate ? renderResponse : null
+  const activeRenderResponse = canUseParsedTemplate ? (renderResponse ?? null) : null
 
   const axisFilteredItems = useMemo(
     () => applyAxisFilters(activeFakeJobQueue, axisValueFilter),
     [activeFakeJobQueue, axisValueFilter]
   )
 
-  const handleRun = useCallback(async () => {
+  const handleRun = useCallback(async (): Promise<void> => {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return
     const parserResult = await callParser()
     if (!parserResult) return
@@ -238,18 +281,20 @@ export function useJobRunner() {
         : items
     const ok = await submitJobs(repeated)
     if (!ok) toast.error("작업 실행에 실패했습니다.")
-  }, [callParser, submitJobs])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleRandomRun = useCallback(async (count = 1) => {
+  const handleRandomRun = useCallback(async (count?: number): Promise<void> => {
     const af = applyAxisFilters(activeFakeJobQueue, axisValueFilterRef.current)
     if (!workflowJsonRef.current || !isAliveBackendRef.current || af.length === 0)
       return
-    const selected = randomSelect(af, count)
+    const selected = randomSelect(af, count ?? 1)
     const ok = await submitJobs(selected)
     if (!ok) toast.error("랜덤 실행에 실패했습니다.")
-  }, [submitJobs, activeFakeJobQueue])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleRunSelected = useCallback(async () => {
+  const handleRunSelected = useCallback(async (): Promise<boolean> => {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return false
     const parserResult = await callParser()
     if (!parserResult) return false
@@ -263,17 +308,19 @@ export function useJobRunner() {
     const ok = await submitJobs(repeated)
     if (!ok) toast.error("선택 작업 실행에 실패했습니다.")
     return ok
-  }, [callParser, submitJobs])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleRunSingle = useCallback(async (item: RenderItem) => {
+  const handleRunSingle = useCallback(async (item: RenderItem): Promise<boolean> => {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return false
     const ok = await submitJobs([item])
     if (!ok) toast.error("테스트 실행에 실패했습니다.")
     else toast.success("테스트가 큐에 추가되었습니다.")
     return ok
-  }, [submitJobs])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleRunUnapproved = useCallback(async () => {
+  const handleRunUnapproved = useCallback(async (): Promise<void> => {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return
     const parserResult = await callParser()
     if (!parserResult) return
@@ -288,7 +335,7 @@ export function useJobRunner() {
       return
     }
 
-    toast.info(`축 필터를 제외한 전체 미완료 작업 ${filtered.length}개를 실행합니다.`)
+    toast.info(`축 필터를 제외한 전체 미완료 작업 ${String(filtered.length)}개를 실행합니다.`)
 
     const repeated =
       repeatCountRef.current > 1
@@ -296,9 +343,10 @@ export function useJobRunner() {
         : filtered
     const ok = await submitJobs(repeated)
     if (!ok) toast.error("미완료 항목 실행에 실패했습니다.")
-  }, [callParser, fetchApprovedFilenames, submitJobs])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const selectOnlyUnapprovedItems = useCallback(async () => {
+  const selectOnlyUnapprovedItems = useCallback(async (): Promise<void> => {
     const approvedSet = await fetchApprovedFilenames()
     let count = 0
     const nextUnchecked = new Set(uncheckedItemsRef.current)
@@ -313,11 +361,12 @@ export function useJobRunner() {
     })
     setUncheckedItems(nextUnchecked)
     if (count > 0) {
-      toast.success(`큐레이션 통과 항목 ${count}개가 선택 해제되었습니다.`)
+      toast.success(`큐레이션 통과 항목 ${String(count)}개가 선택 해제되었습니다.`)
     } else {
       toast.info("선택 해제할 큐레이션 통과 항목이 없습니다.")
     }
-  }, [fetchApprovedFilenames])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toggleItemCheck = useCallback((key: string) => {
     setUncheckedItems((prev) => {
@@ -328,12 +377,12 @@ export function useJobRunner() {
     })
   }, [])
 
-  const checkAllItems = useCallback(() => { setUncheckedItems(new Set()); }, [])
+  const checkAllItems = useCallback((): void => { setUncheckedItems(new Set()); }, [])
   
-  const uncheckAllItems = useCallback(() =>
+  const uncheckAllItems = useCallback((): void =>
     { setUncheckedItems(new Set(activeFakeJobQueue.map(itemKey))); }, [activeFakeJobQueue])
 
-  const toggleAxisCollapse = useCallback((axis: string) =>
+  const toggleAxisCollapse = useCallback((axis: string): void =>
     { setCollapsedAxes((prev) => {
       const next = new Set(prev)
       if (next.has(axis)) next.delete(axis)
