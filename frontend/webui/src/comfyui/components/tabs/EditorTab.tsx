@@ -5,12 +5,10 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react"
-import { GraphCanvas } from "@/components/graph/GraphCanvas"
 import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
 import { NodePropertiesPanel } from "@/components/graph/NodePropertiesPanel"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useGraphStore } from "@/comfyui/stores/graphStore"
-import { useCanvasStore } from "@/comfyui/stores/canvasStore"
 import type { ComfyWorkflowJSON } from "@/comfyui/types/workflow"
 import { Button } from "@/components/ui/button"
 import {
@@ -46,7 +44,6 @@ export function EditorTab(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   const [showRightPanel, setShowRightPanel] = useState(true)
-  const [editorMode, setEditorMode] = useState<"canvas" | "react">("canvas")
 
   const { workflows: savedEditorWorkflows, saveWorkflow: saveEditorWorkflow, deleteWorkflow: deleteEditorWorkflow } =
     useEditorSavedWorkflows()
@@ -59,26 +56,12 @@ export function EditorTab(): React.JSX.Element {
   const setNodeDefs = useNodeDefStore((s) => s.setNodeDefs)
   const canUndo = useGraphStore((s) => s.canUndo())
   const canRedo = useGraphStore((s) => s.canRedo())
-  const graph = useCanvasStore.getState().currentGraph as unknown
-
-  // ─── 이전 에디터 모드 추적 (루프 방지용) ─────────────────────
-  const prevEditorModeRef = useRef<"canvas" | "react">("canvas")
 
   // currentWorkflow가 갱신되면 reactGraphStore에도 연동
   useEffect(() => {
     if (!currentWorkflow) return
     useReactGraphStore.getState().setGraph(currentWorkflow)
   }, [currentWorkflow])
-
-  // canvas → react 모드 전환 시 단 1회 setGraph
-  useEffect(() => {
-    const prev = prevEditorModeRef.current
-    prevEditorModeRef.current = editorMode
-    if (editorMode === "react" && prev === "canvas" && currentWorkflow) {
-      useReactGraphStore.getState().setGraph(currentWorkflow)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editorMode])
 
   // object_info 로드
   useEffect(() => {
@@ -183,33 +166,14 @@ export function EditorTab(): React.JSX.Element {
 
   // 노드 라이브러리에서 노드 추가
   const handleAddNode = useCallback((type: string): void => {
-    if (editorMode === "react") {
-      const def = nodeDefs[type]
-      const state = useReactGraphStore.getState()
-      const pos: [number, number] = [
-        Math.round(150 - state.pan[0] / state.zoom),
-        Math.round(150 - state.pan[1] / state.zoom)
-      ]
-      state.addNode(type, pos, def)
-      return
-    }
-
-    // graph is LGraph from our store
-    if (graph === null || graph === undefined) return
-
-    // 중앙에 노드 추가 (캔버스 중심)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const g = graph as Record<string, any>
-    const list = g.list_of_graphcanvas as { ds?: { offset?: [number, number] } }[] | undefined
-    const center: [number, number] = list?.[0]?.ds?.offset ?? [0, 0]
-    const pos: [number, number] = [center[0] + 100, center[1] + 100]
-
-    // Use ComfyAppService through the canvas store
-    const app = useCanvasStore.getState().appService as { createNode?: (type: string, pos: [number, number]) => void } | undefined
-    if (app && typeof app.createNode === "function") {
-      app.createNode(type, pos)
-    }
-  }, [graph, editorMode, nodeDefs])
+    const def = nodeDefs[type]
+    const state = useReactGraphStore.getState()
+    const pos: [number, number] = [
+      Math.round(150 - state.pan[0] / state.zoom),
+      Math.round(150 - state.pan[1] / state.zoom)
+    ]
+    state.addNode(type, pos, def)
+  }, [nodeDefs])
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -286,30 +250,6 @@ export function EditorTab(): React.JSX.Element {
           onChange={handleFileImport}
         />
         <div className="flex-1" />
-        <div className="flex items-center gap-1 rounded-lg bg-muted/65 p-0.5 border border-line/40 select-none">
-          <Button
-            variant={editorMode === "canvas" ? "secondary" : "ghost"}
-            size="sm"
-            className="h-6 px-2 text-[10px] font-extrabold cursor-pointer"
-            onClick={() => {
-              localStorage.setItem("comfy-editor-mode", "canvas")
-              setEditorMode("canvas")
-            }}
-          >
-            Canvas (Legacy)
-          </Button>
-          <Button
-            variant={editorMode === "react" ? "secondary" : "ghost"}
-            size="sm"
-            className="h-6 px-2 text-[10px] font-extrabold cursor-pointer"
-            onClick={() => {
-              localStorage.setItem("comfy-editor-mode", "react")
-              setEditorMode("react")
-            }}
-          >
-            React DOM (New)
-          </Button>
-        </div>
         <div className="h-4 w-px bg-border mx-1" />
         <Button
           variant="ghost"
@@ -430,19 +370,15 @@ export function EditorTab(): React.JSX.Element {
             <div className="flex items-center justify-center h-full text-muted-foreground">
               ComfyUI 워커가 연결되어 있지 않습니다.
             </div>
-          ) : editorMode === "react" ? (
-            <ReactGraphEditor />
           ) : (
-            <GraphCanvas
-              workflow={currentWorkflow}
-            />
+            <ReactGraphEditor />
           )}
         </div>
 
         {/* 우측: Properties */}
         {showRightPanel && (
           <div className="w-64 shrink-0 border-l">
-            <NodePropertiesPanel editorMode={editorMode} />
+            <NodePropertiesPanel />
           </div>
         )}
       </div>

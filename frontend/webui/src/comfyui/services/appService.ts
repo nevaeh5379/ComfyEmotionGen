@@ -17,11 +17,18 @@ import {
   type ISerialisedNode,
 } from "comfy-litegraph"
 */
-const LGraph = (window as any).LGraph
-const LGraphCanvas = (window as any).LGraphCanvas
-const LGraphNode = (window as any).LGraphNode
-const LGraphGroup = (window as any).LGraphGroup
-const LiteGraph = (window as any).LiteGraph
+const LGraph = (window as any).LGraph || class DummyLGraph {}
+const LGraphCanvas = (window as any).LGraphCanvas || class DummyLGraphCanvas {}
+const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
+const LGraphGroup = (window as any).LGraphGroup || class DummyLGraphGroup {}
+const LiteGraph = (window as any).LiteGraph || {
+  registerNodeType: () => {},
+  NODE_DEFAULT_WIDTH: 200,
+  NODE_DEFAULT_HEIGHT: 80,
+  ALWAYS: 0,
+  NEVER: 1,
+  BYPASS: 2,
+}
 type LGraph = any
 type LGraphCanvas = any
 type LGraphNode = any

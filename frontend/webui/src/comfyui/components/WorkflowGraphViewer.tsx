@@ -15,9 +15,9 @@ import { getCategoryStyle } from "../utils/workflowGraphCategories"
 type LGraph = any
 type LGraphCanvas = any
 type LGraphNode = any
-const LGraph = (window as any).LGraph
-const LGraphCanvas = (window as any).LGraphCanvas
-const LGraphNode = (window as any).LGraphNode
+const LGraph = (window as any).LGraph || class DummyLGraph {}
+const LGraphCanvas = (window as any).LGraphCanvas || class DummyLGraphCanvas {}
+const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
 
 type InputSpec = [string | string[], Record<string, unknown>]
 

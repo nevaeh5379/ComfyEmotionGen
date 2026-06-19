@@ -10,8 +10,8 @@ import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { ComfyAppService } from "@/comfyui/services/appService"
 // import { LGraph, LGraphNode } from "comfy-litegraph"
-const LGraph = (window as any).LGraph
-const LGraphNode = (window as any).LGraphNode
+const LGraph = (window as any).LGraph || class DummyLGraph {}
+const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
 type LGraph = any
 type LGraphNode = any
 import type { ComfyExtension } from "@/comfyui/types/extensionTypes"

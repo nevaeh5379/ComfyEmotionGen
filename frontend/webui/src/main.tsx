@@ -3,12 +3,19 @@ import { createRoot } from "react-dom/client"
 
 import "./index.css"
 // import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
-const LiteGraph = (window as any).LiteGraph
-const LGraph = (window as any).LGraph
-const LGraphNode = (window as any).LGraphNode
-const LGraphCanvas = (window as any).LGraphCanvas
-const LLink = (window as any).LLink
-const LGraphGroup = (window as any).LGraphGroup
+const LiteGraph = (window as any).LiteGraph || {
+  registerNodeType: () => {},
+  NODE_DEFAULT_WIDTH: 200,
+  NODE_DEFAULT_HEIGHT: 80,
+  ALWAYS: 0,
+  NEVER: 1,
+  BYPASS: 2,
+}
+const LGraph = (window as any).LGraph || class DummyLGraph {}
+const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
+const LGraphCanvas = (window as any).LGraphCanvas || class DummyLGraphCanvas {}
+const LLink = (window as any).LLink || class DummyLLink {}
+const LGraphGroup = (window as any).LGraphGroup || class DummyLGraphGroup {}
 
 type LiteGraph = any
 type LGraph = any
@@ -160,6 +167,7 @@ const addDOMWidgetFn = function (
   return widget
 }
 
+/*
 ;(LGraphNode as any).prototype ??= {}
 ;(LGraphNode as any).prototype.addDOMWidget = addDOMWidgetFn
 
@@ -181,6 +189,7 @@ liteGraph.color_palettes = new Proxy<Record<string, Record<string, unknown>>>(pa
 if (liteGraph.Styles === undefined) {
   liteGraph.Styles = { obsidian: {} as Record<string, unknown> }
 }
+*/
 
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { api as comfyApiInstance } from "@/comfyui/api"
