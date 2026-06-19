@@ -8,15 +8,11 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
 import { X } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
-// import { LGraphEventMode } from "comfy-litegraph"
-const LGraphEventMode = ((window as any).LiteGraph?.LGraphEventMode ?? {
+const LGraphEventMode = LiteGraph.LGraphEventMode ?? {
   ALWAYS: 0,
-  ON_TRIGGER: 1,
   NEVER: 2,
-  ON_REQUEST: 3,
   BYPASS: 4,
-}) as any
-type LGraphEventMode = any
+}
 import type { InputSpec } from "@/comfyui/types/nodeDef"
 
 interface LiveWidget {
@@ -284,11 +280,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
     return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
   }, [nodeDef, nodeData, liveNode])
 
-  const LGraphEventModeValues = LGraphEventMode as unknown as {
-    ALWAYS: number
-    BYPASS: number
-    NEVER: number
-  }
+  const LGraphEventModeValues = LGraphEventMode
   const nodeMode = nodeData?.mode ?? LGraphEventModeValues.ALWAYS
   const isBypassed = nodeMode === LGraphEventModeValues.BYPASS
   const isMuted    = nodeMode === LGraphEventModeValues.NEVER

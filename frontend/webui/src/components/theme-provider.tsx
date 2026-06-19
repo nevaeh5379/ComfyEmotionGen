@@ -124,7 +124,7 @@ export function ThemeProvider({
       if (aborted || !serverTheme) return
       setThemeState(serverTheme)
     })
-    return () => {
+    return (): void => {
       aborted = true
     }
   }, [storageKey])
@@ -170,7 +170,7 @@ export function ThemeProvider({
 
     mediaQuery.addEventListener("change", handleChange)
 
-    return () => {
+    return (): void => {
       mediaQuery.removeEventListener("change", handleChange)
     }
   }, [theme, applyTheme])
@@ -210,7 +210,7 @@ export function ThemeProvider({
 
     window.addEventListener("keydown", handleKeyDown)
 
-    return () => {
+    return (): void => {
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [storageKey])
@@ -235,7 +235,7 @@ export function ThemeProvider({
 
     window.addEventListener("storage", handleStorageChange)
 
-    return () => {
+    return (): void => {
       window.removeEventListener("storage", handleStorageChange)
     }
   }, [defaultTheme, storageKey])

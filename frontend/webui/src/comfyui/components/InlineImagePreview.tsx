@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
+ 
 import { useState, useEffect } from "react"
 import { useBackend } from "../hooks/useBackend"
 import { API } from "@/lib/api"
@@ -11,14 +11,14 @@ export function InlineImagePreview({ filename, backendUrl }: { filename: string;
   const job = [...jobs].reverse().find(j => j.filename === filename)
   
   useEffect(() => {
-    if (job !== undefined && job !== null) {
+    if (job !== undefined) {
       const timer = setTimeout((): void => { setShow(true); }, 0)
       return (): void => { clearTimeout(timer); }
     }
     return undefined
   }, [job])
 
-  if (!show || job === undefined || job === null) return null
+  if (!show || job === undefined) return null
 
   const doneHash = job.status === "done" && job.savedImageHashes.length > 0
     ? job.savedImageHashes[0]

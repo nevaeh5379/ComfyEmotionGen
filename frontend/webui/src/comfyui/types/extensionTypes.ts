@@ -5,10 +5,7 @@
  */
 
 // import type { LGraphCanvas, LGraphNode } from 'comfy-litegraph'
-type LGraphCanvas = any
-type LGraphNode = any
-const LGraphCanvas = {} as any
-const LGraphNode = {} as any
+
 import type { ComfyNodeDef } from './nodeDef'
 import type { ComfyWorkflowJSON, NodeId } from './workflow'
 import type {

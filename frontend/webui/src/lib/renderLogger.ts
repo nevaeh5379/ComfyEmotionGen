@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type DependencyList } from "react"
+import { useEffect, useLayoutEffect, useRef, type DependencyList, type EffectCallback } from "react"
 
 const IS_DEV = import.meta.env.DEV
 
@@ -43,7 +43,7 @@ export function useWatchValues(label: string, values: Record<string, unknown>): 
 
 export function useEffectLog(
   label: string,
-  effect: () => (() => void) | void,
+  effect: EffectCallback,
   deps?: DependencyList
 ): void {
   useEffect(() => {

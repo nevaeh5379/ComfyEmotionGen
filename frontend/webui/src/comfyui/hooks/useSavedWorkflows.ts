@@ -117,7 +117,8 @@ export function useSavedWorkflows(): {
       const wIdx = all.findIndex((w) => w.id === workflowId)
       if (wIdx === -1) return null
 
-      const w = all[wIdx] as SavedWorkflow
+      const w = all[wIdx]
+      if (w === undefined) return null
       const presets = w.mappingPresets
       const existing = presets.find((p) => p.name === trimmed)
 
@@ -150,7 +151,8 @@ export function useSavedWorkflows(): {
       const wIdx = all.findIndex((w) => w.id === workflowId)
       if (wIdx === -1) return null
 
-      const w = all[wIdx] as SavedWorkflow
+      const w = all[wIdx]
+      if (w === undefined) return null
       const nextPresets = w.mappingPresets.filter(
         (p) => p.id !== presetId
       )

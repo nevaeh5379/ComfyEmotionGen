@@ -28,6 +28,12 @@ export function WorkflowInput({
   onSave,
 }: WorkflowInputProps): React.ReactNode {
   const [localValue, setLocalValue] = useState<string | number | boolean | string[] | Record<string, unknown>>(value)
+
+  const getStringValue = (val: typeof localValue): string => {
+    if (typeof val === "string") return val
+    if (typeof val === "number" || typeof val === "boolean") return String(val)
+    return ""
+  }
   const prevValueRef = useRef(value)
 
   // Sync state if value changes externally (e.g., workflow template loads)
@@ -70,7 +76,7 @@ export function WorkflowInput({
   if (enumOptions) {
     return (
       <Select
-        value={typeof localValue === "string" ? localValue : String(localValue)}
+        value={getStringValue(localValue)}
         onValueChange={(val) => {
           setLocalValue(val)
           onSave(val)
@@ -131,7 +137,7 @@ export function WorkflowInput({
     return (
       <Input
         type="number"
-        value={localValue as any}
+        value={localValue as string | number}
         onChange={(e) => {
           const val = e.target.value
           setLocalValue(val === "" ? "" : val)
@@ -167,7 +173,7 @@ export function WorkflowInput({
   if (isMultiline) {
     return (
       <Textarea
-        value={typeof localValue === "string" ? localValue : String(localValue)}
+        value={getStringValue(localValue)}
         onChange={(e) => { setLocalValue(e.target.value); }}
         onBlur={handleTextBlurOrSubmit}
         placeholder="텍스트 입력..."
@@ -179,7 +185,7 @@ export function WorkflowInput({
   return (
     <Input
       type="text"
-      value={typeof localValue === "string" ? localValue : String(localValue)}
+      value={getStringValue(localValue)}
       onChange={(e) => { setLocalValue(e.target.value); }}
       onBlur={handleTextBlurOrSubmit}
       onKeyDown={(e) => {

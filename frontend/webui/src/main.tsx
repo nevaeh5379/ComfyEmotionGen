@@ -3,27 +3,73 @@ import { createRoot } from "react-dom/client"
 
 import "./index.css"
 // import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
-const LiteGraph = (window as any).LiteGraph || {
-  registerNodeType: () => {},
+window.LiteGraph ??= {
+  registerNodeType: (): void => { /* noop */ },
   NODE_DEFAULT_WIDTH: 200,
   NODE_DEFAULT_HEIGHT: 80,
   ALWAYS: 0,
   NEVER: 1,
   BYPASS: 2,
+  createNode: (type: string): LGraphNode | null => new LGraphNode(type),
 }
-const LGraph = (window as any).LGraph || class DummyLGraph {}
-const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
-const LGraphCanvas = (window as any).LGraphCanvas || class DummyLGraphCanvas {}
-const LLink = (window as any).LLink || class DummyLLink {}
-const LGraphGroup = (window as any).LGraphGroup || class DummyLGraphGroup {}
+const LGraph = window.LGraph ?? class DummyLGraph {
+  readonly __dummy = true
+  add(): void { /* noop */ }
+  links: Map<number, LLink> | Record<number, LLink> = {}
+  groups: LGraphGroup[] = []
+  nodes: LGraphNode[] = []
+}
+window.LGraphNode ??= class DummyLGraphNode {
+  readonly __dummy = true
+  id = 0
+  pos: [number, number] = [0, 0]
+  size: [number, number] = [0, 0]
+  inputs: LGraphNodeInput[] = []
+  outputs: LGraphNodeOutput[] = []
+  setDirtyCanvas(): void { /* noop */ }
+  addInput(): void { /* noop */ }
+  addOutput(): void { /* noop */ }
+  connect(): boolean | null { return null }
+  configure(): void { /* noop */ }
+  addWidget(): WidgetType {
+    return {
+      type: "",
+      name: "",
+      element: document.createElement("div"),
+      options: { hideOnZoom: false },
+      _value: "",
+      value: "",
+      callback: null,
+    }
+  }
+}
+const LGraphCanvas = window.LGraphCanvas ?? class DummyLGraphCanvas {
+  readonly __dummy = true
+  state = { readOnly: false }
+  resize(): void { /* noop */ }
+  ds = { scale: 1, offset: [0, 0] as [number, number] }
+  setDirty(): void { /* noop */ }
+  stopRendering(): void { /* noop */ }
+}
+window.LLink ??= class DummyLLink {
+  readonly __dummy = true
+  id = 0
+  origin_id = 0
+  origin_slot = 0
+  target_id = 0
+  target_slot = 0
+  type = ""
+}
+window.LGraphGroup ??= class DummyLGraphGroup {
+  readonly __dummy = true
+  id = 0
+  title = ""
+  pos: [number, number] = [0, 0]
+  size: [number, number] = [0, 0]
+  color?: string
+}
 
-type LiteGraph = any
-type LGraph = any
-type LGraphNode = any
-type LGraphCanvas = any
-type LLink = any
-type LGraphGroup = any
-;(window as unknown as Record<string, unknown>).comfyExtensions ??= []
+window.comfyExtensions ??= []
 
 // LocalStorage 오염 복구 가드 및 런타임 후킹
 try {
@@ -102,7 +148,7 @@ try {
 }
 
 // addDOMWidget polyfill
-const addDOMWidgetFn = function (
+const _addDOMWidgetFn = function (
   this: LGraphNode,
   name: string,
   type: string,
@@ -236,10 +282,8 @@ function createDefaultApp(): ComfyApp {
   }
 
   const app: ComfyApp = {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
-    graph: new (LGraph as unknown as new () => Record<string, unknown>)() as unknown as LGraph,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
-    canvas: new (LGraphCanvas as unknown as new (canvas: HTMLCanvasElement, graph: Record<string, unknown>) => Record<string, unknown>)(document.createElement("canvas"), new (LGraph as unknown as new () => Record<string, unknown>)()) as unknown as LGraphCanvas,
+    graph: new LGraph(),
+    canvas: new LGraphCanvas(document.createElement("canvas"), new LGraph()),
     async syncGraph(): Promise<void> {
       const { useReactGraphStore } = await import("@/comfyui/stores/reactGraphStore")
       useReactGraphStore.getState().syncGraphFromLive()
@@ -251,7 +295,7 @@ function createDefaultApp(): ComfyApp {
     },
     settings: defaultSettings,
     extensions: [],
-    registerExtension(ext: unknown): void {
+    registerExtension(ext: ComfyExtension): void {
       if (app.extensionManager.registerExtension !== undefined) {
         app.extensionManager.registerExtension(ext)
       } else {
@@ -267,7 +311,7 @@ function createDefaultApp(): ComfyApp {
 
   return app
 }
-{ const w = window as unknown as { app?: ComfyApp }; w.app ??= createDefaultApp() }
+if ((window as { app?: ComfyApp }).app === undefined) { window.app = createDefaultApp() }
 const appObj: ComfyApp = window.app
 
 // installSettingValueHook

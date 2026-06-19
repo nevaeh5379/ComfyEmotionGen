@@ -1,9 +1,12 @@
 import type { BackendEvent, JobView } from "../types/Message"
 
-function dispatch(type: string, detail?: unknown): void {
-  const w = window as any
-  const api = w.api
-  if (api && typeof api.dispatchCustomEvent === 'function') {
+interface CustomEventDispatcher {
+  dispatchCustomEvent(type: string, detail?: object): boolean
+}
+
+function dispatch(type: string, detail?: object): void {
+  const api = window.api as CustomEventDispatcher | undefined
+  if (api !== undefined && typeof api.dispatchCustomEvent === "function") {
     if (detail !== undefined) {
       api.dispatchCustomEvent(type, detail)
     } else {

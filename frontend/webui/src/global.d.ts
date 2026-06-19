@@ -1,39 +1,137 @@
-// import type { LiteGraphGlobal, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
-export type LiteGraphGlobal = any
-export type LGraph = any
-export type LGraphNode = any
-export type LGraphCanvas = any
-export type LLink = any
-export type LGraphGroup = any
-export type LGraphEventMode = any
-
-export declare const LiteGraphGlobal: any
-export declare const LGraph: any
-export declare const LGraphNode: any
-export declare const LGraphCanvas: any
-export declare const LLink: any
-export declare const LGraphGroup: any
-export declare const LGraphEventMode: any
-
+import type { JSX as ReactJSX } from "react"
 import type { ComfyApi } from "@/comfyui/api"
 import type { ComfyAppService } from "@/comfyui/services/appService"
-
-/*
-declare module "comfy-litegraph" {
-  interface LGraphNode {
-    addDOMWidget?(
-      name: string,
-      type: string,
-      element: HTMLElement,
-      options?: AddDOMWidgetOptions
-    ): WidgetType
-  }
-}
-*/
+import type { ComfyWorkflowNode } from "@/comfyui/types/workflow"
+import type { ComfyExtension as ComfyExtensionType } from "@/comfyui/types/extensionTypes"
 
 declare global {
+  type ComfyExtension = ComfyExtensionType
+  interface LGraphEventMode {
+    ALWAYS: number
+    NEVER: number
+    BYPASS: number
+  }
+
+  interface LiteGraphGlobal {
+    registerNodeType(type: string, base_class: new () => LGraphNode): void
+    NODE_DEFAULT_WIDTH: number
+    NODE_DEFAULT_HEIGHT: number
+    ALWAYS: number
+    NEVER: number
+    BYPASS: number
+    LGraphEventMode?: LGraphEventMode
+    createNode(type: string): LGraphNode | null
+  }
+
+  interface LGraph {
+    add(nodeOrGroup: LGraphNode | LGraphGroup): void
+    syncGraph?(): Promise<void>
+    links: Map<number, LLink>
+    groups: LGraphGroup[]
+    nodes: LGraphNode[]
+    clear(): void
+    _nodes_by_id: Record<string, LGraphNode | undefined>
+    getNodeById(id: number | string): LGraphNode | undefined
+    setDirtyCanvas(flag: boolean, history?: boolean): void
+    _canvas?: LGraphCanvas
+  }
+
+  interface LGraphNodeInput {
+    name: string
+    type: string
+    link: number | null
+  }
+  interface LGraphNodeOutput {
+    name: string
+    type: string
+    links: number[] | null
+  }
+
+  interface LGraphNode {
+    id: number
+    title?: string
+    type?: string
+    color?: string
+    bgcolor?: string
+    pos: [number, number]
+    size: [number, number]
+    inputs: LGraphNodeInput[]
+    outputs: LGraphNodeOutput[]
+    widgets?: WidgetType[]
+    addInput(name: string, type: string): void
+    addOutput(name: string, type: string): void
+    connect(slot: number, node: LGraphNode, inputSlot: number | string): boolean | null
+    configure(data: ComfyWorkflowNode | Record<string, string | number | boolean | object | null | undefined>): void
+    onNodeCreated?(): void
+    addWidget(
+      type: string,
+      name: string,
+      value: string | number | boolean,
+      callback: (v: string | number | boolean) => void,
+      options?: Record<string, unknown>
+    ): WidgetType
+    setDirtyCanvas(flag?: boolean, history?: boolean): void
+  }
+
+  interface LGraphCanvas {
+    state: { readOnly: boolean }
+    resize(width: number, height: number): void
+    ds: { scale: number; offset: [number, number] }
+    setDirty(canvas: boolean, history: boolean): void
+    stopRendering(): void
+    startRendering(): void
+    setCanvas(canvas: HTMLCanvasElement): void
+    render_canvas_border: boolean
+    app?: ComfyApp
+  }
+
+  interface LLink {
+    id: number
+    origin_id: number
+    origin_slot: number
+    target_id: number
+    target_slot: number
+    type: string
+  }
+
+  interface LGraphGroup {
+    id: number
+    title: string
+    pos: [number, number]
+    size: [number, number]
+    color?: string
+  }
+
+  interface LGraphConstructor {
+    new (): LGraph
+    prototype: LGraph
+  }
+  interface LGraphNodeConstructor {
+    new (title?: string): LGraphNode
+    prototype: LGraphNode
+  }
+  interface LGraphCanvasConstructor {
+    new (canvas: HTMLCanvasElement, graph: LGraph): LGraphCanvas
+    prototype: LGraphCanvas
+  }
+  interface LLinkConstructor {
+    new (): LLink
+    prototype: LLink
+  }
+  interface LGraphGroupConstructor {
+    new (): LGraphGroup
+    prototype: LGraphGroup
+  }
+
+  var LGraph: LGraphConstructor
+  var LGraphNode: LGraphNodeConstructor
+  var LGraphCanvas: LGraphCanvasConstructor
+  var LLink: LLinkConstructor
+  var LGraphGroup: LGraphGroupConstructor
+  var LiteGraph: LiteGraphGlobal
+
   namespace JSX {
-    type Element = import("react").JSX.Element
+    type Element = ReactJSX.Element
   }
 
   interface AddDOMWidgetOptions {
@@ -50,7 +148,7 @@ declare global {
     element: HTMLElement
     options: AddDOMWidgetOptions & { hideOnZoom: boolean }
     _value: string
-    value: string
+    value: string | number | boolean
     callback: ((v: string) => void) | null
   }
 
@@ -77,20 +175,21 @@ declare global {
     command: {
       commands: { id: string }[]
     }
-    registerExtension?(ext: unknown): void
+    registerExtension?(ext: ComfyExtension): void
   }
 
   interface ComfyApp {
     graph: LGraph
     canvas: LGraphCanvas
-    syncGraph(): Promise<void>
+    syncGraph(): void | Promise<void>
     ui: ComfyAppUI
     settings: AppSettings
-    extensions: unknown[]
-    registerExtension(ext: unknown): void
+    extensions: ComfyExtension[]
+    registerExtension(ext: ComfyExtension): void
     extensionManager: ExtensionManager
     extensionsLoaded?: boolean
     api?: ComfyApi
+    syncGraphNode?(id: number): void
   }
 
   interface ComfyWidgetsAPI {
@@ -167,15 +266,15 @@ declare global {
   }
 
   interface Window {
-    LiteGraph: LiteGraphGlobal
-    LGraph: typeof LGraph
-    LGraphNode: typeof LGraphNode
-    LGraphCanvas: typeof LGraphCanvas
-    LLink: typeof LLink
-    LGraphGroup: typeof LGraphGroup
+    LiteGraph?: LiteGraphGlobal
+    LGraph?: LGraphConstructor
+    LGraphNode?: LGraphNodeConstructor
+    LGraphCanvas?: LGraphCanvasConstructor
+    LLink?: LLinkConstructor
+    LGraphGroup?: LGraphGroupConstructor
     app: ComfyApp
     api: ComfyApi
-    comfyExtensions: unknown[]
+    comfyExtensions?: object[]
 
     $el: (tag: string, attrs: Record<string, unknown> | null, children?: unknown) => HTMLElement
     addStylesheet: (url: string) => HTMLLinkElement

@@ -420,7 +420,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   allJobs,
   workers,
 }: RunningJobsBannerProps): React.JSX.Element {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const { workerPreviews, backendUrl } = useBackend()
 
   if (workers.length === 0) {
@@ -495,6 +495,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
         const runningJob = jobs.find(
           (j) => j.workerId === w.id && (j.status === "running" || j.status === "queued")
         ) ?? (w.currentJobId !== null ? jobs.find((j) => j.id === w.currentJobId) : undefined)
+        const previewToken = workerPreviews[w.id]
 
         if (!w.alive) {
           return (
@@ -595,9 +596,9 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     </div>
                   )}
                 </div>
-                {w.workerType === "comfyui" && (workerPreviews as Record<string, unknown>)[w.id] !== undefined && (
+                {w.workerType === "comfyui" && previewToken !== undefined && (
                   <img
-                    src={`${String(backendUrl)}/workers/${w.id}/preview?t=${String((workerPreviews as Record<string, unknown>)[w.id])}`}
+                    src={`${backendUrl}/workers/${w.id}/preview?t=${String(previewToken)}`}
                     alt={`preview ${w.id}`}
                     className="h-80 flex-none rounded-lg border border-info/20 object-cover shadow-sm"
                   />
@@ -684,16 +685,17 @@ export const JobRow = memo(function JobRow({
   const c = (hash & 0x00ffffff).toString(16).toUpperCase()
   const dotColor = "#" + "00000".substring(0, 6 - c.length) + c
 
-  const workerLabel = job.workerId !== null ? job.workerId.slice(0, 8) : "—"
+  const currentWorkerId = job.workerId
+  const workerLabel = currentWorkerId !== null ? currentWorkerId.slice(0, 8) : "—"
 
   const workerCell = (
     <TableCell onClick={(e) => { e.stopPropagation(); }} className="px-2 font-mono text-[11px] w-[80px]">
-      {job.workerId !== null ? (
+      {currentWorkerId !== null ? (
         <span
           className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground select-none"
           onMouseEnter={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
-            onWorkerMouseEnter(job, job.workerId as string, rect)
+            onWorkerMouseEnter(job, currentWorkerId, rect)
           }}
           onMouseLeave={onWorkerMouseLeave}
         >

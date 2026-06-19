@@ -104,8 +104,8 @@ export const useSavedImages = (
         offset: String(offset),
       })
       if (statusRef.current && statusRef.current !== "all") params.set("status", statusRef.current)
-      if (filenameRef.current && filenameRef.current !== "") params.set("filename", filenameRef.current)
-      if (tagRef.current && tagRef.current !== "") params.set("tag", tagRef.current)
+      if (filenameRef.current !== undefined && filenameRef.current !== "") params.set("filename", filenameRef.current)
+      if (tagRef.current !== undefined && tagRef.current !== "") params.set("tag", tagRef.current)
       const res = await fetch(`${urlToUseRef.current}${API.savedImages.root}?${params.toString()}`, {
         signal: ac.signal,
       })

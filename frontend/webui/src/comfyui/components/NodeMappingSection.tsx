@@ -150,7 +150,7 @@ export const NodeMappingSection = React.memo(({
   }, [savedWorkflows])
 
   const safeImageUploads = imageUploads ?? {}
-  const safeHandleImageUpload: (file: File, nodeId: string, inputKey: string) => void = handleImageUpload ?? (() => {})
+  const safeHandleImageUpload: (file: File, nodeId: string, inputKey: string) => void = handleImageUpload ?? ((_file: File, _nodeId: string, _inputKey: string): void => { return; })
 
   return (
     <CollapseSection
@@ -403,12 +403,12 @@ export const NodeMappingSection = React.memo(({
                                     업로드 중...
                                   </span>
                                 )}
-                                {upload && upload.error !== null && (
+                                {upload?.error !== null && upload?.error !== undefined && (
                                   <span className="text-[10px] font-medium text-red-600 dark:text-red-400">
                                     {upload.error}
                                   </span>
                                 )}
-                                {m.imageValue !== undefined && upload && upload.previewUrl !== null && (
+                                {m.imageValue !== undefined && upload?.previewUrl !== null && upload?.previewUrl !== undefined && (
                                   <img
                                     src={upload.previewUrl}
                                     alt="미리보기"

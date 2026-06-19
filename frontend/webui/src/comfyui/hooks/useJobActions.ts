@@ -14,7 +14,7 @@ export function useJobActions(): {
   handleDeleteAllFailed: () => Promise<void>
 } {
   const backendUrl = useBackendUrl()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const { paused } = useBackend()
   const {
     sortedMarkers,
@@ -92,7 +92,7 @@ export function useJobActions(): {
   // ── Sync callbacks (call async internals) ────────────────────────
   const handleTogglePause = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`${backendUrlRef.current}${pausedRef.current === true ? API.jobs.resume : API.jobs.pause}`, {
+      const res = await fetch(`${backendUrlRef.current}${pausedRef.current ? API.jobs.resume : API.jobs.pause}`, {
         method: "POST",
       })
       if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))

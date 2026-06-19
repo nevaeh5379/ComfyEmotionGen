@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { ComfyWorkflow, ComfyNode } from "../../lib/workflow"
+import type { ComfyWorkflow } from "../../lib/workflow"
 import type { ObjectInfo, ObjectInfoInputSpec } from "../types/renderTypes"
 import type { WorkerView } from "../types/Message"
 import { useBackendUrl } from "../hooks/useBackendUrl"
@@ -328,8 +328,8 @@ export function WorkflowFormEditor({
         {/* Right Panel: Selected Node Inputs Form */}
         <div className="flex-1 flex flex-col min-h-0 bg-card overflow-y-auto">
           {activeNodeId !== null && parsedWorkflowData[activeNodeId] !== undefined ? (
-            (() => {
-              const node = parsedWorkflowData[activeNodeId] as ComfyNode
+            ((): React.JSX.Element => {
+              const node = parsedWorkflowData[activeNodeId]
               const allInputs = Object.entries(node.inputs)
               const literalInputs = allInputs.filter(([_, val]) => !isLink(val))
               const linkInputs = allInputs.filter(([_, val]) => isLink(val))
@@ -381,7 +381,7 @@ export function WorkflowFormEditor({
                           <WorkflowInput
                             nodeId={activeNodeId}
                             inputKey={inputKey}
-                            value={val as any}
+                            value={val as string | number | boolean | string[] | Record<string, string | number | boolean>}
                             spec={getNodeInputSpec(
                               objectInfo,
                               parsedWorkflowData,

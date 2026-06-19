@@ -9,23 +9,7 @@ import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { ComfyAppService } from "@/comfyui/services/appService"
-// import { LGraph, LGraphNode } from "comfy-litegraph"
-const LGraph = (window as any).LGraph || class DummyLGraph {}
-const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
-type LGraph = any
-type LGraphNode = any
-import type { ComfyExtension } from "@/comfyui/types/extensionTypes"
 
-interface ComfyApp {
-  graph: unknown
-  canvas: unknown
-  extensionManager: unknown
-  api: unknown
-  extensionsLoaded: boolean | undefined
-  extensions: readonly ComfyExtension[]
-  syncGraph: () => void
-  syncGraphNode?: (id: number) => void
-}
 
 export function ReactGraphEditor(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -52,7 +36,7 @@ export function ReactGraphEditor(): JSX.Element {
   useEffect(() => {
     let cancelled = false
     async function initApp(): Promise<void> {
-      const rawApp = window.app as unknown as ComfyApp
+      const rawApp = window.app
       console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + String(!!hiddenCanvasRef.current), "hiddenContainer=" + String(!!hiddenContainerRef.current), "extensionsLoaded=" + String(rawApp.extensionsLoaded ?? false), "app.graph=" + String(true), "nodeDefs=" + String(Object.keys(nodeDefs).length), "extensions=" + String(rawApp.extensions.length));
 
       if (!hiddenCanvasRef.current || !hiddenContainerRef.current) {
@@ -72,26 +56,24 @@ export function ReactGraphEditor(): JSX.Element {
       rawApp.canvas = appService.canvas
       rawApp.extensionManager = appService.extensionManager
       rawApp.api = appService.api
-      ;(rawApp.graph as { _canvas: unknown })._canvas = appService.canvas
-      ;(appService.canvas as { app: unknown }).app = rawApp
+      rawApp.graph._canvas = appService.canvas
+      appService.canvas.app = rawApp
 
       window.__comfyAppService = appService
 
       // setDirtyCanvas 가로채기 (Zustand 동기화 트리거)
-      const lGraphProto = (LGraph as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype
-      const origLGraphSetDirty = lGraphProto.setDirtyCanvas
-      const boundOrigLGraph = origLGraphSetDirty.bind(lGraphProto)
-      ;(LGraph as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype.setDirtyCanvas = function (this: LGraph, ...args: unknown[]): void {
-        boundOrigLGraph.apply(lGraphProto, args)
-        rawApp.syncGraph()
+      const lGraphProto = LGraph.prototype
+      const origLGraphSetDirty: (this: LGraph, flag: boolean, history?: boolean) => void = Reflect.get(lGraphProto, "setDirtyCanvas")
+      LGraph.prototype.setDirtyCanvas = function (this: LGraph, flag: boolean, history?: boolean): void {
+        origLGraphSetDirty.call(this, flag, history)
+        void rawApp.syncGraph()
       }
 
-      const lGraphNodeProto = (LGraphNode as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype
-      const origLGraphNodeSetDirty = lGraphNodeProto.setDirtyCanvas
-      const boundOrigLGraphNode = origLGraphNodeSetDirty.bind(lGraphNodeProto)
-      ;(LGraphNode as unknown as { prototype: { setDirtyCanvas: (...args: unknown[]) => unknown } }).prototype.setDirtyCanvas = function (this: LGraphNode, ...args: unknown[]): void {
-        boundOrigLGraphNode.apply(lGraphNodeProto, args)
-        rawApp.syncGraph()
+      const lGraphNodeProto = LGraphNode.prototype
+      const origLGraphNodeSetDirty: (this: LGraphNode, flag?: boolean, history?: boolean) => void = Reflect.get(lGraphNodeProto, "setDirtyCanvas")
+      LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, flag?: boolean, history?: boolean): void {
+        origLGraphNodeSetDirty.call(this, flag, history)
+        void rawApp.syncGraph()
       }
 
       // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)

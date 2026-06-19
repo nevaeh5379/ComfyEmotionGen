@@ -16,7 +16,6 @@ import type {
 import type { ComfyNodeDef } from "../types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
 // import { LiteGraph } from "comfy-litegraph"
-const LiteGraph = (window as any).LiteGraph
 
 interface LiveWidget {
   name: string;
@@ -247,7 +246,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
           }
           for (let i = 0; i < def.output.length; i++) {
             const outType = def.output[i] ?? "*"
-            const outName = (def.output_name ? def.output_name[i] : null) ?? outType
+            const outName = def.output_name[i] ?? outType
             liveNode.addOutput(outName, outType)
           }
           if (def.input?.required) {

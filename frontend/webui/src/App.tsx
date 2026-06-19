@@ -117,7 +117,7 @@ export function App(): React.JSX.Element {
 // ---------------------------------------------------------------------------
 function AppContent(): React.JSX.Element {
   // ── Backend ──
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
   // ── Backend URL state ──
@@ -324,7 +324,7 @@ function AppContent(): React.JSX.Element {
     )
   }, [fakeJobQueue, previewFilter])
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const canRun =
     Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
 
@@ -374,7 +374,7 @@ function AppContent(): React.JSX.Element {
   useGlobalShortcuts({
     activeTab,
     mobileJobTab,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+     
     canRun,
     handleRun: () => { void handleRun(); },
     handleSave: handleQuickSave,
@@ -572,13 +572,13 @@ function AppContent(): React.JSX.Element {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isAliveBackend={isAliveBackend}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           backendAlive={backendAlive}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           workers={workers}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           jobs={jobs}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+           
           jobsCount={jobs.length}
           mobileJobTab={mobileJobTab}
           setMobileJobTab={setMobileJobTab}
@@ -593,7 +593,7 @@ function AppContent(): React.JSX.Element {
           setRandomRunCount={setRandomRunCount}
           targetWorkerId={targetWorkerId}
           setTargetWorkerId={setTargetWorkerId}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           canRun={canRun}
           estimatedRunCount={estimatedRunCount}
           setIsSelectionOpen={setIsSelectionOpen}
@@ -616,7 +616,7 @@ function AppContent(): React.JSX.Element {
           onSessionPickerOpenChange={session.setSessionPickerOpen}
           onSelectSession={session.setSelectedSessionId}
           onCreateNewSession={session.createNewSession}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           paused={paused}
           onTogglePause={() => { void jobActions.handleTogglePause(); }}
           onCancelAll={() => { void jobActions.handleCancelAll(); }}
@@ -634,9 +634,9 @@ function AppContent(): React.JSX.Element {
         >
           {/* ── Tab Routing ── */}
           {activeTab === "stats" &&             <StatsTab
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+               
               jobs={jobs}
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+               
               workers={workers}
             />}
           {activeTab === "gallery" && (
@@ -674,7 +674,7 @@ function AppContent(): React.JSX.Element {
               updateSetting={updateSetting}
               backendUrl={backendUrl}
               onBackendUrlChange={setBackendUrl}
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+               
               workers={workers}
             />
           )}
@@ -682,11 +682,11 @@ function AppContent(): React.JSX.Element {
             <JobsTab
               backendUrl={backendUrl}
               isAliveBackend={isAliveBackend}
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+               
               jobs={jobs}
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+               
               workers={workers}
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+               
               paused={paused}
               session={session}
               runner={runnerProps}
@@ -716,7 +716,7 @@ function AppContent(): React.JSX.Element {
               setIsAxisFilterOpen={setIsAxisFilterOpen}
               setIsSelectionOpen={setIsSelectionOpen}
               setIsGraphOpen={setIsGraphOpen}
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+               
               canRun={canRun}
             />
           )}
@@ -754,7 +754,7 @@ function AppContent(): React.JSX.Element {
           onPreviewFilterChange={setPreviewFilter}
           uncheckedItems={uncheckedItems}
           selectedCount={selectedCount}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           canRun={canRun}
           checkAllItems={checkAllItems}
           uncheckAllItems={uncheckAllItems}
@@ -785,9 +785,9 @@ function AppContent(): React.JSX.Element {
 
         {activeTab !== "jobs" && (
           <JobStatusPopup
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+             
             jobs={jobs}
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+             
             paused={paused}
           backendUrl={backendUrl}
           isAliveBackend={isAliveBackend}
@@ -867,10 +867,10 @@ function AppContent(): React.JSX.Element {
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 estimatedRunCount={estimatedRunCount}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           canRun={canRun}
                 previewCount={fakeJobQueue.length}
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                 
                 workers={workers}
                 targetWorkerId={targetWorkerId}
                 setTargetWorkerId={setTargetWorkerId}
@@ -907,11 +907,11 @@ function AppContent(): React.JSX.Element {
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <JobManagerPanel
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                   
                   jobs={jobs}
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                   
                   workers={workers}
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                   
                   paused={paused}
                   backendUrl={backendUrl}
                   isAliveBackend={isAliveBackend}
@@ -987,9 +987,9 @@ function AppContent(): React.JSX.Element {
           >
             <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
               <StatisticsPanel
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                 
                 jobs={jobs}
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                 
                 workers={workers}
               />
             </div>

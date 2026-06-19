@@ -11,13 +11,44 @@ import {
 import type { ComfyWorkflow } from "@/lib/workflow"
 import { computeLayout } from "../utils/workflowGraphLayout"
 import { getCategoryStyle } from "../utils/workflowGraphCategories"
-// import { LGraph, LGraphCanvas, LGraphNode } from "comfy-litegraph"
-type LGraph = any
-type LGraphCanvas = any
-type LGraphNode = any
-const LGraph = (window as any).LGraph || class DummyLGraph {}
-const LGraphCanvas = (window as any).LGraphCanvas || class DummyLGraphCanvas {}
-const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
+const LGraph = window.LGraph ?? class DummyLGraph {
+  readonly __dummy = true
+  add(): void { /* noop */ }
+  links: Map<number, LLink> | Record<number, LLink> = {}
+  groups: LGraphGroup[] = []
+  nodes: LGraphNode[] = []
+}
+const LGraphCanvas = window.LGraphCanvas ?? class DummyLGraphCanvas {
+  readonly __dummy = true
+  state = { readOnly: false }
+  resize(): void { /* noop */ }
+  ds = { scale: 1, offset: [0, 0] as [number, number] }
+  setDirty(): void { /* noop */ }
+  stopRendering(): void { /* noop */ }
+}
+const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
+  readonly __dummy = true
+  id = 0
+  pos: [number, number] = [0, 0]
+  size: [number, number] = [0, 0]
+  inputs: LGraphNodeInput[] = []
+  outputs: LGraphNodeOutput[] = []
+  addInput(): void { /* noop */ }
+  addOutput(): void { /* noop */ }
+  connect(): boolean | null { return null }
+  configure(): void { /* noop */ }
+  addWidget(): WidgetType {
+    return {
+      type: "",
+      name: "",
+      element: document.createElement("div"),
+      options: { hideOnZoom: false },
+      _value: "",
+      value: "",
+      callback: null,
+    }
+  }
+}
 
 type InputSpec = [string | string[], Record<string, unknown>]
 

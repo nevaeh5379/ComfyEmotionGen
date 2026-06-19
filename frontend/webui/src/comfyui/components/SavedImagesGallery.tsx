@@ -203,7 +203,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   fluidGridLayout = true,
 }: Props) {
   useRenderLog("SavedImagesGallery")
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const confirm = useConfirm()
   const { saveMappingPreset, deleteMappingPreset } = useSavedWorkflows()
   const [statusFilter, setStatusFilterState] = useState<CurationStatus | "all">(
@@ -339,8 +339,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
       const scrollContainer = target.closest(
         ".overflow-y-auto"
-      ) as HTMLElement | null
-      scrollContainerRef.current = scrollContainer
+      )
+      scrollContainerRef.current = scrollContainer as HTMLElement | null
       if (scrollContainer) {
         initialScrollPosRef.current = {
           top: scrollContainer.scrollTop,
@@ -1249,14 +1249,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   // 태그가 없는 모든 이미지 일괄 자동 태그 생성
   const handleAutoTagAllEmpty = useCallback(async (): Promise<void> => {
     if (bulkActionLoadingRef.current) return
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+     
     const confirmed = await confirmRef.current({
       title: "태그 없는 모든 이미지 자동 완성",
       description: "현재 DB에서 아무 태그도 달리지 않은 모든 활성 이미지들에 대해 일괄 자동 태그 분석 및 저장을 진행합니다. 계속하시겠습니까?",
       variant: "default",
       confirmText: "실행",
     })
-    if (confirmed === false) return
+    if (!confirmed) return
 
     setBulkActionLoading(true)
     setBulkActionMessage("전체 일괄 태그 생성 중...")
@@ -1302,14 +1302,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }, [backendUrlRef, imageLookupRef, selectedHashesRef])
 
   const handleEmptyTrash = async (): Promise<void> => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+     
     const confirmed = await confirm({
       title: "휴지통 비우기",
       description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",
       variant: "destructive",
       confirmText: "영구 삭제",
     })
-    if (confirmed === false) return
+    if (!confirmed) return
     try {
       const n = await curationApi.emptyTrash(backendUrl)
       toast.success(`${String(n)}개 영구 삭제됨`)

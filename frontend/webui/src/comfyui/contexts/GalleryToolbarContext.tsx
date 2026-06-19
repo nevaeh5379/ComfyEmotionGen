@@ -94,7 +94,7 @@ export function GalleryToolbarProvider({
   backendUrl: string
 }): React.JSX.Element {
   const { settings } = useSettings()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const confirm = useConfirm()
 
   const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">(
@@ -186,7 +186,7 @@ export function GalleryToolbarProvider({
 
   const handleEmptyTrash = useCallback(async () => {
     if (
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+       
       !(await confirmRef.current({
         title: "휴지통 비우기",
         description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",

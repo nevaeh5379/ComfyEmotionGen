@@ -14,7 +14,7 @@ function ResizablePanelGroup({
     () => {
       if (autoSaveId !== undefined && autoSaveId !== "") {
         try {
-          const saved = localStorage.getItem(`resizable-layout:${String(autoSaveId)}`)
+          const saved = localStorage.getItem(`resizable-layout:${autoSaveId}`)
           if (saved !== null) {
             return JSON.parse(saved) as ResizablePrimitive.Layout
           }

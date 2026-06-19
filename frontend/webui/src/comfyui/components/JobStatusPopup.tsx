@@ -37,7 +37,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [, setTick] = useState(0)
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const confirm = useConfirm()
 
   // ── active jobs ────────────────────────────────────────────────────────
@@ -112,14 +112,14 @@ export const JobStatusPopup = memo(function JobStatusPopup({
   }, [backendUrlRef, pausedRef])
 
   const handleCancelAll = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+     
     const confirmed = await confirmRef.current({
       title: "작업 취소",
       description: "진행 중인 모든 작업을 취소하시겠습니까?",
       variant: "destructive",
       confirmText: "모두 취소",
     })
-    if (confirmed === false) return
+    if (!confirmed) return
     try {
       await fetch(`${backendUrlRef.current}/jobs/cancel-all`, { method: "POST" })
     } catch {

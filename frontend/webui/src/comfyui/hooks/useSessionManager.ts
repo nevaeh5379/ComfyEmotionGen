@@ -53,7 +53,7 @@ export interface UseSessionManagerReturn {
 }
 
 export function useSessionManager(backendUrlProp?: string): UseSessionManagerReturn {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const { jobs } = useBackend()
   const backendUrl: string = useMemo(() => {
     if (backendUrlProp !== "") return backendUrlProp ?? "http://127.0.0.1:8188"
@@ -137,10 +137,9 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
   const refetchStats = useCallback((): void => { setStatsTick((t) => t + 1); }, [])
 
   // 활성 잡들의 상태 변화가 생기면 실시간 카운트 리프레시
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const activeJobsKey = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
-    return jobs.map((j) => `${String(j.id)}:${String(j.status ?? "")}`).join(",")
+    return jobs.map((j) => `${j.id}:${j.status}`).join(",")
   }, [jobs])
 
   useEffect((): (() => void) | undefined => {

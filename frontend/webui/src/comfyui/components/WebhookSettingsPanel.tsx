@@ -43,7 +43,7 @@ interface Props {
 }
 
 export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const confirm = useConfirm()
   const {
     configs,
@@ -129,14 +129,14 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
   }
 
   const handleDelete = async (cfg: WebhookConfig): Promise<void> => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+     
     const confirmed = await confirm({
       title: "웹훅 삭제",
       description: `'${cfg.name}' 웹훅을 삭제하시겠습니까?`,
       variant: "destructive",
       confirmText: "삭제",
     })
-    if (confirmed === false) return
+    if (!confirmed) return
     try {
       const ok = await deleteConfig(cfg.id)
       if (ok) {

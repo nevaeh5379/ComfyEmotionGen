@@ -17,25 +17,70 @@ import {
   type ISerialisedNode,
 } from "comfy-litegraph"
 */
-const LGraph = (window as any).LGraph || class DummyLGraph {}
-const LGraphCanvas = (window as any).LGraphCanvas || class DummyLGraphCanvas {}
-const LGraphNode = (window as any).LGraphNode || class DummyLGraphNode {}
-const LGraphGroup = (window as any).LGraphGroup || class DummyLGraphGroup {}
-const LiteGraph = (window as any).LiteGraph || {
-  registerNodeType: () => {},
+window.LiteGraph ??= {
+  registerNodeType: (): void => { /* noop */ },
   NODE_DEFAULT_WIDTH: 200,
   NODE_DEFAULT_HEIGHT: 80,
   ALWAYS: 0,
   NEVER: 1,
   BYPASS: 2,
+  createNode: (type: string): LGraphNode | null => new LGraphNode(type),
 }
-type LGraph = any
-type LGraphCanvas = any
-type LGraphNode = any
-type LGraphGroup = any
-type LiteGraph = any
+const LGraph = window.LGraph ?? class DummyLGraph {
+  readonly __dummy = true
+  _nodes_by_id: Record<string, LGraphNode | undefined> = {}
+  links: Map<number, LLink> | Record<number, LLink> = {}
+  groups: LGraphGroup[] = []
+  nodes: LGraphNode[] = []
+  add(): void { /* noop */ }
+  clear(): void { /* noop */ }
+}
+const LGraphCanvas = window.LGraphCanvas ?? class DummyLGraphCanvas {
+  readonly __dummy = true
+  state = { readOnly: false }
+  resize(): void { /* noop */ }
+  ds = { scale: 1, offset: [0, 0] as [number, number] }
+  setDirty(): void { /* noop */ }
+  stopRendering(): void { /* noop */ }
+}
+const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
+  readonly __dummy = true
+  id = 0
+  type?: string
+  color?: string
+  bgcolor?: string
+  pos: [number, number] = [0, 0]
+  size: [number, number] = [0, 0]
+  inputs: LGraphNodeInput[] = []
+  outputs: LGraphNodeOutput[] = []
+  widgets?: WidgetType[] = []
+  addInput(): void { /* noop */ }
+  addOutput(): void { /* noop */ }
+  connect(): boolean | null { return null }
+  configure(): void { /* noop */ }
+  setDirtyCanvas(): void { /* noop */ }
+  addWidget(): WidgetType {
+    return {
+      type: "",
+      name: "",
+      element: document.createElement("div"),
+      options: { hideOnZoom: false },
+      _value: "",
+      value: "",
+      callback: null,
+    }
+  }
+}
+const LGraphGroup = window.LGraphGroup ?? class DummyLGraphGroup {
+  readonly __dummy = true
+  id = 0
+  title = ""
+  pos: [number, number] = [0, 0]
+  size: [number, number] = [0, 0]
+  color?: string
+}
+
 type Point = [number, number]
-type ISerialisedNode = any
 
 import type {
   ComfyWorkflowJSON,
@@ -194,7 +239,7 @@ export class ComfyAppService {
       // graph.add(node)에서 할당된 자동 ID를 JSON의 ID로 교체하고 _nodes_by_id 갱신
       const oldId = node.id
       if (oldId !== nodeData.id) {
-        this.graph._nodes_by_id[oldId] = undefined as never
+        this.graph._nodes_by_id[oldId] = undefined
         node.id = nodeData.id
         this.graph._nodes_by_id[node.id] = node
       }
@@ -206,7 +251,7 @@ export class ComfyAppService {
       // Inputs
       if (nodeData.inputs !== undefined) {
         for (const input of nodeData.inputs) {
-          const slot = node.inputs.find((s: any) => s.name === input.name)
+          const slot = node.inputs.find((s) => s.name === input.name)
           if (slot !== undefined) {
             slot.link = input.link ?? null
           }
@@ -216,7 +261,7 @@ export class ComfyAppService {
       // Outputs
       if (nodeData.outputs !== undefined) {
         for (const output of nodeData.outputs) {
-          const slot = node.outputs.find((s: any) => s.name === output.name)
+          const slot = node.outputs.find((s) => s.name === output.name)
           if (slot !== undefined) {
             slot.links = output.links ?? null
           }
@@ -224,7 +269,7 @@ export class ComfyAppService {
       }
 
       try {
-        node.configure(nodeData as ISerialisedNode)
+        node.configure(nodeData)
       } catch (err) {
         console.warn(`[loadGraphData] configure failed for ${nodeData.type}:`, err)
       }
@@ -265,7 +310,7 @@ export class ComfyAppService {
     for (const linkData of workflow.links) {
       const originNode = this.graph.getNodeById(linkData.origin_id)
       const targetNode = this.graph.getNodeById(linkData.target_id)
-      if (originNode === null || targetNode === null) {
+      if (originNode === undefined || targetNode === undefined) {
         console.warn(`[CEG] connectSkipped: link=${String(linkData.id)} origin=${String(linkData.origin_id)} target=${String(linkData.target_id)}`)
         continue
       }
@@ -276,8 +321,8 @@ export class ComfyAppService {
 
       const result = originNode.connect(linkData.origin_slot, targetNode, linkData.target_slot)
       if (result === null) {
-        const originType: string = originNode.type as string
-        const targetType: string = targetNode.type as string
+        const originType = originNode.type ?? ""
+        const targetType = targetNode.type ?? ""
         console.warn(`[CEG] connectFailed: link=${String(linkData.id)} type=${originType}.out[${String(linkData.origin_slot)}] -> ${targetType}.in[${String(linkData.target_slot)}]`)
       }
     }
@@ -323,31 +368,31 @@ export class ComfyAppService {
 
     for (const n of this.graph.nodes) {
       const nodeData: ComfyWorkflowNode = {
-        id: Number(n.id),
-        type: n.type as string,
+        id: n.id,
+        type: n.type ?? "",
         pos: n.pos,
         size: n.size,
       }
 
       if (n.inputs.length > 0) {
-        nodeData.inputs = n.inputs.map((input: any) => ({
+        nodeData.inputs = n.inputs.map((input) => ({
           name: input.name,
-          type: input.type as string,
+          type: input.type,
           link: input.link ?? undefined,
         }))
       }
 
       if (n.outputs.length > 0) {
-        nodeData.outputs = n.outputs.map((output: any, i: number) => ({
+        nodeData.outputs = n.outputs.map((output, i) => ({
           name: output.name,
-          type: output.type as string,
+          type: output.type,
           links: (output.links !== null && output.links.length > 0) ? output.links : undefined,
           slot_index: i,
         }))
       }
 
       if (n.widgets !== undefined) {
-        nodeData.widgets_values = n.widgets.map((w: any) => w.value)
+        nodeData.widgets_values = n.widgets.map((w) => w.value)
       }
 
       if (n.color !== undefined) nodeData.color = n.color
@@ -359,15 +404,15 @@ export class ComfyAppService {
     for (const [, link] of this.graph.links) {
       links.push({
         id: link.id,
-        origin_id: Number(link.origin_id),
+        origin_id: link.origin_id,
         origin_slot: link.origin_slot,
-        target_id: Number(link.target_id),
+        target_id: link.target_id,
         target_slot: link.target_slot,
-        type: String(link.type),
+        type: link.type,
       })
     }
 
-    const groups = this.graph.groups.map((g: any) => ({
+    const groups = this.graph.groups.map((g) => ({
       title: g.title,
       bounding: [g.pos[0], g.pos[1], g.size[0], g.size[1]] as [number, number, number, number],
       color: g.color,
@@ -406,7 +451,7 @@ export class ComfyAppService {
             for (const [, link] of this.graph.links) {
               if (link.id === input.link) {
                 const originNode = this.graph.getNodeById(link.origin_id)
-                if (originNode !== null) {
+                 if (originNode !== undefined) {
                   inputs[input.name] = [originNode.id.toString(), link.origin_slot]
                 }
                 break
@@ -416,13 +461,14 @@ export class ComfyAppService {
         }
       }
 
-      prompt[n.id.toString()] = {
+      const nodeObj: { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } } = {
         inputs,
-        class_type: n.type as string,
-        _meta: {
-          title: n.title,
-        },
+        class_type: n.type ?? "",
       }
+      if (typeof n.title === "string") {
+        nodeObj._meta = { title: n.title }
+      }
+      prompt[n.id.toString()] = nodeObj
     }
 
     return prompt
