@@ -1,7 +1,7 @@
 import { useCanvasStore } from "@/comfyui/stores/canvasStore"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Settings2, X } from "lucide-react"
 
 interface NodePropertiesPanelProps {
@@ -9,139 +9,148 @@ interface NodePropertiesPanelProps {
   editorMode?: "canvas" | "react"
 }
 
-export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: NodePropertiesPanelProps) {
+interface SelectedNode {
+  id: number
+  title: string
+  type: string
+  pos: [number, number]
+  size: [number, number]
+  color?: string
+  bgcolor?: string
+  widgets?: { name: string; value: unknown; type: string }[]
+  inputs?: { name: string; type: string; link: number | null }[]
+  outputs?: { name: string; type: string; links: number[] }[]
+}
+
+interface CanvasNodeData {
+  id: number | string
+  title?: string
+  type?: string
+  pos: [number, number]
+  size: [number, number]
+  color?: string
+  bgcolor?: string
+  is_selected?: boolean
+  widgets?: Array<{ name: string; value: unknown; type: string }>
+  inputs: Array<{ name: string; type: string | number; link: number | null }>
+  outputs: Array<{ name: string; type: string | number; links: number[] | null }>
+}
+
+function isCanvasNode(value: unknown): value is CanvasNodeData {
+  if (typeof value !== "object" || value === null) return false
+  return "id" in value && "pos" in value && "size" in value
+}
+
+export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: NodePropertiesPanelProps): ReactNode {
   const canvas = useCanvasStore((s) => s.canvas)
   const reactNodes = useReactGraphStore((s) => s.nodes)
   const reactSelectedIds = useReactGraphStore((s) => s.selectedNodeIds)
   const reactDeselectAll = useReactGraphStore((s) => s.deselectAll)
 
-  const [canvasSelectedNode, setCanvasSelectedNode] = useState<{
-    id: number
-    title: string
-    type: string
-    pos: [number, number]
-    size: [number, number]
-    color?: string
-    bgcolor?: string
-    widgets?: { name: string; value: unknown; type: string }[]
-    inputs?: { name: string; type: string; link: number | null }[]
-    outputs?: { name: string; type: string; links: number[] }[]
-  } | null>(null)
+  const [canvasSelectedNode, setCanvasSelectedNode] = useState<SelectedNode | null>(null)
 
   useEffect(() => {
-    if (editorMode !== "canvas" || !canvas?.graph) return
+    if (editorMode !== "canvas" || canvas?.graph === null || canvas?.graph === undefined) return
 
-    const updateSelection = () => {
+    const updateSelection = (): void => {
       const g = canvas.graph
-      if (!g) return
-      const selected = g.nodes.filter((n: any) => n.is_selected)
-      if (selected.length === 1 && selected[0]) {
-        const node = selected[0] as any
+      if (g === null) return
+      const rawNodes: unknown[] = [...g.nodes]
+      const selected = rawNodes.filter(isCanvasNode)
+      if (selected.length === 1 && selected[0] !== undefined) {
+        const node = selected[0]
         setCanvasSelectedNode({
           id: Number(node.id),
-          title: node.title || node.type || "Node",
-          type: node.type || "unknown",
+          title: node.title ?? node.type ?? "Node",
+          type: node.type ?? "unknown",
           pos: node.pos,
           size: node.size,
-          ...(node.color ? { color: node.color } : {}),
-          ...(node.bgcolor ? { bgcolor: node.bgcolor } : {}),
-          ...(node.widgets ? {
-            widgets: node.widgets.map((w: any) => ({
+          ...(node.color !== undefined ? { color: node.color } : {}),
+          ...(node.bgcolor !== undefined ? { bgcolor: node.bgcolor } : {}),
+          ...(node.widgets !== undefined ? {
+            widgets: node.widgets.map((w) => ({
               name: w.name,
               value: w.value,
               type: w.type,
             }))
           } : {}),
-          ...(node.inputs ? {
-            inputs: node.inputs.map((i: any) => ({
-              name: i.name,
-              type: String(i.type),
-              link: i.link,
-            }))
-          } : {}),
-          ...(node.outputs ? {
-            outputs: node.outputs.map((o: any) => ({
-              name: o.name,
-              type: String(o.type),
-              links: o.links || [],
-            }))
-          } : {}),
+          inputs: node.inputs.map((i) => ({
+            name: i.name,
+            type: String(i.type),
+            link: i.link,
+          })),
+          outputs: node.outputs.map((o) => ({
+            name: o.name,
+            type: String(o.type),
+            links: o.links ?? [],
+          })),
         })
       } else {
         setCanvasSelectedNode(null)
       }
     }
 
-    // Poll for selection changes (LiteGraph doesn't have a clean selection change event)
     const interval = setInterval(updateSelection, 100)
 
-    // Also listen for canvas events
-    const handleEvent = () => { updateSelection(); }
-    canvas.canvas.addEventListener("mouseup", handleEvent)
-    canvas.canvas.addEventListener("click", handleEvent)
+    const handleSelectionChange = (): void => {
+      updateSelection()
+    }
+    canvas.canvas.addEventListener("mouseup", handleSelectionChange)
+    canvas.canvas.addEventListener("click", handleSelectionChange)
 
-    return () => {
+    return (): void => {
       clearInterval(interval)
-      canvas.canvas.removeEventListener("mouseup", handleEvent)
-      canvas.canvas.removeEventListener("click", handleEvent)
+      canvas.canvas.removeEventListener("mouseup", handleSelectionChange)
+      canvas.canvas.removeEventListener("click", handleSelectionChange)
     }
   }, [canvas, editorMode])
 
-  // Derive selected node based on editorMode
-  let selectedNode: {
-    id: number
-    title: string
-    type: string
-    pos: [number, number]
-    size: [number, number]
-    color?: string
-    bgcolor?: string
-    widgets?: { name: string; value: unknown; type: string }[]
-    inputs?: { name: string; type: string; link: number | null }[]
-    outputs?: { name: string; type: string; links: number[] }[]
-  } | null = null
+  let selectedNode: SelectedNode | null = null
 
   if (editorMode === "react") {
     if (reactSelectedIds.size === 1) {
       const id = Array.from(reactSelectedIds)[0]
       const node = reactNodes.find((n) => n.id === id)
-      if (node) {
+      if (node !== undefined) {
         const nodeDef = useNodeDefStore.getState().getNodeDef(node.type)
         const req = nodeDef?.input?.required ?? {}
         const opt = nodeDef?.input?.optional ?? {}
         const allSpecs = { ...req, ...opt }
-        const widgetNames = (node.properties?.widget_names as string[]) || []
+        const rawWidgetNames = node.properties?.widget_names
+        const widgetNames: string[] = Array.isArray(rawWidgetNames)
+          ? rawWidgetNames.filter((n): n is string => typeof n === "string")
+          : []
 
         selectedNode = {
           id: node.id,
-          title: nodeDef?.display_name || node.type || "Node",
+          title: nodeDef?.display_name ?? (node.type || "Node"),
           type: node.type || "unknown",
           pos: node.pos,
           size: node.size,
-          ...(node.color ? { color: node.color } : {}),
-          ...(node.bgcolor ? { bgcolor: node.bgcolor } : {}),
+          ...(node.color !== undefined ? { color: node.color } : {}),
+          ...(node.bgcolor !== undefined ? { bgcolor: node.bgcolor } : {}),
           widgets: widgetNames.map((name, idx) => {
             const spec = allSpecs[name]
             const typeSpec = spec?.[0]
-            const typeStr = Array.isArray(typeSpec) ? "combo" : String(typeSpec || "string")
+            const typeStr = Array.isArray(typeSpec) ? "combo" : (typeSpec ?? "string")
             return {
               name,
               value: node.widgets_values?.[idx],
               type: typeStr,
             }
           }),
-          ...(node.inputs ? {
+          ...(node.inputs !== undefined ? {
             inputs: node.inputs.map((i) => ({
               name: i.name,
               type: i.type,
-              link: i.link || null,
+              link: i.link ?? null,
             }))
           } : {}),
-          ...(node.outputs ? {
+          ...(node.outputs !== undefined ? {
             outputs: node.outputs.map((o) => ({
               name: o.name,
               type: o.type,
-              links: o.links || [],
+              links: o.links ?? [],
             }))
           } : {}),
         }
@@ -151,7 +160,7 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
     selectedNode = canvasSelectedNode
   }
 
-  if (!selectedNode) {
+  if (selectedNode === null) {
     return (
       <div className={`flex flex-col h-full bg-background border-l ${className}`}>
         <div className="p-3 border-b flex items-center gap-2">
@@ -181,12 +190,16 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
             if (editorMode === "react") {
               reactDeselectAll()
             } else {
-              // Deselect all nodes
-              if (canvas?.graph) {
-                for (const node of canvas.graph.nodes) {
-                  node.is_selected = false
+              const currentCanvas = useCanvasStore.getState().canvas
+              if (currentCanvas?.graph !== null && currentCanvas?.graph !== undefined) {
+                const rawGraphNodes: unknown[] = [...currentCanvas.graph.nodes]
+                for (const drawNode of rawGraphNodes) {
+                  if (typeof drawNode === "object" && drawNode !== null && "is_selected" in drawNode) {
+                    const typedNode: { is_selected?: boolean } = drawNode as { is_selected?: boolean }
+                    typedNode.is_selected = false
+                  }
                 }
-                canvas.graph.setDirtyCanvas(true, true)
+                currentCanvas.graph.setDirtyCanvas(true, true)
               }
               setCanvasSelectedNode(null)
             }
@@ -241,11 +254,11 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
         </div>
 
         {/* Colors */}
-        {(selectedNode.color || selectedNode.bgcolor) && (
+        {(selectedNode.color !== undefined || selectedNode.bgcolor !== undefined) && (
           <div className="space-y-2">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Colors</h4>
             <div className="flex gap-2">
-              {selectedNode.color && (
+              {selectedNode.color !== undefined && (
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded border"
@@ -254,7 +267,7 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
                   <span className="text-xs text-muted-foreground">FG</span>
                 </div>
               )}
-              {selectedNode.bgcolor && (
+              {selectedNode.bgcolor !== undefined && (
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded border"
@@ -268,16 +281,16 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
         )}
 
         {/* Inputs */}
-        {selectedNode.inputs && selectedNode.inputs.length > 0 && (
+        {selectedNode.inputs !== undefined && selectedNode.inputs.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Inputs ({selectedNode.inputs.length})</h4>
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Inputs ({String(selectedNode.inputs.length)})</h4>
             <div className="space-y-1">
               {selectedNode.inputs.map((input, i) => (
                 <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/50">
                   <span>{input.name}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-muted-foreground">{input.type}</span>
-                    {input.link != null ? (
+                    {input.link !== null ? (
                       <span className="w-2 h-2 rounded-full bg-green-500" title="Connected" />
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-gray-300" title="Disconnected" />
@@ -290,16 +303,16 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
         )}
 
         {/* Outputs */}
-        {selectedNode.outputs && selectedNode.outputs.length > 0 && (
+        {selectedNode.outputs !== undefined && selectedNode.outputs.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Outputs ({selectedNode.outputs.length})</h4>
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Outputs ({String(selectedNode.outputs.length)})</h4>
             <div className="space-y-1">
               {selectedNode.outputs.map((output, i) => (
                 <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/50">
                   <span>{output.name}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-muted-foreground">{output.type}</span>
-                    <span className="text-[10px] text-muted-foreground">{output.links.length} links</span>
+                    <span className="text-[10px] text-muted-foreground">{String(output.links.length)} links</span>
                   </div>
                 </div>
               ))}
@@ -308,9 +321,9 @@ export function NodePropertiesPanel({ className = "", editorMode = "canvas" }: N
         )}
 
         {/* Widgets */}
-        {selectedNode.widgets && selectedNode.widgets.length > 0 && (
+        {selectedNode.widgets !== undefined && selectedNode.widgets.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Widgets ({selectedNode.widgets.length})</h4>
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Widgets ({String(selectedNode.widgets.length)})</h4>
             <div className="space-y-1">
               {selectedNode.widgets.map((widget, i) => (
                 <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/50">

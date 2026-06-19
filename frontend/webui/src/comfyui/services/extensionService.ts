@@ -143,7 +143,7 @@ export const extensionService = {
     for (const ext of enabledExtensions) {
       if (method in ext) {
         try {
-          const fn = ext[method] as unknown as (...a: unknown[]) => unknown
+          const fn = ext[method] as (...a: unknown[]) => unknown
           if (typeof fn === 'function') {
             results.push(fn.call(ext, ...args))
           }
@@ -171,7 +171,7 @@ export const extensionService = {
       enabledExtensions.map(async (ext): Promise<unknown> => {
         try {
           if (method in ext) {
-            const fn = ext[method] as unknown as (...a: unknown[]) => unknown
+            const fn = ext[method] as (...a: unknown[]) => unknown
             if (typeof fn === 'function') {
               return await fn.call(ext, ...args)
             }

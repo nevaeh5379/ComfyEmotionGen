@@ -170,12 +170,12 @@ export interface PromptError {
 }
 
 export interface NodeError {
-  errors: Array<{
+  errors: {
     type: string
     message: string
     details: string
     extra_info?: Record<string, unknown>
-  }>
+  }[]
   class_type: string
   dependent_outputs: unknown[]
 }
@@ -216,11 +216,11 @@ export interface SystemStats {
     workflow_templates_version?: string
     installed_templates_version?: string
     required_templates_version?: string
-    comfy_package_versions?: Array<{
+    comfy_package_versions?: {
       name: string
       installed: string | null
       required: string | null
-    }>
+    }[]
   }
   devices: DeviceStats[]
 }

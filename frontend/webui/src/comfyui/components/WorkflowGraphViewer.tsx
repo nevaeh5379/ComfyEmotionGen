@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, type JSX } from "react"
 import "comfy-litegraph/public/css/litegraph.css"
 import {
   Sheet,
@@ -10,6 +10,7 @@ import {
 import type { ComfyWorkflow } from "@/lib/workflow"
 import { computeLayout } from "../utils/workflowGraphLayout"
 import { getCategoryStyle } from "../utils/workflowGraphCategories"
+import { LGraph, LGraphCanvas, LGraphNode } from "comfy-litegraph"
 
 type InputSpec = [string | string[], Record<string, unknown>]
 
@@ -52,37 +53,35 @@ function WorkflowGraphViewer({
   isOpen,
   onClose,
   backendUrl,
-}: WorkflowGraphViewerProps) {
+}: WorkflowGraphViewerProps): JSX.Element {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [stats, setStats] = useState({ nodes: 0, edges: 0 })
 
-  const containerRefCallback = useCallback((el: HTMLDivElement | null) => {
+  const containerRefCallback = useCallback((el: HTMLDivElement | null): void => {
     setContainerEl(el)
   }, [])
 
   useEffect(() => {
-    if (!isOpen || !containerEl || !canvasRef.current) return
+    if (!isOpen) return
+    if (containerEl === null) return
+    if (canvasRef.current === null) return
 
-    let cancelled = false
+    const abortController = new AbortController()
+    const { signal } = abortController
     let stopFn: (() => void) | null = null
     let rafId: number
+    const container = containerEl
+    const canvasEl = canvasRef.current
 
-    async function init(w: number, h: number) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lib = (await import("comfy-litegraph")) as any
-      const { LGraph, LGraphCanvas, LGraphNode } = lib
-
-      if (cancelled || !canvasRef.current) return
-
+    async function init(w: number, h: number): Promise<void> {
       const { positions, edges } = computeLayout(workflow)
       const graph = new LGraph()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nodeMap = new Map<string, any>()
+      const nodeMap = new Map<string, LGraphNode>()
 
       const objectInfo = await fetchObjectInfo(backendUrl)
 
-      if (cancelled || !canvasRef.current) return
+      if (signal.aborted) return
 
       for (const [nodeId, wfNode] of Object.entries(workflow)) {
         const info = objectInfo?.[wfNode.class_type]
@@ -98,7 +97,7 @@ function WorkflowGraphViewer({
           const orderedKeys = info.input_order?.required ?? Object.keys(req)
 
           for (const name of orderedKeys) {
-            if (!req[name]) continue
+            if (req[name] === undefined) continue
             const [typeSpec] = req[name]
             lgNode.addInput(name, Array.isArray(typeSpec) ? "COMBO" : typeSpec)
           }
@@ -134,18 +133,16 @@ function WorkflowGraphViewer({
       for (const edge of edges) {
         const src = nodeMap.get(edge.source)
         const tgt = nodeMap.get(edge.target)
-        if (!src || !tgt) continue
+        if (src === undefined || tgt === undefined) continue
         src.connect(edge.sourceSlot, tgt, edge.targetInput)
       }
 
       setStats({ nodes: Object.keys(workflow).length, edges: edges.length })
 
-      const canvas = canvasRef.current
-      const lgCanvas = new LGraphCanvas(canvas, graph)
-      lgCanvas.read_only = true
+      const lgCanvas = new LGraphCanvas(canvasEl, graph)
+      lgCanvas.state.readOnly = true
       lgCanvas.resize(w, h)
 
-      // 전체 노드가 보이도록 뷰 맞춤
       const nodes = [...nodeMap.values()]
       if (nodes.length > 0) {
         let minX = Infinity,
@@ -155,8 +152,8 @@ function WorkflowGraphViewer({
         for (const n of nodes) {
           minX = Math.min(minX, n.pos[0])
           minY = Math.min(minY, n.pos[1])
-          maxX = Math.max(maxX, n.pos[0] + (n.size?.[0] ?? 140))
-          maxY = Math.max(maxY, n.pos[1] + (n.size?.[1] ?? 80))
+          maxX = Math.max(maxX, n.pos[0] + n.size[0])
+          maxY = Math.max(maxY, n.pos[1] + n.size[1])
         }
         const gw = maxX - minX
         const gh = maxY - minY
@@ -170,35 +167,34 @@ function WorkflowGraphViewer({
       lgCanvas.setDirty(true, true)
 
       const resizeObserver = new ResizeObserver(([entry]) => {
-        if (!entry) return
+        if (entry === undefined) return
         const { width, height } = entry.contentRect
         if (width > 0 && height > 0) lgCanvas.resize(width, height)
       })
-      resizeObserver.observe(containerEl!)
+      resizeObserver.observe(container)
 
-      stopFn = () => {
+      stopFn = (): void => {
         resizeObserver.disconnect()
         lgCanvas.stopRendering()
-        graph.stop()
       }
     }
 
-    function waitForSize() {
+    function waitForSize(): void {
       rafId = requestAnimationFrame(() => {
-        if (cancelled || !containerEl) return
-        const w = containerEl.clientWidth
-        const h = containerEl.clientHeight
+        if (signal.aborted) return
+        const w = container.clientWidth
+        const h = container.clientHeight
         if (w === 0 || h === 0) {
           waitForSize()
           return
         }
-        init(w, h)
+        void init(w, h)
       })
     }
     waitForSize()
 
-    return () => {
-      cancelled = true
+    return (): void => {
+      abortController.abort()
       cancelAnimationFrame(rafId)
       stopFn?.()
     }
@@ -207,7 +203,7 @@ function WorkflowGraphViewer({
   return (
     <Sheet
       open={isOpen}
-      onOpenChange={(open) => {
+      onOpenChange={(open): void => {
         if (!open) onClose()
       }}
     >
@@ -218,7 +214,7 @@ function WorkflowGraphViewer({
         <SheetHeader>
           <SheetTitle>워크플로우 그래프</SheetTitle>
           <SheetDescription>
-            {stats.nodes}개 노드, {stats.edges}개 연결
+            {String(stats.nodes)}개 노드, {String(stats.edges)}개 연결
           </SheetDescription>
         </SheetHeader>
         <div

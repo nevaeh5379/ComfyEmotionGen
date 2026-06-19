@@ -154,7 +154,7 @@ export interface ComfyExtension {
   name: string
   commands?: ComfyCommand[]
   keybindings?: unknown[]
-  menuCommands?: Array<{ path: string[]; commands: string[] }>
+  menuCommands?: { path: string[]; commands: string[] }[]
   settings?: unknown[]
   bottomPanelTabs?: BottomPanelExt[]
   aboutPageBadges?: AboutPageBadge[]

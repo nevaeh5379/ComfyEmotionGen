@@ -85,7 +85,7 @@ export function EditorTab() {
     async function load() {
       try {
         setIsLoading(true)
-        const defs = await window.api.getObjectInfo()
+        const defs = await window.api.getNodeDefs()
         if (!cancelled) {
           setNodeDefs(defs)
         }
