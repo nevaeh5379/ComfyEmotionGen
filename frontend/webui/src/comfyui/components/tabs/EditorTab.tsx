@@ -8,7 +8,6 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { GraphCanvas } from "@/components/graph/GraphCanvas"
 import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
 import { NodePropertiesPanel } from "@/components/graph/NodePropertiesPanel"
-import { comfyApi } from "@/comfyui/api"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useGraphStore } from "@/comfyui/stores/graphStore"
 import { useCanvasStore } from "@/comfyui/stores/canvasStore"
@@ -86,7 +85,7 @@ export function EditorTab() {
     async function load() {
       try {
         setIsLoading(true)
-        const defs = await comfyApi.getObjectInfo()
+        const defs = await window.api.getNodeDefs()
         if (!cancelled) {
           setNodeDefs(defs)
         }

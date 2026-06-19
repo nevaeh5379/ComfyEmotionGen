@@ -112,10 +112,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const regenAction = useAsyncAction(3000)
 
   // hideTopSection일 때 뷰 모드는 context에서 관리
-  const viewMode = toolbarState?.hideTopSection
+  const viewMode = (toolbarState?.hideTopSection ?? false)
     ? curationToolbarCtx.viewMode
     : (toolbarState?.viewMode ?? curationToolbarCtx.viewMode)
-  const setViewMode = toolbarState?.hideTopSection
+  const setViewMode = (toolbarState?.hideTopSection ?? false)
     ? curationToolbarCtx.setViewMode
     : (toolbarState?.setViewMode ?? curationToolbarCtx.setViewMode)
   const [compareImageKeys, setCompareImageKeys] = useState<Set<string>>(
@@ -124,7 +124,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = (): void => {
       if (window.scrollY > 400) {
         setShowScrollTop(true)
       } else {
@@ -132,7 +132,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       }
     }
     window.addEventListener("scroll", handleScroll)
-    return () => { window.removeEventListener("scroll", handleScroll); }
+    return (): void => { window.removeEventListener("scroll", handleScroll); }
   }, [])
 
   const scrollToTop = useCallback(() => {
@@ -214,12 +214,17 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     } finally {
       setCheckingTemplates(false)
     }
-  }, [])
+  }, [
+    activeTemplateRef,
+    backendUrlRef,
+    checkingTemplatesRef,
+    savedTemplatesRef,
+  ])
 
   // 미할당 패널 열릴 때 템플릿 소속 확인 실행
   useEffect(() => {
     if (curationToolbarCtx.showUnassignedPanel && templateAffiliationCache.size === 0) {
-      checkTemplateAffiliation()
+      void checkTemplateAffiliation()
     }
   }, [
     curationToolbarCtx.showUnassignedPanel,
@@ -278,7 +283,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         return trashedCount
       },
       (trashedCount) =>
-        `${selectedCount}개 그룹, ${trashedCount}장 휴지통으로 이동`,
+        `${String(selectedCount)}개 그룹, ${String(trashedCount)}장 휴지통으로 이동`,
       "삭제 실패"
     )
     if (result !== null) {
@@ -308,7 +313,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   const selectedImages = useMemo(
     () =>
-      (selectedFilename
+      (selectedFilename !== null
         ? (imagesByFilename.get(selectedFilename) ?? [])
         : []
       ).sort((a, b) => a.createdAt - b.createdAt),
@@ -332,10 +337,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       )
       const nextIdx = direction === "next" ? currentIdx + 1 : currentIdx - 1
       if (nextIdx >= 0 && nextIdx < renderItems.length) {
-        setSelectedFilename(renderItems[nextIdx]!.filename)
+        setSelectedFilename(renderItems[nextIdx].filename)
       }
     },
-    [renderItems, selectedFilename]
+    [renderItems, selectedFilename, setSelectedFilename]
   )
 
   const handleSelectImage = useCallback(
@@ -354,7 +359,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         if (next) setSelectedFilename(next.filename)
       }
     },
-    [approveImage, curationToolbarCtx.autoAdvance, renderItems, imagesByFilename]
+    [approveImage, curationToolbarCtx.autoAdvance, renderItems, imagesByFilename, setSelectedFilename]
   )
 
   const handleExport = useCallback(async () => {
@@ -370,7 +375,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         })
         return approvedFilenames.length
       },
-      (count) => `${count}개 파일 내보내기 완료`,
+      (count) => `${String(count)}개 파일 내보내기 완료`,
       "내보내기 실패"
     )
   }, [
@@ -404,36 +409,42 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       setSelectedFilename(filename)
       setViewMode("grid")
     },
-    [exitSelectionMode, setViewMode]
+    [exitSelectionMode, setViewMode, setSelectedFilename]
   )
 
   const handleRejectAll = useCallback(
-    () =>
-      data.batchUpdateStatus(
-        selectedFilename!,
+    () => {
+      if (selectedFilename === null) return
+      void data.batchUpdateStatus(
+        selectedFilename,
         (img) => img.status !== "approved" && img.status !== "rejected",
         "rejected"
-      ),
+      )
+    },
     [data, selectedFilename]
   )
 
   const handleCancelAllRejects = useCallback(
-    () =>
-      data.batchUpdateStatus(
-        selectedFilename!,
+    () => {
+      if (selectedFilename === null) return
+      void data.batchUpdateStatus(
+        selectedFilename,
         (img) => img.status === "rejected",
         "pending"
-      ),
+      )
+    },
     [data, selectedFilename]
   )
 
   const handleCancelApproval = useCallback(
-    () =>
-      data.batchUpdateStatus(
-        selectedFilename!,
+    () => {
+      if (selectedFilename === null) return
+      void data.batchUpdateStatus(
+        selectedFilename,
         (img) => img.status === "approved" || img.status === "rejected",
         "pending"
-      ),
+      )
+    },
     [data, selectedFilename]
   )
 
@@ -480,7 +491,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         await downloadImagesAsZip(downloads, "curation-images.zip")
         return downloads.length
       },
-      (count) => `${count}장 다운로드 완료`,
+      (count) => `${String(count)}장 다운로드 완료`,
       "다운로드 실패"
     )
   }, [backendUrl, selectedFilenames, imagesByFilename, bulkDownloadAction])
@@ -500,11 +511,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   // ── Register toolbar handlers with context ──
   useEffect(() => {
-    curationToolbarCtx.setExportHandler(handleExport)
+    curationToolbarCtx.setExportHandler(() => { void handleExport() })
   }, [curationToolbarCtx, handleExport])
 
   useEffect(() => {
-    curationToolbarCtx.setRefreshHandler(fetchData)
+    curationToolbarCtx.setRefreshHandler(() => { void fetchData() })
   }, [curationToolbarCtx, fetchData])
 
   useEffect(() => {
@@ -515,14 +526,14 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   useEffect(() => {
     if (autoApplyReject) {
       const timer = window.setTimeout(() => { curationToolbarCtx.setAutoAdvance(true); }, 0)
-      return () => { window.clearTimeout(timer); }
+      return (): void => { window.clearTimeout(timer); }
     }
-    return () => {}
+    return undefined
   }, [autoApplyReject, curationToolbarCtx])
 
   // ── Keyboard Handler ──
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       const tag = (e.target as HTMLElement).tagName
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
 
@@ -533,7 +544,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         return
       }
 
-      if (selectedFilename) {
+      if (selectedFilename !== null) {
         if (e.key === "ArrowDown" || e.key === "j") {
           e.preventDefault()
           navigateTo("next")
@@ -548,13 +559,13 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         } else if (e.key >= "1" && e.key <= "9") {
           const idx = parseInt(e.key) - 1
           if (idx < visibleImages.length) {
-            handleSelectImage(selectedFilename, visibleImages[idx]!.hash)
+            void handleSelectImage(selectedFilename, visibleImages[idx].hash)
           }
         }
       }
     }
     document.addEventListener("keydown", handleKeyDown)
-    return () => { document.removeEventListener("keydown", handleKeyDown); }
+    return (): void => { document.removeEventListener("keydown", handleKeyDown); }
   }, [
     selectedFilename,
     navigateTo,
@@ -564,6 +575,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     selectionMode,
     exitSelectionMode,
     setViewMode,
+    setSelectedFilename,
   ])
 
   const handleTabChange = useCallback(
@@ -572,8 +584,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       if (v === "gallery" || v === "table") {
         setSelectedFilename(null)
         exitSelectionMode()
-      } else if (!selectedFilename && renderItems.length > 0) {
-        setSelectedFilename(renderItems[0]!.filename)
+      } else if (selectedFilename === null && renderItems.length > 0) {
+        setSelectedFilename(renderItems[0].filename)
       }
     },
     [
@@ -603,7 +615,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       </div>
     )
 
-  if (error)
+  if (error !== null)
     return (
       <div className="flex flex-1 items-center justify-center px-4 py-20">
         <Empty className="max-w-md border-destructive/20 bg-destructive/5 shadow-none">
@@ -619,7 +631,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             </EmptyDescription>
           </EmptyHeader>
           <Button
-            onClick={fetchData}
+            onClick={() => { void fetchData(); }}
             variant="outline"
             className="mt-4 border-destructive/30 font-bold transition-all hover:bg-destructive/10 hover:text-destructive"
           >
@@ -683,7 +695,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         setShowUnassignedPanel={curationToolbarCtx.setShowUnassignedPanel}
         handleBulkRegenerate={handleBulkRegenerate}
         bulkRegenActionMessage={bulkRegenAction.message}
-        handleBulkDownload={handleBulkDownload}
+        handleBulkDownload={() => { void handleBulkDownload(); }}
         bulkDownloadIsLoading={bulkDownloadAction.isLoading}
         bulkDownloadMessage={bulkDownloadAction.message}
         handleExport={toolbarState?.onExport ?? handleExport}
@@ -706,11 +718,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             showTrueOrphansOnly={showTrueOrphansOnly}
             setShowTrueOrphansOnly={setShowTrueOrphansOnly}
             checkingTemplates={checkingTemplates}
-            checkTemplateAffiliation={checkTemplateAffiliation}
+            checkTemplateAffiliation={() => { void checkTemplateAffiliation(); }}
             unassignedSelectedFilenames={unassignedSelectedFilenames}
             handleUnassignedToggleSelect={handleUnassignedToggleSelect}
             handleUnassignedSelectAll={handleUnassignedSelectAll}
-            handleBulkTrash={handleBulkTrash}
+            handleBulkTrash={() => { void handleBulkTrash(); }}
             bulkTrashActionIsLoading={bulkTrashAction.isLoading}
             bulkTrashActionMessage={bulkTrashAction.message}
             closeUnassignedPanel={closeUnassignedPanel}
@@ -720,7 +732,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         {/* 메인 레이아웃 */}
         <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
           {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출, 모바일에서는 숨김) */}
-          {selectedFilename && (
+          {selectedFilename !== null && (
             <div className="hidden flex-none py-4 md:flex">
               <CombinationPickerSidebar
                 selectedFilename={selectedFilename}
@@ -730,7 +742,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           )}
 
           {/* 오른쪽: 콘텐츠 영역 */}
-          {!selectedFilename ? (
+          {selectedFilename === null ? (
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               {filteredRenderItems.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center px-4 py-20">
@@ -801,7 +813,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 }}
                 onSetPreviewHash={setPreviewHash}
                 onToggleCompareImage={toggleCompareImage}
-                onSelectImage={handleSelectImage}
+                onSelectImage={(filename, hash) => { void handleSelectImage(filename, hash); }}
                 onRegenerate={handleContextMenuRegenerate}
                 regenActionIsLoading={regenAction.isLoading}
                 onRejectAll={handleRejectAll}
@@ -816,7 +828,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                   <TournamentView
                     images={visibleImages}
                     onComplete={(hash) => {
-                      handleSelectImage(selectedFilename, hash)
+                      void handleSelectImage(selectedFilename, hash)
                       setViewMode("grid")
                     }}
                   />
@@ -871,17 +883,17 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           deleteMappingPreset={deleteMappingPreset}
           onSubmit={async (items) => {
             const result = await regenAction.execute(
-              async () => {
+              async (): Promise<number> => {
                 const res = await fetch(`${backendUrl}${API.jobs.root}`, {
                   method: "POST",
                   headers: HEADERS.json,
                   body: JSON.stringify({ items }),
                 })
-                if (!res.ok) throw new Error(`HTTP ${res.status}`)
-                const data = await res.json()
+                if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+                const data = await res.json() as { jobIds?: string[] }
                 return data.jobIds?.length ?? items.length
               },
-              (count) => `작업 ${count}개 추가됨`,
+              (count: number) => `${String(count)}개 작업 추가됨`,
               "재생성 실패"
             )
             if (result !== null) {
@@ -893,7 +905,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
         {/* 이미지 미리보기 팝업 */}
         <ImageViewer
-          src={`${backendUrl}/saved-images/${previewHash}`}
+          src={`${backendUrl}/saved-images/${previewHash ?? ""}`}
           isOpen={previewHash !== null}
           onClose={() => { setPreviewHash(null); }}
         />
@@ -904,7 +916,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             backendUrl={backendUrl}
             image={detailImage}
             onClose={() => { setDetailImage(null); }}
-            onChanged={fetchData}
+            onChanged={() => { void fetchData(); }}
           />
         )}
 

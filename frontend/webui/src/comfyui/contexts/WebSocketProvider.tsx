@@ -27,6 +27,7 @@ import {
 } from "../../lib/settingsCache"
 import { getSyncQueue } from "../hooks/useSyncedStorage"
 import { httpToWs } from "../../lib/utils"
+import { applyComfyApiBridge } from "../services/comfyApiBridge"
 
 interface ProviderProps {
   children: React.ReactNode
@@ -69,6 +70,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const reconnectTimerRef = useRef<number | null>(null)
 
   const applyEvent = useCallback((event: BackendEvent) => {
+    applyComfyApiBridge(event)
     switch (event.type) {
       case "snapshot": {
         setJobs(event.jobs)

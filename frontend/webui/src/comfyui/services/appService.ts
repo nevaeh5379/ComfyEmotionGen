@@ -10,7 +10,8 @@ import {
   LGraphNode,
   LGraphGroup,
   LiteGraph,
-  type Vector2,
+  type Point,
+  type ISerialisedNode,
 } from "comfy-litegraph"
 import type {
   ComfyWorkflowJSON,
@@ -19,12 +20,26 @@ import type {
   ComfyWorkflowLink,
 } from "@/comfyui/types/workflow"
 import type { ComfyNodeDef } from "@/comfyui/types/nodeDef"
+import type { NodeExecutionOutput } from "@/comfyui/types/apiSchema"
+import type { ComfyExtension, ExtensionManager } from "@/comfyui/types/extensionTypes"
+import type { ComfyApi } from "@/comfyui/api"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { useExtensionStore } from "@/comfyui/stores/extensionStore"
+import { extensionManager } from "@/comfyui/services/extensionService"
+import { api } from "@/comfyui/api"
 
 export interface ComfyAppConfig {
   canvas: HTMLCanvasElement
   container: HTMLElement
   nodeDefs: Record<string, ComfyNodeDef>
+}
+
+interface AppWithExtensions {
+  extensions?: ComfyExtension[]
+}
+
+function getWindowApp(): AppWithExtensions | undefined {
+  return (window as unknown as { app: AppWithExtensions | undefined }).app
 }
 
 /**
@@ -49,6 +64,21 @@ export class ComfyAppService {
   /** 그래프 변경 시 호출될 콜백 */
   onGraphChanged?: (workflow: ComfyWorkflowJSON) => void
 
+  // ── ComfyApp 호환 속성 ─────────────────────────────────────────
+  /** 커스텀 노드 extensionManager */
+  extensionManager: ExtensionManager = extensionManager
+  /** ComfyApi 인스턴스 */
+  api: ComfyApi = api
+  /** 노드 실행 출력 데이터 */
+  nodeOutputs: Record<string, NodeExecutionOutput> = {}
+  /** 노드 프리뷰 이미지 데이터 */
+  nodePreviewImages: Record<string, string[]> = {}
+
+  /** 등록된 익스텐션 목록 (extensionStore 위임) */
+  get extensions(): ComfyExtension[] {
+    return useExtensionStore.getState().extensions
+  }
+
   constructor(config: ComfyAppConfig) {
     this.nodeDefs = config.nodeDefs
     this.graph = new LGraph()
@@ -62,14 +92,11 @@ export class ComfyAppService {
 
     // Canvas 스타일 설정
     this.canvas.render_canvas_border = false
-    // @ts-ignore LiteGraph fork property
-    this.canvas.allow_dragcanvas = true
-    // @ts-ignore LiteGraph fork property
-    this.canvas.allow_zoom = true
+    ;(this.canvas as unknown as Record<string, boolean>).allow_dragcanvas = true
+    ;(this.canvas as unknown as Record<string, boolean>).allow_zoom = true
 
     // 그래프 변경 감지
-    // @ts-ignore LiteGraph fork property
-    this.graph.onChange = () => {
+    ;(this.graph as unknown as Record<string, unknown>).onChange = (): void => {
       this.onGraphChanged?.(this.serializeGraph())
     }
 
@@ -81,13 +108,13 @@ export class ComfyAppService {
    * Register all node definitions in LiteGraph
    */
   registerNodeDefs(nodeDefs: Record<string, ComfyNodeDef>): void {
-    const app = (window as any).app
+    const app = getWindowApp()
 
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
       const NodeClass = class extends ComfyNode {
-        static title = def.display_name || def.name
-        static category = def.category || ""
+        static title = def.display_name ?? def.name
+        static category = def.category
         static type = type
         static comfyClass = def.name
 
@@ -97,11 +124,11 @@ export class ComfyAppService {
       }
 
       // Run beforeRegisterNodeDef hooks
-      if (app?.extensions) {
+      if (app?.extensions !== undefined) {
         for (const ext of app.extensions) {
           if (ext.beforeRegisterNodeDef) {
             try {
-              ext.beforeRegisterNodeDef(NodeClass, def, app)
+              void ext.beforeRegisterNodeDef(NodeClass, def, app)
             } catch (err) {
               console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
             }
@@ -130,10 +157,10 @@ export class ComfyAppService {
         console.warn(`[CEG] createNode failed for ${nodeData.type}:`, err)
         continue
       }
-      if (!node) {
+      if (node === null) {
         // Absolute fallback: generic node so graph has all nodes for linking
         console.warn(`[CEG] createNode returned null for ${nodeData.type}, forcing generic fallback`)
-        node = new LGraphNode(nodeData.type || "Unknown")
+        node = new LGraphNode(nodeData.type)
         node.pos = nodeData.pos
         this.graph.add(node)
       }
@@ -141,48 +168,45 @@ export class ComfyAppService {
       // graph.add(node)에서 할당된 자동 ID를 JSON의 ID로 교체하고 _nodes_by_id 갱신
       const oldId = node.id
       if (oldId !== nodeData.id) {
-        delete this.graph._nodes_by_id[oldId]
+        this.graph._nodes_by_id[oldId] = undefined as never
         node.id = nodeData.id
         this.graph._nodes_by_id[node.id] = node
       }
       node.pos = nodeData.pos
       node.size = nodeData.size
-      if (nodeData.color) node.color = nodeData.color
-      if (nodeData.bgcolor) node.bgcolor = nodeData.bgcolor
+      if (nodeData.color !== undefined) node.color = nodeData.color
+      if (nodeData.bgcolor !== undefined) node.bgcolor = nodeData.bgcolor
 
       // Inputs
-      if (nodeData.inputs) {
+      if (nodeData.inputs !== undefined) {
         for (const input of nodeData.inputs) {
-          const slot = node.inputs?.find((s: { name: string }) => s.name === input.name)
-          if (slot) {
-            // @ts-ignore LiteGraph fork property
+          const slot = node.inputs.find((s) => s.name === input.name)
+          if (slot !== undefined) {
             slot.link = input.link ?? null
           }
         }
       }
 
       // Outputs
-      if (nodeData.outputs) {
+      if (nodeData.outputs !== undefined) {
         for (const output of nodeData.outputs) {
-          const slot = node.outputs?.find((s: { name: string }) => s.name === output.name)
-          if (slot) {
-            // @ts-ignore LiteGraph fork property
-            slot.links = output.links ?? []
+          const slot = node.outputs.find((s) => s.name === output.name)
+          if (slot !== undefined) {
+            slot.links = output.links ?? null
           }
         }
       }
 
       try {
-        // @ts-ignore configure may accept ComfyWorkflowNode
-        node.configure?.(nodeData)
+        node.configure(nodeData as unknown as ISerialisedNode)
       } catch (err) {
         console.warn(`[loadGraphData] configure failed for ${nodeData.type}:`, err)
       }
 
       // Run loadedGraphNode hooks (before widget value restoration, so DOM widgets
       // like LoraManager's loras widget are initialized and can accept values)
-      const app = (window as any).app
-      if (app?.extensions) {
+      const app = getWindowApp()
+      if (app?.extensions !== undefined) {
         for (const ext of app.extensions) {
           if (ext.loadedGraphNode) {
             try {
@@ -197,14 +221,14 @@ export class ComfyAppService {
       // Restore widget values AFTER configure + loadedGraphNode hooks, because
       // configureWidgets skips serialize:false widgets (misaligning indices),
       // and some DOM widgets need their hook-initialized DOM to accept values.
-      if (nodeData.widgets_values && node.widgets) {
+      if (nodeData.widgets_values !== undefined && node.widgets !== undefined) {
         for (let i = 0; i < Math.min(node.widgets.length, nodeData.widgets_values.length); i++) {
-          const w = node.widgets[i]
-          if (w) {
+          const widget = node.widgets[i]
+          if (widget !== undefined) {
             try {
-              w.value = (nodeData.widgets_values as any)[i]
+              widget.value = nodeData.widgets_values[i] as string | number | boolean
             } catch (err) {
-              console.warn(`[loadGraphData] failed to set widget[${i}] for ${nodeData.type}:`, err)
+              console.warn(`[loadGraphData] failed to set widget[${String(i)}] for ${nodeData.type}:`, err)
             }
           }
         }
@@ -215,49 +239,45 @@ export class ComfyAppService {
     for (const linkData of workflow.links) {
       const originNode = this.graph.getNodeById(linkData.origin_id)
       const targetNode = this.graph.getNodeById(linkData.target_id)
-      if (!originNode || !targetNode) {
-        console.warn(`[CEG] connectSkipped: link=${linkData.id} origin=${linkData.origin_id} target=${linkData.target_id}`)
+      if (originNode === null || targetNode === null) {
+        console.warn(`[CEG] connectSkipped: link=${String(linkData.id)} origin=${String(linkData.origin_id)} target=${String(linkData.target_id)}`)
         continue
       }
 
-      const originSlot = originNode.outputs?.[linkData.origin_slot]
-      const targetSlot = targetNode.inputs?.[linkData.target_slot]
-      if (!originSlot || !targetSlot) continue
+      const originSlot = originNode.outputs[linkData.origin_slot]
+      const targetSlot = targetNode.inputs[linkData.target_slot]
+      if (originSlot === undefined || targetSlot === undefined) continue
 
       const result = originNode.connect(linkData.origin_slot, targetNode, linkData.target_slot)
-      if (result === null || (result as unknown) === false) {
-        console.warn(`[CEG] connectFailed: link=${linkData.id} type=${originNode.type}.out[${linkData.origin_slot}] -> ${targetNode.type}.in[${linkData.target_slot}]`)
+      if (result === null) {
+        console.warn(`[CEG] connectFailed: link=${String(linkData.id)} type=${originNode.type}.out[${String(linkData.origin_slot)}] -> ${targetNode.type}.in[${String(linkData.target_slot)}]`)
       }
     }
 
     // 연결에 실패한 슬롯(phantom link) 정리: connect 실패 후에도 workflow JSON에서 설정된
     // stale slot.link / slot.links 가 남아있으면 핀이 녹색으로 표시되지만 실제 SVG 경로는 없음
     for (const node of this.graph.nodes) {
-      if ((node as any).inputs) {
-        for (const input of (node as any).inputs) {
-          if (input.link != null && !this.graph.links.has(input.link)) {
-            input.link = null
-          }
+      for (const input of node.inputs) {
+        if (input.link !== null && !this.graph.links.has(input.link)) {
+          input.link = null
         }
       }
-      if ((node as any).outputs) {
-        for (const output of (node as any).outputs) {
-          if (output.links && Array.isArray(output.links)) {
-            output.links = output.links.filter((linkId: number) => this.graph.links.has(linkId))
-            if (output.links.length === 0) output.links = null
-          }
+      for (const output of node.outputs) {
+        if (output.links !== null) {
+          output.links = output.links.filter((linkId) => this.graph.links.has(linkId))
+          if (output.links.length === 0) output.links = null
         }
       }
     }
 
     // 그룹 생성
-    if (workflow.groups) {
+    if (workflow.groups !== undefined) {
       for (const groupData of workflow.groups) {
         const group = new LGraphGroup()
         group.title = groupData.title
         group.pos = [groupData.bounding[0], groupData.bounding[1]]
         group.size = [groupData.bounding[2], groupData.bounding[3]]
-        if (groupData.color) group.color = groupData.color
+        if (groupData.color !== undefined) group.color = groupData.color
         this.graph.add(group)
       }
     }
@@ -273,42 +293,40 @@ export class ComfyAppService {
     const links: ComfyWorkflowLink[] = []
 
     for (const n of this.graph.nodes) {
-      const node = n as any
       const nodeData: ComfyWorkflowNode = {
-        id: Number(node.id),
-        type: node.type,
-        pos: node.pos,
-        size: node.size,
+        id: Number(n.id),
+        type: n.type as string,
+        pos: n.pos,
+        size: n.size,
       }
 
-      if (node.inputs) {
-        nodeData.inputs = node.inputs.map((input: { name: string; type: string; link: number | null }) => ({
+      if (n.inputs.length > 0) {
+        nodeData.inputs = n.inputs.map((input) => ({
           name: input.name,
-          type: input.type,
+          type: input.type as string,
           link: input.link ?? undefined,
         }))
       }
 
-      if (node.outputs) {
-        nodeData.outputs = node.outputs.map((output: { name: string; type: string; links: number[] | null }, i: number) => ({
+      if (n.outputs.length > 0) {
+        nodeData.outputs = n.outputs.map((output, i) => ({
           name: output.name,
-          type: output.type,
-          links: output.links?.length ? output.links : undefined,
+          type: output.type as string,
+          links: (output.links !== null && output.links.length > 0) ? output.links : undefined,
           slot_index: i,
         }))
       }
 
-      if (node.widgets) {
-        nodeData.widgets_values = node.widgets.map((w: { value: unknown }) => w.value)
+      if (n.widgets !== undefined) {
+        nodeData.widgets_values = n.widgets.map((w) => w.value)
       }
 
-      if (node.color) nodeData.color = node.color
-      if (node.bgcolor) nodeData.bgcolor = node.bgcolor
+      if (n.color !== undefined) nodeData.color = n.color
+      if (n.bgcolor !== undefined) nodeData.bgcolor = n.bgcolor
 
       nodes.push(nodeData)
     }
 
-    // @ts-ignore links iteration
     for (const [, link] of this.graph.links) {
       links.push({
         id: link.id,
@@ -316,20 +334,19 @@ export class ComfyAppService {
         origin_slot: link.origin_slot,
         target_id: Number(link.target_id),
         target_slot: link.target_slot,
-        type: link.type as string,
+        type: String(link.type),
       })
     }
 
-    // @ts-ignore groups access
-    const groups = this.graph.groups.map((g: { title: string; pos: [number, number]; size: [number, number]; color?: string }) => ({
+    const groups = this.graph.groups.map((g) => ({
       title: g.title,
       bounding: [g.pos[0], g.pos[1], g.size[0], g.size[1]] as [number, number, number, number],
       color: g.color,
     }))
 
     return {
-      last_node_id: Math.max(...nodes.map((n) => n.id), 0),
-      last_link_id: Math.max(...links.map((l) => l.id), 0),
+      last_node_id: Math.max(...nodes.map((node) => node.id), 0),
+      last_link_id: Math.max(...links.map((link) => link.id), 0),
       nodes,
       links,
       groups: groups.length > 0 ? groups : undefined,
@@ -344,26 +361,23 @@ export class ComfyAppService {
     const prompt: ComfyApiWorkflow = {}
 
     for (const n of this.graph.nodes) {
-      const node = n as any
       const inputs: Record<string, unknown> = {}
 
       // 위젯 값
-      if (node.widgets) {
-        for (const widget of node.widgets) {
-          if (widget.name) {
-            inputs[widget.name] = widget.value
-          }
+      if (n.widgets !== undefined) {
+        for (const widget of n.widgets) {
+          inputs[widget.name] = widget.value
         }
       }
 
       // 링크된 입력
-      if (node.inputs) {
-        for (const input of node.inputs) {
-          if (input.link != null) {
+      if (n.inputs.length > 0) {
+        for (const input of n.inputs) {
+          if (input.link !== null) {
             for (const [, link] of this.graph.links) {
               if (link.id === input.link) {
                 const originNode = this.graph.getNodeById(link.origin_id)
-                if (originNode) {
+                if (originNode !== null) {
                   inputs[input.name] = [originNode.id.toString(), link.origin_slot]
                 }
                 break
@@ -373,11 +387,11 @@ export class ComfyAppService {
         }
       }
 
-      prompt[node.id.toString()] = {
+      prompt[n.id.toString()] = {
         inputs,
-        class_type: node.type,
+        class_type: n.type as string,
         _meta: {
-          title: node.title || node.type,
+          title: n.title,
         },
       }
     }
@@ -390,14 +404,14 @@ export class ComfyAppService {
    */
   createNode(
     type: string,
-    pos: Vector2 = [0, 0],
+    pos: Point = [0, 0],
     options: { skipConfigure?: boolean } = {}
   ): LGraphNode | null {
     let nodeDef = this.nodeDefs[type]
     let actualType = type
-    if (!nodeDef) {
+    if (nodeDef === undefined) {
       const storeDef = useNodeDefStore.getState().getNodeDef(type)
-      if (storeDef) {
+      if (storeDef !== undefined) {
         console.debug(`[CEG] createNode: fuzzy match for "${type}" via store.getNodeDef`)
         nodeDef = storeDef
         // Find the actually registered key in this.nodeDefs (case-insensitive match)
@@ -431,23 +445,25 @@ export class ComfyAppService {
     }
 
     const node = LiteGraph.createNode(actualType)
-    if (!node) return null
+    if (node === null) return null
 
-    if (typeof node.addInput !== 'function') return null
+    if (typeof node.addInput !== "function") return null
 
     node.pos = pos
 
     // 입력 슬롯
-    if (nodeDef.input?.required) {
+    if (nodeDef.input?.required !== undefined) {
       for (const [name, spec] of Object.entries(nodeDef.input.required)) {
-        const typeStr = Array.isArray(spec[0]) ? "COMBO" : (spec[0])
+        const inputType = spec[0]
+        const typeStr = Array.isArray(inputType) ? "COMBO" : inputType
         node.addInput(name, typeStr)
       }
     }
 
-    if (nodeDef.input?.optional) {
+    if (nodeDef.input?.optional !== undefined) {
       for (const [name, spec] of Object.entries(nodeDef.input.optional)) {
-        const typeStr = Array.isArray(spec[0]) ? "COMBO" : (spec[0])
+        const inputType = spec[0]
+        const typeStr = Array.isArray(inputType) ? "COMBO" : inputType
         node.addInput(name, typeStr)
       }
     }
@@ -455,7 +471,7 @@ export class ComfyAppService {
     // 출력 슬롯
     for (let i = 0; i < nodeDef.output.length; i++) {
       const outType = nodeDef.output[i] ?? ""
-      const outName = (nodeDef.output_name[i]) || outType
+      const outName = nodeDef.output_name[i] ?? outType
       node.addOutput(outName, outType)
     }
 
@@ -468,8 +484,8 @@ export class ComfyAppService {
     this.graph.add(node)
 
     // Run nodeCreated hooks
-    const app = (window as any).app
-    if (app?.extensions) {
+    const app = getWindowApp()
+    if (app?.extensions !== undefined) {
       for (const ext of app.extensions) {
         if (ext.nodeCreated) {
           try {
@@ -481,7 +497,7 @@ export class ComfyAppService {
       }
     }
 
-    if (!options.skipConfigure) {
+    if (options.skipConfigure !== true) {
       this.graph.setDirtyCanvas(true, true)
     }
 
@@ -492,40 +508,39 @@ export class ComfyAppService {
    * 노드에 위젯 추가
    */
   private addNodeWidgets(node: LGraphNode, nodeDef: ComfyNodeDef): void {
-    if (!nodeDef.input?.required) return
+    if (nodeDef.input?.required === undefined) return
 
     for (const [name, spec] of Object.entries(nodeDef.input.required)) {
-      // @ts-ignore InputSpec tuple destructuring
-      const [type, config] = spec as [string | string[], Record<string, unknown>]
+      const inputType = spec[0]
+      const inputConfig = spec[1] ?? {}
 
-      if (Array.isArray(type)) {
+      if (Array.isArray(inputType)) {
         // COMBO 위젯
-        node.addWidget("combo", name, type[0] ?? "", () => {}, {
-          values: type,
+        node.addWidget("combo", name, inputType[0] ?? "", (): void => undefined, {
+          values: inputType,
         })
-      } else if (type === "INT" || type === "FLOAT") {
+      } else if (inputType === "INT" || inputType === "FLOAT") {
         // 숫자 위젯
-        const defaultValue = (config.default as number) ?? (type === "INT" ? 0 : 0.0)
-        const min = (config.min as number) ?? (type === "INT" ? 0 : 0.0)
-        const max = (config.max as number) ?? (type === "INT" ? 0x7fffffff : 1e38)
-        const step = (config.step as number) ?? (type === "INT" ? 1 : 0.1)
-        node.addWidget(type === "INT" ? "number" : "number", name, defaultValue, () => {}, {
+        const defaultValue = (inputConfig.default as number | undefined) ?? (inputType === "INT" ? 0 : 0.0)
+        const min = (inputConfig.min as number | undefined) ?? (inputType === "INT" ? 0 : 0.0)
+        const max = (inputConfig.max as number | undefined) ?? (inputType === "INT" ? 0x7fffffff : 1e38)
+        const step = (inputConfig.step as number | undefined) ?? (inputType === "INT" ? 1 : 0.1)
+        node.addWidget("number", name, defaultValue, (): void => undefined, {
           min,
           max,
           step,
-          precision: type === "INT" ? 0 : 2,
+          precision: inputType === "INT" ? 0 : 2,
         })
-      } else if (type === "STRING" || type.startsWith("AUTOCOMPLETE_")) {
+      } else if (inputType === "STRING" || inputType.startsWith("AUTOCOMPLETE_")) {
         // 텍스트 위젯 (STRING, AUTOCOMPLETE_TEXT, AUTOCOMPLETE_TEXT_LORAS, etc.)
-        const defaultValue = (config.default as string) ?? ""
-        node.addWidget("text", name, defaultValue, () => {}, config)
-      } else if (type === "BOOLEAN") {
+        const defaultValue = (inputConfig.default as string | undefined) ?? ""
+        node.addWidget("text", name, defaultValue, (): void => undefined, inputConfig)
+      } else if (inputType === "BOOLEAN") {
         // 토글 위젯
-        node.addWidget("toggle", name, (config.default as boolean) ?? false, () => {})
-      } else if (nodeDef.input?.required) {
-        // Skip non-widget types (MODEL, CLIP, LATENT, IMAGE, etc.)
-        // They are connection-only slots and should never get a text widget.
+        node.addWidget("toggle", name, (inputConfig.default as boolean | undefined) ?? false, (): void => undefined)
       }
+      // else: Skip non-widget types (MODEL, CLIP, LATENT, IMAGE, etc.)
+      // They are connection-only slots and should never get a text widget.
     }
   }
 
@@ -534,6 +549,5 @@ export class ComfyAppService {
    */
   dispose(): void {
     this.canvas.stopRendering()
-    this.graph.stop()
   }
 }

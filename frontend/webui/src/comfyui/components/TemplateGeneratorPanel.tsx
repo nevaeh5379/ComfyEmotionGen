@@ -86,6 +86,16 @@ interface TemplateDraft {
   saveName: string
 }
 
+interface ParsedTemplate {
+  variables: VisualVariable[]
+  axes: VisualAxis[]
+  combines: VisualCombine[]
+  excludes: VisualExclude[]
+  templateBody: string
+  filenameBody: string
+  cleanFilename: boolean
+}
+
 // ── localStorage helpers ─────────────────────────────────────────────
 
 const STORAGE_KEYS = {
@@ -96,17 +106,17 @@ const STORAGE_KEYS = {
 } as const
 
 function loadSet(key: string): Set<string> {
-  try { const raw = localStorage.getItem(key); if (raw) return new Set(JSON.parse(raw) as string[]) } catch { /* ignore */ }
+  try { const raw = localStorage.getItem(key); if (raw !== null) return new Set(JSON.parse(raw) as string[]) } catch { /* ignore */ }
   return new Set()
 }
-function saveSet(key: string, value: Set<string>) {
+function saveSet(key: string, value: Set<string>): void {
   try { localStorage.setItem(key, JSON.stringify([...value])) } catch { /* ignore */ }
 }
 function loadString(key: string, fallback: string): string {
-  try { const raw = localStorage.getItem(key); if (raw) return raw } catch { /* ignore */ }
+  try { const raw = localStorage.getItem(key); if (raw !== null) return raw } catch { /* ignore */ }
   return fallback
 }
-function saveString(key: string, value: string) {
+function saveString(key: string, value: string): void {
   try { localStorage.setItem(key, value) } catch { /* ignore */ }
 }
 
@@ -134,7 +144,7 @@ function CollapsibleSection({ value, open, onToggle, icon, label, count, childre
   label: string
   count?: number
   children: React.ReactNode
-}) {
+}): React.ReactNode {
   const Icon = icon
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -165,53 +175,53 @@ function CollapsibleSection({ value, open, onToggle, icon, label, count, childre
 
 // ── Parser ────────────────────────────────────────────────────────────
 
-function parseCegTemplate(code: string) {
+function parseCegTemplate(code: string): ParsedTemplate {
   const variables: VisualVariable[] = []; const axes: VisualAxis[] = []; const combines: VisualCombine[] = []; const excludes: VisualExclude[] = []; let templateBody = ""; let filenameBody = ""; let cleanFilename = true
-  if (!code) return { variables, axes, combines, excludes, templateBody, filenameBody, cleanFilename }
+  if (code === "") return { variables, axes, combines, excludes, templateBody, filenameBody, cleanFilename }
   let match: RegExpExecArray | null
   const setRe = /\{\{\s*set\s+([a-zA-Z_-][a-zA-Z0-9_-]*)\s*=\s*"((?:[^"\\]|\\.)*)"\s*\}\}/g; let vi = 0
   while ((match = setRe.exec(code)) !== null) {
-    const name = match[1] || ""
-    const val = match[2] || ""
+    const name = match[1] ?? ""
+    const val = match[2] ?? ""
     if (name === "clean_filename") {
       cleanFilename = val.toLowerCase() === "true"
     } else {
-      variables.push({ id: `var-${vi++}`, name, value: val })
+      variables.push({ id: `var-${String(vi++)}`, name, value: val })
     }
   }
   const axRe = /\{\{\s*axis\s+([a-zA-Z_-][a-zA-Z0-9_-]*)(?:\s+include="((?:[^"\\]|\\.)*)")?\s*\}\}([\s\S]*?)\{\{\s*\/axis\s*\}\}/gi; let ai = 0
   while ((match = axRe.exec(code)) !== null) {
     const entries: VisualAxisEntry[] = []; let ei = 0
-    for (const line of (match[3] || "").split("\n")) {
-      const t = line.trim(); if (!t || t.startsWith("#") || t.startsWith("//")) continue
+    for (const line of (match[3] ?? "").split("\n")) {
+      const t = line.trim(); if (t === "" || t.startsWith("#") || t.startsWith("//")) continue
       const s = /^([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*"((?:[^"\\]|\\.)*)"$/.exec(t)
-      if (s) { entries.push({ id: `e-${ai}-${ei++}`, key: s[1] || "", value: s[2] || "", properties: [], isComplex: false }); continue }
+      if (s !== null) { entries.push({ id: `e-${String(ai)}-${String(ei++)}`, key: s[1] ?? "", value: s[2] ?? "", properties: [], isComplex: false }); continue }
       const c = /^([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*\{\s*([^{}]+)\s*\}$/.exec(t)
-      if (c) {
-        const props: AxisEntryProperty[] = []; const pr = /([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*"((?:[^"\\]|\\.)*)"/g; let pm, pi = 0
-        while ((pm = pr.exec(c[2] || "")) !== null) props.push({ id: `p-${ai}-${ei}-${pi++}`, name: pm[1] || "", value: pm[2] || "" })
-        entries.push({ id: `e-${ai}-${ei++}`, key: c[1] || "", value: "", properties: props, isComplex: true })
+      if (c !== null) {
+        const props: AxisEntryProperty[] = []; const pr = /([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*"((?:[^"\\]|\\.)*)"/g; let pm: RegExpExecArray | null; let pi = 0
+        while ((pm = pr.exec(c[2] ?? "")) !== null) props.push({ id: `p-${String(ai)}-${String(ei)}-${String(pi++)}`, name: pm[1] ?? "", value: pm[2] ?? "" })
+        entries.push({ id: `e-${String(ai)}-${String(ei++)}`, key: c[1] ?? "", value: "", properties: props, isComplex: true })
       }
     }
-    axes.push({ id: `a-${ai++}`, name: match[1] || "", include: match[2] || "", entries })
+    axes.push({ id: `a-${String(ai++)}`, name: match[1] ?? "", include: match[2] ?? "", entries })
   }
   const cbRe = /\{\{\s*combine\s+([^}]+)\s*\}\}/g; let ci = 0
-  while ((match = cbRe.exec(code)) !== null) { const e = (match[1] || "").trim(); if (!e.startsWith("/")) combines.push({ id: `c-${ci++}`, expression: e }) }
+  while ((match = cbRe.exec(code)) !== null) { const e = (match[1] ?? "").trim(); if (!(e.startsWith("/"))) combines.push({ id: `c-${String(ci++)}`, expression: e }) }
   const exRe = /\{\{\s*exclude\s+([^}]+)\s*\}\}/g; let xi = 0
-  while ((match = exRe.exec(code)) !== null) excludes.push({ id: `ex-${xi++}`, statement: (match[1] || "").trim() })
-  const tm = /\{\{\s*template\s*\}\}([\s\S]*?)\{\{\s*\/template\s*\}\}/i.exec(code); if (tm) templateBody = tm[1] || ""
-  const fn = /\{\{\s*filename\s*\}\}([\s\S]*?)\{\{\s*\/filename\s*\}\}/i.exec(code); if (fn) filenameBody = fn[1] || ""
+  while ((match = exRe.exec(code)) !== null) excludes.push({ id: `ex-${String(xi++)}`, statement: (match[1] ?? "").trim() })
+  const tm = /\{\{\s*template\s*\}\}([\s\S]*?)\{\{\s*\/template\s*\}\}/i.exec(code); if (tm !== null) templateBody = tm[1] ?? ""
+  const fn = /\{\{\s*filename\s*\}\}([\s\S]*?)\{\{\s*\/filename\s*\}\}/i.exec(code); if (fn !== null) filenameBody = fn[1] ?? ""
   return { variables, axes, combines, excludes, templateBody, filenameBody, cleanFilename }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-const DUPLICATE_VAR = (v: VisualVariable): VisualVariable => ({ id: `v-${Date.now()}`, name: v.name + "_copy", value: v.value })
-const DUPLICATE_AXIS = (a: VisualAxis): VisualAxis => ({ id: `a-${Date.now()}`, name: a.name + "_copy", include: a.include, entries: a.entries.map((e) => ({ ...e, id: `e-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, properties: e.properties.map((p) => ({ ...p, id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` })) })) })
+const DUPLICATE_VAR = (v: VisualVariable): VisualVariable => ({ id: `v-${String(Date.now())}`, name: v.name + "_copy", value: v.value })
+const DUPLICATE_AXIS = (a: VisualAxis): VisualAxis => ({ id: `a-${String(Date.now())}`, name: a.name + "_copy", include: a.include, entries: a.entries.map((e) => ({ ...e, id: `e-${String(Date.now())}-${Math.random().toString(36).slice(2, 6)}`, properties: e.properties.map((p) => ({ ...p, id: `p-${String(Date.now())}-${Math.random().toString(36).slice(2, 6)}` })) })) })
 
 // ── Sub-components ─────────────────────────────────────────────────────
 
-function AxisBadgeButtons({ axisNames, onInsert }: { axisNames: string[]; onInsert: (text: string) => void }) {
+function AxisBadgeButtons({ axisNames, onInsert }: { axisNames: string[]; onInsert: (text: string) => void }): React.ReactNode {
   if (axisNames.length === 0) return null
   return (
     <div className="flex flex-wrap gap-1 mt-2">
@@ -230,7 +240,7 @@ function AxisBadgeButtons({ axisNames, onInsert }: { axisNames: string[]; onInse
   )
 }
 
-function VarBadgeButtons({ variables, axes, onInsertVar, onInsertAxisKey }: { variables: VisualVariable[]; axes: VisualAxis[]; onInsertVar: (name: string) => void; onInsertAxisKey: (name: string) => void }) {
+function VarBadgeButtons({ variables, axes, onInsertVar, onInsertAxisKey }: { variables: VisualVariable[]; axes: VisualAxis[]; onInsertVar: (name: string) => void; onInsertAxisKey: (name: string) => void }): React.ReactNode {
   if (variables.length === 0 && axes.length === 0) return null
   return (
     <div className="flex flex-wrap gap-1 mt-2">
@@ -261,7 +271,7 @@ export function TemplateGeneratorPanel({
 }: {
   setActiveTab: (t: "jobs" | "stats" | "gallery" | "curation" | "generator" | "settings") => void
   backendUrl?: string
-}) {
+}): React.ReactNode {
   const { savedTemplates, setCegTemplate, saveTemplate, setTemplateResetKey, setGeneratorToolbarProps } = useTemplateContext()
   const { handleRunSingle } = useJobRunner()
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
@@ -280,7 +290,7 @@ export function TemplateGeneratorPanel({
   const [showAxisAdvanced, setShowAxisAdvanced] = useState<Set<string>>(() => loadSet(STORAGE_KEYS.axisAdvanced))
   const [favoriteCombinations, setFavoriteCombinations] = useState<Set<string>>(() => loadSet("ceg_favorite_combinations"))
 
-  const toggleFavorite = useCallback((key: string) => {
+  const toggleFavorite = useCallback((key: string): void => {
     setFavoriteCombinations((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -290,8 +300,8 @@ export function TemplateGeneratorPanel({
     })
   }, [])
 
-  const handleRunTestFromPopover = useCallback((item: RenderItem) => {
-    handleRunSingle(item)
+  const handleRunTestFromPopover = useCallback((item: RenderItem): void => {
+    void handleRunSingle(item)
     const k = itemKey(item)
     setPreviewFilter(k)
     setExpandedItemKey(k)
@@ -300,16 +310,16 @@ export function TemplateGeneratorPanel({
   const [isDragging, setIsDragging] = useState(false)
   const dragCounter = useRef(0)
 
-  const handleDragEnter = (e: React.DragEvent) => {
+  const handleDragEnter = (e: React.DragEvent): void => {
     e.preventDefault()
     e.stopPropagation()
     dragCounter.current++
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+    if (e.dataTransfer.items.length > 0) {
       setIsDragging(true)
     }
   }
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = (e: React.DragEvent): void => {
     e.preventDefault()
     e.stopPropagation()
     dragCounter.current--
@@ -318,39 +328,40 @@ export function TemplateGeneratorPanel({
     }
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent): void => {
     e.preventDefault()
     e.stopPropagation()
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent): void => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
     dragCounter.current = 0
 
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0]!
-      const name = file.name
-      const ext = name.split(".").pop()?.toLowerCase()
-      if (ext === "ceg" || ext === "template" || ext === "txt") {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          const content = event.target?.result as string
-          if (content) {
-            try {
-              // Dynamically set the loaded template details
-              setLoadedFileTemplate({ name: file.name, code: content, savedAt: Date.now() })
-              setSelectedTemplateId("loaded")
-              toast.success(`템플릿 '${name}' 불러오기 완료!`)
-            } catch {
-              toast.error("템플릿 파싱에 실패했습니다.")
+    if (e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0]
+      if (file !== undefined) {
+        const name = file.name
+        const ext = name.split(".").pop()?.toLowerCase()
+        if (ext === "ceg" || ext === "template" || ext === "txt") {
+          const reader = new FileReader()
+          reader.onload = (event: ProgressEvent<FileReader>): void => {
+            const content = event.target?.result as string
+            if (content !== "") {
+              try {
+                setLoadedFileTemplate({ name: file.name, code: content, savedAt: Date.now() })
+                setSelectedTemplateId("loaded")
+                toast.success(`템플릿 '${name}' 불러오기 완료!`)
+              } catch {
+                toast.error("템플릿 파싱에 실패했습니다.")
+              }
             }
           }
+          reader.readAsText(file)
+        } else {
+          toast.error("*.ceg 또는 *.template 파일만 지원합니다.")
         }
-        reader.readAsText(file)
-      } else {
-        toast.error("*.ceg 또는 *.template 파일만 지원합니다.")
       }
     }
   }
@@ -365,8 +376,8 @@ export function TemplateGeneratorPanel({
 
   useEffect(() => {
     let a = true
-    fetch(`${backendUrl}/templates`).then((r) => (r.ok ? r.json() : [])).then((d) => { if (a && Array.isArray(d) && d.length > 0) setSystemTemplates(d) }).catch(() => {})
-    return () => { a = false }
+    void fetch(`${backendUrl}/templates`).then((r: Response) => (r.ok ? r.json() : [])).then((d: unknown) => { if (a && Array.isArray(d) && d.length > 0) setSystemTemplates(d as TemplateItem[]) }).catch(() => undefined)
+    return (): void => { a = false }
   }, [backendUrl])
 
   const combinedTemplates = useMemo<TemplateItem[]>(() => {
@@ -384,18 +395,18 @@ export function TemplateGeneratorPanel({
   }, [savedTemplates, systemTemplates, loadedFileTemplate])
   const groupedTemplates = useMemo(() => { const g: Record<string, TemplateItem[]> = {}; for (const t of combinedTemplates) { const c = t.category || "기타"; (g[c] ??= []).push(t) } return g }, [combinedTemplates])
   const effectiveId = useMemo(() => {
-    if (!combinedTemplates.length) return "";
-    if (selectedTemplateId && combinedTemplates.some((t) => t.id === selectedTemplateId)) {
+    if (combinedTemplates.length === 0) return "";
+    if (selectedTemplateId !== "" && combinedTemplates.some((t) => t.id === selectedTemplateId)) {
       return selectedTemplateId;
     }
-    const defaultTemplate = combinedTemplates.find((t) => t.id !== "new" && t.id !== "loaded") || combinedTemplates[0];
-    return defaultTemplate!.id;
+    const defaultTemplate = combinedTemplates.find((t) => t.id !== "new" && t.id !== "loaded") ?? combinedTemplates[0];
+    return defaultTemplate?.id ?? "";
   }, [selectedTemplateId, combinedTemplates])
-  const activeTemplate = useMemo(() => combinedTemplates.find((t) => t.id === effectiveId) || null, [combinedTemplates, effectiveId])
+  const activeTemplate = useMemo(() => combinedTemplates.find((t) => t.id === effectiveId) ?? null, [combinedTemplates, effectiveId])
 
   const curId = activeTemplate?.id ?? null
   const templateDraft = useMemo<TemplateDraft>(() => {
-    if (!activeTemplate) return emptyDraft(null)
+    if (activeTemplate === null) return emptyDraft(null)
     if (activeTemplate.id === "new") return emptyDraft(activeTemplate.id, "새 템플릿")
 
     const parsed = parseCegTemplate(activeTemplate.code)
@@ -430,7 +441,7 @@ export function TemplateGeneratorPanel({
   } = activeDraft
 
   const updateDraft = useCallback(
-    (updater: (prev: TemplateDraft) => TemplateDraft) => {
+    (updater: (prev: TemplateDraft) => TemplateDraft): void => {
       setDraft((prev) => updater(prev.sourceId === curId ? prev : templateDraft))
     },
     [curId, templateDraft]
@@ -457,42 +468,42 @@ export function TemplateGeneratorPanel({
   const setFilenameBody: React.Dispatch<React.SetStateAction<string>> = useCallback((value) => {
     updateDraft((prev) => ({ ...prev, sourceId: curId, filenameBody: typeof value === "function" ? value(prev.filenameBody) : value }))
   }, [curId, updateDraft])
-  const setSaveName = useCallback((value: string) => {
+  const setSaveName = useCallback((value: string): void => {
     updateDraft((prev) => ({ ...prev, sourceId: curId, saveName: value }))
   }, [curId, updateDraft])
 
   // Handlers
-  const addVar = () => { setVariables((p) => [...p, { id: `v-${Date.now()}`, name: `var_${p.length + 1}`, value: "" }]); }
-  const setVarN = (id: string, n: string) => { setVariables((p) => p.map((v) => (v.id === id ? { ...v, name: n } : v))); }
-  const setVarV = (id: string, n: string) => { setVariables((p) => p.map((v) => (v.id === id ? { ...v, value: n } : v))); }
-  const delVar = (id: string) => { setVariables((p) => p.filter((v) => v.id !== id)); }
-  const dupVar = (id: string) => { const v = variables.find((x) => x.id === id); if (v) setVariables((p) => [...p, DUPLICATE_VAR(v)]) }
-  const addAxis = () => { const newId = `a-${Date.now()}`; setAxes((p) => [...p, { id: newId, name: `axis_${p.length + 1}`, include: "", entries: [] }]); setExpandedAxes((s) => new Set([...s, newId])) }
-  const setAxN = (id: string, n: string) => { setAxes((p) => p.map((a) => (a.id === id ? { ...a, name: n } : a))); }
-  const setAxI = (id: string, n: string) => { setAxes((p) => p.map((a) => (a.id === id ? { ...a, include: n } : a))); }
-  const delAxis = (id: string) => { setAxes((p) => p.filter((a) => a.id !== id)); }
-  const dupAxis = (id: string) => { const a = axes.find((x) => x.id === id); if (a) { const dup = DUPLICATE_AXIS(a); setAxes((p) => [...p, dup]); setExpandedAxes((s) => new Set([...s, dup.id])) } }
-  const toggleAxisExpand = (id: string) => { setExpandedAxes((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); saveSet(STORAGE_KEYS.expandedAxes, n); return n }); }
-  const toggleAxisAdvanced = (id: string) => { setShowAxisAdvanced((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); saveSet(STORAGE_KEYS.axisAdvanced, n); return n }); }
-  const addEntry = (axId: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: [...a.entries, { id: `e-${Date.now()}`, key: `val_${a.entries.length + 1}`, value: "", properties: [], isComplex: false }] })); }
-  const setEKey = (axId: string, eId: string, k: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, key: k } : e)) })); }
-  const setEVal = (axId: string, eId: string, v: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, value: v } : e)) })); }
-  const toggleCplx = (axId: string, eId: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => { if (e.id !== eId) return e; const c = !e.isComplex; return { ...e, isComplex: c, properties: c && e.properties.length === 0 ? [{ id: `p-${Date.now()}`, name: "text", value: e.value || "" }] : e.properties } }) })); }
-  const delEntry = (axId: string, eId: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.filter((e) => e.id !== eId) })); }
-  const addProp = (axId: string, eId: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: [...e.properties, { id: `p-${Date.now()}`, name: `prop_${e.properties.length + 1}`, value: "" }] }) })); }
-  const setPropN = (axId: string, eId: string, pId: string, n: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.map((pp) => (pp.id === pId ? { ...pp, name: n } : pp)) }) })); }
-  const setPropV = (axId: string, eId: string, pId: string, n: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.map((pp) => (pp.id === pId ? { ...pp, value: n } : pp)) }) })); }
-  const delProp = (axId: string, eId: string, pId: string) => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.filter((pp) => pp.id !== pId) }) })); }
-  const addCombine = () => { setCombines((p) => [...p, { id: `c-${Date.now()}`, expression: "" }]); }
-  const setCombExpr = useCallback((id: string, n: string) => { setCombines((p) => p.map((c) => (c.id === id ? { ...c, expression: n } : c))); }, [setCombines])
-  const delCombine = (id: string) => { setCombines((p) => p.filter((c) => c.id !== id)); }
-  const addExclude = () => { setExcludes((p) => [...p, { id: `ex-${Date.now()}`, statement: "" }]); }
-  const setExclStmt = useCallback((id: string, n: string) => { setExcludes((p) => p.map((e) => (e.id === id ? { ...e, statement: n } : e))); }, [setExcludes])
-  const delExclude = (id: string) => { setExcludes((p) => p.filter((e) => e.id !== id)); }
+  const addVar = (): void => { setVariables((p) => [...p, { id: `v-${String(Date.now())}`, name: `var_${String(p.length + 1)}`, value: "" }]); }
+  const setVarN = (id: string, n: string): void => { setVariables((p) => p.map((v) => (v.id === id ? { ...v, name: n } : v))); }
+  const setVarV = (id: string, n: string): void => { setVariables((p) => p.map((v) => (v.id === id ? { ...v, value: n } : v))); }
+  const delVar = (id: string): void => { setVariables((p) => p.filter((v) => v.id !== id)); }
+  const dupVar = (id: string): void => { const v = variables.find((x) => x.id === id); if (v !== undefined) setVariables((p) => [...p, DUPLICATE_VAR(v)]) }
+  const addAxis = (): void => { const newId = `a-${String(Date.now())}`; setAxes((p) => [...p, { id: newId, name: `axis_${String(p.length + 1)}`, include: "", entries: [] }]); setExpandedAxes((s) => new Set([...s, newId])) }
+  const setAxN = (id: string, n: string): void => { setAxes((p) => p.map((a) => (a.id === id ? { ...a, name: n } : a))); }
+  const setAxI = (id: string, n: string): void => { setAxes((p) => p.map((a) => (a.id === id ? { ...a, include: n } : a))); }
+  const delAxis = (id: string): void => { setAxes((p) => p.filter((a) => a.id !== id)); }
+  const dupAxis = (id: string): void => { const a = axes.find((x) => x.id === id); if (a !== undefined) { const dup = DUPLICATE_AXIS(a); setAxes((p) => [...p, dup]); setExpandedAxes((s) => new Set([...s, dup.id])) } }
+  const toggleAxisExpand = (id: string): void => { setExpandedAxes((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); saveSet(STORAGE_KEYS.expandedAxes, n); return n }); }
+  const toggleAxisAdvanced = (id: string): void => { setShowAxisAdvanced((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); saveSet(STORAGE_KEYS.axisAdvanced, n); return n }); }
+  const addEntry = (axId: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: [...a.entries, { id: `e-${String(Date.now())}`, key: `val_${String(a.entries.length + 1)}`, value: "", properties: [], isComplex: false }] })); }
+  const setEKey = (axId: string, eId: string, k: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, key: k } : e)) })); }
+  const setEVal = (axId: string, eId: string, v: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => (e.id === eId ? { ...e, value: v } : e)) })); }
+  const toggleCplx = (axId: string, eId: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => { if (e.id !== eId) return e; const c = !e.isComplex; return { ...e, isComplex: c, properties: c && e.properties.length === 0 ? [{ id: `p-${String(Date.now())}`, name: "text", value: e.value }] : e.properties } }) })); }
+  const delEntry = (axId: string, eId: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.filter((e) => e.id !== eId) })); }
+  const addProp = (axId: string, eId: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: [...e.properties, { id: `p-${String(Date.now())}`, name: `prop_${String(e.properties.length + 1)}`, value: "" }] }) })); }
+  const setPropN = (axId: string, eId: string, pId: string, n: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.map((pp) => (pp.id === pId ? { ...pp, name: n } : pp)) }) })); }
+  const setPropV = (axId: string, eId: string, pId: string, n: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.map((pp) => (pp.id === pId ? { ...pp, value: n } : pp)) }) })); }
+  const delProp = (axId: string, eId: string, pId: string): void => { setAxes((p) => p.map((a) => a.id !== axId ? a : { ...a, entries: a.entries.map((e) => e.id !== eId ? e : { ...e, properties: e.properties.filter((pp) => pp.id !== pId) }) })); }
+  const addCombine = (): void => { setCombines((p) => [...p, { id: `c-${String(Date.now())}`, expression: "" }]); }
+  const setCombExpr = useCallback((id: string, n: string): void => { setCombines((p) => p.map((c) => (c.id === id ? { ...c, expression: n } : c))); }, [setCombines])
+  const delCombine = (id: string): void => { setCombines((p) => p.filter((c) => c.id !== id)); }
+  const addExclude = (): void => { setExcludes((p) => [...p, { id: `ex-${String(Date.now())}`, statement: "" }]); }
+  const setExclStmt = useCallback((id: string, n: string): void => { setExcludes((p) => p.map((e) => (e.id === id ? { ...e, statement: n } : e))); }, [setExcludes])
+  const delExclude = (id: string): void => { setExcludes((p) => p.filter((e) => e.id !== id)); }
 
-  const insertToCombine = useCallback((combineId: string, text: string) => {
+  const insertToCombine = useCallback((combineId: string, text: string): void => {
     const el = combineInputRefs.current[combineId]
-    if (el) {
+    if (el !== null) {
       const start = el.selectionStart ?? el.value.length
       const end = el.selectionEnd ?? el.value.length
       const before = el.value.slice(0, start)
@@ -501,13 +512,16 @@ export function TemplateGeneratorPanel({
       const newVal = before + needSpace + text + after
       setCombExpr(combineId, newVal)
     } else {
-      setCombExpr(combineId, (combines.find((c) => c.id === combineId)?.expression ?? "") + (combines.find((c) => c.id === combineId)?.expression && !combines.find((c) => c.id === combineId)?.expression.endsWith(" ") ? " " : "") + text)
+      const target = combines.find((c) => c.id === combineId)
+      const currentExpr = target?.expression ?? ""
+      const needsSpace = currentExpr !== "" && !currentExpr.endsWith(" ")
+      setCombExpr(combineId, currentExpr + (needsSpace ? " " : "") + text)
     }
   }, [combines, setCombExpr])
 
-  const insertToExclude = useCallback((excludeId: string, text: string) => {
+  const insertToExclude = useCallback((excludeId: string, text: string): void => {
     const el = excludeInputRefs.current[excludeId]
-    if (el) {
+    if (el !== null) {
       const start = el.selectionStart ?? el.value.length
       const end = el.selectionEnd ?? el.value.length
       const before = el.value.slice(0, start)
@@ -520,11 +534,11 @@ export function TemplateGeneratorPanel({
     }
   }, [excludes, setExclStmt])
 
-  const insertToTemplate = useCallback((text: string) => {
+  const insertToTemplate = useCallback((text: string): void => {
     const el = templateTextareaRef.current
-    if (el) {
-      const start = el.selectionStart ?? templateBody.length
-      const end = el.selectionEnd ?? templateBody.length
+    if (el !== null) {
+      const start = el.selectionStart
+      const end = el.selectionEnd
       const newBody = templateBody.slice(0, start) + text + templateBody.slice(end)
       setTemplateBody(newBody)
     } else {
@@ -532,7 +546,7 @@ export function TemplateGeneratorPanel({
     }
   }, [setTemplateBody, templateBody])
 
-  const toggleSection = (key: string) => { setAccordionValue((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); saveSet(STORAGE_KEYS.accordionSections, next); return next }); }
+  const toggleSection = (key: string): void => { setAccordionValue((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); saveSet(STORAGE_KEYS.accordionSections, next); return next }); }
 
   const axisNames = useMemo(() => axes.map((a) => a.name.trim()).filter(Boolean), [axes])
 
@@ -541,10 +555,11 @@ export function TemplateGeneratorPanel({
     if (!cleanFilename) {
       c += `{{set clean_filename = "false"}}\n`
     }
-    variables.forEach((v) => { if (v.name.trim()) c += `{{set ${v.name.trim()} = "${v.value}"}}\n` })
-    if (!cleanFilename || variables.length) c += "\n"
+    variables.forEach((v) => { if (v.name.trim() !== "") c += `{{set ${v.name.trim()} = "${v.value}"}}\n` })
+    if (!cleanFilename || variables.length > 0) c += "\n"
     axes.forEach((a) => {
-      const incStr = a.include?.trim() ? ` include="${a.include.trim()}"` : ""
+      const trimmedInc = a.include.trim()
+      const incStr = trimmedInc !== "" ? ` include="${trimmedInc}"` : ""
       c += `{{axis ${a.name}${incStr}}}\n`
       a.entries.forEach((e) => {
         if (e.isComplex) {
@@ -556,41 +571,57 @@ export function TemplateGeneratorPanel({
       })
       c += `{{/axis}}\n\n`
     })
-    combines.forEach((cm) => { if (cm.expression.trim()) c += `{{combine ${cm.expression.trim()}}}\n` })
-    if (combines.length) c += "\n"
-    excludes.forEach((ex) => { if (ex.statement.trim()) c += `{{exclude ${ex.statement.trim()}}}\n` })
-    if (excludes.length) c += "\n"
-    if (templateBody?.trim()) c += `{{template}}\n${templateBody}\n{{/template}}\n\n`
-    if (filenameBody?.trim()) c += `{{filename}}${filenameBody}{{/filename}}\n`
+    combines.forEach((cm) => { if (cm.expression.trim() !== "") c += `{{combine ${cm.expression.trim()}}}\n` })
+    if (combines.length > 0) c += "\n"
+    excludes.forEach((ex) => { if (ex.statement.trim() !== "") c += `{{exclude ${ex.statement.trim()}}}\n` })
+    if (excludes.length > 0) c += "\n"
+    if (templateBody.trim() !== "") c += `{{template}}\n${templateBody}\n{{/template}}\n\n`
+    if (filenameBody.trim() !== "") c += `{{filename}}${filenameBody}{{/filename}}\n`
     return c.trim() + "\n"
   }, [variables, axes, combines, excludes, templateBody, filenameBody, cleanFilename])
 
-  const substitute = (text: string, item: RenderItem) => { let r = text || ""; Object.entries(item.meta).forEach(([k, v]) => { r = r.split(`{{${k}}}`).join(v); r = r.split(`{${k}}`).join(v) }); r = r.split("{{input}}").join(item.prompt || ""); r = r.split("{input}").join(item.prompt || ""); return r }
+  const substitute = (text: string, item: RenderItem): string => { let r = text || ""; Object.entries(item.meta).forEach(([k, v]) => { r = r.split(`{{${k}}}`).join(v); r = r.split(`{${k}}`).join(v) }); r = r.split("{{input}}").join(item.prompt); r = r.split("{input}").join(item.prompt); return r }
 
   useEffect(() => {
-    if (!generatedCode.trim()) {
+    if (generatedCode.trim() === "") {
       return
     }
     const ctrl = new AbortController()
-    const t = setTimeout(async () => { setIsLoading(true); setParserError(null); try { const r = await fetch(`${backendUrl}${API.render}`, { method: "POST", headers: HEADERS.json, body: JSON.stringify({ template: generatedCode }), signal: ctrl.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); setParserRenderResponse((await r.json()) as RenderItemsResponse) } catch (e) { if (e instanceof Error && e.name === "AbortError") return; setParserError(e instanceof Error ? e.message : String(e)); setParserRenderResponse(null) } finally { setIsLoading(false) } }, CEG_TEMPLATE_DEBOUNCE_MS)
-    return () => { clearTimeout(t); ctrl.abort() }
+    const t = setTimeout((): void => {
+      void (async (): Promise<void> => {
+        setIsLoading(true)
+        setParserError(null)
+        try {
+          const r = await fetch(`${backendUrl}${API.render}`, { method: "POST", headers: HEADERS.json, body: JSON.stringify({ template: generatedCode }), signal: ctrl.signal })
+          if (!r.ok) throw new Error(`HTTP ${String(r.status)}`)
+          setParserRenderResponse((await r.json()) as RenderItemsResponse)
+        } catch (e: unknown) {
+          if (e instanceof Error && e.name === "AbortError") return
+          setParserError(e instanceof Error ? e.message : String(e))
+          setParserRenderResponse(null)
+        } finally {
+          setIsLoading(false)
+        }
+      })()
+    }, CEG_TEMPLATE_DEBOUNCE_MS)
+    return (): void => { clearTimeout(t); ctrl.abort() }
   }, [generatedCode, backendUrl])
 
-  const renderResponse = generatedCode.trim() ? parserRenderResponse : null
-  const activeQueue = useMemo(() => (generatedCode.trim() ? renderResponse?.items ?? [] : []), [generatedCode, renderResponse])
+  const renderResponse = generatedCode.trim() !== "" ? parserRenderResponse : null
+  const activeQueue = useMemo(() => (generatedCode.trim() !== "" ? renderResponse?.items ?? [] : []), [generatedCode, renderResponse])
   const renderAxes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
   const renderSets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
-  const filtered = useMemo(() => { const n = previewFilter.trim().toLowerCase(); if (!n) return activeQueue; return activeQueue.filter((i) => substitute(i.filename, i).toLowerCase().includes(n) || substitute(i.prompt, i).toLowerCase().includes(n)) }, [activeQueue, previewFilter])
+  const filtered = useMemo(() => { const n = previewFilter.trim().toLowerCase(); if (n === "") return activeQueue; return activeQueue.filter((i) => substitute(i.filename, i).toLowerCase().includes(n) || substitute(i.prompt, i).toLowerCase().includes(n)) }, [activeQueue, previewFilter])
 
-  const handleApply = useCallback(() => { if (!generatedCode) return; setCegTemplate(generatedCode); toast.success("작업 탭에 적용되었습니다."); setActiveTab("jobs") }, [generatedCode, setActiveTab, setCegTemplate])
-  const handleSave = useCallback(() => {
+  const handleApply = useCallback((): void => { if (generatedCode === "") return; setCegTemplate(generatedCode); toast.success("작업 탭에 적용되었습니다."); setActiveTab("jobs") }, [generatedCode, setActiveTab, setCegTemplate])
+  const handleSave = useCallback((): void => {
     const trimmedName = saveName.trim()
-    if (!trimmedName) {
+    if (trimmedName === "") {
       toast.error("저장할 이름을 입력해 주세요.")
       return
     }
     const existing = savedTemplates.find((t) => t.name.toLowerCase() === trimmedName.toLowerCase())
-    if (existing) {
+    if (existing !== undefined) {
       if (activeTemplate?.id !== existing.id) {
         const ok = window.confirm(`'${trimmedName}' 이름의 템플릿이 이미 존재합니다. 덮어쓰시겠습니까?`)
         if (!ok) return
@@ -601,13 +632,13 @@ export function TemplateGeneratorPanel({
     setSelectedTemplateId(saved.id)
     toast.success(`'${trimmedName}' 저장됨`)
   }, [activeTemplate, generatedCode, saveName, saveTemplate, savedTemplates, setTemplateResetKey])
-  const handleCopy = async () => { try { await navigator.clipboard.writeText(generatedCode); setCopied(true); toast.success("복사됨"); setTimeout(() => { setCopied(false); }, 2000) } catch { toast.error("복사 실패") } }
-  const handleDownload = () => { const u = URL.createObjectURL(new Blob([generatedCode], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = u; a.download = `${saveName.replace(/\s+/g, "_") || "template"}.template`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); toast.success("다운로드 완료") }
+  const handleCopy = async (): Promise<void> => { try { await navigator.clipboard.writeText(generatedCode); setCopied(true); toast.success("복사됨"); setTimeout(() => { setCopied(false); }, 2000) } catch { toast.error("복사 실패") } }
+  const handleDownload = (): void => { const u = URL.createObjectURL(new Blob([generatedCode], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = u; a.download = `${saveName.replace(/\s+/g, "_") || "template"}.template`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); toast.success("다운로드 완료") }
 
-  const catLabel = useCallback((c: string) => (c === "saved" ? "내 저장" : c), [])
+  const catLabel = useCallback((c: string): string => (c === "saved" ? "내 저장" : c), [])
 
   useEffect(() => {
-    if (activeTemplate) {
+    if (activeTemplate !== null) {
       setGeneratorToolbarProps({
         generatedCode,
         saveName,
@@ -622,7 +653,7 @@ export function TemplateGeneratorPanel({
     } else {
       setGeneratorToolbarProps(null)
     }
-    return () => { setGeneratorToolbarProps(null); }
+    return (): void => { setGeneratorToolbarProps(null); }
   }, [
     activeTemplate,
     generatedCode,
@@ -637,7 +668,7 @@ export function TemplateGeneratorPanel({
     setGeneratorToolbarProps,
   ])
 
-  const handleVarKeyDown = (e: React.KeyboardEvent, idx: number) => {
+  const handleVarKeyDown = (e: React.KeyboardEvent, idx: number): void => {
     if (e.key === "Enter" && idx === variables.length - 1) {
       e.preventDefault()
       addVar()
@@ -645,7 +676,7 @@ export function TemplateGeneratorPanel({
     }
   }
 
-  const handleEntryKeyDown = (e: React.KeyboardEvent, axId: string, idx: number, totalEntries: number) => {
+  const handleEntryKeyDown = (e: React.KeyboardEvent, axId: string, idx: number, totalEntries: number): void => {
     if (e.key === "Enter" && idx === totalEntries - 1) {
       e.preventDefault()
       addEntry(axId)
@@ -670,7 +701,7 @@ export function TemplateGeneratorPanel({
               <Badge variant="outline" className="h-7 shrink-0 rounded-md px-1.5 font-mono text-[11px] text-muted-foreground/60 select-none">{"{{"}</Badge>
               <Input value={v.name} onChange={(e) => { setVarN(v.id, e.target.value); }} placeholder="변수명" className="h-8 flex-1 md:w-28 md:flex-initial font-mono text-sm" onKeyDown={(e) => { handleVarKeyDown(e, i); }} />
               <Badge variant="outline" className="h-7 shrink-0 rounded-md px-1.5 font-mono text-[11px] text-muted-foreground/60 select-none md:hidden">{"}}"}</Badge>
-              
+
               {/* Mobile-only action buttons aligned to the right */}
               <div className="flex items-center gap-1 ml-auto md:hidden">
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => { dupVar(v.id); }}>
@@ -698,7 +729,7 @@ export function TemplateGeneratorPanel({
                 onRunTest={handleRunTestFromPopover}
                 onToggleFavorite={toggleFavorite}
               />
-              
+
               {/* Desktop Copy/Delete buttons */}
               <div className="hidden md:flex items-center gap-1 shrink-0">
                 <Tooltip>
@@ -739,7 +770,7 @@ export function TemplateGeneratorPanel({
               {/* Axis header */}
               <div className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none" onClick={() => { toggleAxisExpand(axis.id); }}>
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
-                <Badge className="h-5 items-center justify-center rounded px-1.5 text-[10px] font-bold">A{ai + 1}</Badge>
+                <Badge className="h-5 items-center justify-center rounded px-1.5 text-[10px] font-bold">A{String(ai + 1)}</Badge>
                 <Input value={axis.name} onChange={(e) => { setAxN(axis.id, e.target.value); }} placeholder="축 이름 (예: emotion)" className="h-7 flex-1 border-0 bg-transparent font-mono text-sm font-semibold shadow-none px-1 focus-visible:ring-1" onClick={(e) => { e.stopPropagation(); }} />
                 <Badge variant="secondary" className="text-[9px] shrink-0">{axis.entries.length}값</Badge>
                 <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); delAxis(axis.id) }}><Trash2 className="h-3 w-3" /></Button></TooltipTrigger><TooltipContent>축 삭제</TooltipContent></Tooltip>
@@ -835,19 +866,19 @@ export function TemplateGeneratorPanel({
             </div>
           ))}</div>
         )}
-        <AxisBadgeButtons axisNames={axisNames} onInsert={(text) => {
-          const target = combines.find((c) => !c.expression.trim())
-          if (target) {
+        <AxisBadgeButtons axisNames={axisNames} onInsert={(text: string): void => {
+          const target = combines.find((c) => c.expression.trim() === "")
+          if (target !== undefined) {
             setCombExpr(target.id, text)
           } else if (combines.length > 0) {
-            insertToCombine(combines[combines.length - 1]!.id, text)
+            insertToCombine(combines[combines.length - 1]?.id ?? "", text)
           }
         }} />
         {combines.length > 0 && axisNames.length > 0 && (
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={() => {
-              const target = combines.find((c) => !c.expression.trim()) || combines[combines.length - 1]
-              if (target) insertToCombine(target.id, " * ")
+            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={(): void => {
+              const target = combines.find((c) => c.expression.trim() === "") ?? combines[combines.length - 1]
+              if (target !== undefined) insertToCombine(target.id, " * ")
             }}><Badge variant="secondary" className="font-mono text-[10px] mr-0.5">×</Badge>곱연산 삽입</Button>
           </div>
         )}
@@ -869,23 +900,23 @@ export function TemplateGeneratorPanel({
             </div>
           ))}</div>
         )}
-        <AxisBadgeButtons axisNames={axisNames} onInsert={(text) => {
-          const target = excludes.find((e) => !e.statement.trim())
-          if (target) {
+        <AxisBadgeButtons axisNames={axisNames} onInsert={(text: string): void => {
+          const target = excludes.find((e) => e.statement.trim() === "")
+          if (target !== undefined) {
             setExclStmt(target.id, text)
           } else if (excludes.length > 0) {
-            insertToExclude(excludes[excludes.length - 1]!.id, text)
+            insertToExclude(excludes[excludes.length - 1]?.id ?? "", text)
           }
         }} />
         {excludes.length > 0 && (
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={() => {
-              const target = excludes.find((e) => !e.statement.trim()) || excludes[excludes.length - 1]
-              if (target) insertToExclude(target.id, " AND ")
+            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={(): void => {
+              const target = excludes.find((e) => e.statement.trim() === "") ?? excludes[excludes.length - 1]
+              if (target !== undefined) insertToExclude(target.id, " AND ")
             }}><Badge variant="secondary" className="font-mono text-[10px] mr-0.5">AND</Badge>조건 결합</Button>
-            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={() => {
-              const target = excludes.find((e) => !e.statement.trim()) || excludes[excludes.length - 1]
-              if (target) insertToExclude(target.id, " OR ")
+            <Button variant="ghost" size="sm" className="h-6 gap-0.5 text-[10px] text-muted-foreground" onClick={(): void => {
+              const target = excludes.find((e) => e.statement.trim() === "") ?? excludes[excludes.length - 1]
+              if (target !== undefined) insertToExclude(target.id, " OR ")
             }}><Badge variant="secondary" className="font-mono text-[10px] mr-0.5">OR</Badge>조건 분기</Button>
           </div>
         )}
@@ -937,8 +968,8 @@ export function TemplateGeneratorPanel({
       <VarBadgeButtons
         variables={variables}
         axes={axes}
-        onInsertVar={(name) => { insertToTemplate(`{{${name}}}`); }}
-        onInsertAxisKey={(name) => { insertToTemplate(`{{${name}.key}}`); }}
+        onInsertVar={(name: string): void => { insertToTemplate(`{{${name}}}`); }}
+        onInsertAxisKey={(name: string): void => { insertToTemplate(`{{${name}.key}}`); }}
       />
     </div>
   )
@@ -951,19 +982,19 @@ export function TemplateGeneratorPanel({
         <span className="text-[10px] text-muted-foreground font-medium">결과</span>
         {activeQueue.length > 0 && <Badge variant="secondary" className="text-[9px]">{filtered.length}/{activeQueue.length}</Badge>}
       </div>
-      {!parserError && activeQueue.length > 0 && (
+      {parserError === null && activeQueue.length > 0 && (
         <div className="shrink-0 border-b px-3 py-2">
           <div className="relative w-full"><Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /><Input placeholder="검색..." value={previewFilter} onChange={(e) => { setPreviewFilter(e.target.value); }} className="h-8 pl-9 text-xs" /></div>
         </div>
       )}
       <div className="min-h-0 flex-1">
         {isLoading ? <div className="space-y-3 p-4">{[1, 2, 3].map((i) => <div key={i} className="animate-pulse rounded-lg border p-4 space-y-2"><div className="h-3 w-2/3 rounded bg-muted/50" /><div className="flex gap-2"><div className="h-4 w-12 rounded bg-muted/40" /><div className="h-4 w-16 rounded bg-muted/40" /></div><div className="h-10 w-full rounded bg-muted/30" /></div>)}</div>
-        : parserError ? <div className="flex h-full items-center justify-center p-4"><Card className="w-full border-destructive/20 shadow-none"><CardContent className="flex items-start gap-3 p-5"><div className="shrink-0 rounded-lg bg-destructive/10 p-2"><AlertCircle className="h-4 w-4 text-destructive" /></div><div className="min-w-0 flex-1 space-y-1.5"><h3 className="text-xs font-bold text-destructive">파싱 에러</h3><CardDescription className="text-[11px]">문법 오류로 조합 목록을 생성할 수 없습니다.</CardDescription><div className="mt-2 max-h-36 overflow-auto rounded-md border border-destructive/10 bg-background p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-destructive/80">{parserError}</div></div></CardContent></Card></div>
+        : parserError !== null ? <div className="flex h-full items-center justify-center p-4"><Card className="w-full border-destructive/20 shadow-none"><CardContent className="flex items-start gap-3 p-5"><div className="shrink-0 rounded-lg bg-destructive/10 p-2"><AlertCircle className="h-4 w-4 text-destructive" /></div><div className="min-w-0 flex-1 space-y-1.5"><h3 className="text-xs font-bold text-destructive">파싱 에러</h3><CardDescription className="text-[11px]">문법 오류로 조합 목록을 생성할 수 없습니다.</CardDescription><div className="mt-2 max-h-36 overflow-auto rounded-md border border-destructive/10 bg-background p-2.5 font-mono text-[10px] break-all whitespace-pre-wrap text-destructive/80">{parserError}</div></div></CardContent></Card></div>
         : activeQueue.length === 0 ? <div className="flex h-full items-center justify-center p-6"><Card className="border-dashed shadow-none w-full max-w-sm"><CardContent className="flex flex-col items-center py-10 gap-2"><div className="rounded-xl bg-muted/60 p-3"><Sparkles className="h-6 w-6 text-muted-foreground/40" /></div><p className="text-xs font-semibold text-muted-foreground">결과 없음</p><p className="text-[10px] text-muted-foreground/50 text-center">템플릿을 편집하면 결과가 여기에 표시됩니다.</p></CardContent></Card></div>
         : filtered.length === 0 ? <div className="flex h-full items-center justify-center"><p className="text-xs text-muted-foreground">검색 결과 없음</p></div>
         : <ScrollArea className="h-full"><div className="p-3 space-y-1.5">
             {filtered.map((item: RenderItem, idx: number) => { const fn = substitute(item.filename, item); const pr = substitute(item.prompt, item); const k = itemKey(item); const isExpanded = expandedItemKey === k; return (
-              <div key={`r-${k}-${idx}`}
+              <div key={`r-${k}-${String(idx)}`}
                 className={`rounded-lg border p-2.5 space-y-1 hover:bg-muted/30 transition-colors cursor-pointer ${isExpanded ? 'bg-primary/[0.02] border-primary/20' : ''}`}
                 onClick={() => { setExpandedItemKey(isExpanded ? null : k); }}
               >
@@ -1008,8 +1039,8 @@ export function TemplateGeneratorPanel({
                           {Object.entries(item.meta).map(([axisName, key]) => {
                             const axisInfo = renderAxes[axisName]
                             const matched = axisInfo?.values.find((v) => v.key === key)
-                            const value = matched?.value || ""
-                            const props = matched?.props || {}
+                            const value = matched?.value ?? ""
+                            const props = matched?.props ?? {}
                             const include = axisInfo?.include
                             return (
                               <div key={axisName} className="flex items-start gap-2 text-[10px] bg-muted/30 rounded-md p-1.5">
@@ -1017,8 +1048,8 @@ export function TemplateGeneratorPanel({
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 flex-wrap">
                                     <Badge variant="secondary" className="text-[9px] font-mono">{key}</Badge>
-                                    {value && <span className="text-muted-foreground">{value}</span>}
-                                    {include && <Badge variant="outline" className="text-[8px]">include: {include}</Badge>}
+                                    {value !== "" && <span className="text-muted-foreground">{value}</span>}
+                                    {include !== undefined && <Badge variant="outline" className="text-[8px]">include: {include}</Badge>}
                                   </div>
                                   {Object.keys(props).length > 0 && (
                                     <div className="flex flex-wrap gap-0.5 mt-0.5">
@@ -1053,19 +1084,19 @@ export function TemplateGeneratorPanel({
                       <div className="flex items-center justify-between mb-1">
                         <div className="text-[10px] font-semibold text-muted-foreground">최종 결과</div>
                         <div className="flex gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
+                          <Button
+                            size="sm"
+                            variant="outline"
                             className="h-6 w-6 p-0 text-muted-foreground hover:text-yellow-500"
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(k) }}
                           >
                             <Star className={`h-3 w-3 ${favoriteCombinations.has(k) ? "fill-yellow-400 text-yellow-400" : ""}`} />
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="secondary" 
+                          <Button
+                            size="sm"
+                            variant="secondary"
                             className="h-6 text-[10px] gap-1"
-                            onClick={(e) => { e.stopPropagation(); handleRunSingle(item) }}
+                            onClick={(e) => { e.stopPropagation(); void handleRunSingle(item) }}
                           >
                             <Sparkles className="h-3 w-3" />
                             테스트 생성
@@ -1090,14 +1121,14 @@ export function TemplateGeneratorPanel({
     <div className="flex flex-1 flex-col min-h-0">
       <div className="shrink-0 flex items-center gap-2 border-b px-3 py-1.5 bg-muted/20">
         <FileCode2 className="h-3 w-3 text-muted-foreground/60" />
-        <span className="text-[10px] text-muted-foreground font-mono">{activeTemplate?.name || "template"}.template</span>
-        {generatedCode && <Badge variant="secondary" className="font-mono text-[9px]">{generatedCode.split("\n").length}L</Badge>}
+        <span className="text-[10px] text-muted-foreground font-mono">{activeTemplate?.name ?? "template"}.template</span>
+        {generatedCode !== "" && <Badge variant="secondary" className="font-mono text-[9px]">{generatedCode.split("\n").length}L</Badge>}
         <div className="ml-auto flex items-center gap-0.5">
-          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCopy} disabled={!generatedCode}>{copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}</Button></TooltipTrigger><TooltipContent>복사</TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { void handleCopy(); }} disabled={!generatedCode}>{copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}</Button></TooltipTrigger><TooltipContent>복사</TooltipContent></Tooltip>
           <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleDownload} disabled={!generatedCode}><Download className="h-3 w-3" /></Button></TooltipTrigger><TooltipContent>다운로드</TooltipContent></Tooltip>
         </div>
       </div>
-      <div className="flex-1 min-h-0"><CodeEditor language="ceg" value={generatedCode} onChange={() => {}} minHeight="100%" bareWrapper className="h-full w-full" /></div>
+      <div className="flex-1 min-h-0"><CodeEditor language="ceg" value={generatedCode} onChange={(): void => undefined} minHeight="100%" bareWrapper className="h-full w-full" /></div>
     </div>
   )
 

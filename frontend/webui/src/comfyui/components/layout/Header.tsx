@@ -141,7 +141,9 @@ interface HeaderProps {
   onGalleryDragStart?: (clientX: number, clientY: number) => void
 }
 
-export function Header(props: HeaderProps) {
+const noop = (): void => undefined
+
+export function Header(props: HeaderProps): JSX.Element {
   const { theme, setTheme } = useTheme()
   const panel = usePanelLayout()
   const tb = useGalleryToolbar()
@@ -174,10 +176,10 @@ export function Header(props: HeaderProps) {
   const cachedGalleryToolbarCompactWidthRef = useRef<number>(340)
 
   useEffect(() => {
-    if (!headerRef.current) return
+    if (headerRef.current === null) return
 
-    const getElWidth = (el: HTMLElement | null) => {
-      if (!el) return 0
+    const getElWidth = (el: HTMLElement | null): number => {
+      if (el === null) return 0
       return Math.max(el.scrollWidth, el.getBoundingClientRect().width)
     }
 
@@ -187,26 +189,24 @@ export function Header(props: HeaderProps) {
 
         const logoWidth = getElWidth(logoRef.current)
         const rightSectionWidthRaw = getElWidth(rightSectionRef.current)
-        const galleryToolbarCurrentWidth = (props.activeTab === "gallery" && galleryToolbarRef.current) ? getElWidth(galleryToolbarRef.current) : 0
+        const galleryToolbarCurrentWidth = (props.activeTab === "gallery" && galleryToolbarRef.current !== null) ? getElWidth(galleryToolbarRef.current) : 0
         const rightSectionWidth = rightSectionWidthRaw - galleryToolbarCurrentWidth
 
         let targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
         let toolbarWidth = rightSectionWidth
 
-        if (props.activeTab === "gallery" && galleryToolbarRef.current) {
+        if (props.activeTab === "gallery" && galleryToolbarRef.current !== null) {
           const currentToolbarWidth = getElWidth(galleryToolbarRef.current)
 
           if (!isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
-            // 완전히 펼쳐진 상태의 너비 캐싱
             cachedGalleryToolbarWidthRef.current = currentToolbarWidth
             targetGalleryToolbarWidth = currentToolbarWidth
           } else if (isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
-            // 1단계 콤팩트 상태(셀렉트 박스들은 살아있음)의 너비 캐싱
             cachedGalleryToolbarCompactWidthRef.current = currentToolbarWidth
           }
 
           if (isGalleryToolbarUltraCompact) {
-            targetGalleryToolbarWidth = 36 // MoreVertical 버튼 1개만 노출될 때의 너비
+            targetGalleryToolbarWidth = 36
           } else if (isGalleryToolbarCompact) {
             targetGalleryToolbarWidth =
               cachedGalleryToolbarCompactWidthRef.current
@@ -217,29 +217,26 @@ export function Header(props: HeaderProps) {
           toolbarWidth += targetGalleryToolbarWidth
         } else if (
           props.activeTab === "curation" &&
-          curationToolbarRef.current
+          curationToolbarRef.current !== null
         ) {
           toolbarWidth += getElWidth(curationToolbarRef.current)
         }
 
-        if (tabsRef.current) {
+        if (tabsRef.current !== null) {
           const actualTabsWidth = getElWidth(tabsRef.current)
           if (actualTabsWidth > 0) {
             cachedTabsWidthRef.current = actualTabsWidth
           }
         }
 
-        // 1. 탭 콤팩트 판단 (로고 + 가로탭 리스트 + 우측 툴바 + 안전 마진)
         const requiredWidthForTabs =
           logoWidth + cachedTabsWidthRef.current + toolbarWidth + 80
         const nextIsCompact = currentWidth < requiredWidthForTabs
         setIsCompact(nextIsCompact)
 
-        // 2. 갤러리 툴바 콤팩트 판단
         if (props.activeTab === "gallery") {
           const tabsWidth = nextIsCompact ? 120 : cachedTabsWidthRef.current
 
-          // 풀 버전 기준 필요한 너비
           const requiredWidthForToolbar =
             logoWidth +
             tabsWidth +
@@ -249,7 +246,6 @@ export function Header(props: HeaderProps) {
           const nextIsToolbarCompact = currentWidth < requiredWidthForToolbar
           setIsGalleryToolbarCompact(nextIsToolbarCompact)
 
-          // 콤팩트 버전 기준 필요한 너비 (드롭다운 3개 + 방향 버튼이 펼쳐진 상태)
           const requiredWidthForUltraToolbar =
             logoWidth +
             tabsWidth +
@@ -266,10 +262,10 @@ export function Header(props: HeaderProps) {
     })
 
     observer.observe(headerRef.current)
-    return () => { observer.disconnect(); }
+    return (): void => { observer.disconnect(); }
   }, [props.activeTab, isGalleryToolbarCompact, isGalleryToolbarUltraCompact])
 
-  const toggleSort = (key: "createdAt" | "filename" | "sizeBytes") => {
+  const toggleSort = (key: "createdAt" | "filename" | "sizeBytes"): void => {
     if (tb.sortKey === key) {
       tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
     } else {
@@ -346,7 +342,7 @@ export function Header(props: HeaderProps) {
                             { id: "status" as const, label: "현황" },
                             {
                               id: "list" as const,
-                              label: `기록 (${props.jobsCount})`,
+                              label: `기록 (${String(props.jobsCount)})`,
                             },
                           ].map((sub) => (
                             <SheetClose asChild key={sub.id}>
@@ -384,7 +380,7 @@ export function Header(props: HeaderProps) {
                   <WorkerStatus
                     workers={props.workers}
                     backendAlive={props.isAliveBackend}
-                    jobs={props.jobs || []}
+                    jobs={props.jobs ?? []}
                   />
                 </div>
               </div>
@@ -407,14 +403,14 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     className="h-9 gap-2 rounded-full border-line bg-background px-4 text-[13px] font-black shadow-xs hover:bg-accent/50 shrink-0"
                   >
-                    {(() => {
+                    {((): JSX.Element => {
                       const activeTabInfo = NAV_TABS.find(
                         (t) => t.id === props.activeTab
                       )
                       const ActiveIcon = activeTabInfo?.icon
                       return (
                         <>
-                          {ActiveIcon && (
+                          {ActiveIcon !== undefined && (
                             <ActiveIcon className="h-4 w-4 opacity-100" />
                           )}
                           <span>{activeTabInfo?.label}</span>
@@ -461,7 +457,7 @@ export function Header(props: HeaderProps) {
               {NAV_TABS.map((tab) => {
                 const Icon = tab.icon
                 const isDraggableTab =
-                  props.useWindowMode &&
+                  props.useWindowMode === true &&
                   (tab.id === "stats" ||
                     tab.id === "curation" ||
                     tab.id === "gallery")
@@ -489,15 +485,15 @@ export function Header(props: HeaderProps) {
                     aria-selected={props.activeTab === tab.id}
                     aria-label={tab.label}
                     onClick={() => {
-                      if (tabDragRef.current?.wasDragged) {
+                      if (tabDragRef.current?.wasDragged === true) {
                         tabDragRef.current = null
                         return
                       }
                       props.setActiveTab(tab.id)
                     }}
                     onMouseDown={
-                      isDraggableTab && dragCb
-                        ? (e) => {
+                      isDraggableTab && dragCb !== undefined
+                        ? (e: React.MouseEvent<HTMLButtonElement>): void => {
                             tabDragRef.current = {
                               tabId: tab.id,
                               startX: e.clientX,
@@ -505,8 +501,8 @@ export function Header(props: HeaderProps) {
                               wasDragged: false,
                             }
 
-                            const handleMove = (me: MouseEvent) => {
-                              if (!tabDragRef.current) return
+                            const handleMove = (me: MouseEvent): void => {
+                              if (tabDragRef.current === null) return
                               const dx = me.clientX - tabDragRef.current.startX
                               const dy = me.clientY - tabDragRef.current.startY
                               if (
@@ -528,13 +524,13 @@ export function Header(props: HeaderProps) {
                                 )
                               }
                             }
-                            const handleUp = () => {
+                            const handleUp = (): void => {
                               document.removeEventListener(
                                 "mousemove",
                                 handleMove
                               )
                               document.removeEventListener("mouseup", handleUp)
-                              if (!tabDragRef.current?.wasDragged) {
+                              if (tabDragRef.current?.wasDragged !== true) {
                                 tabDragRef.current = null
                               }
                             }
@@ -607,24 +603,24 @@ export function Header(props: HeaderProps) {
                 <div className="relative">
                   <SessionPopover
                     markers={props.sessionMarkers}
-                    sessionJobCounts={props.sessionJobCounts || new Map()}
-                    sortedMarkers={props.sortedMarkers || []}
-                    selectedId={props.selectedSessionId || ""}
-                    activeState={props.activeSessionState || null}
-                    isOpen={props.sessionPickerOpen || false}
-                    onOpenChange={props.onSessionPickerOpenChange || (() => {})}
-                    onSelectSession={props.onSelectSession || (() => {})}
-                    onCreateNew={props.onCreateNewSession || (() => {})}
+                    sessionJobCounts={props.sessionJobCounts ?? new Map()}
+                    sortedMarkers={props.sortedMarkers ?? []}
+                    selectedId={props.selectedSessionId ?? ""}
+                    activeState={props.activeSessionState ?? null}
+                    isOpen={props.sessionPickerOpen ?? false}
+                    onOpenChange={props.onSessionPickerOpenChange ?? noop}
+                    onSelectSession={props.onSelectSession ?? noop}
+                    onCreateNew={props.onCreateNewSession ?? noop}
                   />
                 </div>
                 <Button
                   size="sm"
-                  variant={props.paused ? "default" : "outline"}
+                  variant={props.paused === true ? "default" : "outline"}
                   className="h-8 px-2 text-[10px] font-bold"
                   onClick={props.onTogglePause}
                   disabled={!props.isAliveBackend}
                 >
-                  {props.paused ? "재개" : "일시중지"}
+                  {props.paused === true ? "재개" : "일시중지"}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1024,7 +1020,7 @@ export function Header(props: HeaderProps) {
                     size="sm"
                     variant="outline"
                     className={`!h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                    onClick={() => tb.handleExport()}
+                    onClick={() => void tb.handleExport()}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
                   </Button>
@@ -1032,7 +1028,7 @@ export function Header(props: HeaderProps) {
                 <TooltipContent>갤러리 내보내기</TooltipContent>
               </Tooltip>
 
-              {props.useWindowMode && (
+              {props.useWindowMode === true && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -1230,14 +1226,14 @@ export function Header(props: HeaderProps) {
                       </DropdownMenuItem>
 
                       <DropdownMenuItem
-                        onClick={() => tb.handleExport()}
+                        onClick={() => void tb.handleExport()}
                         className="flex items-center gap-2 text-[12px] font-bold"
                       >
                         <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
                         <span>갤러리 내보내기</span>
                       </DropdownMenuItem>
 
-                      {props.useWindowMode && (
+                      {props.useWindowMode === true && (
                         <DropdownMenuItem
                           onClick={() => {
                             panel.gallery.setIsFloating(true)
@@ -1287,7 +1283,7 @@ export function Header(props: HeaderProps) {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => tb.handleEmptyTrash()}
+                    onClick={() => void tb.handleEmptyTrash()}
                     className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >
                     <Trash2Icon className="mr-2 h-3.5 w-3.5 opacity-60" />
@@ -1375,11 +1371,11 @@ export function Header(props: HeaderProps) {
                       <span>필터 {tb.showFilters ? "숨기기" : "표시"}</span>
                       {tb.hasAnyFilter && <span className="ml-auto h-2 w-2 rounded-full bg-primary" />}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => tb.handleExport()} className="flex items-center gap-2 text-[12px] font-bold">
+                    <DropdownMenuItem onClick={() => void tb.handleExport()} className="flex items-center gap-2 text-[12px] font-bold">
                       <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
                       <span>갤러리 내보내기</span>
                     </DropdownMenuItem>
-                    {props.useWindowMode && (
+                    {props.useWindowMode === true && (
                       <DropdownMenuItem onClick={() => { panel.gallery.setIsFloating(true); props.setActiveTab("jobs") }} className="flex items-center gap-2 text-[12px] font-bold">
                         <ExternalLink className="h-3.5 w-3.5 opacity-60" />
                         <span>창으로 분리 (Pop out)</span>
@@ -1402,7 +1398,7 @@ export function Header(props: HeaderProps) {
                   새로고침
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => tb.handleEmptyTrash()} className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive">
+                <DropdownMenuItem onClick={() => void tb.handleEmptyTrash()} className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive">
                   <Trash2Icon className="mr-2 h-3.5 w-3.5 opacity-60" />
                   휴지통 비우기
                 </DropdownMenuItem>
@@ -1416,24 +1412,24 @@ export function Header(props: HeaderProps) {
               <div className="relative">
                 <SessionPopover
                   markers={props.sessionMarkers}
-                  sessionJobCounts={props.sessionJobCounts || new Map()}
-                  sortedMarkers={props.sortedMarkers || []}
-                  selectedId={props.selectedSessionId || ""}
-                  activeState={props.activeSessionState || null}
-                  isOpen={props.sessionPickerOpen || false}
-                  onOpenChange={props.onSessionPickerOpenChange || (() => {})}
-                  onSelectSession={props.onSelectSession || (() => {})}
-                  onCreateNew={props.onCreateNewSession || (() => {})}
+                  sessionJobCounts={props.sessionJobCounts ?? new Map()}
+                  sortedMarkers={props.sortedMarkers ?? []}
+                  selectedId={props.selectedSessionId ?? ""}
+                  activeState={props.activeSessionState ?? null}
+                  isOpen={props.sessionPickerOpen ?? false}
+                  onOpenChange={props.onSessionPickerOpenChange ?? noop}
+                  onSelectSession={props.onSelectSession ?? noop}
+                  onCreateNew={props.onCreateNewSession ?? noop}
                 />
               </div>
               <Button
                 size="sm"
-                variant={props.paused ? "default" : "outline"}
+                variant={props.paused === true ? "default" : "outline"}
                 className="h-8 px-3 text-[11px] font-bold"
                 onClick={props.onTogglePause}
                 disabled={!props.isAliveBackend}
               >
-                {props.paused ? "재개" : "일시중지"}
+                {props.paused === true ? "재개" : "일시중지"}
               </Button>
               <DropdownMenu>
                 <Tooltip>
@@ -1531,7 +1527,7 @@ export function Header(props: HeaderProps) {
           <WorkerStatus
             workers={props.workers}
             backendAlive={props.isAliveBackend}
-            jobs={props.jobs || []}
+            jobs={props.jobs ?? []}
           />
           </div>
         </div>
