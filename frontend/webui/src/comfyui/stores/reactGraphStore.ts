@@ -70,7 +70,7 @@ interface LiveGraph {
   remove(node: LiveNode): void;
   getNodeById(id: number): LiveNode | undefined;
   clear(): void;
-  links: Map<number, LiveGraphLink>;
+  links: Map<number, LiveGraphLink> & Record<number, LiveGraphLink>;
   nodes: LiveNode[];
 }
 
@@ -908,16 +908,30 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     const currentLinks = get().links
 
     const links: ComfyWorkflowLink[] = []
-    for (const [, link] of graph.links) {
-      links.push({
-        id: link.id,
-        origin_id: link.origin_id,
-        origin_slot: link.origin_slot,
-        target_id: link.target_id,
-        target_slot: link.target_slot,
-        type: link.type,
-      })
-    }
+    if (graph.links instanceof Map) {
+  for (const [, link] of graph.links) {
+    links.push({
+      id: link.id,
+      origin_id: link.origin_id,
+      origin_slot: link.origin_slot,
+      target_id: link.target_id,
+      target_slot: link.target_slot,
+      type: link.type,
+    })
+  }
+} else {
+  for (const [, link] of Object.entries(graph.links)) {
+    const l = link as LiveGraphLink
+    links.push({
+      id: l.id,
+      origin_id: l.origin_id,
+      origin_slot: l.origin_slot,
+      target_id: l.target_id,
+      target_slot: l.target_slot,
+      type: l.type,
+    })
+  }
+}
 
     const mergedNodes = graph.nodes.map((liveNode: unknown): ComfyWorkflowNode => {
       const node = liveNode as LiveNode
