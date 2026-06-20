@@ -14,6 +14,7 @@ import type {
 } from "../types/workflow"
 import type { ComfyNodeDef } from "../types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
+import { widgetStore } from "./widgetStore"
 
 interface SnapshotEntry {
   nodes: ComfyWorkflowNode[]
@@ -122,9 +123,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
 
       for (const [name, spec] of Object.entries(allInputs)) {
         const typeSpec = spec[0]
-        const typeSpecStr = Array.isArray(typeSpec) ? "COMBO" : typeSpec
-        const isWidget =
-          ["INT", "FLOAT", "STRING", "BOOLEAN", "combo"].includes(typeSpecStr.toUpperCase())
+        const isWidget = widgetStore.isWidgetType(typeSpec)
 
         let defaultVal: unknown = ""
         if (Array.isArray(typeSpec)) {
@@ -394,9 +393,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
             const opt = def.input?.optional ?? {}
             for (const [name, spec] of Object.entries({ ...req, ...opt })) {
               const typeSpec = spec[0]
-              const typeSpecStr = Array.isArray(typeSpec) ? "COMBO" : typeSpec
-              const isWidget =
-                ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(typeSpecStr.toUpperCase())
+              const isWidget = widgetStore.isWidgetType(typeSpec)
               if (isWidget) widgetNames.push(name)
             }
           }

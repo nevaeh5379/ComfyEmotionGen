@@ -8,6 +8,7 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
 import { X } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
+import { widgetStore } from "@/comfyui/stores/widgetStore"
 import type { InputSpec } from "@/comfyui/types/nodeDef"
 
 interface LiveWidget {
@@ -224,9 +225,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
         const inputSpec = spec
         const typeSpec = inputSpec[0]
         const typeStr = typeof typeSpec === "string" ? typeSpec : ""
-        const isWidget =
-          Array.isArray(typeSpec) ||
-          ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(typeStr.toUpperCase())
+        const isWidget = widgetStore.isWidgetType(typeSpec)
         if (isWidget) names.push(name)
       }
 
@@ -234,10 +233,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
         for (const [name, spec] of Object.entries({ ...req, ...opt })) {
           const inputSpec = spec
           const typeSpec = inputSpec[0]
-          const typeStr = typeof typeSpec === "string" ? typeSpec : ""
-          const isWidget =
-            Array.isArray(typeSpec) ||
-            ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"].includes(typeStr.toUpperCase())
+          const isWidget = widgetStore.isWidgetType(typeSpec)
           ins.push({
             name,
             type: String(typeSpec),

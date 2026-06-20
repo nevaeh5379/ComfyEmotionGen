@@ -9,6 +9,7 @@ import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { ComfyAppService } from "@/comfyui/services/appService"
+import { widgetStore } from "@/comfyui/stores/widgetStore"
 
 
 export function ReactGraphEditor(): JSX.Element {
@@ -110,6 +111,24 @@ export function ReactGraphEditor(): JSX.Element {
               await ext.init(rawApp)
             } catch (err) {
               console.error(`Extension init failed for ${ext.name}:`, err)
+            }
+          }
+        }
+
+        // Register custom widget types from extensions' getCustomWidgets()
+        for (const ext of rawApp.extensions) {
+          if (ext.getCustomWidgets !== undefined) {
+            try {
+              const customWidgets = await ext.getCustomWidgets(rawApp)
+              if (customWidgets) {
+                const typeNames = Object.keys(customWidgets)
+                widgetStore.registerMany(typeNames)
+                if (typeNames.length > 0) {
+                  console.log("[CEG:DEBUG ReactGraphEditor] Registered custom widgets from", ext.name, typeNames);
+                }
+              }
+            } catch (err) {
+              console.error(`Extension getCustomWidgets failed for ${ext.name}:`, err)
             }
           }
         }
