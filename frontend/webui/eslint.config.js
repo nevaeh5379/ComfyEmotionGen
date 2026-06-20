@@ -4,10 +4,13 @@ import reactHooks from "eslint-plugin-react-hooks"
 import reactRefresh from "eslint-plugin-react-refresh"
 import tseslint from "typescript-eslint"
 import { defineConfig, globalIgnores } from "eslint/config"
-
+import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
 export default defineConfig([
   globalIgnores(["dist", "src/comfyui/mocks/**/*", "vite.config.ts"]),
   {
+    plugins: {
+      "@eslint-community/eslint-comments": eslintComments,
+    },
     files: ["**/*.{ts,tsx}"],
     extends: [
       js.configs.recommended,
@@ -26,6 +29,7 @@ export default defineConfig([
       },
     },
     rules: {
+      "@eslint-community/eslint-comments/no-restricted-disable": ["error", "*"],
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       "@typescript-eslint/no-unused-vars": [
@@ -44,10 +48,10 @@ export default defineConfig([
       "@typescript-eslint/no-non-null-assertion": "error",  
       "@typescript-eslint/strict-boolean-expressions": "error",
       "@typescript-eslint/no-unsafe-assignment": "error", 
-"@typescript-eslint/no-unsafe-member-access": "error", 
-"@typescript-eslint/no-unsafe-call": "error",     
-"@typescript-eslint/no-unsafe-return": "error",    
-"@typescript-eslint/no-unsafe-argument": "error", 
+      "@typescript-eslint/no-unsafe-member-access": "error", 
+      "@typescript-eslint/no-unsafe-call": "error",     
+      "@typescript-eslint/no-unsafe-return": "error",    
+      "@typescript-eslint/no-unsafe-argument": "error", 
       "no-console": "warn",      
       "no-debugger": "error",
       "eqeqeq": ["error", "always"], 

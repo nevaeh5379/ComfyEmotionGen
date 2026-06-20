@@ -24,9 +24,15 @@ declare global {
   }
 
   interface LGraph {
+    // Identity
+    id: string
+    revision: number
+    status: number
+
+    // Data containers
     add(nodeOrGroup: LGraphNode | LGraphGroup): void
     syncGraph?(): Promise<void>
-    links: Map<number, LLink>
+    links: Map<number, LLink> & Record<number, LLink>
     groups: LGraphGroup[]
     nodes: LGraphNode[]
     clear(): void
@@ -34,6 +40,56 @@ declare global {
     getNodeById(id: number | string): LGraphNode | undefined
     setDirtyCanvas(flag: boolean, history?: boolean): void
     _canvas?: LGraphCanvas
+
+    // State
+    state?: {
+      lastNodeId: number
+      lastLinkId: number
+      lastGroupId: number
+      lastRerouteId: number
+    }
+    config?: Record<string, unknown>
+    extra?: Record<string, unknown>
+    vars?: Record<string, unknown>
+
+    // Computed
+    readonly empty?: boolean
+
+    // Link management
+    getLink?(id: number): LLink | undefined
+    removeLink?(id: number): void
+
+    // Search
+    findNodesByType?(type: string): LGraphNode[]
+    findNodesByTitle?(title: string): LGraphNode[]
+
+    // Serialization
+    serialize?(): Record<string, unknown>
+    configure?(data: Record<string, unknown>, keep_old?: boolean): void
+
+    // Change tracking
+    beforeChange?(info?: LGraphNode): void
+    afterChange?(info?: LGraphNode | null): void
+    incrementVersion?(): void
+
+    // Execution (stubs)
+    updateExecutionOrder?(): void
+    computeExecutionOrder?(): void
+
+    // Callbacks
+    onNodeAdded?: (node: LGraphNode) => void
+    onNodeRemoved?: (node: LGraphNode) => void
+    onBeforeChange?: (graph: LGraph, info?: LGraphNode | null) => void
+    onAfterChange?: (graph: LGraph, info?: LGraphNode | null) => void
+    onConfigure?: (data: Record<string, unknown>) => void
+    onSerialize?: (data: Record<string, unknown>) => void
+
+    // Events (stub)
+    events?: {
+      addEventListener(type: string, listener: (event: Event) => void): void
+      removeEventListener(type: string, listener: (event: Event) => void): void
+      dispatch(type: string, detail: unknown): boolean
+    }
   }
 
   interface LGraphNodeInput {
@@ -60,9 +116,14 @@ declare global {
     inputs: LGraphNodeInput[]
     outputs: LGraphNodeOutput[]
     widgets?: WidgetType[]
+    order?: number
+    mode?: number
+    properties?: Record<string, unknown>
     addInput(name: string, type: string): void
     addOutput(name: string, type: string): void
     connect(slot: number, node: LGraphNode, inputSlot: number | string): boolean | null
+    disconnectInput(slot: number): void
+    disconnectOutput(slot: number): void
     configure(data: ComfyWorkflowNode | Record<string, string | number | boolean | object | null | undefined>): void
     onNodeCreated?(): void
     addWidget(

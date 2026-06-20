@@ -1,4 +1,4 @@
-import { useTheme } from "@/components/theme-provider"
+import { useTheme } from "@/components/theme-context"
 import { Toaster as Sonner } from "sonner"
 import {
   CircleCheckIcon,

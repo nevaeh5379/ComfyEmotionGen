@@ -17,8 +17,7 @@ interface PendingSyncItem {
 
 export function getSyncQueue(): PendingSyncItem[] {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]")
+    return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]") as PendingSyncItem[]
   } catch (err) {
     console.warn("useSyncedStorage: 동기화 큐 파싱 실패:", err)
     return []

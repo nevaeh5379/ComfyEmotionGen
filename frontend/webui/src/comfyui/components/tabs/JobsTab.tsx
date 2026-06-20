@@ -298,8 +298,7 @@ export function JobsTab({
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Desktop: Resizable, Mobile: Single Panel */}
       <div className="hidden md:contents">
-        {/* eslint-disable-next-line @typescript-eslint/explicit-function-return-type */}
-        {(() => {
+        {((): React.ReactNode => {
           const panelBtn = (
             icon: React.ReactNode,
             onClick: () => void,

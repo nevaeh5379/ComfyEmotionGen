@@ -89,8 +89,8 @@ export const useSavedImages = (
   const groupPageSizeRef = useLatestRef(groupPageSize)
   const groupTotalRef = useLatestRef(groupTotal)
 
-  // ── Async internals (no useCallback) ─────────────────────────────
-  const fetchImagesInternal = async (silent?: boolean): Promise<void> => {
+  // ── Async internals (useCallback) ─────────────────────────────
+  const fetchImagesInternal = useCallback(async (silent?: boolean): Promise<void> => {
     if (groupModeRef.current) return
     abortRef.current?.abort()
     const ac = new AbortController()
@@ -122,9 +122,9 @@ export const useSavedImages = (
     } finally {
       if (silent !== true) setLoading(false)
     }
-  }
+  }, [groupModeRef, abortRef, pageRef, pageSizeRef, statusRef, filenameRef, tagRef, urlToUseRef])
 
-  const fetchGroupsInternal = async (silent?: boolean): Promise<void> => {
+  const fetchGroupsInternal = useCallback(async (silent?: boolean): Promise<void> => {
     if (!groupModeRef.current) return
     abortRef.current?.abort()
     const ac = new AbortController()
@@ -163,9 +163,9 @@ export const useSavedImages = (
     } finally {
       if (silent !== true) setLoading(false)
     }
-  }
+  }, [groupModeRef, abortRef, groupPageRef, groupPageSizeRef, urlToUseRef, groupTotalRef])
 
-  const fetchGroupImagesInternal = async (
+  const fetchGroupImagesInternal = useCallback(async (
     filenames: string[],
     currentStatus: CurationStatus | "all" | undefined
   ): Promise<void> => {
@@ -187,7 +187,6 @@ export const useSavedImages = (
         }
         newMap.set(fn, data.items)
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error(`fetch group images failed for ${fn}`, err)
         toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
         newMap.set(fn, [])
@@ -195,26 +194,23 @@ export const useSavedImages = (
     })
     await Promise.all(fetches)
     setGroupImagesMap(newMap)
-  }
+  }, [groupModeRef, urlToUseRef])
 
   // ── Sync callbacks (call async internals) ────────────────────────
   const fetchImages = useCallback(
     (silent?: boolean): Promise<void> => fetchImagesInternal(silent),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [fetchImagesInternal]
   )
 
   const fetchGroups = useCallback(
     (silent?: boolean): Promise<void> => fetchGroupsInternal(silent),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [fetchGroupsInternal]
   )
 
   const fetchGroupImages = useCallback(
     (filenames: string[], currentStatus: CurationStatus | "all" | undefined): Promise<void> =>
       fetchGroupImagesInternal(filenames, currentStatus),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [fetchGroupImagesInternal]
   )
 
   // ──── 메인 effect ────
@@ -238,8 +234,9 @@ export const useSavedImages = (
 
       void fetchGroupImages(filenames, status)
     } else if (groups.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setGroupImagesMap(new Map())
+      setTimeout(() => {
+        setGroupImagesMap(new Map())
+      }, 0)
     }
   }, [groups, groupMode, fetchGroupImages, status])
 

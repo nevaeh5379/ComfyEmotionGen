@@ -413,8 +413,7 @@ export function ImageViewer({
     if (isOpen) {
       const computedOverflow = window.getComputedStyle(document.body).overflow
       if (computedOverflow === "hidden") {
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        return (): void => {}
+        return
       }
       const originalStyle = document.body.style.overflow
       document.body.style.overflow = "hidden"
@@ -422,8 +421,6 @@ export function ImageViewer({
         document.body.style.overflow = originalStyle
       }
     }
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    return (): void => {}
   }, [isOpen])
 
   /* reset image status when src changes */
@@ -453,8 +450,6 @@ export function ImageViewer({
       }
       return (): void => { clearTimeout(timer); }
     }
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    return (): void => {}
   }, [isOpen, setZoomAndRef, setPanAndRef])
 
   /* track Shift key globally */

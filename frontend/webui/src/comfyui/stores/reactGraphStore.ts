@@ -1,9 +1,8 @@
 /**
  * React Graph Store (Zustand)
  * 리액트 기반 노드 에디터의 코어 상태와 액션을 관리하는 스토어
+ * Single source of truth - 모든 그래프 변경은 이 store를 경유합니다.
  */
-
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import { create } from "zustand"
 import type {
@@ -15,97 +14,10 @@ import type {
 } from "../types/workflow"
 import type { ComfyNodeDef } from "../types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
-// import { LiteGraph } from "comfy-litegraph"
-
-interface LiveWidget {
-  name: string;
-  value: unknown;
-  type?: string;
-  element?: unknown;
-  callback?: (value: unknown) => void;
-}
-
-interface LiveNodeSlotInput {
-  name: string;
-  type: string;
-  link?: number | null;
-}
-
-interface LiveNodeSlotOutput {
-  name: string;
-  type: string;
-  links?: number[] | null;
-}
-
-interface LiveNode {
-  id: number;
-  type?: string;
-  pos: [number, number];
-  size: [number, number];
-  mode?: number;
-  properties?: Record<string, unknown>;
-  widgets?: LiveWidget[];
-  inputs?: LiveNodeSlotInput[];
-  outputs?: LiveNodeSlotOutput[];
-  onNodeCreated?: () => void;
-  addInput(name: string, type: string): void;
-  addOutput(name: string, type: string): void;
-  addWidget(type: string, name: string, value: unknown, callback: () => void, options?: Record<string, unknown>): void;
-  connect(slotIdx: number, targetNode: LiveNode, targetSlot: number): boolean | undefined;
-  disconnectInput(slot: number): void;
-  setDirtyCanvas(width: boolean, height: boolean): void;
-}
-
-interface LiveGraphLink {
-  id: number;
-  origin_id: number;
-  origin_slot: number;
-  target_id: number;
-  target_slot: number;
-  type: string;
-}
-
-interface LiveGraph {
-  add(node: LiveNode): void;
-  remove(node: LiveNode): void;
-  getNodeById(id: number): LiveNode | undefined;
-  clear(): void;
-  links: Map<number, LiveGraphLink> & Record<number, LiveGraphLink>;
-  nodes: LiveNode[];
-}
-
-interface Extension {
-  name?: string;
-  nodeCreated?: (node: LiveNode, app: LiveApp) => void;
-}
-
-interface LiveApp {
-  graph?: LiveGraph;
-  syncGraph: () => void;
-  extensionsLoaded: boolean;
-  extensions: Extension[];
-  canvas?: {
-    graph?: LiveGraph & {
-      _canvas?: {
-        app?: LiveApp;
-      };
-    };
-  };
-  loadGraphData?: (workflow: unknown) => void;
-}
-
-interface ComfyAppService {
-  loadGraphData(workflow: unknown): void;
-}
-
-interface WindowWithComfy {
-  app?: LiveApp;
-  __comfyAppService?: ComfyAppService;
-}
 
 interface SnapshotEntry {
-  nodes: ComfyWorkflowNode[];
-  links: ComfyWorkflowLink[];
+  nodes: ComfyWorkflowNode[]
+  links: ComfyWorkflowLink[]
 }
 
 interface ReactGraphState {
@@ -139,14 +51,6 @@ interface ReactGraphState {
   selectNode: (id: number, accumulate?: boolean) => void
   deselectAll: () => void
   clearGraph: () => void
-  syncNodeFromLive: (
-    id: number,
-    widgetsValues: unknown[],
-    inputs: unknown[],
-    outputs: unknown[],
-    properties?: unknown
-  ) => void
-  syncGraphFromLive: () => void
   takeSnapshot: () => void
   undo: () => void
   redo: () => void
@@ -177,28 +81,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(normalizedLinks)
     if (nodesEqual && linksEqual) return
 
-    const win = window as unknown as WindowWithComfy
-    const app = win.app
-    if (app?.graph !== undefined && app.extensionsLoaded) {
-      const service = win.__comfyAppService
-      if (service !== undefined) {
-        const origSyncGraph = app.syncGraph
-        app.syncGraph = (): void => undefined
-        try {
-          const workflowToLoad: ComfyWorkflowJSON = {
-            ...workflow,
-            links: normalizedLinks,
-          }
-          service.loadGraphData(workflowToLoad)
-        } finally {
-          app.syncGraph = origSyncGraph
-        }
-        get().syncGraphFromLive()
-        set({ selectedNodeIds: new Set<number>() })
-        return
-      }
-    }
-
     const existingMap = new Map(currentNodes.map((n: ComfyWorkflowNode): [number, ComfyWorkflowNode] => [n.id, n]))
     const mergedNodes = (workflow.nodes).map((node: ComfyWorkflowNode): ComfyWorkflowNode => {
       const existing = existingMap.get(node.id)
@@ -223,98 +105,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
 
   addNode: (type: string, pos: [number, number], def: ComfyNodeDef | undefined): void => {
     get().takeSnapshot()
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const liveNode = LiteGraph.createNode(type) as LiveNode | null
-      if (liveNode !== null) {
-        liveNode.pos = pos
-        const isLora = type.toLowerCase().includes("lora");
-
-        if (def !== undefined) {
-          if (def.input?.required) {
-            for (const [name, spec] of Object.entries(def.input.required)) {
-              const typeStr = Array.isArray(spec[0]) ? "COMBO" : spec[0]
-              liveNode.addInput(name, typeStr)
-            }
-          }
-          if (def.input?.optional) {
-            for (const [name, spec] of Object.entries(def.input.optional)) {
-              const typeStr = Array.isArray(spec[0]) ? "COMBO" : spec[0]
-              liveNode.addInput(name, typeStr)
-            }
-          }
-          for (let i = 0; i < def.output.length; i++) {
-            const outType = def.output[i] ?? "*"
-            const outName = def.output_name[i] ?? outType
-            liveNode.addOutput(outName, outType)
-          }
-          if (def.input?.required) {
-            for (const [name, spec] of Object.entries(def.input.required)) {
-              const [typeVal, rawConfig] = spec as [string | string[], Record<string, string | number | boolean | object | null | undefined> | undefined]
-              const config = rawConfig ?? {}
-              if (Array.isArray(typeVal)) {
-                liveNode.addWidget("combo", name, typeVal[0] ?? "", (): void => undefined, { values: typeVal })
-              } else if (typeVal === "INT" || typeVal === "FLOAT") {
-                const rawDefault = config.default
-                const defaultVal = typeof rawDefault === "number" ? rawDefault : (typeVal === "INT" ? 0 : 0.0)
-                const rawMin = config.min
-                const rawMax = config.max
-                const rawStep = config.step
-                const min = typeof rawMin === "number" ? rawMin : 0
-                const max = typeof rawMax === "number" ? rawMax : (typeVal === "INT" ? 0x7fffffff : 1e38)
-                const step = typeof rawStep === "number" ? rawStep : 1
-                liveNode.addWidget("number", name, defaultVal, (): void => undefined, { min, max, step, precision: typeVal === "INT" ? 0 : 2 })
-              } else if (typeVal === "STRING" || (typeof typeVal === "string" && typeVal.startsWith("AUTOCOMPLETE_"))) {
-                const defaultVal = typeof config.default === "string" ? config.default : ""
-                liveNode.addWidget("text", name, defaultVal, (): void => undefined, config)
-              } else if (typeVal === "BOOLEAN") {
-                const defaultVal = typeof config.default === "boolean" ? config.default : false
-                liveNode.addWidget("toggle", name, defaultVal, (): void => undefined)
-              } else {
-                const defaultVal = typeof config.default === "string" ? config.default : ""
-                liveNode.addWidget("text", name, defaultVal, (): void => undefined, config)
-              }
-            }
-          }
-        }
-
-        if (typeof liveNode.onNodeCreated === "function") {
-          if (isLora) {
-            console.log("[CEG:DEBUG addNode(Live)] calling onNodeCreated, widgets before:", liveNode.widgets?.length ?? 0)
-          }
-          liveNode.onNodeCreated()
-          if (isLora) {
-            console.log("[CEG:DEBUG addNode(Live)] after onNodeCreated, widgets:", liveNode.widgets?.length ?? 0,
-              liveNode.widgets?.map((w: LiveWidget): Record<string, unknown> => ({ name: w.name, type: w.type, hasElement: w.element !== undefined })))
-          }
-        }
-
-        const extensions = win.app.extensions
-        for (const ext of extensions) {
-          if (ext.nodeCreated !== undefined) {
-            try {
-              if (isLora) {
-                console.log("[CEG:DEBUG addNode(Live)] Calling nodeCreated for", ext.name, "on node", type);
-              }
-              ext.nodeCreated(liveNode, win.app)
-              if (isLora) {
-                console.log("[CEG:DEBUG addNode(Live)] After nodeCreated", ext.name, "widgets=" + String(liveNode.widgets?.length ?? 0));
-              }
-            } catch (err) {
-              console.error("Extension nodeCreated failed:", err)
-            }
-          }
-        }
-        win.app.graph.add(liveNode)
-        get().syncGraphFromLive()
-        if (isLora) {
-          console.log(`[CEG:DEBUG addNode(Live)] Done, liveNode.widgets=${String(liveNode.widgets?.length ?? 0)}`);
-        }
-        return
-      }
-    }
-
     const { nodes } = get()
     const maxId = nodes.reduce((max: number, n: ComfyWorkflowNode): number => Math.max(max, n.id), 0)
     const newId = maxId + 1
@@ -390,18 +180,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     if (ids.length === 0) return
     get().takeSnapshot()
 
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      for (const id of ids) {
-        const liveNode = win.app.graph.getNodeById(id)
-        if (liveNode !== undefined) {
-          win.app.graph.remove(liveNode)
-        }
-      }
-      get().syncGraphFromLive()
-      return
-    }
-
     const { nodes, links, selectedNodeIds } = get()
     const idSet = new Set(ids)
 
@@ -455,13 +233,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   },
 
   updateNodePos: (id: number, pos: [number, number]): void => {
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      const liveNode = win.app.graph.getNodeById(id)
-      if (liveNode !== undefined) {
-        liveNode.pos = pos
-      }
-    }
     const { nodes } = get()
     set({
       nodes: nodes.map((n: ComfyWorkflowNode): ComfyWorkflowNode => (n.id === id ? { ...n, pos } : n)),
@@ -469,13 +240,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   },
 
   updateNodeSize: (id: number, size: [number, number]): void => {
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      const liveNode = win.app.graph.getNodeById(id)
-      if (liveNode !== undefined) {
-        liveNode.size = size
-      }
-    }
     const { nodes } = get()
     set({
       nodes: nodes.map((n: ComfyWorkflowNode): ComfyWorkflowNode => (n.id === id ? { ...n, size } : n)),
@@ -483,17 +247,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   },
 
   connect: (originNodeId: number, originSlotIdx: number, targetNodeId: number, targetSlotIdx: number, type: string): void => {
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      const originNode = win.app.graph.getNodeById(originNodeId)
-      const targetNode = win.app.graph.getNodeById(targetNodeId)
-      if (originNode !== undefined && targetNode !== undefined) {
-        originNode.connect(originSlotIdx, targetNode, targetSlotIdx)
-        get().syncGraphFromLive()
-        return
-      }
-    }
-
     const { nodes } = get()
 
     const originNode = nodes.find((n: ComfyWorkflowNode): boolean => n.id === originNodeId)
@@ -592,19 +345,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   disconnect: (linkId: number): void => {
     get().takeSnapshot()
 
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      const link = win.app.graph.links.get(linkId)
-      if (link !== undefined) {
-        const targetNode = win.app.graph.getNodeById(link.target_id)
-        if (targetNode !== undefined) {
-          targetNode.disconnectInput(link.target_slot)
-          get().syncGraphFromLive()
-          return
-        }
-      }
-    }
-
     const { nodes, links } = get()
     const nextLinks = links.filter((l: ComfyWorkflowLink): boolean => l.id !== linkId)
 
@@ -639,27 +379,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
 
   updateWidgetValue: (nodeId: number, widgetName: string, value: unknown): void => {
     get().takeSnapshot()
-
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      const liveNode = win.app.graph.getNodeById(nodeId)
-      if (liveNode?.widgets !== undefined) {
-        const widget = liveNode.widgets.find((w: LiveWidget): boolean => w.name === widgetName)
-        if (widget !== undefined) {
-          widget.value = value
-          if (widget.callback !== undefined) {
-            try {
-              widget.callback(value)
-            } catch (err) {
-              console.error("Widget callback failed:", err)
-            }
-          }
-          liveNode.setDirtyCanvas(true, true)
-          get().syncGraphFromLive()
-          return
-        }
-      }
-    }
 
     const { nodes } = get()
     set({
@@ -703,16 +422,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
 
   changeNodeMode: (nodeId: number, mode: number): void => {
     get().takeSnapshot()
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      const liveNode = win.app.graph.getNodeById(nodeId)
-      if (liveNode !== undefined) {
-        liveNode.mode = mode
-        win.app.syncGraph()
-        return
-      }
-    }
-
     const { nodes } = get()
     set({
       nodes: nodes.map((node: ComfyWorkflowNode): ComfyWorkflowNode =>
@@ -740,11 +449,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
 
   clearGraph: (): void => {
     get().takeSnapshot()
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      win.app.graph.clear()
-      win.app.syncGraph()
-    }
     set({
       nodes: [],
       links: [],
@@ -782,36 +486,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
       ...redoStack
     ].slice(0, 50)
 
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      win.app.graph.clear()
-      const origSync = win.app.syncGraph
-      win.app.syncGraph = (): void => undefined
-      if (win.app.canvas?.graph !== undefined) {
-        const canvasGraph = win.app.canvas.graph
-        canvasGraph._canvas = {
-          ...canvasGraph._canvas,
-          app: win.app
-        }
-      }
-
-      const last_node_id = Math.max(0, ...previous.nodes.map((n: ComfyWorkflowNode): number => n.id))
-      const last_link_id = Math.max(0, ...previous.links.map((l: ComfyWorkflowLink): number => l.id))
-      const workflow = {
-        last_node_id,
-        last_link_id,
-        nodes: previous.nodes,
-        links: previous.links,
-        version: 0.4,
-      }
-      if (typeof win.app.loadGraphData === "function") {
-        win.app.loadGraphData(workflow)
-      }
-
-      win.app.syncGraph = origSync
-      win.app.syncGraph()
-    }
-
     set({
       nodes: previous.nodes,
       links: previous.links,
@@ -835,142 +509,11 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
       }
     ].slice(-50)
 
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph !== undefined) {
-      const origSync = win.app.syncGraph
-      win.app.syncGraph = (): void => undefined
-
-      const last_node_id = Math.max(0, ...next.nodes.map((n: ComfyWorkflowNode): number => n.id))
-      const last_link_id = Math.max(0, ...next.links.map((l: ComfyWorkflowLink): number => l.id))
-      const workflow = {
-        last_node_id,
-        last_link_id,
-        nodes: next.nodes,
-        links: next.links,
-        version: 0.4,
-      }
-      if (typeof win.app.loadGraphData === "function") {
-        win.app.loadGraphData(workflow)
-      }
-
-      win.app.syncGraph = origSync
-      win.app.syncGraph()
-    }
-
     set({
       nodes: next.nodes,
       links: next.links,
       undoStack: nextUndo,
       redoStack: nextRedo
     })
-  },
-
-  syncNodeFromLive: (id: number, widgetsValues: unknown[], inputs: unknown[], outputs: unknown[], properties?: unknown): void => {
-    const state = get()
-    const nodeIdx = state.nodes.findIndex((n: ComfyWorkflowNode): boolean => n.id === id)
-    if (nodeIdx === -1) return
-
-    const oldNode = state.nodes[nodeIdx]
-    if (oldNode === undefined) return
-    const mergedProperties: Record<string, unknown> = {
-      ...(oldNode.properties ?? {}),
-      ...(properties !== undefined ? properties as Record<string, unknown> : {}),
-    }
-
-    const widgetsEqual = JSON.stringify(oldNode.widgets_values) === JSON.stringify(widgetsValues)
-    const inputsEqual = JSON.stringify(oldNode.inputs) === JSON.stringify(inputs)
-    const outputsEqual = JSON.stringify(oldNode.outputs) === JSON.stringify(outputs)
-    const propsEqual = JSON.stringify(oldNode.properties) === JSON.stringify(mergedProperties)
-
-    if (widgetsEqual && inputsEqual && outputsEqual && propsEqual) {
-      return
-    }
-
-    const updatedNode: ComfyWorkflowNode = {
-      ...oldNode,
-      widgets_values: widgetsValues,
-      inputs: inputs.length > 0 ? inputs as ComfyNodeInput[] : undefined,
-      outputs: outputs.length > 0 ? outputs as ComfyNodeOutput[] : undefined,
-      properties: mergedProperties,
-    }
-
-    const nextNodes = [...state.nodes]
-    nextNodes[nodeIdx] = updatedNode
-
-    set({ nodes: nextNodes })
-  },
-
-  syncGraphFromLive: (): void => {
-    const win = window as unknown as WindowWithComfy
-    if (win.app?.graph === undefined) return
-    const graph = win.app.graph
-    const currentNodes = get().nodes
-    const currentLinks = get().links
-
-    const links: ComfyWorkflowLink[] = []
-    if (graph.links instanceof Map) {
-  for (const [, link] of graph.links) {
-    links.push({
-      id: link.id,
-      origin_id: link.origin_id,
-      origin_slot: link.origin_slot,
-      target_id: link.target_id,
-      target_slot: link.target_slot,
-      type: link.type,
-    })
-  }
-} else {
-  for (const [, link] of Object.entries(graph.links)) {
-    const l = link as LiveGraphLink
-    links.push({
-      id: l.id,
-      origin_id: l.origin_id,
-      origin_slot: l.origin_slot,
-      target_id: l.target_id,
-      target_slot: l.target_slot,
-      type: l.type,
-    })
-  }
-}
-
-    const mergedNodes = graph.nodes.map((liveNode: unknown): ComfyWorkflowNode => {
-      const node = liveNode as LiveNode
-      const existing = currentNodes.find((n: ComfyWorkflowNode): boolean => n.id === node.id)
-      const widgetsValues = node.widgets?.map((w: LiveWidget): unknown => w.value) ?? []
-      const inputs: ComfyNodeInput[] = node.inputs?.map((input: LiveNodeSlotInput): ComfyNodeInput => ({
-        name: input.name,
-        type: input.type,
-        link: input.link ?? undefined,
-      })) ?? []
-      const outputs: ComfyNodeOutput[] = node.outputs?.map((output: LiveNodeSlotOutput, i: number): ComfyNodeOutput => ({
-        name: output.name,
-        type: output.type,
-        links: output.links ?? undefined,
-        slot_index: i,
-      })) ?? []
-
-      return {
-        id: node.id,
-        type: node.type ?? existing?.type ?? "",
-        pos: node.pos,
-        size: node.size,
-        widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,
-        inputs: inputs.length > 0 ? inputs : undefined,
-        outputs: outputs.length > 0 ? outputs : undefined,
-        properties: {
-          ...(existing?.properties ?? {}),
-          ...(node.properties ?? {}),
-          widget_names: node.widgets?.map((w: LiveWidget): string => w.name) ?? [],
-        },
-        mode: node.mode ?? existing?.mode,
-      }
-    })
-
-    const nodesEqual = JSON.stringify(currentNodes) === JSON.stringify(mergedNodes)
-    const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(links)
-
-    if (!nodesEqual || !linksEqual) {
-      set({ nodes: mergedNodes, links })
-    }
   },
 }))

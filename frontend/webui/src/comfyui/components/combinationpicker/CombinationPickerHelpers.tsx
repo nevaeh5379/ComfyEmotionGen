@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react"
+import { useState } from "react"
 import { CheckCircle2Icon, CircleIcon, ImageIcon } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -112,28 +107,5 @@ export function ImageWithSkeleton({
         </>
       )}
     </div>
-  )
-}
-
-/* ─── useSetToggle ─── */
-// eslint-disable-next-line react-refresh/only-export-components
-export function useSetToggle<T>(
-  setValue: Dispatch<SetStateAction<Set<T>>>,
-  onEmpty?: () => void
-): (value: T) => void {
-  return useCallback(
-    (value: T) => {
-      setValue((prev) => {
-        const next = new Set(prev)
-        if (next.has(value)) {
-          next.delete(value)
-          if (next.size === 0 && onEmpty) onEmpty()
-        } else {
-          next.add(value)
-        }
-        return next
-      })
-    },
-    [setValue, onEmpty]
   )
 }

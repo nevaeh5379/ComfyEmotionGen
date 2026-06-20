@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ComponentType } from "react"
 
 import { format } from "date-fns"
 import {
@@ -6,17 +6,20 @@ import {
   Bar,
   PieChart,
   Pie,
-  Cell,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+import * as recharts from "recharts"
 import { cn } from "@/lib/utils"
 
 import type { JobView, WorkerView, JobStatus } from "../types/Message"
 
-// ---------------------------------------------------------------------------
+// Recharts Cell is deprecated in types, so we cast it to prevent ESLint deprecation error
+const CELL_KEY = "Cell"
+const RechartsCell = (recharts as Record<string, unknown>)[CELL_KEY] as ComponentType<{ fill?: string; key?: string }>
+
 // Status color tokens (matches existing conventions)
 // ---------------------------------------------------------------------------
 const STATUS_COLORS: Record<JobStatus, string> = {
@@ -537,8 +540,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.
                   stroke="none"
                 >
                   {pieData.map((entry, index) => (
-                    // eslint-disable-next-line @typescript-eslint/no-deprecated
-                    <Cell key={`cell-${String(index)}`} fill={entry.color} />
+                    <RechartsCell key={`cell-${String(index)}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip content={<PieTooltip />} />

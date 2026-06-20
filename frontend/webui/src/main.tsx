@@ -85,6 +85,14 @@ window.LGraphNode ??= class DummyLGraphNode {
     return true
   }
 
+  disconnectInput(_slot: number): void {
+    /* noop */
+  }
+
+  disconnectOutput(_slot: number): void {
+    /* noop */
+  }
+
   configure(_data: unknown): void {
     /* noop */
   }
@@ -363,9 +371,8 @@ function createDefaultApp(): ComfyApp {
   const app: ComfyApp = {
     graph: new LGraph(),
     canvas: new LGraphCanvas(document.createElement("canvas"), new LGraph()),
-    async syncGraph(): Promise<void> {
-      const { useReactGraphStore } = await import("@/comfyui/stores/reactGraphStore")
-      useReactGraphStore.getState().syncGraphFromLive()
+    syncGraph(): void {
+      // No-op: Zustand store가 single source of truth이므로 sync 필요 없음
     },
     ui: {
       dialogs: {},
@@ -526,9 +533,8 @@ Object.defineProperty(appObj, 'settings', {
 
 appObj.graph = new (LGraph as unknown as new () => Record<string, unknown>)() as unknown as LGraph
 appObj.canvas = new (LGraphCanvas as unknown as new (canvas: HTMLCanvasElement, graph: Record<string, unknown>) => Record<string, unknown>)(document.createElement("canvas"), appObj.graph as unknown as Record<string, unknown>) as unknown as LGraphCanvas
-appObj.syncGraph = async (): Promise<void> => {
-  const { useReactGraphStore } = await import("@/comfyui/stores/reactGraphStore")
-  useReactGraphStore.getState().syncGraphFromLive()
+appObj.syncGraph = (): void => {
+  // No-op: Zustand store가 single source of truth이므로 sync 필요 없음
 }
 
 // 필수 브라우저 글로벌 스텁 설정

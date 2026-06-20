@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useLatestRef } from "./useLatestRef"
 import { saveSetting } from "@/lib/serverStorage"
 import { clearSyncQueueFor, enqueueSync } from "./useSyncedStorage"
 import {
@@ -20,14 +21,15 @@ export function usePersistedItems<T>(
   const lastSavedVersionRef = useRef(0)
   const effectVersionRef = useRef(0)
 
+  const loadFnRef = useLatestRef(loadFn)
+
   useEffect((): (() => void) | undefined => {
     const onStorage = (e: StorageEvent): void => {
-      if (e.key === storageKey) setItems(loadFn())
+      if (e.key === storageKey) setItems(loadFnRef.current())
     }
     window.addEventListener("storage", onStorage)
     return () => { window.removeEventListener("storage", onStorage); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [storageKey, loadFnRef])
 
   useEffect((): (() => void) | undefined => {
     const onReady = (e: Event): void => {

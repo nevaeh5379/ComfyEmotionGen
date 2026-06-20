@@ -56,7 +56,6 @@ export const SelectionSheet = ({
 }: SelectionSheetProps): React.JSX.Element => {
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: filteredPreview.length,
     getScrollElement: () => scrollElement,

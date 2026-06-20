@@ -44,10 +44,12 @@ export const extensionManager: ExtensionManager = {
         toast.info(msg.summary ?? msg.detail ?? 'Info')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    remove(_msg: ToastMessageOptions): void { },
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    removeAll(): void { }
+    remove(_msg: ToastMessageOptions): void {
+      // intentional no-op
+    },
+    removeAll(): void {
+      // intentional no-op
+    }
   },
 
   dialog: {},
@@ -67,12 +69,12 @@ export const extensionManager: ExtensionManager = {
   },
 
   setting: {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-    get<U = unknown>(_id: string): U | undefined {
-      return undefined as U | undefined
+    get<U = unknown>(_id: string, _typeForGeneric?: U): U | undefined {
+      return undefined
     },
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters, @typescript-eslint/no-empty-function
-    set<U = unknown>(_id: string, _value: U): void { }
+    set<U = unknown>(_id: string, _value: U, _typeForGeneric?: U): void {
+      // intentional no-op
+    }
   },
 
   workflow: {},
@@ -138,9 +140,8 @@ export const extensionService = {
   /**
    * Invoke a synchronous extension callback
    */
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  invokeExtensions<TMethod extends keyof ComfyExtension>(
-    method: TMethod,
+  invokeExtensions(
+    method: keyof ComfyExtension,
     ...args: unknown[]
   ): unknown[] {
     const results: unknown[] = []
@@ -167,9 +168,8 @@ export const extensionService = {
   /**
    * Invoke an async extension callback
    */
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  async invokeExtensionsAsync<TMethod extends keyof ComfyExtension>(
-    method: TMethod,
+  async invokeExtensionsAsync(
+    method: keyof ComfyExtension,
     ...args: unknown[]
   ): Promise<unknown[]> {
     const { enabledExtensions } = useExtensionStore.getState()

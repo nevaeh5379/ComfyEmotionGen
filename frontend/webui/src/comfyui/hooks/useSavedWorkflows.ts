@@ -20,42 +20,39 @@ export interface SavedWorkflow {
 
 const STORAGE_KEY = STORAGE_KEYS.savedWorkflows
 
+interface RawSavedWorkflow {
+  id?: unknown
+  name?: unknown
+  workflow?: unknown
+  nodeMappings?: unknown
+  mappingPresets?: unknown
+  savedAt?: unknown
+}
+
 function load(): SavedWorkflow[] {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as unknown
     if (!Array.isArray(parsed)) return []
-    // Migrate old format
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return parsed.map((w: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-      let mappingPresets: SavedNodeMappingPreset[] = w.mappingPresets ?? []
-      // Migrate old nodeMappings to a default preset
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (w.nodeMappings !== null && mappingPresets.length === 0) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const nodeMappings: unknown[] = w.nodeMappings
+    const items = parsed as RawSavedWorkflow[]
+    return items.map((w) => {
+      let mappingPresets: SavedNodeMappingPreset[] = (w.mappingPresets as SavedNodeMappingPreset[] | undefined) ?? []
+      if (w.nodeMappings !== null && w.nodeMappings !== undefined && mappingPresets.length === 0) {
+        const nodeMappings = w.nodeMappings as unknown[]
         mappingPresets = [
           {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            id: `migrated-${String(w.id)}`,
+            id: `migrated-${typeof w.id === "string" || typeof w.id === "number" ? String(w.id) : ""}`,
             name: "기본 매핑",
             mappings: nodeMappings as NodeMapping[],
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-            savedAt: w.savedAt,
+            savedAt: typeof w.savedAt === "number" ? w.savedAt : Date.now(),
           },
         ]
       }
       return {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        id: w.id,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        name: w.name,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        workflow: w.workflow,
+        id: typeof w.id === "string" || typeof w.id === "number" ? String(w.id) : "",
+        name: typeof w.name === "string" ? w.name : "",
+        workflow: typeof w.workflow === "string" ? w.workflow : "",
         mappingPresets,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        savedAt: w.savedAt,
+        savedAt: typeof w.savedAt === "number" ? w.savedAt : Date.now(),
       }
     })
   } catch {

@@ -41,18 +41,19 @@ export function useWatchValues(label: string, values: Record<string, unknown>): 
   })
 }
 
+const useReactEffect = useEffect
+
 export function useEffectLog(
   label: string,
   effect: EffectCallback,
   deps?: DependencyList
 ): void {
-  useEffect(() => {
+  useReactEffect(() => {
     if (!IS_DEV) return effect()
     const tag = `[Effect] ${label}`
     console.time(tag)
     const cleanup = effect()
     console.timeEnd(tag)
     return cleanup
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 }

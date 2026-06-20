@@ -33,8 +33,7 @@ export function useBackendHealth(): { isAliveBackend: boolean; setIsAliveBackend
       if (!cancelled) setIsAliveBackend(ok)
     }
     void tick()
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    const timer = setInterval(tick, HEALTH_CHECK_INTERVAL_MS)
+    const timer = setInterval(() => { void tick(); }, HEALTH_CHECK_INTERVAL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)

@@ -3,7 +3,7 @@ import CodeMirror from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { StreamLanguage, type StringStream } from "@codemirror/language"
 import { EditorView } from "@codemirror/view"
-import { useTheme } from "./theme-provider"
+import { useTheme } from "./theme-context"
 
 type Language = "json" | "ceg"
 

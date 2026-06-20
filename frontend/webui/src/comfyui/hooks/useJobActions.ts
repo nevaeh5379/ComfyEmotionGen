@@ -63,8 +63,8 @@ export function useJobActions(): {
   const confirmRef = useLatestRef(confirm)
   const refetchStatsRef = useLatestRef(refetchStats)
 
-  // ── Async internals (no useCallback) ─────────────────────────────
-  const getFailedJobIdsInternal = async (): Promise<string[]> => {
+  // ── Async internals ─────────────────────────────────────────────
+  const getFailedJobIdsInternal = useCallback(async (): Promise<string[]> => {
     const params = new URLSearchParams()
     params.append("status", "error")
     params.append("status", "cancelled")
@@ -83,11 +83,10 @@ export function useJobActions(): {
       const data = await res.json() as { items?: { id: string }[] }
       return (data.items ?? []).map((j) => j.id)
     } catch (err: unknown) {
-      // eslint-disable-next-line no-console
       console.warn("Failed to fetch failed job IDs:", err)
       return []
     }
-  }
+  }, [backendUrlRef, sessionRangeRef])
 
   // ── Sync callbacks (call async internals) ────────────────────────
   const handleTogglePause = useCallback(async (): Promise<void> => {
@@ -99,8 +98,7 @@ export function useJobActions(): {
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [backendUrlRef, pausedRef])
 
   const handleCancelAll = useCallback(async (): Promise<void> => {
     const confirmed = await confirmRef.current({
@@ -118,8 +116,7 @@ export function useJobActions(): {
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [backendUrlRef, confirmRef])
 
   const handleRetryAllFailed = useCallback(async (): Promise<void> => {
     const failedIds = await getFailedJobIdsInternal()
@@ -149,8 +146,7 @@ export function useJobActions(): {
     } catch {
       toast.error("작업 재시도 요청에 실패했습니다.")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [backendUrlRef, confirmRef, refetchStatsRef, getFailedJobIdsInternal])
 
   const handleDeleteAllFailed = useCallback(async (): Promise<void> => {
     const failedIds = await getFailedJobIdsInternal()
@@ -178,8 +174,7 @@ export function useJobActions(): {
     } catch {
       toast.error("실패 작업 삭제 요청에 실패했습니다.")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [backendUrlRef, confirmRef, refetchStatsRef, getFailedJobIdsInternal])
 
   return useMemo(() => ({
     handleTogglePause,

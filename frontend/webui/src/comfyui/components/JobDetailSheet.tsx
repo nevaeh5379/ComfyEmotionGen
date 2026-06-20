@@ -250,8 +250,7 @@ export function JobDetailSheet({
                 )}
               </div>
 
-              {/* eslint-disable-next-line @typescript-eslint/explicit-function-return-type */}
-              {(() => {
+              {((): React.ReactNode => {
                 const duration = jobDuration(job)
                 if (duration === null) return null
                 return (
@@ -313,8 +312,7 @@ export function JobDetailSheet({
             </div>
 
             {/* Generated images */}
-            {/* eslint-disable-next-line @typescript-eslint/explicit-function-return-type */}
-            {(() => {
+            {((): React.ReactNode => {
               const images = fetchedImages.get(job.id)
               if (images === undefined || images.length === 0) return null
               return (
@@ -354,17 +352,16 @@ export function JobDetailSheet({
           </div>
         )}
 
-        {lightboxUrls && (
-          // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-          (() => {
+        {lightboxUrls &&
+          (((): React.ReactNode => {
             const currentUrl = lightboxUrls[lightboxIndex]
             if (currentUrl === undefined) return null
-          return (
-            <ImageViewer
-              src={currentUrl}
-               isOpen
-              onClose={() => { setLightboxUrls(null); }}
-            >
+            return (
+              <ImageViewer
+                src={currentUrl}
+                isOpen
+                onClose={() => { setLightboxUrls(null); }}
+              >
             {lightboxUrls.length > 1 && (
               <div className="flex w-full flex-col items-center gap-3">
                 <div className="flex items-center justify-center gap-4">
@@ -420,9 +417,9 @@ export function JobDetailSheet({
                 </div>
               </div>
             )}
-          </ImageViewer>
-        )
-      })())}
+            </ImageViewer>
+          )
+        })())}
       </SheetContent>
     </Sheet>
   )

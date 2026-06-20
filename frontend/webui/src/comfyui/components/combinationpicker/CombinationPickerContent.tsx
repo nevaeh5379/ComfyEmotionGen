@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import { useRenderLog } from "@/lib/renderLogger"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -35,7 +35,7 @@ import { ImageDetail } from "../gallery/ImageDetail"
 import { hasApproved, findApproved } from "../../types/Message"
 import { TournamentView } from "./CombinationPickerViews"
 import { GalleryView, TableView } from "./CombinationPickerViews"
-import { useSetToggle } from "./CombinationPickerHelpers"
+
 import { CombinationPickerToolbar } from "./CombinationPickerToolbar"
 import { CombinationPickerUnassignedPanel } from "./CombinationPickerUnassignedPanel"
 import { CombinationPickerSidebar } from "./CombinationPickerSidebar"
@@ -47,6 +47,27 @@ import type {
 } from "./CurationToolbarTypes"
 import { useCurationToolbar } from "./useCurationToolbar"
 import type { FreeGroupBy } from "./freeCurationGroupers"
+
+function useSetToggle<T>(
+  setValue: Dispatch<SetStateAction<Set<T>>>,
+  onEmpty?: () => void
+): (value: T) => void {
+  return useCallback(
+    (value: T) => {
+      setValue((prev) => {
+        const next = new Set(prev)
+        if (next.has(value)) {
+          next.delete(value)
+          if (next.size === 0 && onEmpty) onEmpty()
+        } else {
+          next.add(value)
+        }
+        return next
+      })
+    },
+    [setValue, onEmpty]
+  )
+}
 
 type ViewMode = CurationViewMode
 

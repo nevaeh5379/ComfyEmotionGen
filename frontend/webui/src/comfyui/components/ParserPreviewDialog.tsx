@@ -71,7 +71,6 @@ export const ParserPreviewDialog = ({
     })
   }, [items, searchInput])
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: filteredItems.length,
     getScrollElement: () => scrollElement,

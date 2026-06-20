@@ -1,4 +1,4 @@
-import { createContext, useState, useCallback } from "react"
+import { createContext } from "react"
 import { useContextRequired } from "@/lib/context"
 import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
 
@@ -42,64 +42,8 @@ export interface PendingDialogValue {
 // Context
 // ---------------------------------------------------------------------------
 
-const PendingDialogContext = createContext<PendingDialogValue | null>(null)
+export const PendingDialogContext = createContext<PendingDialogValue | null>(null)
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function usePendingDialog(): PendingDialogValue {
   return useContextRequired(PendingDialogContext, "usePendingDialog")
-}
-
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
-export function PendingDialogProvider({
-  children,
-}: {
-  children: React.ReactNode
-}): React.JSX.Element {
-  const [pendingSave, setPendingSave] = useState<{
-    name: string
-    type: "template" | "workflow" | "nodeMapping"
-  } | null>(null)
-
-  const [pendingDiff, setPendingDiff] = useState<{
-    name: string
-    type: "template" | "workflow"
-    oldContent: string
-    newContent: string
-  } | null>(null)
-
-  const [pendingPresetSelection, setPendingPresetSelection] =
-    useState<SavedWorkflow | null>(null)
-
-  const handlePendingUpdate = useCallback(
-    (
-      name: string,
-      type: "template" | "workflow",
-      oldContent: string,
-      newContent: string
-    ) => {
-      if (oldContent === newContent) return null
-      setPendingDiff({ name, type, oldContent, newContent })
-      return true
-    },
-    []
-  )
-
-  return (
-    <PendingDialogContext.Provider
-      value={{
-        pendingSave,
-        setPendingSave,
-        pendingDiff,
-        setPendingDiff,
-        pendingPresetSelection,
-        setPendingPresetSelection,
-        handlePendingUpdate,
-      }}
-    >
-      {children}
-    </PendingDialogContext.Provider>
-  )
 }

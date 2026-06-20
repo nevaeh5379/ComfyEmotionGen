@@ -164,8 +164,7 @@ export const useWebhooks = (backendUrl: string): {
 
   const load = useCallback(async (): Promise<void> => {
     setConfigs(await fetchWebhooks(backendUrlRef.current))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [backendUrlRef])
 
   const addConfig = useCallback(
     async (payload: {
@@ -180,8 +179,7 @@ export const useWebhooks = (backendUrl: string): {
       if (ok) await load()
       return ok
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [load]
+    [backendUrlRef, load]
   )
 
   const updateConfig = useCallback(
@@ -200,8 +198,7 @@ export const useWebhooks = (backendUrl: string): {
       if (ok) await load()
       return ok
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [load]
+    [backendUrlRef, load]
   )
 
   const deleteConfig = useCallback(
@@ -210,8 +207,7 @@ export const useWebhooks = (backendUrl: string): {
       if (ok) await load()
       return ok
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [load]
+    [backendUrlRef, load]
   )
 
   const testConfig = useCallback(async (id: string): Promise<boolean> => {
@@ -224,8 +220,7 @@ export const useWebhooks = (backendUrl: string): {
     } finally {
       setIsLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [backendUrlRef])
 
   return {
     configs,

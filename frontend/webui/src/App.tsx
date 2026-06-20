@@ -20,17 +20,13 @@ import { useTemplateContext } from "./comfyui/contexts/useTemplateContext"
 import { useWorkflowContext } from "./comfyui/contexts/WorkflowContext"
 import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
 import { TemplateProvider } from "./comfyui/contexts/TemplateContext"
-import { WorkflowProvider } from "./comfyui/contexts/WorkflowContext"
-import { NodeMappingProvider } from "./comfyui/contexts/NodeMappingContext"
-import {
-  PendingDialogProvider,
-  usePendingDialog,
-} from "./comfyui/contexts/PendingDialogContext"
-import { PanelLayoutProvider } from "./comfyui/contexts/PanelLayoutContext"
-import {
-  GalleryToolbarProvider,
-  useGalleryToolbar,
-} from "./comfyui/contexts/GalleryToolbarContext"
+import { WorkflowProvider } from "./comfyui/contexts/WorkflowProvider"
+import { NodeMappingProvider } from "./comfyui/contexts/NodeMappingProvider"
+import { PendingDialogProvider } from "./comfyui/contexts/PendingDialogProvider"
+import { usePendingDialog } from "./comfyui/contexts/PendingDialogContext"
+import { PanelLayoutProvider } from "./comfyui/contexts/PanelLayoutProvider"
+import { GalleryToolbarProvider } from "./comfyui/contexts/GalleryToolbarProvider"
+import { useGalleryToolbar } from "./comfyui/contexts/GalleryToolbarContext"
 
 // ── Constants / Utilities ──
 import { DEFAULT_AXIS } from "./comfyui/components/combinationpicker/freeCurationGroupers"
@@ -337,8 +333,7 @@ function AppContent(): React.JSX.Element {
         if (data !== null && typeof data === "object") nodeMapping.setObjectInfo(data as ObjectInfo)
       })
       .catch(() => { /* intentionally empty - fire and forget */ })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backendUrl, isAliveBackend])
+  }, [backendUrl, isAliveBackend, nodeMapping])
 
   // ── Quick save handler (Ctrl+S shortcut) ──
   const handleQuickSave = useCallback(() => {

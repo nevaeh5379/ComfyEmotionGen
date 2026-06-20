@@ -66,10 +66,11 @@ export const CombinationPicker = memo(function CombinationPicker({
     hideEmptyCurationFolders,
   })
 
+  const { fetchData } = data
+
   useEffect(() => {
-    void data.fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backendUrl, activeTemplate, freeGroupMode])
+    void fetchData()
+  }, [fetchData, backendUrl, activeTemplate, freeGroupMode])
 
   const selection = useCombinationSelection(
     data.filteredRenderItems.map((i) => i.filename)

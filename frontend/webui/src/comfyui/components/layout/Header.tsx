@@ -19,7 +19,7 @@ import {
   ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme } from "@/components/theme-context"
 import {
   Sheet,
   SheetClose,
