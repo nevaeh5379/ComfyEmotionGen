@@ -251,25 +251,29 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
           }
           if (def.input?.required) {
             for (const [name, spec] of Object.entries(def.input.required)) {
-              const [typeVal, config] = spec as [string | string[], Record<string, unknown>]
+              const [typeVal, rawConfig] = spec as [string | string[], Record<string, string | number | boolean | object | null | undefined> | undefined]
+              const config = rawConfig ?? {}
               if (Array.isArray(typeVal)) {
                 liveNode.addWidget("combo", name, typeVal[0] ?? "", (): void => undefined, { values: typeVal })
               } else if (typeVal === "INT" || typeVal === "FLOAT") {
                 const rawDefault = config.default
-                const defaultVal = rawDefault !== undefined ? rawDefault : (typeVal === "INT" ? 0 : 0.0)
+                const defaultVal = typeof rawDefault === "number" ? rawDefault : (typeVal === "INT" ? 0 : 0.0)
                 const rawMin = config.min
                 const rawMax = config.max
                 const rawStep = config.step
-                const min = rawMin !== undefined ? rawMin : 0
-                const max = rawMax !== undefined ? rawMax : (typeVal === "INT" ? 0x7fffffff : 1e38)
-                const step = rawStep !== undefined ? rawStep : 1
+                const min = typeof rawMin === "number" ? rawMin : 0
+                const max = typeof rawMax === "number" ? rawMax : (typeVal === "INT" ? 0x7fffffff : 1e38)
+                const step = typeof rawStep === "number" ? rawStep : 1
                 liveNode.addWidget("number", name, defaultVal, (): void => undefined, { min, max, step, precision: typeVal === "INT" ? 0 : 2 })
               } else if (typeVal === "STRING" || (typeof typeVal === "string" && typeVal.startsWith("AUTOCOMPLETE_"))) {
-                liveNode.addWidget("text", name, config.default ?? "", (): void => undefined, config)
+                const defaultVal = typeof config.default === "string" ? config.default : ""
+                liveNode.addWidget("text", name, defaultVal, (): void => undefined, config)
               } else if (typeVal === "BOOLEAN") {
-                liveNode.addWidget("toggle", name, config.default ?? false, (): void => undefined)
+                const defaultVal = typeof config.default === "boolean" ? config.default : false
+                liveNode.addWidget("toggle", name, defaultVal, (): void => undefined)
               } else {
-                liveNode.addWidget("text", name, config.default ?? "", (): void => undefined, config)
+                const defaultVal = typeof config.default === "string" ? config.default : ""
+                liveNode.addWidget("text", name, defaultVal, (): void => undefined, config)
               }
             }
           }

@@ -40,6 +40,7 @@ declare global {
     name: string
     type: string
     link: number | null
+    widget?: { name: string } | null
   }
   interface LGraphNodeOutput {
     name: string
@@ -49,6 +50,7 @@ declare global {
 
   interface LGraphNode {
     id: number
+    graph?: LGraph | null
     title?: string
     type?: string
     color?: string
@@ -83,6 +85,9 @@ declare global {
     setCanvas(canvas: HTMLCanvasElement): void
     render_canvas_border: boolean
     app?: ComfyApp
+    graph_mouse?: [number, number]
+    canvas?: HTMLCanvasElement | null
+    addEventListener?(type: string, listener: (e: Event) => void): void
   }
 
   interface LLink {
@@ -149,7 +154,7 @@ declare global {
     options: AddDOMWidgetOptions & { hideOnZoom: boolean }
     _value: string
     value: string | number | boolean
-    callback: ((v: string) => void) | null
+    callback: ((value: string | number | boolean, canvas?: LGraphCanvas, node?: LGraphNode, mouse?: [number, number], event?: object) => void) | null
   }
 
   interface SettingEntry {
@@ -226,21 +231,21 @@ declare global {
   }
 
   interface ComfyAPIObject {
-    app: {
+    app?: {
       app: ComfyApp
     }
-    api: {
+    api?: {
       api: ComfyApi
     }
-    utils: {
-      applyTextReplacements(node: unknown, text: string): string
+    utils?: {
+      applyTextReplacements(node: object, text: string): string
     }
-    ui: {
-      ComfyDialog: new () => Record<string, never>
-      $el: (tag: string, attrs: Record<string, unknown> | null, children?: unknown) => HTMLElement
-      ComfyUI: new () => Record<string, never>
+    ui?: {
+      ComfyDialog: new () => object
+      $el: (tag: string, attrs: Record<string, object | string | number | boolean | null> | null | undefined, children?: object) => HTMLElement
+      ComfyUI: new () => object
     }
-    widgets: {
+    widgets?: {
       updateControlWidgetLabel(): void
       IS_CONTROL_WIDGET(): void
       addValueControlWidget(): void
@@ -248,21 +253,57 @@ declare global {
       ComfyWidgets: ComfyWidgetsAPI
       isValidWidgetType(): void
     }
-    widgetInputs: {
-      PrimitiveNode: new () => Record<string, never>
+    widgetInputs?: {
+      PrimitiveNode: new () => object
       getWidgetConfig(): Record<string, unknown>
       convertToInput(): void
       setWidgetConfig(): void
       mergeIfValid(): void
     }
-    groupNode: {
-        GroupNodeConfig: new () => Record<string, never> & { registerFromWorkflow(): Promise<void> }
-        GroupNodeHandler: new () => Record<string, never>
+    groupNode?: {
+        GroupNodeConfig: (new () => object) & { registerFromWorkflow(): Promise<void> }
+        GroupNodeHandler: new () => object
     }
-    pnginfo: {
+    pnginfo?: {
       getPngMetadata(): Promise<Record<string, unknown>>
       getWebpMetadata(): Promise<Record<string, unknown>>
     }
+    editAttention?: {
+      incrementWeight(weight: string, delta: number): string
+      findNearestEnclosure(text: string, cursorPos: number): { start: number; end: number } | null
+      addWeightToParentheses(text: string): string
+    }
+    widgetValuePropagation?: {
+      applyFirstWidgetValueToGraph(
+        node: LGraphNode | null | undefined,
+        extraLinks?: LLink[],
+        transformValue?: (value: string | number | boolean) => string | number | boolean
+      ): void
+    }
+    groupNodeManage?: {
+      ManageGroupDialog: new (app?: object) => {
+        show(e?: object): void
+      }
+    }
+    constants?: {
+      iconsHtml: Record<string, string>
+      SUPPORTED_EXTENSIONS: Set<string>
+      SUPPORTED_EXTENSIONS_ACCEPT: string
+      SUPPORTED_HDRI_EXTENSIONS: Set<string>
+      SUPPORTED_HDRI_EXTENSIONS_ACCEPT: string
+      LOAD3D_NONE_MODEL: string
+      [key: string]: object | Set<string> | string
+    }
+    types?: {
+      BrushShape: Record<string, string>
+      Tools: Record<string, string>
+      allTools: string[]
+      CompositionOperation: Record<string, string>
+      MaskBlendMode: Record<string, string>
+      ColorComparisonMethod: Record<string, string>
+      [key: string]: Record<string, string> | string[]
+    }
+    [key: string]: object | undefined
   }
 
   interface Window {
@@ -276,15 +317,15 @@ declare global {
     api: ComfyApi
     comfyExtensions?: object[]
 
-    $el: (tag: string, attrs: Record<string, unknown> | null, children?: unknown) => HTMLElement
+    $el: (tag: string, attrs: Record<string, object | string | number | boolean | null> | null | undefined, children?: object) => HTMLElement
     addStylesheet: (url: string) => HTMLLinkElement
     getUrl: (path: string, base?: string | URL) => string
     ComfyWidgets: ComfyWidgetsAPI
-    ComfyApp: new () => Record<string, never>
-    ComfyDialog: new () => Record<string, never>
-    ClipspaceDialog: new () => Record<string, never> & { registerButton?: () => void }
+    ComfyApp: new () => object
+    ComfyDialog: new () => object
+    ClipspaceDialog: new () => object & { registerButton?: () => void }
     isBeforeFrontendVersion: () => boolean
-    comfyAPI: ComfyAPIObject
+    comfyAPI?: ComfyAPIObject
     rgthree: RgthreeAPI
     NodeTypesString: Record<string, unknown>
     rgthreeConfig: RgthreeConfig

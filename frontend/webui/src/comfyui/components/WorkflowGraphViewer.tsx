@@ -11,42 +11,123 @@ import {
 import type { ComfyWorkflow } from "@/lib/workflow"
 import { computeLayout } from "../utils/workflowGraphLayout"
 import { getCategoryStyle } from "../utils/workflowGraphCategories"
-const LGraph = window.LGraph ?? class DummyLGraph {
+window.LGraph ??= class DummyLGraph {
   readonly __dummy = true
-  add(): void { /* noop */ }
+  _nodes_by_id: Record<string, LGraphNode | undefined> = {}
   links: Map<number, LLink> | Record<number, LLink> = {}
   groups: LGraphGroup[] = []
   nodes: LGraphNode[] = []
-}
-const LGraphCanvas = window.LGraphCanvas ?? class DummyLGraphCanvas {
+
+  add(node: LGraphNode): void {
+    if (!this.nodes.includes(node)) {
+      this.nodes.push(node)
+    }
+    if (node.id) {
+      this._nodes_by_id[String(node.id)] = node
+    }
+  }
+
+  remove(node: LGraphNode): void {
+    const idx = this.nodes.indexOf(node)
+    if (idx !== -1) {
+      this.nodes.splice(idx, 1)
+    }
+    if (node.id) {
+      this._nodes_by_id[String(node.id)] = undefined
+    }
+  }
+
+  clear(): void {
+    this.nodes = []
+    this._nodes_by_id = {}
+    this.links = {}
+    this.groups = []
+  }
+
+  getNodeById(id: number | string): LGraphNode | undefined {
+    return this._nodes_by_id[String(id)]
+  }
+
+  setDirtyCanvas(_flag: boolean, _history?: boolean): void {
+    /* noop */
+  }
+} as unknown as LGraphConstructor
+const LGraph = window.LGraph
+
+window.LGraphCanvas ??= class DummyLGraphCanvas {
   readonly __dummy = true
   state = { readOnly: false }
   resize(): void { /* noop */ }
   ds = { scale: 1, offset: [0, 0] as [number, number] }
   setDirty(): void { /* noop */ }
   stopRendering(): void { /* noop */ }
-}
+  startRendering(): void { /* noop */ }
+  canvas: HTMLCanvasElement | null = null
+  setCanvas(canvas: HTMLCanvasElement | string | null | undefined, _skip_events?: boolean): void {
+    if (canvas !== null && canvas !== undefined && typeof canvas !== "string") {
+      this.canvas = canvas
+    }
+  }
+} as unknown as LGraphCanvasConstructor
+const LGraphCanvas = window.LGraphCanvas
+
 const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
   readonly __dummy = true
   id = 0
+  type?: string
+  color?: string
+  bgcolor?: string
   pos: [number, number] = [0, 0]
   size: [number, number] = [0, 0]
   inputs: LGraphNodeInput[] = []
   outputs: LGraphNodeOutput[] = []
-  addInput(): void { /* noop */ }
-  addOutput(): void { /* noop */ }
-  connect(): boolean | null { return null }
-  configure(): void { /* noop */ }
-  addWidget(): WidgetType {
-    return {
-      type: "",
-      name: "",
-      element: document.createElement("div"),
-      options: { hideOnZoom: false },
-      _value: "",
-      value: "",
-      callback: null,
+  widgets?: WidgetType[] = []
+
+  constructor(type?: string) {
+    if (type !== undefined) {
+      this.type = type
     }
+  }
+
+  addInput(name: string, type: string): void {
+    this.inputs.push({ name, type, link: null })
+  }
+
+  addOutput(name: string, type: string): void {
+    this.outputs.push({ name, type, links: null })
+  }
+
+  connect(_slot: number, _targetNode: LGraphNode, _targetSlot: number | string): boolean | null {
+    return true
+  }
+
+  configure(_data: unknown): void {
+    /* noop */
+  }
+
+  setDirtyCanvas(): void {
+    /* noop */
+  }
+
+  addWidget(
+    type: string,
+    name: string,
+    value: string | number | boolean,
+    callback: (v: string | number | boolean) => void,
+    options?: Record<string, unknown>
+  ): WidgetType {
+    const w: WidgetType = {
+      type,
+      name,
+      element: document.createElement("div"),
+      options: { hideOnZoom: false, ...(options ?? {}) },
+      _value: String(value),
+      value: value,
+      callback,
+    }
+    this.widgets ??= []
+    this.widgets.push(w)
+    return w
   }
 }
 
