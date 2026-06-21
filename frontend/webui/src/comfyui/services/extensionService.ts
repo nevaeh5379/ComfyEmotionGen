@@ -95,6 +95,18 @@ export const extensionManager: ExtensionManager = {
 
   renderMarkdownToHtml(markdown: string, _baseUrl?: string): string {
     return markdown
+  },
+
+  registerExtension(extension: ComfyExtension): void {
+    const store = useExtensionStore.getState()
+    const beforeLen = store.extensions.length
+    store.registerExtension(extension)
+    const afterLen = useExtensionStore.getState().extensions.length
+    console.log(`[CEG] extensionManager.registerExtension: "${extension.name}" stored=${String(afterLen > beforeLen)} before=${String(beforeLen)} after=${String(afterLen)}`)
+
+    if (extension.commands) {
+      this.command.commands.push(...extension.commands)
+    }
   }
 }
 
@@ -128,13 +140,7 @@ export const extensionService = {
    * Register an extension
    */
   registerExtension(extension: ComfyExtension): void {
-    const store = useExtensionStore.getState()
-    store.registerExtension(extension)
-
-    // Register commands
-    if (extension.commands) {
-      extensionManager.command.commands.push(...extension.commands)
-    }
+    extensionManager.registerExtension(extension)
   },
 
   /**

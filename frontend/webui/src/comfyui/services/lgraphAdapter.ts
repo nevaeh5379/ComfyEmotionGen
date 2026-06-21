@@ -72,7 +72,7 @@ function createMapProxy<T>(target: Map<number, T>): Map<number, T> & Record<numb
       return Reflect.getOwnPropertyDescriptor(target, prop)
     },
   }
-  return new Proxy(target, handler)
+  return new Proxy(target, handler) as Map<number, T> & Record<number, T>
 }
 
 /**
@@ -203,7 +203,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           }))
         : undefined,
       widgets_values: (linkedNode.widgets?.length ?? 0) > 0
-        ? linkedNode.widgets.map((w) => w.value)
+        ? linkedNode.widgets!.map((w) => w.value)
         : undefined,
       properties: linkedNode.properties
         ? {

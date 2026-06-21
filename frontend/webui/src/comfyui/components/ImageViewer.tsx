@@ -410,16 +410,13 @@ export function ImageViewer({
 
   /* lock body scroll when open */
   useEffect(() => {
-    if (isOpen) {
-      const computedOverflow = window.getComputedStyle(document.body).overflow
-      if (computedOverflow === "hidden") {
-        return
-      }
-      const originalStyle = document.body.style.overflow
-      document.body.style.overflow = "hidden"
-      return (): void => {
-        document.body.style.overflow = originalStyle
-      }
+    if (!isOpen) return
+    const computedOverflow = window.getComputedStyle(document.body).overflow
+    if (computedOverflow === "hidden") return
+    const originalStyle = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return (): void => {
+      document.body.style.overflow = originalStyle
     }
   }, [isOpen])
 
@@ -434,22 +431,20 @@ export function ImageViewer({
 
   /* reset on close */
   useEffect(() => {
-    if (!isOpen) {
-      // Use setTimeout to avoid synchronous setState warning in effect
-      const timer = setTimeout(() => {
-        setZoomAndRef(MIN_ZOOM)
-        setPanAndRef({ x: 0, y: 0 })
-        setDragging(false)
-        setShiftSelect(false)
-      }, 0)
+    if (isOpen) return
+    const timer = setTimeout(() => {
+      setZoomAndRef(MIN_ZOOM)
+      setPanAndRef({ x: 0, y: 0 })
+      setDragging(false)
+      setShiftSelect(false)
+    }, 0)
 
-      // Clean up window-level drag listeners if still active
-      if (draggingRef.current) {
-        draggingRef.current = false
-        shiftSelectRef.current = false
-      }
-      return (): void => { clearTimeout(timer); }
+    // Clean up window-level drag listeners if still active
+    if (draggingRef.current) {
+      draggingRef.current = false
+      shiftSelectRef.current = false
     }
+    return (): void => { clearTimeout(timer); }
   }, [isOpen, setZoomAndRef, setPanAndRef])
 
   /* track Shift key globally */

@@ -109,6 +109,9 @@ export interface ExtensionManager {
   lastExecutionError: ExecutionErrorWsMessage | null
 
   renderMarkdownToHtml(markdown: string, baseUrl?: string): string
+
+  /** Register an extension (Zustand) */
+  registerExtension(extension: ComfyExtension): void
 }
 
 // ── ComfyExtension (커스텀 노드 Extension 인터페이스) ────────────

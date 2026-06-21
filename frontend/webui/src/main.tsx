@@ -3,14 +3,25 @@ import { createRoot } from "react-dom/client"
 
 import "./index.css"
 // import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
+const _registeredNodeTypes: Record<string, new (...args: unknown[]) => LGraphNode> = {}
 window.LiteGraph ??= {
-  registerNodeType: (): void => { /* noop */ },
+  registerNodeType: (type: string, nodeClass: new (...args: unknown[]) => LGraphNode): void => {
+    _registeredNodeTypes[type] = nodeClass
+  },
   NODE_DEFAULT_WIDTH: 200,
   NODE_DEFAULT_HEIGHT: 80,
   ALWAYS: 0,
   NEVER: 1,
   BYPASS: 2,
-  createNode: (type: string): LGraphNode | null => new LGraphNode(type),
+  createNode: (type: string): LGraphNode | null => {
+    const nodeClass = _registeredNodeTypes[type]
+    if (nodeClass !== undefined) {
+      const node = new nodeClass()
+      ;(node as unknown as Record<string, unknown>).type = type
+      return node
+    }
+    return new LGraphNode(type)
+  },
 }
 window.LGraph ??= class DummyLGraph {
   readonly __dummy = true
@@ -55,9 +66,11 @@ window.LGraph ??= class DummyLGraph {
 } as unknown as LGraphConstructor
 const LGraph = window.LGraph
 
+let _nextNodeId = 1
+
 window.LGraphNode ??= class DummyLGraphNode {
   readonly __dummy = true
-  id = 0
+  id = _nextNodeId++
   type?: string
   color?: string
   bgcolor?: string
@@ -300,29 +313,9 @@ const _addDOMWidgetFn = function (
   return widget
 }
 
-/*
-;(LGraphNode as any).prototype ??= {}
-;(LGraphNode as any).prototype.addDOMWidget = addDOMWidgetFn
-
-// LiteGraph color palettes stub
-const liteGraph = window.LiteGraph as unknown as Record<string, unknown>
-const palettesTarget: Record<string, Record<string, unknown>> = (liteGraph.color_palettes ?? {}) as Record<string, Record<string, unknown>>
-liteGraph.color_palettes = new Proxy<Record<string, Record<string, unknown>>>(palettesTarget, {
-  get(target: Record<string, Record<string, unknown>>, prop: string | symbol): Record<string, unknown> {
-    const key: string = typeof prop === 'symbol' ? String(prop) : prop
-    const existing: Record<string, unknown> | undefined = target[key]
-    if (existing !== undefined) {
-      return existing
-    }
-    const fresh: Record<string, unknown> = {}
-    target[key] = fresh
-    return fresh
-  }
-})
-if (liteGraph.Styles === undefined) {
-  liteGraph.Styles = { obsidian: {} as Record<string, unknown> }
-}
-*/
+;(LGraphNode as unknown as Record<string, unknown>).prototype ??= {}
+;(LGraphNode as any).prototype.addDOMWidget = _addDOMWidgetFn
+console.log("[CEG] addDOMWidget polyfill installed on LGraphNode.prototype")
 
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { api as comfyApiInstance } from "@/comfyui/api"
@@ -383,8 +376,10 @@ function createDefaultApp(): ComfyApp {
     extensions: [],
     registerExtension(ext: ComfyExtension): void {
       if (app.extensionManager.registerExtension !== undefined) {
+        console.log(`[CEG] registerExtension: "${ext.name}" -> extensionManager.registerExtension (has onNodeCreated=${String(typeof ext.nodeCreated)} has beforeRegisterNodeDef=${String(typeof ext.beforeRegisterNodeDef)})`)
         app.extensionManager.registerExtension(ext)
       } else {
+        console.log(`[CEG] registerExtension: "${ext.name}" -> app.extensions.push (extManager has no registerExtension)`)
         app.extensions.push(ext)
       }
     },

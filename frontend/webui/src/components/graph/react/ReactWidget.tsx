@@ -12,11 +12,12 @@ export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JS
     const container = containerRef.current
     if (!container) return
 
-    // Clear container first
+    console.log(`[CEG] HTMLElementWidget mounting element tag=${element.tagName} className=${element.className}`)
     container.innerHTML = ""
     container.appendChild(element)
 
     return (): void => {
+      console.log(`[CEG] HTMLElementWidget unmounting element tag=${element.tagName}`)
       if (element.parentNode === container) {
         container.removeChild(element)
       }
@@ -38,6 +39,7 @@ interface ReactWidgetProps {
 
 export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element }: ReactWidgetProps): React.JSX.Element {
   if (element) {
+    console.log(`[CEG] ReactWidget: "${name}" has element, rendering HTMLElementWidget`)
     return <HTMLElementWidget element={element} />
   }
 

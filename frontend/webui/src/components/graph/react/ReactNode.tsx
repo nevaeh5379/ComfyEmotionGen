@@ -43,7 +43,12 @@ interface App {
 }
 
 function getLiveNode(id: number): LiveNode | undefined {
-  return (window as unknown as { app?: App }).app?.graph?.getNodeById(id)
+  const node = (window as unknown as { app?: App }).app?.graph?.getNodeById(id)
+  if (node) {
+    const wc = (node as unknown as { widgets?: unknown[] }).widgets?.length ?? 0
+    console.log(`[CEG] getLiveNode(id=${String(id)}): found=true widgets=${String(wc)}`)
+  }
+  return node
 }
 
 function getApp(): App | undefined {

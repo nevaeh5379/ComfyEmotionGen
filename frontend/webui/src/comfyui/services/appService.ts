@@ -275,7 +275,9 @@ export class ComfyAppService {
    */
   registerNodeDefs(nodeDefs: Record<string, ComfyNodeDef>): void {
     const app = getWindowApp()
-    const _app = app
+    const extensions = this.extensions
+
+    console.log(`[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available`, extensions.map(e => e.name))
 
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
@@ -290,15 +292,13 @@ export class ComfyAppService {
         }
       }
 
-      // Run beforeRegisterNodeDef hooks
-      if (_app?.extensions !== undefined) {
-        for (const ext of _app.extensions) {
-          if (ext.beforeRegisterNodeDef) {
-            try {
-              void Promise.resolve(ext.beforeRegisterNodeDef(NodeClass, def, _app))
-            } catch (err) {
-              console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
-            }
+      // Run beforeRegisterNodeDef hooks (from Zustand extension store)
+      for (const ext of extensions) {
+        if (ext.beforeRegisterNodeDef) {
+          try {
+            void Promise.resolve(ext.beforeRegisterNodeDef(NodeClass, def, app))
+          } catch (err) {
+            console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
           }
         }
       }

@@ -15,6 +15,7 @@ import type {
 import type { ComfyNodeDef } from "../types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
 import { widgetStore } from "./widgetStore"
+import { useExtensionStore } from "./extensionStore"
 
 interface SnapshotEntry {
   nodes: ComfyWorkflowNode[]
@@ -173,6 +174,82 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     }
 
     set({ nodes: [...nodes, newNode] })
+
+    // 백그라운드 LiteGraph 노드 생성 → extension hook 실행
+    try {
+      const w = window as unknown as Record<string, unknown>
+      const appService = w.__comfyAppService as
+        { graph?: { add?: (n: unknown) => void; _nodes_by_id?: Record<string, unknown>; nodes?: unknown[] } } | undefined
+      const graph = appService?.graph
+      if (graph?.add) {
+        console.log(`[CEG] addNode: creating hidden graph node for "${type}" id=${String(newId)}`)
+        const liteGraph = (window as unknown as Record<string, unknown>).LiteGraph as
+          { createNode?: (t: string) => unknown; getRegisteredNodeType?: (t: string) => unknown } | undefined
+        let liveNode = liteGraph?.createNode?.(type) ?? null
+        if (!liveNode) {
+          liveNode = new LGraphNode(type)
+        }
+        const ln = liveNode as { id?: number | string; type?: string; pos?: [number, number]; addInput?: (n: string, t: string) => void; addOutput?: (n: string, t: string) => void; onNodeCreated?: () => void; widgets?: unknown[] }
+        ln.id = newId
+        ln.type = type
+        ln.pos = pos
+        for (const input of inputs) {
+          ln.addInput?.(input.name, input.type)
+        }
+        for (const output of outputs) {
+          ln.addOutput?.(output.name, output.type)
+        }
+        graph.add(liveNode)
+        console.log(`[CEG] addNode: has onNodeCreated=${String(typeof ln.onNodeCreated)}`)
+        const beforeCount = ln.widgets?.length ?? 0
+        try {
+          ln.onNodeCreated?.()
+        } catch (e) {
+          console.warn(`[CEG] addNode: onNodeCreated threw:`, e)
+        }
+        console.log(`[CEG] addNode: after onNodeCreated, widgets=${String(ln.widgets?.length ?? 0)} (was ${String(beforeCount)})`)
+        const extensions = useExtensionStore.getState().extensions
+        console.log(`[CEG] addNode: running nodeCreated for ${String(extensions.length)} extensions`)
+        for (const ext of extensions) {
+          try {
+            ext.nodeCreated?.(liveNode as LGraphNode, w.app as Record<string, unknown>)
+          } catch (e) {
+            console.warn(`[CEG] nodeCreated hook failed for ${ext.name}:`, e)
+          }
+        }
+        const lnWidgets = (liveNode as unknown as { widgets?: { name: string; value: unknown; element?: HTMLElement | null }[] }).widgets
+        console.log(`[CEG] addNode: hidden node created, id=${String(newId)} widgets=${String(lnWidgets?.length ?? 0)}`)
+        if (lnWidgets && lnWidgets.length > 0) {
+          for (const w2 of lnWidgets) {
+            console.log(`[CEG] addNode: widget name="${w2.name}" hasElement=${String(w2.element !== null && w2.element !== undefined)}`)
+          }
+          const allNames = [...widgetNames]
+          const allValues = [...widgetsValues]
+          for (const w2 of lnWidgets) {
+            if (!allNames.includes(w2.name)) {
+              allNames.push(w2.name)
+              allValues.push(w2.value)
+            }
+          }
+          if (allNames.length !== widgetNames.length) {
+            console.log(`[CEG] addNode: merged ${String(allNames.length - widgetNames.length)} extension widgets into store`)
+            set({
+              nodes: get().nodes.map((n: ComfyWorkflowNode): ComfyWorkflowNode =>
+                n.id === newId
+                  ? { ...n, widgets_values: allValues, properties: { ...n.properties, widget_names: allNames } }
+                  : n
+              )
+            })
+          }
+        } else {
+          console.log(`[CEG] addNode: no widgets on live node`)
+        }
+      } else {
+        console.log(`[CEG] addNode: no graph/add available, skipping hidden graph sync`)
+      }
+    } catch (err) {
+      console.warn(`[CEG] addNode: hidden graph sync failed:`, err)
+    }
   },
 
   removeNodes: (ids: number[]): void => {
