@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useLayoutEffect } from "react"
 import type { InputSpec } from "@/comfyui/types/nodeDef"
 
 interface HTMLElementWidgetProps {
@@ -8,18 +8,27 @@ interface HTMLElementWidgetProps {
 export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  // element가 실제로 container에 붙여졌을 때만 로그
+  useLayoutEffect(() => {
     const container = containerRef.current
     if (!container) return
+    const wasAttached = element.parentNode === container
+    if (!wasAttached) {
+      container.innerHTML = ""
+      container.appendChild(element)
+      const childCount = element.childElementCount
+      const htmlLen = element.innerHTML.length
+      const bounding = element.getBoundingClientRect()
+      console.log(`[CEG] HTMLElementWidget attach tag=${element.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${Math.round(bounding.width)}x${Math.round(bounding.height)}`)
+    }
+  })
 
-    console.log(`[CEG] HTMLElementWidget mounting element tag=${element.tagName} className=${element.className}`)
-    container.innerHTML = ""
-    container.appendChild(element)
-
+  // unmount 시에만 element를 컨테이너에서 떼어낸다.
+  useEffect(() => {
     return (): void => {
       console.log(`[CEG] HTMLElementWidget unmounting element tag=${element.tagName}`)
-      if (element.parentNode === container) {
-        container.removeChild(element)
+      if (element.parentNode !== null) {
+        element.parentNode.removeChild(element)
       }
     }
   }, [element])
@@ -35,11 +44,13 @@ interface ReactWidgetProps {
   showLabel?: boolean
   disabled?: boolean
   element?: HTMLElement | null
+  /** 호출 위치 식별용 (디버그) */
+  source?: string
 }
 
-export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element }: ReactWidgetProps): React.JSX.Element {
+export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element, source = "?" }: ReactWidgetProps): React.JSX.Element {
   if (element) {
-    console.log(`[CEG] ReactWidget: "${name}" has element, rendering HTMLElementWidget`)
+    console.log(`[CEG] ReactWidget[${source}]: "${name}" has element, rendering HTMLElementWidget`)
     return <HTMLElementWidget element={element} />
   }
 

@@ -123,7 +123,7 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
       options: { hideOnZoom: false, ...(options ?? {}) },
       _value: String(value),
       value: value,
-      callback,
+      callback: callback as WidgetType["callback"],
     }
     this.widgets ??= []
     this.widgets.push(w)

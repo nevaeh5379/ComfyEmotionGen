@@ -456,6 +456,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
                           }}
                           showLabel={false}
                           disabled={isDisabled}
+                          source="input-widget"
                           element={liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)?.element ?? null}
                         />
                       )}
@@ -501,6 +502,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
                       getApp()?.syncGraphNode?.(id)
                     }}
                     disabled={isDisabled}
+                    source="pure-widget"
                     element={liveNode?.widgets?.find((w: LiveWidget) => w.name === name)?.element ?? null}
                   />
                 </div>

@@ -121,8 +121,18 @@ export function ReactGraphEditor(): JSX.Element {
             try {
               const customWidgets = await ext.getCustomWidgets(rawApp)
               if (customWidgets) {
-                const typeNames = Object.keys(customWidgets)
+                const factories = customWidgets as Record<string, unknown>
+                const typeNames = Object.keys(factories)
+                // 타입 이름 등록 + 실제 팩토리 함수 저장
                 widgetStore.registerMany(typeNames)
+                for (const [typeName, factory] of Object.entries(factories)) {
+                  if (typeof factory === "function") {
+                    widgetStore.registerCustomWidgetFactory(
+                      typeName,
+                      factory as Parameters<typeof widgetStore.registerCustomWidgetFactory>[1]
+                    )
+                  }
+                }
                 if (typeNames.length > 0) {
                   console.log("[CEG:DEBUG ReactGraphEditor] Registered custom widgets from", ext.name, typeNames);
                 }
@@ -735,8 +745,26 @@ export function ReactGraphEditor(): JSX.Element {
           )}
         </div>
       )}
-      {/* 5. 백그라운드 LiteGraph를 위한 숨겨진 Canvas */}
-      <div ref={hiddenContainerRef} style={{ display: "none" }}>
+      {/* 5. 백그라운드 LiteGraph를 위한 숨겨진 Canvas
+           display:none 대신 offscreen positioning 사용:
+           - display:none이면 LGraphCanvas가 HTML widget element를 DOM에 붙여도
+             렌더링/레이아웃이 안 일어나 확장의 lazy init(MutationObserver,
+             requestAnimationFrame 등)이 트리거되지 않음
+           - offscreen positioning은 눈에는 안 보이지만 레이아웃은 계산됨 */}
+      <div
+        ref={hiddenContainerRef}
+        style={{
+          position: "fixed",
+          left: "-99999px",
+          top: "-99999px",
+          width: "1024px",
+          height: "768px",
+          overflow: "hidden",
+          pointerEvents: "none",
+          opacity: 0,
+        }}
+        aria-hidden="true"
+      >
         <canvas ref={hiddenCanvasRef} />
         {/* VHS and other extensions look for this element to configure allowed file extensions */}
         <input type="file" id="comfy-file-input" style={{ display: "none" }} />

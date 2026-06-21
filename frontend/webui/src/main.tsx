@@ -128,8 +128,48 @@ window.LGraphNode ??= class DummyLGraphNode {
       options: { hideOnZoom: false, ...(options ?? {}) },
       _value: String(value),
       value: value,
-      callback,
+      callback: callback as WidgetType["callback"],
     }
+    this.widgets ??= []
+    this.widgets.push(w)
+    return w
+  }
+
+  addDOMWidget(
+    name: string,
+    type: string,
+    element: HTMLElement,
+    options?: {
+      getValue?: () => unknown
+      setValue?: (v: unknown) => void
+      hideOnZoom?: boolean
+      selectOn?: string[]
+      [key: string]: unknown
+    }
+  ): WidgetType {
+    const opts = options ?? {}
+    const w: WidgetType = {
+      type,
+      name,
+      element,
+      options: { hideOnZoom: false, ...opts },
+      value: opts.getValue ? opts.getValue() : "",
+      callback: null,
+    }
+    let _value: unknown = w.value
+    Object.defineProperty(w, "value", {
+      get(): unknown {
+        return typeof opts.getValue === "function" ? opts.getValue() : _value
+      },
+      set(v: unknown): void {
+        _value = v
+        if (typeof opts.setValue === "function") {
+          opts.setValue(v)
+        }
+      },
+      configurable: true,
+      enumerable: true,
+    })
     this.widgets ??= []
     this.widgets.push(w)
     return w
@@ -270,10 +310,10 @@ const _addDOMWidgetFn = function (
   }
 
   Object.defineProperty<WidgetType>(widget, 'value', {
-    get(this: WidgetType): string {
+    get(this: WidgetType): unknown {
       return this.options.getValue?.() ?? this._value
     },
-    set(this: WidgetType, v: string): void {
+    set(this: WidgetType, v: unknown): void {
       this._value = v
       if (this.options.setValue !== undefined) {
         try {
@@ -701,7 +741,7 @@ appObj.syncGraph = (): void => {
     applyFirstWidgetValueToGraph(
       node: LGraphNode | null | undefined,
       extraLinks: LLink[] = [],
-      transformValue?: (value: string | number | boolean) => string | number | boolean
+      transformValue?: (value: unknown) => unknown
     ): void {
       if (node === null || node === undefined) return
       if (

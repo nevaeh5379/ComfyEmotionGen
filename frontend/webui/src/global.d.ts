@@ -133,6 +133,18 @@ declare global {
       callback: (v: string | number | boolean) => void,
       options?: Record<string, unknown>
     ): WidgetType
+    addDOMWidget(
+      name: string,
+      type: string,
+      element: HTMLElement,
+      options?: {
+        getValue?: () => unknown
+        setValue?: (v: unknown) => void
+        hideOnZoom?: boolean
+        selectOn?: string[]
+        [key: string]: unknown
+      }
+    ): WidgetType
     setDirtyCanvas(flag?: boolean, history?: boolean): void
   }
 
@@ -201,11 +213,13 @@ declare global {
   }
 
   interface AddDOMWidgetOptions {
-    getValue?(): string
-    setValue?(v: string): void
+    getValue?(): unknown
+    setValue?(v: unknown): void
     beforeResize?(widget: WidgetType, node: LGraphNode): void
     afterResize?(widget: WidgetType, node: LGraphNode): void
     hideOnZoom?: boolean
+    selectOn?: string[]
+    [key: string]: unknown
   }
 
   interface WidgetType {
@@ -213,9 +227,9 @@ declare global {
     name: string
     element: HTMLElement
     options: AddDOMWidgetOptions & { hideOnZoom: boolean }
-    _value: string
-    value: string | number | boolean
-    callback: ((value: string | number | boolean, canvas?: LGraphCanvas, node?: LGraphNode, mouse?: [number, number], event?: object) => void) | null
+    _value?: unknown
+    value: unknown
+    callback: ((value: unknown, canvas?: LGraphCanvas, node?: LGraphNode, mouse?: [number, number], event?: object) => void) | null
   }
 
   interface SettingEntry {
@@ -338,7 +352,7 @@ declare global {
       applyFirstWidgetValueToGraph(
         node: LGraphNode | null | undefined,
         extraLinks?: LLink[],
-        transformValue?: (value: string | number | boolean) => string | number | boolean
+        transformValue?: (value: unknown) => unknown
       ): void
     }
     groupNodeManage?: {

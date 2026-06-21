@@ -1,4 +1,35 @@
+import type { LGraphNode } from "../types/lgraphAdapterNode"
+
+/** 커스텀 위젯 팩토리가 반환/처리하는 widget 객체 형태 */
+export interface CustomWidget {
+  type?: string
+  name: string
+  value?: unknown
+  element?: HTMLElement
+  callback?: ((v: unknown) => void) | null
+  options?: Record<string, unknown>
+  y?: number
+  width?: number
+  height?: number
+  last_y?: number
+  computedHeight?: number
+  [key: string]: unknown
+}
+
+/**
+ * ComfyUI 확장의 getCustomWidgets가 반환하는 팩토리 시그니처.
+ * (node, inputName, inputData, app) => IWidget | undefined
+ * inputData 는 [type, config] 튜플.
+ */
+export type CustomWidgetFactory = (
+  node: LGraphNode,
+  inputName: string,
+  inputData: [unknown, Record<string, unknown>?],
+  app: unknown
+) => CustomWidget | undefined | void
+
 const widgetTypes = new Set<string>()
+const customWidgetFactories = new Map<string, CustomWidgetFactory>()
 
 const BASIC_WIDGET_TYPES = ["INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"]
 for (const type of BASIC_WIDGET_TYPES) {
@@ -19,5 +50,26 @@ export const widgetStore = {
     for (const type of types) {
       widgetTypes.add(String(type).toUpperCase())
     }
+  },
+
+  /** 커스텀 위젯 팩토리 등록 (확장의 getCustomWidgets 결과) */
+  registerCustomWidgetFactory(type: string, factory: CustomWidgetFactory): void {
+    const key = String(type).toUpperCase()
+    customWidgetFactories.set(key, factory)
+    widgetTypes.add(key)
+  },
+
+  registerCustomWidgetFactories(factories: Record<string, CustomWidgetFactory>): void {
+    for (const [type, factory] of Object.entries(factories)) {
+      this.registerCustomWidgetFactory(type, factory)
+    }
+  },
+
+  getCustomWidgetFactory(type: string): CustomWidgetFactory | undefined {
+    return customWidgetFactories.get(String(type).toUpperCase())
+  },
+
+  hasCustomWidgetFactory(type: string): boolean {
+    return customWidgetFactories.has(String(type).toUpperCase())
   },
 }

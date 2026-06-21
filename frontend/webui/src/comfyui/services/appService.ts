@@ -20,17 +20,45 @@ import { useExtensionStore } from "@/comfyui/stores/extensionStore"
 import { extensionManager } from "@/comfyui/services/extensionService"
 import { api } from "@/comfyui/api"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
+import { widgetStore } from "@/comfyui/stores/widgetStore"
 
 // ── LiteGraph global stubs (커스텀 노드 호환) ─────────────────────
+//
+// 실제 comfy-litegraph가 로드되지 않은 환경에서도 커스텀 노드 확장이 동작하도록
+// 최소한의 LiteGraph 호환 레지스트리를 구현한다.
+// 핵심: registerNodeType이 NodeClass를 저장하고, createNode가 저장된 클래스로
+// 인스턴스를 생성해야 beforeRegisterNodeDef에서 prototype에 패치한
+// onNodeCreated 등의 훅이 정상적으로 호출된다.
+
+interface RegisteredNodeType {
+  class: new () => LGraphNode
+  type: string
+}
+
+const registeredNodeTypes: Map<string, RegisteredNodeType> = new Map()
 
 window.LiteGraph ??= {
-  registerNodeType: (): void => { /* noop */ },
+  registerNodeType: (type: string, nodeClass: new () => LGraphNode): void => {
+    registeredNodeTypes.set(type, { class: nodeClass, type })
+  },
   NODE_DEFAULT_WIDTH: 200,
   NODE_DEFAULT_HEIGHT: 80,
   ALWAYS: 0,
   NEVER: 1,
   BYPASS: 2,
-  createNode: (type: string): LGraphNode | null => new LGraphNode(type),
+  createNode: (type: string): LGraphNode | null => {
+    const entry = registeredNodeTypes.get(type)
+    if (entry !== undefined) {
+      try {
+        return new entry.class()
+      } catch (err) {
+        console.error(`[CEG LiteGraph stub] createNode failed for "${type}":`, err)
+        return null
+      }
+    }
+    // 등록되지 않은 타입은 더미 LGraphNode로 폴백
+    return new LGraphNode(type)
+  },
 }
 
 // ── Dummy LGraph classes (커스텀 노드 호환용 빈 껍데기) ────────────
@@ -168,8 +196,54 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
       options: { hideOnZoom: false, ...(options ?? {}) },
       _value: String(value),
       value: value,
-      callback,
+      callback: callback as WidgetType["callback"],
     }
+    this.widgets ??= []
+    this.widgets.push(w)
+    return w
+  }
+
+  /**
+   * ComfyUI addDOMWidget 호환 메서드.
+   * 커스텀 노드 확장이 DOM 기반 위젯을 등록할 때 호출한다.
+   * options.getValue/setValue 로 값 접근을 위임한다.
+   */
+  addDOMWidget(
+    name: string,
+    type: string,
+    element: HTMLElement,
+    options?: {
+      getValue?: () => unknown
+      setValue?: (v: unknown) => void
+      hideOnZoom?: boolean
+      selectOn?: string[]
+      [key: string]: unknown
+    }
+  ): WidgetType {
+    const opts = options ?? {}
+    const w: WidgetType = {
+      type,
+      name,
+      element,
+      options: { hideOnZoom: false, ...opts },
+      value: opts.getValue ? opts.getValue() : "",
+      callback: null,
+    }
+    // value 접근을 getValue/setValue에 위임하기 위해 getter/setter 세팅
+    let _value: unknown = w.value
+    Object.defineProperty(w, "value", {
+      get(): unknown {
+        return typeof opts.getValue === "function" ? opts.getValue() : _value
+      },
+      set(v: unknown): void {
+        _value = v
+        if (typeof opts.setValue === "function") {
+          opts.setValue(v)
+        }
+      },
+      configurable: true,
+      enumerable: true,
+    })
     this.widgets ??= []
     this.widgets.push(w)
     return w
@@ -277,7 +351,8 @@ export class ComfyAppService {
     const app = getWindowApp()
     const extensions = this.extensions
 
-    console.log(`[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available`, extensions.map(e => e.name))
+    const loraExt = extensions.find(e => e.name?.includes("LoraManager") || e.name?.includes("Lora"))
+    console.log(`[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available. loraExt=${loraExt?.name ?? "NONE"}. allNames=${extensions.map(e => e.name).join(",")}`)
 
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
@@ -293,14 +368,25 @@ export class ComfyAppService {
       }
 
       // Run beforeRegisterNodeDef hooks (from Zustand extension store)
+      let patchedByCount = 0
       for (const ext of extensions) {
         if (ext.beforeRegisterNodeDef) {
+          const hadBefore = typeof (NodeClass.prototype as { onNodeCreated?: unknown }).onNodeCreated === "function"
           try {
             void Promise.resolve(ext.beforeRegisterNodeDef(NodeClass, def, app))
+            const hasAfter = typeof (NodeClass.prototype as { onNodeCreated?: unknown }).onNodeCreated === "function"
+            if (!hadBefore && hasAfter) patchedByCount++
           } catch (err) {
             console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
           }
         }
+      }
+      // LoraManager 관련 노드거나 onNodeCreated가 패치된 경우만 로그
+      if (patchedByCount > 0 || type.includes("LoraManager")) {
+        console.log(`[CEG] registerNodeDefs: type="${type}" comfyClass="${NodeClass.comfyClass}" onNodeCreatedPatchedBy=${String(patchedByCount)} extCount=${String(extensions.length)}`)
+      }
+      if (patchedByCount === 0 && type.includes("LoraManager")) {
+        console.warn(`[CEG] registerNodeDefs: NO extension patched onNodeCreated for "${type}". extensions=${extensions.map(e => e.name).join(",")}`)
       }
 
       LiteGraph.registerNodeType(type, NodeClass)
@@ -403,8 +489,13 @@ export class ComfyAppService {
   createNode(
     type: string,
     pos: Point = [0, 0],
-    options: { skipConfigure?: boolean } = {}
+    options: { skipConfigure?: boolean; id?: number } = {}
   ): LGraphNode | null {
+    // 진단: 확장 store 상태
+    const exts = this.extensions
+    const loraExt = exts.find(e => e.name?.includes("LoraManager") || e.name?.includes("Lora"))
+    console.log(`[CEG] createNode: type="${type}" nodeDefInThis=${String(this.nodeDefs[type] !== undefined)} extCount=${String(exts.length)} loraExt=${loraExt?.name ?? "NONE"}`)
+
     let nodeDef = this.nodeDefs[type]
     let actualType = type
     if (nodeDef === undefined) {
@@ -443,11 +534,23 @@ export class ComfyAppService {
     }
 
     const node = LiteGraph.createNode(actualType)
-    if (node === null) return null
+    if (node === null) {
+      console.warn(`[CEG] createNode: LiteGraph.createNode returned null for "${actualType}"`)
+      return null
+    }
 
     if (typeof node.addInput !== "function") return null
 
+    // 진단: 생성된 노드의 클래스 정보
+    const nodeProto = Object.getPrototypeOf(node)
+    const protoOnCreated = typeof (nodeProto as { onNodeCreated?: unknown }).onNodeCreated
+    const ctorName = nodeProto?.constructor?.name ?? "?"
+    console.log(`[CEG] createNode: created node ctor=${ctorName} proto.onNodeCreated=${protoOnCreated} own.onNodeCreated=${typeof (node as { onNodeCreated?: unknown }).onNodeCreated}`)
+
     node.pos = pos
+    if (options.id !== undefined) {
+      node.id = options.id
+    }
 
     // 입력 슬롯
     if (nodeDef.input?.required !== undefined) {
@@ -476,10 +579,13 @@ export class ComfyAppService {
     // 위젯 생성
     this.addNodeWidgets(node, nodeDef)
 
+    // ComfyUI 원본 순서: graph.add(node) 먼저 → onNodeCreated → nodeCreated 확장 훅
+    // 확장이 nodeCreated에서 app.canvas / node DOM 컨테이너를 기대하고 widget element를 채우므로
+    // graph에 먼저 등록해야 함
+    this.graph.add(node)
+
     // Call prototype's onNodeCreated (patched by beforeRegisterNodeDef hooks)
     node.onNodeCreated?.()
-
-    this.graph.add(node)
 
     // Run nodeCreated hooks
     const app = getWindowApp()
@@ -504,14 +610,41 @@ export class ComfyAppService {
 
   /**
    * 노드에 위젯 추가
+   *
+   * ComfyUI 확장이 getCustomWidgets로 등록한 커스텀 위젯 팩토리를 우선 사용한다.
+   * 커스텀 팩토리가 있으면 호출해서 widget(element 포함)을 만들고 node.widgets에 추가.
+   * 없으면 기본 LiteGraph 위젯(combo/number/text/toggle)을 만든다.
    */
   private addNodeWidgets(node: LGraphNode, nodeDef: ComfyNodeDef): void {
     if (nodeDef.input?.required === undefined) return
+
+    const app = getWindowApp()
 
     for (const [name, spec] of Object.entries(nodeDef.input.required)) {
       const inputType = spec[0]
       const inputConfig = spec[1] ?? {}
 
+      // 1) 커스텀 위젯 팩토리가 있으면 우선 사용 (확장이 만든 DOM element 포함)
+      const typeName = Array.isArray(inputType) ? "COMBO" : String(inputType)
+      const factory = widgetStore.getCustomWidgetFactory(typeName)
+      if (factory) {
+        try {
+          const widget = factory(node as unknown as Parameters<typeof factory>[0], name, [inputType, inputConfig], app)
+          if (widget) {
+            // widget.type이 없으면 typeName으로 채워준다
+            if (!widget.type) widget.type = typeName
+            if (!widget.name) widget.name = name
+            if (node.widgets === undefined) node.widgets = []
+            node.widgets.push(widget as unknown as typeof node.widgets[number])
+            console.log(`[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created, hasElement=${String(widget.element !== null && widget.element !== undefined)}`)
+            continue
+          }
+        } catch (err) {
+          console.error(`[CEG] addNodeWidgets: custom widget factory failed for "${name}" (type=${typeName}):`, err)
+        }
+      }
+
+      // 2) 커스텀 팩토리가 없거나 실패 → 기본 LiteGraph 위젯
       if (Array.isArray(inputType)) {
         // COMBO 위젯
         node.addWidget("combo", name, inputType[0] ?? "", (): void => undefined, {
