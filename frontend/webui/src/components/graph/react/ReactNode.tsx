@@ -2,7 +2,7 @@
  * ReactNode - HTML/CSS로 그려지는 리액트 노드 컴포넌트
  */
 
-import { useRef, useMemo, useLayoutEffect, useState, type ReactNode } from "react"
+import { useRef, useMemo, useLayoutEffect, useState, memo, type ReactNode as ReactNodeType } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactWidget } from "./ReactWidget"
@@ -63,7 +63,7 @@ interface ReactNodeProps {
   selected: boolean
 }
 
-export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): ReactNode {
+export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): ReactNodeType {
   const nodeRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [minHeight, setMinHeight] = useState(80)
@@ -469,7 +469,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
         )}
 
         {/* Pure widgets not exposed as inputs */}
-        {(() : ReactNode | null => {
+        {(() : ReactNodeType | null => {
           const linkedWidgetNames = new Set<string>()
           for (const i of inputs) {
             if (i.widget !== undefined) {
@@ -512,7 +512,7 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
         })()}
 
         {/* Custom HTML injected by properties */}
-        {(() : ReactNode | null => {
+        {(() : ReactNodeType | null => {
           const rawHtml = liveNode?.properties?.html ?? liveNode?.properties?.custom_html ?? liveNode?.properties?.text_html ?? nodeData?.properties?.html ?? nodeData?.properties?.custom_html
           const customHtml = typeof rawHtml === "string" ? rawHtml : ""
           if (!customHtml) return null
@@ -550,4 +550,4 @@ export function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): Re
       </div>
     </div>
   )
-}
+})

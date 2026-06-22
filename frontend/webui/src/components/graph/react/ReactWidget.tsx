@@ -21,7 +21,7 @@ export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JS
       const bounding = element.getBoundingClientRect()
       console.log(`[CEG] HTMLElementWidget attach tag=${element.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${Math.round(bounding.width)}x${Math.round(bounding.height)}`)
     }
-  })
+  }, [element])
 
   // unmount 시에만 element를 컨테이너에서 떼어낸다.
   useEffect(() => {
@@ -50,7 +50,6 @@ interface ReactWidgetProps {
 
 export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element, source = "?" }: ReactWidgetProps): React.JSX.Element {
   if (element) {
-    console.log(`[CEG] ReactWidget[${source}]: "${name}" has element, rendering HTMLElementWidget`)
     return <HTMLElementWidget element={element} />
   }
 

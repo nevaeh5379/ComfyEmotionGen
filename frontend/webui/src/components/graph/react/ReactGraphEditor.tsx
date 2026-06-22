@@ -2,7 +2,7 @@
  * ReactGraphEditor - React/DOM/SVG 기반 메인 노드 그래프 에디터
  */
 
-import { useRef, useState, useEffect, useMemo } from "react"
+import { useRef, useState, useEffect, useMemo, memo } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactNode } from "./ReactNode"
@@ -10,6 +10,35 @@ import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { ComfyAppService } from "@/comfyui/services/appService"
 import { widgetStore } from "@/comfyui/stores/widgetStore"
+import { useShallow } from "zustand/react/shallow"
+
+
+const NodeLayerItem = memo(function NodeLayerItem({ id }: { id: number }): JSX.Element | null {
+  const node = useReactGraphStore(useShallow((s) => s.nodes.find((n) => n.id === id) ?? null))
+  const selected = useReactGraphStore((s) => s.selectedNodeIds.has(id))
+  if (!node) return null
+  return (
+    <ReactNode
+      key={`node-${String(node.id)}`}
+      id={node.id}
+      type={node.type}
+      pos={node.pos}
+      size={node.size}
+      selected={selected}
+    />
+  )
+})
+
+const NodeLayer = memo(function NodeLayer(): JSX.Element {
+  const nodeIds = useReactGraphStore(useShallow((s) => s.nodes.map((n) => n.id)))
+  return (
+    <>
+      {nodeIds.map((id) => (
+        <NodeLayerItem key={`node-${String(id)}`} id={id} />
+      ))}
+    </>
+  )
+})
 
 
 export function ReactGraphEditor(): JSX.Element {
@@ -20,7 +49,6 @@ export function ReactGraphEditor(): JSX.Element {
   const [isReady, setIsReady] = useState(false)
   const nodeDefs = useNodeDefStore((s) => s.nodeDefs)
 
-  const nodes = useReactGraphStore((s) => s.nodes)
   const zoom = useReactGraphStore((s) => s.zoom)
   const pan = useReactGraphStore((s) => s.pan)
   const setZoom = useReactGraphStore((s) => s.setZoom)
@@ -83,14 +111,14 @@ export function ReactGraphEditor(): JSX.Element {
         try {
           const extensionUrls = await apiClient.getExtensions()
           console.log("[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:", String(extensionUrls.length), extensionUrls);
-          for (const url of extensionUrls) {
-            try {
-              const fullUrl = url.startsWith("http") ? url : `${apiClient.api_base}${url}`;
-              console.log("[CEG:DEBUG ReactGraphEditor] Importing extension:", fullUrl);
-              await import(/* @vite-ignore */ fullUrl)
-              console.log("[CEG:DEBUG ReactGraphEditor] Import success:", fullUrl);
-            } catch (err) {
-              console.error(`Failed to load extension: ${url}`, err)
+          // 병렬로 import()를 시작하고, 배열 순서대로 await하여 등록 순서를 보존합니다.
+          const fullUrls = extensionUrls.map((url) => url.startsWith("http") ? url : `${apiClient.api_base}${url}`);
+          console.log("[CEG:DEBUG ReactGraphEditor] Importing extensions in parallel:", fullUrls.length);
+          const importPromises = fullUrls.map((fullUrl) => import(/* @vite-ignore */ fullUrl).then(() => fullUrl).catch((err) => { console.error(`Failed to load extension: ${fullUrl}`, err); return null; }));
+          for (let i = 0; i < importPromises.length; i++) {
+            const result = await importPromises[i];
+            if (result !== null) {
+              console.log("[CEG:DEBUG ReactGraphEditor] Import success:", result);
             }
           }
         } catch (err) {
@@ -574,8 +602,6 @@ export function ReactGraphEditor(): JSX.Element {
     }
   }, [])
 
-  const selectedNodeIds = useReactGraphStore((s) => s.selectedNodeIds)
-
   return (
     <div
       ref={containerRef}
@@ -620,16 +646,7 @@ export function ReactGraphEditor(): JSX.Element {
           )}
 
           {/* 3. DOM 노드 레이어 */}
-          {nodes.map((node) => (
-            <ReactNode
-              key={`node-${String(node.id)}`}
-              id={node.id}
-              type={node.type}
-              pos={node.pos}
-              size={node.size}
-              selected={selectedNodeIds.has(node.id)}
-            />
-          ))}
+          <NodeLayer />
         </div>
       </div>
 
