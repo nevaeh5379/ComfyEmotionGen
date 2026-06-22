@@ -147,7 +147,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
     )
   }
 
-  // 4. STRING 또는 기타 기본 텍스트 필드
+  // 4. STRING 또는 기타 기본 텍스트 필드 (textarea for multiline support)
   const strVal = typeof value === "string" ? value : ""
 
   return (
@@ -157,12 +157,11 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
           {name}
         </span>
       )}
-      <input
-        type="text"
+      <textarea
         value={strVal}
         disabled={disabled}
         onChange={(e) => { onChange(e.target.value); }}
-        className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full min-h-[40px] text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed resize-y font-mono"
       />
     </div>
   )

@@ -20,7 +20,7 @@ import { useExtensionStore } from "@/comfyui/stores/extensionStore"
 import { extensionManager } from "@/comfyui/services/extensionService"
 import { api } from "@/comfyui/api"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
-import { widgetStore } from "@/comfyui/stores/widgetStore"
+import { widgetStore, type CustomWidget } from "@/comfyui/stores/widgetStore"
 
 // ── LiteGraph global stubs (커스텀 노드 호환) ─────────────────────
 //
@@ -189,10 +189,13 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
     callback: (v: string | number | boolean) => void,
     options?: Record<string, unknown>
   ): WidgetType {
+    // For basic text widgets, do NOT set element so ReactWidget renders
+    // its native <input type="text"> instead of an empty non-interactive div.
+    const element = type === "text" ? undefined as unknown as HTMLElement : document.createElement("div")
     const w: WidgetType = {
       type,
       name,
-      element: document.createElement("div"),
+      element,
       options: { hideOnZoom: false, ...(options ?? {}) },
       _value: String(value),
       value: value,
@@ -625,18 +628,18 @@ export class ComfyAppService {
       const inputConfig = spec[1] ?? {}
 
       // 1) 커스텀 위젯 팩토리가 있으면 우선 사용 (확장이 만든 DOM element 포함)
+      // 팩토리는 내부에서 node.addDOMWidget()을 호출하여 위젯을 등록하므로
+      // 반환값을 node.widgets에 다시 push하지 않는다 (중복 등록 방지).
       const typeName = Array.isArray(inputType) ? "COMBO" : String(inputType)
       const factory = widgetStore.getCustomWidgetFactory(typeName)
       if (factory) {
         try {
-          const widget = factory(node as unknown as Parameters<typeof factory>[0], name, [inputType, inputConfig], app)
-          if (widget) {
-            // widget.type이 없으면 typeName으로 채워준다
-            if (!widget.type) widget.type = typeName
-            if (!widget.name) widget.name = name
-            if (node.widgets === undefined) node.widgets = []
-            node.widgets.push(widget as unknown as typeof node.widgets[number])
-            console.log(`[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created, hasElement=${String(widget.element !== null && widget.element !== undefined)}`)
+          const result = factory(node as unknown as Parameters<typeof factory>[0], name, [inputType, inputConfig], app)
+          if (result) {
+            const widget = (result as Record<string, unknown>).widget !== undefined
+              ? (result as Record<string, unknown>).widget as CustomWidget
+              : result as CustomWidget
+            console.log(`[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created by factory, hasElement=${String(widget.element !== null && widget.element !== undefined)}`)
             continue
           }
         } catch (err) {

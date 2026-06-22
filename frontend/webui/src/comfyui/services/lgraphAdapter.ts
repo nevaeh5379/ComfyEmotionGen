@@ -150,6 +150,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
 
   // ── Internal ────────────────────────────────────────────────────
   private _linkedNodes = new WeakSet<LGraphNode>()
+  /** Live node instances with real DOM widget elements, keyed by node id. */
+  private _liveNodes = new Map<number, LGraphNode>()
 
   constructor() {
     this.links = createMapProxy<ComfyWorkflowLink>(new Map())
@@ -181,6 +183,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     }
 
     const linkedNode = this.linkNodeToGraph(nodeOrGroup, this)
+
+    // Store the live node instance so getNodeById can return real DOM widget elements.
+    this._liveNodes.set(linkedNode.id, linkedNode)
 
     const workflowNode: ComfyWorkflowNode = {
       id: linkedNode.id,
@@ -230,6 +235,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
 
   public remove(node: LGraphNode): void {
     const store = useReactGraphStore
+    this._liveNodes.delete(node.id)
     this.onBeforeChange?.(this, node)
     store.getState().takeSnapshot()
     store.getState().removeNode(node.id)
@@ -238,8 +244,11 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   }
 
   public getNodeById(id: number | string): LGraphNode | null {
-    const store = useReactGraphStore
     const numId = typeof id === "string" ? Number(id) : id
+    // Return the live node instance (with real DOM widget elements) if available.
+    const liveNode = this._liveNodes.get(numId)
+    if (liveNode) return liveNode
+    const store = useReactGraphStore
     const node = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === numId)
     if (node === undefined) return null
     return this.wrapNode(node)
