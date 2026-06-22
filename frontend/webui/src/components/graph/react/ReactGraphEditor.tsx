@@ -81,29 +81,14 @@ export function ReactGraphEditor(): JSX.Element {
         container: hiddenContainerRef.current,
         nodeDefs,
       })
-      rawApp.graph = appService.graph
+      rawApp.graph = appService.graph as unknown as LGraph
       rawApp.canvas = appService.canvas
       rawApp.extensionManager = appService.extensionManager
       rawApp.api = appService.api
-      rawApp.graph._canvas = appService.canvas
+      ;(rawApp.graph as unknown as Record<string, unknown>)._canvas = appService.canvas
       appService.canvas.app = rawApp
 
       window.__comfyAppService = appService
-
-      // setDirtyCanvas 가로채기 (Zustand 동기화 트리거)
-      const lGraphProto = LGraph.prototype
-      const origLGraphSetDirty: (this: LGraph, flag: boolean, history?: boolean) => void = Reflect.get(lGraphProto, "setDirtyCanvas")
-      LGraph.prototype.setDirtyCanvas = function (this: LGraph, flag: boolean, history?: boolean): void {
-        origLGraphSetDirty.call(this, flag, history)
-        void rawApp.syncGraph()
-      }
-
-      const lGraphNodeProto = LGraphNode.prototype
-      const origLGraphNodeSetDirty: (this: LGraphNode, flag?: boolean, history?: boolean) => void = Reflect.get(lGraphNodeProto, "setDirtyCanvas")
-      LGraphNode.prototype.setDirtyCanvas = function (this: LGraphNode, flag?: boolean, history?: boolean): void {
-        origLGraphNodeSetDirty.call(this, flag, history)
-        void rawApp.syncGraph()
-      }
 
       // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)
       if (rawApp.extensionsLoaded !== true) {

@@ -3,7 +3,6 @@ import {
   Copy,
   Download,
   FolderOpen,
-  Workflow,
   ArrowUpRight,
   ExternalLink,
   Columns2,
@@ -84,7 +83,6 @@ export interface WorkCompositionPanelProps {
   onAxisFilterOpen: () => void
   onSelectionOpen: () => void
   hasActiveFilter: boolean
-  onGraphOpen: () => void
   // Floating Window controls
   isFloating?: boolean
   onFloatToggle?: () => void
@@ -118,7 +116,6 @@ export function WorkCompositionPanel({
   onAxisFilterOpen,
   onSelectionOpen,
   hasActiveFilter,
-  onGraphOpen,
   isFloating,
   onFloatToggle,
   onHeaderDragStart,
@@ -283,7 +280,6 @@ export function WorkCompositionPanel({
                 onSelectionOpen={onSelectionOpen}
                 hasActiveFilter={hasActiveFilter}
                 onAxisFilterOpen={onAxisFilterOpen}
-                onGraphOpen={onGraphOpen}
                 workers={workers}
                 targetWorkerId={targetWorkerId}
                 setTargetWorkerId={setTargetWorkerId}
@@ -564,19 +560,6 @@ export function WorkCompositionPanel({
                   <TooltipContent>워크플로우 JSON 다운로드</TooltipContent>
                 </Tooltip>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-muted-foreground"
-                      onClick={onGraphOpen}
-                    >
-                      <Workflow className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>그래프 보기</TooltipContent>
-                </Tooltip>
               </div>
             </div>
 

@@ -68,6 +68,18 @@ export interface LGraphNode {
     callback: (v: string | number | boolean) => void,
     options?: Record<string, unknown>
   ): LGraphWidget
+  addDOMWidget(
+    name: string,
+    type: string,
+    element: HTMLElement,
+    options?: {
+      getValue?: () => unknown
+      setValue?: (v: unknown) => void
+      hideOnZoom?: boolean
+      selectOn?: string[]
+      [key: string]: unknown
+    }
+  ): LGraphWidget
   setDirtyCanvas(flag?: boolean, history?: boolean): void
 }
 

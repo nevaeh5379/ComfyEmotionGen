@@ -178,14 +178,14 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const store = useReactGraphStore
     const currentState = store.getState()
 
+    // Always store the live node so getNodeById returns real DOM widget elements,
+    // even if the workflow node already exists in the Zustand store.
+    const linkedNode = this.linkNodeToGraph(nodeOrGroup, this)
+    this._liveNodes.set(linkedNode.id, linkedNode)
+
     if (currentState.nodes.some((n: ComfyWorkflowNode) => n.id === nodeOrGroup.id)) {
       return
     }
-
-    const linkedNode = this.linkNodeToGraph(nodeOrGroup, this)
-
-    // Store the live node instance so getNodeById can return real DOM widget elements.
-    this._liveNodes.set(linkedNode.id, linkedNode)
 
     const workflowNode: ComfyWorkflowNode = {
       id: linkedNode.id,
@@ -252,6 +252,14 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const node = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === numId)
     if (node === undefined) return null
     return this.wrapNode(node)
+  }
+
+  public clear(): void {
+    this._liveNodes.clear()
+    const store = useReactGraphStore
+    store.getState().takeSnapshot()
+    store.setState({ nodes: [], links: [] })
+    this.onAfterChange?.(this, null)
   }
 
   // ── Link management ────────────────────────────────────────────
@@ -482,6 +490,43 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           options: options ?? {},
           callback,
         }
+      },
+      addDOMWidget(
+        name: string,
+        type: string,
+        element: HTMLElement,
+        options?: {
+          getValue?: () => unknown
+          setValue?: (v: unknown) => void
+          hideOnZoom?: boolean
+          selectOn?: string[]
+          [key: string]: unknown
+        }
+      ): { type: string; name: string; value: string | number | boolean; element: HTMLElement; options: Record<string, unknown>; callback: ((v: string | number | boolean) => void) | null } {
+        const opts = options ?? {}
+        const w = {
+          type,
+          name,
+          element,
+          options: { hideOnZoom: false, ...opts },
+          value: opts.getValue ? String(opts.getValue()) : "",
+          callback: null as ((v: string | number | boolean) => void) | null,
+        }
+        let _value: unknown = w.value
+        Object.defineProperty(w, "value", {
+          get(): unknown {
+            return typeof opts.getValue === "function" ? opts.getValue() : _value
+          },
+          set(v: unknown): void {
+            _value = v
+            if (typeof opts.setValue === "function") {
+              opts.setValue(v)
+            }
+          },
+          configurable: true,
+          enumerable: true,
+        })
+        return w
       },
       setDirtyCanvas(): void {
         // intentional no-op

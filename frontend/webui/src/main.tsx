@@ -2,212 +2,6 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
-// import { LiteGraph, LGraph, LGraphNode, LGraphCanvas, LLink, LGraphGroup } from "comfy-litegraph"
-const _registeredNodeTypes: Record<string, new (...args: unknown[]) => LGraphNode> = {}
-window.LiteGraph ??= {
-  registerNodeType: (type: string, nodeClass: new (...args: unknown[]) => LGraphNode): void => {
-    _registeredNodeTypes[type] = nodeClass
-  },
-  NODE_DEFAULT_WIDTH: 200,
-  NODE_DEFAULT_HEIGHT: 80,
-  ALWAYS: 0,
-  NEVER: 1,
-  BYPASS: 2,
-  createNode: (type: string): LGraphNode | null => {
-    const nodeClass = _registeredNodeTypes[type]
-    if (nodeClass !== undefined) {
-      const node = new nodeClass()
-      ;(node as unknown as Record<string, unknown>).type = type
-      return node
-    }
-    return new LGraphNode(type)
-  },
-}
-window.LGraph ??= class DummyLGraph {
-  readonly __dummy = true
-  _nodes_by_id: Record<string, LGraphNode | undefined> = {}
-  links: Map<number, LLink> | Record<number, LLink> = {}
-  groups: LGraphGroup[] = []
-  nodes: LGraphNode[] = []
-
-  add(node: LGraphNode): void {
-    if (!this.nodes.includes(node)) {
-      this.nodes.push(node)
-    }
-    if (node.id) {
-      this._nodes_by_id[String(node.id)] = node
-    }
-  }
-
-  remove(node: LGraphNode): void {
-    const idx = this.nodes.indexOf(node)
-    if (idx !== -1) {
-      this.nodes.splice(idx, 1)
-    }
-    if (node.id) {
-      this._nodes_by_id[String(node.id)] = undefined
-    }
-  }
-
-  clear(): void {
-    this.nodes = []
-    this._nodes_by_id = {}
-    this.links = {}
-    this.groups = []
-  }
-
-  getNodeById(id: number | string): LGraphNode | undefined {
-    return this._nodes_by_id[String(id)]
-  }
-
-  setDirtyCanvas(_flag: boolean, _history?: boolean): void {
-    /* noop */
-  }
-} as unknown as LGraphConstructor
-const LGraph = window.LGraph
-
-let _nextNodeId = 1
-
-window.LGraphNode ??= class DummyLGraphNode {
-  readonly __dummy = true
-  id = _nextNodeId++
-  type?: string
-  color?: string
-  bgcolor?: string
-  pos: [number, number] = [0, 0]
-  size: [number, number] = [0, 0]
-  inputs: LGraphNodeInput[] = []
-  outputs: LGraphNodeOutput[] = []
-  widgets?: WidgetType[] = []
-
-  constructor(type?: string) {
-    if (type !== undefined) {
-      this.type = type
-    }
-  }
-
-  addInput(name: string, type: string): void {
-    this.inputs.push({ name, type, link: null })
-  }
-
-  addOutput(name: string, type: string): void {
-    this.outputs.push({ name, type, links: null })
-  }
-
-  connect(_slot: number, _targetNode: LGraphNode, _targetSlot: number | string): boolean | null {
-    return true
-  }
-
-  disconnectInput(_slot: number): void {
-    /* noop */
-  }
-
-  disconnectOutput(_slot: number): void {
-    /* noop */
-  }
-
-  configure(_data: unknown): void {
-    /* noop */
-  }
-
-  setDirtyCanvas(): void {
-    /* noop */
-  }
-
-  addWidget(
-    type: string,
-    name: string,
-    value: string | number | boolean,
-    callback: (v: string | number | boolean) => void,
-    options?: Record<string, unknown>
-  ): WidgetType {
-    const w: WidgetType = {
-      type,
-      name,
-      element: document.createElement("div"),
-      options: { hideOnZoom: false, ...(options ?? {}) },
-      _value: String(value),
-      value: value,
-      callback: callback as WidgetType["callback"],
-    }
-    this.widgets ??= []
-    this.widgets.push(w)
-    return w
-  }
-
-  addDOMWidget(
-    name: string,
-    type: string,
-    element: HTMLElement,
-    options?: {
-      getValue?: () => unknown
-      setValue?: (v: unknown) => void
-      hideOnZoom?: boolean
-      selectOn?: string[]
-      [key: string]: unknown
-    }
-  ): WidgetType {
-    const opts = options ?? {}
-    const w: WidgetType = {
-      type,
-      name,
-      element,
-      options: { hideOnZoom: false, ...opts },
-      value: opts.getValue ? opts.getValue() : "",
-      callback: null,
-    }
-    let _value: unknown = w.value
-    Object.defineProperty(w, "value", {
-      get(): unknown {
-        return typeof opts.getValue === "function" ? opts.getValue() : _value
-      },
-      set(v: unknown): void {
-        _value = v
-        if (typeof opts.setValue === "function") {
-          opts.setValue(v)
-        }
-      },
-      configurable: true,
-      enumerable: true,
-    })
-    this.widgets ??= []
-    this.widgets.push(w)
-    return w
-  }
-}
-window.LGraphCanvas ??= class DummyLGraphCanvas {
-  readonly __dummy = true
-  state = { readOnly: false }
-  resize(): void { /* noop */ }
-  ds = { scale: 1, offset: [0, 0] as [number, number] }
-  setDirty(): void { /* noop */ }
-  stopRendering(): void { /* noop */ }
-  startRendering(): void { /* noop */ }
-  canvas: HTMLCanvasElement | null = null
-  setCanvas(canvas: HTMLCanvasElement | string | null | undefined, _skip_events?: boolean): void {
-    if (canvas !== null && canvas !== undefined && typeof canvas !== "string") {
-      this.canvas = canvas
-    }
-  }
-} as unknown as LGraphCanvasConstructor
-const LGraphCanvas = window.LGraphCanvas
-window.LLink ??= class DummyLLink {
-  readonly __dummy = true
-  id = 0
-  origin_id = 0
-  origin_slot = 0
-  target_id = 0
-  target_slot = 0
-  type = ""
-}
-window.LGraphGroup ??= class DummyLGraphGroup {
-  readonly __dummy = true
-  id = 0
-  title = ""
-  pos: [number, number] = [0, 0]
-  size: [number, number] = [0, 0]
-  color?: string
-}
 
 window.comfyExtensions ??= []
 
@@ -287,75 +81,123 @@ try {
   console.error("Failed to install localStorage hooks")
 }
 
-// addDOMWidget polyfill
-const _addDOMWidgetFn = function (
-  this: LGraphNode,
-  name: string,
-  type: string,
-  element: HTMLElement,
-  options: AddDOMWidgetOptions = {}
-): WidgetType {
-  const errStack: string | undefined = new Error().stack
-  const stackStr: string = errStack?.split("\n").slice(2, 5).join(" <- ") ?? "N/A"
-  console.log("[CEG:DEBUG addDOMWidget]", "nodeId=" + String((this as unknown as Record<string, unknown>).id), "name=" + name, "type=" + type, "hasElement=true", "elementTag=" + element.tagName, "stack=" + stackStr)
-
-  const widget: WidgetType = {
-    type,
-    name,
-    element,
-    options: { hideOnZoom: true, ...options },
-    _value: options.getValue?.() ?? '',
-    value: '',
-    callback: null
-  }
-
-  Object.defineProperty<WidgetType>(widget, 'value', {
-    get(this: WidgetType): unknown {
-      return this.options.getValue?.() ?? this._value
+// ── LiteGraph globals (extension API contract) ────────────────────
+// Extensions reference LiteGraph, LGraph, LGraphNode, LGraphCanvas at runtime.
+// These are real constructors that extensions can extend and instantiate.
+{
+  const _nodeTypes: Record<string, new (...args: unknown[]) => unknown> = {}
+  window.LiteGraph ??= {
+    registerNodeType(type: string, cls: new (...args: unknown[]) => unknown): void { _nodeTypes[type] = cls },
+    createNode(type: string): unknown {
+      const Cls = _nodeTypes[type]
+      return Cls !== undefined ? new Cls() : null
     },
-    set(this: WidgetType, v: unknown): void {
-      this._value = v
-      if (this.options.setValue !== undefined) {
-        try {
-          this.options.setValue(v)
-        } catch (err: unknown) {
-          console.warn(`[addDOMWidget] setValue failed for widget "${this.name}":`, err)
-        }
-      }
-      if (this.callback !== null) {
-        this.callback(v)
-      }
-    },
-    configurable: true
-  })
+    NODE_DEFAULT_WIDTH: 200,
+    NODE_DEFAULT_HEIGHT: 80,
+    ALWAYS: 0,
+    NEVER: 2,
+    BYPASS: 4,
+    LGraphEventMode: { ALWAYS: 0, NEVER: 2, BYPASS: 4 },
+    registered_slot_in_types: {} as Record<string, unknown>,
+    registered_slot_out_types: {} as Record<string, unknown>,
+    getAtomicGraphClasses(): Record<string, unknown> { return {} },
+  } as unknown as typeof window.LiteGraph
 
-  const node = this as unknown as { widgets?: unknown[] }
-  node.widgets ??= []
-  node.widgets.push(widget)
-
-  if (options.beforeResize !== undefined || options.afterResize !== undefined) {
-    const oldResize: unknown = (this as unknown as Record<string, unknown>).onResize
-    ;(this as unknown as Record<string, unknown>).onResize = (__this: LGraphNode, ...args: unknown[]): void => {
-      if (oldResize !== undefined && typeof oldResize === 'function') {
-        (oldResize as (...args: unknown[]) => void).apply(__this, args)
-      }
-      if (options.beforeResize !== undefined) {
-        options.beforeResize(widget, __this)
-      }
-      if (options.afterResize !== undefined) {
-        options.afterResize(widget, __this)
-      }
+  // LGraphNode — base class for all node types
+  if (window.LGraphNode === undefined) {
+    let _nextNodeId = 1
+    class LGraphNodeImpl {
+      id = _nextNodeId++
+      type?: string
+      color?: string
+      bgcolor?: string
+      pos: [number, number] = [0, 0]
+      size: [number, number] = [0, 0]
+      inputs: Array<{ name: string; type: string; link: null }> = []
+      outputs: Array<{ name: string; type: string; links: null }> = []
+      widgets?: Array<unknown> = []
+      graph: unknown = null
+      mode = 0
+      order = 0
+      properties?: Record<string, unknown> = {}
+      constructor(type?: string) { if (type !== undefined) this.type = type }
+      addInput(name: string, type: string): void { this.inputs.push({ name, type, link: null }) }
+      addOutput(name: string, type: string): void { this.outputs.push({ name, type, links: null }) }
+      connect(): boolean | null { return true }
+      disconnectInput(): void {}
+      disconnectOutput(): void {}
+      configure(): void {}
+      setDirtyCanvas(): void {}
+      addWidget(): unknown { return {} }
+      addDOMWidget(): unknown { return {} }
     }
+    window.LGraphNode = LGraphNodeImpl as unknown as typeof window.LGraphNode
   }
 
-  void window.app.syncGraph()
+  // LGraph — graph container
+  if (window.LGraph === undefined) {
+    class LGraphImpl {
+      _nodes_by_id: Record<string, unknown> = {}
+      links: Map<number, unknown> | Record<number, unknown> = {}
+      groups: unknown[] = []
+      nodes: unknown[] = []
+      id = 0
+      revision = 0
+      status = 0
+      add(node: unknown): void { this.nodes.push(node) }
+      remove(node: unknown): void { const i = this.nodes.indexOf(node); if (i !== -1) this.nodes.splice(i, 1) }
+      clear(): void { this.nodes = []; this._nodes_by_id = {}; this.links = {}; this.groups = [] }
+      getNodeById(_id: number | string): undefined { return undefined }
+      setDirtyCanvas(): void {}
+    }
+    window.LGraph = LGraphImpl as unknown as typeof window.LGraph
+  }
 
-  return widget
+  // LGraphCanvas — canvas renderer
+  if (window.LGraphCanvas === undefined) {
+    class LGraphCanvasImpl {
+      state = { readOnly: false }
+      ds = { scale: 1, offset: [0, 0] as [number, number] }
+      canvas: HTMLCanvasElement | null = null
+      graph_mouse?: [number, number] = [0, 0]
+      render_canvas_border = false
+      constructor(canvas?: HTMLCanvasElement, _graph?: unknown) {
+        if (canvas !== undefined && canvas !== null) this.canvas = canvas
+      }
+      resize(): void {}
+      setDirty(): void {}
+      stopRendering(): void {}
+      startRendering(): void {}
+      setCanvas(c: HTMLCanvasElement): void { this.canvas = c }
+    }
+    window.LGraphCanvas = LGraphCanvasImpl as unknown as typeof window.LGraphCanvas
+  }
+
+  // LLink — link between nodes
+  if (window.LLink === undefined) {
+    class LLinkImpl {
+      id = 0
+      origin_id = 0
+      origin_slot = 0
+      target_id = 0
+      target_slot = 0
+      type = ""
+    }
+    window.LLink = LLinkImpl as unknown as typeof window.LLink
+  }
+
+  // LGraphGroup — group container
+  if (window.LGraphGroup === undefined) {
+    class LGraphGroupImpl {
+      id = 0
+      title = ""
+      pos: [number, number] = [0, 0]
+      size: [number, number] = [0, 0]
+      color?: string
+    }
+    window.LGraphGroup = LGraphGroupImpl as unknown as typeof window.LGraphGroup
+  }
 }
-
-;(LGraphNode as unknown as Record<string, unknown>).prototype ??= {}
-;(LGraphNode as any).prototype.addDOMWidget = _addDOMWidgetFn
-console.log("[CEG] addDOMWidget polyfill installed on LGraphNode.prototype")
 
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { api as comfyApiInstance } from "@/comfyui/api"
@@ -401,9 +243,38 @@ function createDefaultApp(): ComfyApp {
     settingsLookup: settingsLookupProxy
   }
 
+  const stubGraph: LGraph = {
+    _nodes_by_id: {},
+    links: {},
+    groups: [],
+    nodes: [],
+    revision: 0,
+    status: 0,
+    id: 0,
+    add(_node: unknown): void {},
+    remove(_node: unknown): void {},
+    clear(): void {},
+    getNodeById(_id: number | string): undefined { return undefined },
+    setDirtyCanvas(_flag?: boolean, _history?: boolean): void {},
+    onAfterChange: undefined,
+  } as unknown as LGraph
+
+  const stubCanvas: LGraphCanvas = {
+    state: { readOnly: false },
+    ds: { scale: 1, offset: [0, 0] },
+    resize(_w?: number, _h?: number): void {},
+    setDirty(_canvas?: boolean, _history?: boolean): void {},
+    stopRendering(): void {},
+    startRendering(): void {},
+    setCanvas(_canvas: HTMLCanvasElement): void {},
+    render_canvas_border: false,
+    graph_mouse: [0, 0],
+    canvas: null,
+  } as unknown as LGraphCanvas
+
   const app: ComfyApp = {
-    graph: new LGraph(),
-    canvas: new LGraphCanvas(document.createElement("canvas"), new LGraph()),
+    graph: stubGraph,
+    canvas: stubCanvas,
     syncGraph(): void {
       // No-op: Zustand store가 single source of truth이므로 sync 필요 없음
     },
@@ -566,8 +437,17 @@ Object.defineProperty(appObj, 'settings', {
   configurable: true
 })
 
-appObj.graph = new (LGraph as unknown as new () => Record<string, unknown>)() as unknown as LGraph
-appObj.canvas = new (LGraphCanvas as unknown as new (canvas: HTMLCanvasElement, graph: Record<string, unknown>) => Record<string, unknown>)(document.createElement("canvas"), appObj.graph as unknown as Record<string, unknown>) as unknown as LGraphCanvas
+// Re-assign stub graph/canvas (same shape as createDefaultApp)
+appObj.graph = {
+  _nodes_by_id: {}, links: {}, groups: [], nodes: [], revision: 0, status: 0, id: 0,
+  add() {}, remove() {}, clear() {}, getNodeById() { return undefined }, setDirtyCanvas() {},
+  onAfterChange: undefined,
+} as unknown as LGraph
+appObj.canvas = {
+  state: { readOnly: false }, ds: { scale: 1, offset: [0, 0] },
+  resize() {}, setDirty() {}, stopRendering() {}, startRendering() {},
+  setCanvas() {}, render_canvas_border: false, graph_mouse: [0, 0], canvas: null,
+} as unknown as LGraphCanvas
 appObj.syncGraph = (): void => {
   // No-op: Zustand store가 single source of truth이므로 sync 필요 없음
 }
@@ -947,26 +827,6 @@ appObj.syncGraph = (): void => {
   } else {
     const cdClass = w.ClipspaceDialog as { registerButton?: () => void }
     cdClass.registerButton ??= (): void => { /* noop */ }
-  }
-
-  // LGraphCanvas prototype stubs
-  if (w.LGraphCanvas !== undefined) {
-    const canvasProto = w.LGraphCanvas as LGraphCanvasConstructor
-    const proto = canvasProto.prototype as Partial<LGraphCanvas>
-    if (!("setDirty" in proto)) {
-      proto.setDirty = (): void => { /* noop */ }
-    }
-    if (!("addEventListener" in proto)) {
-      proto.addEventListener = (_type: string, _listener: (e: Event) => void): void => { /* noop */ }
-    }
-    if (!("setCanvas" in proto)) {
-      proto.setCanvas = function (this: LGraphCanvas, canvas: HTMLCanvasElement): void {
-        this.canvas = canvas
-      }
-    }
-    if (!("startRendering" in proto)) {
-      proto.startRendering = (): void => { /* noop */ }
-    }
   }
 
   if (w.rgthree === undefined) {

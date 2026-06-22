@@ -21,120 +21,24 @@ import { extensionManager } from "@/comfyui/services/extensionService"
 import { api } from "@/comfyui/api"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { widgetStore, type CustomWidget } from "@/comfyui/stores/widgetStore"
+import { LGraphAdapter } from "@/comfyui/services/lgraphAdapter"
+import type { LGraphNode } from "@/comfyui/types/lgraphAdapterNode"
 
-// ── LiteGraph global stubs (커스텀 노드 호환) ─────────────────────
-//
-// 실제 comfy-litegraph가 로드되지 않은 환경에서도 커스텀 노드 확장이 동작하도록
-// 최소한의 LiteGraph 호환 레지스트리를 구현한다.
-// 핵심: registerNodeType이 NodeClass를 저장하고, createNode가 저장된 클래스로
-// 인스턴스를 생성해야 beforeRegisterNodeDef에서 prototype에 패치한
-// onNodeCreated 등의 훅이 정상적으로 호출된다.
+type Point = [number, number]
 
-interface RegisteredNodeType {
-  class: new () => LGraphNode
-  type: string
+interface AppWithExtensions {
+  extensions?: ComfyExtension[]
 }
 
-const registeredNodeTypes: Map<string, RegisteredNodeType> = new Map()
-
-window.LiteGraph ??= {
-  registerNodeType: (type: string, nodeClass: new () => LGraphNode): void => {
-    registeredNodeTypes.set(type, { class: nodeClass, type })
-  },
-  NODE_DEFAULT_WIDTH: 200,
-  NODE_DEFAULT_HEIGHT: 80,
-  ALWAYS: 0,
-  NEVER: 1,
-  BYPASS: 2,
-  createNode: (type: string): LGraphNode | null => {
-    const entry = registeredNodeTypes.get(type)
-    if (entry !== undefined) {
-      try {
-        return new entry.class()
-      } catch (err) {
-        console.error(`[CEG LiteGraph stub] createNode failed for "${type}":`, err)
-        return null
-      }
-    }
-    // 등록되지 않은 타입은 더미 LGraphNode로 폴백
-    return new LGraphNode(type)
-  },
+function getWindowApp(): AppWithExtensions | undefined {
+  return (window as unknown as { app: AppWithExtensions | undefined }).app
 }
 
-// ── Dummy LGraph classes (커스텀 노드 호환용 빈 껍데기) ────────────
-
 /**
- * DummyLGraph: 커스텀 노드가 window.app.graph를 참조할 때 crash 방지용
- * 실제 상태는 Zustand store에서 관리되며, LGraphAdapter가 프록시 역할을 합니다.
+ * ComfyUI 노드 타입을 LiteGraph에 등록하기 위한 기본 노드 클래스
  */
-window.LGraph ??= class DummyLGraph {
-  readonly __dummy = true
-  _nodes_by_id: Record<string, LGraphNode | undefined> = {}
-  links: Map<number, LLink> | Record<number, LLink> = {}
-  groups: LGraphGroup[] = []
-  nodes: LGraphNode[] = []
-
-  add(node: LGraphNode): void {
-    if (!this.nodes.includes(node)) {
-      this.nodes.push(node)
-    }
-    if (node.id) {
-      this._nodes_by_id[String(node.id)] = node
-    }
-  }
-
-  remove(node: LGraphNode): void {
-    const idx = this.nodes.indexOf(node)
-    if (idx !== -1) {
-      this.nodes.splice(idx, 1)
-    }
-    if (node.id) {
-      this._nodes_by_id[String(node.id)] = undefined
-    }
-  }
-
-  clear(): void {
-    this.nodes = []
-    this._nodes_by_id = {}
-    this.links = {}
-    this.groups = []
-  }
-
-  getNodeById(id: number | string): LGraphNode | undefined {
-    return this._nodes_by_id[String(id)]
-  }
-
-  setDirtyCanvas(_flag: boolean, _history?: boolean): void {
-    /* noop */
-  }
-} as unknown as LGraphConstructor
-const LGraph = window.LGraph
-
-/**
- * DummyLGraphCanvas: 커스텀 노드가 canvas를 참조할 때 crash 방지용
- */
-window.LGraphCanvas ??= class DummyLGraphCanvas {
-  readonly __dummy = true
-  state = { readOnly: false }
-  resize(): void { /* noop */ }
-  ds = { scale: 1, offset: [0, 0] as [number, number] }
-  setDirty(): void { /* noop */ }
-  stopRendering(): void { /* noop */ }
-  startRendering(): void { /* noop */ }
-  canvas: HTMLCanvasElement | null = null
-  setCanvas(canvas: HTMLCanvasElement | string | null | undefined, _skip_events?: boolean): void {
-    if (canvas !== null && canvas !== undefined && typeof canvas !== "string") {
-      this.canvas = canvas
-    }
-  }
-} as unknown as LGraphCanvasConstructor
-const LGraphCanvas = window.LGraphCanvas
-
-/**
- * DummyLGraphNode: 커스텀 노드가 node 인스턴스를 생성할 때 사용
- */
-const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
-  readonly __dummy = true
+class ComfyNode {
+  comfyClass?: string
   id = 0
   type?: string
   color?: string
@@ -147,11 +51,11 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
   order?: number
   mode?: number
   properties?: Record<string, unknown>
+  graph?: import("@/comfyui/types/lgraphAdapterNode").LGraphAdapterRef | null
 
-  constructor(type?: string) {
-    if (type !== undefined) {
-      this.type = type
-    }
+  constructor(title: string) {
+    this.type = title
+    this.comfyClass = title
   }
 
   addInput(name: string, type: string): void {
@@ -166,21 +70,10 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
     return true
   }
 
-  disconnectInput(_slot: number): void {
-    /* noop */
-  }
-
-  disconnectOutput(_slot: number): void {
-    /* noop */
-  }
-
-  configure(_data: unknown): void {
-    /* noop */
-  }
-
-  setDirtyCanvas(): void {
-    /* noop */
-  }
+  disconnectInput(_slot: number): void { /* noop */ }
+  disconnectOutput(_slot: number): void { /* noop */ }
+  configure(_data: unknown): void { /* noop */ }
+  setDirtyCanvas(): void { /* noop */ }
 
   addWidget(
     type: string,
@@ -189,8 +82,6 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
     callback: (v: string | number | boolean) => void,
     options?: Record<string, unknown>
   ): WidgetType {
-    // For basic text widgets, do NOT set element so ReactWidget renders
-    // its native <input type="text"> instead of an empty non-interactive div.
     const element = type === "text" ? undefined as unknown as HTMLElement : document.createElement("div")
     const w: WidgetType = {
       type,
@@ -206,11 +97,6 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
     return w
   }
 
-  /**
-   * ComfyUI addDOMWidget 호환 메서드.
-   * 커스텀 노드 확장이 DOM 기반 위젯을 등록할 때 호출한다.
-   * options.getValue/setValue 로 값 접근을 위임한다.
-   */
   addDOMWidget(
     name: string,
     type: string,
@@ -232,7 +118,6 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
       value: opts.getValue ? opts.getValue() : "",
       callback: null,
     }
-    // value 접근을 getValue/setValue에 위임하기 위해 getter/setter 세팅
     let _value: unknown = w.value
     Object.defineProperty(w, "value", {
       get(): unknown {
@@ -253,41 +138,6 @@ const LGraphNode = window.LGraphNode ?? class DummyLGraphNode {
   }
 }
 
-/**
- * DummyLGraphGroup: 커스텀 노드가 group을 참조할 때 crash 방지용
- */
-const _LGraphGroup = window.LGraphGroup ?? class DummyLGraphGroup {
-  readonly __dummy = true
-  id = 0
-  title = ""
-  pos: [number, number] = [0, 0]
-  size: [number, number] = [0, 0]
-  color?: string
-}
-
-type Point = [number, number]
-
-// ── Helper types ──────────────────────────────────────────────────
-
-interface AppWithExtensions {
-  extensions?: ComfyExtension[]
-}
-
-function getWindowApp(): AppWithExtensions | undefined {
-  return (window as unknown as { app: AppWithExtensions | undefined }).app
-}
-
-/**
- * ComfyUI 노드 타입을 LiteGraph에 등록하기 위한 기본 노드 클래스
- */
-class ComfyNode extends LGraphNode {
-  comfyClass?: string
-  constructor(title: string) {
-    super(title)
-    this.comfyClass = title
-  }
-}
-
 // ── ComfyAppService ───────────────────────────────────────────────
 
 export interface ComfyAppConfig {
@@ -301,7 +151,7 @@ export interface ComfyAppConfig {
  * Zustand store를 backing store로 사용하여 워크플로우를 관리합니다.
  */
 export class ComfyAppService {
-  graph: LGraph
+  graph: LGraphAdapter
   canvas: LGraphCanvas
   nodeDefs: Record<string, ComfyNodeDef> = {}
   /** 그래프 변경 시 호출될 콜백 */
@@ -324,8 +174,18 @@ export class ComfyAppService {
 
   constructor(config: ComfyAppConfig) {
     this.nodeDefs = config.nodeDefs
-    this.graph = new LGraph()
-    this.canvas = new LGraphCanvas(config.canvas, this.graph)
+    this.graph = new LGraphAdapter()
+    this.canvas = {
+      state: { readOnly: false },
+      ds: { scale: 1, offset: [0, 0] },
+      resize(_w?: number, _h?: number): void {},
+      setDirty(_canvas?: boolean, _history?: boolean): void {},
+      stopRendering(): void {},
+      startRendering(): void {},
+      setCanvas(_c: HTMLCanvasElement): void {},
+      render_canvas_border: false,
+      canvas: config.canvas,
+    } as unknown as LGraphCanvas
 
     // Set up canvas (creates bgcanvas, binds events)
     this.canvas.setCanvas(config.canvas)
@@ -338,8 +198,8 @@ export class ComfyAppService {
     ;(this.canvas as unknown as Record<string, boolean>).allow_dragcanvas = true
     ;(this.canvas as unknown as Record<string, boolean>).allow_zoom = true
 
-    // 그래프 변경 감지 (Zustand store에서 직렬화)
-    ;(this.graph as unknown as Record<string, unknown>).onChange = (): void => {
+    // 그래프 변경 감지 (LGraphAdapter onAfterChange 콜백)
+    this.graph.onAfterChange = (): void => {
       this.onGraphChanged?.(this.serializeGraph())
     }
 
@@ -376,7 +236,7 @@ export class ComfyAppService {
         if (ext.beforeRegisterNodeDef) {
           const hadBefore = typeof (NodeClass.prototype as { onNodeCreated?: unknown }).onNodeCreated === "function"
           try {
-            void Promise.resolve(ext.beforeRegisterNodeDef(NodeClass, def, app))
+            void Promise.resolve(ext.beforeRegisterNodeDef(NodeClass as unknown as typeof LGraphNode, def, app))
             const hasAfter = typeof (NodeClass.prototype as { onNodeCreated?: unknown }).onNodeCreated === "function"
             if (!hadBefore && hasAfter) patchedByCount++
           } catch (err) {
@@ -392,7 +252,8 @@ export class ComfyAppService {
         console.warn(`[CEG] registerNodeDefs: NO extension patched onNodeCreated for "${type}". extensions=${extensions.map(e => e.name).join(",")}`)
       }
 
-      LiteGraph.registerNodeType(type, NodeClass)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      window.LiteGraph!.registerNodeType(type, NodeClass as any)
     }
   }
 
@@ -529,14 +390,14 @@ export class ComfyAppService {
         }
       } else {
         console.warn(`[ComfyApp] Unknown node type: ${type}, creating generic node`)
-        const node = new LGraphNode(type)
+        const node = new ComfyNode(type)
         node.pos = pos
-        this.graph.add(node)
-        return node
+        this.graph.add(node as unknown as import("@/comfyui/types/lgraphAdapterNode").LGraphNode)
+        return node as unknown as import("@/comfyui/types/lgraphAdapterNode").LGraphNode
       }
     }
 
-    const node = LiteGraph.createNode(actualType)
+    const node = window.LiteGraph!.createNode(actualType) as LGraphNode | null
     if (node === null) {
       console.warn(`[CEG] createNode: LiteGraph.createNode returned null for "${actualType}"`)
       return null
@@ -585,7 +446,7 @@ export class ComfyAppService {
     // ComfyUI 원본 순서: graph.add(node) 먼저 → onNodeCreated → nodeCreated 확장 훅
     // 확장이 nodeCreated에서 app.canvas / node DOM 컨테이너를 기대하고 widget element를 채우므로
     // graph에 먼저 등록해야 함
-    this.graph.add(node)
+    this.graph.add(node as unknown as import("@/comfyui/types/lgraphAdapterNode").LGraphNode)
 
     // Call prototype's onNodeCreated (patched by beforeRegisterNodeDef hooks)
     node.onNodeCreated?.()
@@ -596,7 +457,7 @@ export class ComfyAppService {
       for (const ext of app.extensions) {
         if (ext.nodeCreated) {
           try {
-            ext.nodeCreated(node, app)
+            ext.nodeCreated(node as unknown as LGraphNode, app)
           } catch (err) {
             console.error(`Extension nodeCreated failed for ${ext.name}:`, err)
           }

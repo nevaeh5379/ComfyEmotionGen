@@ -116,7 +116,6 @@ interface HeaderProps {
   setIsSelectionOpen: (v: boolean) => void
   hasActiveFilter: boolean
   setIsAxisFilterOpen: (v: boolean) => void
-  setIsGraphOpen: (v: boolean) => void
 
   // Session / Job controls props (lifted)
   sessionMarkers?: SessionMarker[]
@@ -590,7 +589,6 @@ export function Header(props: HeaderProps): JSX.Element {
                 onSelectionOpen={() => { props.setIsSelectionOpen(true); }}
                 hasActiveFilter={props.hasActiveFilter}
                 onAxisFilterOpen={() => { props.setIsAxisFilterOpen(true); }}
-                onGraphOpen={() => { props.setIsGraphOpen(true); }}
               />
             </div>
           )}

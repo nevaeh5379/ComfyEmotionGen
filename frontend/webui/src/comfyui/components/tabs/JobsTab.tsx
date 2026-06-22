@@ -178,7 +178,6 @@ export interface JobsTabProps {
   setIsSheetOpen: React.Dispatch<React.SetStateAction<boolean>>
   setIsAxisFilterOpen: React.Dispatch<React.SetStateAction<boolean>>
   setIsSelectionOpen: React.Dispatch<React.SetStateAction<boolean>>
-  setIsGraphOpen: React.Dispatch<React.SetStateAction<boolean>>
 
   // Can run
   canRun: boolean
@@ -229,7 +228,6 @@ export function JobsTab({
   setIsSheetOpen,
   setIsAxisFilterOpen,
   setIsSelectionOpen,
-  setIsGraphOpen,
 
   canRun,
 }: JobsTabProps): React.JSX.Element {
@@ -334,7 +332,6 @@ export function JobsTab({
               onAxisFilterOpen={(): void => { setIsAxisFilterOpen(true); }}
               onSelectionOpen={(): void => { setIsSelectionOpen(true); }}
               hasActiveFilter={hasActiveFilter}
-              onGraphOpen={(): void => { setIsGraphOpen(true); }}
               isFloating={false}
               jobsLayoutOrientation={jobsLayoutOrientation}
               onToggleJobsLayoutOrientation={(): void =>
@@ -665,7 +662,6 @@ export function JobsTab({
               onAxisFilterOpen={(): void => { setIsAxisFilterOpen(true); }}
               onSelectionOpen={(): void => { setIsSelectionOpen(true); }}
               hasActiveFilter={hasActiveFilter}
-              onGraphOpen={(): void => { setIsGraphOpen(true); }}
             />
           </div>
         )}

@@ -8,6 +8,7 @@
 
 import type { ComfyNodeDef } from './nodeDef'
 import type { ComfyWorkflowJSON, NodeId } from './workflow'
+import type { LGraphNode } from './lgraphAdapterNode'
 import type {
   ExecutionErrorWsMessage,
   NodeError

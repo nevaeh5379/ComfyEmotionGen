@@ -36,7 +36,6 @@ interface WorkCompositionToolbarProps {
   onSelectionOpen: () => void
   hasActiveFilter: boolean
   onAxisFilterOpen: () => void
-  onGraphOpen: () => void
   className?: string
   workers: { id: string; workerType: string; alive: boolean; busy: boolean }[]
   targetWorkerId: string | null
@@ -55,7 +54,6 @@ export function WorkCompositionToolbar({
   onSelectionOpen,
   hasActiveFilter,
   onAxisFilterOpen,
-  onGraphOpen,
   className,
   workers,
   targetWorkerId,
@@ -104,9 +102,6 @@ export function WorkCompositionToolbar({
             <DropdownMenuItem onClick={onAxisFilterOpen}>
               축 필터
               {hasActiveFilter ? ` (${String(estimatedRunCount)})` : ""}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onGraphOpen}>
-              그래프 보기
             </DropdownMenuItem>
             <DropdownMenuLabel>배치 수</DropdownMenuLabel>
             <Input

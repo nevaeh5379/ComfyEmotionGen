@@ -78,6 +78,7 @@ export interface LGraphAdapterInterface {
   add(nodeOrGroup: LGraphNode): void
   remove(node: LGraphNode): void
   getNodeById(id: number | string): LGraphNode | null
+  clear(): void
 
   // Methods - Link management
   getLink(id: number): ComfyWorkflowLink | undefined

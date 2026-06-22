@@ -66,7 +66,7 @@ import { PresetSelectionDialog } from "./comfyui/components/PresetSelectionDialo
 import { VersionDiffDialog } from "./comfyui/components/VersionDiffDialog"
 import { KeyboardShortcutsDialog } from "./comfyui/components/KeyboardShortcutsDialog"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
-import { WorkflowGraphViewer } from "./comfyui/components/WorkflowGraphViewer"
+
 
 // ── Floating Window Content ──
 import { WorkCompositionPanel } from "./comfyui/components/WorkCompositionPanel"
@@ -159,7 +159,6 @@ function AppContent(): React.JSX.Element {
     "ceg"
   )
   const [isSheetOpen, setIsSheetOpen] = useState(false)
-  const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
   const [isSelectionOpen, setIsSelectionOpen] = useState(false)
   const [previewFilter, setPreviewFilter] = useState("")
@@ -594,7 +593,6 @@ function AppContent(): React.JSX.Element {
           setIsSelectionOpen={setIsSelectionOpen}
           hasActiveFilter={hasActiveFilter}
           setIsAxisFilterOpen={setIsAxisFilterOpen}
-          setIsGraphOpen={setIsGraphOpen}
           onStatsDragStart={(cx, cy) => { handleNavTabDragStart("stats", cx, cy); }}
           onCurationDragStart={(cx, cy) =>
             { handleNavTabDragStart("curation", cx, cy); }
@@ -710,7 +708,6 @@ function AppContent(): React.JSX.Element {
               setIsSheetOpen={setIsSheetOpen}
               setIsAxisFilterOpen={setIsAxisFilterOpen}
               setIsSelectionOpen={setIsSelectionOpen}
-              setIsGraphOpen={setIsGraphOpen}
                
               canRun={canRun}
             />
@@ -761,14 +758,7 @@ function AppContent(): React.JSX.Element {
           onExcludeApproved={() => { void selectOnlyUnapprovedItems(); }}
         />
 
-        {workflow.parsedWorkflow?.success === true && (
-          <WorkflowGraphViewer
-            workflow={workflow.parsedWorkflow.data}
-            isOpen={isGraphOpen}
-            onClose={() => { setIsGraphOpen(false); }}
-            backendUrl={backendUrl}
-          />
-        )}
+
 
         <NameConflictDialog
           pendingSave={pendingSave}
@@ -875,7 +865,6 @@ function AppContent(): React.JSX.Element {
                 onAxisFilterOpen={() => { setIsAxisFilterOpen(true); }}
                 onSelectionOpen={() => { setIsSelectionOpen(true); }}
                 hasActiveFilter={hasActiveFilter}
-                onGraphOpen={() => { setIsGraphOpen(true); }}
                 isFloating={true}
                 onFloatToggle={() => { setIsCompositionFloating(false); }}
               />
