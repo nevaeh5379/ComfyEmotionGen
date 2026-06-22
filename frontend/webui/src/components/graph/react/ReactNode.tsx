@@ -96,6 +96,50 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     }
   }, [id, updateNodeSize, nodeData])
 
+  // ResizeObserver: 자식 요소 크기 변화 시 노드 높이도 같이 늘리고 minHeight 갱신
+  useLayoutEffect(() => {
+    const content = contentRef.current
+    if (!content) return
+    const titleBar = content.previousElementSibling as HTMLElement | null
+
+    const measureContentHeight = () => {
+      let childrenHeight = 0
+      const children = content.children
+      for (let i = 0; i < children.length; i++) {
+        childrenHeight += (children[i] as HTMLElement).offsetHeight
+      }
+      if (children.length > 1) childrenHeight += (children.length - 1) * 2 // gap-0.5
+      childrenHeight += 8 // py-1 padding
+      return (titleBar?.offsetHeight ?? 28) + childrenHeight
+    }
+
+    const observer = new ResizeObserver(() => {
+      const contentHeight = measureContentHeight()
+      setMinHeight(contentHeight)
+      if (sizeRef.current[1] < contentHeight) {
+        updateNodeSize(id, [sizeRef.current[0], contentHeight])
+      }
+    })
+
+    const observeAllChildren = () => {
+      for (const child of content.children) {
+        observer.observe(child as HTMLElement)
+      }
+    }
+    observeAllChildren()
+
+    // 새 자식이 추가되면 (DOM widget mount 등) observe
+    const mutationObserver = new MutationObserver(() => {
+      observeAllChildren()
+    })
+    mutationObserver.observe(content, { childList: true })
+
+    return () => {
+      observer.disconnect()
+      mutationObserver.disconnect()
+    }
+  }, [id, updateNodeSize])
+
   // ─── 이동 드래그 ────────────────────────────────────────────
   const handleHeaderMouseDown = (e: React.MouseEvent): void => {
     if (e.button !== 0) return
