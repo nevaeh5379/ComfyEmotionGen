@@ -19,7 +19,7 @@ export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JS
       const childCount = element.childElementCount
       const htmlLen = element.innerHTML.length
       const bounding = element.getBoundingClientRect()
-      console.log(`[CEG] HTMLElementWidget attach tag=${element.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${Math.round(bounding.width)}x${Math.round(bounding.height)}`)
+      console.log(`[CEG] HTMLElementWidget attach tag=${element.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${String(Math.round(bounding.width))}x${String(Math.round(bounding.height))}`)
     }
   }, [element])
 
@@ -48,7 +48,7 @@ interface ReactWidgetProps {
   source?: string
 }
 
-export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element, source = "?" }: ReactWidgetProps): React.JSX.Element {
+export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element, source: _source = "?" }: ReactWidgetProps): React.JSX.Element {
   const typeSpec = spec?.[0]
   const config = spec?.[1] ?? {}
 

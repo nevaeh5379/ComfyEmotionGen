@@ -10,6 +10,7 @@
 import type {
   ComfyWorkflowJSON,
   ComfyApiWorkflow,
+  ComfyWorkflowNode,
 } from "@/comfyui/types/workflow"
 import type { ComfyNodeDef } from "@/comfyui/types/nodeDef"
 import type { NodeExecutionOutput } from "@/comfyui/types/apiSchema"
@@ -22,7 +23,7 @@ import { api } from "@/comfyui/api"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { widgetStore, type CustomWidget } from "@/comfyui/stores/widgetStore"
 import { LGraphAdapter } from "@/comfyui/services/lgraphAdapter"
-import type { LGraphNode } from "@/comfyui/types/lgraphAdapterNode"
+import type { LGraphNode, LGraphAdapterRef } from "@/comfyui/types/lgraphAdapterNode"
 
 type Point = [number, number]
 
@@ -51,7 +52,8 @@ class ComfyNode {
   order?: number
   mode?: number
   properties?: Record<string, unknown>
-  graph?: import("@/comfyui/types/lgraphAdapterNode").LGraphAdapterRef | null
+  graph?: LGraphAdapterRef | null
+  onConfigure?: (data: Partial<ComfyWorkflowNode>) => void
 
   constructor(title: string) {
     this.type = title
@@ -72,7 +74,34 @@ class ComfyNode {
 
   disconnectInput(_slot: number): void { /* noop */ }
   disconnectOutput(_slot: number): void { /* noop */ }
-  configure(_data: unknown): void { /* noop */ }
+  configure(data?: Partial<ComfyWorkflowNode> | null): void {
+    if (data === undefined || data === null) return
+    if (data.properties !== undefined) {
+      this.properties = { ...this.properties, ...data.properties }
+    }
+    if (data.widgets_values !== undefined && this.widgets !== undefined) {
+      for (let i = 0; i < data.widgets_values.length; i++) {
+        const w = this.widgets[i]
+        if (w !== undefined) {
+          w.value = data.widgets_values[i]
+          if (w.callback && typeof w.callback === "function") {
+            try {
+              w.callback(data.widgets_values[i])
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+    }
+    if (this.onConfigure !== undefined) {
+      try {
+        this.onConfigure(data)
+      } catch (err) {
+        console.error("onConfigure failed:", err)
+      }
+    }
+  }
   setDirtyCanvas(): void { /* noop */ }
 
   addWidget(
@@ -178,11 +207,11 @@ export class ComfyAppService {
     this.canvas = {
       state: { readOnly: false },
       ds: { scale: 1, offset: [0, 0] },
-      resize(_w?: number, _h?: number): void {},
-      setDirty(_canvas?: boolean, _history?: boolean): void {},
-      stopRendering(): void {},
-      startRendering(): void {},
-      setCanvas(_c: HTMLCanvasElement): void {},
+      resize(_w?: number, _h?: number): void { /* noop */ },
+      setDirty(_canvas?: boolean, _history?: boolean): void { /* noop */ },
+      stopRendering(): void { /* noop */ },
+      startRendering(): void { /* noop */ },
+      setCanvas(_c: HTMLCanvasElement): void { /* noop */ },
       render_canvas_border: false,
       canvas: config.canvas,
     } as unknown as LGraphCanvas
@@ -214,7 +243,7 @@ export class ComfyAppService {
     const app = getWindowApp()
     const extensions = this.extensions
 
-    const loraExt = extensions.find(e => e.name?.includes("LoraManager") || e.name?.includes("Lora"))
+    const loraExt = extensions.find(e => e.name.includes("LoraManager") || e.name.includes("Lora"))
     console.log(`[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available. loraExt=${loraExt?.name ?? "NONE"}. allNames=${extensions.map(e => e.name).join(",")}`)
 
     for (const [type, def] of Object.entries(nodeDefs)) {
@@ -252,17 +281,32 @@ export class ComfyAppService {
         console.warn(`[CEG] registerNodeDefs: NO extension patched onNodeCreated for "${type}". extensions=${extensions.map(e => e.name).join(",")}`)
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.LiteGraph!.registerNodeType(type, NodeClass as any)
+      window.LiteGraph.registerNodeType(type, NodeClass as unknown as new () => LGraphNode)
     }
   }
 
   /**
-   * 워크플로우 JSON 로드 (Zustand store 사용)
+   * 워크플로우 JSON 로드 (Zustand store 및 백그라운드 LiteGraph 노드 인스턴스 복원)
    */
   loadGraphData(workflow: ComfyWorkflowJSON): void {
+    // 1. 기존 라이브 노드 및 Zustand 스토어 초기화
+    this.graph.clear()
+
+    // 2. Zustand 스토어에 새 워크플로우 반영 (pos, size, widgets_values 등이 보존됨)
     const store = useReactGraphStore.getState()
     store.setGraph(workflow)
+
+    // 3. 백그라운드 LiteGraph 노드들 동적 복원 (이를 통해 익스텐션 훅이 동작하고 widget element 및 html 주입이 이루어짐)
+    for (const node of workflow.nodes) {
+      try {
+        const liveNode = this.createNode(node.type, node.pos, { id: node.id, skipConfigure: true })
+        if (liveNode && typeof liveNode.configure === "function") {
+          liveNode.configure(node)
+        }
+      } catch (err) {
+        console.error(`Failed to restore live node ${String(node.id)} (${node.type}):`, err)
+      }
+    }
   }
 
   /**
@@ -357,7 +401,7 @@ export class ComfyAppService {
   ): LGraphNode | null {
     // 진단: 확장 store 상태
     const exts = this.extensions
-    const loraExt = exts.find(e => e.name?.includes("LoraManager") || e.name?.includes("Lora"))
+    const loraExt = exts.find(e => e.name.includes("LoraManager") || e.name.includes("Lora"))
     console.log(`[CEG] createNode: type="${type}" nodeDefInThis=${String(this.nodeDefs[type] !== undefined)} extCount=${String(exts.length)} loraExt=${loraExt?.name ?? "NONE"}`)
 
     let nodeDef = this.nodeDefs[type]
@@ -392,12 +436,12 @@ export class ComfyAppService {
         console.warn(`[ComfyApp] Unknown node type: ${type}, creating generic node`)
         const node = new ComfyNode(type)
         node.pos = pos
-        this.graph.add(node as unknown as import("@/comfyui/types/lgraphAdapterNode").LGraphNode)
-        return node as unknown as import("@/comfyui/types/lgraphAdapterNode").LGraphNode
+        this.graph.add(node as unknown as LGraphNode)
+        return node as unknown as LGraphNode
       }
     }
 
-    const node = window.LiteGraph!.createNode(actualType) as LGraphNode | null
+    const node = window.LiteGraph.createNode(actualType) as LGraphNode | null
     if (node === null) {
       console.warn(`[CEG] createNode: LiteGraph.createNode returned null for "${actualType}"`)
       return null
@@ -406,9 +450,9 @@ export class ComfyAppService {
     if (typeof node.addInput !== "function") return null
 
     // 진단: 생성된 노드의 클래스 정보
-    const nodeProto = Object.getPrototypeOf(node)
-    const protoOnCreated = typeof (nodeProto as { onNodeCreated?: unknown }).onNodeCreated
-    const ctorName = nodeProto?.constructor?.name ?? "?"
+    const nodeProto = Object.getPrototypeOf(node) as Record<string, unknown> | null
+    const protoOnCreated = typeof (nodeProto as { onNodeCreated?: unknown } | null)?.onNodeCreated
+    const ctorName = (nodeProto?.constructor as { name?: string } | undefined)?.name ?? "?"
     console.log(`[CEG] createNode: created node ctor=${ctorName} proto.onNodeCreated=${protoOnCreated} own.onNodeCreated=${typeof (node as { onNodeCreated?: unknown }).onNodeCreated}`)
 
     node.pos = pos
@@ -446,7 +490,7 @@ export class ComfyAppService {
     // ComfyUI 원본 순서: graph.add(node) 먼저 → onNodeCreated → nodeCreated 확장 훅
     // 확장이 nodeCreated에서 app.canvas / node DOM 컨테이너를 기대하고 widget element를 채우므로
     // graph에 먼저 등록해야 함
-    this.graph.add(node as unknown as import("@/comfyui/types/lgraphAdapterNode").LGraphNode)
+    this.graph.add(node)
 
     // Call prototype's onNodeCreated (patched by beforeRegisterNodeDef hooks)
     node.onNodeCreated?.()
@@ -457,7 +501,7 @@ export class ComfyAppService {
       for (const ext of app.extensions) {
         if (ext.nodeCreated) {
           try {
-            ext.nodeCreated(node as unknown as LGraphNode, app)
+            ext.nodeCreated(node, app)
           } catch (err) {
             console.error(`Extension nodeCreated failed for ${ext.name}:`, err)
           }
@@ -491,16 +535,16 @@ export class ComfyAppService {
       // 1) 커스텀 위젯 팩토리가 있으면 우선 사용 (확장이 만든 DOM element 포함)
       // 팩토리는 내부에서 node.addDOMWidget()을 호출하여 위젯을 등록하므로
       // 반환값을 node.widgets에 다시 push하지 않는다 (중복 등록 방지).
-      const typeName = Array.isArray(inputType) ? "COMBO" : String(inputType)
+      const typeName = Array.isArray(inputType) ? "COMBO" : inputType
       const factory = widgetStore.getCustomWidgetFactory(typeName)
       if (factory) {
         try {
-          const result = factory(node as unknown as Parameters<typeof factory>[0], name, [inputType, inputConfig], app)
+          const result = factory(node, name, [inputType, inputConfig], app)
           if (result) {
-            const widget = (result as Record<string, unknown>).widget !== undefined
-              ? (result as Record<string, unknown>).widget as CustomWidget
-              : result as CustomWidget
-            console.log(`[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created by factory, hasElement=${String(widget.element !== null && widget.element !== undefined)}`)
+            const widget = ((result as Record<string, unknown>).widget !== undefined
+              ? (result as Record<string, unknown>).widget
+              : result) as CustomWidget
+            console.log(`[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created by factory, hasElement=${String(widget.element !== undefined)}`)
             continue
           }
         } catch (err) {

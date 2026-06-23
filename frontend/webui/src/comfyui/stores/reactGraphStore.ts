@@ -15,7 +15,6 @@ import type {
 import type { ComfyNodeDef } from "../types/nodeDef"
 import { useNodeDefStore } from "./nodeDefStore"
 import { widgetStore } from "./widgetStore"
-import { useExtensionStore } from "./extensionStore"
 
 interface SnapshotEntry {
   nodes: ComfyWorkflowNode[]
@@ -83,23 +82,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(normalizedLinks)
     if (nodesEqual && linksEqual) return
 
-    const existingMap = new Map(currentNodes.map((n: ComfyWorkflowNode): [number, ComfyWorkflowNode] => [n.id, n]))
-    const mergedNodes = (workflow.nodes).map((node: ComfyWorkflowNode): ComfyWorkflowNode => {
-      const existing = existingMap.get(node.id)
-      if (existing !== undefined) {
-        return {
-          ...node,
-          pos: existing.pos,
-          size: existing.size,
-          widgets_values: existing.widgets_values,
-          properties: existing.properties,
-        }
-      }
-      return node
-    })
-
     set({
-      nodes: mergedNodes,
+      nodes: workflow.nodes,
       links: normalizedLinks,
       selectedNodeIds: new Set<number>(),
     })
@@ -190,7 +174,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
         const liveNode = appService.createNode(type, pos, { id: newId })
         if (liveNode !== null && liveNode !== undefined) {
           const ln = liveNode as { id?: number | string; onNodeCreated?: () => void; widgets?: { name: string; value: unknown; element?: HTMLElement | null }[] }
-          console.log(`[CEG] addNode: has onNodeCreated=${String(typeof ln.onNodeCreated)}`)
+          console.log(`[CEG] addNode: has onNodeCreated=${typeof ln.onNodeCreated}`)
           const lnWidgets = ln.widgets
           console.log(`[CEG] addNode: hidden node created, id=${String(newId)} widgets=${String(lnWidgets?.length ?? 0)}`)
           if (lnWidgets && lnWidgets.length > 0) {
@@ -454,7 +438,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
         const idx = widgetNames.indexOf(widgetName)
         if (idx === -1) return node
 
-        const nextValues = [...(node.widgets_values ?? new Array(widgetNames.length).fill(undefined))]
+        const defaultValues: unknown[] = new Array<unknown>(widgetNames.length).fill(undefined)
+        const nextValues = [...(node.widgets_values ?? defaultValues)]
         while (nextValues.length < widgetNames.length) nextValues.push(undefined)
         nextValues[idx] = value
 

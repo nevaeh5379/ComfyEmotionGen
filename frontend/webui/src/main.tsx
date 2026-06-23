@@ -104,7 +104,7 @@ try {
   } as unknown as typeof window.LiteGraph
 
   // LGraphNode — base class for all node types
-  if (window.LGraphNode === undefined) {
+  if (typeof (window as Record<string, unknown>).LGraphNode === "undefined") {
     let _nextNodeId = 1
     class LGraphNodeImpl {
       id = _nextNodeId++
@@ -113,9 +113,9 @@ try {
       bgcolor?: string
       pos: [number, number] = [0, 0]
       size: [number, number] = [0, 0]
-      inputs: Array<{ name: string; type: string; link: null }> = []
-      outputs: Array<{ name: string; type: string; links: null }> = []
-      widgets?: Array<unknown> = []
+      inputs: { name: string; type: string; link: null }[] = []
+      outputs: { name: string; type: string; links: null }[] = []
+      widgets?: unknown[] = []
       graph: unknown = null
       mode = 0
       order = 0
@@ -124,10 +124,10 @@ try {
       addInput(name: string, type: string): void { this.inputs.push({ name, type, link: null }) }
       addOutput(name: string, type: string): void { this.outputs.push({ name, type, links: null }) }
       connect(): boolean | null { return true }
-      disconnectInput(): void {}
-      disconnectOutput(): void {}
-      configure(): void {}
-      setDirtyCanvas(): void {}
+      disconnectInput(): void { /* noop */ }
+      disconnectOutput(): void { /* noop */ }
+      configure(): void { /* noop */ }
+      setDirtyCanvas(): void { /* noop */ }
       addWidget(): unknown { return {} }
       addDOMWidget(): unknown { return {} }
     }
@@ -135,7 +135,7 @@ try {
   }
 
   // LGraph — graph container
-  if (window.LGraph === undefined) {
+  if (typeof (window as Record<string, unknown>).LGraph === "undefined") {
     class LGraphImpl {
       _nodes_by_id: Record<string, unknown> = {}
       links: Map<number, unknown> | Record<number, unknown> = {}
@@ -148,33 +148,33 @@ try {
       remove(node: unknown): void { const i = this.nodes.indexOf(node); if (i !== -1) this.nodes.splice(i, 1) }
       clear(): void { this.nodes = []; this._nodes_by_id = {}; this.links = {}; this.groups = [] }
       getNodeById(_id: number | string): undefined { return undefined }
-      setDirtyCanvas(): void {}
+      setDirtyCanvas(): void { /* noop */ }
     }
     window.LGraph = LGraphImpl as unknown as typeof window.LGraph
   }
 
   // LGraphCanvas — canvas renderer
-  if (window.LGraphCanvas === undefined) {
+  if (typeof (window as Record<string, unknown>).LGraphCanvas === "undefined") {
     class LGraphCanvasImpl {
       state = { readOnly: false }
       ds = { scale: 1, offset: [0, 0] as [number, number] }
       canvas: HTMLCanvasElement | null = null
       graph_mouse?: [number, number] = [0, 0]
       render_canvas_border = false
-      constructor(canvas?: HTMLCanvasElement, _graph?: unknown) {
+      constructor(canvas?: HTMLCanvasElement | null, _graph?: unknown) {
         if (canvas !== undefined && canvas !== null) this.canvas = canvas
       }
-      resize(): void {}
-      setDirty(): void {}
-      stopRendering(): void {}
-      startRendering(): void {}
+      resize(): void { /* noop */ }
+      setDirty(): void { /* noop */ }
+      stopRendering(): void { /* noop */ }
+      startRendering(): void { /* noop */ }
       setCanvas(c: HTMLCanvasElement): void { this.canvas = c }
     }
-    window.LGraphCanvas = LGraphCanvasImpl as unknown as typeof window.LGraphCanvas
+    window.LGraphCanvas = LGraphCanvasImpl
   }
 
   // LLink — link between nodes
-  if (window.LLink === undefined) {
+  if (typeof (window as Record<string, unknown>).LLink === "undefined") {
     class LLinkImpl {
       id = 0
       origin_id = 0
@@ -183,11 +183,11 @@ try {
       target_slot = 0
       type = ""
     }
-    window.LLink = LLinkImpl as unknown as typeof window.LLink
+    window.LLink = LLinkImpl
   }
 
   // LGraphGroup — group container
-  if (window.LGraphGroup === undefined) {
+  if (typeof (window as Record<string, unknown>).LGraphGroup === "undefined") {
     class LGraphGroupImpl {
       id = 0
       title = ""
@@ -195,7 +195,7 @@ try {
       size: [number, number] = [0, 0]
       color?: string
     }
-    window.LGraphGroup = LGraphGroupImpl as unknown as typeof window.LGraphGroup
+    window.LGraphGroup = LGraphGroupImpl
   }
 }
 
@@ -251,22 +251,22 @@ function createDefaultApp(): ComfyApp {
     revision: 0,
     status: 0,
     id: 0,
-    add(_node: unknown): void {},
-    remove(_node: unknown): void {},
-    clear(): void {},
+    add(_node: unknown): void { /* noop */ },
+    remove(_node: unknown): void { /* noop */ },
+    clear(): void { /* noop */ },
     getNodeById(_id: number | string): undefined { return undefined },
-    setDirtyCanvas(_flag?: boolean, _history?: boolean): void {},
+    setDirtyCanvas(_flag?: boolean, _history?: boolean): void { /* noop */ },
     onAfterChange: undefined,
   } as unknown as LGraph
 
   const stubCanvas: LGraphCanvas = {
     state: { readOnly: false },
     ds: { scale: 1, offset: [0, 0] },
-    resize(_w?: number, _h?: number): void {},
-    setDirty(_canvas?: boolean, _history?: boolean): void {},
-    stopRendering(): void {},
-    startRendering(): void {},
-    setCanvas(_canvas: HTMLCanvasElement): void {},
+    resize(_w?: number, _h?: number): void { /* noop */ },
+    setDirty(_canvas?: boolean, _history?: boolean): void { /* noop */ },
+    stopRendering(): void { /* noop */ },
+    startRendering(): void { /* noop */ },
+    setCanvas(_canvas: HTMLCanvasElement): void { /* noop */ },
     render_canvas_border: false,
     graph_mouse: [0, 0],
     canvas: null,
@@ -287,7 +287,7 @@ function createDefaultApp(): ComfyApp {
     extensions: [],
     registerExtension(ext: ComfyExtension): void {
       if (app.extensionManager.registerExtension !== undefined) {
-        console.log(`[CEG] registerExtension: "${ext.name}" -> extensionManager.registerExtension (has onNodeCreated=${String(typeof ext.nodeCreated)} has beforeRegisterNodeDef=${String(typeof ext.beforeRegisterNodeDef)})`)
+        console.log(`[CEG] registerExtension: "${ext.name}" -> extensionManager.registerExtension (has onNodeCreated=${typeof ext.nodeCreated} has beforeRegisterNodeDef=${typeof ext.beforeRegisterNodeDef})`)
         app.extensionManager.registerExtension(ext)
       } else {
         console.log(`[CEG] registerExtension: "${ext.name}" -> app.extensions.push (extManager has no registerExtension)`)
@@ -440,13 +440,13 @@ Object.defineProperty(appObj, 'settings', {
 // Re-assign stub graph/canvas (same shape as createDefaultApp)
 appObj.graph = {
   _nodes_by_id: {}, links: {}, groups: [], nodes: [], revision: 0, status: 0, id: 0,
-  add() {}, remove() {}, clear() {}, getNodeById() { return undefined }, setDirtyCanvas() {},
+  add() { /* noop */ }, remove() { /* noop */ }, clear() { /* noop */ }, getNodeById() { return undefined }, setDirtyCanvas() { /* noop */ },
   onAfterChange: undefined,
 } as unknown as LGraph
 appObj.canvas = {
   state: { readOnly: false }, ds: { scale: 1, offset: [0, 0] },
-  resize() {}, setDirty() {}, stopRendering() {}, startRendering() {},
-  setCanvas() {}, render_canvas_border: false, graph_mouse: [0, 0], canvas: null,
+  resize() { /* noop */ }, setDirty() { /* noop */ }, stopRendering() { /* noop */ }, startRendering() { /* noop */ },
+  setCanvas() { /* noop */ }, render_canvas_border: false, graph_mouse: [0, 0], canvas: null,
 } as unknown as LGraphCanvas
 appObj.syncGraph = (): void => {
   // No-op: Zustand store가 single source of truth이므로 sync 필요 없음

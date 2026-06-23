@@ -102,11 +102,11 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     if (!content) return
     const titleBar = content.previousElementSibling as HTMLElement | null
 
-    const measureContentHeight = () => {
+    const measureContentHeight = (): number => {
       let childrenHeight = 0
       const children = content.children
-      for (let i = 0; i < children.length; i++) {
-        childrenHeight += (children[i] as HTMLElement).offsetHeight
+      for (const child of children) {
+        childrenHeight += (child as HTMLElement).offsetHeight
       }
       if (children.length > 1) childrenHeight += (children.length - 1) * 2 // gap-0.5
       childrenHeight += 8 // py-1 padding
@@ -121,9 +121,9 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       }
     })
 
-    const observeAllChildren = () => {
+    const observeAllChildren = (): void => {
       for (const child of content.children) {
-        observer.observe(child as HTMLElement)
+        observer.observe(child)
       }
     }
     observeAllChildren()
@@ -134,7 +134,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     })
     mutationObserver.observe(content, { childList: true })
 
-    return () => {
+    return (): void => {
       observer.disconnect()
       mutationObserver.disconnect()
     }
@@ -270,7 +270,6 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       for (const [name, spec] of Object.entries({ ...req, ...opt })) {
         const inputSpec = spec
         const typeSpec = inputSpec[0]
-        const typeStr = typeof typeSpec === "string" ? typeSpec : ""
         const isWidget = widgetStore.isWidgetType(typeSpec)
         if (isWidget) names.push(name)
       }
@@ -309,9 +308,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     }
     if (liveNode?.widgets) {
       for (const w of liveNode.widgets) {
-        if (!specs[w.name]) {
-          specs[w.name] = [w.type ?? "string", w.options ?? {}]
-        }
+        specs[w.name] ??= [w.type ?? "string", w.options ?? {}]
       }
     }
 

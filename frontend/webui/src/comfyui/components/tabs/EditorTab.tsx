@@ -60,10 +60,14 @@ export function EditorTab(): React.JSX.Element {
   const canUndo = useGraphStore((s) => s.canUndo())
   const canRedo = useGraphStore((s) => s.canRedo())
 
-  // currentWorkflow가 갱신되면 reactGraphStore에도 연동
+  // currentWorkflow가 갱신되면 reactGraphStore 및 백그라운드 LiteGraph에 연동
   useEffect(() => {
     if (!currentWorkflow) return
-    useReactGraphStore.getState().setGraph(currentWorkflow)
+    if (window.__comfyAppService) {
+      window.__comfyAppService.loadGraphData(currentWorkflow)
+    } else {
+      useReactGraphStore.getState().setGraph(currentWorkflow)
+    }
   }, [currentWorkflow])
 
   // object_info 로드

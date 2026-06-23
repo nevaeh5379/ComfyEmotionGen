@@ -26,7 +26,7 @@ export type CustomWidgetFactory = (
   inputName: string,
   inputData: [unknown, Record<string, unknown>?],
   app: unknown
-) => CustomWidget | undefined | void
+) => CustomWidget | undefined
 
 const widgetTypes = new Set<string>()
 const customWidgetFactories = new Map<string, CustomWidgetFactory>()
@@ -38,23 +38,23 @@ for (const type of BASIC_WIDGET_TYPES) {
 
 export const widgetStore = {
   isWidgetType(type: string | string[]): boolean {
-    const normalized = Array.isArray(type) ? "COMBO" : String(type).toUpperCase()
+    const normalized = Array.isArray(type) ? "COMBO" : type.toUpperCase()
     return widgetTypes.has(normalized)
   },
 
   register(type: string): void {
-    widgetTypes.add(String(type).toUpperCase())
+    widgetTypes.add(type.toUpperCase())
   },
 
   registerMany(types: string[]): void {
     for (const type of types) {
-      widgetTypes.add(String(type).toUpperCase())
+      widgetTypes.add(type.toUpperCase())
     }
   },
 
   /** 커스텀 위젯 팩토리 등록 (확장의 getCustomWidgets 결과) */
   registerCustomWidgetFactory(type: string, factory: CustomWidgetFactory): void {
-    const key = String(type).toUpperCase()
+    const key = type.toUpperCase()
     customWidgetFactories.set(key, factory)
     widgetTypes.add(key)
   },
@@ -66,10 +66,10 @@ export const widgetStore = {
   },
 
   getCustomWidgetFactory(type: string): CustomWidgetFactory | undefined {
-    return customWidgetFactories.get(String(type).toUpperCase())
+    return customWidgetFactories.get(type.toUpperCase())
   },
 
   hasCustomWidgetFactory(type: string): boolean {
-    return customWidgetFactories.has(String(type).toUpperCase())
+    return customWidgetFactories.has(type.toUpperCase())
   },
 }

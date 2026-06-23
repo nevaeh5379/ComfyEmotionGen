@@ -176,7 +176,7 @@ export interface ComfyExtension {
 
   getCustomWidgets?(
     app: unknown
-  ): Promise<Record<string, unknown>> | Record<string, unknown>
+  ): Promise<Record<string, unknown> | null | undefined> | Record<string, unknown> | null | undefined
 
   getSelectionToolboxCommands?(selectedItem: unknown): string[]
   getCanvasMenuItems?(canvas: LGraphCanvas): unknown[]

@@ -30,12 +30,28 @@ import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
  */
 function createMapProxy<T>(target: Map<number, T>): Map<number, T> & Record<number, T> {
   const handler: ProxyHandler<Map<number, T>> = {
-    get(map, prop, receiver) {
+    get(map, prop) {
       if (typeof prop === "string" && !Map.prototype.hasOwnProperty.call(Map.prototype, prop)) {
+        const numKey = Number(prop)
+        if (!isNaN(numKey)) {
+          const store = useReactGraphStore
+          const link = store.getState().links.find((l) => l.id === numKey)
+          if (link !== undefined) return link
+        }
         const val = map.get(Number(prop))
         if (val !== undefined) return val
       }
-      return Reflect.get(map, prop, receiver) as unknown
+
+      const store = useReactGraphStore
+      const currentLinks = store.getState().links
+      const dynamicMap = new Map(currentLinks.map(l => [l.id, l]))
+
+      // If it's a method on Map (like get, has, etc.), we want to invoke it on the dynamic map
+      const val = Reflect.get(dynamicMap, prop) as unknown
+      if (typeof val === "function") {
+        return (val as (...args: unknown[]) => unknown).bind(dynamicMap)
+      }
+      return val
     },
     set(map, prop, value, receiver): boolean {
       if (typeof prop === "string") {
@@ -53,23 +69,34 @@ function createMapProxy<T>(target: Map<number, T>): Map<number, T> & Record<numb
     },
     has(map, prop): boolean {
       if (typeof prop === "string") {
+        const numKey = Number(prop)
+        if (!isNaN(numKey)) {
+          const store = useReactGraphStore
+          return store.getState().links.some((l) => l.id === numKey)
+        }
         return map.has(Number(prop))
       }
       return Reflect.has(map, prop)
     },
-    ownKeys(map): string[] {
-      return Reflect.ownKeys(map) as string[]
+    ownKeys(_map): string[] {
+      const store = useReactGraphStore
+      return store.getState().links.map((l) => String(l.id))
     },
     getOwnPropertyDescriptor(target, prop): PropertyDescriptor | undefined {
       if (typeof prop === "string") {
-        return {
-          configurable: true,
-          enumerable: true,
-          get: () => target.get(Number(prop)),
-          set: (v: T) => target.set(Number(prop), v),
+        const numKey = Number(prop)
+        const store = useReactGraphStore
+        const link = store.getState().links.find((l) => l.id === numKey)
+        if (link) {
+          return {
+            configurable: true,
+            enumerable: true,
+            writable: true,
+            value: link,
+          }
         }
       }
-      return Reflect.getOwnPropertyDescriptor(target, prop)
+      return undefined
     },
   }
   return new Proxy(target, handler) as Map<number, T> & Record<number, T>
@@ -183,51 +210,49 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const linkedNode = this.linkNodeToGraph(nodeOrGroup, this)
     this._liveNodes.set(linkedNode.id, linkedNode)
 
-    if (currentState.nodes.some((n: ComfyWorkflowNode) => n.id === nodeOrGroup.id)) {
-      return
-    }
+    if (!currentState.nodes.some((n: ComfyWorkflowNode) => n.id === nodeOrGroup.id)) {
+      const workflowNode: ComfyWorkflowNode = {
+        id: linkedNode.id,
+        type: linkedNode.type ?? "",
+        pos: linkedNode.pos,
+        size: linkedNode.size,
+        inputs: linkedNode.inputs.length > 0
+          ? linkedNode.inputs.map((i) => ({
+              name: i.name,
+              type: i.type,
+              link: i.link ?? undefined,
+            }))
+          : undefined,
+        outputs: linkedNode.outputs.length > 0
+          ? linkedNode.outputs.map((o, idx: number) => ({
+              name: o.name,
+              type: o.type,
+              links: o.links ?? undefined,
+              slot_index: idx,
+            }))
+          : undefined,
+        widgets_values: (linkedNode.widgets?.length ?? 0) > 0
+          ? (linkedNode.widgets ?? []).map((w) => w.value)
+          : undefined,
+        properties: linkedNode.properties
+          ? {
+              ...linkedNode.properties,
+              widget_names: linkedNode.widgets?.map((w) => w.name) ?? [],
+            }
+          : undefined,
+        mode: linkedNode.mode,
+        color: linkedNode.color,
+        bgcolor: linkedNode.bgcolor,
+      }
 
-    const workflowNode: ComfyWorkflowNode = {
-      id: linkedNode.id,
-      type: linkedNode.type ?? "",
-      pos: linkedNode.pos,
-      size: linkedNode.size,
-      inputs: linkedNode.inputs.length > 0
-        ? linkedNode.inputs.map((i) => ({
-            name: i.name,
-            type: i.type,
-            link: i.link ?? undefined,
-          }))
-        : undefined,
-      outputs: linkedNode.outputs.length > 0
-        ? linkedNode.outputs.map((o, idx: number) => ({
-            name: o.name,
-            type: o.type,
-            links: o.links ?? undefined,
-            slot_index: idx,
-          }))
-        : undefined,
-      widgets_values: (linkedNode.widgets?.length ?? 0) > 0
-        ? linkedNode.widgets!.map((w) => w.value)
-        : undefined,
-      properties: linkedNode.properties
-        ? {
-            ...linkedNode.properties,
-            widget_names: linkedNode.widgets?.map((w) => w.name) ?? [],
-          }
-        : undefined,
-      mode: linkedNode.mode,
-      color: linkedNode.color,
-      bgcolor: linkedNode.bgcolor,
+      store.getState().takeSnapshot()
+      const currentNodes = store.getState().nodes
+      const currentLinks = store.getState().links
+      store.setState({
+        nodes: [...currentNodes, workflowNode],
+        links: currentLinks,
+      })
     }
-
-    store.getState().takeSnapshot()
-    const currentNodes = store.getState().nodes
-    const currentLinks = store.getState().links
-    store.setState({
-      nodes: [...currentNodes, workflowNode],
-      links: currentLinks,
-    })
 
     this.onNodeAdded?.(linkedNode)
     this.onAfterChange?.(this, linkedNode)

@@ -99,9 +99,9 @@ export function ReactGraphEditor(): JSX.Element {
           // 병렬로 import()를 시작하고, 배열 순서대로 await하여 등록 순서를 보존합니다.
           const fullUrls = extensionUrls.map((url) => url.startsWith("http") ? url : `${apiClient.api_base}${url}`);
           console.log("[CEG:DEBUG ReactGraphEditor] Importing extensions in parallel:", fullUrls.length);
-          const importPromises = fullUrls.map((fullUrl) => import(/* @vite-ignore */ fullUrl).then(() => fullUrl).catch((err) => { console.error(`Failed to load extension: ${fullUrl}`, err); return null; }));
-          for (let i = 0; i < importPromises.length; i++) {
-            const result = await importPromises[i];
+          const importPromises = fullUrls.map((fullUrl) => import(/* @vite-ignore */ fullUrl).then(() => fullUrl).catch((err: unknown) => { console.error(`Failed to load extension: ${fullUrl}`, err); return null; }));
+          for (const promise of importPromises) {
+            const result = await promise;
             if (result !== null) {
               console.log("[CEG:DEBUG ReactGraphEditor] Import success:", result);
             }
@@ -133,8 +133,8 @@ export function ReactGraphEditor(): JSX.Element {
           if (ext.getCustomWidgets !== undefined) {
             try {
               const customWidgets = await ext.getCustomWidgets(rawApp)
-              if (customWidgets) {
-                const factories = customWidgets as Record<string, unknown>
+              if (customWidgets !== undefined && customWidgets !== null) {
+                const factories = customWidgets
                 const typeNames = Object.keys(factories)
                 // 타입 이름 등록 + 실제 팩토리 함수 저장
                 widgetStore.registerMany(typeNames)
@@ -216,6 +216,7 @@ export function ReactGraphEditor(): JSX.Element {
     datatype: string
   } | null>(null)
   const [tempLinkEnd, setTempLinkEnd] = useState<[number, number] | null>(null)
+  const [dragStartPinPos, setDragStartPinPos] = useState<[number, number] | null>(null)
 
   // 현재 마우스가 올라가 있는 핀 추적
   const [hoveredPin, setHoveredPin] = useState<{
@@ -341,8 +342,11 @@ export function ReactGraphEditor(): JSX.Element {
   }
 
   // 드래그 중인 임시 연결선의 시작점 좌표 계산
-  const dragStartPinPos = useMemo(() => {
-    if (!activeDragPin || !containerRef.current) return null
+  useEffect(() => {
+    if (!activeDragPin || !containerRef.current) {
+      setDragStartPinPos(null)
+      return
+    }
     const containerRect = containerRef.current.getBoundingClientRect()
 
     const nodeIdStr = String(activeDragPin.nodeId)
@@ -350,13 +354,16 @@ export function ReactGraphEditor(): JSX.Element {
     const indexStr = String(activeDragPin.index)
     const selector = `[data-slot-node-id="${nodeIdStr}"][data-slot-type="${typeStr}"][data-slot-index="${indexStr}"]`
     const pinEl = containerRef.current.querySelector(selector)
-    if (!pinEl) return null
+    if (!pinEl) {
+      setDragStartPinPos(null)
+      return
+    }
 
     const pinRect = pinEl.getBoundingClientRect()
-    return [
+    setDragStartPinPos([
       (pinRect.left - containerRect.left + pinRect.width / 2 - pan[0]) / zoom,
       (pinRect.top - containerRect.top + pinRect.height / 2 - pan[1]) / zoom,
-    ] as [number, number]
+    ])
   }, [activeDragPin, zoom, pan])
 
   // 임시 연결선 패스 생성
