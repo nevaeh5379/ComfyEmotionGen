@@ -84,17 +84,118 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
   const nodeDef    = useMemo(() => getNodeDef(type), [type, getNodeDef])
   const nodeData   = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
 
+  // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
+  const liveNode = useMemo(() => {
+    return getLiveNode(id)
+  }, [id])
+
+  const { inputs, outputs, widgetNames, widgetSpecs } = useMemo(() => {
+    let names: string[] = []
+    let ins: ComfyNodeInput[] = []
+    let outs: ComfyNodeOutput[] = []
+    const specs: Record<string, InputSpec> = {}
+
+    if (liveNode) {
+      if (liveNode.widgets) {
+        names = liveNode.widgets.map((w: LiveWidget) => w.name)
+      }
+      if (liveNode.inputs) {
+        ins = liveNode.inputs.map((slot: LiveSlot) => ({
+          name: slot.name,
+          type: String(slot.type),
+          link: slot.link ?? undefined,
+          widget: slot.widget
+            ? { name: slot.widget.name, config: {} }
+            : undefined,
+        }))
+      }
+      if (liveNode.outputs) {
+        outs = liveNode.outputs.map((slot: LiveSlot, i: number) => ({
+          name: slot.name,
+          type: String(slot.type),
+          links: slot.links ?? undefined,
+          slot_index: i,
+        }))
+      }
+    } else {
+      names = (nodeData?.properties?.widget_names as string[] | undefined) ?? []
+      ins = nodeData?.inputs !== undefined ? [...nodeData.inputs] : []
+      outs = nodeData?.outputs !== undefined ? [...nodeData.outputs] : []
+
+      const req = nodeDef?.input?.required ?? {}
+      const opt = nodeDef?.input?.optional ?? {}
+      for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+        const inputSpec = spec
+        const typeSpec = inputSpec[0]
+        const isWidget = widgetStore.isWidgetType(typeSpec)
+        if (isWidget) names.push(name)
+      }
+
+      if (ins.length === 0) {
+        for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+          const inputSpec = spec
+          const typeSpec = inputSpec[0]
+          const isWidget = widgetStore.isWidgetType(typeSpec)
+          ins.push({
+            name,
+            type: String(typeSpec),
+            ...(isWidget ? { widget: { name, config: inputSpec[1] ?? {} } } : {}),
+          })
+        }
+      }
+
+      if (outs.length === 0 && nodeDef) {
+        for (let i = 0; i < nodeDef.output.length; i++) {
+          outs.push({
+            name: nodeDef.output_name[i] ?? nodeDef.output[i] ?? `out_${String(i)}`,
+            type: nodeDef.output[i] ?? "*",
+          })
+        }
+      }
+
+    }
+
+    // Build spec from nodeDef (ComfyUI format) first, then supplement with liveNode for custom types
+    const defSpecs: Record<string, InputSpec> = {
+      ...(nodeDef?.input?.required ?? {}),
+      ...(nodeDef?.input?.optional ?? {}),
+    }
+    for (const [name, spec] of Object.entries(defSpecs)) {
+      specs[name] = spec
+    }
+    if (liveNode?.widgets) {
+      for (const w of liveNode.widgets) {
+        specs[w.name] ??= [w.type ?? "string", w.options ?? {}]
+      }
+    }
+
+    const nameSet = new Set(names)
+    ins = ins.map((input) => {
+      if (!input.widget && nameSet.has(input.name)) {
+        return { ...input, widget: { name: input.name, config: {} } }
+      }
+      return input
+    })
+
+    return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
+  }, [nodeDef, nodeData, liveNode])
+
   useLayoutEffect(() => {
     const content = contentRef.current
     if (!content) return
     const titleBar = content.previousElementSibling as HTMLElement | null
     const titleBarHeight = titleBar?.offsetHeight ?? 28
     const contentHeight = titleBarHeight + content.scrollHeight
-    setMinHeight(contentHeight)
-    if (sizeRef.current[1] < contentHeight) {
+    setMinHeight((prev) => {
+      if (Math.abs(prev - contentHeight) > 1.5) {
+        return contentHeight
+      }
+      return prev
+    })
+    if (contentHeight - sizeRef.current[1] > 2) {
       updateNodeSize(id, [sizeRef.current[0], contentHeight])
     }
-  }, [id, updateNodeSize, nodeData])
+  }, [id, updateNodeSize, inputs.length, outputs.length, widgetNames.length])
 
   // ResizeObserver: 자식 요소 크기 변화 시 노드 높이도 같이 늘리고 minHeight 갱신
   useLayoutEffect(() => {
@@ -115,8 +216,13 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
 
     const observer = new ResizeObserver(() => {
       const contentHeight = measureContentHeight()
-      setMinHeight(contentHeight)
-      if (sizeRef.current[1] < contentHeight) {
+      setMinHeight((prev) => {
+        if (Math.abs(prev - contentHeight) > 1.5) {
+          return contentHeight
+        }
+        return prev
+      })
+      if (contentHeight - sizeRef.current[1] > 2) {
         updateNodeSize(id, [sizeRef.current[0], contentHeight])
       }
     })
@@ -227,101 +333,6 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     window.addEventListener("mouseup",   onUp)
   }
 
-  // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
-  const liveNode = useMemo(() => {
-    return getLiveNode(id)
-  }, [id])
-
-  const { inputs, outputs, widgetNames, widgetSpecs } = useMemo(() => {
-    let names: string[] = []
-    let ins: ComfyNodeInput[] = []
-    let outs: ComfyNodeOutput[] = []
-    const specs: Record<string, InputSpec> = {}
-
-    if (liveNode) {
-      if (liveNode.widgets) {
-        names = liveNode.widgets.map((w: LiveWidget) => w.name)
-      }
-      if (liveNode.inputs) {
-        ins = liveNode.inputs.map((slot: LiveSlot) => ({
-          name: slot.name,
-          type: String(slot.type),
-          link: slot.link ?? undefined,
-          widget: slot.widget
-            ? { name: slot.widget.name, config: {} }
-            : undefined,
-        }))
-      }
-      if (liveNode.outputs) {
-        outs = liveNode.outputs.map((slot: LiveSlot, i: number) => ({
-          name: slot.name,
-          type: String(slot.type),
-          links: slot.links ?? undefined,
-          slot_index: i,
-        }))
-      }
-    } else {
-      names = (nodeData?.properties?.widget_names as string[] | undefined) ?? []
-      ins = nodeData?.inputs !== undefined ? [...nodeData.inputs] : []
-      outs = nodeData?.outputs !== undefined ? [...nodeData.outputs] : []
-
-      const req = nodeDef?.input?.required ?? {}
-      const opt = nodeDef?.input?.optional ?? {}
-      for (const [name, spec] of Object.entries({ ...req, ...opt })) {
-        const inputSpec = spec
-        const typeSpec = inputSpec[0]
-        const isWidget = widgetStore.isWidgetType(typeSpec)
-        if (isWidget) names.push(name)
-      }
-
-      if (ins.length === 0) {
-        for (const [name, spec] of Object.entries({ ...req, ...opt })) {
-          const inputSpec = spec
-          const typeSpec = inputSpec[0]
-          const isWidget = widgetStore.isWidgetType(typeSpec)
-          ins.push({
-            name,
-            type: String(typeSpec),
-            ...(isWidget ? { widget: { name, config: inputSpec[1] ?? {} } } : {}),
-          })
-        }
-      }
-
-      if (outs.length === 0 && nodeDef) {
-        for (let i = 0; i < nodeDef.output.length; i++) {
-          outs.push({
-            name: nodeDef.output_name[i] ?? nodeDef.output[i] ?? `out_${String(i)}`,
-            type: nodeDef.output[i] ?? "*",
-          })
-        }
-      }
-
-    }
-
-    // Build spec from nodeDef (ComfyUI format) first, then supplement with liveNode for custom types
-    const defSpecs: Record<string, InputSpec> = {
-      ...(nodeDef?.input?.required ?? {}),
-      ...(nodeDef?.input?.optional ?? {}),
-    }
-    for (const [name, spec] of Object.entries(defSpecs)) {
-      specs[name] = spec
-    }
-    if (liveNode?.widgets) {
-      for (const w of liveNode.widgets) {
-        specs[w.name] ??= [w.type ?? "string", w.options ?? {}]
-      }
-    }
-
-    const nameSet = new Set(names)
-    ins = ins.map((input) => {
-      if (!input.widget && nameSet.has(input.name)) {
-        return { ...input, widget: { name: input.name, config: {} } }
-      }
-      return input
-    })
-
-    return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
-  }, [nodeDef, nodeData, liveNode])
 
   const LGraphEventModeValues = LiteGraph.LGraphEventMode ?? {
     ALWAYS: 0,

@@ -86,22 +86,24 @@ try {
 // These are real constructors that extensions can extend and instantiate.
 {
   const _nodeTypes: Record<string, new (...args: unknown[]) => unknown> = {}
-  window.LiteGraph ??= {
-    registerNodeType(type: string, cls: new (...args: unknown[]) => unknown): void { _nodeTypes[type] = cls },
-    createNode(type: string): unknown {
-      const Cls = _nodeTypes[type]
-      return Cls !== undefined ? new Cls() : null
-    },
-    NODE_DEFAULT_WIDTH: 200,
-    NODE_DEFAULT_HEIGHT: 80,
-    ALWAYS: 0,
-    NEVER: 2,
-    BYPASS: 4,
-    LGraphEventMode: { ALWAYS: 0, NEVER: 2, BYPASS: 4 },
-    registered_slot_in_types: {} as Record<string, unknown>,
-    registered_slot_out_types: {} as Record<string, unknown>,
-    getAtomicGraphClasses(): Record<string, unknown> { return {} },
-  } as unknown as typeof window.LiteGraph
+  window.LiteGraph ??= {} as unknown as typeof window.LiteGraph
+  const lg = window.LiteGraph as unknown as Record<string, unknown>
+  lg.registerNodeType ??= (type: string, cls: new (...args: unknown[]) => unknown): void => { _nodeTypes[type] = cls }
+  lg.createNode ??= (type: string): unknown => {
+    const Cls = _nodeTypes[type]
+    return Cls !== undefined ? new Cls() : null
+  }
+  lg.NODE_DEFAULT_WIDTH ??= 200
+  lg.NODE_DEFAULT_HEIGHT ??= 80
+  lg.ALWAYS ??= 0
+  lg.NEVER ??= 2
+  lg.BYPASS ??= 4
+  lg.LGraphEventMode ??= { ALWAYS: 0, NEVER: 2, BYPASS: 4 }
+  lg.registered_slot_in_types ??= {}
+  lg.registered_slot_out_types ??= {}
+  lg.slot_types_default_in ??= {}
+  lg.slot_types_default_out ??= {}
+  lg.getAtomicGraphClasses ??= (): Record<string, unknown> => ({})
 
   // LGraphNode — base class for all node types
   if (typeof (window as Record<string, unknown>).LGraphNode === "undefined") {
@@ -128,8 +130,38 @@ try {
       disconnectOutput(): void { /* noop */ }
       configure(): void { /* noop */ }
       setDirtyCanvas(): void { /* noop */ }
-      addWidget(): unknown { return {} }
-      addDOMWidget(): unknown { return {} }
+      addWidget(type: string, name: string, value: unknown, callback?: (v: unknown) => void, options?: Record<string, unknown>): unknown {
+        this.widgets ??= []
+        const widget = {
+          type,
+          name,
+          value,
+          callback,
+          options: options ?? {},
+          element: document.createElement("div")
+        }
+        this.widgets.push(widget)
+        return widget
+      }
+      addDOMWidget(type: string, name: string, value: unknown, callback?: (v: unknown) => void, options?: Record<string, unknown>): unknown {
+        return this.addWidget(type, name, value, callback, options)
+      }
+      computeSize(min_width?: number): [number, number] {
+        return [min_width ?? 200, 80]
+      }
+      getTitle(): string {
+        return this.type ?? ""
+      }
+      serialize(): Record<string, unknown> {
+        return {
+          id: this.id,
+          type: this.type,
+          pos: this.pos,
+          size: this.size,
+          mode: this.mode,
+          properties: this.properties
+        }
+      }
     }
     window.LGraphNode = LGraphNodeImpl as unknown as typeof window.LGraphNode
   }
