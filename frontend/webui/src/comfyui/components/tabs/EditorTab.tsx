@@ -31,7 +31,10 @@ import {
   Trash2,
   Folder,
   Upload,
+  Play,
 } from "lucide-react"
+import { useBackendHealth } from "@/comfyui/hooks/useBackendHealth"
+import { toast } from "sonner"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { ReactGraphEditor } from "@/components/graph/react/ReactGraphEditor"
 import {
@@ -164,6 +167,57 @@ export function EditorTab(): React.JSX.Element {
     })
   }, [])
 
+  const { isAliveBackend } = useBackendHealth()
+
+  const handleRunFromEditor = useCallback(async (): Promise<void> => {
+    const state = useReactGraphStore.getState()
+    const { nodes, links } = state
+
+    if (nodes.length === 0) {
+      toast.error("실행할 워크플로우가 없습니다.")
+      return
+    }
+
+    const workflow: Record<string, { inputs: Record<string, unknown>; class_type: string }> = {}
+
+    for (const node of nodes) {
+      const inputs: Record<string, unknown> = {}
+      const widgetNames = (node.properties?.widget_names ?? []) as string[]
+
+      for (const input of node.inputs ?? []) {
+        if (input.link !== undefined) {
+          const link = links.find((l) => l.id === input.link)
+          if (link) {
+            inputs[input.name] = [String(link.origin_id), link.origin_slot]
+          }
+        } else if (input.widget) {
+          const widgetIndex = widgetNames.indexOf(input.widget.name)
+          if (widgetIndex >= 0 && node.widgets_values && widgetIndex < node.widgets_values.length) {
+            inputs[input.name] = node.widgets_values[widgetIndex]
+          }
+        }
+      }
+
+      workflow[String(node.id)] = { inputs, class_type: node.type }
+    }
+
+    const workflowJSON: ComfyWorkflowJSON = {
+      last_node_id: Math.max(0, ...nodes.map((n) => n.id)),
+      last_link_id: Math.max(0, ...links.map((l) => l.id)),
+      nodes,
+      links,
+      version: 0.4,
+    }
+
+    try {
+      await window.api.queuePrompt(0, { output: workflow, workflow: workflowJSON })
+      toast.success("워크플로우가 실행 큐에 추가되었습니다.")
+    } catch (err) {
+      console.error("Failed to queue prompt:", err)
+      toast.error("워크플로우 실행에 실패했습니다.")
+    }
+  }, [])
+
   // 노드 라이브러리에서 노드 추가
   const handleAddNode = useCallback((type: string): void => {
     const def = nodeDefs[type]
@@ -208,6 +262,17 @@ export function EditorTab(): React.JSX.Element {
           }}
         >
           <Redo2 className="h-4 w-4" />
+        </Button>
+        <div className="flex-1" />
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => { void handleRunFromEditor(); }}
+          disabled={!isAliveBackend}
+          className="gap-1"
+        >
+          <Play className="h-4 w-4" />
+          실행
         </Button>
         <div className="h-4 w-px bg-border mx-1" />
         <Button variant="ghost" size="sm" onClick={handleNewWorkflow}>
