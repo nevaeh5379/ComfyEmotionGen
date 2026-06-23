@@ -454,7 +454,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
         const idx = widgetNames.indexOf(widgetName)
         if (idx === -1) return node
 
-        const nextValues = [...(node.widgets_values ?? [])]
+        const nextValues = [...(node.widgets_values ?? new Array(widgetNames.length).fill(undefined))]
+        while (nextValues.length < widgetNames.length) nextValues.push(undefined)
         nextValues[idx] = value
 
         return {

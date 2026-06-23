@@ -241,9 +241,6 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     if (liveNode) {
       if (liveNode.widgets) {
         names = liveNode.widgets.map((w: LiveWidget) => w.name)
-        for (const w of liveNode.widgets) {
-          specs[w.name] = [w.type ?? "string", w.options ?? {}]
-        }
       }
       if (liveNode.inputs) {
         ins = liveNode.inputs.map((slot: LiveSlot) => ({
@@ -300,12 +297,21 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
         }
       }
 
-      const allSpecs = {
-        ...(nodeDef?.input?.required ?? {}),
-        ...(nodeDef?.input?.optional ?? {}),
-      }
-      for (const [name, spec] of Object.entries(allSpecs)) {
-        specs[name] = spec
+    }
+
+    // Build spec from nodeDef (ComfyUI format) first, then supplement with liveNode for custom types
+    const defSpecs: Record<string, InputSpec> = {
+      ...(nodeDef?.input?.required ?? {}),
+      ...(nodeDef?.input?.optional ?? {}),
+    }
+    for (const [name, spec] of Object.entries(defSpecs)) {
+      specs[name] = spec
+    }
+    if (liveNode?.widgets) {
+      for (const w of liveNode.widgets) {
+        if (!specs[w.name]) {
+          specs[w.name] = [w.type ?? "string", w.options ?? {}]
+        }
       }
     }
 

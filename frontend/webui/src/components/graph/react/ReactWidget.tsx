@@ -49,12 +49,17 @@ interface ReactWidgetProps {
 }
 
 export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element, source = "?" }: ReactWidgetProps): React.JSX.Element {
-  if (element) {
-    return <HTMLElementWidget element={element} />
-  }
-
   const typeSpec = spec?.[0]
   const config = spec?.[1] ?? {}
+
+  const isStandardType = (
+    (typeof typeSpec === "string" && ["INT", "FLOAT", "STRING", "BOOLEAN", "NUMBER", "COMBO", "TOGGLE"].includes(typeSpec.toUpperCase()))
+    || Array.isArray(typeSpec)
+  )
+
+  if (element && !isStandardType) {
+    return <HTMLElementWidget element={element} />
+  }
 
   // 1. COMBO 타입 (배열 형식의 후보군이 지정된 경우)
   if (Array.isArray(typeSpec)) {
