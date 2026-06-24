@@ -79,6 +79,11 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
   const updateWidgetValue = useReactGraphStore((s) => s.updateWidgetValue)
   const changeNodeMode = useReactGraphStore((s) => s.changeNodeMode)
   const zoom = useReactGraphStore((s) => s.zoom)
+  const executingNodeId = useReactGraphStore((s) => s.executingNodeId)
+  const executedNodeIds = useReactGraphStore((s) => s.executedNodeIds)
+
+  const isExecuting = executingNodeId === id
+  const isExecuted = executedNodeIds?.has(id)
 
   const getNodeDef = useNodeDefStore((s) => s.getNodeDef)
   const nodeDef    = useMemo(() => getNodeDef(type), [type, getNodeDef])
@@ -349,12 +354,14 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     <div
       ref={nodeRef}
       data-node-id={id}
-      className={`absolute rounded-lg border shadow-md flex flex-col select-none ${
+      className={`absolute rounded-lg border shadow-md flex flex-col select-none transition-all duration-300 ${
         selected
           ? "border-primary ring-2 ring-primary/25 shadow-lg"
-          : isMuted
-            ? "border-zinc-700"
-            : "border-border"
+          : isExecuting
+            ? "border-green-500 shadow-[0_0_12px_rgba(34,197,94,0.45)] ring-2 ring-green-500/30"
+            : isMuted
+              ? "border-zinc-700"
+              : "border-border"
       } ${isMuted ? "opacity-50" : isBypassed ? "opacity-75" : "bg-background/95"}`}
       style={{
         left:   pos[0],
@@ -377,7 +384,17 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
           isMuted ? "bg-zinc-800/60 border-zinc-700" : isBypassed ? "bg-zinc-600/40 border-zinc-600/50" : "bg-muted/65 border-border"
         }`}
       >
-        <span className="truncate">{nodeDef?.display_name ?? type}</span>
+        <span className="truncate flex items-center gap-1.5">
+          {isExecuting ? (
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+          ) : isExecuted ? (
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)] shrink-0" />
+          ) : null}
+          <span>{nodeDef?.display_name ?? type}</span>
+        </span>
         <div className="flex items-center gap-1">
           {/* ── Mode toggle ── */}
           <button
@@ -406,6 +423,12 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
           </button>
         </div>
       </div>
+
+      {isExecuting && (
+        <div className="w-full h-0.5 bg-green-950/40 relative overflow-hidden shrink-0">
+          <div className="h-full bg-green-500 animate-pulse w-full" />
+        </div>
+      )}
 
       {/* ── Content (slots + widgets) ──────────────────────── */}
       <div ref={contentRef} className="flex-1 py-1 flex flex-col gap-0.5 text-[11px]">

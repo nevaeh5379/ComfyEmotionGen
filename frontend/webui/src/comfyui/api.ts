@@ -347,10 +347,12 @@ export class ComfyApi extends EventTarget {
     const query = params.toString()
     const wsUrl = query ? `${baseUrl}?${query}` : baseUrl
 
-    this.socket = new WebSocket(wsUrl)
+    const socketInstance = new WebSocket(wsUrl)
+    this.socket = socketInstance
     this.socket.binaryType = 'arraybuffer'
 
     this.socket.addEventListener('open', () => {
+      if (this.socket !== socketInstance) return
       opened = true
 
       if (this.socket) {
@@ -368,6 +370,7 @@ export class ComfyApi extends EventTarget {
     })
 
     this.socket.addEventListener('error', () => {
+      if (this.socket !== socketInstance) return
       if (this.socket) this.socket.close()
       if (isReconnect !== true && !opened) {
         this._pollQueue()
@@ -375,7 +378,9 @@ export class ComfyApi extends EventTarget {
     })
 
     this.socket.addEventListener('close', () => {
+      if (this.socket !== socketInstance) return
       setTimeout(() => {
+        if (this.socket !== socketInstance) return
         this.socket = null
         this.createSocket(true)
       }, 300)
@@ -386,6 +391,7 @@ export class ComfyApi extends EventTarget {
     })
 
     this.socket.addEventListener('message', (event: MessageEvent<string | ArrayBuffer>) => {
+      if (this.socket !== socketInstance) return
       try {
         if (event.data instanceof ArrayBuffer) {
           this.handleBinaryMessage(event.data)
@@ -396,6 +402,24 @@ export class ComfyApi extends EventTarget {
         // silently ignore
       }
     })
+  }
+
+  setApiBase(url: string): void {
+    if (this.api_base === url && this.socket) {
+      return
+    }
+    console.log("[ComfyApi] Changing api_base to:", url)
+    this.api_base = url
+    if (this.socket) {
+      const oldSocket = this.socket
+      this.socket = null
+      try {
+        oldSocket.close()
+      } catch (err) {
+        console.error("Failed to close socket:", err)
+      }
+    }
+    this.createSocket()
   }
 
   private handleBinaryMessage(data: ArrayBuffer): void {

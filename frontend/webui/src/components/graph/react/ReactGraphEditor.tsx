@@ -218,6 +218,219 @@ export function ReactGraphEditor(): JSX.Element {
     }
   }, [nodeDefs])
 
+  // ComfyUI 백엔드 실행 상태 WebSocket 이벤트 리스너 등록
+  useEffect(() => {
+    const api = (window as any).api
+    if (!api) return
+
+    const handleExecutionStart = (e: Event): void => {
+      const customEvent = e as CustomEvent<any>
+      const detail = customEvent.detail
+      console.log("[CEG] execution_start:", detail)
+      useReactGraphStore.setState({
+        executionStatus: "running",
+        executingPromptId: detail.prompt_id,
+        executingNodeId: null,
+        executedNodeIds: new Set<number>(),
+        overallProgress: null,
+      })
+    }
+
+    const handleExecuting = (e: Event): void => {
+      const customEvent = e as CustomEvent<any>
+      const detail = customEvent.detail
+      
+      let nodeId: any = null
+      let promptId: string | null = null
+      
+      if (detail && typeof detail === "object") {
+        nodeId = detail.node
+        promptId = detail.prompt_id || null
+      } else {
+        nodeId = detail
+      }
+      
+      const nodeIdNum = nodeId !== null && nodeId !== undefined && nodeId !== "" ? Number(nodeId) : null
+      console.log("[CEG] executing node:", nodeIdNum, "promptId:", promptId)
+      
+      const store = useReactGraphStore.getState()
+      const nextExecuted = new Set(store.executedNodeIds)
+      
+      // If we move to a new node, the previous node must have finished executing
+      if (store.executingNodeId !== null && store.executingNodeId !== nodeIdNum) {
+        nextExecuted.add(store.executingNodeId)
+      }
+      
+      const updateObj: any = {
+        executingNodeId: nodeIdNum,
+        executedNodeIds: nextExecuted,
+      }
+      
+      if (promptId) {
+        updateObj.executingPromptId = promptId
+      }
+      
+      if (nodeIdNum !== null && store.executionStatus === "idle") {
+        updateObj.executionStatus = "running"
+      }
+      
+      useReactGraphStore.setState(updateObj)
+    }
+
+    const handleProgress = (e: Event): void => {
+      const customEvent = e as CustomEvent<any>
+      const detail = customEvent.detail
+      const store = useReactGraphStore.getState()
+      console.log("[CEG] progress:", detail)
+      
+      const updateObj: any = {
+        overallProgress: {
+          value: detail.value,
+          max: detail.max,
+        }
+      }
+      
+      if (detail.prompt_id) {
+        updateObj.executingPromptId = detail.prompt_id
+      }
+      if (store.executionStatus === "idle") {
+        updateObj.executionStatus = "running"
+      }
+      
+      useReactGraphStore.setState(updateObj)
+    }
+
+    const handleExecuted = (e: Event): void => {
+      const customEvent = e as CustomEvent<any>
+      const detail = customEvent.detail
+      const store = useReactGraphStore.getState()
+      const nextExecuted = new Set(store.executedNodeIds)
+      if (detail.node !== null && detail.node !== undefined) {
+        nextExecuted.add(Number(detail.node))
+      }
+      console.log("[CEG] executed node:", Number(detail.node))
+      
+      const updateObj: any = {
+        executedNodeIds: nextExecuted
+      }
+      if (detail.prompt_id) {
+        updateObj.executingPromptId = detail.prompt_id
+      }
+      if (store.executionStatus === "idle") {
+        updateObj.executionStatus = "running"
+      }
+      
+      useReactGraphStore.setState(updateObj)
+    }
+
+    const handleExecutionCached = (e: Event): void => {
+      const customEvent = e as CustomEvent<any>
+      const detail = customEvent.detail
+      const store = useReactGraphStore.getState()
+      const nextExecuted = new Set(store.executedNodeIds)
+      if (Array.isArray(detail.nodes)) {
+        detail.nodes.forEach((n: any) => nextExecuted.add(Number(n)))
+      }
+      console.log("[CEG] execution_cached nodes:", detail.nodes)
+      
+      const updateObj: any = {
+        executedNodeIds: nextExecuted
+      }
+      if (detail.prompt_id) {
+        updateObj.executingPromptId = detail.prompt_id
+      }
+      if (store.executionStatus === "idle") {
+        updateObj.executionStatus = "running"
+      }
+      
+      useReactGraphStore.setState(updateObj)
+    }
+
+    const handleExecutionSuccess = (e: Event): void => {
+      const customEvent = e as CustomEvent<any>
+      const detail = customEvent.detail
+      const store = useReactGraphStore.getState()
+      console.log("[CEG] execution_success:", detail)
+      
+      if (store.executingPromptId && detail && detail.prompt_id && store.executingPromptId !== detail.prompt_id) {
+        return
+      }
+
+      const nextExecuted = new Set(store.executedNodeIds)
+      if (store.executingNodeId !== null) {
+        nextExecuted.add(store.executingNodeId)
+      }
+
+      useReactGraphStore.setState({
+        executionStatus: "success",
+        executingNodeId: null,
+        executedNodeIds: nextExecuted,
+        overallProgress: store.overallProgress ? { value: store.overallProgress.max, max: store.overallProgress.max } : null,
+      })
+      
+      setTimeout(() => {
+        const current = useReactGraphStore.getState()
+        if (current.executionStatus === "success") {
+          useReactGraphStore.setState({
+            executionStatus: "idle",
+            executingPromptId: null,
+            executedNodeIds: new Set<number>(),
+            overallProgress: null,
+          })
+        }
+      }, 3000)
+    }
+
+    const handleExecutionError = (e: Event): void => {
+      console.log("[CEG] execution_error")
+      useReactGraphStore.setState({
+        executionStatus: "error",
+        executingNodeId: null,
+        overallProgress: null,
+      })
+    }
+
+    const handleExecutionInterrupted = (e: Event): void => {
+      console.log("[CEG] execution_interrupted")
+      useReactGraphStore.setState({
+        executionStatus: "interrupted",
+        executingNodeId: null,
+        overallProgress: null,
+      })
+      setTimeout(() => {
+        const current = useReactGraphStore.getState()
+        if (current.executionStatus === "interrupted") {
+          useReactGraphStore.setState({
+            executionStatus: "idle",
+            executingPromptId: null,
+            executedNodeIds: new Set<number>(),
+            overallProgress: null,
+          })
+        }
+      }, 3000)
+    }
+
+    api.addEventListener("execution_start", handleExecutionStart)
+    api.addEventListener("executing", handleExecuting)
+    api.addEventListener("progress", handleProgress)
+    api.addEventListener("executed", handleExecuted)
+    api.addEventListener("execution_cached", handleExecutionCached)
+    api.addEventListener("execution_success", handleExecutionSuccess)
+    api.addEventListener("execution_error", handleExecutionError)
+    api.addEventListener("execution_interrupted", handleExecutionInterrupted)
+
+    return (): void => {
+      api.removeEventListener("execution_start", handleExecutionStart)
+      api.removeEventListener("executing", handleExecuting)
+      api.removeEventListener("progress", handleProgress)
+      api.removeEventListener("executed", handleExecuted)
+      api.removeEventListener("execution_cached", handleExecutionCached)
+      api.removeEventListener("execution_success", handleExecutionSuccess)
+      api.removeEventListener("execution_error", handleExecutionError)
+      api.removeEventListener("execution_interrupted", handleExecutionInterrupted)
+    }
+  }, [])
+
   // 드래그 중인 핀 및 임시 선 끝점 관리
   const [activeDragPin, setActiveDragPin] = useState<{
     nodeId: number

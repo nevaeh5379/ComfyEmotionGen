@@ -51,6 +51,7 @@ import tracemalloc
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union, AsyncGenerator
+import websockets
 
 from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -1979,6 +1980,75 @@ async def webhooks_batch_complete(req: BatchCompleteRequest) -> dict[str, bool]:
 
 
 # ====== WebSocket ======
+
+
+@app.websocket("/ws")
+async def ws_proxy(websocket: WebSocket, clientId: Optional[str] = None) -> None:
+    """ComfyUI WebSocket 프록시.
+    클라이언트(프론트엔드)의 /ws 연결을 활성 ComfyUI 워커로 투명하게 라우팅/중계한다.
+
+    ComfyUI WebSocket proxy.
+    Transparently routes/proxies the frontend's /ws connection to the active ComfyUI worker.
+    """
+    # 1. 활성 ComfyUI 워커 조회
+    worker = worker_pool.find_idle()
+    if worker is None:
+        for w in worker_pool.all():
+            if w.alive:
+                worker = w
+                break
+
+    if worker is None:
+        try:
+            await websocket.accept()
+            await websocket.close(code=1011, reason="No active ComfyUI worker found")
+        except Exception:
+            pass
+        return
+
+    # ComfyUI 워커의 websocket 주소 생성
+    ws_url = worker.base_url.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
+    if clientId:
+        ws_url += f"?clientId={clientId}"
+
+    try:
+        await websocket.accept()
+    except Exception:
+        return
+
+    try:
+        async with websockets.connect(ws_url, max_size=None) as worker_ws:
+            async def forward_to_worker():
+                try:
+                    while True:
+                        msg = await websocket.receive_text()
+                        await worker_ws.send(msg)
+                except Exception:
+                    pass
+
+            async def forward_to_client():
+                try:
+                    async for msg in worker_ws:
+                        if isinstance(msg, str):
+                            await websocket.send_text(msg)
+                        else:
+                            await websocket.send_bytes(msg)
+                except Exception:
+                    pass
+
+            # 두 작업을 동시에 수행
+            await asyncio.gather(
+                forward_to_worker(),
+                forward_to_client(),
+                return_exceptions=True
+            )
+    except Exception as exc:
+        logger.warning("WS proxy connection to ComfyUI worker failed: %s", exc)
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 @app.websocket("/ws/events")

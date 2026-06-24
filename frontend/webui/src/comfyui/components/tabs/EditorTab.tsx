@@ -4,7 +4,7 @@
  * 좌: Node Library, 중: Canvas, 우: Properties
  */
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
 import { NodePropertiesPanel } from "@/components/graph/NodePropertiesPanel"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
@@ -32,7 +32,12 @@ import {
   Folder,
   Upload,
   Play,
+  Square,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react"
+import { useBackend } from "@/comfyui/hooks/useBackend"
 import { useBackendHealth } from "@/comfyui/hooks/useBackendHealth"
 import { toast } from "sonner"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
@@ -44,6 +49,7 @@ import {
 import { convertGraphToPrompt } from "@/comfyui/services/appService"
 
 export function EditorTab(): React.JSX.Element {
+  const { workers, backendUrl } = useBackend()
   const [currentWorkflow, setCurrentWorkflow] = useState<ComfyWorkflowJSON | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
@@ -61,6 +67,24 @@ export function EditorTab(): React.JSX.Element {
   const canUndo = useGraphStore((s) => s.canUndo())
   const canRedo = useGraphStore((s) => s.canRedo())
 
+  // ComfyUI 백엔드 실행 상태 가져오기
+  const executionStatus = useReactGraphStore((s) => s.executionStatus)
+  const executedNodeIds = useReactGraphStore((s) => s.executedNodeIds)
+  const overallProgress = useReactGraphStore((s) => s.overallProgress)
+  const nodes = useReactGraphStore((s) => s.nodes)
+
+  const activeNodes = useMemo(() => {
+    return nodes.filter((n) => n.mode !== 4 && n.mode !== 2) // 4: BYPASS, 2: NEVER
+  }, [nodes])
+
+  const completedCount = overallProgress ? overallProgress.value : executedNodeIds.size
+  const totalCount = overallProgress ? overallProgress.max : activeNodes.length
+
+  const progressPercent = useMemo(() => {
+    if (totalCount === 0) return 0
+    return Math.min(100, Math.round((completedCount / totalCount) * 100))
+  }, [completedCount, totalCount])
+
   // currentWorkflow가 갱신되면 reactGraphStore 및 백그라운드 LiteGraph에 연동
   useEffect(() => {
     if (!currentWorkflow) return
@@ -70,6 +94,13 @@ export function EditorTab(): React.JSX.Element {
       useReactGraphStore.getState().setGraph(currentWorkflow)
     }
   }, [currentWorkflow])
+
+  // CEG 백엔드 URL 동기화 및 ComfyUI API WebSocket 초기화
+  useEffect(() => {
+    if (window.api && typeof window.api.setApiBase === "function") {
+      window.api.setApiBase(backendUrl)
+    }
+  }, [backendUrl])
 
   // object_info 로드
   useEffect(() => {
@@ -89,7 +120,7 @@ export function EditorTab(): React.JSX.Element {
     }
     void load()
     return (): void => { cancelled = true }
-  }, [setNodeDefs])
+  }, [setNodeDefs, backendUrl])
 
   const handleSaveWorkflow = useCallback((): void => {
     if (saveName.trim() === "") return
@@ -249,17 +280,82 @@ export function EditorTab(): React.JSX.Element {
         >
           <Redo2 className="h-4 w-4" />
         </Button>
-        <div className="flex-1" />
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => { void handleRunFromEditor(); }}
-          disabled={!isAliveBackend}
-          className="gap-1"
-        >
-          <Play className="h-4 w-4" />
-          실행
-        </Button>
+        <div className="flex-1 flex items-center justify-end gap-3 px-4">
+          {executionStatus === "running" && (
+            <div className="flex items-center gap-2.5 bg-green-950/20 border border-green-500/30 px-3 py-1 rounded-md text-xs">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[10px] text-zinc-300 leading-none">
+                    진행 중 ({completedCount}/{totalCount})
+                  </span>
+                  <span className="font-mono text-[9px] text-green-500 font-bold leading-none">{progressPercent}%</span>
+                </div>
+                <div className="w-28 h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
+                  <div
+                    className="h-full bg-green-500 transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {executionStatus === "success" && (
+            <div className="flex items-center gap-1.5 bg-green-950/40 border border-green-500/50 px-2.5 py-1 rounded-md text-xs text-green-400 font-bold text-[10px] leading-none animate-pulse">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              실행 완료
+            </div>
+          )}
+
+          {executionStatus === "error" && (
+            <div className="flex items-center gap-1.5 bg-red-950/40 border border-red-500/50 px-2.5 py-1 rounded-md text-xs text-red-400 font-bold text-[10px] leading-none animate-pulse">
+              <XCircle className="h-3.5 w-3.5 shrink-0" />
+              실행 오류
+            </div>
+          )}
+
+          {executionStatus === "interrupted" && (
+            <div className="flex items-center gap-1.5 bg-amber-950/40 border border-amber-500/50 px-2.5 py-1 rounded-md text-xs text-amber-400 font-bold text-[10px] leading-none animate-pulse">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              중지됨
+            </div>
+          )}
+        </div>
+
+        {executionStatus === "running" ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              try {
+                await (window as any).api.interrupt(null)
+                toast.success("실행 중지 요청을 보냈습니다.")
+              } catch (err) {
+                console.error("Failed to interrupt:", err)
+                toast.error("실행 중지에 실패했습니다.")
+              }
+            }}
+            className="gap-1 bg-red-900 hover:bg-red-800"
+          >
+            <Square className="h-3.5 w-3.5 fill-current" />
+            중지
+          </Button>
+        ) : (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => { void handleRunFromEditor(); }}
+            disabled={!isAliveBackend}
+            className="gap-1"
+          >
+            <Play className="h-4 w-4" />
+            실행
+          </Button>
+        )}
         <div className="h-4 w-px bg-border mx-1" />
         <Button variant="ghost" size="sm" onClick={handleNewWorkflow}>
           <FolderOpen className="h-4 w-4 mr-1" />

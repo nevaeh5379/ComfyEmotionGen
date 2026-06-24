@@ -28,6 +28,13 @@ interface ReactGraphState {
   pan: [number, number]
   selectedNodeIds: Set<number>
 
+  // Execution State
+  executionStatus: 'idle' | 'running' | 'success' | 'error' | 'interrupted'
+  executingPromptId: string | null
+  executingNodeId: number | null
+  executedNodeIds: Set<number>
+  overallProgress: { value: number; max: number } | null
+
   undoStack: SnapshotEntry[]
   redoStack: SnapshotEntry[]
 
@@ -63,6 +70,14 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   zoom: 1.0,
   pan: [0, 0],
   selectedNodeIds: new Set<number>(),
+
+  // Initial Execution State
+  executionStatus: 'idle',
+  executingPromptId: null,
+  executingNodeId: null,
+  executedNodeIds: new Set<number>(),
+  overallProgress: null,
+
   undoStack: [],
   redoStack: [],
 
