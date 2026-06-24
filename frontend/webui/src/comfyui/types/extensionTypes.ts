@@ -4,6 +4,7 @@
  * 커스텀 노드 extensionManager 호환을 위한 타입 정의
  */
 
+import type { ComponentType } from 'react'
 // import type { LGraphCanvas, LGraphNode } from 'comfy-litegraph'
 
 import type { ComfyNodeDef } from './nodeDef'
@@ -71,7 +72,7 @@ export interface BottomPanelExtension {
 export interface VueExtension {
   id: string
   type: 'vue'
-  component: unknown
+  component: ComponentType<unknown>
 }
 
 export interface CustomExtension {
@@ -152,7 +153,7 @@ export type MissingNodeType =
         callback: () => void
       }
       isReplaceable?: boolean
-      replacement?: unknown
+      replacement?: string | Record<string, unknown>
     }
 
 export interface ComfyExtension {

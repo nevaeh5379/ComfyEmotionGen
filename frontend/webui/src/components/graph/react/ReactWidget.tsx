@@ -1,5 +1,6 @@
 import { useEffect, useRef, useLayoutEffect } from "react"
 import type { InputSpec } from "@/comfyui/types/nodeDef"
+import type { WidgetValue } from "@/comfyui/stores/widgetStore"
 
 interface HTMLElementWidgetProps {
   element: HTMLElement
@@ -49,10 +50,10 @@ export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JS
 export interface CanvasWidget {
   type: string
   name: string
-  value: unknown
+  value: WidgetValue
   element?: HTMLElement
   options: Record<string, unknown>
-  callback: ((value: unknown, canvas?: unknown, node?: unknown) => void) | null
+  callback: ((value: WidgetValue, canvas?: unknown, node?: unknown) => void) | null
   computeSize?: (width: number) => [number, number]
   height?: number
   draw?: (ctx: CanvasRenderingContext2D, node: CanvasNode, width: number, y: number, height: number) => void
@@ -68,9 +69,9 @@ export interface CanvasNode {
 
 interface ReactWidgetProps {
   name: string
-  value: unknown
+  value: WidgetValue
   spec: InputSpec | undefined
-  onChange: (val: unknown) => void
+  onChange: (val: WidgetValue) => void
   showLabel?: boolean
   disabled?: boolean
   element?: HTMLElement | null
@@ -316,7 +317,8 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
 
   // 3. INT / FLOAT 수치 타입
   if (typeName === "INT" || typeName === "FLOAT") {
-    const numVal = Number(value ?? config.default ?? 0)
+    const parsed = typeof value === "number" ? value : Number(value)
+    const numVal = Number.isFinite(parsed) ? parsed : 0
     const isInt = typeName === "INT"
 
     const min = config.min !== undefined ? Number(config.min) : undefined

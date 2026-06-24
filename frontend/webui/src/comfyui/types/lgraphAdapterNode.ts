@@ -7,13 +7,15 @@ import type { ComfyWorkflowNode } from "./workflow"
 
 // ── Widget ────────────────────────────────────────────────────────
 
+export type WidgetValue = string | number | boolean
+
 export interface LGraphWidget {
   type: string
   name: string
-  value: string | number | boolean
+  value: WidgetValue
   element: HTMLElement
   options: Record<string, unknown>
-  callback: ((value: string | number | boolean) => void) | null
+  callback: ((value: WidgetValue) => void) | null
 }
 
 // ── Node slots ────────────────────────────────────────────────────
@@ -64,8 +66,8 @@ export interface LGraphNode {
   addWidget(
     type: string,
     name: string,
-    value: string | number | boolean,
-    callback: (v: string | number | boolean) => void,
+    value: WidgetValue,
+    callback: (v: WidgetValue) => void,
     options?: Record<string, unknown>
   ): LGraphWidget
   addDOMWidget(
@@ -73,8 +75,8 @@ export interface LGraphNode {
     type: string,
     element: HTMLElement,
     options?: {
-      getValue?: () => unknown
-      setValue?: (v: unknown) => void
+      getValue?: () => WidgetValue
+      setValue?: (v: WidgetValue) => void
       hideOnZoom?: boolean
       selectOn?: string[]
       [key: string]: unknown

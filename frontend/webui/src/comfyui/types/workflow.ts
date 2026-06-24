@@ -31,7 +31,7 @@ export interface ComfyWorkflowNode {
   inputs?: ComfyNodeInput[] | undefined
   outputs?: ComfyNodeOutput[] | undefined
   properties?: Record<string, unknown> | undefined
-  widgets_values?: unknown[] | undefined
+  widgets_values?: (string | number | boolean)[] | undefined
   color?: string | undefined
   bgcolor?: string | undefined
   shape?: number | undefined

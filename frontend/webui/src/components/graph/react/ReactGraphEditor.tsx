@@ -9,7 +9,7 @@ import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
 import { ComfyAppService } from "@/comfyui/services/appService"
-import { widgetStore } from "@/comfyui/stores/widgetStore"
+import { widgetStore, type WidgetValue } from "@/comfyui/stores/widgetStore"
 import { useShallow } from "zustand/react/shallow"
 
 
@@ -88,7 +88,7 @@ export function ReactGraphEditor(): JSX.Element {
       rawApp.syncGraphNode = (nodeId: number): void => {
         const liveNode = appService.graph.getNodeById(nodeId)
         if (liveNode === null) return
-        const widgetsValues = (liveNode as { widgets?: { value: unknown }[] }).widgets?.map((w) => w.value) ?? []
+        const widgetsValues = (liveNode as { widgets?: { value: unknown }[] }).widgets?.map((w) => w.value as WidgetValue) ?? []
         useReactGraphStore.setState({
           nodes: useReactGraphStore.getState().nodes.map((n) =>
             n.id === nodeId ? { ...n, widgets_values: widgetsValues } : n

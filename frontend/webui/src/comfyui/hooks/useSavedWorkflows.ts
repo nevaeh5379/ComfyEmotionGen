@@ -21,12 +21,12 @@ export interface SavedWorkflow {
 const STORAGE_KEY = STORAGE_KEYS.savedWorkflows
 
 interface RawSavedWorkflow {
-  id?: unknown
-  name?: unknown
-  workflow?: unknown
-  nodeMappings?: unknown
-  mappingPresets?: unknown
-  savedAt?: unknown
+  id?: string | number
+  name?: string
+  workflow?: string
+  nodeMappings?: NodeMapping[]
+  mappingPresets?: SavedNodeMappingPreset[]
+  savedAt?: number
 }
 
 function load(): SavedWorkflow[] {
@@ -35,14 +35,13 @@ function load(): SavedWorkflow[] {
     if (!Array.isArray(parsed)) return []
     const items = parsed as RawSavedWorkflow[]
     return items.map((w) => {
-      let mappingPresets: SavedNodeMappingPreset[] = (w.mappingPresets as SavedNodeMappingPreset[] | undefined) ?? []
-      if (w.nodeMappings !== null && w.nodeMappings !== undefined && mappingPresets.length === 0) {
-        const nodeMappings = w.nodeMappings as unknown[]
+      let mappingPresets: SavedNodeMappingPreset[] = w.mappingPresets ?? []
+      if (w.nodeMappings && mappingPresets.length === 0) {
         mappingPresets = [
           {
             id: `migrated-${typeof w.id === "string" || typeof w.id === "number" ? String(w.id) : ""}`,
             name: "기본 매핑",
-            mappings: nodeMappings as NodeMapping[],
+            mappings: w.nodeMappings,
             savedAt: typeof w.savedAt === "number" ? w.savedAt : Date.now(),
           },
         ]

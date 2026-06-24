@@ -8,14 +8,14 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { ReactWidget, type CanvasWidget, type CanvasNode } from "./ReactWidget"
 import { X } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
-import { widgetStore } from "@/comfyui/stores/widgetStore"
+import { widgetStore, type WidgetValue } from "@/comfyui/stores/widgetStore"
 import type { InputSpec } from "@/comfyui/types/nodeDef"
 
 interface LiveWidget {
   name: string
   type?: string
-  value?: unknown
-  callback?: ((value: unknown) => void) | null
+  value?: WidgetValue
+  callback?: ((value: WidgetValue) => void) | null
   element?: HTMLElement | null
   options?: Record<string, unknown>
 }
@@ -493,7 +493,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
               if (!input.widget) return null
               const widgetName = input.widget.name
               const widgetIdx = widgetNames.indexOf(widgetName)
-              const widgetValue = widgetIdx !== -1 ? nodeData?.widgets_values?.[widgetIdx] : undefined
+              const widgetValue = widgetIdx !== -1 ? (nodeData?.widgets_values?.[widgetIdx] ?? "") : ""
 
               return (
                 <div key={`widget-in-${String(idx)}`} className="flex flex-col gap-0 pr-2 py-0.5">
@@ -576,7 +576,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
                     return (
                       <ReactWidget
                         name={name}
-                        value={nodeData?.widgets_values?.[widgetNames.indexOf(name)]}
+                        value={nodeData?.widgets_values?.[widgetNames.indexOf(name)] ?? ""}
                         spec={widgetSpecs[name]}
                         onChange={(newVal) => {
                           updateWidgetValue(id, name, newVal)

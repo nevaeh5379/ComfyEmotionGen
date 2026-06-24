@@ -706,7 +706,7 @@ export class ComfyAppService {
       const factory = widgetStore.getCustomWidgetFactory(typeName)
       if (factory) {
         try {
-          const result = factory(node, name, [inputType, inputConfig], app)
+          const result = factory(node, name, [typeName, inputConfig], app)
           if (result) {
             const widget = ((result as Record<string, unknown>).widget !== undefined
               ? (result as Record<string, unknown>).widget

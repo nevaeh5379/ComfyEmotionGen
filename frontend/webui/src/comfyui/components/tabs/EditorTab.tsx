@@ -9,7 +9,7 @@ import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
 import { NodePropertiesPanel } from "@/components/graph/NodePropertiesPanel"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useGraphStore } from "@/comfyui/stores/graphStore"
-import type { ComfyWorkflowJSON } from "@/comfyui/types/workflow"
+import type { ComfyWorkflowJSON, ComfyWorkflowNode, ComfyWorkflowLink } from "@/comfyui/types/workflow"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -47,6 +47,158 @@ import {
   type EditorSavedWorkflow,
 } from "@/comfyui/hooks/useEditorSavedWorkflows"
 import { convertGraphToPrompt } from "@/comfyui/services/appService"
+
+/* ------------------------------------------------------------------ */
+/*  헬퍼 함수                                                          */
+/* ------------------------------------------------------------------ */
+
+/** ComfyWorkflowNode[] / ComfyWorkflowLink[] → ComfyWorkflowJSON */
+function buildWorkflowJSON(
+  nodes: ComfyWorkflowNode[],
+  links: ComfyWorkflowLink[],
+): ComfyWorkflowJSON {
+  return {
+    last_node_id: Math.max(0, ...(nodes.map((n) => n.id), [])),
+    last_link_id: Math.max(0, ...(links.map((l) => l.id), [])),
+    nodes,
+    links,
+    version: 0.4,
+  }
+}
+
+/** 원시 배열 링크 [id, origin_id, …] → ComfyWorkflowLink 객체로 정규화 */
+function normalizeLinks(raw: (ComfyWorkflowLink | unknown[])[]): ComfyWorkflowLink[] {
+  return raw.map((l: ComfyWorkflowLink | unknown[]) => {
+    if (Array.isArray(l)) {
+      return {
+        id: l[0] as number,
+        origin_id: l[1] as number,
+        origin_slot: l[2] as number,
+        target_id: l[3] as number,
+        target_slot: l[4] as number,
+        type: typeof l[5] === "string" ? l[5] : "*",
+      }
+    }
+    return l
+  })
+}
+
+/* ------------------------------------------------------------------ */
+/*  실행 상태 뱃지 컴포넌트                                            */
+/* ------------------------------------------------------------------ */
+
+interface ExecutionStatusBadgeProps {
+  status: "idle" | "running" | "success" | "error" | "interrupted"
+  completedCount: number
+  totalCount: number
+  progressPercent: number
+}
+
+const STATUS_CONFIG: Record<
+  NonNullable<ExecutionStatusBadgeProps["status"]>,
+  { bg: string; border: string; text: string; icon: React.ReactNode; label: string }
+> = {
+  idle: { bg: "", border: "", text: "", icon: null, label: "" },
+  running: {
+    bg: "bg-green-950/20",
+    border: "border-green-500/30",
+    text: "text-zinc-300",
+    icon: (
+      <span className="relative flex h-2 w-2 shrink-0">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+      </span>
+    ),
+    label: "", // 진행 중은 별도 렌더링
+  },
+  success: {
+    bg: "bg-green-950/40",
+    border: "border-green-500/50",
+    text: "text-green-400",
+    icon: <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />,
+    label: "실행 완료",
+  },
+  error: {
+    bg: "bg-red-950/40",
+    border: "border-red-500/50",
+    text: "text-red-400",
+    icon: <XCircle className="h-3.5 w-3.5 shrink-0" />,
+    label: "실행 오류",
+  },
+  interrupted: {
+    bg: "bg-amber-950/40",
+    border: "border-amber-500/50",
+    text: "text-amber-400",
+    icon: <AlertTriangle className="h-3.5 w-3.5 shrink-0" />,
+    label: "중지됨",
+  },
+}
+
+function ExecutionStatusBadge({
+  status,
+  completedCount,
+  totalCount,
+  progressPercent,
+}: ExecutionStatusBadgeProps): React.JSX.Element {
+  if (status === "idle") return <></>
+
+  if (status === "running") {
+    return (
+      <div className={`flex items-center gap-2.5 px-3 py-1 rounded-md text-xs border ${STATUS_CONFIG.running.bg} ${STATUS_CONFIG.running.border}`}>
+        {STATUS_CONFIG.running.icon}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-[10px] text-zinc-300 leading-none">
+              진행 중 ({completedCount}/{totalCount})
+            </span>
+            <span className="font-mono text-[9px] text-green-500 font-bold leading-none">{progressPercent}%</span>
+          </div>
+          <div className="w-28 h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
+            <div
+              className="h-full bg-green-500 transition-all duration-300"
+              style={{ width: `${String(progressPercent)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const config = STATUS_CONFIG[status]
+  return (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold text-[10px] leading-none animate-pulse border ${config.bg} ${config.border} ${config.text}`}>
+      {config.icon}
+      {config.label}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  패널 토글 버튼                                                     */
+/* ------------------------------------------------------------------ */
+
+interface PanelToggleProps {
+  active: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}
+
+function PanelToggle({ active, onToggle, children }: PanelToggleProps): React.JSX.Element {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onToggle}
+      className={active ? "bg-accent" : ""}
+    >
+      {children}
+    </Button>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  메인 컴포넌트                                                      */
+/* ------------------------------------------------------------------ */
 
 export function EditorTab(): React.JSX.Element {
   const { backendUrl } = useBackend()
@@ -125,13 +277,7 @@ export function EditorTab(): React.JSX.Element {
   const handleSaveWorkflow = useCallback((): void => {
     if (saveName.trim() === "") return
     const state = useReactGraphStore.getState()
-    const workflow: ComfyWorkflowJSON = {
-      last_node_id: Math.max(0, ...state.nodes.map((n) => n.id)),
-      last_link_id: Math.max(0, ...state.links.map((l) => l.id)),
-      nodes: state.nodes,
-      links: state.links,
-      version: 0.4,
-    }
+    const workflow = buildWorkflowJSON(state.nodes, state.links)
     saveEditorWorkflow(saveName.trim(), workflow)
     setSaveDialogOpen(false)
     setSaveName("")
@@ -153,15 +299,9 @@ export function EditorTab(): React.JSX.Element {
           if (nodesVal === undefined || !Array.isArray(nodesVal)) {
             throw new Error("Invalid ComfyUI workflow JSON: missing nodes array")
           }
-          // 링크 정규화: 배열 [id, origin_id, origin_slot, target_id, target_slot, type] → 객체
-          const linksVal = workflow.links
+          const linksVal = workflow.links as (ComfyWorkflowLink | unknown[])[] | undefined
           if (linksVal !== undefined && Array.isArray(linksVal)) {
-            workflow.links = linksVal.map((l: unknown) => {
-              if (Array.isArray(l)) {
-                return { id: l[0] as number, origin_id: l[1] as number, origin_slot: l[2] as number, target_id: l[3] as number, target_slot: l[4] as number, type: l[5] !== undefined && l[5] !== null ? (l[5] as string) : "*" }
-              }
-              return l
-            })
+            workflow.links = normalizeLinks(linksVal)
           }
           setCurrentWorkflow(workflow as unknown as ComfyWorkflowJSON)
         } catch (err) {
@@ -194,13 +334,7 @@ export function EditorTab(): React.JSX.Element {
   )
 
   const handleNewWorkflow = useCallback((): void => {
-    setCurrentWorkflow({
-      last_node_id: 0,
-      last_link_id: 0,
-      nodes: [],
-      links: [],
-      version: 0.4,
-    })
+    setCurrentWorkflow(buildWorkflowJSON([], []))
   }, [])
 
   const { isAliveBackend } = useBackendHealth()
@@ -218,13 +352,7 @@ export function EditorTab(): React.JSX.Element {
       ? window.__comfyAppService.graphToPrompt()
       : convertGraphToPrompt(nodes, links)
 
-    const workflowJSON: ComfyWorkflowJSON = {
-      last_node_id: Math.max(0, ...nodes.map((n) => n.id)),
-      last_link_id: Math.max(0, ...links.map((l) => l.id)),
-      nodes,
-      links,
-      version: 0.4,
-    }
+    const workflowJSON = buildWorkflowJSON(nodes, links)
 
     try {
       await window.api.queuePrompt(0, { output: workflow, workflow: workflowJSON })
@@ -241,7 +369,7 @@ export function EditorTab(): React.JSX.Element {
     const state = useReactGraphStore.getState()
     const pos: [number, number] = [
       Math.round(150 - state.pan[0] / state.zoom),
-      Math.round(150 - state.pan[1] / state.zoom)
+      Math.round(150 - state.pan[1] / state.zoom),
     ]
     state.addNode(type, pos, def)
   }, [nodeDefs])
@@ -250,14 +378,9 @@ export function EditorTab(): React.JSX.Element {
     <div className="flex flex-col h-full w-full">
       {/* 툴바 */}
       <div className="flex items-center gap-2 px-3 py-2 border-b bg-background shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => { setShowLeftPanel((v) => !v); }}
-          className={showLeftPanel ? "bg-accent" : ""}
-        >
+        <PanelToggle active={showLeftPanel} onToggle={() => { setShowLeftPanel((v) => !v); }}>
           <PanelLeft className="h-4 w-4" />
-        </Button>
+        </PanelToggle>
         <Button
           variant="ghost"
           size="sm"
@@ -281,49 +404,12 @@ export function EditorTab(): React.JSX.Element {
           <Redo2 className="h-4 w-4" />
         </Button>
         <div className="flex-1 flex items-center justify-end gap-3 px-4">
-          {executionStatus === "running" && (
-            <div className="flex items-center gap-2.5 bg-green-950/20 border border-green-500/30 px-3 py-1 rounded-md text-xs">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-              </span>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-[10px] text-zinc-300 leading-none">
-                    진행 중 ({completedCount}/{totalCount})
-                  </span>
-                  <span className="font-mono text-[9px] text-green-500 font-bold leading-none">{progressPercent}%</span>
-                </div>
-                <div className="w-28 h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
-                  <div
-                    className="h-full bg-green-500 transition-all duration-300"
-                    style={{ width: `${String(progressPercent)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {executionStatus === "success" && (
-            <div className="flex items-center gap-1.5 bg-green-950/40 border border-green-500/50 px-2.5 py-1 rounded-md text-xs text-green-400 font-bold text-[10px] leading-none animate-pulse">
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-              실행 완료
-            </div>
-          )}
-
-          {executionStatus === "error" && (
-            <div className="flex items-center gap-1.5 bg-red-950/40 border border-red-500/50 px-2.5 py-1 rounded-md text-xs text-red-400 font-bold text-[10px] leading-none animate-pulse">
-              <XCircle className="h-3.5 w-3.5 shrink-0" />
-              실행 오류
-            </div>
-          )}
-
-          {executionStatus === "interrupted" && (
-            <div className="flex items-center gap-1.5 bg-amber-950/40 border border-amber-500/50 px-2.5 py-1 rounded-md text-xs text-amber-400 font-bold text-[10px] leading-none animate-pulse">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              중지됨
-            </div>
-          )}
+          <ExecutionStatusBadge
+            status={executionStatus}
+            completedCount={completedCount}
+            totalCount={totalCount}
+            progressPercent={progressPercent}
+          />
         </div>
 
         {executionStatus === "running" ? (
@@ -400,14 +486,9 @@ export function EditorTab(): React.JSX.Element {
         />
         <div className="flex-1" />
         <div className="h-4 w-px bg-border mx-1" />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => { setShowRightPanel((v) => !v); }}
-          className={showRightPanel ? "bg-accent" : ""}
-        >
+        <PanelToggle active={showRightPanel} onToggle={() => { setShowRightPanel((v) => !v); }}>
           <PanelRight className="h-4 w-4" />
-        </Button>
+        </PanelToggle>
       </div>
 
       {/* 저장 다이얼로그 */}

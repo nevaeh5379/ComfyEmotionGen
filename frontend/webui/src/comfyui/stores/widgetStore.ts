@@ -1,12 +1,14 @@
-import type { LGraphNode } from "../types/lgraphAdapterNode"
+import type { LGraphNode, WidgetValue } from "../types/lgraphAdapterNode"
+
+export { type WidgetValue }
 
 /** 커스텀 위젯 팩토리가 반환/처리하는 widget 객체 형태 */
 export interface CustomWidget {
   type?: string
   name: string
-  value?: unknown
+  value?: WidgetValue
   element?: HTMLElement
-  callback?: ((v: unknown) => void) | null
+  callback?: ((v: WidgetValue) => void) | null
   options?: Record<string, unknown>
   y?: number
   width?: number
@@ -24,7 +26,7 @@ export interface CustomWidget {
 export type CustomWidgetFactory = (
   node: LGraphNode,
   inputName: string,
-  inputData: [unknown, Record<string, unknown>?],
+  inputData: [string, Record<string, unknown>?],
   app: unknown
 ) => CustomWidget | undefined
 

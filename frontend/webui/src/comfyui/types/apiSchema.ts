@@ -96,8 +96,8 @@ export interface ExecutionErrorWsMessage extends ExecutionStartWsMessage {
   exception_message: string
   exception_type: string
   traceback: string[]
-  current_inputs: unknown
-  current_outputs: unknown
+  current_inputs: Record<string, unknown>
+  current_outputs: Record<string, unknown>
 }
 
 export interface ProgressTextWsMessage {
@@ -177,7 +177,7 @@ export interface NodeError {
     extra_info?: Record<string, unknown>
   }[]
   class_type: string
-  dependent_outputs: unknown[]
+  dependent_outputs: NodeId[]
 }
 
 export interface PromptResponse {

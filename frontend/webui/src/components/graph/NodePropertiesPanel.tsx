@@ -2,6 +2,7 @@ import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { type ReactNode } from "react"
 import { Settings2, X } from "lucide-react"
+import type { WidgetValue } from "@/comfyui/stores/widgetStore"
 
 interface SelectedNode {
   id: number
@@ -11,7 +12,7 @@ interface SelectedNode {
   size: [number, number]
   color?: string
   bgcolor?: string
-  widgets?: { name: string; value: unknown; type: string }[]
+  widgets?: { name: string; value: WidgetValue | undefined; type: string }[]
   inputs?: { name: string; type: string; link: number | null }[]
   outputs?: { name: string; type: string; links: number[] }[]
 }
