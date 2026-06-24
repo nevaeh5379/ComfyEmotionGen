@@ -196,7 +196,73 @@ export function convertGraphToPrompt(
   const prompt: ComfyApiWorkflow = {}
   const nodeDefs = useNodeDefStore.getState().nodeDefs
 
+  // Muted(mode=2) / Bypassed(mode=4) 노드를 우회하여 최종 유효 소스 노드를 찾는 재귀 헬퍼 함수
+  const resolveSource = (
+    linkId: number,
+    visited = new Set<number>()
+  ): { origin_id: number; origin_slot: number } | null => {
+    if (visited.has(linkId)) return null
+    visited.add(linkId)
+
+    const link = links.find((l) => l.id === linkId)
+    if (!link) return null
+
+    const originNode = nodes.find((n) => n.id === link.origin_id)
+    if (!originNode) return null
+
+    // 1. Mute (NEVER = 2) 노드: 출력이 완전히 끊어짐
+    if (originNode.mode === 2) {
+      return null
+    }
+
+    // 2. Bypass (BYPASS = 4) 노드: 우회하여 입력 슬롯으로 재귀 추적
+    if (originNode.mode === 4) {
+      const originSlotIdx = link.origin_slot
+      const originOutput = originNode.outputs?.[originSlotIdx]
+      const outputType = originOutput?.type ?? "*"
+
+      let targetInputIdx = -1
+
+      // 2-1. 동일 인덱스의 입력 슬롯이 존재하고 타입이 매칭되는지 확인
+      const oppositeInput = originNode.inputs?.[originSlotIdx]
+      if (
+        oppositeInput &&
+        (oppositeInput.type === outputType || outputType === "*" || oppositeInput.type === "*")
+      ) {
+        targetInputIdx = originSlotIdx
+      } else {
+        // 2-2. 타입이 호환되는 첫 번째 입력 슬롯을 찾음
+        if (originNode.inputs) {
+          targetInputIdx = originNode.inputs.findIndex(
+            (input) => input.type === outputType || outputType === "*" || input.type === "*"
+          )
+        }
+      }
+
+      // 2-3. 매칭되는 슬롯을 못 찾은 경우 첫 번째 입력 시도
+      if (targetInputIdx === -1 && originNode.inputs && originNode.inputs.length > 0) {
+        targetInputIdx = 0
+      }
+
+      if (targetInputIdx !== -1) {
+        const inputSlot = originNode.inputs?.[targetInputIdx]
+        if (inputSlot && inputSlot.link !== undefined && inputSlot.link !== null) {
+          return resolveSource(inputSlot.link, visited)
+        }
+      }
+      return null
+    }
+
+    // 3. 일반 활성화 노드
+    return { origin_id: link.origin_id, origin_slot: link.origin_slot }
+  }
+
   for (const node of nodes) {
+    // Mute되거나 Bypass된 노드는 ComfyUI 프롬프트 API에서 제외시킴
+    if (node.mode === 2 || node.mode === 4) {
+      continue
+    }
+
     const inputs: Record<string, unknown> = {}
 
     // 위젯 값
@@ -240,14 +306,14 @@ export function convertGraphToPrompt(
       }
     }
 
-    // 링크된 입력
+    // 링크된 입력 (Bypass/Mute를 거쳐 최종 목적지 매핑)
     if (node.inputs !== undefined) {
       for (const input of node.inputs) {
-        if (input.link !== undefined) {
-          const link = links.find((l) => l.id === input.link)
-          if (link !== undefined) {
+        if (input.link !== undefined && input.link !== null) {
+          const resolved = resolveSource(input.link)
+          if (resolved !== null) {
             // 위젯 입력이 링크된 경우 widget 값을 링크 참조로 덮어쓰기
-            inputs[input.name] = [link.origin_id.toString(), link.origin_slot]
+            inputs[input.name] = [resolved.origin_id.toString(), resolved.origin_slot]
           }
         }
       }

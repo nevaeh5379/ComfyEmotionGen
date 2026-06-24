@@ -329,7 +329,9 @@ export function ReactGraphEditor(): JSX.Element {
       const store = useReactGraphStore.getState()
       const nextExecuted = new Set(store.executedNodeIds)
       if (Array.isArray(detail.nodes)) {
-        detail.nodes.forEach((n: any) => nextExecuted.add(Number(n)))
+        detail.nodes.forEach((n: any) => {
+          nextExecuted.add(Number(n))
+        })
       }
       console.log("[CEG] execution_cached nodes:", detail.nodes)
       

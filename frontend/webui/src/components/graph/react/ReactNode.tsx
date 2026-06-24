@@ -82,12 +82,22 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
   const executingNodeId = useReactGraphStore((s) => s.executingNodeId)
   const executedNodeIds = useReactGraphStore((s) => s.executedNodeIds)
 
-  const isExecuting = executingNodeId === id
-  const isExecuted = executedNodeIds?.has(id)
-
   const getNodeDef = useNodeDefStore((s) => s.getNodeDef)
   const nodeDef    = useMemo(() => getNodeDef(type), [type, getNodeDef])
   const nodeData   = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
+
+  const LGraphEventModeValues = LiteGraph.LGraphEventMode ?? {
+    ALWAYS: 0,
+    NEVER: 2,
+    BYPASS: 4,
+  }
+  const nodeMode = nodeData?.mode ?? LGraphEventModeValues.ALWAYS
+  const isBypassed = nodeMode === LGraphEventModeValues.BYPASS
+  const isMuted    = nodeMode === LGraphEventModeValues.NEVER
+  const isDisabled = isBypassed || isMuted
+
+  const isExecuting = executingNodeId === id
+  const isExecuted = executedNodeIds?.has(id) ?? false
 
   // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
   const liveNode = useMemo(() => {
@@ -339,15 +349,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
   }
 
 
-  const LGraphEventModeValues = LiteGraph.LGraphEventMode ?? {
-    ALWAYS: 0,
-    NEVER: 2,
-    BYPASS: 4,
-  }
-  const nodeMode = nodeData?.mode ?? LGraphEventModeValues.ALWAYS
-  const isBypassed = nodeMode === LGraphEventModeValues.BYPASS
-  const isMuted    = nodeMode === LGraphEventModeValues.NEVER
-  const isDisabled = isBypassed || isMuted
+
 
   // ─── 렌더 ───────────────────────────────────────────────────
   return (
