@@ -225,7 +225,7 @@ declare global {
   interface WidgetType {
     type: string
     name: string
-    element: HTMLElement
+    element?: HTMLElement
     options: AddDOMWidgetOptions & { hideOnZoom: boolean }
     _value?: unknown
     value: unknown

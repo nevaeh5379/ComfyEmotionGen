@@ -40,6 +40,7 @@ function getWindowApp(): AppWithExtensions | undefined {
  * ComfyUI 노드 타입을 LiteGraph에 등록하기 위한 기본 노드 클래스
  */
 class ComfyNode {
+  static readonly isStandardComfyNode = true
   comfyClass?: string
   id = 0
   type?: string
@@ -93,6 +94,9 @@ class ComfyNode {
   }
   configure(data?: Partial<ComfyWorkflowNode> | null): void {
     if (data === undefined || data === null) return
+    if (window.LiteGraph?.LGraphNode?.prototype?.configure) {
+      window.LiteGraph.LGraphNode.prototype.configure.call(this, data)
+    }
     if (data.properties !== undefined) {
       this.properties = { ...this.properties, ...data.properties }
     }
@@ -128,11 +132,9 @@ class ComfyNode {
     callback: (v: string | number | boolean) => void,
     options?: Record<string, unknown>
   ): WidgetType {
-    const element = type === "text" ? undefined as unknown as HTMLElement : document.createElement("div")
     const w: WidgetType = {
       type,
       name,
-      element,
       options: { hideOnZoom: false, ...(options ?? {}) },
       _value: String(value),
       value: value,
@@ -544,7 +546,13 @@ export class ComfyAppService {
     // 입력 슬롯
     if (nodeDef.input?.required !== undefined) {
       for (const [name, spec] of Object.entries(nodeDef.input.required)) {
+        if (node.inputs?.some((inp) => inp.name === name)) {
+          continue
+        }
         const inputType = spec[0]
+        if (widgetStore.isWidgetType(inputType)) {
+          continue
+        }
         const typeStr = Array.isArray(inputType) ? "COMBO" : inputType
         node.addInput(name, typeStr)
       }
@@ -552,17 +560,25 @@ export class ComfyAppService {
 
     if (nodeDef.input?.optional !== undefined) {
       for (const [name, spec] of Object.entries(nodeDef.input.optional)) {
+        if (node.inputs?.some((inp) => inp.name === name)) {
+          continue
+        }
         const inputType = spec[0]
+        if (widgetStore.isWidgetType(inputType)) {
+          continue
+        }
         const typeStr = Array.isArray(inputType) ? "COMBO" : inputType
         node.addInput(name, typeStr)
       }
     }
 
     // 출력 슬롯
-    for (let i = 0; i < nodeDef.output.length; i++) {
-      const outType = nodeDef.output[i] ?? ""
-      const outName = nodeDef.output_name[i] ?? outType
-      node.addOutput(outName, outType)
+    if (!node.outputs || node.outputs.length === 0) {
+      for (let i = 0; i < nodeDef.output.length; i++) {
+        const outType = nodeDef.output[i] ?? ""
+        const outName = nodeDef.output_name[i] ?? outType
+        node.addOutput(outName, outType)
+      }
     }
 
     // 위젯 생성
@@ -610,6 +626,9 @@ export class ComfyAppService {
     const app = getWindowApp()
 
     const addSingleWidget = (name: string, spec: InputSpec): void => {
+      if (node.widgets?.some((w: any) => w.name === name)) {
+        return
+      }
       const inputType = spec[0]
       const inputConfig = spec[1] ?? {}
 

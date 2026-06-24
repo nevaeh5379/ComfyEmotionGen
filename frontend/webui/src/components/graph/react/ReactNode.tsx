@@ -493,30 +493,36 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
                       {input.link !== undefined ? (
                         <span className="text-[9px] text-green-500 font-mono">linked</span>
                       ) : (
-                        <ReactWidget
-                          name={widgetName}
-                          value={widgetValue}
-                          spec={widgetSpecs[widgetName]}
-                          onChange={(newVal) => {
-                            updateWidgetValue(id, widgetName, newVal)
-                            const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)
-                            if (liveW) {
-                              liveW.value = newVal
-                              if (liveW.callback) {
-                                try {
-                                  liveW.callback(newVal)
-                                } catch (err) {
-                                  void err
+                        (() => {
+                          const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)
+                          return (
+                            <ReactWidget
+                              name={widgetName}
+                              value={widgetValue}
+                              spec={widgetSpecs[widgetName]}
+                              onChange={(newVal) => {
+                                updateWidgetValue(id, widgetName, newVal)
+                                if (liveW) {
+                                  liveW.value = newVal
+                                  if (liveW.callback) {
+                                    try {
+                                      liveW.callback(newVal)
+                                    } catch (err) {
+                                      void err
+                                    }
+                                  }
                                 }
-                              }
-                            }
-                            getApp()?.syncGraphNode?.(id)
-                          }}
-                          showLabel={false}
-                          disabled={isDisabled}
-                          source="input-widget"
-                          element={liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)?.element ?? null}
-                        />
+                                getApp()?.syncGraphNode?.(id)
+                              }}
+                              showLabel={false}
+                              disabled={isDisabled}
+                              source="input-widget"
+                              element={liveW?.element ?? null}
+                              widget={liveW}
+                              node={liveNode}
+                            />
+                          )
+                        })()
                       )}
                     </div>
                   </div>
@@ -540,29 +546,35 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
             <div className="flex flex-col border-t border-border/50 pt-1 gap-0">
               {pureWidgets.map((name) => (
                 <div key={`widget-${name}`} className="px-2 py-0.5">
-                  <ReactWidget
-                    name={name}
-                    value={nodeData?.widgets_values?.[widgetNames.indexOf(name)]}
-                    spec={widgetSpecs[name]}
-                    onChange={(newVal) => {
-                      updateWidgetValue(id, name, newVal)
-                      const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === name)
-                      if (liveW) {
-                        liveW.value = newVal
-                        if (liveW.callback) {
-                          try {
-                            liveW.callback(newVal)
-                          } catch (err) {
-                            void err
+                  {(() => {
+                    const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === name)
+                    return (
+                      <ReactWidget
+                        name={name}
+                        value={nodeData?.widgets_values?.[widgetNames.indexOf(name)]}
+                        spec={widgetSpecs[name]}
+                        onChange={(newVal) => {
+                          updateWidgetValue(id, name, newVal)
+                          if (liveW) {
+                            liveW.value = newVal
+                            if (liveW.callback) {
+                              try {
+                                liveW.callback(newVal)
+                              } catch (err) {
+                                void err
+                              }
+                            }
                           }
-                        }
-                      }
-                      getApp()?.syncGraphNode?.(id)
-                    }}
-                    disabled={isDisabled}
-                    source="pure-widget"
-                    element={liveNode?.widgets?.find((w: LiveWidget) => w.name === name)?.element ?? null}
-                  />
+                          getApp()?.syncGraphNode?.(id)
+                        }}
+                        disabled={isDisabled}
+                        source="pure-widget"
+                        element={liveW?.element ?? null}
+                        widget={liveW}
+                        node={liveNode}
+                      />
+                    )
+                  })()}
                 </div>
               ))}
             </div>

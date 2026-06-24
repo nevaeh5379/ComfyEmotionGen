@@ -138,7 +138,6 @@ try {
           value,
           callback,
           options: options ?? {},
-          element: document.createElement("div")
         }
         this.widgets.push(widget)
         return widget
