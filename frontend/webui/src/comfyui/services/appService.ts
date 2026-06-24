@@ -11,6 +11,7 @@ import type {
   ComfyWorkflowJSON,
   ComfyApiWorkflow,
   ComfyWorkflowNode,
+  ComfyWorkflowLink,
 } from "@/comfyui/types/workflow"
 import type { ComfyNodeDef } from "@/comfyui/types/nodeDef"
 import type { NodeExecutionOutput } from "@/comfyui/types/apiSchema"
@@ -72,8 +73,24 @@ class ComfyNode {
     return true
   }
 
-  disconnectInput(_slot: number): void { /* noop */ }
-  disconnectOutput(_slot: number): void { /* noop */ }
+  disconnectInput(slot: number): void {
+    const input = this.inputs[slot]
+    if (input && input.link !== null) {
+      useReactGraphStore.getState().disconnect(input.link)
+      input.link = null
+    }
+  }
+
+  disconnectOutput(slot: number): void {
+    const output = this.outputs[slot]
+    if (output && output.links && output.links.length > 0) {
+      const linksCopy = [...output.links]
+      for (const linkId of linksCopy) {
+        useReactGraphStore.getState().disconnect(linkId)
+      }
+      output.links = null
+    }
+  }
   configure(data?: Partial<ComfyWorkflowNode> | null): void {
     if (data === undefined || data === null) return
     if (data.properties !== undefined) {
@@ -165,6 +182,55 @@ class ComfyNode {
     this.widgets.push(w)
     return w
   }
+}
+
+/**
+ * 그래프를 ComfyUI API 포맷으로 변환하는 순수 함수
+ */
+export function convertGraphToPrompt(
+  nodes: ComfyWorkflowNode[],
+  links: ComfyWorkflowLink[]
+): ComfyApiWorkflow {
+  const prompt: ComfyApiWorkflow = {}
+
+  for (const node of nodes) {
+    const inputs: Record<string, unknown> = {}
+
+    // 위젯 값
+    if (node.widgets_values !== undefined) {
+      const widgetNames = (node.properties?.widget_names ?? []) as string[]
+      for (let i = 0; i < widgetNames.length; i++) {
+        const name = widgetNames[i]
+        if (name !== undefined) {
+          inputs[name] = node.widgets_values[i]
+        }
+      }
+    }
+
+    // 링크된 입력
+    if (node.inputs !== undefined) {
+      for (const input of node.inputs) {
+        if (input.link !== undefined) {
+          const link = links.find((l) => l.id === input.link)
+          if (link !== undefined) {
+            inputs[input.name] = [link.origin_id.toString(), link.origin_slot]
+          }
+        }
+      }
+    }
+
+    const nodeObj: { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } } = {
+      inputs,
+      class_type: node.type,
+    }
+    const title = (node.properties?.node_name ?? node.type) as string
+    if (typeof title === "string" && title !== node.type) {
+      nodeObj._meta = { title }
+    }
+    prompt[node.id.toString()] = nodeObj
+  }
+
+  return prompt
 }
 
 // ── ComfyAppService ───────────────────────────────────────────────
@@ -348,47 +414,8 @@ export class ComfyAppService {
    * 그래프를 ComfyUI API 포맷으로 변환 (실행용)
    */
   graphToPrompt(): ComfyApiWorkflow {
-    const prompt: ComfyApiWorkflow = {}
     const state = useReactGraphStore.getState()
-
-    for (const node of state.nodes) {
-      const inputs: Record<string, unknown> = {}
-
-      // 위젯 값
-      if (node.widgets_values !== undefined) {
-        const widgetNames = (node.properties?.widget_names ?? []) as string[]
-        for (let i = 0; i < widgetNames.length; i++) {
-          const name = widgetNames[i]
-          if (name !== undefined) {
-            inputs[name] = node.widgets_values[i]
-          }
-        }
-      }
-
-      // 링크된 입력
-      if (node.inputs !== undefined) {
-        for (const input of node.inputs) {
-          if (input.link !== undefined) {
-            const link = state.links.find((l) => l.id === input.link)
-            if (link !== undefined) {
-              inputs[input.name] = [link.origin_id.toString(), link.origin_slot]
-            }
-          }
-        }
-      }
-
-      const nodeObj: { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } } = {
-        inputs,
-        class_type: node.type,
-      }
-      const title = (node.properties?.node_name ?? node.type) as string
-      if (typeof title === "string" && title !== node.type) {
-        nodeObj._meta = { title }
-      }
-      prompt[node.id.toString()] = nodeObj
-    }
-
-    return prompt
+    return convertGraphToPrompt(state.nodes, state.links)
   }
 
   /**

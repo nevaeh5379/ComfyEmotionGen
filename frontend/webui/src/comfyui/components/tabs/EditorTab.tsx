@@ -41,6 +41,7 @@ import {
   useEditorSavedWorkflows,
   type EditorSavedWorkflow,
 } from "@/comfyui/hooks/useEditorSavedWorkflows"
+import { convertGraphToPrompt } from "@/comfyui/services/appService"
 
 export function EditorTab(): React.JSX.Element {
   const [currentWorkflow, setCurrentWorkflow] = useState<ComfyWorkflowJSON | null>(null)
@@ -182,28 +183,9 @@ export function EditorTab(): React.JSX.Element {
       return
     }
 
-    const workflow: Record<string, { inputs: Record<string, unknown>; class_type: string }> = {}
-
-    for (const node of nodes) {
-      const inputs: Record<string, unknown> = {}
-      const widgetNames = (node.properties?.widget_names ?? []) as string[]
-
-      for (const input of node.inputs ?? []) {
-        if (input.link !== undefined) {
-          const link = links.find((l) => l.id === input.link)
-          if (link) {
-            inputs[input.name] = [String(link.origin_id), link.origin_slot]
-          }
-        } else if (input.widget) {
-          const widgetIndex = widgetNames.indexOf(input.widget.name)
-          if (widgetIndex >= 0 && node.widgets_values && widgetIndex < node.widgets_values.length) {
-            inputs[input.name] = node.widgets_values[widgetIndex]
-          }
-        }
-      }
-
-      workflow[String(node.id)] = { inputs, class_type: node.type }
-    }
+    const workflow = window.__comfyAppService
+      ? window.__comfyAppService.graphToPrompt()
+      : convertGraphToPrompt(nodes, links)
 
     const workflowJSON: ComfyWorkflowJSON = {
       last_node_id: Math.max(0, ...nodes.map((n) => n.id)),

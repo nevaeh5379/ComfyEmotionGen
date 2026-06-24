@@ -90,6 +90,9 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   },
 
   addNode: (type: string, pos: [number, number], def: ComfyNodeDef | undefined): void => {
+    if (def === undefined) {
+      throw new Error(`[reactGraphStore] addNode failed: no node definition found for "${type}". inputs/outputs/widgets cannot be constructed.`)
+    }
     get().takeSnapshot()
     const { nodes } = get()
     const maxId = nodes.reduce((max: number, n: ComfyWorkflowNode): number => Math.max(max, n.id), 0)
