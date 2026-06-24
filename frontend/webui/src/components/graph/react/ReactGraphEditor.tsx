@@ -85,6 +85,16 @@ export function ReactGraphEditor(): JSX.Element {
       rawApp.canvas = appService.canvas
       rawApp.extensionManager = appService.extensionManager
       rawApp.api = appService.api
+      rawApp.syncGraphNode = (nodeId: number): void => {
+        const liveNode = appService.graph.getNodeById(nodeId)
+        if (liveNode === undefined || liveNode === null) return
+        const widgetsValues = (liveNode as { widgets?: { value: unknown }[] }).widgets?.map((w) => w.value) ?? []
+        useReactGraphStore.setState({
+          nodes: useReactGraphStore.getState().nodes.map((n) =>
+            n.id === nodeId ? { ...n, widgets_values: widgetsValues } : n
+          ),
+        })
+      }
       ;(rawApp.graph as unknown as Record<string, unknown>)._canvas = appService.canvas
       appService.canvas.app = rawApp
 
