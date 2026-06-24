@@ -13,7 +13,7 @@ import type {
   ComfyWorkflowNode,
   ComfyWorkflowLink,
 } from "@/comfyui/types/workflow"
-import type { ComfyNodeDef } from "@/comfyui/types/nodeDef"
+import type { ComfyNodeDef, InputSpec } from "@/comfyui/types/nodeDef"
 import type { NodeExecutionOutput } from "@/comfyui/types/apiSchema"
 import type { ComfyExtension, ExtensionManager } from "@/comfyui/types/extensionTypes"
 import type { ComfyApi } from "@/comfyui/api"
@@ -192,16 +192,47 @@ export function convertGraphToPrompt(
   links: ComfyWorkflowLink[]
 ): ComfyApiWorkflow {
   const prompt: ComfyApiWorkflow = {}
+  const nodeDefs = useNodeDefStore.getState().nodeDefs
 
   for (const node of nodes) {
     const inputs: Record<string, unknown> = {}
 
     // 위젯 값
     if (node.widgets_values !== undefined) {
-      const widgetNames = (node.properties?.widget_names ?? []) as string[]
+      let widgetNames = (node.properties?.widget_names ?? []) as string[]
+
+      // 가져온 워크플로우 등 widget_names가 없거나 길이가 안 맞는 경우
+      // nodeDef에서 위젯 순서 복원 (control_after_generate, optional 위젯 포함)
+      if (widgetNames.length === 0 || widgetNames.length !== node.widgets_values.length) {
+        const def = nodeDefs[node.type]
+        if (def !== undefined) {
+          const inferredNames: string[] = []
+          const req = def.input?.required ?? {}
+          const opt = def.input?.optional ?? {}
+          const collect = (entries: Record<string, InputSpec>): void => {
+            for (const [name, spec] of Object.entries(entries)) {
+              if (widgetStore.isWidgetType(spec[0])) {
+                inferredNames.push(name)
+                // seed 이름의 INT/FLOAT 위젯 또는 control_after_generate config가
+                // true인 INT/FLOAT 위젯 뒤에 combo 위젯이 뒤따름
+                const cfg = spec[1] ?? {}
+                if (name === "seed" || cfg.control_after_generate === true) {
+                  inferredNames.push("control_after_generate")
+                }
+              }
+            }
+          }
+          collect(req)
+          collect(opt)
+          if (inferredNames.length === node.widgets_values.length) {
+            widgetNames = inferredNames
+          }
+        }
+      }
+
       for (let i = 0; i < widgetNames.length; i++) {
         const name = widgetNames[i]
-        if (name !== undefined) {
+        if (name !== undefined && i < node.widgets_values.length) {
           inputs[name] = node.widgets_values[i]
         }
       }
@@ -213,6 +244,7 @@ export function convertGraphToPrompt(
         if (input.link !== undefined) {
           const link = links.find((l) => l.id === input.link)
           if (link !== undefined) {
+            // 위젯 입력이 링크된 경우 widget 값을 링크 참조로 덮어쓰기
             inputs[input.name] = [link.origin_id.toString(), link.origin_slot]
           }
         }
@@ -368,6 +400,28 @@ export class ComfyAppService {
         const liveNode = this.createNode(node.type, node.pos, { id: node.id, skipConfigure: true })
         if (liveNode && typeof liveNode.configure === "function") {
           liveNode.configure(node)
+        }
+        // 라이브 노드의 widgets 배열(확장이 추가한 control_after_generate 등 포함)에서
+        // 위젯 이름 순서를 추출해 store 노드의 properties.widget_names 에 동기화.
+        // 가져온 워크플로우는 widget_names 가 없는 경우가 많아 convertGraphToPrompt 가
+        // widgets_values 를 이름에 매핑하지 못하는 문제를 해결.
+        const liveWidgets = (liveNode as { widgets?: { name: string }[] | undefined }).widgets
+        if (liveWidgets !== undefined && liveWidgets.length > 0) {
+          const widgetNames = liveWidgets.map((w) => w.name)
+          const currentNodes = useReactGraphStore.getState().nodes
+          useReactGraphStore.setState({
+            nodes: currentNodes.map((n: ComfyWorkflowNode): ComfyWorkflowNode =>
+              n.id === node.id
+                ? {
+                    ...n,
+                    properties: {
+                      ...(n.properties ?? {}),
+                      widget_names: widgetNames,
+                    },
+                  }
+                : n
+            ),
+          })
         }
       } catch (err) {
         console.error(`Failed to restore live node ${String(node.id)} (${node.type}):`, err)
@@ -555,7 +609,7 @@ export class ComfyAppService {
 
     const app = getWindowApp()
 
-    for (const [name, spec] of Object.entries(nodeDef.input.required)) {
+    const addSingleWidget = (name: string, spec: InputSpec): void => {
       const inputType = spec[0]
       const inputConfig = spec[1] ?? {}
 
@@ -572,7 +626,7 @@ export class ComfyAppService {
               ? (result as Record<string, unknown>).widget
               : result) as CustomWidget
             console.log(`[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created by factory, hasElement=${String(widget.element !== undefined)}`)
-            continue
+            return
           }
         } catch (err) {
           console.error(`[CEG] addNodeWidgets: custom widget factory failed for "${name}" (type=${typeName}):`, err)
@@ -597,6 +651,19 @@ export class ComfyAppService {
           step,
           precision: inputType === "INT" ? 0 : 2,
         })
+        // ComfyUI 원본 동작: seed 이름의 INT/FLOAT 위젯 또는
+        // control_after_generate config가 true인 INT/FLOAT 위젯 뒤에
+        // "control_after_generate" combo 위젯을 자동 추가한다.
+        // (KSampler/FaceDetailer/SpectrumKSampler 등의 seed 뒤 "randomize" combo)
+        if (name === "seed" || inputConfig.control_after_generate === true) {
+          node.addWidget(
+            "combo",
+            "control_after_generate",
+            "randomize",
+            (): void => undefined,
+            { values: ["randomize", "fixed", "increment", "decrement"] }
+          )
+        }
       } else if (inputType === "STRING" || inputType.startsWith("AUTOCOMPLETE_")) {
         // 텍스트 위젯 (STRING, AUTOCOMPLETE_TEXT, AUTOCOMPLETE_TEXT_LORAS, etc.)
         const defaultValue = (inputConfig.default as string | undefined) ?? ""
@@ -607,6 +674,18 @@ export class ComfyAppService {
       }
       // else: Skip non-widget types (MODEL, CLIP, LATENT, IMAGE, etc.)
       // They are connection-only slots and should never get a text widget.
+    }
+
+    // required 위젯 추가 (원본 ComfyUI와 동일한 순서 보장)
+    for (const [name, spec] of Object.entries(nodeDef.input.required)) {
+      addSingleWidget(name, spec)
+    }
+
+    // optional 위젯 추가 (FaceDetailer의 cycle 이후 optional 위젯 등)
+    if (nodeDef.input.optional !== undefined) {
+      for (const [name, spec] of Object.entries(nodeDef.input.optional)) {
+        addSingleWidget(name, spec)
+      }
     }
   }
 
