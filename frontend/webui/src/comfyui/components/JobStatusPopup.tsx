@@ -146,7 +146,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     const mainJobOverall = mainJob ? getOverallProgress(mainJob) : 0
     const canShowETA = mainJobOverall !== 0 && mainJobOverall > 0 && mainJobOverall < 100
     const etaStr =
-      mainJob?.startedAt !== undefined && mainJob.startedAt > 0 && canShowETA
+      mainJob !== undefined && mainJob.startedAt !== null && mainJob.startedAt > 0 && canShowETA
         ? formatETA(mainJob.startedAt, mainJobOverall, jobs)
         : null
 

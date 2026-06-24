@@ -84,7 +84,7 @@ class ComfyNode {
 
   disconnectOutput(slot: number): void {
     const output = this.outputs[slot]
-    if (output && output.links && output.links.length > 0) {
+    if (output?.links?.length !== undefined && output.links.length > 0) {
       const linksCopy = [...output.links]
       for (const linkId of linksCopy) {
         useReactGraphStore.getState().disconnect(linkId)
@@ -94,8 +94,9 @@ class ComfyNode {
   }
   configure(data?: Partial<ComfyWorkflowNode> | null): void {
     if (data === undefined || data === null) return
-    if (window.LiteGraph?.LGraphNode?.prototype?.configure) {
-      window.LiteGraph.LGraphNode.prototype.configure.call(this, data)
+    const lgProto = window.LiteGraph.LGraphNode.prototype as { configure?: (data: unknown) => void }
+    if (typeof lgProto.configure === "function") {
+      lgProto.configure.call(this, data)
     }
     if (data.properties !== undefined) {
       this.properties = { ...this.properties, ...data.properties }
@@ -246,7 +247,7 @@ export function convertGraphToPrompt(
 
       if (targetInputIdx !== -1) {
         const inputSlot = originNode.inputs?.[targetInputIdx]
-        if (inputSlot && inputSlot.link !== undefined && inputSlot.link !== null) {
+        if (inputSlot?.link !== undefined) {
           return resolveSource(inputSlot.link, visited)
         }
       }
@@ -309,7 +310,7 @@ export function convertGraphToPrompt(
     // 링크된 입력 (Bypass/Mute를 거쳐 최종 목적지 매핑)
     if (node.inputs !== undefined) {
       for (const input of node.inputs) {
-        if (input.link !== undefined && input.link !== null) {
+        if (input.link !== undefined) {
           const resolved = resolveSource(input.link)
           if (resolved !== null) {
             // 위젯 입력이 링크된 경우 widget 값을 링크 참조로 덮어쓰기
@@ -447,7 +448,7 @@ export class ComfyAppService {
         console.warn(`[CEG] registerNodeDefs: NO extension patched onNodeCreated for "${type}". extensions=${extensions.map(e => e.name).join(",")}`)
       }
 
-      window.LiteGraph.registerNodeType(type, NodeClass as unknown as new () => LGraphNode)
+      window.LiteGraph.registerNodeType(type, NodeClass)
     }
   }
 
@@ -612,7 +613,7 @@ export class ComfyAppService {
     // 입력 슬롯
     if (nodeDef.input?.required !== undefined) {
       for (const [name, spec] of Object.entries(nodeDef.input.required)) {
-        if (node.inputs?.some((inp) => inp.name === name)) {
+        if (node.inputs.some((inp) => inp.name === name)) {
           continue
         }
         const inputType = spec[0]
@@ -626,7 +627,7 @@ export class ComfyAppService {
 
     if (nodeDef.input?.optional !== undefined) {
       for (const [name, spec] of Object.entries(nodeDef.input.optional)) {
-        if (node.inputs?.some((inp) => inp.name === name)) {
+        if (node.inputs.some((inp) => inp.name === name)) {
           continue
         }
         const inputType = spec[0]
@@ -639,7 +640,7 @@ export class ComfyAppService {
     }
 
     // 출력 슬롯
-    if (!node.outputs || node.outputs.length === 0) {
+    if (node.outputs.length === 0) {
       for (let i = 0; i < nodeDef.output.length; i++) {
         const outType = nodeDef.output[i] ?? ""
         const outName = nodeDef.output_name[i] ?? outType
@@ -692,7 +693,7 @@ export class ComfyAppService {
     const app = getWindowApp()
 
     const addSingleWidget = (name: string, spec: InputSpec): void => {
-      if (node.widgets?.some((w: any) => w.name === name)) {
+      if (node.widgets?.some((w: { name: string }) => w.name === name) ?? false) {
         return
       }
       const inputType = spec[0]

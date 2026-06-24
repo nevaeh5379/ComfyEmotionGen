@@ -106,7 +106,7 @@ try {
   lg.getAtomicGraphClasses ??= (): Record<string, unknown> => ({})
 
   // LGraphNode — base class for all node types
-  if (typeof (window as Record<string, unknown>).LGraphNode === "undefined") {
+  if (typeof (window as unknown as Record<string, unknown>).LGraphNode === "undefined") {
     let _nextNodeId = 1
     class LGraphNodeImpl {
       id = _nextNodeId++
@@ -166,7 +166,7 @@ try {
   }
 
   // LGraph — graph container
-  if (typeof (window as Record<string, unknown>).LGraph === "undefined") {
+  if (typeof (window as unknown as Record<string, unknown>).LGraph === "undefined") {
     class LGraphImpl {
       _nodes_by_id: Record<string, unknown> = {}
       links: Map<number, unknown> | Record<number, unknown> = {}
@@ -185,7 +185,7 @@ try {
   }
 
   // LGraphCanvas — canvas renderer
-  if (typeof (window as Record<string, unknown>).LGraphCanvas === "undefined") {
+  if (typeof (window as unknown as Record<string, unknown>).LGraphCanvas === "undefined") {
     class LGraphCanvasImpl {
       state = { readOnly: false }
       ds = { scale: 1, offset: [0, 0] as [number, number] }
@@ -205,7 +205,7 @@ try {
   }
 
   // LLink — link between nodes
-  if (typeof (window as Record<string, unknown>).LLink === "undefined") {
+  if (typeof (window as unknown as Record<string, unknown>).LLink === "undefined") {
     class LLinkImpl {
       id = 0
       origin_id = 0
@@ -218,7 +218,7 @@ try {
   }
 
   // LGraphGroup — group container
-  if (typeof (window as Record<string, unknown>).LGraphGroup === "undefined") {
+  if (typeof (window as unknown as Record<string, unknown>).LGraphGroup === "undefined") {
     class LGraphGroupImpl {
       id = 0
       title = ""

@@ -511,6 +511,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           type,
           name,
           value,
+          element: document.createElement("div"),
           options: options ?? {},
           callback,
         }

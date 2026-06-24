@@ -13,7 +13,7 @@ declare global {
   }
 
   interface LiteGraphGlobal {
-    registerNodeType(type: string, base_class: new () => LGraphNode): void
+    registerNodeType(type: string, base_class: unknown): void
     NODE_DEFAULT_WIDTH: number
     NODE_DEFAULT_HEIGHT: number
     ALWAYS: number
@@ -21,6 +21,7 @@ declare global {
     BYPASS: number
     LGraphEventMode?: LGraphEventMode
     createNode(type: string): LGraphNode | null
+    LGraphNode: typeof LGraphNode
   }
 
   interface LGraph {

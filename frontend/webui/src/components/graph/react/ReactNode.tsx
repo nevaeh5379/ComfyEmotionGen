@@ -5,7 +5,7 @@
 import { useRef, useMemo, useLayoutEffect, useState, memo, type ReactNode as ReactNodeType } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
-import { ReactWidget } from "./ReactWidget"
+import { ReactWidget, type CanvasWidget, type CanvasNode } from "./ReactWidget"
 import { X } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
 import { widgetStore } from "@/comfyui/stores/widgetStore"
@@ -97,7 +97,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
   const isDisabled = isBypassed || isMuted
 
   const isExecuting = executingNodeId === id
-  const isExecuted = executedNodeIds?.has(id) ?? false
+  const isExecuted = executedNodeIds.has(id)
 
   // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
   const liveNode = useMemo(() => {
@@ -518,7 +518,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
                       {input.link !== undefined ? (
                         <span className="text-[9px] text-green-500 font-mono">linked</span>
                       ) : (
-                        (() => {
+                        ((): React.JSX.Element => {
                           const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)
                           return (
                             <ReactWidget
@@ -543,8 +543,8 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
                               disabled={isDisabled}
                               source="input-widget"
                               element={liveW?.element ?? null}
-                              widget={liveW}
-                              node={liveNode}
+                              {...(liveW ? { widget: liveW as CanvasWidget } : {})}
+                              {...(liveNode ? { node: liveNode as CanvasNode } : {})}
                             />
                           )
                         })()
@@ -571,7 +571,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
             <div className="flex flex-col border-t border-border/50 pt-1 gap-0">
               {pureWidgets.map((name) => (
                 <div key={`widget-${name}`} className="px-2 py-0.5">
-                  {(() => {
+                  {((): React.JSX.Element => {
                     const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === name)
                     return (
                       <ReactWidget
@@ -595,8 +595,8 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
                         disabled={isDisabled}
                         source="pure-widget"
                         element={liveW?.element ?? null}
-                        widget={liveW}
-                        node={liveNode}
+                        {...(liveW ? { widget: liveW as CanvasWidget } : {})}
+                        {...(liveNode ? { node: liveNode as CanvasNode } : {})}
                       />
                     )
                   })()}

@@ -87,7 +87,7 @@ export function ReactGraphEditor(): JSX.Element {
       rawApp.api = appService.api
       rawApp.syncGraphNode = (nodeId: number): void => {
         const liveNode = appService.graph.getNodeById(nodeId)
-        if (liveNode === undefined || liveNode === null) return
+        if (liveNode === null) return
         const widgetsValues = (liveNode as { widgets?: { value: unknown }[] }).widgets?.map((w) => w.value) ?? []
         useReactGraphStore.setState({
           nodes: useReactGraphStore.getState().nodes.map((n) =>
@@ -220,16 +220,15 @@ export function ReactGraphEditor(): JSX.Element {
 
   // ComfyUI 백엔드 실행 상태 WebSocket 이벤트 리스너 등록
   useEffect(() => {
-    const api = (window as any).api
-    if (!api) return
+    const api = window.api
 
     const handleExecutionStart = (e: Event): void => {
-      const customEvent = e as CustomEvent<any>
+      const customEvent = e as CustomEvent<Record<string, unknown>>
       const detail = customEvent.detail
       console.log("[CEG] execution_start:", detail)
       useReactGraphStore.setState({
         executionStatus: "running",
-        executingPromptId: detail.prompt_id,
+        executingPromptId: detail.prompt_id as string | null ?? null,
         executingNodeId: null,
         executedNodeIds: new Set<number>(),
         overallProgress: null,
@@ -237,71 +236,71 @@ export function ReactGraphEditor(): JSX.Element {
     }
 
     const handleExecuting = (e: Event): void => {
-      const customEvent = e as CustomEvent<any>
+      const customEvent = e as CustomEvent<Record<string, unknown>>
       const detail = customEvent.detail
-      
-      let nodeId: any = null
+
+      let nodeId: unknown = null
       let promptId: string | null = null
-      
-      if (detail && typeof detail === "object") {
+
+      if (typeof detail === "object") {
         nodeId = detail.node
-        promptId = detail.prompt_id || null
+        promptId = (detail.prompt_id as string | null) ?? null
       } else {
         nodeId = detail
       }
-      
+
       const nodeIdNum = nodeId !== null && nodeId !== undefined && nodeId !== "" ? Number(nodeId) : null
       console.log("[CEG] executing node:", nodeIdNum, "promptId:", promptId)
-      
+
       const store = useReactGraphStore.getState()
       const nextExecuted = new Set(store.executedNodeIds)
-      
+
       // If we move to a new node, the previous node must have finished executing
       if (store.executingNodeId !== null && store.executingNodeId !== nodeIdNum) {
         nextExecuted.add(store.executingNodeId)
       }
-      
-      const updateObj: any = {
+
+      const updateObj: Partial<typeof store> = {
         executingNodeId: nodeIdNum,
         executedNodeIds: nextExecuted,
       }
-      
-      if (promptId) {
+
+      if (promptId !== null) {
         updateObj.executingPromptId = promptId
       }
-      
+
       if (nodeIdNum !== null && store.executionStatus === "idle") {
         updateObj.executionStatus = "running"
       }
-      
+
       useReactGraphStore.setState(updateObj)
     }
 
     const handleProgress = (e: Event): void => {
-      const customEvent = e as CustomEvent<any>
+      const customEvent = e as CustomEvent<Record<string, unknown>>
       const detail = customEvent.detail
       const store = useReactGraphStore.getState()
       console.log("[CEG] progress:", detail)
-      
-      const updateObj: any = {
+
+      const updateObj: Partial<typeof store> = {
         overallProgress: {
-          value: detail.value,
-          max: detail.max,
+          value: detail.value as number,
+          max: detail.max as number,
         }
       }
-      
-      if (detail.prompt_id) {
-        updateObj.executingPromptId = detail.prompt_id
+
+      if (detail.prompt_id !== null) {
+        updateObj.executingPromptId = detail.prompt_id as string
       }
       if (store.executionStatus === "idle") {
         updateObj.executionStatus = "running"
       }
-      
+
       useReactGraphStore.setState(updateObj)
     }
 
     const handleExecuted = (e: Event): void => {
-      const customEvent = e as CustomEvent<any>
+      const customEvent = e as CustomEvent<Record<string, unknown>>
       const detail = customEvent.detail
       const store = useReactGraphStore.getState()
       const nextExecuted = new Set(store.executedNodeIds)
@@ -309,52 +308,52 @@ export function ReactGraphEditor(): JSX.Element {
         nextExecuted.add(Number(detail.node))
       }
       console.log("[CEG] executed node:", Number(detail.node))
-      
-      const updateObj: any = {
+
+      const updateObj: Partial<typeof store> = {
         executedNodeIds: nextExecuted
       }
-      if (detail.prompt_id) {
-        updateObj.executingPromptId = detail.prompt_id
+      if (detail.prompt_id !== null) {
+        updateObj.executingPromptId = detail.prompt_id as string
       }
       if (store.executionStatus === "idle") {
         updateObj.executionStatus = "running"
       }
-      
+
       useReactGraphStore.setState(updateObj)
     }
 
     const handleExecutionCached = (e: Event): void => {
-      const customEvent = e as CustomEvent<any>
+      const customEvent = e as CustomEvent<Record<string, unknown>>
       const detail = customEvent.detail
       const store = useReactGraphStore.getState()
       const nextExecuted = new Set(store.executedNodeIds)
       if (Array.isArray(detail.nodes)) {
-        detail.nodes.forEach((n: any) => {
+        detail.nodes.forEach((n: unknown) => {
           nextExecuted.add(Number(n))
         })
       }
       console.log("[CEG] execution_cached nodes:", detail.nodes)
-      
-      const updateObj: any = {
+
+      const updateObj: Partial<typeof store> = {
         executedNodeIds: nextExecuted
       }
-      if (detail.prompt_id) {
-        updateObj.executingPromptId = detail.prompt_id
+      if (detail.prompt_id !== null) {
+        updateObj.executingPromptId = detail.prompt_id as string
       }
       if (store.executionStatus === "idle") {
         updateObj.executionStatus = "running"
       }
-      
+
       useReactGraphStore.setState(updateObj)
     }
 
     const handleExecutionSuccess = (e: Event): void => {
-      const customEvent = e as CustomEvent<any>
+      const customEvent = e as CustomEvent<Record<string, unknown>>
       const detail = customEvent.detail
       const store = useReactGraphStore.getState()
       console.log("[CEG] execution_success:", detail)
       
-      if (store.executingPromptId && detail && detail.prompt_id && store.executingPromptId !== detail.prompt_id) {
+      if (store.executingPromptId !== null && (detail.prompt_id as string | null | undefined) !== null && (detail.prompt_id as string | null | undefined) !== undefined && store.executingPromptId !== (detail.prompt_id as string)) {
         return
       }
 
@@ -383,7 +382,7 @@ export function ReactGraphEditor(): JSX.Element {
       }, 3000)
     }
 
-    const handleExecutionError = (e: Event): void => {
+    const handleExecutionError = (_e: Event): void => {
       console.log("[CEG] execution_error")
       useReactGraphStore.setState({
         executionStatus: "error",
@@ -392,7 +391,7 @@ export function ReactGraphEditor(): JSX.Element {
       })
     }
 
-    const handleExecutionInterrupted = (e: Event): void => {
+    const handleExecutionInterrupted = (_e: Event): void => {
       console.log("[CEG] execution_interrupted")
       useReactGraphStore.setState({
         executionStatus: "interrupted",

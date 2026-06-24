@@ -7,40 +7,63 @@ interface HTMLElementWidgetProps {
 
 export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
+  const elementRef = useRef<HTMLElement>(element)
 
   // element가 실제로 container에 붙여졌을 때만 로그
   useLayoutEffect(() => {
+    const el = elementRef.current
     const container = containerRef.current
     if (!container) return
-    const wasAttached = element.parentNode === container
+    const wasAttached = el.parentNode === container
     if (!wasAttached) {
-      element.style.display = "block"
-      element.style.position = "relative"
-      element.style.visibility = "visible"
-      element.style.opacity = "1"
-      element.style.width = "100%"
-      element.style.height = "auto"
+      el.style.display = "block"
+      el.style.position = "relative"
+      el.style.visibility = "visible"
+      el.style.opacity = "1"
+      el.style.width = "100%"
+      el.style.height = "auto"
 
       container.innerHTML = ""
-      container.appendChild(element)
-      const childCount = element.childElementCount
-      const htmlLen = element.innerHTML.length
-      const bounding = element.getBoundingClientRect()
-      console.log(`[CEG] HTMLElementWidget attach tag=${element.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${String(Math.round(bounding.width))}x${String(Math.round(bounding.height))}`)
+      container.appendChild(el)
+      const childCount = el.childElementCount
+      const htmlLen = el.innerHTML.length
+      const bounding = el.getBoundingClientRect()
+      console.log(`[CEG] HTMLElementWidget attach tag=${el.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${String(Math.round(bounding.width))}x${String(Math.round(bounding.height))}`)
     }
-  }, [element])
+  })
 
   // unmount 시에만 element를 컨테이너에서 떼어낸다.
   useEffect(() => {
+    const el = elementRef.current
     return (): void => {
-      console.log(`[CEG] HTMLElementWidget unmounting element tag=${element.tagName}`)
-      if (element.parentNode !== null) {
-        element.parentNode.removeChild(element)
+      console.log(`[CEG] HTMLElementWidget unmounting element tag=${el.tagName}`)
+      if (el.parentNode !== null) {
+        el.parentNode.removeChild(el)
       }
     }
-  }, [element])
+  }, [])
 
   return <div ref={containerRef} className="w-full min-h-[40px] text-foreground" />
+}
+
+export interface CanvasWidget {
+  type: string
+  name: string
+  value: unknown
+  element?: HTMLElement
+  options: Record<string, unknown>
+  callback: ((value: unknown, canvas?: unknown, node?: unknown) => void) | null
+  computeSize?: (width: number) => [number, number]
+  height?: number
+  draw?: (ctx: CanvasRenderingContext2D, node: CanvasNode, width: number, y: number, height: number) => void
+  mouse?: (event: MouseEvent, pos: [number, number], node: CanvasNode) => void
+  y?: number
+}
+
+export interface CanvasNode {
+  id: number
+  widgets?: CanvasWidget[]
+  size?: [number, number]
 }
 
 interface ReactWidgetProps {
@@ -53,13 +76,13 @@ interface ReactWidgetProps {
   element?: HTMLElement | null
   /** 호출 위치 식별용 (디버그) */
   source?: string
-  widget?: any
-  node?: any
+  widget?: CanvasWidget
+  node?: CanvasNode
 }
 
 interface CanvasWidgetProps {
-  widget: any
-  node: any
+  widget: CanvasWidget
+  node: CanvasNode
   width: number
   disabled?: boolean
 }
@@ -79,20 +102,22 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
     const dpr = window.devicePixelRatio || 1
     canvas.width = width * dpr
     canvas.height = height * dpr
-    canvas.style.width = `${width}px`
-    canvas.style.height = `${height}px`
+    canvas.style.width = `${String(width)}px`
+    canvas.style.height = `${String(height)}px`
     ctx.scale(dpr, dpr)
 
     ctx.clearRect(0, 0, width, height)
 
     let widgetY = widget.y ?? 0
-    if (widgetY === 0 && node && node.widgets) {
+    if (widgetY === 0 && node.widgets !== undefined) {
       const idx = node.widgets.indexOf(widget)
       if (idx !== -1) {
         for (let i = 0; i < idx; i++) {
           const w = node.widgets[i]
-          widgetY += typeof w.computeSize === "function" ? w.computeSize(width)[1] : (w.height ?? 30)
-          widgetY += 4 // margin
+          if (w !== undefined) {
+            widgetY += typeof w.computeSize === "function" ? w.computeSize(width)[1] : (w.height ?? 30)
+            widgetY += 4 // margin
+          }
         }
       }
     }
@@ -109,7 +134,7 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
     }
   }, [widget, node, width, height])
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     if (disabled || typeof widget.mouse !== "function") return
     
     const canvas = canvasRef.current
@@ -120,13 +145,15 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
     const localY = e.clientY - rect.top
 
     let yOffset = 0
-    if (node && node.widgets) {
+    if (node.widgets !== undefined) {
       const idx = node.widgets.indexOf(widget)
       if (idx !== -1) {
         for (let i = 0; i < idx; i++) {
           const w = node.widgets[i]
-          yOffset += typeof w.computeSize === "function" ? w.computeSize(width)[1] : (w.height ?? 30)
-          yOffset += 4 // margin
+          if (w !== undefined) {
+            yOffset += typeof w.computeSize === "function" ? w.computeSize(width)[1] : (w.height ?? 30)
+            yOffset += 4 // margin
+          }
         }
       }
     }
@@ -135,25 +162,27 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
 
     try {
       const mockEvent = e.nativeEvent
-      widget.mouse(mockEvent, nodeRelativePos, node)
+      const mouseFn = widget.mouse
+      if (typeof mouseFn !== "function") return
+      mouseFn(mockEvent, nodeRelativePos, node)
       
-      const onMouseMove = (moveEvent: MouseEvent) => {
+      const onMouseMove = (moveEvent: MouseEvent): void => {
         const moveRect = canvas.getBoundingClientRect()
         const mx = moveEvent.clientX - moveRect.left
         const my = moveEvent.clientY - moveRect.top
-        widget.mouse(moveEvent, [mx, my + yOffset], node)
+        mouseFn(moveEvent, [mx, my + yOffset], node)
       }
-      
-      const onMouseUp = (upEvent: MouseEvent) => {
+
+      const onMouseUp = (upEvent: MouseEvent): void => {
         const upRect = canvas.getBoundingClientRect()
         const ux = upEvent.clientX - upRect.left
         const uy = upEvent.clientY - upRect.top
-        widget.mouse(upEvent, [ux, uy + yOffset], node)
+        mouseFn(upEvent, [ux, uy + yOffset], node)
         
         window.removeEventListener("mousemove", onMouseMove)
         window.removeEventListener("mouseup", onMouseUp)
         
-        if (window.app?.syncGraphNode) {
+        if (typeof window.app.syncGraphNode === "function") {
           window.app.syncGraphNode(node.id)
         }
       }
@@ -186,7 +215,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
     || isCombo
   )
 
-  const isCustomDOMElement = element && (
+  const isCustomDOMElement = element !== null && element !== undefined && (
     !["SELECT", "INPUT", "TEXTAREA"].includes(element.tagName.toUpperCase())
   )
 
@@ -194,8 +223,8 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
     return <HTMLElementWidget element={element} />
   }
 
-  if (widget && typeof widget.draw === "function" && !isStandardType) {
-    const canvasWidth = (node?.size?.[0] !== undefined) ? (node.size[0] - 24) : 180
+  if (widget && typeof widget.draw === "function" && !isStandardType && node) {
+    const canvasWidth = (node.size?.[0] !== undefined) ? (node.size[0] - 24) : 180
     return <CanvasWidget widget={widget} node={node} width={canvasWidth} disabled={disabled} />
   }
 
@@ -207,22 +236,23 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
 
   // 1.5 BUTTON 타입
   if (typeName === "BUTTON") {
-    const btnLabel = name || String(value || "")
+    const btnLabel = name || (typeof value === "string" ? value : (typeof value === "number" ? String(value) : (typeof value === "boolean" ? String(value) : "")))
     return (
       <button
         type="button"
         disabled={disabled}
         onClick={(e) => {
           e.stopPropagation()
-          if (typeof widget?.callback === "function") {
+          const w = widget
+          if (w && typeof w.callback === "function") {
             try {
-              widget.callback(widget.value, window.app?.canvas, node)
+              w.callback(w.value, window.app.canvas, node)
             } catch (err) {
               console.error("[CEG] button callback failed:", err)
             }
           }
-          if (node?.id) {
-            window.app?.syncGraphNode?.(node.id)
+          if (node?.id !== undefined) {
+            window.app.syncGraphNode?.(node.id)
           }
         }}
         className="w-full text-[11px] font-bold rounded border border-border bg-accent/30 hover:bg-accent/60 px-1.5 py-1 text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-center select-none cursor-pointer"
@@ -234,9 +264,9 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
 
   // 1. COMBO 타입
   if (isCombo) {
-    const options = Array.isArray(typeSpec) 
-      ? typeSpec 
-      : ((config.values as string[] | undefined) ?? (widget?.options?.values as string[] | undefined) ?? [])
+    const options = Array.isArray(typeSpec)
+      ? typeSpec
+      : ((config.values as string[] | undefined) ?? (widget ? (widget.options.values as string[] | undefined) : undefined) ?? [])
     const strVal = typeof value === "string" ? value : (options[0] ?? "")
 
     return (

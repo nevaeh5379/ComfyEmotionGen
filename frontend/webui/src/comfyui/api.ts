@@ -355,14 +355,12 @@ export class ComfyApi extends EventTarget {
       if (this.socket !== socketInstance) return
       opened = true
 
-      if (this.socket) {
-        this.socket.send(
-          JSON.stringify({
-            type: 'feature_flags',
-            data: this.getClientFeatureFlags()
-          })
-        )
-      }
+      this.socket.send(
+        JSON.stringify({
+          type: 'feature_flags',
+          data: this.getClientFeatureFlags()
+        })
+      )
 
       if (isReconnect === true) {
         this.dispatchCustomEvent('reconnected')
@@ -371,7 +369,7 @@ export class ComfyApi extends EventTarget {
 
     this.socket.addEventListener('error', () => {
       if (this.socket !== socketInstance) return
-      if (this.socket) this.socket.close()
+      this.socket.close()
       if (isReconnect !== true && !opened) {
         this._pollQueue()
       }

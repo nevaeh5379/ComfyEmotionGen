@@ -118,7 +118,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     const widgetsValues: unknown[] = []
     const widgetNames: string[] = []
 
-    if (def !== undefined) {
+    {
       const req = def.input?.required ?? {}
       const opt = def.input?.optional ?? {}
 

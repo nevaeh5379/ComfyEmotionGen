@@ -49,7 +49,7 @@ import {
 import { convertGraphToPrompt } from "@/comfyui/services/appService"
 
 export function EditorTab(): React.JSX.Element {
-  const { workers, backendUrl } = useBackend()
+  const { backendUrl } = useBackend()
   const [currentWorkflow, setCurrentWorkflow] = useState<ComfyWorkflowJSON | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
@@ -97,7 +97,7 @@ export function EditorTab(): React.JSX.Element {
 
   // CEG 백엔드 URL 동기화 및 ComfyUI API WebSocket 초기화
   useEffect(() => {
-    if (window.api && typeof window.api.setApiBase === "function") {
+    if (typeof window.api.setApiBase === "function") {
       window.api.setApiBase(backendUrl)
     }
   }, [backendUrl])
@@ -297,7 +297,7 @@ export function EditorTab(): React.JSX.Element {
                 <div className="w-28 h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
                   <div
                     className="h-full bg-green-500 transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
+                    style={{ width: `${String(progressPercent)}%` }}
                   />
                 </div>
               </div>
@@ -330,14 +330,16 @@ export function EditorTab(): React.JSX.Element {
           <Button
             variant="destructive"
             size="sm"
-            onClick={async () => {
-              try {
-                await (window as any).api.interrupt(null)
-                toast.success("실행 중지 요청을 보냈습니다.")
-              } catch (err) {
-                console.error("Failed to interrupt:", err)
-                toast.error("실행 중지에 실패했습니다.")
-              }
+            onClick={() => {
+              void (async (): Promise<void> => {
+                try {
+                  await window.api.interrupt(null)
+                  toast.success("실행 중지 요청을 보냈습니다.")
+                } catch (err) {
+                  console.error("Failed to interrupt:", err)
+                  toast.error("실행 중지에 실패했습니다.")
+                }
+              })()
             }}
             className="gap-1 bg-red-900 hover:bg-red-800"
           >
