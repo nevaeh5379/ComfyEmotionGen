@@ -47,6 +47,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
 import { useBackend } from "../hooks/useBackend"
+import { useBackendUrl } from "../hooks/useBackendUrl"
 import type { JobStatus, JobView, WorkerView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
@@ -421,7 +422,8 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   workers,
 }: RunningJobsBannerProps): React.JSX.Element {
    
-  const { workerPreviews, backendUrl } = useBackend()
+  const { workerPreviews } = useBackend()
+  const backendUrl = useBackendUrl()
 
   if (workers.length === 0) {
     if (jobs.length === 0) {

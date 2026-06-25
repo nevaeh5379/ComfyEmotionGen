@@ -37,7 +37,7 @@ import {
   XCircle,
   AlertTriangle,
 } from "lucide-react"
-import { useBackend } from "@/comfyui/hooks/useBackend"
+import { useBackendUrl } from "@/comfyui/hooks/useBackendUrl"
 import { useBackendHealth } from "@/comfyui/hooks/useBackendHealth"
 import { toast } from "sonner"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
@@ -201,7 +201,7 @@ function PanelToggle({ active, onToggle, children }: PanelToggleProps): React.JS
 /* ------------------------------------------------------------------ */
 
 export function EditorTab(): React.JSX.Element {
-  const { backendUrl } = useBackend()
+  const backendUrl = useBackendUrl()
   const [currentWorkflow, setCurrentWorkflow] = useState<ComfyWorkflowJSON | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)

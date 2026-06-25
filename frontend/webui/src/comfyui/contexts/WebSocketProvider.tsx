@@ -20,6 +20,7 @@ import { WS_INITIAL_BACKOFF_MS, WS_MAX_BACKOFF_MS } from "../../lib/constants"
 import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
+import { BackendUrlContext } from "./BackendUrlContext"
 import { fetchAllSettings, CLIENT_ID } from "../../lib/serverStorage"
 import {
   populateSettingsCache,
@@ -265,6 +266,8 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps): Reac
   )
 
   return (
-    <BackendContext.Provider value={value}>{children}</BackendContext.Provider>
+    <BackendUrlContext value={url}>
+      <BackendContext.Provider value={value}>{children}</BackendContext.Provider>
+    </BackendUrlContext>
   )
 }
