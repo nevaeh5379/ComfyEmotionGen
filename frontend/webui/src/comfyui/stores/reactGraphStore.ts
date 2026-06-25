@@ -127,9 +127,6 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   redoStack: [],
 
   setGraph: (workflow: ComfyWorkflowJSON): void => {
-    const currentNodes = get().nodes
-    const currentLinks = get().links
-
     const normalizedLinks: ComfyWorkflowLink[] = (workflow.links).map((l: ComfyWorkflowLink | number[]): ComfyWorkflowLink => {
       if (Array.isArray(l)) {
         const linkData = l as [number, number, number, number, number, string | undefined]
@@ -138,20 +135,55 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
       return l
     })
 
-    const nodesEqual = JSON.stringify(currentNodes) === JSON.stringify(workflow.nodes)
-    const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(normalizedLinks)
-    if (nodesEqual && linksEqual) return
+    // ── 핵심 수정: subgraph 정의의 nodes/links를 graphId 태그와 함께 store에 머지 ──
+    // 업스트림 ComfyUI 포맷: definitions.subgraphs[].nodes 는 별개 배열이며 graphId 없음.
+    // 루트 workflow.nodes 는 루트 그래프 소속 + SubgraphNode 인스턴스(type=UUID).
 
-    // Subgraph 정의 로드: definitions.subgraphs → SubgraphModelRuntime 맵 구성
+    // 1. Subgraph 정의 로드 → SubgraphModelRuntime 맵
     const subgraphMap = new Map<SubgraphId, SubgraphModelRuntime>()
     const defs = workflow.definitions?.subgraphs ?? []
+
+    // 2. 루트 노드: graphId = null 명시 (undefined → null)
+    const rootNodes: ComfyWorkflowNode[] = workflow.nodes.map((n) => ({
+      ...n,
+      graphId: n.graphId !== undefined ? n.graphId : null,
+    }))
+
+    // 3. 모든 노드/링크를 단일 배열로 머지
+    const allNodes: ComfyWorkflowNode[] = [...rootNodes]
+    const allLinks: ComfyWorkflowLink[] = [...normalizedLinks]
+
     for (const def of defs) {
       subgraphMap.set(def.id, createSubgraphModel(def))
+
+      // subgraph 정의의 inner nodes: graphId = subgraphId 태그
+      const innerNodes: ComfyWorkflowNode[] = def.nodes.map((n) => ({
+        ...n,
+        graphId: def.id,
+      }))
+      allNodes.push(...innerNodes)
+
+      // subgraph 정의의 inner links: 배열 형태 정규화 + 머지
+      const innerLinks: ComfyWorkflowLink[] = def.links.map((l: ComfyWorkflowLink | number[]): ComfyWorkflowLink => {
+        if (Array.isArray(l)) {
+          const linkData = l as [number, number, number, number, number, string | undefined]
+          return { id: linkData[0], origin_id: linkData[1], origin_slot: linkData[2], target_id: linkData[3], target_slot: linkData[4], type: linkData[5] ?? "*" }
+        }
+        return l
+      })
+      allLinks.push(...innerLinks)
     }
 
+    // 동일 체크 (전체 머지된 상태 기준)
+    const currentNodes = get().nodes
+    const currentLinks = get().links
+    const nodesEqual = JSON.stringify(currentNodes) === JSON.stringify(allNodes)
+    const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(allLinks)
+    if (nodesEqual && linksEqual) return
+
     set({
-      nodes: workflow.nodes,
-      links: normalizedLinks,
+      nodes: allNodes,
+      links: allLinks,
       selectedNodeIds: new Set<number>(),
       subgraphs: subgraphMap,
       activeGraphId: null,
@@ -231,6 +263,8 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
       outputs: outputs.length > 0 ? outputs : undefined,
       widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,
       properties: widgetNames.length > 0 ? { widget_names: widgetNames } : undefined,
+      // 활성 그래프에 소속시킴 (루트면 null, 서브그래프면 해당 UUID)
+      graphId: get().activeGraphId,
     }
 
     set({ nodes: [...nodes, newNode] })
@@ -844,23 +878,36 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
 
   getActiveNodes: (): ComfyWorkflowNode[] => {
     const { nodes, activeGraphId } = get()
-    if (activeGraphId === null) return nodes.filter((n) => n.graphId === null || n.graphId === undefined)
+    if (activeGraphId === null) {
+      // 루트: graphId가 null 또는 undefined인 노드
+      return nodes.filter((n) => n.graphId === null || n.graphId === undefined)
+    }
+    // 서브그래프: graphId가 해당 subgraphId인 노드
     return nodes.filter((n) => n.graphId === activeGraphId)
   },
 
   getActiveLinks: (): ComfyWorkflowLink[] => {
     const { links, activeGraphId } = get()
     if (activeGraphId === null) {
-      // 루트: IO 노드(-10/-20)가 origin/target인 링크는 서브그래프 내부 링크이므로 제외
+      // 루트: 양 끝점이 모두 루트 노드이거나 SubgraphNode 인스턴스인 링크
+      // IO 노드(-10/-20)가 origin/target인 링크는 서브그래프 내부 링크이므로 제외
       return links.filter((l) =>
         l.origin_id !== SUBGRAPH_INPUT_ID &&
         l.target_id !== SUBGRAPH_OUTPUT_ID
       )
     }
-    // 서브그래프: IO 노드 엔드포인트를 가진 링크만 해당 서브그래프 내부
-    return links.filter((l) =>
-      (l.origin_id === SUBGRAPH_INPUT_ID || l.target_id === SUBGRAPH_OUTPUT_ID ||
-       (l.origin_id !== SUBGRAPH_INPUT_ID && l.target_id !== SUBGRAPH_OUTPUT_ID))
-    )
+    // 서브그래프 내부 링크:
+    // (a) 양 끝점이 해당 서브그래프 내부 노드, 또는
+    // (b) origin이 SubgraphInputNode(-10), 또는
+    // (c) target이 SubgraphOutputNode(-20)
+    return links.filter((l) => {
+      const originIsIo = l.origin_id === SUBGRAPH_INPUT_ID
+      const targetIsIo = l.target_id === SUBGRAPH_OUTPUT_ID
+      if (originIsIo || targetIsIo) return true
+      // 일반 내부 링크: 양 끝점이 같은 서브그래프 소속
+      const originNode = get().nodes.find((n) => n.id === l.origin_id)
+      const targetNode = get().nodes.find((n) => n.id === l.target_id)
+      return originNode?.graphId === activeGraphId && targetNode?.graphId === activeGraphId
+    })
   },
 }))

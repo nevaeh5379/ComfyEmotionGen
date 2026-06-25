@@ -57,10 +57,12 @@ function SubgraphBreadcrumb(): JSX.Element | null {
   const idStack = useSubgraphNavigationStore((s) => s.idStack)
   const activeSubgraph = useSubgraphNavigationStore((s) => s.activeSubgraph)
   const navigateToRoot = useSubgraphNavigationStore((s) => s.navigateToRoot)
-  const navigateUp = useSubgraphNavigationStore((s) => s.navigateUp)
+  const navigateToLevel = useSubgraphNavigationStore((s) => s.navigateToLevel)
   const subgraphs = useReactGraphStore((s) => s.subgraphs)
+  const activeGraphId = useReactGraphStore((s) => s.activeGraphId)
 
-  if (idStack.length === 0 && activeSubgraph === null) return null
+  // 루트에 있을 때는 브레드크럼 미표시
+  if (activeGraphId === null) return null
 
   return (
     <div className="absolute top-2 left-2 z-[500] flex items-center gap-1 bg-zinc-900/80 border border-zinc-700 rounded-md px-2 py-1 text-xs text-zinc-200 backdrop-blur-sm">
@@ -73,29 +75,26 @@ function SubgraphBreadcrumb(): JSX.Element | null {
       {idStack.map((id, i) => {
         const model = subgraphs.get(id)
         const name = model?.name ?? "Subgraph"
-        const isLast = i === idStack.length - 1
+        const isCurrent = id === activeGraphId
         return (
           <span key={`crumb-${id}`} className="flex items-center gap-1">
             <ChevronRight className="h-3 w-3 text-zinc-500" />
             <button
-              className={`px-1.5 py-0.5 rounded hover:bg-zinc-700 transition-colors cursor-pointer ${isLast ? "text-zinc-100 font-semibold" : ""}`}
-              onClick={(): void => {
-                // 해당 레벨까지 navigateUp 반복
-                const steps = idStack.length - i - 1
-                for (let s = 0; s < steps; s++) navigateUp()
-              }}
+              className={`px-1.5 py-0.5 rounded hover:bg-zinc-700 transition-colors cursor-pointer ${isCurrent ? "text-zinc-100 font-semibold" : ""}`}
+              onClick={(): void => { navigateToLevel(i + 1) }}
             >
               {name}
             </button>
           </span>
         )
       })}
-      {activeSubgraph && (
+      {/* 현재 활성 subgraph가 idStack에 없는 경우 (최상위 진입 직후) */}
+      {activeSubgraph !== null && !idStack.includes(activeGraphId) ? (
         <span className="flex items-center gap-1">
           <ChevronRight className="h-3 w-3 text-zinc-500" />
           <span className="px-1.5 py-0.5 text-zinc-100 font-semibold">{activeSubgraph.name}</span>
         </span>
-      )}
+      ) : null}
     </div>
   )
 }

@@ -650,19 +650,17 @@ export class ComfyAppService {
       this.registerSubgraphNodeType(def)
     }
 
-    // 3. 백그라운드 LiteGraph 노드들 동적 복원 (루트 그래프 노드만 - subgraph 내부 노드는 스킵)
+    // 3. 백그라운드 LiteGraph 노드들 동적 복원
+    // 루트 노드 + subgraph 내부 노드 모두 위젯 복원 필요.
+    // IO 노드(-10/-20)는 스킵. SubgraphNode 인스턴스(type=UUID)는 스킵.
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     for (const node of workflow.nodes) {
-      // SubgraphNode 인스턴스는 별도 처리
-      const isSubgraphInstance = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.type)
-      // subgraph 내부 노드(graphId가 UUID인 경우)는 백그라운드 복원 스킵
-      if (node.graphId !== undefined && node.graphId !== null) continue
+      // SubgraphNode 인스턴스는 백그라운드 복원 스킵 (UI에서 처리)
+      if (uuidRe.test(node.type)) continue
+      // IO 노드 스킵
+      if (node.id === -10 || node.id === -20) continue
 
       try {
-        if (isSubgraphInstance) {
-          // SubgraphNode 인스턴스: 내부 슬롯만 미러링 (백그라운드 LiteGraph 노드는 최소화)
-          // TODO: Phase 5에서 UI 연동 시 슬롯 동기화 보강
-          continue
-        }
         const liveNode = this.createNode(node.type, node.pos, { id: node.id, skipConfigure: true })
         if (liveNode && typeof liveNode.configure === "function") {
           liveNode.configure(node)
@@ -688,6 +686,46 @@ export class ComfyAppService {
         }
       } catch (err) {
         console.error(`Failed to restore live node ${String(node.id)} (${node.type}):`, err)
+      }
+    }
+
+    // 3b. Subgraph 내부 노드들도 백그라운드 위젯 복원
+    for (const def of sortedSubgraphs) {
+      const innerNodes = def.nodes
+      for (const node of innerNodes) {
+        if (uuidRe.test(node.type)) continue
+        if (node.id === -10 || node.id === -20) continue
+        // 이미 복원됐는지 확인 (동일 ID가 루트에도 있을 수 있으므로)
+        const existing = useReactGraphStore.getState().nodes.find((n) => n.id === node.id)
+        const existingWidgetNames = existing?.properties?.widget_names as string[] | undefined
+        if (existing !== undefined && existingWidgetNames !== undefined && existingWidgetNames.length > 0) continue
+
+        try {
+          const liveNode = this.createNode(node.type, node.pos, { id: node.id, skipConfigure: true })
+          if (liveNode && typeof liveNode.configure === "function") {
+            liveNode.configure(node)
+          }
+          const liveWidgets = (liveNode as { widgets?: { name: string }[] | undefined }).widgets
+          if (liveWidgets !== undefined && liveWidgets.length > 0) {
+            const widgetNames = liveWidgets.map((w) => w.name)
+            const currentNodes = useReactGraphStore.getState().nodes
+            useReactGraphStore.setState({
+              nodes: currentNodes.map((n: ComfyWorkflowNode): ComfyWorkflowNode =>
+                n.id === node.id
+                  ? {
+                      ...n,
+                      properties: {
+                        ...(n.properties ?? {}),
+                        widget_names: widgetNames,
+                      },
+                    }
+                  : n
+              ),
+            })
+          }
+        } catch (err) {
+          console.error(`Failed to restore inner node ${String(node.id)} (${node.type}):`, err)
+        }
       }
     }
   }

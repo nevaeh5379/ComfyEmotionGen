@@ -2,9 +2,8 @@
  * Subgraph Navigation Store (Zustand)
  * ComfyUI_frontend: src/stores/subgraphNavigationStore.ts 참고
  *
- * 현재 편집 중인 subgraph 레벨과 브레드크럼 경로, 뷰포트 캐시 관리.
- * reactGraphStore의 activeGraphId/navigationStack/viewportCache를 래핑하여
- * 편리한 네비게이션 API 제공.
+ * reactGraphStore의 activeGraphId/navigationStack/viewportCache를 단일 출처로 사용.
+ * 이 store는 편의 래퍼 + activeSubgraph 모델 참조만 보관.
  */
 
 import { create } from "zustand"
@@ -13,99 +12,123 @@ import type { SubgraphId } from "@/comfyui/constants"
 import type { SubgraphModelRuntime } from "@/comfyui/subgraph/SubgraphModel"
 
 interface SubgraphNavigationState {
-  /** 현재 활성 subgraph (루트면 null) */
+  /** 현재 활성 subgraph 모델 (루트면 null) - reactGraphStore.activeGraphId에서 파생 */
   activeSubgraph: SubgraphModelRuntime | null
-  /** 루트부터 현재까지의 subgraph ID 경로 (브레드크럼) */
+  /** 루트부터 현재까지의 subgraph ID 경로 (브레드크럼) - reactGraphStore.navigationStack과 동기화 */
   idStack: SubgraphId[]
-  /** 레벨별 뷰포트(pan/zoom) 캐시 - 진입/이탈 시 복원 */
 
   // Actions
-  /** 특정 subgraph로 진입 */
   navigateTo: (subgraphId: SubgraphId) => void
-  /** 한 레벨 위로(루트 방향) */
   navigateUp: () => void
-  /** 루트로 이동 */
   navigateToRoot: () => void
-  /** 네비게이션 스택을 주어진 ID 경로로 복원 (undo/redo용) */
+  navigateToLevel: (level: number) => void
   restoreStack: (idStack: SubgraphId[]) => void
-  /** 현재 네비게이션 상태를 내보냄 (undo/redo 스냅샷용) */
   exportStack: () => SubgraphId[]
 }
 
-export const useSubgraphNavigationStore = create<SubgraphNavigationState>((set, get): SubgraphNavigationState => ({
+/** reactGraphStore에서 현재 activeSubgraph 모델을 조회 */
+function resolveActiveSubgraph(): SubgraphModelRuntime | null {
+  const { activeGraphId, subgraphs } = useReactGraphStore.getState()
+  if (activeGraphId === null) return null
+  return subgraphs.get(activeGraphId) ?? null
+}
+
+export const useSubgraphNavigationStore = create<SubgraphNavigationState>((set): SubgraphNavigationState => ({
   activeSubgraph: null,
   idStack: [],
 
   navigateTo: (subgraphId: SubgraphId): void => {
     const graphStore = useReactGraphStore.getState()
-    const model = graphStore.subgraphs.get(subgraphId)
-    if (!model) return
-
-    // 현재 뷰포트 캐시에 저장 (reactGraphStore.enterSubgraph가 처리)
-    const prevActive = graphStore.activeGraphId
-    const prevStack = get().idStack
-
+    if (!graphStore.subgraphs.has(subgraphId)) return
+    // reactGraphStore.enterSubgraph가 activeGraphId/navigationStack/viewport를 한 번에 갱신
     graphStore.enterSubgraph(subgraphId)
-
-    const nextStack = prevActive !== null ? [...prevStack, prevActive] : [...prevStack]
+    // 이 store를 동기화
     set({
-      activeSubgraph: model,
-      idStack: nextStack,
+      activeSubgraph: resolveActiveSubgraph(),
+      idStack: [...useReactGraphStore.getState().navigationStack],
     })
   },
 
   navigateUp: (): void => {
-    const { idStack } = get()
-    if (idStack.length === 0) return
-
     const graphStore = useReactGraphStore.getState()
+    if (graphStore.navigationStack.length === 0) return
     graphStore.exitSubgraph()
-
-    const nextStack = idStack.slice(0, -1)
-    const nextActiveId = nextStack.length > 0 ? nextStack[nextStack.length - 1] ?? null : null
-    const nextActive = nextActiveId !== null ? graphStore.subgraphs.get(nextActiveId) ?? null : null
     set({
-      activeSubgraph: nextActive,
-      idStack: nextStack,
+      activeSubgraph: resolveActiveSubgraph(),
+      idStack: [...useReactGraphStore.getState().navigationStack],
     })
   },
 
   navigateToRoot: (): void => {
     const graphStore = useReactGraphStore.getState()
-    // 모든 레벨에서 루트로
-    while (get().idStack.length > 0) {
-      graphStore.exitSubgraph()
-    }
+    // 루트까지 한 번에 스택 비우기 (무한 루프 방지 - 단일 set)
+    // 뷰포트 캐시에 현재 저장
+    const cacheKey = graphStore.activeGraphId ?? "__root__"
+    const nextViewportCache = new Map(graphStore.viewportCache)
+    nextViewportCache.set(cacheKey, { pan: [...graphStore.pan] as [number, number], zoom: graphStore.zoom })
+    // 루트 뷰포트 복원
+    const restored = nextViewportCache.get("__root__")
+    useReactGraphStore.setState({
+      activeGraphId: null,
+      navigationStack: [],
+      viewportCache: nextViewportCache,
+      selectedNodeIds: new Set<number>(),
+      pan: restored ? restored.pan : [0, 0],
+      zoom: restored ? restored.zoom : 1.0,
+    })
     set({
       activeSubgraph: null,
       idStack: [],
     })
   },
 
-  restoreStack: (idStack: SubgraphId[]): void => {
+  navigateToLevel: (level: number): void => {
+    // level=0은 루트, level=1은 첫 subgraph, ...
     const graphStore = useReactGraphStore.getState()
-    // 단순 구현: 스택을 따라 진입
-    // 먼저 루트로 리셋
-    useReactGraphStore.setState({
-      activeGraphId: null,
-      navigationStack: [],
-    })
-
-    for (const id of idStack) {
-      const model = graphStore.subgraphs.get(id)
-      if (!model) break
-      graphStore.enterSubgraph(id)
+    const currentStack = graphStore.navigationStack
+    if (level >= currentStack.length) return
+    if (level === 0) {
+      get().navigateToRoot()
+      return
     }
-
-    const lastId = idStack.length > 0 ? idStack[idStack.length - 1] ?? null : null
-    const lastModel = lastId !== null ? graphStore.subgraphs.get(lastId) ?? null : null
+    // level까지 스택을 자르고 해당 subgraph로 진입
+    const targetId = currentStack[level - 1]
+    if (targetId === undefined) return
+    const targetStack = currentStack.slice(0, level)
+    // 뷰포트 저장
+    const cacheKey = graphStore.activeGraphId ?? "__root__"
+    const nextViewportCache = new Map(graphStore.viewportCache)
+    nextViewportCache.set(cacheKey, { pan: [...graphStore.pan] as [number, number], zoom: graphStore.zoom })
+    const restored = nextViewportCache.get(targetId)
+    useReactGraphStore.setState({
+      activeGraphId: targetId,
+      navigationStack: targetStack,
+      viewportCache: nextViewportCache,
+      selectedNodeIds: new Set<number>(),
+      pan: restored ? restored.pan : [0, 0],
+      zoom: restored ? restored.zoom : 1.0,
+    })
     set({
-      activeSubgraph: lastModel,
+      activeSubgraph: resolveActiveSubgraph(),
+      idStack: [...targetStack],
+    })
+  },
+
+  restoreStack: (idStack: SubgraphId[]): void => {
+    useReactGraphStore.setState({
+      activeGraphId: idStack.length > 0 ? idStack[idStack.length - 1] ?? null : null,
+      navigationStack: [...idStack],
+    })
+    set({
+      activeSubgraph: resolveActiveSubgraph(),
       idStack: [...idStack],
     })
   },
 
   exportStack: (): SubgraphId[] => {
-    return [...get().idStack]
+    return [...useSubgraphNavigationStore.getState().idStack]
   },
 }))
+
+// 순환 import 방지: get은 클로저 안에서 사용
+function get(): SubgraphNavigationState { return useSubgraphNavigationStore.getState() }

@@ -78,10 +78,25 @@ export function SvgConnections(): React.JSX.Element {
   }, [allNodes, activeGraphId])
   const links = useMemo(() => {
     const nodeIds = new Set(nodes.map((n) => n.id))
-    return allLinks.filter((l) =>
-      nodeIds.has(l.origin_id) && nodeIds.has(l.target_id)
-    )
-  }, [allLinks, nodes])
+    if (activeGraphId === null) {
+      // 루트: IO 노드 엔드포인트 링크 제외, 양 끝점이 루트 노드인 링크만
+      return allLinks.filter((l) =>
+        l.origin_id !== -10 && l.target_id !== -20 &&
+        nodeIds.has(l.origin_id) && nodeIds.has(l.target_id)
+      )
+    }
+    // 서브그래프: IO 노드 엔드포인트 링크 포함 + 양 끝점이 같은 서브그래프
+    return allLinks.filter((l) => {
+      const originIsIo = l.origin_id === -10
+      const targetIsIo = l.target_id === -20
+      if (originIsIo || targetIsIo) {
+        // IO 링크: 다른 쪽 끝점이 활성 그래프 노드인지 확인
+        const otherId = originIsIo ? l.target_id : l.origin_id
+        return nodeIds.has(otherId)
+      }
+      return nodeIds.has(l.origin_id) && nodeIds.has(l.target_id)
+    })
+  }, [allLinks, nodes, activeGraphId])
 
   useLayoutEffect(() => {
     const container = svgRef.current?.parentElement
