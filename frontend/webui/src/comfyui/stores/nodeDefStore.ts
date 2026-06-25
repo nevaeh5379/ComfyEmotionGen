@@ -16,6 +16,7 @@ interface NodeDefState {
 
   // Actions
   setNodeDefs: (defs: Record<string, ComfyNodeDef>) => void
+  registerNodeDef: (def: ComfyNodeDef) => void
   getNodeDef: (type: string) => ComfyNodeDef | undefined
   setShowDeprecated: (show: boolean) => void
   setShowExperimental: (show: boolean) => void
@@ -66,6 +67,21 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
     }
 
     return undefined
+  },
+
+  registerNodeDef: (def): void => {
+    const { nodeDefs, nodeDefsByCategory } = get()
+    const nextDefs = { ...nodeDefs, [def.name]: def }
+    const firstPart = def.category !== ""
+      ? def.category.split("/")[0]
+      : null
+    const category = (firstPart !== null && firstPart !== undefined && firstPart !== "") ? firstPart : "Other"
+    const nextByCategory = { ...nodeDefsByCategory }
+    const existing = nextByCategory[category] ?? []
+    // 중복 제거 (같은 name이면 교체)
+    const filtered = existing.filter((d) => d.name !== def.name)
+    nextByCategory[category] = [...filtered, def]
+    set({ nodeDefs: nextDefs, nodeDefsByCategory: nextByCategory })
   },
 
   setShowDeprecated: (showDeprecated): void => { set({ showDeprecated }); },

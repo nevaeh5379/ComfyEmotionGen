@@ -5,6 +5,7 @@
 import { useRef, useState, useEffect, useMemo, memo } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { useSubgraphNavigationStore } from "@/comfyui/stores/subgraphNavigationStore"
 import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ChevronRight } from "lucide-react"
@@ -30,7 +31,17 @@ const NodeLayerItem = memo(function NodeLayerItem({ id }: { id: number }): JSX.E
 })
 
 const NodeLayer = memo(function NodeLayer(): JSX.Element {
-  const nodeIds = useReactGraphStore(useShallow((s) => s.nodes.map((n) => n.id)))
+  // 활성 그래프에 속한 노드 ID만 렌더링 (루트=null/undefined, 서브그래프=UUID)
+  const nodeIds = useReactGraphStore(useShallow((s) => {
+    const activeId = s.activeGraphId
+    return s.nodes
+      .filter((n) =>
+        activeId === null
+          ? (n.graphId === null || n.graphId === undefined)
+          : n.graphId === activeId
+      )
+      .map((n) => n.id)
+  }))
   return (
     <>
       {nodeIds.map((id) => (
@@ -39,6 +50,55 @@ const NodeLayer = memo(function NodeLayer(): JSX.Element {
     </>
   )
 })
+
+
+/** 브레드크럼: 루트 > SubgraphA > SubgraphB. 클릭 시 해당 레벨로 이동. */
+function SubgraphBreadcrumb(): JSX.Element | null {
+  const idStack = useSubgraphNavigationStore((s) => s.idStack)
+  const activeSubgraph = useSubgraphNavigationStore((s) => s.activeSubgraph)
+  const navigateToRoot = useSubgraphNavigationStore((s) => s.navigateToRoot)
+  const navigateUp = useSubgraphNavigationStore((s) => s.navigateUp)
+  const subgraphs = useReactGraphStore((s) => s.subgraphs)
+
+  if (idStack.length === 0 && activeSubgraph === null) return null
+
+  return (
+    <div className="absolute top-2 left-2 z-[500] flex items-center gap-1 bg-zinc-900/80 border border-zinc-700 rounded-md px-2 py-1 text-xs text-zinc-200 backdrop-blur-sm">
+      <button
+        className="px-1.5 py-0.5 rounded hover:bg-zinc-700 transition-colors cursor-pointer"
+        onClick={(): void => { navigateToRoot() }}
+      >
+        Root
+      </button>
+      {idStack.map((id, i) => {
+        const model = subgraphs.get(id)
+        const name = model?.name ?? "Subgraph"
+        const isLast = i === idStack.length - 1
+        return (
+          <span key={`crumb-${id}`} className="flex items-center gap-1">
+            <ChevronRight className="h-3 w-3 text-zinc-500" />
+            <button
+              className={`px-1.5 py-0.5 rounded hover:bg-zinc-700 transition-colors cursor-pointer ${isLast ? "text-zinc-100 font-semibold" : ""}`}
+              onClick={(): void => {
+                // 해당 레벨까지 navigateUp 반복
+                const steps = idStack.length - i - 1
+                for (let s = 0; s < steps; s++) navigateUp()
+              }}
+            >
+              {name}
+            </button>
+          </span>
+        )
+      })}
+      {activeSubgraph && (
+        <span className="flex items-center gap-1">
+          <ChevronRight className="h-3 w-3 text-zinc-500" />
+          <span className="px-1.5 py-0.5 text-zinc-100 font-semibold">{activeSubgraph.name}</span>
+        </span>
+      )}
+    </div>
+  )
+}
 
 
 export function ReactGraphEditor(): JSX.Element {
@@ -836,6 +896,8 @@ export function ReactGraphEditor(): JSX.Element {
           <span>Extensions / Live graph loading...</span>
         </div>
       )}
+
+      <SubgraphBreadcrumb />
       {/* Zoom / Pan Wrapper */}
       <div
         className="absolute inset-0 origin-top-left overflow-visible pointer-events-none"
@@ -896,6 +958,39 @@ export function ReactGraphEditor(): JSX.Element {
               >
                 Deselect
               </button>
+              <button
+                className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+                onClick={(): void => {
+                  const store = useReactGraphStore.getState()
+                  // 선택된 노드들을 subgraph로 변환
+                  const selectedIds = Array.from(store.selectedNodeIds)
+                  if (selectedIds.length > 0) {
+                    store.convertToSubgraph(selectedIds)
+                  }
+                  setContextMenu(null)
+                }}
+              >
+                Convert to Subgraph
+              </button>
+              {/* SubgraphNode 인스턴스인 경우 진입 메뉴 추가 */}
+              {((): JSX.Element | null => {
+                const store = useReactGraphStore.getState()
+                const node = store.nodes.find((n) => n.id === contextMenu.nodeId)
+                if (!node) return null
+                const isSubgraphInstance = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.type)
+                if (!isSubgraphInstance) return null
+                return (
+                  <button
+                    className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+                    onClick={(): void => {
+                      useSubgraphNavigationStore.getState().navigateTo(node.type)
+                      setContextMenu(null)
+                    }}
+                  >
+                    Enter Subgraph
+                  </button>
+                )
+              })()}
             </>
           ) : (
             <>

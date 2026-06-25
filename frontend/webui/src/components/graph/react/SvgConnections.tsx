@@ -6,7 +6,7 @@
  * getBoundingClientRect로 얻은 화면 좌표를 zoom으로 나눠 SVG 좌표계로 변환합니다.
  */
 
-import { useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState, useMemo } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import type { ComfyWorkflowNode } from "@/comfyui/types/workflow"
 
@@ -63,10 +63,25 @@ export function SvgConnections(): React.JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null)
   const [paths, setPaths] = useState<PathData[]>([])
 
-  const nodes = useReactGraphStore((s) => s.nodes)
-  const links = useReactGraphStore((s) => s.links)
+  const allNodes = useReactGraphStore((s) => s.nodes)
+  const allLinks = useReactGraphStore((s) => s.links)
   const zoom = useReactGraphStore((s) => s.zoom)
   const disconnect = useReactGraphStore((s) => s.disconnect)
+  const activeGraphId = useReactGraphStore((s) => s.activeGraphId)
+
+  // 활성 그래프에 속한 노드/링크만 필터링
+  const nodes = useMemo(() => {
+    if (activeGraphId === null) {
+      return allNodes.filter((n) => n.graphId === null || n.graphId === undefined)
+    }
+    return allNodes.filter((n) => n.graphId === activeGraphId)
+  }, [allNodes, activeGraphId])
+  const links = useMemo(() => {
+    const nodeIds = new Set(nodes.map((n) => n.id))
+    return allLinks.filter((l) =>
+      nodeIds.has(l.origin_id) && nodeIds.has(l.target_id)
+    )
+  }, [allLinks, nodes])
 
   useLayoutEffect(() => {
     const container = svgRef.current?.parentElement

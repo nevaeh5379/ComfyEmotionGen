@@ -23,6 +23,11 @@ import type {
   ComfyWorkflowLink,
   ComfyWorkflowNode,
 } from "@/comfyui/types/workflow"
+import type { SubgraphModel } from "@/comfyui/types/subgraph"
+import type { SubgraphId } from "@/comfyui/constants"
+import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID } from "@/comfyui/constants"
+import { findUsedSubgraphIds } from "@/comfyui/subgraph/subgraphUtils"
+import type { SubgraphDefinition } from "@/comfyui/types/subgraph"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 
 /**
@@ -150,8 +155,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   public readonly reroutes: Map<number, never> = new Map<number, never>()
   // TODO: Floating link support
   public readonly floatingLinks: ReadonlyMap<number, never> = new Map<number, never>()
-  // TODO: Subgraph support
-  public readonly subgraphs: Map<string, never> = new Map<string, never>()
+  // Subgraph blueprint registry - reactGraphStore.subgraphs와 동기화 (getter로 위임)
+  public readonly subgraphs: Map<SubgraphId, SubgraphModel> = new Map<SubgraphId, SubgraphModel>()
 
   // ── State ───────────────────────────────────────────────────────
   public state: LGraphStateData = {
@@ -159,6 +164,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     lastLinkId: 0,
     lastGroupId: 0,
     lastRerouteId: 0,
+    lastSubgraphId: 0,
   }
   public config: LGraphConfigData = {}
   public extra: LGraphExtraData = {}
@@ -324,6 +330,22 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const store = useReactGraphStore
     const state = store.getState()
 
+    // Subgraph definitions 직렬화 (사용되는 것만)
+    const rootNodes = state.nodes.filter((n: ComfyWorkflowNode) => n.graphId === null || n.graphId === undefined)
+    const usedIds = findUsedSubgraphIds(rootNodes, state.subgraphs as unknown as Map<string, SubgraphDefinition>)
+    const subgraphDefs: SubgraphDefinition[] = []
+    for (const id of usedIds) {
+      const model = state.subgraphs.get(id)
+      if (!model) continue
+      const innerNodes = state.nodes.filter((n: ComfyWorkflowNode) => n.graphId === id)
+      const innerLinks = state.links.filter((l: ComfyWorkflowLink) =>
+        l.origin_id === SUBGRAPH_INPUT_ID ||
+        l.target_id === SUBGRAPH_OUTPUT_ID ||
+        innerNodes.some((n: ComfyWorkflowNode) => n.id === l.origin_id || n.id === l.target_id)
+      )
+      subgraphDefs.push(model.asSerialisable(innerNodes, innerLinks))
+    }
+
     const workflow: ComfyWorkflowJSON = {
       last_node_id: state.nodes.reduce((max: number, n: ComfyWorkflowNode) => Math.max(max, n.id), 0),
       last_link_id: state.links.reduce((max: number, l: ComfyWorkflowLink) => Math.max(max, l.id), 0),
@@ -341,6 +363,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         order: n.order,
         color: n.color,
         bgcolor: n.bgcolor,
+        ...(n.graphId !== undefined ? { graphId: n.graphId } : {}),
       })),
       links: state.links.map((l: ComfyWorkflowLink) => ({
         id: l.id,
@@ -351,6 +374,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         type: l.type,
       })),
       version: 0.4,
+    }
+    if (subgraphDefs.length > 0) {
+      workflow.definitions = { subgraphs: subgraphDefs }
     }
 
     this.onSerialize?.(workflow)

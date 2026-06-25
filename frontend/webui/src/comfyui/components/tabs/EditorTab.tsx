@@ -276,8 +276,9 @@ export function EditorTab(): React.JSX.Element {
 
   const handleSaveWorkflow = useCallback((): void => {
     if (saveName.trim() === "") return
-    const state = useReactGraphStore.getState()
-    const workflow = buildWorkflowJSON(state.nodes, state.links)
+    // subgraph definitions 포함을 위해 appService.serializeGraph 사용
+    const w = window as unknown as { __comfyAppService?: { serializeGraph?: () => ComfyWorkflowJSON } }
+    const workflow = w.__comfyAppService?.serializeGraph?.() ?? buildWorkflowJSON(useReactGraphStore.getState().nodes, useReactGraphStore.getState().links)
     saveEditorWorkflow(saveName.trim(), workflow)
     setSaveDialogOpen(false)
     setSaveName("")

@@ -23,6 +23,12 @@ import { extensionManager } from "@/comfyui/services/extensionService"
 import { api } from "@/comfyui/api"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { widgetStore, type CustomWidget } from "@/comfyui/stores/widgetStore"
+import { findUsedSubgraphIds } from "@/comfyui/subgraph/subgraphUtils"
+import { topologicalSortSubgraphs } from "@/comfyui/subgraph/subgraphDeduplication"
+import { createSubgraphModel } from "@/comfyui/subgraph/SubgraphModel"
+import { flattenForExecution } from "@/comfyui/subgraph/executableNodeDto"
+import type { SubgraphDefinition } from "@/comfyui/types/subgraph"
+import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID } from "@/comfyui/constants"
 import { LGraphAdapter } from "@/comfyui/services/lgraphAdapter"
 import type { LGraphNode, LGraphAdapterRef } from "@/comfyui/types/lgraphAdapterNode"
 
@@ -334,6 +340,170 @@ export function convertGraphToPrompt(
   return prompt
 }
 
+/**
+ * Subgraph를 계층 ID로 펼쳐 ComfyUI API 프롬프트 생성.
+ * 외부 ComfyUI 서버가 subgraph 실행을 지원할 때 사용.
+ * SubgraphNode 내부 노드는 "parentId:innerId" 형태의 ID로 변환.
+ */
+export function convertGraphToPromptWithSubgraphs(
+  allNodes: ComfyWorkflowNode[],
+  allLinks: ComfyWorkflowLink[]
+): ComfyApiWorkflow {
+  const prompt: ComfyApiWorkflow = {}
+  const nodeDefs = useNodeDefStore.getState().nodeDefs
+
+  // SubgraphNode별 내부 노드 맵 구성 (graphId 기준)
+  const subgraphNodesMap = new Map<string, ComfyWorkflowNode[]>()
+  for (const node of allNodes) {
+    if (node.graphId !== null && node.graphId !== undefined) {
+      const arr = subgraphNodesMap.get(node.graphId) ?? []
+      arr.push(node)
+      subgraphNodesMap.set(node.graphId, arr)
+    }
+  }
+
+  // 루트 노드만 추출
+  const rootNodes = allNodes.filter((n) => n.graphId === null || n.graphId === undefined)
+
+  // Bypass/Mute 우회 헬퍼 (단일 그래프 내에서만 동작)
+  const resolveSource = (
+    linkId: number,
+    links: ComfyWorkflowLink[],
+    nodes: ComfyWorkflowNode[]
+  ): { origin_id: number; origin_slot: number } | null => {
+    const link = links.find((l) => l.id === linkId)
+    if (!link) return null
+    const originNode = nodes.find((n) => n.id === link.origin_id)
+    if (!originNode) return null
+    if (originNode.mode === 2) return null
+    if (originNode.mode === 4) {
+      // Bypass: 동일 인덱스 입력으로 재귀
+      const inputSlot = originNode.inputs?.[link.origin_slot]
+      if (inputSlot?.link !== undefined) {
+        return resolveSource(inputSlot.link, links, nodes)
+      }
+      return null
+    }
+    return { origin_id: link.origin_id, origin_slot: link.origin_slot }
+  }
+
+  // flattenForExecution으로 계층 ID 부여
+  const flattened = flattenForExecution(rootNodes, allLinks, subgraphNodesMap)
+
+  for (const item of flattened) {
+    const node = item.node
+    // Mute/Bypass 노드는 프롬프트에서 제외
+    if (node.mode === 2 || node.mode === 4) continue
+
+    const inputs: Record<string, unknown> = {}
+
+    // 위젯 값
+    if (node.widgets_values !== undefined) {
+      let widgetNames = (node.properties?.widget_names ?? []) as string[]
+      if (widgetNames.length === 0 || widgetNames.length !== node.widgets_values.length) {
+        const def = nodeDefs[node.type]
+        if (def !== undefined) {
+          const inferredNames: string[] = []
+          const req = def.input?.required ?? {}
+          const opt = def.input?.optional ?? {}
+          const collect = (entries: Record<string, InputSpec>): void => {
+            for (const [name, spec] of Object.entries(entries)) {
+              if (widgetStore.isWidgetType(spec[0])) {
+                inferredNames.push(name)
+                const cfg = spec[1] ?? {}
+                if (name === "seed" || cfg.control_after_generate === true) {
+                  inferredNames.push("control_after_generate")
+                }
+              }
+            }
+          }
+          collect(req)
+          collect(opt)
+          if (inferredNames.length === node.widgets_values.length) {
+            widgetNames = inferredNames
+          }
+        }
+      }
+      for (let i = 0; i < widgetNames.length; i++) {
+        const name = widgetNames[i]
+        if (name !== undefined && i < node.widgets_values.length) {
+          inputs[name] = node.widgets_values[i]
+        }
+      }
+    }
+
+    // 링크된 입력
+    if (node.inputs !== undefined) {
+      // 이 노드가 속한 그래프의 링크와 노드를 사용
+      const currentNodes = item.parentSubgraphNodeId !== null
+        ? (subgraphNodesMap.get(allNodes.find((n) => n.id === item.parentSubgraphNodeId)?.type ?? "") ?? [])
+        : rootNodes
+      const currentLinks = item.parentSubgraphNodeId !== null
+        ? allLinks.filter((l) =>
+          l.origin_id === SUBGRAPH_INPUT_ID || l.target_id === SUBGRAPH_OUTPUT_ID ||
+          currentNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
+        )
+        : allLinks.filter((l) => l.origin_id !== SUBGRAPH_INPUT_ID && l.target_id !== SUBGRAPH_OUTPUT_ID)
+
+      for (const input of node.inputs) {
+        if (input.link !== undefined) {
+          // SubgraphInput(-10)에서 온 링크인 경우 → 부모의 외부 입력으로 매핑
+          const link = currentLinks.find((l) => l.id === input.link)
+          if (link?.origin_id === SUBGRAPH_INPUT_ID) {
+            // 부모 SubgraphNode의 입력 슬롯 → 부모 입력에 연결된 외부 링크
+            const parentLink = item.inputSlotToParentLink.get(link.origin_slot)
+            if (parentLink) {
+              // 부모의 부모 노드 참조 (계층 ID)
+              const parentSubgraphNode = item.parentSubgraphNodeId !== null
+                ? allNodes.find((n) => n.id === item.parentSubgraphNodeId)
+                : null
+              const grandparentId = parentSubgraphNode !== null && parentSubgraphNode !== undefined
+                ? item.hierarchicalId.split(":").slice(0, -2).join(":")
+                : null
+              // 부모의 외부 origin 노드의 hierarchicalId 찾기
+              const originNode = rootNodes.find((n) => n.id === parentLink.origin_id) ??
+                (grandparentId !== null ? allNodes.find((n) => n.id === parentLink.origin_id) : null)
+              if (originNode) {
+                // 부모 SubgraphNode의 hierarchicalId에서 마지막 세그먼트 제거 = 부모의 부모
+                const originHierId = grandparentId !== null
+                  ? `${grandparentId}:${String(parentLink.origin_id)}`
+                  : String(parentLink.origin_id)
+                inputs[input.name] = [originHierId, parentLink.origin_slot]
+              }
+            }
+            continue
+          }
+
+          // 일반 링크
+          const resolved = resolveSource(input.link, currentLinks, currentNodes)
+          if (resolved !== null) {
+            // origin 노드의 hierarchicalId 찾기
+            const originNode = currentNodes.find((n) => n.id === resolved.origin_id)
+            if (originNode) {
+              const originHierId = item.parentSubgraphNodeId !== null
+                ? `${item.hierarchicalId.split(":").slice(0, -1).join(":")}:${String(resolved.origin_id)}`
+                : String(resolved.origin_id)
+              inputs[input.name] = [originHierId, resolved.origin_slot]
+            }
+          }
+        }
+      }
+    }
+
+    const nodeObj: { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } } = {
+      inputs,
+      class_type: node.type,
+    }
+    const title = (node.properties?.node_name ?? node.type) as string
+    if (typeof title === "string" && title !== node.type) {
+      nodeObj._meta = { title }
+    }
+    prompt[item.hierarchicalId] = nodeObj
+  }
+
+  return prompt
+}
+
 // ── ComfyAppService ───────────────────────────────────────────────
 
 export interface ComfyAppConfig {
@@ -454,26 +624,50 @@ export class ComfyAppService {
 
   /**
    * 워크플로우 JSON 로드 (Zustand store 및 백그라운드 LiteGraph 노드 인스턴스 복원)
+   * Subgraph 지원: definitions.subgraphs 를 위상 정렬(leaf-first)하여 순서대로 등록.
    */
   loadGraphData(workflow: ComfyWorkflowJSON): void {
     // 1. 기존 라이브 노드 및 Zustand 스토어 초기화
     this.graph.clear()
 
-    // 2. Zustand 스토어에 새 워크플로우 반영 (pos, size, widgets_values 등이 보존됨)
+    // 1b. Subgraph 정의 위상 정렬 (leaf-first) - 참조되는 정의가 먼저 생성되도록
+    const rawSubgraphs = workflow.definitions?.subgraphs ?? []
+    const sortedSubgraphs = topologicalSortSubgraphs(rawSubgraphs)
+
+    // 2. Zustand 스토어에 새 워크플로우 반영 (subgraphs 맵 구성 포함 - setGraph가 처리)
     const store = useReactGraphStore.getState()
+    // subgraph 모델들을 미리 생성하여 store에 주입 (setGraph 호출 전)
+    const subgraphMap = new Map<string, ReturnType<typeof createSubgraphModel>>()
+    for (const def of sortedSubgraphs) {
+      subgraphMap.set(def.id, createSubgraphModel(def))
+    }
+    // setGraph는 workflow.definitions에서 subgraphs 맵을 다시 구성하므로,
+    // 여기서는 동적 노드 타입 등록만 수행.
     store.setGraph(workflow)
 
-    // 3. 백그라운드 LiteGraph 노드들 동적 복원 (이를 통해 익스텐션 훅이 동작하고 widget element 및 html 주입이 이루어짐)
+    // 2b. SubgraphNode 타입을 LiteGraph에 등록 (createNode(subgraphId)가 동작하도록)
+    for (const def of sortedSubgraphs) {
+      this.registerSubgraphNodeType(def)
+    }
+
+    // 3. 백그라운드 LiteGraph 노드들 동적 복원 (루트 그래프 노드만 - subgraph 내부 노드는 스킵)
     for (const node of workflow.nodes) {
+      // SubgraphNode 인스턴스는 별도 처리
+      const isSubgraphInstance = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.type)
+      // subgraph 내부 노드(graphId가 UUID인 경우)는 백그라운드 복원 스킵
+      if (node.graphId !== undefined && node.graphId !== null) continue
+
       try {
+        if (isSubgraphInstance) {
+          // SubgraphNode 인스턴스: 내부 슬롯만 미러링 (백그라운드 LiteGraph 노드는 최소화)
+          // TODO: Phase 5에서 UI 연동 시 슬롯 동기화 보강
+          continue
+        }
         const liveNode = this.createNode(node.type, node.pos, { id: node.id, skipConfigure: true })
         if (liveNode && typeof liveNode.configure === "function") {
           liveNode.configure(node)
         }
-        // 라이브 노드의 widgets 배열(확장이 추가한 control_after_generate 등 포함)에서
-        // 위젯 이름 순서를 추출해 store 노드의 properties.widget_names 에 동기화.
-        // 가져온 워크플로우는 widget_names 가 없는 경우가 많아 convertGraphToPrompt 가
-        // widgets_values 를 이름에 매핑하지 못하는 문제를 해결.
+        // 라이브 노드의 widgets 배열에서 위젯 이름 순서 추출 → store 동기화
         const liveWidgets = (liveNode as { widgets?: { name: string }[] | undefined }).widgets
         if (liveWidgets !== undefined && liveWidgets.length > 0) {
           const widgetNames = liveWidgets.map((w) => w.name)
@@ -499,11 +693,55 @@ export class ComfyAppService {
   }
 
   /**
+   * SubgraphNode 타입을 LiteGraph에 등록 (createNode(subgraphId) 지원).
+   * 백그라운드 호환 레이어용 - 실제 UI는 React에서 처리.
+   */
+  private registerSubgraphNodeType(def: SubgraphDefinition): void {
+    const w = window as unknown as { LiteGraph?: { registerNodeType?: (type: string, cls: unknown) => void } }
+    if (!w.LiteGraph?.registerNodeType) return
+    // 최소한의 등록 - 실제 인스턴스 생성은 React store에서 처리
+    // 이 등록은 확장 호환용이며, createNode가 실패하지 않도록 함
+    try {
+      // 순수 함수형 스텁 객체 (클래스 사용 회피)
+      const stub = Object.assign(
+        function SubgraphNodeStub(): void {
+          // no-op
+        },
+        { title: def.name }
+      )
+      w.LiteGraph.registerNodeType(def.id, stub)
+    } catch {
+      // 이미 등록된 타입 - 무시
+    }
+  }
+
+  /**
    * 현재 그래프를 워크플로우 JSON으로 직렬화 (Zustand store 사용)
+   * Subgraph 지원: definitions.subgraphs[] 에 참조되는 블루프린트만 기록.
    */
   serializeGraph(): ComfyWorkflowJSON {
     const state = useReactGraphStore.getState()
-    return {
+
+    // 루트 노드 중 SubgraphNode 인스턴스(type=UUID)가 참조하는 subgraph 정의를 BFS 수집
+    const rootNodes = state.nodes.filter((n) => n.graphId === null || n.graphId === undefined)
+    const usedIds = findUsedSubgraphIds(rootNodes, state.subgraphs as unknown as Map<string, SubgraphDefinition>)
+
+    // 직렬화할 subgraph 정의 목록 (사용되는 것만)
+    const subgraphDefs: SubgraphDefinition[] = []
+    for (const id of usedIds) {
+      const model = state.subgraphs.get(id)
+      if (!model) continue
+      // 내부 노드/링크 추출 (graphId가 해당 subgraphId인 것들)
+      const innerNodes = state.nodes.filter((n) => n.graphId === id)
+      const innerLinks = state.links.filter((l) =>
+        l.origin_id === SUBGRAPH_INPUT_ID ||
+        l.target_id === SUBGRAPH_OUTPUT_ID ||
+        innerNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
+      )
+      subgraphDefs.push(model.asSerialisable(innerNodes, innerLinks))
+    }
+
+    const result: ComfyWorkflowJSON = {
       last_node_id: state.nodes.reduce((max, n) => Math.max(max, n.id), 0),
       last_link_id: state.links.reduce((max, l) => Math.max(max, l.id), 0),
       nodes: state.nodes.map((n) => ({
@@ -520,6 +758,7 @@ export class ComfyAppService {
         order: n.order,
         color: n.color,
         bgcolor: n.bgcolor,
+        ...(n.graphId !== undefined ? { graphId: n.graphId } : {}),
       })),
       links: state.links.map((l) => ({
         id: l.id,
@@ -531,14 +770,26 @@ export class ComfyAppService {
       })),
       version: 0.4,
     }
+    if (subgraphDefs.length > 0) {
+      result.definitions = { subgraphs: subgraphDefs }
+    }
+    return result
   }
 
   /**
    * 그래프를 ComfyUI API 포맷으로 변환 (실행용)
+   * Subgraph 지원: SubgraphNode 인스턴스를 계층 ID("65:70:63")로 펼쳐 전송.
+   * 외부 ComfyUI 서버가 subgraph 실행을 지원하는 경우 동작.
    */
   graphToPrompt(): ComfyApiWorkflow {
     const state = useReactGraphStore.getState()
-    return convertGraphToPrompt(state.nodes, state.links)
+    // subgraph 내부 노드가 있으면 계층 ID 방식 사용
+    const hasSubgraphs = state.subgraphs.size > 0 &&
+      state.nodes.some((n) => n.graphId !== null && n.graphId !== undefined)
+    if (hasSubgraphs) {
+      return convertGraphToPromptWithSubgraphs(state.nodes, state.links)
+    }
+    return convertGraphToPrompt(state.nodes.filter((n) => n.graphId === null || n.graphId === undefined), state.links)
   }
 
   /**

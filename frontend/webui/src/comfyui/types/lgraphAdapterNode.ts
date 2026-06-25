@@ -4,6 +4,8 @@
  */
 
 import type { ComfyWorkflowNode } from "./workflow"
+import type { SubgraphModel } from "./subgraph"
+import type { SubgraphId } from "../constants"
 
 // ── Widget ────────────────────────────────────────────────────────
 
@@ -50,6 +52,14 @@ export interface LGraphNode {
   order?: number
   mode?: number
   properties?: Record<string, unknown>
+
+  // Subgraph support
+  /** SubgraphNode 인스턴스인지 확인 (type이 SubgraphId인 경우 true) */
+  isSubgraphNode?(): this is LGraphNode & { subgraph: SubgraphModel }
+  /** SubgraphNode 인스턴스가 참조하는 블루프린트 (일반 노드는 undefined) */
+  subgraph?: SubgraphModel
+  /** 이 노드가 소속된 그래프 ID (루트=null, 서브그래프=SubgraphId) */
+  graphId?: SubgraphId | null
 
   // Methods
   addInput(name: string, type: string): void

@@ -6,6 +6,8 @@
 
 import type { ComfyWorkflowJSON, ComfyWorkflowLink } from "./workflow"
 import type { LGraphNode } from "./lgraphAdapterNode"
+import type { SubgraphModel } from "./subgraph"
+import type { SubgraphId } from "../constants"
 
 // ── Graph State ───────────────────────────────────────────────────
 
@@ -14,6 +16,7 @@ export interface LGraphStateData {
   lastLinkId: number
   lastGroupId: number
   lastRerouteId: number
+  lastSubgraphId: number
 }
 
 // ── Graph Config ──────────────────────────────────────────────────
@@ -45,6 +48,9 @@ export interface LGraphEventMap {
     oldValue: unknown
     newValue: unknown
   }
+  "subgraph-created": { subgraph: SubgraphModel; data: unknown }
+  "convert-to-subgraph": { subgraph: SubgraphModel; bounds: [number, number, number, number] }
+  "open-subgraph": { subgraph: SubgraphModel; fromNodeId: number }
 }
 
 export type LGraphEventType = keyof LGraphEventMap
@@ -63,7 +69,7 @@ export interface LGraphAdapterInterface {
   readonly groups: never[] // TODO: LGraphGroup[] support
   readonly reroutes: Map<number, never> // TODO: Reroute support
   readonly floatingLinks: ReadonlyMap<number, never> // TODO: Floating link support
-  readonly subgraphs: Map<string, never> // TODO: Subgraph support
+  readonly subgraphs: Map<SubgraphId, SubgraphModel> // Subgraph blueprint registry (루트 그래프가 소유)
 
   // State
   state: LGraphStateData

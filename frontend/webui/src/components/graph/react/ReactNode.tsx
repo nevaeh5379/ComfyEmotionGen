@@ -5,8 +5,9 @@
 import { useRef, useMemo, useLayoutEffect, useState, memo, type ReactNode as ReactNodeType } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { useSubgraphNavigationStore } from "@/comfyui/stores/subgraphNavigationStore"
 import { ReactWidget, type CanvasWidget, type CanvasNode } from "./ReactWidget"
-import { X } from "lucide-react"
+import { X, Maximize2 } from "lucide-react"
 import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
 import { widgetStore, type WidgetValue } from "@/comfyui/stores/widgetStore"
 import type { InputSpec } from "@/comfyui/types/nodeDef"
@@ -378,6 +379,13 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
         e.stopPropagation()
         selectNode(id, e.ctrlKey || e.metaKey)
       }}
+      onDoubleClick={(e) => {
+        // SubgraphNode 인스턴스(type=UUID)인 경우 더블클릭으로 진입
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(type)) {
+          e.stopPropagation()
+          useSubgraphNavigationStore.getState().navigateTo(type)
+        }
+      }}
     >
       {/* ── Title bar ─────────────────────────────────────── */}
       <div
@@ -396,6 +404,18 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
             <span className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)] shrink-0" />
           ) : null}
           <span>{nodeDef?.display_name ?? type}</span>
+          {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(type) && (
+            <button
+              title="Enter subgraph"
+              onClick={(e): void => {
+                e.stopPropagation()
+                useSubgraphNavigationStore.getState().navigateTo(type)
+              }}
+              className="ml-1 p-0.5 rounded hover:bg-zinc-600 transition-colors cursor-pointer"
+            >
+              <Maximize2 className="h-3 w-3 text-blue-400" />
+            </button>
+          )}
         </span>
         <div className="flex items-center gap-1">
           {/* ── Mode toggle ── */}

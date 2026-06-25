@@ -16,10 +16,28 @@ import type { ComfyNodeDef } from "../types/nodeDef"
 import type { WidgetValue } from "./widgetStore"
 import { useNodeDefStore } from "./nodeDefStore"
 import { widgetStore } from "./widgetStore"
+import { createSubgraphModel } from "../subgraph/SubgraphModel"
+import type { SubgraphModelRuntime } from "../subgraph/SubgraphModel"
+import type { SubgraphDefinition, GraphId } from "../types/subgraph"
+import type { SubgraphId } from "../constants"
+import {
+  SUBGRAPH_INPUT_ID,
+  SUBGRAPH_OUTPUT_ID,
+  createSubgraphId,
+} from "../constants"
+import {
+  getBoundaryLinks,
+  mapSubgraphInputsAndLinks,
+  mapSubgraphOutputsAndLinks,
+  createBounds,
+} from "../subgraph/subgraphUtils"
 
 interface SnapshotEntry {
   nodes: ComfyWorkflowNode[]
   links: ComfyWorkflowLink[]
+  subgraphs: readonly (readonly [SubgraphId, SubgraphDefinition])[]
+  activeGraphId: GraphId
+  navigationStack: SubgraphId[]
 }
 
 interface ReactGraphState {
@@ -28,6 +46,16 @@ interface ReactGraphState {
   zoom: number
   pan: [number, number]
   selectedNodeIds: Set<number>
+
+  // Subgraph state
+  /** 블루프린트 레지스트리 (루트 그래프 소유) */
+  subgraphs: Map<SubgraphId, SubgraphModelRuntime>
+  /** 현재 편집 중인 그래프 ID (null=루트, UUID=서브그래프) */
+  activeGraphId: GraphId
+  /** 브레드크럼: 루트부터 현재까지의 subgraph ID 경로 */
+  navigationStack: SubgraphId[]
+  /** 그래프별 뷰포트(pan/zoom) 캐시 - 진입/이탈 시 복원 */
+  viewportCache: Map<string, { pan: [number, number]; zoom: number }>
 
   // Execution State
   executionStatus: 'idle' | 'running' | 'success' | 'error' | 'interrupted'
@@ -63,6 +91,16 @@ interface ReactGraphState {
   takeSnapshot: () => void
   undo: () => void
   redo: () => void
+
+  // Subgraph actions
+  convertToSubgraph: (selectedNodeIds: number[]) => { subgraphId: SubgraphId; nodeId: number } | null
+  unpackSubgraph: (subgraphNodeId: number) => void
+  enterSubgraph: (subgraphId: SubgraphId) => void
+  exitSubgraph: () => void
+  /** 현재 활성 그래프에 속한 노드만 반환 */
+  getActiveNodes: () => ComfyWorkflowNode[]
+  /** 현재 활성 그래프에 속한 링크만 반환 */
+  getActiveLinks: () => ComfyWorkflowLink[]
 }
 
 export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraphState => ({
@@ -71,6 +109,12 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   zoom: 1.0,
   pan: [0, 0],
   selectedNodeIds: new Set<number>(),
+
+  // Initial Subgraph state
+  subgraphs: new Map<SubgraphId, SubgraphModelRuntime>(),
+  activeGraphId: null,
+  navigationStack: [],
+  viewportCache: new Map<string, { pan: [number, number]; zoom: number }>(),
 
   // Initial Execution State
   executionStatus: 'idle',
@@ -98,10 +142,20 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     const linksEqual = JSON.stringify(currentLinks) === JSON.stringify(normalizedLinks)
     if (nodesEqual && linksEqual) return
 
+    // Subgraph 정의 로드: definitions.subgraphs → SubgraphModelRuntime 맵 구성
+    const subgraphMap = new Map<SubgraphId, SubgraphModelRuntime>()
+    const defs = workflow.definitions?.subgraphs ?? []
+    for (const def of defs) {
+      subgraphMap.set(def.id, createSubgraphModel(def))
+    }
+
     set({
       nodes: workflow.nodes,
       links: normalizedLinks,
       selectedNodeIds: new Set<number>(),
+      subgraphs: subgraphMap,
+      activeGraphId: null,
+      navigationStack: [],
     })
   },
 
@@ -512,14 +566,20 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
       selectedNodeIds: new Set<number>(),
       zoom: 1.0,
       pan: [0, 0],
+      subgraphs: new Map<SubgraphId, SubgraphModelRuntime>(),
+      activeGraphId: null,
+      navigationStack: [],
     })
   },
 
   takeSnapshot: (): void => {
-    const { nodes, links, undoStack } = get()
+    const { nodes, links, subgraphs, activeGraphId, navigationStack, undoStack } = get()
     const nextUndo = [...undoStack, {
       nodes: JSON.parse(JSON.stringify(nodes)) as ComfyWorkflowNode[],
-      links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[]
+      links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[],
+      subgraphs: Array.from(subgraphs.entries()).map(([id, m]) => [id, m.asSerialisable([], [])] as readonly [SubgraphId, SubgraphDefinition]),
+      activeGraphId,
+      navigationStack: [...navigationStack],
     }].slice(-50)
 
     set({
@@ -529,7 +589,7 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
   },
 
   undo: (): void => {
-    const { nodes, links, undoStack, redoStack } = get()
+    const { nodes, links, subgraphs, activeGraphId, navigationStack, undoStack, redoStack } = get()
     if (undoStack.length === 0) return
 
     const previous = undoStack[undoStack.length - 1]
@@ -538,21 +598,32 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
     const nextRedo = [
       {
         nodes: JSON.parse(JSON.stringify(nodes)) as ComfyWorkflowNode[],
-        links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[]
+        links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[],
+        subgraphs: Array.from(subgraphs.entries()).map(([id, m]) => [id, m.asSerialisable([], [])] as readonly [SubgraphId, SubgraphDefinition]),
+        activeGraphId,
+        navigationStack: [...navigationStack],
       },
       ...redoStack
     ].slice(0, 50)
 
+    const restoredSubgraphs = new Map<SubgraphId, SubgraphModelRuntime>()
+    for (const [id, def] of previous.subgraphs) {
+      restoredSubgraphs.set(id, createSubgraphModel(def))
+    }
+
     set({
       nodes: previous.nodes,
       links: previous.links,
+      subgraphs: restoredSubgraphs,
+      activeGraphId: previous.activeGraphId,
+      navigationStack: [...previous.navigationStack],
       undoStack: nextUndo,
       redoStack: nextRedo
     })
   },
 
   redo: (): void => {
-    const { nodes, links, undoStack, redoStack } = get()
+    const { nodes, links, subgraphs, activeGraphId, navigationStack, undoStack, redoStack } = get()
     if (redoStack.length === 0) return
 
     const next = redoStack[0]
@@ -562,15 +633,234 @@ export const useReactGraphStore = create<ReactGraphState>((set, get): ReactGraph
       ...undoStack,
       {
         nodes: JSON.parse(JSON.stringify(nodes)) as ComfyWorkflowNode[],
-        links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[]
+        links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[],
+        subgraphs: Array.from(subgraphs.entries()).map(([id, m]) => [id, m.asSerialisable([], [])] as readonly [SubgraphId, SubgraphDefinition]),
+        activeGraphId,
+        navigationStack: [...navigationStack],
       }
     ].slice(-50)
+
+    const restoredSubgraphs = new Map<SubgraphId, SubgraphModelRuntime>()
+    for (const [id, def] of next.subgraphs) {
+      restoredSubgraphs.set(id, createSubgraphModel(def))
+    }
 
     set({
       nodes: next.nodes,
       links: next.links,
+      subgraphs: restoredSubgraphs,
+      activeGraphId: next.activeGraphId,
+      navigationStack: [...next.navigationStack],
       undoStack: nextUndo,
       redoStack: nextRedo
     })
+  },
+
+  // ── Subgraph actions ──────────────────────────────────────────────
+
+  convertToSubgraph: (selectedIds: number[]): { subgraphId: SubgraphId; nodeId: number } | null => {
+    if (selectedIds.length === 0) return null
+    get().takeSnapshot()
+
+    const { nodes, links } = get()
+    const idSet = new Set(selectedIds)
+    const selectedNodes = nodes.filter((n) => idSet.has(n.id))
+    if (selectedNodes.length === 0) return null
+
+    // 1. 경계 링크 분할
+    const boundary = getBoundaryLinks(nodes, links, idSet)
+
+    // 2. 경계 링크를 IO 노드 엔드포인트로 재작성 + 슬롯 생성
+    const { rewrittenLinks: rewrittenInputLinks, inputs: inputDtos } =
+      mapSubgraphInputsAndLinks(boundary.boundaryInputLinks)
+    const { rewrittenLinks: rewrittenOutputLinks, outputs: outputDtos } =
+      mapSubgraphOutputsAndLinks(boundary.boundaryOutputLinks)
+
+    // 3. bounding 계산
+    const bounds = createBounds(selectedNodes)
+
+    // 4. SubgraphDefinition 구성
+    const subgraphId = createSubgraphId()
+    const internalNodes = selectedNodes.map((n) => ({ ...n, graphId: subgraphId }))
+    const internalLinks = [
+      ...boundary.internalLinks.map((l) => ({ ...l })),
+      ...rewrittenInputLinks.map((l) => ({ ...l })),
+      ...rewrittenOutputLinks.map((l) => ({ ...l })),
+    ]
+    // IO 노드 bounding (좌/우 고정)
+    const ioWidth = 120
+    const ioHeight = 200
+    const def: SubgraphDefinition = {
+      id: subgraphId,
+      name: "New Subgraph",
+      inputNode: {
+        id: SUBGRAPH_INPUT_ID,
+        bounding: [bounds[0] - ioWidth - 20, bounds[1], ioWidth, ioHeight],
+      },
+      outputNode: {
+        id: SUBGRAPH_OUTPUT_ID,
+        bounding: [bounds[2] + 20, bounds[1], ioWidth, ioHeight],
+      },
+      inputs: inputDtos,
+      outputs: outputDtos,
+      nodes: internalNodes,
+      links: internalLinks,
+    }
+
+    // 5. SubgraphModelRuntime 생성 & 등록
+    const model = createSubgraphModel(def)
+    const nextSubgraphs = new Map(get().subgraphs)
+    nextSubgraphs.set(subgraphId, model)
+
+    // 6. 루트 그래프에서 선택 노드와 경계 링크 제거, SubgraphNode 인스턴스 추가
+    const removedLinkIds = new Set<number>([
+      ...boundary.boundaryInputLinks.map((l) => l.id),
+      ...boundary.boundaryOutputLinks.map((l) => l.id),
+      ...boundary.internalLinks.map((l) => l.id),
+    ])
+    const remainingNodes = nodes.filter((n) => !idSet.has(n.id))
+    // 기존 노드의 inputs/outputs에서 제거된 링크 정리
+    const cleanedRemainingNodes = remainingNodes.map((node) => {
+      const nextInputs = node.inputs?.map((input) =>
+        input.link !== undefined && removedLinkIds.has(input.link)
+          ? { ...input, link: undefined }
+          : input
+      )
+      const nextOutputs = node.outputs?.map((output) => {
+        if (output.links) {
+          const valid = output.links.filter((lid) => !removedLinkIds.has(lid))
+          if (valid.length !== output.links.length) {
+            return { ...output, links: valid.length > 0 ? valid : undefined }
+          }
+        }
+        return output
+      })
+      return { ...node, inputs: nextInputs, outputs: nextOutputs }
+    })
+
+    // SubgraphNode 인스턴스 노드 생성
+    const maxNodeId = cleanedRemainingNodes.reduce((max, n) => Math.max(max, n.id), 0)
+    const newNodeId = maxNodeId + 1
+    const subgraphNodeInstance: ComfyWorkflowNode = {
+      id: newNodeId,
+      type: subgraphId,
+      pos: [(bounds[0] + bounds[2]) / 2 - 120, (bounds[1] + bounds[3]) / 2 - 30],
+      size: [240, 60 + inputDtos.length * 20 + outputDtos.length * 20],
+      inputs: inputDtos.map((dto) => ({
+        name: dto.name,
+        type: dto.type,
+        link: undefined,
+      })),
+      outputs: outputDtos.map((dto) => ({
+        name: dto.name,
+        type: dto.type,
+        links: undefined,
+      })),
+      graphId: null,
+    }
+
+    // 7. 상태 갱신
+    set({
+      nodes: [...cleanedRemainingNodes, subgraphNodeInstance],
+      links: links.filter((l) => !removedLinkIds.has(l.id)),
+      subgraphs: nextSubgraphs,
+      selectedNodeIds: new Set<number>([newNodeId]),
+    })
+
+    return { subgraphId, nodeId: newNodeId }
+  },
+
+  unpackSubgraph: (subgraphNodeId: number): void => {
+    const { nodes, subgraphs } = get()
+    const subgraphNode = nodes.find((n) => n.id === subgraphNodeId)
+    if (!subgraphNode) return
+    const subgraphId = subgraphNode.type
+    const model = subgraphs.get(subgraphId)
+    if (!model) return
+
+    get().takeSnapshot()
+
+    // 내부 노드/링크를 루트로 꺼내기 (graphId = null)
+    // 실제 구현은 Phase 4에서 보강 - 여기서는 기본 골격만
+    const innerNodes = nodes.filter((n) => n.graphId === subgraphId).map((n) => ({ ...n, graphId: null }))
+    const remainingNodes = nodes.filter((n) => n.id !== subgraphNodeId && n.graphId !== subgraphId)
+    const nextSubgraphs = new Map(subgraphs)
+    nextSubgraphs.delete(subgraphId)
+
+    set({
+      nodes: [...remainingNodes, ...innerNodes],
+      subgraphs: nextSubgraphs,
+      selectedNodeIds: new Set<number>(),
+    })
+  },
+
+  enterSubgraph: (subgraphId: SubgraphId): void => {
+    const { subgraphs, activeGraphId, navigationStack, pan, zoom, viewportCache } = get()
+    if (!subgraphs.has(subgraphId)) return
+
+    // 현재 뷰포트 캐시에 저장
+    const cacheKey = activeGraphId ?? "__root__"
+    const nextViewportCache = new Map(viewportCache)
+    nextViewportCache.set(cacheKey, { pan: [...pan] as [number, number], zoom })
+
+    const nextStack = activeGraphId !== null
+      ? [...navigationStack, activeGraphId]
+      : [...navigationStack]
+    set({
+      activeGraphId: subgraphId,
+      navigationStack: nextStack,
+      viewportCache: nextViewportCache,
+      selectedNodeIds: new Set<number>(),
+      pan: [0, 0],
+      zoom: 1.0,
+    })
+  },
+
+  exitSubgraph: (): void => {
+    const { navigationStack, pan, zoom, activeGraphId, viewportCache } = get()
+    if (navigationStack.length === 0) {
+      set({ activeGraphId: null, navigationStack: [] })
+      return
+    }
+
+    // 현재 뷰포트 캐시에 저장
+    const cacheKey = activeGraphId ?? "__root__"
+    const nextViewportCache = new Map(viewportCache)
+    nextViewportCache.set(cacheKey, { pan: [...pan] as [number, number], zoom })
+
+    const prevId: GraphId = navigationStack[navigationStack.length - 1] ?? null
+    const nextStack = navigationStack.slice(0, -1)
+    const restored = nextViewportCache.get(prevId ?? "__root__")
+
+    set({
+      activeGraphId: prevId,
+      navigationStack: nextStack,
+      viewportCache: nextViewportCache,
+      selectedNodeIds: new Set<number>(),
+      pan: restored ? restored.pan : [0, 0],
+      zoom: restored ? restored.zoom : 1.0,
+    })
+  },
+
+  getActiveNodes: (): ComfyWorkflowNode[] => {
+    const { nodes, activeGraphId } = get()
+    if (activeGraphId === null) return nodes.filter((n) => n.graphId === null || n.graphId === undefined)
+    return nodes.filter((n) => n.graphId === activeGraphId)
+  },
+
+  getActiveLinks: (): ComfyWorkflowLink[] => {
+    const { links, activeGraphId } = get()
+    if (activeGraphId === null) {
+      // 루트: IO 노드(-10/-20)가 origin/target인 링크는 서브그래프 내부 링크이므로 제외
+      return links.filter((l) =>
+        l.origin_id !== SUBGRAPH_INPUT_ID &&
+        l.target_id !== SUBGRAPH_OUTPUT_ID
+      )
+    }
+    // 서브그래프: IO 노드 엔드포인트를 가진 링크만 해당 서브그래프 내부
+    return links.filter((l) =>
+      (l.origin_id === SUBGRAPH_INPUT_ID || l.target_id === SUBGRAPH_OUTPUT_ID ||
+       (l.origin_id !== SUBGRAPH_INPUT_ID && l.target_id !== SUBGRAPH_OUTPUT_ID))
+    )
   },
 }))
