@@ -215,7 +215,9 @@ const ImageGridItem = memo(function ImageGridItem({
                   alt={img.originalFilename}
                   loading={imageLazyLoad ? "lazy" : "eager"}
                   className="w-full object-cover transition-transform group-hover:scale-105"
-                  onError={() => { onSetBroken(img.hash); }}
+                  onError={() => {
+                    onSetBroken(img.hash)
+                  }}
                 />
               )}
             </button>
@@ -264,9 +266,7 @@ const ImageGridItem = memo(function ImageGridItem({
                       img.status === "trashed" ? "pending" : "trashed"
                     )
                   }}
-                  aria-label={
-                    img.status === "trashed" ? "복원" : "휴지통"
-                  }
+                  aria-label={img.status === "trashed" ? "복원" : "휴지통"}
                 >
                   <Trash2Icon className="h-4 w-4" />
                 </button>
@@ -312,7 +312,9 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() => { setStatus(img.hash, "approved"); }}
+          onClick={() => {
+            setStatus(img.hash, "approved")
+          }}
           className="gap-2 font-bold text-ok"
           disabled={img.status === "approved"}
         >
@@ -320,7 +322,9 @@ const ImageGridItem = memo(function ImageGridItem({
           통과
         </ContextMenuItem>
         <ContextMenuItem
-          onClick={() => { setStatus(img.hash, "rejected"); }}
+          onClick={() => {
+            setStatus(img.hash, "rejected")
+          }}
           className="gap-2 font-bold text-bad"
           disabled={img.status === "rejected"}
         >
@@ -328,7 +332,9 @@ const ImageGridItem = memo(function ImageGridItem({
           탈락
         </ContextMenuItem>
         <ContextMenuItem
-          onClick={() => { setStatus(img.hash, "pending"); }}
+          onClick={() => {
+            setStatus(img.hash, "pending")
+          }}
           className="gap-2 font-bold text-info"
           disabled={img.status === "pending"}
         >
@@ -337,12 +343,12 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() =>
-            { setStatus(
+          onClick={() => {
+            setStatus(
               img.hash,
               img.status === "trashed" ? "pending" : "trashed"
-            ); }
-          }
+            )
+          }}
           className="gap-2 font-bold"
         >
           <Trash2Icon className="h-3.5 w-3.5" />
@@ -350,7 +356,9 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() => { onOpen(img); }}
+          onClick={() => {
+            onOpen(img)
+          }}
           className="gap-2 font-bold"
         >
           <EyeIcon className="h-3.5 w-3.5" />

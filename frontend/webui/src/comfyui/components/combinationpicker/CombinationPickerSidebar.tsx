@@ -17,16 +17,14 @@ export function CombinationPickerSidebar({
   return (
     <div
       className="sticky flex w-64 flex-none flex-col self-start overflow-hidden rounded-lg border bg-card"
-      style={
-        {
-          maxHeight: "calc(100vh - 45px - var(--toolbar-height, 60px) - 20px)",
-        }
-      }
+      style={{
+        maxHeight: "calc(100vh - 45px - var(--toolbar-height, 60px) - 20px)",
+      }}
     >
       <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
         Combinations
       </div>
-      <div className="flex-1 overflow-y-auto min-h-0 p-1 space-y-0.5">
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1">
         {renderItems.map((item) => {
           const imgs = imagesByFilename.get(item.filename) ?? []
           const isDone = hasApproved(imgs)
@@ -34,7 +32,9 @@ export function CombinationPickerSidebar({
           return (
             <button
               key={item.filename}
-              onClick={() => { setSelectedFilename(item.filename); }}
+              onClick={() => {
+                setSelectedFilename(item.filename)
+              }}
               className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-sm"

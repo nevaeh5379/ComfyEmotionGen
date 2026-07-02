@@ -114,9 +114,17 @@ export interface SubgraphModel {
   category?: string
   description?: string
   /** 입력 경계 노드 bounding (서브그래프 좌측) */
-  inputNode: { id: number; bounding: [number, number, number, number]; pinned: boolean }
+  inputNode: {
+    id: number
+    bounding: [number, number, number, number]
+    pinned: boolean
+  }
   /** 출력 경계 노드 bounding (서브그래프 우측) */
-  outputNode: { id: number; bounding: [number, number, number, number]; pinned: boolean }
+  outputNode: {
+    id: number
+    bounding: [number, number, number, number]
+    pinned: boolean
+  }
   /** 입력 슬롯 (부모→내부). 내부에서는 output-side. */
   inputs: SubgraphSlot[]
   /** 출력 슬롯 (내부→부모). 내부에서는 input-side. */
@@ -151,8 +159,16 @@ export interface SubgraphEventMap {
   "adding-output": { subgraph: SubgraphModel; name: string }
   "output-added": { subgraph: SubgraphModel; output: SubgraphSlot }
   "removing-output": { subgraph: SubgraphModel; output: SubgraphSlot }
-  "renaming-input": { subgraph: SubgraphModel; input: SubgraphSlot; name: string }
-  "renaming-output": { subgraph: SubgraphModel; output: SubgraphSlot; name: string }
+  "renaming-input": {
+    subgraph: SubgraphModel
+    input: SubgraphSlot
+    name: string
+  }
+  "renaming-output": {
+    subgraph: SubgraphModel
+    output: SubgraphSlot
+    name: string
+  }
   "inputs-reordered": { subgraph: SubgraphModel; indices: number[] }
   "widget-promoted": { subgraph: SubgraphModel; widget: ExposedWidget }
   "widget-demoted": { subgraph: SubgraphModel; widget: ExposedWidget }

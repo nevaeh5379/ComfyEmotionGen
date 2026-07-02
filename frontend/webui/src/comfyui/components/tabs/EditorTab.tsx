@@ -9,7 +9,11 @@ import { NodeLibrarySidebar } from "@/components/graph/NodeLibrarySidebar"
 import { NodePropertiesPanel } from "@/components/graph/NodePropertiesPanel"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useGraphStore } from "@/comfyui/stores/graphStore"
-import type { ComfyWorkflowJSON, ComfyWorkflowNode, ComfyWorkflowLink } from "@/comfyui/types/workflow"
+import type {
+  ComfyWorkflowJSON,
+  ComfyWorkflowNode,
+  ComfyWorkflowLink,
+} from "@/comfyui/types/workflow"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -55,7 +59,7 @@ import { convertGraphToPrompt } from "@/comfyui/services/appService"
 /** ComfyWorkflowNode[] / ComfyWorkflowLink[] → ComfyWorkflowJSON */
 function buildWorkflowJSON(
   nodes: ComfyWorkflowNode[],
-  links: ComfyWorkflowLink[],
+  links: ComfyWorkflowLink[]
 ): ComfyWorkflowJSON {
   return {
     last_node_id: Math.max(0, ...(nodes.map((n) => n.id), [])),
@@ -67,7 +71,9 @@ function buildWorkflowJSON(
 }
 
 /** 원시 배열 링크 [id, origin_id, …] → ComfyWorkflowLink 객체로 정규화 */
-function normalizeLinks(raw: (ComfyWorkflowLink | unknown[])[]): ComfyWorkflowLink[] {
+function normalizeLinks(
+  raw: (ComfyWorkflowLink | unknown[])[]
+): ComfyWorkflowLink[] {
   return raw.map((l: ComfyWorkflowLink | unknown[]) => {
     if (Array.isArray(l)) {
       return {
@@ -96,7 +102,13 @@ interface ExecutionStatusBadgeProps {
 
 const STATUS_CONFIG: Record<
   NonNullable<ExecutionStatusBadgeProps["status"]>,
-  { bg: string; border: string; text: string; icon: React.ReactNode; label: string }
+  {
+    bg: string
+    border: string
+    text: string
+    icon: React.ReactNode
+    label: string
+  }
 > = {
   idle: { bg: "", border: "", text: "", icon: null, label: "" },
   running: {
@@ -105,8 +117,8 @@ const STATUS_CONFIG: Record<
     text: "text-zinc-300",
     icon: (
       <span className="relative flex h-2 w-2 shrink-0">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
       </span>
     ),
     label: "", // 진행 중은 별도 렌더링
@@ -144,16 +156,20 @@ function ExecutionStatusBadge({
 
   if (status === "running") {
     return (
-      <div className={`flex items-center gap-2.5 px-3 py-1 rounded-md text-xs border ${STATUS_CONFIG.running.bg} ${STATUS_CONFIG.running.border}`}>
+      <div
+        className={`flex items-center gap-2.5 rounded-md border px-3 py-1 text-xs ${STATUS_CONFIG.running.bg} ${STATUS_CONFIG.running.border}`}
+      >
         {STATUS_CONFIG.running.icon}
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-[10px] text-zinc-300 leading-none">
+            <span className="text-[10px] leading-none font-bold text-zinc-300">
               진행 중 ({completedCount}/{totalCount})
             </span>
-            <span className="font-mono text-[9px] text-green-500 font-bold leading-none">{progressPercent}%</span>
+            <span className="font-mono text-[9px] leading-none font-bold text-green-500">
+              {progressPercent}%
+            </span>
           </div>
-          <div className="w-28 h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
+          <div className="mt-1 h-1 w-28 overflow-hidden rounded-full bg-zinc-800">
             <div
               className="h-full bg-green-500 transition-all duration-300"
               style={{ width: `${String(progressPercent)}%` }}
@@ -166,7 +182,9 @@ function ExecutionStatusBadge({
 
   const config = STATUS_CONFIG[status]
   return (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold text-[10px] leading-none animate-pulse border ${config.bg} ${config.border} ${config.text}`}>
+    <div
+      className={`flex animate-pulse items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs text-[10px] leading-none font-bold ${config.bg} ${config.border} ${config.text}`}
+    >
       {config.icon}
       {config.label}
     </div>
@@ -183,7 +201,11 @@ interface PanelToggleProps {
   children: React.ReactNode
 }
 
-function PanelToggle({ active, onToggle, children }: PanelToggleProps): React.JSX.Element {
+function PanelToggle({
+  active,
+  onToggle,
+  children,
+}: PanelToggleProps): React.JSX.Element {
   return (
     <Button
       variant="ghost"
@@ -202,13 +224,17 @@ function PanelToggle({ active, onToggle, children }: PanelToggleProps): React.JS
 
 export function EditorTab(): React.JSX.Element {
   const backendUrl = useBackendUrl()
-  const [currentWorkflow, setCurrentWorkflow] = useState<ComfyWorkflowJSON | null>(null)
+  const [currentWorkflow, setCurrentWorkflow] =
+    useState<ComfyWorkflowJSON | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   const [showRightPanel, setShowRightPanel] = useState(true)
 
-  const { workflows: savedEditorWorkflows, saveWorkflow: saveEditorWorkflow, deleteWorkflow: deleteEditorWorkflow } =
-    useEditorSavedWorkflows()
+  const {
+    workflows: savedEditorWorkflows,
+    saveWorkflow: saveEditorWorkflow,
+    deleteWorkflow: deleteEditorWorkflow,
+  } = useEditorSavedWorkflows()
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [saveName, setSaveName] = useState("")
   const [loadDialogOpen, setLoadDialogOpen] = useState(false)
@@ -229,7 +255,9 @@ export function EditorTab(): React.JSX.Element {
     return nodes.filter((n) => n.mode !== 4 && n.mode !== 2) // 4: BYPASS, 2: NEVER
   }, [nodes])
 
-  const completedCount = overallProgress ? overallProgress.value : executedNodeIds.size
+  const completedCount = overallProgress
+    ? overallProgress.value
+    : executedNodeIds.size
   const totalCount = overallProgress ? overallProgress.max : activeNodes.length
 
   const progressPercent = useMemo(() => {
@@ -271,14 +299,23 @@ export function EditorTab(): React.JSX.Element {
       }
     }
     void load()
-    return (): void => { cancelled = true }
+    return (): void => {
+      cancelled = true
+    }
   }, [setNodeDefs, backendUrl])
 
   const handleSaveWorkflow = useCallback((): void => {
     if (saveName.trim() === "") return
     // subgraph definitions 포함을 위해 appService.serializeGraph 사용
-    const w = window as unknown as { __comfyAppService?: { serializeGraph?: () => ComfyWorkflowJSON } }
-    const workflow = w.__comfyAppService?.serializeGraph?.() ?? buildWorkflowJSON(useReactGraphStore.getState().nodes, useReactGraphStore.getState().links)
+    const w = window as unknown as {
+      __comfyAppService?: { serializeGraph?: () => ComfyWorkflowJSON }
+    }
+    const workflow =
+      w.__comfyAppService?.serializeGraph?.() ??
+      buildWorkflowJSON(
+        useReactGraphStore.getState().nodes,
+        useReactGraphStore.getState().links
+      )
     saveEditorWorkflow(saveName.trim(), workflow)
     setSaveDialogOpen(false)
     setSaveName("")
@@ -294,20 +331,31 @@ export function EditorTab(): React.JSX.Element {
           const text = e.target?.result as string | undefined
           if (typeof text !== "string") return
           const parsed = JSON.parse(text) as unknown
-          if (parsed === null || parsed === undefined || typeof parsed !== "object") return
+          if (
+            parsed === null ||
+            parsed === undefined ||
+            typeof parsed !== "object"
+          )
+            return
           const workflow = parsed as Record<string, unknown>
           const nodesVal = workflow.nodes
           if (nodesVal === undefined || !Array.isArray(nodesVal)) {
-            throw new Error("Invalid ComfyUI workflow JSON: missing nodes array")
+            throw new Error(
+              "Invalid ComfyUI workflow JSON: missing nodes array"
+            )
           }
-          const linksVal = workflow.links as (ComfyWorkflowLink | unknown[])[] | undefined
+          const linksVal = workflow.links as
+            | (ComfyWorkflowLink | unknown[])[]
+            | undefined
           if (linksVal !== undefined && Array.isArray(linksVal)) {
             workflow.links = normalizeLinks(linksVal)
           }
           setCurrentWorkflow(workflow as unknown as ComfyWorkflowJSON)
         } catch (err) {
           console.error("[EditorTab] Failed to import workflow file:", err)
-          alert("워크플로우 파일을 불러오는데 실패했습니다. 올바른 JSON 파일인지 확인해주세요.")
+          alert(
+            "워크플로우 파일을 불러오는데 실패했습니다. 올바른 JSON 파일인지 확인해주세요."
+          )
         } finally {
           if (fileInputRef.current) {
             fileInputRef.current.value = ""
@@ -319,13 +367,10 @@ export function EditorTab(): React.JSX.Element {
     []
   )
 
-  const handleLoadWorkflow = useCallback(
-    (w: EditorSavedWorkflow): void => {
-      setCurrentWorkflow(w.workflow)
-      setLoadDialogOpen(false)
-    },
-    []
-  )
+  const handleLoadWorkflow = useCallback((w: EditorSavedWorkflow): void => {
+    setCurrentWorkflow(w.workflow)
+    setLoadDialogOpen(false)
+  }, [])
 
   const handleDeleteWorkflow = useCallback(
     (id: string): void => {
@@ -356,7 +401,10 @@ export function EditorTab(): React.JSX.Element {
     const workflowJSON = buildWorkflowJSON(nodes, links)
 
     try {
-      await window.api.queuePrompt(0, { output: workflow, workflow: workflowJSON })
+      await window.api.queuePrompt(0, {
+        output: workflow,
+        workflow: workflowJSON,
+      })
       toast.success("워크플로우가 실행 큐에 추가되었습니다.")
     } catch (err) {
       console.error("Failed to queue prompt:", err)
@@ -365,21 +413,29 @@ export function EditorTab(): React.JSX.Element {
   }, [])
 
   // 노드 라이브러리에서 노드 추가
-  const handleAddNode = useCallback((type: string): void => {
-    const def = nodeDefs[type]
-    const state = useReactGraphStore.getState()
-    const pos: [number, number] = [
-      Math.round(150 - state.pan[0] / state.zoom),
-      Math.round(150 - state.pan[1] / state.zoom),
-    ]
-    state.addNode(type, pos, def)
-  }, [nodeDefs])
+  const handleAddNode = useCallback(
+    (type: string): void => {
+      const def = nodeDefs[type]
+      const state = useReactGraphStore.getState()
+      const pos: [number, number] = [
+        Math.round(150 - state.pan[0] / state.zoom),
+        Math.round(150 - state.pan[1] / state.zoom),
+      ]
+      state.addNode(type, pos, def)
+    },
+    [nodeDefs]
+  )
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex h-full w-full flex-col">
       {/* 툴바 */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b bg-background shrink-0">
-        <PanelToggle active={showLeftPanel} onToggle={() => { setShowLeftPanel((v) => !v); }}>
+      <div className="flex shrink-0 items-center gap-2 border-b bg-background px-3 py-2">
+        <PanelToggle
+          active={showLeftPanel}
+          onToggle={() => {
+            setShowLeftPanel((v) => !v)
+          }}
+        >
           <PanelLeft className="h-4 w-4" />
         </PanelToggle>
         <Button
@@ -404,7 +460,7 @@ export function EditorTab(): React.JSX.Element {
         >
           <Redo2 className="h-4 w-4" />
         </Button>
-        <div className="flex-1 flex items-center justify-end gap-3 px-4">
+        <div className="flex flex-1 items-center justify-end gap-3 px-4">
           <ExecutionStatusBadge
             status={executionStatus}
             completedCount={completedCount}
@@ -437,7 +493,9 @@ export function EditorTab(): React.JSX.Element {
           <Button
             variant="default"
             size="sm"
-            onClick={() => { void handleRunFromEditor(); }}
+            onClick={() => {
+              void handleRunFromEditor()
+            }}
             disabled={!isAliveBackend}
             className="gap-1"
           >
@@ -445,10 +503,9 @@ export function EditorTab(): React.JSX.Element {
             실행
           </Button>
         )}
-        <div className="h-4 w-px bg-border mx-1" />
+        <div className="mx-1 h-4 w-px bg-border" />
         <Button variant="ghost" size="sm" onClick={handleNewWorkflow}>
-          <FolderOpen className="h-4 w-4 mr-1" />
-          새 워크플로우
+          <FolderOpen className="mr-1 h-4 w-4" />새 워크플로우
         </Button>
         <Button
           variant="ghost"
@@ -459,15 +516,17 @@ export function EditorTab(): React.JSX.Element {
             setSaveDialogOpen(true)
           }}
         >
-          <Save className="h-4 w-4 mr-1" />
+          <Save className="mr-1 h-4 w-4" />
           저장
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => { setLoadDialogOpen(true); }}
+          onClick={() => {
+            setLoadDialogOpen(true)
+          }}
         >
-          <Folder className="h-4 w-4 mr-1" />
+          <Folder className="mr-1 h-4 w-4" />
           불러오기
         </Button>
         <Button
@@ -475,7 +534,7 @@ export function EditorTab(): React.JSX.Element {
           size="sm"
           onClick={() => fileInputRef.current?.click()}
         >
-          <Upload className="h-4 w-4 mr-1" />
+          <Upload className="mr-1 h-4 w-4" />
           가져오기
         </Button>
         <input
@@ -486,8 +545,13 @@ export function EditorTab(): React.JSX.Element {
           onChange={handleFileImport}
         />
         <div className="flex-1" />
-        <div className="h-4 w-px bg-border mx-1" />
-        <PanelToggle active={showRightPanel} onToggle={() => { setShowRightPanel((v) => !v); }}>
+        <div className="mx-1 h-4 w-px bg-border" />
+        <PanelToggle
+          active={showRightPanel}
+          onToggle={() => {
+            setShowRightPanel((v) => !v)
+          }}
+        >
           <PanelRight className="h-4 w-4" />
         </PanelToggle>
       </div>
@@ -498,7 +562,8 @@ export function EditorTab(): React.JSX.Element {
           <DialogHeader>
             <DialogTitle>워크플로우 저장</DialogTitle>
             <DialogDescription>
-              현재 에디터의 워크플로우를 저장합니다. 같은 이름이 있으면 덮어씁니다.
+              현재 에디터의 워크플로우를 저장합니다. 같은 이름이 있으면
+              덮어씁니다.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -507,7 +572,9 @@ export function EditorTab(): React.JSX.Element {
               <Input
                 id="workflow-name"
                 value={saveName}
-                onChange={(e) => { setSaveName(e.target.value); }}
+                onChange={(e) => {
+                  setSaveName(e.target.value)
+                }}
                 placeholder="워크플로우 이름"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -519,7 +586,12 @@ export function EditorTab(): React.JSX.Element {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setSaveDialogOpen(false); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSaveDialogOpen(false)
+              }}
+            >
               취소
             </Button>
             <Button onClick={handleSaveWorkflow} disabled={!saveName.trim()}>
@@ -540,7 +612,7 @@ export function EditorTab(): React.JSX.Element {
           </DialogHeader>
           <div className="py-2">
             {savedEditorWorkflows.length === 0 ? (
-              <div className="text-center text-sm text-muted-foreground py-8">
+              <div className="py-8 text-center text-sm text-muted-foreground">
                 저장된 워크플로우가 없습니다.
               </div>
             ) : (
@@ -552,8 +624,10 @@ export function EditorTab(): React.JSX.Element {
                   >
                     <button
                       type="button"
-                      className="flex-1 text-left text-sm hover:text-accent-foreground cursor-pointer"
-                      onClick={() => { handleLoadWorkflow(w); }}
+                      className="flex-1 cursor-pointer text-left text-sm hover:text-accent-foreground"
+                      onClick={() => {
+                        handleLoadWorkflow(w)
+                      }}
                     >
                       <span className="font-medium">{w.name}</span>
                       <span className="ml-2 text-xs text-muted-foreground">
@@ -564,7 +638,9 @@ export function EditorTab(): React.JSX.Element {
                       variant="ghost"
                       size="icon-sm"
                       className="ml-2"
-                      onClick={() => { handleDeleteWorkflow(w.id); }}
+                      onClick={() => {
+                        handleDeleteWorkflow(w.id)
+                      }}
                       aria-label="삭제"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -575,7 +651,12 @@ export function EditorTab(): React.JSX.Element {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setLoadDialogOpen(false); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLoadDialogOpen(false)
+              }}
+            >
               닫기
             </Button>
           </DialogFooter>
@@ -583,7 +664,7 @@ export function EditorTab(): React.JSX.Element {
       </Dialog>
 
       {/* 메인 영역: 좌-중-우 */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1">
         {/* 좌측: Node Library */}
         {showLeftPanel && (
           <div className="w-64 shrink-0 border-r">
@@ -592,13 +673,13 @@ export function EditorTab(): React.JSX.Element {
         )}
 
         {/* 중앙: Canvas */}
-        <div className="flex-1 min-w-0 relative">
+        <div className="relative min-w-0 flex-1">
           {isLoading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-muted-foreground">
               노드 정의 로드 중...
             </div>
           ) : Object.keys(nodeDefs).length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-muted-foreground">
               ComfyUI 워커가 연결되어 있지 않습니다.
             </div>
           ) : (

@@ -122,10 +122,18 @@ declare global {
     properties?: Record<string, unknown>
     addInput(name: string, type: string): void
     addOutput(name: string, type: string): void
-    connect(slot: number, node: LGraphNode, inputSlot: number | string): boolean | null
+    connect(
+      slot: number,
+      node: LGraphNode,
+      inputSlot: number | string
+    ): boolean | null
     disconnectInput(slot: number): void
     disconnectOutput(slot: number): void
-    configure(data: ComfyWorkflowNode | Record<string, string | number | boolean | object | null | undefined>): void
+    configure(
+      data:
+        | ComfyWorkflowNode
+        | Record<string, string | number | boolean | object | null | undefined>
+    ): void
     onNodeCreated?(): void
     addWidget(
       type: string,
@@ -230,7 +238,15 @@ declare global {
     options: AddDOMWidgetOptions & { hideOnZoom: boolean }
     _value?: unknown
     value: unknown
-    callback: ((value: unknown, canvas?: LGraphCanvas, node?: LGraphNode, mouse?: [number, number], event?: object) => void) | null
+    callback:
+      | ((
+          value: unknown,
+          canvas?: LGraphCanvas,
+          node?: LGraphNode,
+          mouse?: [number, number],
+          event?: object
+        ) => void)
+      | null
   }
 
   interface SettingEntry {
@@ -318,7 +334,14 @@ declare global {
     }
     ui?: {
       ComfyDialog: new () => object
-      $el: (tag: string, attrs: Record<string, object | string | number | boolean | null> | null | undefined, children?: object) => HTMLElement
+      $el: (
+        tag: string,
+        attrs:
+          | Record<string, object | string | number | boolean | null>
+          | null
+          | undefined,
+        children?: object
+      ) => HTMLElement
       ComfyUI: new () => object
     }
     widgets?: {
@@ -337,8 +360,10 @@ declare global {
       mergeIfValid(): void
     }
     groupNode?: {
-        GroupNodeConfig: (new () => object) & { registerFromWorkflow(): Promise<void> }
-        GroupNodeHandler: new () => object
+      GroupNodeConfig: (new () => object) & {
+        registerFromWorkflow(): Promise<void>
+      }
+      GroupNodeHandler: new () => object
     }
     pnginfo?: {
       getPngMetadata(): Promise<Record<string, unknown>>
@@ -346,7 +371,10 @@ declare global {
     }
     editAttention?: {
       incrementWeight(weight: string, delta: number): string
-      findNearestEnclosure(text: string, cursorPos: number): { start: number; end: number } | null
+      findNearestEnclosure(
+        text: string,
+        cursorPos: number
+      ): { start: number; end: number } | null
       addWeightToParentheses(text: string): string
     }
     widgetValuePropagation?: {
@@ -393,7 +421,14 @@ declare global {
     api: ComfyApi
     comfyExtensions?: object[]
 
-    $el: (tag: string, attrs: Record<string, object | string | number | boolean | null> | null | undefined, children?: object) => HTMLElement
+    $el: (
+      tag: string,
+      attrs:
+        | Record<string, object | string | number | boolean | null>
+        | null
+        | undefined,
+      children?: object
+    ) => HTMLElement
     addStylesheet: (url: string) => HTMLLinkElement
     getUrl: (path: string, base?: string | URL) => string
     ComfyWidgets: ComfyWidgetsAPI
@@ -408,10 +443,18 @@ declare global {
     Exposed: () => void
     CONFIG_SERVICE: { getConfigValue(): unknown; addEventListener(): void }
     ue_callbacks: UECallbacks
-    create: (tag: string, clss: string, parent: HTMLElement | null, properties?: Record<string, unknown>) => HTMLElement
+    create: (
+      tag: string,
+      clss: string,
+      parent: HTMLElement | null,
+      properties?: Record<string, unknown>
+    ) => HTMLElement
     createApp: (arg: unknown) => Record<string, unknown>
     j: (arg: unknown) => Record<string, unknown>
-    LAYOUT_LABEL_TO_DATA: Record<string, [number, [number, number], [number, number]]>
+    LAYOUT_LABEL_TO_DATA: Record<
+      string,
+      [number, [number, number], [number, number]]
+    >
     LAYOUT_LABEL_OPPOSITES: Record<string, string>
     LAYOUT_CLOCKWISE: string[]
     IoDirection: Record<string, unknown>

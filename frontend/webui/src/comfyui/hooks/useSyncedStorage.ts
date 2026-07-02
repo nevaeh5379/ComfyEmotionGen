@@ -17,7 +17,9 @@ interface PendingSyncItem {
 
 export function getSyncQueue(): PendingSyncItem[] {
   try {
-    return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]") as PendingSyncItem[]
+    return JSON.parse(
+      localStorage.getItem(SYNC_QUEUE_KEY) ?? "[]"
+    ) as PendingSyncItem[]
   } catch (err) {
     console.warn("useSyncedStorage: 동기화 큐 파싱 실패:", err)
     return []
@@ -64,7 +66,15 @@ export function useSyncedStorage<T>(
   key: string,
   defaultValue: T,
   options?: { manual?: boolean }
-): [value: T, setValue: React.Dispatch<React.SetStateAction<T>>, state: { isDirty: boolean; saveToServer: () => Promise<boolean>; revert: () => void }] {
+): [
+  value: T,
+  setValue: React.Dispatch<React.SetStateAction<T>>,
+  state: {
+    isDirty: boolean
+    saveToServer: () => Promise<boolean>
+    revert: () => void
+  },
+] {
   const isStringDefault = typeof defaultValue === "string"
   const initializedRef = useRef(false)
   const saveIdRef = useRef(0)
@@ -118,7 +128,10 @@ export function useSyncedStorage<T>(
       try {
         localStorage.setItem(key, serialize(valueRef.current))
       } catch (err) {
-        console.warn(`useSyncedStorage: ${key} 충돌 시 localStorage 저장 실패:`, err)
+        console.warn(
+          `useSyncedStorage: ${key} 충돌 시 localStorage 저장 실패:`,
+          err
+        )
       }
       return true
     }
@@ -137,7 +150,9 @@ export function useSyncedStorage<T>(
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
-    return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
+    return () => {
+      window.removeEventListener(SETTINGS_READY_EVENT, onReady)
+    }
   }, [key, deserialize, handlePendingConflict, serialize])
 
   useEffect((): (() => void) | undefined => {
@@ -154,7 +169,9 @@ export function useSyncedStorage<T>(
       setValue(nextValue)
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
-    return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
+    return () => {
+      window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
+    }
   }, [key, deserialize, handlePendingConflict, serialize])
 
   useEffect(() => {
@@ -183,15 +200,19 @@ export function useSyncedStorage<T>(
     }
 
     const currentId = ++saveIdRef.current
-    void saveSetting(key, serialized).then((ok) => {
-      if (saveIdRef.current !== currentId) return
-      if (!ok) enqueueSync(key, serialized)
-      else {
-        clearSyncQueueFor(key)
-        lastServerValueRef.current = serialized
-        setIsDirty(false)
-      }
-    }).catch((err: unknown) => { console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err); })
+    void saveSetting(key, serialized)
+      .then((ok) => {
+        if (saveIdRef.current !== currentId) return
+        if (!ok) enqueueSync(key, serialized)
+        else {
+          clearSyncQueueFor(key)
+          lastServerValueRef.current = serialized
+          setIsDirty(false)
+        }
+      })
+      .catch((err: unknown) => {
+        console.warn(`useSyncedStorage: ${key} 서버 저장 실패:`, err)
+      })
   }, [key, value, serialize, options?.manual])
 
   const saveToServer = useCallback(() => {

@@ -52,13 +52,16 @@ export interface UseSessionManagerReturn {
   refetchStats: () => void
 }
 
-export function useSessionManager(backendUrlProp?: string): UseSessionManagerReturn {
-   
+export function useSessionManager(
+  backendUrlProp?: string
+): UseSessionManagerReturn {
   const { jobs } = useBackend()
   const backendUrl: string = useMemo(() => {
     if (backendUrlProp !== "") return backendUrlProp ?? "http://127.0.0.1:8188"
     try {
-      return localStorage.getItem(STORAGE_KEYS.backendUrl) ?? "http://127.0.0.1:8188"
+      return (
+        localStorage.getItem(STORAGE_KEYS.backendUrl) ?? "http://127.0.0.1:8188"
+      )
     } catch {
       return "http://127.0.0.1:8188"
     }
@@ -90,21 +93,19 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
   )
 
   // Default: newest marker
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(
-    () => {
-      const sorted = [...initialMarkers].sort((a, b) => b.startAt - a.startAt)
-      if (activeState.activeSessionId !== "") return activeState.activeSessionId
-      const first = sorted[0]
-      if (first !== undefined) return first.id
-      return ""
-    }
-  )
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(() => {
+    const sorted = [...initialMarkers].sort((a, b) => b.startAt - a.startAt)
+    if (activeState.activeSessionId !== "") return activeState.activeSessionId
+    const first = sorted[0]
+    if (first !== undefined) return first.id
+    return ""
+  })
 
   // ── Load from server on mount ──
   useEffect((): (() => void) | undefined => {
     let aborted = false
-    void Promise.all([loadMarkersFromServer(), loadActiveStateFromServer()]).then(
-      ([serverMarkers, serverActiveState]) => {
+    void Promise.all([loadMarkersFromServer(), loadActiveStateFromServer()])
+      .then(([serverMarkers, serverActiveState]) => {
         if (aborted) return
         if (serverMarkers.length > 0) {
           setMarkersRaw(serverMarkers)
@@ -113,8 +114,10 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
           setActiveStateRaw(serverActiveState)
           setSelectedSessionId(serverActiveState.activeSessionId)
         }
-      }
-    ).catch((err: unknown) => { void err; })
+      })
+      .catch((err: unknown) => {
+        void err
+      })
     return () => {
       aborted = true
     }
@@ -123,8 +126,12 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
 
   // ── Async Stats State ──
-  const [sessionJobCounts, setSessionJobCounts] = useState<Map<string, number>>(new Map())
-  const [sessionCounts, setSessionCounts] = useState<Record<JobStatus | "active", number>>({
+  const [sessionJobCounts, setSessionJobCounts] = useState<Map<string, number>>(
+    new Map()
+  )
+  const [sessionCounts, setSessionCounts] = useState<
+    Record<JobStatus | "active", number>
+  >({
     pending: 0,
     queued: 0,
     running: 0,
@@ -134,10 +141,12 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
     active: 0,
   })
   const [statsTick, setStatsTick] = useState(0)
-  const refetchStats = useCallback((): void => { setStatsTick((t) => t + 1); }, [])
+  const refetchStats = useCallback((): void => {
+    setStatsTick((t) => t + 1)
+  }, [])
 
   // 활성 잡들의 상태 변화가 생기면 실시간 카운트 리프레시
-   
+
   const activeJobsKey = useMemo(() => {
     return jobs.map((j) => `${j.id}:${j.status}`).join(",")
   }, [jobs])
@@ -160,7 +169,10 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
           }),
         })
         if (!res.ok) throw new Error("Stats load failed")
-        const data = await res.json() as { sessionJobCounts?: Record<string, number>; selectedSessionCounts?: Record<JobStatus | "active", number> }
+        const data = (await res.json()) as {
+          sessionJobCounts?: Record<string, number>
+          selectedSessionCounts?: Record<JobStatus | "active", number>
+        }
         if (aborted) return
 
         const map = new Map<string, number>()
@@ -183,7 +195,14 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
     return () => {
       aborted = true
     }
-  }, [markers, activeState, selectedSessionId, backendUrl, activeJobsKey, statsTick])
+  }, [
+    markers,
+    activeState,
+    selectedSessionId,
+    backendUrl,
+    activeJobsKey,
+    statsTick,
+  ])
 
   const createNewSession = useCallback((): void => {
     const nonEmpty = markers.filter(
@@ -208,39 +227,42 @@ export function useSessionManager(backendUrlProp?: string): UseSessionManagerRet
 
   const sessionJobs = useMemo<JobView[]>(() => [], [])
 
-  return useMemo(() => ({
-    markers,
-    setMarkersRaw,
-    activeState,
-    setActiveStateRaw,
-    persistMarkers,
-    persistActiveState,
-    sortedMarkers,
-    selectedSessionId,
-    setSelectedSessionId,
-    sessionJobCounts,
-    sessionJobs,
-    sessionCounts,
-    sessionPickerOpen,
-    setSessionPickerOpen,
-    createNewSession,
-    refetchStats,
-  }), [
-    markers,
-    setMarkersRaw,
-    activeState,
-    setActiveStateRaw,
-    persistMarkers,
-    persistActiveState,
-    sortedMarkers,
-    selectedSessionId,
-    setSelectedSessionId,
-    sessionJobCounts,
-    sessionJobs,
-    sessionCounts,
-    sessionPickerOpen,
-    setSessionPickerOpen,
-    createNewSession,
-    refetchStats,
-  ])
+  return useMemo(
+    () => ({
+      markers,
+      setMarkersRaw,
+      activeState,
+      setActiveStateRaw,
+      persistMarkers,
+      persistActiveState,
+      sortedMarkers,
+      selectedSessionId,
+      setSelectedSessionId,
+      sessionJobCounts,
+      sessionJobs,
+      sessionCounts,
+      sessionPickerOpen,
+      setSessionPickerOpen,
+      createNewSession,
+      refetchStats,
+    }),
+    [
+      markers,
+      setMarkersRaw,
+      activeState,
+      setActiveStateRaw,
+      persistMarkers,
+      persistActiveState,
+      sortedMarkers,
+      selectedSessionId,
+      setSelectedSessionId,
+      sessionJobCounts,
+      sessionJobs,
+      sessionCounts,
+      sessionPickerOpen,
+      setSessionPickerOpen,
+      createNewSession,
+      refetchStats,
+    ]
+  )
 }

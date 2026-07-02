@@ -74,37 +74,47 @@ export function CurationToolbarProvider({
     STORAGE_KEYS.curationListLayout,
     "gallery"
   )
-  const [gridSubMode, setGridSubModeState] = useLocalStorage<"grid" | "compare" | "tournament">(
-    STORAGE_KEYS.curationGridSubMode,
-    "grid"
-  )
+  const [gridSubMode, setGridSubModeState] = useLocalStorage<
+    "grid" | "compare" | "tournament"
+  >(STORAGE_KEYS.curationGridSubMode, "grid")
   const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [hideRejected, setHideRejected] = useState(false)
   const [autoAdvance, setAutoAdvance] = useState(false)
-  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
+  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">(
+    "hash"
+  )
   const [showUnassignedPanel, setShowUnassignedPanel] = useState(false)
   const [unassignedGroupsSize, setUnassignedGroupsSize] = useState(0)
   const exportRef = useRef<() => void>(null as unknown as () => void)
   const refreshRef = useRef<() => void>(null as unknown as () => void)
 
-  const setViewMode = useCallback((mode: CurationViewMode) => {
-    setViewModeState(mode)
-    if (mode === "gallery" || mode === "table") {
-      setListLayoutState(mode)
-    } else {
-      setGridSubModeState(mode)
-    }
-  }, [setGridSubModeState, setListLayoutState, setViewModeState])
+  const setViewMode = useCallback(
+    (mode: CurationViewMode) => {
+      setViewModeState(mode)
+      if (mode === "gallery" || mode === "table") {
+        setListLayoutState(mode)
+      } else {
+        setGridSubModeState(mode)
+      }
+    },
+    [setGridSubModeState, setListLayoutState, setViewModeState]
+  )
 
-  const setListLayout = useCallback((layout: "gallery" | "table") => {
-    setListLayoutState(layout)
-    setViewModeState(layout)
-  }, [setListLayoutState, setViewModeState])
+  const setListLayout = useCallback(
+    (layout: "gallery" | "table") => {
+      setListLayoutState(layout)
+      setViewModeState(layout)
+    },
+    [setListLayoutState, setViewModeState]
+  )
 
-  const setGridSubMode = useCallback((subMode: "grid" | "compare" | "tournament") => {
-    setGridSubModeState(subMode)
-    setViewModeState(subMode)
-  }, [setGridSubModeState, setViewModeState])
+  const setGridSubMode = useCallback(
+    (subMode: "grid" | "compare" | "tournament") => {
+      setGridSubModeState(subMode)
+      setViewModeState(subMode)
+    },
+    [setGridSubModeState, setViewModeState]
+  )
 
   const setExportHandler = useCallback((fn: () => void) => {
     exportRef.current = fn

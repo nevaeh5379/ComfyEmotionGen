@@ -94,7 +94,11 @@ interface WorkerStatusProps {
   jobs: JobView[]
 }
 
-export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps): React.ReactNode => {
+export const WorkerStatus = ({
+  workers,
+  backendAlive,
+  jobs,
+}: WorkerStatusProps): React.ReactNode => {
   const aliveCount = workers.filter((w) => w.alive).length
   const total = workers.length
   const allAlive = backendAlive && total > 0 && aliveCount === total
@@ -105,9 +109,12 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
       ? "bg-yellow-500"
       : "bg-red-500"
   const workerTypes = [...new Set(workers.map((w) => w.workerType))]
-  const typeLabel = workerTypes.length === 1
-    ? workerTypes[0] === "comfyui" ? "ComfyUI 워커" : workerTypes[0]
-    : "워커"
+  const typeLabel =
+    workerTypes.length === 1
+      ? workerTypes[0] === "comfyui"
+        ? "ComfyUI 워커"
+        : workerTypes[0]
+      : "워커"
   return (
     <StatusHoverCard
       dotColor={dot}
@@ -138,19 +145,22 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
         </p>
         {workers.length === 0 && backendAlive && (
           <p className="text-xs text-muted-foreground">
-            등록된 워커가 없습니다. '서버 설정' &gt; '워커'에서
-            추가하세요.
+            등록된 워커가 없습니다. '서버 설정' &gt; '워커'에서 추가하세요.
           </p>
         )}
         {workers.map((w) => {
           const runningJob =
             jobs.find(
-              (j) => j.workerId === w.id && (j.status === "running" || j.status === "queued")
+              (j) =>
+                j.workerId === w.id &&
+                (j.status === "running" || j.status === "queued")
             ) ??
             (w.currentJobId !== null
               ? jobs.find((j) => j.id === w.currentJobId)
               : undefined)
-          const overallProgress = runningJob ? getOverallProgress(runningJob) : 0
+          const overallProgress = runningJob
+            ? getOverallProgress(runningJob)
+            : 0
 
           return (
             <div
@@ -158,16 +168,16 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
               className="flex flex-col gap-1.5 border-b border-line/45 pb-2 last:border-0 last:pb-0"
             >
               <div className="flex items-center justify-between gap-1 text-xs">
-                <span className="font-mono font-bold shrink-0">{w.id}</span>
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground shrink-0">
+                <span className="shrink-0 font-mono font-bold">{w.id}</span>
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">
                   {w.workerType}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-left text-muted-foreground/80 pl-1">
+                <span className="min-w-0 flex-1 truncate pl-1 text-left text-muted-foreground/80">
                   {w.url}
                 </span>
                 <span
                   className={cn(
-                    "font-bold text-[11px] shrink-0",
+                    "shrink-0 text-[11px] font-bold",
                     w.alive
                       ? w.busy
                         ? "text-yellow-600 dark:text-yellow-400"
@@ -181,9 +191,12 @@ export const WorkerStatus = ({ workers, backendAlive, jobs }: WorkerStatusProps)
 
               {w.alive && w.busy && (
                 <div className="space-y-1.5 pl-2">
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground font-semibold">
-                    <span className="truncate max-w-[190px] font-mono text-[10px] text-foreground/80">
-                      📄 {runningJob ? runningJob.filename : "작업 요청 처리 중..."}
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground">
+                    <span className="max-w-[190px] truncate font-mono text-[10px] text-foreground/80">
+                      📄{" "}
+                      {runningJob
+                        ? runningJob.filename
+                        : "작업 요청 처리 중..."}
                     </span>
                     <span className="mono font-bold tabular-nums">
                       {Math.round(overallProgress)}%

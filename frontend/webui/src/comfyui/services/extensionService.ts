@@ -4,8 +4,16 @@
  * 커스텀 노드 익스텐션 생명주기 관리
  */
 
-import type { ComfyExtension, SidebarTabExt, ExtensionManager, ToastMessageOptions } from "@/comfyui/types/extensionTypes"
-import type { ExecutionErrorWsMessage, NodeError } from "@/comfyui/types/apiSchema"
+import type {
+  ComfyExtension,
+  SidebarTabExt,
+  ExtensionManager,
+  ToastMessageOptions,
+} from "@/comfyui/types/extensionTypes"
+import type {
+  ExecutionErrorWsMessage,
+  NodeError,
+} from "@/comfyui/types/apiSchema"
 import type { NodeId } from "@/comfyui/types/workflow"
 import { useExtensionStore } from "@/comfyui/stores/extensionStore"
 import { api } from "@/comfyui/api"
@@ -34,14 +42,14 @@ export const extensionManager: ExtensionManager = {
 
   toast: {
     add(msg) {
-      if (msg.severity === 'error') {
-        toast.error(msg.summary ?? msg.detail ?? 'Error')
-      } else if (msg.severity === 'warn') {
-        toast.warning(msg.summary ?? msg.detail ?? 'Warning')
-      } else if (msg.severity === 'success') {
-        toast.success(msg.summary ?? msg.detail ?? 'Success')
+      if (msg.severity === "error") {
+        toast.error(msg.summary ?? msg.detail ?? "Error")
+      } else if (msg.severity === "warn") {
+        toast.warning(msg.summary ?? msg.detail ?? "Warning")
+      } else if (msg.severity === "success") {
+        toast.success(msg.summary ?? msg.detail ?? "Success")
       } else {
-        toast.info(msg.summary ?? msg.detail ?? 'Info')
+        toast.info(msg.summary ?? msg.detail ?? "Info")
       }
     },
     remove(_msg: ToastMessageOptions): void {
@@ -49,14 +57,17 @@ export const extensionManager: ExtensionManager = {
     },
     removeAll(): void {
       // intentional no-op
-    }
+    },
   },
 
   dialog: {},
 
   command: {
     commands: [],
-    execute(command: string, options?: { errorHandler?: (error: unknown) => void }): void {
+    execute(
+      command: string,
+      options?: { errorHandler?: (error: unknown) => void }
+    ): void {
       const cmd = this.commands.find((c) => c.id === command)
       if (cmd?.function) {
         try {
@@ -65,7 +76,7 @@ export const extensionManager: ExtensionManager = {
           options?.errorHandler?.(error)
         }
       }
-    }
+    },
   },
 
   setting: {
@@ -74,7 +85,7 @@ export const extensionManager: ExtensionManager = {
     },
     set<U = unknown>(_id: string, _value: U, _typeForGeneric?: U): void {
       // intentional no-op
-    }
+    },
   },
 
   workflow: {},
@@ -102,12 +113,14 @@ export const extensionManager: ExtensionManager = {
     const beforeLen = store.extensions.length
     store.registerExtension(extension)
     const afterLen = useExtensionStore.getState().extensions.length
-    console.log(`[CEG] extensionManager.registerExtension: "${extension.name}" stored=${String(afterLen > beforeLen)} before=${String(beforeLen)} after=${String(afterLen)}`)
+    console.log(
+      `[CEG] extensionManager.registerExtension: "${extension.name}" stored=${String(afterLen > beforeLen)} before=${String(beforeLen)} after=${String(afterLen)}`
+    )
 
     if (extension.commands) {
       this.command.commands.push(...extension.commands)
     }
-  }
+  },
 }
 
 // ── ExtensionService ─────────────────────────────────────────────
@@ -125,12 +138,12 @@ export const extensionService = {
     await Promise.all(
       extensions.map(async (extUrl) => {
         try {
-          const fullUrl = extUrl.startsWith('http')
+          const fullUrl = extUrl.startsWith("http")
             ? extUrl
             : api.fileURL(extUrl)
           await import(/* @vite-ignore */ fullUrl)
         } catch (error) {
-          console.error('Error loading extension', extUrl, error)
+          console.error("Error loading extension", extUrl, error)
         }
       })
     )
@@ -157,7 +170,7 @@ export const extensionService = {
       if (method in ext) {
         try {
           const fn = ext[method] as (...a: unknown[]) => unknown
-          if (typeof fn === 'function') {
+          if (typeof fn === "function") {
             results.push(fn.call(ext, ...args))
           }
         } catch (error) {
@@ -185,7 +198,7 @@ export const extensionService = {
         try {
           if (method in ext) {
             const fn = ext[method] as (...a: unknown[]) => unknown
-            if (typeof fn === 'function') {
+            if (typeof fn === "function") {
               return await fn.call(ext, ...args)
             }
           }
@@ -198,5 +211,5 @@ export const extensionService = {
         return undefined
       })
     )
-  }
+  },
 }

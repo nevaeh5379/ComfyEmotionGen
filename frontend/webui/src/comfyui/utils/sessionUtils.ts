@@ -65,7 +65,9 @@ export function saveMarkers(ms: SessionMarkerRaw[]): void {
   }
   // 서버 비동기 저장
   // Swallow server save errors - localStorage already succeeded
-  saveSetting(SESSIONS_KEY, serialized).catch((): void => { /* intentionally empty */ })
+  saveSetting(SESSIONS_KEY, serialized).catch((): void => {
+    /* intentionally empty */
+  })
 }
 
 /** 로컬 액티브 상태 저장 (localStorage 캐시 + 서버 비동기) */
@@ -79,13 +81,17 @@ export function saveActiveState(state: ActiveStateRaw): void {
   }
   // 서버 비동기 저장
   // Swallow server save errors - localStorage already succeeded
-  saveSetting(ACTIVE_STATE_KEY, serialized).catch((): void => { /* intentionally empty */ })
+  saveSetting(ACTIVE_STATE_KEY, serialized).catch((): void => {
+    /* intentionally empty */
+  })
 }
 
 /** localStorage 에서만 읽기 (동기) */
 export function loadMarkersLocal(): SessionMarkerRaw[] {
   try {
-    return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]") as SessionMarkerRaw[]
+    return JSON.parse(
+      localStorage.getItem(SESSIONS_KEY) ?? "[]"
+    ) as SessionMarkerRaw[]
   } catch {
     return []
   }

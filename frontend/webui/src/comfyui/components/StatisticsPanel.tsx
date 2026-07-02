@@ -18,7 +18,9 @@ import type { JobView, WorkerView, JobStatus } from "../types/Message"
 
 // Recharts Cell is deprecated in types, so we cast it to prevent ESLint deprecation error
 const CELL_KEY = "Cell"
-const RechartsCell = (recharts as Record<string, unknown>)[CELL_KEY] as ComponentType<{ fill?: string; key?: string }>
+const RechartsCell = (recharts as Record<string, unknown>)[
+  CELL_KEY
+] as ComponentType<{ fill?: string; key?: string }>
 
 // Status color tokens (matches existing conventions)
 // ---------------------------------------------------------------------------
@@ -203,7 +205,10 @@ interface StatisticsPanelProps {
   workers: WorkerView[]
 }
 
-export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.ReactNode {
+export function StatisticsPanel({
+  jobs,
+  workers,
+}: StatisticsPanelProps): React.ReactNode {
   const total = jobs.length
 
   // ── Hooks must be called unconditionally ───────────────────────────
@@ -328,7 +333,10 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.
         const total = groupJobs.length
         const done = groupJobs.filter((j) => j.status === "done").length
         const durations = groupJobs
-          .filter((j): j is JobView & { executionDurationMs: number } => j.status === "done" && j.executionDurationMs !== null)
+          .filter(
+            (j): j is JobView & { executionDurationMs: number } =>
+              j.status === "done" && j.executionDurationMs !== null
+          )
           .map((j) => j.executionDurationMs)
         const avgD = durations.length
           ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
@@ -349,7 +357,7 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.
           label,
           total,
           done,
-            avgDuration: avgD !== null ? formatDuration(avgD) : "N/A",
+          avgDuration: avgD !== null ? formatDuration(avgD) : "N/A",
           successRate,
           alive: workerInfo?.alive ?? false,
           busy: workerInfo?.busy ?? false,
@@ -376,7 +384,10 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.
   ).length
   const retryJobs = jobs.filter((j) => j.retryCount > 0).length
   const doneDurations = jobs
-    .filter((j): j is JobView & { executionDurationMs: number } => j.status === "done" && j.executionDurationMs !== null)
+    .filter(
+      (j): j is JobView & { executionDurationMs: number } =>
+        j.status === "done" && j.executionDurationMs !== null
+    )
     .map((j) => j.executionDurationMs)
   const avgDuration = doneDurations.length
     ? Math.round(
@@ -458,7 +469,9 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.
                 ).map((r) => (
                   <button
                     key={r.id}
-                    onClick={() => { setChartRange(r.id); }}
+                    onClick={() => {
+                      setChartRange(r.id)
+                    }}
                     className={cn(
                       "rounded-md px-2.5 py-0.5 text-[10px] font-black transition-all",
                       chartRange === r.id
@@ -540,7 +553,10 @@ export function StatisticsPanel({ jobs, workers }: StatisticsPanelProps): React.
                   stroke="none"
                 >
                   {pieData.map((entry, index) => (
-                    <RechartsCell key={`cell-${String(index)}`} fill={entry.color} />
+                    <RechartsCell
+                      key={`cell-${String(index)}`}
+                      fill={entry.color}
+                    />
                   ))}
                 </Pie>
                 <Tooltip content={<PieTooltip />} />

@@ -4,21 +4,18 @@
  * 커스텀 노드 extensionManager 호환을 위한 타입 정의
  */
 
-import type { ComponentType } from 'react'
+import type { ComponentType } from "react"
 // import type { LGraphCanvas, LGraphNode } from 'comfy-litegraph'
 
-import type { ComfyNodeDef } from './nodeDef'
-import type { ComfyWorkflowJSON, NodeId } from './workflow'
-import type { LGraphNode } from './lgraphAdapterNode'
-import type {
-  ExecutionErrorWsMessage,
-  NodeError
-} from './apiSchema'
+import type { ComfyNodeDef } from "./nodeDef"
+import type { ComfyWorkflowJSON, NodeId } from "./workflow"
+import type { LGraphNode } from "./lgraphAdapterNode"
+import type { ExecutionErrorWsMessage, NodeError } from "./apiSchema"
 
 // ── Extension Manager ─────────────────────────────────────────────
 
 export interface ToastMessageOptions {
-  severity?: 'success' | 'info' | 'warn' | 'error' | 'secondary' | 'contrast'
+  severity?: "success" | "info" | "warn" | "error" | "secondary" | "contrast"
   summary?: string
   detail?: string
   closable?: boolean
@@ -66,18 +63,18 @@ export interface BottomPanelExtension {
   id: string
   title?: string
   titleKey?: string
-  targetPanel?: 'terminal' | 'shortcuts'
+  targetPanel?: "terminal" | "shortcuts"
 }
 
 export interface VueExtension {
   id: string
-  type: 'vue'
+  type: "vue"
   component: ComponentType<unknown>
 }
 
 export interface CustomExtension {
   id: string
-  type: 'custom'
+  type: "custom"
   render: (container: HTMLElement) => void
   destroy?: () => void
 }
@@ -94,7 +91,10 @@ export interface ExtensionManager {
 
   toast: ToastManager
   dialog: {
-    showErrorDialog?: (error: unknown, options?: Record<string, unknown>) => void
+    showErrorDialog?: (
+      error: unknown,
+      options?: Record<string, unknown>
+    ) => void
     [key: string]: unknown
   }
   command: CommandManager
@@ -122,13 +122,13 @@ export interface AboutPageBadge {
   label: string
   url: string
   icon: string
-  severity?: 'danger' | 'warn'
+  severity?: "danger" | "warn"
 }
 
 export interface TopbarBadge {
   text: string
   label?: string
-  variant?: 'info' | 'warning' | 'error'
+  variant?: "info" | "warning" | "error"
   icon?: string
   tooltip?: string
 }
@@ -177,7 +177,11 @@ export interface ComfyExtension {
 
   getCustomWidgets?(
     app: unknown
-  ): Promise<Record<string, unknown> | null | undefined> | Record<string, unknown> | null | undefined
+  ):
+    | Promise<Record<string, unknown> | null | undefined>
+    | Record<string, unknown>
+    | null
+    | undefined
 
   getSelectionToolboxCommands?(selectedItem: unknown): string[]
   getCanvasMenuItems?(canvas: LGraphCanvas): unknown[]

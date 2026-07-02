@@ -4,10 +4,7 @@ import {
   useSavedWorkflows,
   type SavedWorkflow,
 } from "../hooks/useSavedWorkflows"
-import {
-  ComfyWorkflowSchema,
-  type NodeMapping,
-} from "@/lib/workflow"
+import { ComfyWorkflowSchema, type NodeMapping } from "@/lib/workflow"
 import { usePendingDialog } from "./PendingDialogContext"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import {
@@ -24,11 +21,15 @@ export function WorkflowProvider({
   const { setPendingSave, handlePendingUpdate, setPendingPresetSelection } =
     usePendingDialog()
 
-  const [workflowJson, setWorkflowJson, { isDirty: isWorkflowDirty, saveToServer: saveWorkflowToServer, revert: revertWorkflow }] = useSyncedStorage(
-    STORAGE_KEYS.workflow,
-    "",
-    { manual: true }
-  )
+  const [
+    workflowJson,
+    setWorkflowJson,
+    {
+      isDirty: isWorkflowDirty,
+      saveToServer: saveWorkflowToServer,
+      revert: revertWorkflow,
+    },
+  ] = useSyncedStorage(STORAGE_KEYS.workflow, "", { manual: true })
   const [activeWorkflowId, setActiveWorkflowId] = useSyncedStorage<
     string | null
   >(STORAGE_KEYS.activeWorkflowId, null)
@@ -70,37 +71,38 @@ export function WorkflowProvider({
     }
   }, [workflowJson])
 
-  const loadWorkflowItem = useCallback((
-    w: SavedWorkflow,
-    onClearMappings: () => void,
-    onSetMappings: (m: NodeMapping[], presetId: string) => void
-  ) => {
-    setWorkflowJson(w.workflow)
-    setActiveWorkflowId(w.id)
-    if (w.mappingPresets.length === 0) {
-      onClearMappings()
-    } else if (w.mappingPresets.length === 1) {
-      const first = w.mappingPresets[0]
-      if (first !== undefined) {
-        onSetMappings(first.mappings, first.id)
+  const loadWorkflowItem = useCallback(
+    (
+      w: SavedWorkflow,
+      onClearMappings: () => void,
+      onSetMappings: (m: NodeMapping[], presetId: string) => void
+    ) => {
+      setWorkflowJson(w.workflow)
+      setActiveWorkflowId(w.id)
+      if (w.mappingPresets.length === 0) {
+        onClearMappings()
+      } else if (w.mappingPresets.length === 1) {
+        const first = w.mappingPresets[0]
+        if (first !== undefined) {
+          onSetMappings(first.mappings, first.id)
+        }
+      } else {
+        setPendingPresetSelection(w)
       }
-    } else {
-      setPendingPresetSelection(w)
-    }
-  }, [setWorkflowJson, setActiveWorkflowId, setPendingPresetSelection])
+    },
+    [setWorkflowJson, setActiveWorkflowId, setPendingPresetSelection]
+  )
 
   const onPendingSave = useCallback(
-    (name: string, type: "workflow") => { setPendingSave({ name, type }); },
+    (name: string, type: "workflow") => {
+      setPendingSave({ name, type })
+    },
     [setPendingSave]
   )
 
   const onPendingUpdate = useCallback(
-    (
-      name: string,
-      type: "workflow",
-      oldContent: string,
-      newContent: string
-    ) => handlePendingUpdate(name, type, oldContent, newContent),
+    (name: string, type: "workflow", oldContent: string, newContent: string) =>
+      handlePendingUpdate(name, type, oldContent, newContent),
     [handlePendingUpdate]
   )
 

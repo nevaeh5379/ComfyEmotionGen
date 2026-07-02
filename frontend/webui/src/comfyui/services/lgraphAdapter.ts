@@ -33,10 +33,15 @@ import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 /**
  * MapProxyHandler: Map과 legacy bracket 접근(graph.links[id])을 동시에 지원
  */
-function createMapProxy<T>(target: Map<number, T>): Map<number, T> & Record<number, T> {
+function createMapProxy<T>(
+  target: Map<number, T>
+): Map<number, T> & Record<number, T> {
   const handler: ProxyHandler<Map<number, T>> = {
     get(map, prop) {
-      if (typeof prop === "string" && !Map.prototype.hasOwnProperty.call(Map.prototype, prop)) {
+      if (
+        typeof prop === "string" &&
+        !Map.prototype.hasOwnProperty.call(Map.prototype, prop)
+      ) {
         const numKey = Number(prop)
         if (!isNaN(numKey)) {
           const store = useReactGraphStore
@@ -49,7 +54,7 @@ function createMapProxy<T>(target: Map<number, T>): Map<number, T> & Record<numb
 
       const store = useReactGraphStore
       const currentLinks = store.getState().links
-      const dynamicMap = new Map(currentLinks.map(l => [l.id, l]))
+      const dynamicMap = new Map(currentLinks.map((l) => [l.id, l]))
 
       // If it's a method on Map (like get, has, etc.), we want to invoke it on the dynamic map
       const val = Reflect.get(dynamicMap, prop) as unknown
@@ -147,16 +152,58 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   public status = 1 // STATUS_STOPPED
 
   // ── Data containers ────────────────────────────────────────────
-  public links: Map<number, ComfyWorkflowLink> & Record<number, ComfyWorkflowLink>
+  public links: Map<number, ComfyWorkflowLink> &
+    Record<number, ComfyWorkflowLink>
 
-  // TODO: LGraphGroup[] support
-  public readonly groups: never[] = []
+  // LGraphGroup[] support
+  public get groups(): any[] {
+    const store = useReactGraphStore
+    const state = store.getState()
+    const activeId = state.activeGraphId
+    const activeGroups = state.groups.filter((g) =>
+      activeId === null
+        ? g.graphId === null || g.graphId === undefined
+        : g.graphId === activeId
+    )
+    return activeGroups.map((g) => ({
+      id: g.id,
+      title: g.title,
+      color: g.color,
+      get bounding() {
+        return g.bounding
+      },
+      set bounding(v) {
+        store.getState().updateGroupBounding(g.id, v)
+      },
+      configure(o: any) {
+        g.title = o.title
+        g.bounding = o.bounding
+        g.color = o.color
+      },
+      serialize() {
+        return {
+          id: g.id,
+          title: g.title,
+          bounding: g.bounding,
+          color: g.color,
+        }
+      },
+      recomputeInsideNodes() {},
+      resizeTo() {},
+    }))
+  }
   // TODO: Reroute support
   public readonly reroutes: Map<number, never> = new Map<number, never>()
   // TODO: Floating link support
-  public readonly floatingLinks: ReadonlyMap<number, never> = new Map<number, never>()
+  public readonly floatingLinks: ReadonlyMap<number, never> = new Map<
+    number,
+    never
+  >()
   // Subgraph blueprint registry - reactGraphStore.subgraphs와 동기화 (getter로 위임)
-  public readonly subgraphs: Map<SubgraphId, SubgraphModel> = new Map<SubgraphId, SubgraphModel>()
+  public readonly subgraphs: Map<SubgraphId, SubgraphModel> = new Map<
+    SubgraphId,
+    SubgraphModel
+  >()
 
   // ── State ───────────────────────────────────────────────────────
   public state: LGraphStateData = {
@@ -195,7 +242,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   /** Zustand store에서 현재 nodes를 읽습니다. */
   public get nodes(): LGraphNode[] {
     const store = useReactGraphStore
-    return store.getState().nodes.map((n: ComfyWorkflowNode) => this.wrapNode(n))
+    return store
+      .getState()
+      .nodes.map((n: ComfyWorkflowNode) => this.wrapNode(n))
   }
 
   /** 그래프가 비어있으면 true */
@@ -216,30 +265,37 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const linkedNode = this.linkNodeToGraph(nodeOrGroup, this)
     this._liveNodes.set(linkedNode.id, linkedNode)
 
-    if (!currentState.nodes.some((n: ComfyWorkflowNode) => n.id === nodeOrGroup.id)) {
+    if (
+      !currentState.nodes.some(
+        (n: ComfyWorkflowNode) => n.id === nodeOrGroup.id
+      )
+    ) {
       const workflowNode: ComfyWorkflowNode = {
         id: linkedNode.id,
         type: linkedNode.type ?? "",
         pos: linkedNode.pos,
         size: linkedNode.size,
-        inputs: linkedNode.inputs.length > 0
-          ? linkedNode.inputs.map((i) => ({
-              name: i.name,
-              type: i.type,
-              link: i.link ?? undefined,
-            }))
-          : undefined,
-        outputs: linkedNode.outputs.length > 0
-          ? linkedNode.outputs.map((o, idx: number) => ({
-              name: o.name,
-              type: o.type,
-              links: o.links ?? undefined,
-              slot_index: idx,
-            }))
-          : undefined,
-        widgets_values: (linkedNode.widgets?.length ?? 0) > 0
-          ? (linkedNode.widgets ?? []).map((w) => w.value)
-          : undefined,
+        inputs:
+          linkedNode.inputs.length > 0
+            ? linkedNode.inputs.map((i) => ({
+                name: i.name,
+                type: i.type,
+                link: i.link ?? undefined,
+              }))
+            : undefined,
+        outputs:
+          linkedNode.outputs.length > 0
+            ? linkedNode.outputs.map((o, idx: number) => ({
+                name: o.name,
+                type: o.type,
+                links: o.links ?? undefined,
+                slot_index: idx,
+              }))
+            : undefined,
+        widgets_values:
+          (linkedNode.widgets?.length ?? 0) > 0
+            ? (linkedNode.widgets ?? []).map((w) => w.value)
+            : undefined,
         properties: linkedNode.properties
           ? {
               ...linkedNode.properties,
@@ -280,7 +336,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const liveNode = this._liveNodes.get(numId)
     if (liveNode) return liveNode
     const store = useReactGraphStore
-    const node = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === numId)
+    const node = store
+      .getState()
+      .nodes.find((n: ComfyWorkflowNode) => n.id === numId)
     if (node === undefined) return null
     return this.wrapNode(node)
   }
@@ -312,15 +370,17 @@ export class LGraphAdapter implements LGraphAdapterInterface {
 
   public findNodesByType(type: string): LGraphNode[] {
     const store = useReactGraphStore
-    return store.getState().nodes
-      .filter((n: ComfyWorkflowNode) => n.type === type)
+    return store
+      .getState()
+      .nodes.filter((n: ComfyWorkflowNode) => n.type === type)
       .map((n: ComfyWorkflowNode) => this.wrapNode(n))
   }
 
   public findNodesByTitle(title: string): LGraphNode[] {
     const store = useReactGraphStore
-    return store.getState().nodes
-      .filter((n: ComfyWorkflowNode) => n.type === title)
+    return store
+      .getState()
+      .nodes.filter((n: ComfyWorkflowNode) => n.type === title)
       .map((n: ComfyWorkflowNode) => this.wrapNode(n))
   }
 
@@ -331,24 +391,48 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const state = store.getState()
 
     // Subgraph definitions 직렬화 (사용되는 것만)
-    const rootNodes = state.nodes.filter((n: ComfyWorkflowNode) => n.graphId === null || n.graphId === undefined)
-    const usedIds = findUsedSubgraphIds(rootNodes, state.subgraphs as unknown as Map<string, SubgraphDefinition>)
+    const rootNodes = state.nodes.filter(
+      (n: ComfyWorkflowNode) => n.graphId === null || n.graphId === undefined
+    )
+    const usedIds = findUsedSubgraphIds(
+      rootNodes,
+      state.subgraphs as unknown as Map<string, SubgraphDefinition>
+    )
     const subgraphDefs: SubgraphDefinition[] = []
     for (const id of usedIds) {
       const model = state.subgraphs.get(id)
       if (!model) continue
-      const innerNodes = state.nodes.filter((n: ComfyWorkflowNode) => n.graphId === id)
-      const innerLinks = state.links.filter((l: ComfyWorkflowLink) =>
-        l.origin_id === SUBGRAPH_INPUT_ID ||
-        l.target_id === SUBGRAPH_OUTPUT_ID ||
-        innerNodes.some((n: ComfyWorkflowNode) => n.id === l.origin_id || n.id === l.target_id)
+      const innerNodes = state.nodes.filter(
+        (n: ComfyWorkflowNode) => n.graphId === id
       )
-      subgraphDefs.push(model.asSerialisable(innerNodes, innerLinks))
+      const innerLinks = state.links.filter(
+        (l: ComfyWorkflowLink) =>
+          l.origin_id === SUBGRAPH_INPUT_ID ||
+          l.target_id === SUBGRAPH_OUTPUT_ID ||
+          innerNodes.some(
+            (n: ComfyWorkflowNode) =>
+              n.id === l.origin_id || n.id === l.target_id
+          )
+      )
+      const innerGroups = state.groups.filter((g: any) => g.graphId === id)
+      subgraphDefs.push(
+        model.asSerialisable(innerNodes, innerLinks, innerGroups)
+      )
     }
 
+    const rootGroups = state.groups.filter(
+      (g: any) => g.graphId === null || g.graphId === undefined
+    )
+
     const workflow: ComfyWorkflowJSON = {
-      last_node_id: state.nodes.reduce((max: number, n: ComfyWorkflowNode) => Math.max(max, n.id), 0),
-      last_link_id: state.links.reduce((max: number, l: ComfyWorkflowLink) => Math.max(max, l.id), 0),
+      last_node_id: state.nodes.reduce(
+        (max: number, n: ComfyWorkflowNode) => Math.max(max, n.id),
+        0
+      ),
+      last_link_id: state.links.reduce(
+        (max: number, l: ComfyWorkflowLink) => Math.max(max, l.id),
+        0
+      ),
       nodes: state.nodes.map((n: ComfyWorkflowNode) => ({
         id: n.id,
         type: n.type,
@@ -372,6 +456,14 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         target_id: l.target_id,
         target_slot: l.target_slot,
         type: l.type,
+      })),
+      groups: rootGroups.map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        bounding: g.bounding,
+        color: g.color,
+        fontSize: g.fontSize,
+        locked: g.locked,
       })),
       version: 0.4,
     }
@@ -437,21 +529,32 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       color: node.color,
       bgcolor: node.bgcolor,
       get pos(): [number, number] {
-        const current = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
+        const current = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
         return current?.pos ?? node.pos
       },
       set pos(v: [number, number]) {
         store.getState().updateNodePos(node.id, v)
       },
       get size(): [number, number] {
-        const current = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
+        const current = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
         return current?.size ?? node.size
       },
       set size(v: [number, number]) {
         store.getState().updateNodeSize(node.id, v)
       },
-      get inputs(): { name: string; type: string; link: number | null; widget?: { name: string } | null }[] {
-        const current = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
+      get inputs(): {
+        name: string
+        type: string
+        link: number | null
+        widget?: { name: string } | null
+      }[] {
+        const current = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
         return (current?.inputs ?? []).map((i) => ({
           name: i.name,
           type: i.type,
@@ -460,22 +563,28 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         }))
       },
       get outputs(): { name: string; type: string; links: number[] | null }[] {
-        const current = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
+        const current = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
         return (current?.outputs ?? []).map((o) => ({
           name: o.name,
           type: o.type,
           links: o.links ?? null,
         }))
       },
-      get widgets(): {
-        type: string
-        name: string
-        value: string | number | boolean
-        element: HTMLElement
-        options: Record<string, unknown>
-        callback: ((v: string | number | boolean) => void) | null
-      }[] | undefined {
-        const current = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
+      get widgets():
+        | {
+            type: string
+            name: string
+            value: string | number | boolean
+            element: HTMLElement
+            options: Record<string, unknown>
+            callback: ((v: string | number | boolean) => void) | null
+          }[]
+        | undefined {
+        const current = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
         if (current?.widgets_values === undefined) return undefined
         const widgetNames = (current.properties?.widget_names ?? []) as string[]
         return current.widgets_values.map((v: unknown, idx: number) => ({
@@ -502,19 +611,31 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         targetSlot: number | string
       ): boolean | null {
         const numTargetSlot = typeof targetSlot === "string" ? 0 : targetSlot
-        const originOutput = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs?.[slot]
+        const originOutput = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs?.[
+          slot
+        ]
         const type = originOutput?.type ?? "*"
         store.getState().connect(node.id, slot, target.id, numTargetSlot, type)
         return true
       },
       disconnectInput(slot: number): void {
-        const input = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.inputs?.[slot]
+        const input = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.inputs?.[
+          slot
+        ]
         if (input?.link !== undefined) {
           store.getState().disconnect(input.link)
         }
       },
       disconnectOutput(slot: number): void {
-        const output = store.getState().nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs?.[slot]
+        const output = store
+          .getState()
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs?.[
+          slot
+        ]
         if (output?.links) {
           for (const linkId of output.links) {
             store.getState().disconnect(linkId)
@@ -523,8 +644,10 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       },
       configure(data: ComfyWorkflowNode): void {
         const partialData = data as Partial<ComfyWorkflowNode>
-        if (partialData.pos !== undefined) store.getState().updateNodePos(node.id, partialData.pos)
-        if (partialData.size !== undefined) store.getState().updateNodeSize(node.id, partialData.size)
+        if (partialData.pos !== undefined)
+          store.getState().updateNodePos(node.id, partialData.pos)
+        if (partialData.size !== undefined)
+          store.getState().updateNodeSize(node.id, partialData.size)
       },
       addWidget(
         type: string,
@@ -553,7 +676,14 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           selectOn?: string[]
           [key: string]: unknown
         }
-      ): { type: string; name: string; value: string | number | boolean; element: HTMLElement; options: Record<string, unknown>; callback: ((v: string | number | boolean) => void) | null } {
+      ): {
+        type: string
+        name: string
+        value: string | number | boolean
+        element: HTMLElement
+        options: Record<string, unknown>
+        callback: ((v: string | number | boolean) => void) | null
+      } {
         const opts = options ?? {}
         const w = {
           type,
@@ -566,7 +696,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         let _value: unknown = w.value
         Object.defineProperty(w, "value", {
           get(): unknown {
-            return typeof opts.getValue === "function" ? opts.getValue() : _value
+            return typeof opts.getValue === "function"
+              ? opts.getValue()
+              : _value
           },
           set(v: unknown): void {
             _value = v
@@ -585,21 +717,32 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     } as LGraphNode
   }
 
-  private linkNodeToGraph(node: LGraphNode, graph: LGraphAdapterRef): LGraphNode {
+  private linkNodeToGraph(
+    node: LGraphNode,
+    graph: LGraphAdapterRef
+  ): LGraphNode {
     ;(node as { graph: LGraphAdapterRef }).graph = graph
     this._linkedNodes.add(node)
     return node
   }
 
-  private rebuildLinksFromState(state: { links: ComfyWorkflowLink[] }): ComfyWorkflowLink[] {
+  private rebuildLinksFromState(state: {
+    links: ComfyWorkflowLink[]
+  }): ComfyWorkflowLink[] {
     return state.links
   }
 
   private updateStateFromStore(): void {
     const store = useReactGraphStore
     const state = store.getState()
-    this.state.lastNodeId = state.nodes.reduce((max: number, n: ComfyWorkflowNode) => Math.max(max, n.id), 0)
-    this.state.lastLinkId = state.links.reduce((max: number, l: ComfyWorkflowLink) => Math.max(max, l.id), 0)
+    this.state.lastNodeId = state.nodes.reduce(
+      (max: number, n: ComfyWorkflowNode) => Math.max(max, n.id),
+      0
+    )
+    this.state.lastLinkId = state.links.reduce(
+      (max: number, l: ComfyWorkflowLink) => Math.max(max, l.id),
+      0
+    )
   }
 }
 

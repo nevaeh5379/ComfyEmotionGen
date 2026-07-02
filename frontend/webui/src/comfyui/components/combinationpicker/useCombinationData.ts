@@ -35,14 +35,20 @@ export function useCombinationData({
   unassignedGroups: Map<string, SavedImage[]>
   unassignedTotalCount: number
   statusFilter: "all" | "done" | "pending"
-  setStatusFilter: React.Dispatch<React.SetStateAction<"all" | "done" | "pending">>
+  setStatusFilter: React.Dispatch<
+    React.SetStateAction<"all" | "done" | "pending">
+  >
   searchTags: string[]
   setSearchTags: React.Dispatch<React.SetStateAction<string[]>>
   searchInput: string
   setSearchInput: React.Dispatch<React.SetStateAction<string>>
   candidates: { value: string; type: "filename" | "metadata" }[]
   setStatus: (hash: string, status: SavedImage["status"]) => Promise<void>
-  batchUpdateStatus: (filename: string, filter: (img: SavedImage) => boolean, status: SavedImage["status"]) => Promise<void>
+  batchUpdateStatus: (
+    filename: string,
+    filter: (img: SavedImage) => boolean,
+    status: SavedImage["status"]
+  ) => Promise<void>
   approveImage: (filename: string, selectedHash: string) => Promise<void>
 } {
   const [rawRenderItems, setRawRenderItems] = useState<RenderItem[]>([])
@@ -67,13 +73,18 @@ export function useCombinationData({
       setLoading(true)
       setError(null)
       try {
-        const imagesRes = await fetch(`${backendUrlRef.current}/saved-images?limit=5000`)
+        const imagesRes = await fetch(
+          `${backendUrlRef.current}/saved-images?limit=5000`
+        )
         if (!imagesRes.ok)
           throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
         const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
         setAllImages(imagesData.items)
         setRawRenderItems(
-          groupSavedImagesAsRenderItems(imagesData.items, freeGroupModeRef.current)
+          groupSavedImagesAsRenderItems(
+            imagesData.items,
+            freeGroupModeRef.current
+          )
         )
       } catch (err) {
         setError((err as Error).message)
@@ -98,7 +109,8 @@ export function useCombinationData({
         }),
         fetch(`${backendUrlRef.current}/saved-images?limit=5000`),
       ])
-      if (!renderRes.ok) throw new Error(`렌더 실패: HTTP ${String(renderRes.status)}`)
+      if (!renderRes.ok)
+        throw new Error(`렌더 실패: HTTP ${String(renderRes.status)}`)
       if (!imagesRes.ok)
         throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
       const renderData = (await renderRes.json()) as { items: RenderItem[] }
@@ -208,7 +220,10 @@ export function useCombinationData({
 
       // 4. 입력 중인 임시 검색어 필터링
       if (searchInput.trim()) {
-        const cleanSearch = searchInput.replace(/^[@$]/, "").toLowerCase().trim()
+        const cleanSearch = searchInput
+          .replace(/^[@$]/, "")
+          .toLowerCase()
+          .trim()
         if (cleanSearch) {
           const inFilename = ri.filename.toLowerCase().includes(cleanSearch)
           const inMetadata = metaValues.some((v) => v.includes(cleanSearch))
@@ -218,13 +233,7 @@ export function useCombinationData({
 
       return true
     })
-  }, [
-    renderItems,
-    imagesByFilename,
-    statusFilter,
-    searchTags,
-    searchInput,
-  ])
+  }, [renderItems, imagesByFilename, statusFilter, searchTags, searchInput])
 
   const unassignedGroups = useMemo(() => {
     if (freeGroupMode !== null) return new Map<string, SavedImage[]>()

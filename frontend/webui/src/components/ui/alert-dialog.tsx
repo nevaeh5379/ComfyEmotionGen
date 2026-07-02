@@ -14,7 +14,9 @@ function AlertDialog({
 
 function AlertDialogTrigger({
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof AlertDialogPrimitive.Trigger
+>): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
   )
@@ -22,7 +24,9 @@ function AlertDialogTrigger({
 
 function AlertDialogPortal({
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Portal>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof AlertDialogPrimitive.Portal
+>): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />
   )
@@ -31,7 +35,9 @@ function AlertDialogPortal({
 function AlertDialogOverlay({
   className,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof AlertDialogPrimitive.Overlay
+>): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
@@ -134,7 +140,9 @@ function AlertDialogTitle({
 function AlertDialogDescription({
   className,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Description>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof AlertDialogPrimitive.Description
+>): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
@@ -153,7 +161,10 @@ function AlertDialogAction({
   size = "default",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action> &
-  Pick<React.ComponentProps<typeof Button>, "variant" | "size">): React.JSX.Element {
+  Pick<
+    React.ComponentProps<typeof Button>,
+    "variant" | "size"
+  >): React.JSX.Element {
   return (
     <Button variant={variant} size={size} asChild>
       <AlertDialogPrimitive.Action
@@ -171,7 +182,10 @@ function AlertDialogCancel({
   size = "default",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> &
-  Pick<React.ComponentProps<typeof Button>, "variant" | "size">): React.JSX.Element {
+  Pick<
+    React.ComponentProps<typeof Button>,
+    "variant" | "size"
+  >): React.JSX.Element {
   return (
     <Button variant={variant} size={size} asChild>
       <AlertDialogPrimitive.Cancel

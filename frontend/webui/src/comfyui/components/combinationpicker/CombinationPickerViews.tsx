@@ -49,8 +49,12 @@ export function Magnifier({
   return (
     <div
       className={`relative flex items-center justify-center overflow-hidden bg-black/5 ${className}`}
-      onMouseEnter={() => { setShow(true); }}
-      onMouseLeave={() => { setShow(false); }}
+      onMouseEnter={() => {
+        setShow(true)
+      }}
+      onMouseLeave={() => {
+        setShow(false)
+      }}
       onMouseMove={handleMouseMove}
       style={
         imgNatural
@@ -152,7 +156,9 @@ export function TournamentView({
       }
     }
     window.addEventListener("keydown", handleKeyDown)
-    return (): void => { window.removeEventListener("keydown", handleKeyDown); }
+    return (): void => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [matches, handlePick, handleUndo])
 
   if (matches.length === 0 && nextRound.length === 0) {
@@ -188,7 +194,9 @@ export function TournamentView({
           </Button>
           <Button
             className="px-8 py-6 text-lg font-bold"
-            onClick={() => { onComplete(winner.hash); }}
+            onClick={() => {
+              onComplete(winner.hash)
+            }}
           >
             이 이미지 선택 완료
           </Button>
@@ -229,7 +237,7 @@ export function TournamentView({
           >
             Z: 되돌리기
           </Button>
-          <span className="text-[10px] text-muted-foreground hidden md:inline">
+          <span className="hidden text-[10px] text-muted-foreground md:inline">
             A/D 또는 방향키로 선택
           </span>
         </div>
@@ -238,7 +246,9 @@ export function TournamentView({
         {[left, right].map((img, idx) => (
           <button
             key={img.hash}
-            onClick={() => { handlePick(img); }}
+            onClick={() => {
+              handlePick(img)
+            }}
             className="group relative w-1/2 flex-1 overflow-hidden rounded-xl border-2 border-transparent bg-black/5 transition-all hover:border-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none md:border-4"
             style={{ maxHeight: "calc(100vh - 280px)" }}
           >
@@ -324,7 +334,9 @@ export function LongPressWrapper({
   }, [clear])
 
   useEffect(() => {
-    return (): void => { clear(); }
+    return (): void => {
+      clear()
+    }
   }, [clear])
 
   return (
@@ -388,15 +400,22 @@ function GalleryGridItem({
           <HoverCard openDelay={enableHover ? 500 : 99999} closeDelay={100}>
             <HoverCardTrigger asChild>
               <LongPressWrapper
-                onLongPress={() => { onLongPress(item.filename); }}
+                onLongPress={() => {
+                  onLongPress(item.filename)
+                }}
                 onClick={(e: React.MouseEvent | React.KeyboardEvent) => {
-                  if (selectionMode || "shiftKey" in e && e.shiftKey || "ctrlKey" in e && e.ctrlKey || "metaKey" in e && e.metaKey) {
+                  if (
+                    selectionMode ||
+                    ("shiftKey" in e && e.shiftKey) ||
+                    ("ctrlKey" in e && e.ctrlKey) ||
+                    ("metaKey" in e && e.metaKey)
+                  ) {
                     toggleSelect(item.filename, e)
                   } else {
                     onSelect(item.filename)
                   }
                 }}
-                className={`group relative rounded-xl border bg-card p-0.5 md:p-1 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] ${isSelected ? "border-blue-500/80 bg-blue-50/10 shadow-md ring-2 shadow-blue-500/10 ring-blue-500" : "border-border/80 hover:border-primary/50"}`}
+                className={`group relative rounded-xl border bg-card p-0.5 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] md:p-1 ${isSelected ? "border-blue-500/80 bg-blue-50/10 shadow-md ring-2 shadow-blue-500/10 ring-blue-500" : "border-border/80 hover:border-primary/50"}`}
               >
                 <div
                   className="relative overflow-hidden rounded-lg bg-muted"
@@ -448,7 +467,10 @@ function GalleryGridItem({
 
                   {isDone && (
                     <div className="absolute top-1.5 right-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-green-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110 md:top-2 md:right-2 md:h-6 md:w-6">
-                      <CheckIcon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={3} />
+                      <CheckIcon
+                        className="h-4 w-4 md:h-3.5 md:w-3.5"
+                        strokeWidth={3}
+                      />
                     </div>
                   )}
 
@@ -497,7 +519,9 @@ function GalleryGridItem({
         isSelected={isSelected}
         selectionMode={selectionMode}
         onOpen={onOpen}
-        onToggleSelect={(f) => { toggleSelect(f); }}
+        onToggleSelect={(f) => {
+          toggleSelect(f)
+        }}
         onLongPress={onLongPress}
         {...(onRegenerate !== undefined && { onRegenerate })}
       />
@@ -517,8 +541,14 @@ export function GalleryView({
   onLongPress: (filename: string) => void
   onRegenerate?: (filename: string) => void
 }): React.JSX.Element {
-  const { backendUrl, enableHover, data, selection, thumbnailSize, fluidGridLayout } =
-    useCurationContext()
+  const {
+    backendUrl,
+    enableHover,
+    data,
+    selection,
+    thumbnailSize,
+    fluidGridLayout,
+  } = useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
   const { selectionMode, selectedFilenames, toggleSelect } = selection
 
@@ -604,13 +634,15 @@ export function TableView({
               <ContextMenu key={item.filename}>
                 <ContextMenuTrigger asChild>
                   <LongPressWrapper
-                    onLongPress={() => { onLongPress(item.filename); }}
+                    onLongPress={() => {
+                      onLongPress(item.filename)
+                    }}
                     onClick={(e: React.MouseEvent | React.KeyboardEvent) => {
                       if (
                         selectionMode ||
-                        "shiftKey" in e && e.shiftKey ||
-                        "ctrlKey" in e && e.ctrlKey ||
-                        "metaKey" in e && e.metaKey
+                        ("shiftKey" in e && e.shiftKey) ||
+                        ("ctrlKey" in e && e.ctrlKey) ||
+                        ("metaKey" in e && e.metaKey)
                       ) {
                         toggleSelect(item.filename, e)
                       } else {
@@ -666,9 +698,11 @@ export function TableView({
                   isSelected={isSelected}
                   selectionMode={selectionMode}
                   onOpen={onOpen}
-                  onToggleSelect={(f) => { toggleSelect(f); }}
+                  onToggleSelect={(f) => {
+                    toggleSelect(f)
+                  }}
                   onLongPress={onLongPress}
-                    {...(onRegenerate !== undefined && { onRegenerate })}
+                  {...(onRegenerate !== undefined && { onRegenerate })}
                 />
               </ContextMenu>
             )

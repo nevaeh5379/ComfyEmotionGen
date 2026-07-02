@@ -57,17 +57,21 @@ export interface ComfyWorkflowNode {
 
 /** SubgraphNode 인스턴스 노드인지 확인 (type이 UUID 형식) */
 export function isSubgraphNodeInstance(node: ComfyWorkflowNode): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.type)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    node.type
+  )
 }
 
 export interface ComfyNodeInput {
   name: string
   type: string
   link?: number | undefined
-  widget?: {
-    name: string
-    config?: Record<string, unknown> | undefined
-  } | undefined
+  widget?:
+    | {
+        name: string
+        config?: Record<string, unknown> | undefined
+      }
+    | undefined
 }
 
 export interface ComfyNodeOutput {
@@ -87,11 +91,13 @@ export interface ComfyWorkflowLink {
 }
 
 export interface ComfyWorkflowGroup {
+  id: number
   title: string
   bounding: [number, number, number, number]
   color?: string | undefined
   fontSize?: number | undefined
   locked?: boolean | undefined
+  graphId?: string | null | undefined
 }
 
 /**

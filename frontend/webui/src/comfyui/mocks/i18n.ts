@@ -1,17 +1,19 @@
 export function t(key: string) {
-  return key;
+  return key
 }
 
 export function st(key: string, fallbackMessage: string) {
-  return fallbackMessage;
+  return fallbackMessage
 }
 
 export function stRaw(key: string, fallbackMessage: string) {
-  return fallbackMessage;
+  return fallbackMessage
 }
 
 export function te(key: string) {
-  return false;
+  return false
 }
 
-export function mergeCustomNodesI18n() { /* no-op */ }
+export function mergeCustomNodesI18n() {
+  /* no-op */
+}

@@ -87,7 +87,7 @@ export function FloatingWindow({
     const startLeft = posRef.current.x
     const startTop = posRef.current.y
 
-      const handleMouseMove = (moveEvent: MouseEvent): void => {
+    const handleMouseMove = (moveEvent: MouseEvent): void => {
       const deltaX = moveEvent.clientX - startX
       const deltaY = moveEvent.clientY - startY
 

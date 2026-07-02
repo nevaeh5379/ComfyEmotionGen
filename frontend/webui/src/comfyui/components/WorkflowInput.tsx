@@ -17,7 +17,9 @@ interface WorkflowInputProps {
   inputKey: string
   value: string | number | boolean | string[] | Record<string, unknown>
   spec: ObjectInfoInputSpec | null
-  onSave: (val: string | number | boolean | string[] | Record<string, unknown>) => void
+  onSave: (
+    val: string | number | boolean | string[] | Record<string, unknown>
+  ) => void
 }
 
 export function WorkflowInput({
@@ -27,7 +29,9 @@ export function WorkflowInput({
   spec,
   onSave,
 }: WorkflowInputProps): React.ReactNode {
-  const [localValue, setLocalValue] = useState<string | number | boolean | string[] | Record<string, unknown>>(value)
+  const [localValue, setLocalValue] = useState<
+    string | number | boolean | string[] | Record<string, unknown>
+  >(value)
 
   const getStringValue = (val: typeof localValue): string => {
     if (typeof val === "string") return val
@@ -64,7 +68,7 @@ export function WorkflowInput({
         />
         <Label
           htmlFor={`input-${nodeId}-${inputKey}`}
-          className="text-xs cursor-pointer text-muted-foreground hover:text-foreground font-medium"
+          className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground"
         >
           {boolValue ? "True" : "False"}
         </Label>
@@ -82,7 +86,7 @@ export function WorkflowInput({
           onSave(val)
         }}
       >
-        <SelectTrigger className="h-8 w-full text-[11px] bg-background shadow-xs">
+        <SelectTrigger className="h-8 w-full bg-background text-[11px] shadow-xs">
           <SelectValue placeholder="선택..." />
         </SelectTrigger>
         <SelectContent className="max-h-60">
@@ -100,8 +104,10 @@ export function WorkflowInput({
   const isNumber =
     typeof value === "number" || typeStr === "INT" || typeStr === "FLOAT"
   if (isNumber) {
-    const min = extraParams.min !== undefined ? Number(extraParams.min) : undefined
-    const max = extraParams.max !== undefined ? Number(extraParams.max) : undefined
+    const min =
+      extraParams.min !== undefined ? Number(extraParams.min) : undefined
+    const max =
+      extraParams.max !== undefined ? Number(extraParams.max) : undefined
     const step =
       extraParams.step !== undefined
         ? Number(extraParams.step)
@@ -120,14 +126,14 @@ export function WorkflowInput({
       if (isNaN(num)) {
         num = 0
       }
-      
+
       // Enforce bounds if defined
       if (min !== undefined && num < min) num = min
       if (max !== undefined && num > max) num = max
 
       // Enforce type conversion
       const finalValue = typeStr === "INT" ? Math.round(num) : num
-      
+
       setLocalValue(finalValue)
       if (finalValue !== value) {
         onSave(finalValue)
@@ -152,7 +158,7 @@ export function WorkflowInput({
         min={min}
         max={max}
         step={step}
-        className="h-8 w-full text-xs bg-background shadow-xs font-mono"
+        className="h-8 w-full bg-background font-mono text-xs shadow-xs"
       />
     )
   }
@@ -174,10 +180,12 @@ export function WorkflowInput({
     return (
       <Textarea
         value={getStringValue(localValue)}
-        onChange={(e) => { setLocalValue(e.target.value); }}
+        onChange={(e) => {
+          setLocalValue(e.target.value)
+        }}
         onBlur={handleTextBlurOrSubmit}
         placeholder="텍스트 입력..."
-        className="min-h-[80px] text-xs bg-background shadow-xs leading-normal py-1.5"
+        className="min-h-[80px] bg-background py-1.5 text-xs leading-normal shadow-xs"
       />
     )
   }
@@ -186,7 +194,9 @@ export function WorkflowInput({
     <Input
       type="text"
       value={getStringValue(localValue)}
-      onChange={(e) => { setLocalValue(e.target.value); }}
+      onChange={(e) => {
+        setLocalValue(e.target.value)
+      }}
       onBlur={handleTextBlurOrSubmit}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
@@ -195,7 +205,7 @@ export function WorkflowInput({
         }
       }}
       placeholder="값 입력..."
-      className="h-8 w-full text-xs bg-background shadow-xs"
+      className="h-8 w-full bg-background text-xs shadow-xs"
     />
   )
 }

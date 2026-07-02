@@ -22,7 +22,10 @@ function safeSetItem(key: string, value: string): boolean {
   }
 }
 
-export function useLocalStorage<T>(key: string, defaultValue: T): [value: T, setValue: (newValue: T | ((prev: T) => T)) => void] {
+export function useLocalStorage<T>(
+  key: string,
+  defaultValue: T
+): [value: T, setValue: (newValue: T | ((prev: T) => T)) => void] {
   const isStringDefault = typeof defaultValue === "string"
 
   const [value, setValue] = useState<T>(() => {
@@ -56,7 +59,9 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [value: T, set
       }
     }
     window.addEventListener("storage", handleStorage)
-    return (): void => { window.removeEventListener("storage", handleStorage); }
+    return (): void => {
+      window.removeEventListener("storage", handleStorage)
+    }
   }, [key, defaultValue, isStringDefault])
 
   // 래핑된 setter: localStorage 저장 + 같은 탭 내 동기화를 위해 storage 이벤트 dispatch
@@ -68,16 +73,14 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [value: T, set
             ? (newValue as (prev: T) => T)(prev)
             : newValue
         const serialized = isStringDefault
-          ? next as string
+          ? (next as string)
           : JSON.stringify(next)
         safeSetItem(key, serialized)
         window.dispatchEvent(
           new StorageEvent("storage", {
             key,
             newValue: serialized,
-            oldValue: isStringDefault
-              ? (prev as string)
-              : JSON.stringify(prev),
+            oldValue: isStringDefault ? (prev as string) : JSON.stringify(prev),
             url: window.location.href,
           })
         )

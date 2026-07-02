@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import type { NodeMapping } from "@/lib/workflow"
 import { buildAutoMappings } from "@/lib/workflowUtils"
@@ -147,55 +153,55 @@ export function NodeMappingProvider({
     setImageUploads((prev) => ({ ...prev, ...next }))
   }, [nodeMappings, backendUrl])
 
-  const handleImageUpload = useCallback(async (
-    file: File,
-    nodeId: string,
-    inputKey: string
-  ) => {
-    const key = `${nodeId}.${inputKey}`
-    const previewUrl = URL.createObjectURL(file)
-    setImageUploads((prev) => ({
-      ...prev,
-      [key]: { uploadedName: null, error: null, uploading: true, previewUrl },
-    }))
-    try {
-      const fd = new FormData()
-      fd.append("file", file)
-      const res = await fetch(`${backendUrl}${API.images.upload}`, {
-        method: "POST",
-        body: fd,
-      })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
-      const data = (await res.json()) as { hash: string; filename: string }
-      // imageValue에 __upload__{hash}.{ext} 마커 저장
-      const ext = file.name.split(".").pop() ?? "png"
-      updateMapping(
-        nodeMappings.find((m) => m.nodeId === nodeId && m.inputKey === inputKey)
-          ?.id ?? "",
-        { imageValue: `__upload__${data.hash}.${ext}` }
-      )
+  const handleImageUpload = useCallback(
+    async (file: File, nodeId: string, inputKey: string) => {
+      const key = `${nodeId}.${inputKey}`
+      const previewUrl = URL.createObjectURL(file)
       setImageUploads((prev) => ({
         ...prev,
-        [key]: {
-          uploadedName: data.hash,
-          error: null,
-          uploading: false,
-          previewUrl,
-        },
+        [key]: { uploadedName: null, error: null, uploading: true, previewUrl },
       }))
-    } catch (err) {
-      URL.revokeObjectURL(previewUrl)
-      setImageUploads((prev) => ({
-        ...prev,
-        [key]: {
-          uploadedName: null,
-          error: `업로드 실패: ${err instanceof Error ? err.message : String(err)}`,
-          uploading: false,
-          previewUrl: null,
-        },
-      }))
-    }
-  }, [backendUrl, nodeMappings, updateMapping])
+      try {
+        const fd = new FormData()
+        fd.append("file", file)
+        const res = await fetch(`${backendUrl}${API.images.upload}`, {
+          method: "POST",
+          body: fd,
+        })
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+        const data = (await res.json()) as { hash: string; filename: string }
+        // imageValue에 __upload__{hash}.{ext} 마커 저장
+        const ext = file.name.split(".").pop() ?? "png"
+        updateMapping(
+          nodeMappings.find(
+            (m) => m.nodeId === nodeId && m.inputKey === inputKey
+          )?.id ?? "",
+          { imageValue: `__upload__${data.hash}.${ext}` }
+        )
+        setImageUploads((prev) => ({
+          ...prev,
+          [key]: {
+            uploadedName: data.hash,
+            error: null,
+            uploading: false,
+            previewUrl,
+          },
+        }))
+      } catch (err) {
+        URL.revokeObjectURL(previewUrl)
+        setImageUploads((prev) => ({
+          ...prev,
+          [key]: {
+            uploadedName: null,
+            error: `업로드 실패: ${err instanceof Error ? err.message : String(err)}`,
+            uploading: false,
+            previewUrl: null,
+          },
+        }))
+      }
+    },
+    [backendUrl, nodeMappings, updateMapping]
+  )
 
   const value = useMemo<NodeMappingContextValue>(
     () => ({
@@ -203,7 +209,9 @@ export function NodeMappingProvider({
       setNodeMappings,
       updateMapping,
       handleAutoMap,
-      handleImageUpload: (...a: Parameters<typeof handleImageUpload>): void => { void handleImageUpload(...a); },
+      handleImageUpload: (...a: Parameters<typeof handleImageUpload>): void => {
+        void handleImageUpload(...a)
+      },
       imageUploads,
       availableNodeOptions,
       objectInfo,

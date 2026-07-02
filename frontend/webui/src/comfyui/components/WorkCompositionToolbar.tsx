@@ -84,7 +84,9 @@ export function WorkCompositionToolbar({
               전체 미완료 실행
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => { handleRandomRun(randomRunCount); }}
+              onClick={() => {
+                handleRandomRun(randomRunCount)
+              }}
               disabled={!canRun}
             >
               <Shuffle className="mr-2 h-4 w-4" /> 랜덤 실행
@@ -94,9 +96,9 @@ export function WorkCompositionToolbar({
               type="number"
               min={1}
               value={randomRunCount}
-              onChange={(e) =>
-                { setRandomRunCount(Math.max(1, Number(e.target.value) || 1)); }
-              }
+              onChange={(e) => {
+                setRandomRunCount(Math.max(1, Number(e.target.value) || 1))
+              }}
             />
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onAxisFilterOpen}>
@@ -108,16 +110,18 @@ export function WorkCompositionToolbar({
               type="number"
               min={1}
               value={repeatCount}
-              onChange={(e) =>
-                { setRepeatCount(Math.max(1, Number(e.target.value) || 1)); }
-              }
+              onChange={(e) => {
+                setRepeatCount(Math.max(1, Number(e.target.value) || 1))
+              }}
             />
           </DropdownMenuContent>
         </DropdownMenu>
         {workers.length > 0 && (
           <Select
             value={targetWorkerId ?? "auto"}
-            onValueChange={(v) => { setTargetWorkerId(v === "auto" ? null : v); }}
+            onValueChange={(v) => {
+              setTargetWorkerId(v === "auto" ? null : v)
+            }}
           >
             <SelectTrigger className="h-8 w-28 text-xs" disabled={!canRun}>
               <SelectValue placeholder="워커" />
@@ -125,7 +129,9 @@ export function WorkCompositionToolbar({
             <SelectContent>
               <SelectItem value="auto">자동</SelectItem>
               {workers
-                .filter((w) => w.workerType === "comfyui" || w.workerType === "")
+                .filter(
+                  (w) => w.workerType === "comfyui" || w.workerType === ""
+                )
                 .map((w) => (
                   <SelectItem key={w.id} value={w.id}>
                     <span className="flex items-center gap-1">

@@ -8,14 +8,20 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useSubgraphNavigationStore } from "@/comfyui/stores/subgraphNavigationStore"
 import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
+import { ReactGroup } from "./ReactGroup"
 import { ChevronRight } from "lucide-react"
 import { ComfyAppService } from "@/comfyui/services/appService"
 import { widgetStore, type WidgetValue } from "@/comfyui/stores/widgetStore"
 import { useShallow } from "zustand/react/shallow"
 
-
-const NodeLayerItem = memo(function NodeLayerItem({ id }: { id: number }): JSX.Element | null {
-  const node = useReactGraphStore(useShallow((s) => s.nodes.find((n) => n.id === id) ?? null))
+const NodeLayerItem = memo(function NodeLayerItem({
+  id,
+}: {
+  id: number
+}): JSX.Element | null {
+  const node = useReactGraphStore(
+    useShallow((s) => s.nodes.find((n) => n.id === id) ?? null)
+  )
   const selected = useReactGraphStore((s) => s.selectedNodeIds.has(id))
   if (!node) return null
   return (
@@ -32,16 +38,18 @@ const NodeLayerItem = memo(function NodeLayerItem({ id }: { id: number }): JSX.E
 
 const NodeLayer = memo(function NodeLayer(): JSX.Element {
   // 활성 그래프에 속한 노드 ID만 렌더링 (루트=null/undefined, 서브그래프=UUID)
-  const nodeIds = useReactGraphStore(useShallow((s) => {
-    const activeId = s.activeGraphId
-    return s.nodes
-      .filter((n) =>
-        activeId === null
-          ? (n.graphId === null || n.graphId === undefined)
-          : n.graphId === activeId
-      )
-      .map((n) => n.id)
-  }))
+  const nodeIds = useReactGraphStore(
+    useShallow((s) => {
+      const activeId = s.activeGraphId
+      return s.nodes
+        .filter((n) =>
+          activeId === null
+            ? n.graphId === null || n.graphId === undefined
+            : n.graphId === activeId
+        )
+        .map((n) => n.id)
+    })
+  )
   return (
     <>
       {nodeIds.map((id) => (
@@ -51,6 +59,36 @@ const NodeLayer = memo(function NodeLayer(): JSX.Element {
   )
 })
 
+const GroupLayerItem = memo(function GroupLayerItem({
+  id,
+}: {
+  id: number
+}): JSX.Element | null {
+  return <ReactGroup id={id} />
+})
+
+const GroupLayer = memo(function GroupLayer(): JSX.Element {
+  // 활성 그래프에 속한 그룹 ID만 렌더링
+  const groupIds = useReactGraphStore(
+    useShallow((s) => {
+      const activeId = s.activeGraphId
+      return s.groups
+        .filter((g) =>
+          activeId === null
+            ? g.graphId === null || g.graphId === undefined
+            : g.graphId === activeId
+        )
+        .map((g) => g.id)
+    })
+  )
+  return (
+    <>
+      {groupIds.map((id) => (
+        <GroupLayerItem key={`group-${String(id)}`} id={id} />
+      ))}
+    </>
+  )
+})
 
 /** 브레드크럼: 루트 > SubgraphA > SubgraphB. 클릭 시 해당 레벨로 이동. */
 function SubgraphBreadcrumb(): JSX.Element | null {
@@ -65,10 +103,12 @@ function SubgraphBreadcrumb(): JSX.Element | null {
   if (activeGraphId === null) return null
 
   return (
-    <div className="absolute top-2 left-2 z-[500] flex items-center gap-1 bg-zinc-900/80 border border-zinc-700 rounded-md px-2 py-1 text-xs text-zinc-200 backdrop-blur-sm">
+    <div className="absolute top-2 left-2 z-[500] flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-200 backdrop-blur-sm">
       <button
-        className="px-1.5 py-0.5 rounded hover:bg-zinc-700 transition-colors cursor-pointer"
-        onClick={(): void => { navigateToRoot() }}
+        className="cursor-pointer rounded px-1.5 py-0.5 transition-colors hover:bg-zinc-700"
+        onClick={(): void => {
+          navigateToRoot()
+        }}
       >
         Root
       </button>
@@ -80,8 +120,10 @@ function SubgraphBreadcrumb(): JSX.Element | null {
           <span key={`crumb-${id}`} className="flex items-center gap-1">
             <ChevronRight className="h-3 w-3 text-zinc-500" />
             <button
-              className={`px-1.5 py-0.5 rounded hover:bg-zinc-700 transition-colors cursor-pointer ${isCurrent ? "text-zinc-100 font-semibold" : ""}`}
-              onClick={(): void => { navigateToLevel(i + 1) }}
+              className={`cursor-pointer rounded px-1.5 py-0.5 transition-colors hover:bg-zinc-700 ${isCurrent ? "font-semibold text-zinc-100" : ""}`}
+              onClick={(): void => {
+                navigateToLevel(i + 1)
+              }}
             >
               {name}
             </button>
@@ -92,13 +134,14 @@ function SubgraphBreadcrumb(): JSX.Element | null {
       {activeSubgraph !== null && !idStack.includes(activeGraphId) ? (
         <span className="flex items-center gap-1">
           <ChevronRight className="h-3 w-3 text-zinc-500" />
-          <span className="px-1.5 py-0.5 text-zinc-100 font-semibold">{activeSubgraph.name}</span>
+          <span className="px-1.5 py-0.5 font-semibold text-zinc-100">
+            {activeSubgraph.name}
+          </span>
         </span>
       ) : null}
     </div>
   )
 }
-
 
 export function ReactGraphEditor(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -116,6 +159,7 @@ export function ReactGraphEditor(): JSX.Element {
   const deselectAll = useReactGraphStore((s) => s.deselectAll)
   const connect = useReactGraphStore((s) => s.connect)
   const addNode = useReactGraphStore((s) => s.addNode)
+  const addGroup = useReactGraphStore((s) => s.addGroup)
   const clearGraph = useReactGraphStore((s) => s.clearGraph)
 
   const nodeDefsByCategory = useNodeDefStore((s) => s.nodeDefsByCategory)
@@ -125,15 +169,26 @@ export function ReactGraphEditor(): JSX.Element {
     let cancelled = false
     async function initApp(): Promise<void> {
       const rawApp = window.app
-      console.log("[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" + String(!!hiddenCanvasRef.current), "hiddenContainer=" + String(!!hiddenContainerRef.current), "extensionsLoaded=" + String(rawApp.extensionsLoaded ?? false), "app.graph=" + String(true), "nodeDefs=" + String(Object.keys(nodeDefs).length), "extensions=" + String(rawApp.extensions.length));
+      console.log(
+        "[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" +
+          String(!!hiddenCanvasRef.current),
+        "hiddenContainer=" + String(!!hiddenContainerRef.current),
+        "extensionsLoaded=" + String(rawApp.extensionsLoaded ?? false),
+        "app.graph=" + String(true),
+        "nodeDefs=" + String(Object.keys(nodeDefs).length),
+        "extensions=" + String(rawApp.extensions.length)
+      )
 
       if (!hiddenCanvasRef.current || !hiddenContainerRef.current) {
-        console.log("[CEG:DEBUG ReactGraphEditor] SKIPPED: refs null");
-        return;
+        console.log("[CEG:DEBUG ReactGraphEditor] SKIPPED: refs null")
+        return
       }
 
       // 1. 백그라운드 ComfyAppService 인스턴스 먼저 생성 (ext.init() 전에 실제 graph 필요)
-      console.log("[CEG:DEBUG ReactGraphEditor] Step 1: Creating ComfyAppService with nodeDefs count:", String(Object.keys(nodeDefs).length));
+      console.log(
+        "[CEG:DEBUG ReactGraphEditor] Step 1: Creating ComfyAppService with nodeDefs count:",
+        String(Object.keys(nodeDefs).length)
+      )
 
       const appService = new ComfyAppService({
         canvas: hiddenCanvasRef.current,
@@ -147,32 +202,60 @@ export function ReactGraphEditor(): JSX.Element {
       rawApp.syncGraphNode = (nodeId: number): void => {
         const liveNode = appService.graph.getNodeById(nodeId)
         if (liveNode === null) return
-        const widgetsValues = (liveNode as { widgets?: { value: unknown }[] }).widgets?.map((w) => w.value as WidgetValue) ?? []
+        const widgetsValues =
+          (liveNode as { widgets?: { value: unknown }[] }).widgets?.map(
+            (w) => w.value as WidgetValue
+          ) ?? []
         useReactGraphStore.setState({
-          nodes: useReactGraphStore.getState().nodes.map((n) =>
-            n.id === nodeId ? { ...n, widgets_values: widgetsValues } : n
-          ),
+          nodes: useReactGraphStore
+            .getState()
+            .nodes.map((n) =>
+              n.id === nodeId ? { ...n, widgets_values: widgetsValues } : n
+            ),
         })
       }
-      ;(rawApp.graph as unknown as Record<string, unknown>)._canvas = appService.canvas
+      ;(rawApp.graph as unknown as Record<string, unknown>)._canvas =
+        appService.canvas
       appService.canvas.app = rawApp
 
       window.__comfyAppService = appService
 
       // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)
       if (rawApp.extensionsLoaded !== true) {
-        const apiClient: { getExtensions(): Promise<string[]>; api_base: string } = window.api
+        const apiClient: {
+          getExtensions(): Promise<string[]>
+          api_base: string
+        } = window.api
         try {
           const extensionUrls = await apiClient.getExtensions()
-          console.log("[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:", String(extensionUrls.length), extensionUrls);
+          console.log(
+            "[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:",
+            String(extensionUrls.length),
+            extensionUrls
+          )
           // 병렬로 import()를 시작하고, 배열 순서대로 await하여 등록 순서를 보존합니다.
-          const fullUrls = extensionUrls.map((url) => url.startsWith("http") ? url : `${apiClient.api_base}${url}`);
-          console.log("[CEG:DEBUG ReactGraphEditor] Importing extensions in parallel:", fullUrls.length);
-          const importPromises = fullUrls.map((fullUrl) => import(/* @vite-ignore */ fullUrl).then(() => fullUrl).catch((err: unknown) => { console.error(`Failed to load extension: ${fullUrl}`, err); return null; }));
+          const fullUrls = extensionUrls.map((url) =>
+            url.startsWith("http") ? url : `${apiClient.api_base}${url}`
+          )
+          console.log(
+            "[CEG:DEBUG ReactGraphEditor] Importing extensions in parallel:",
+            fullUrls.length
+          )
+          const importPromises = fullUrls.map((fullUrl) =>
+            import(/* @vite-ignore */ fullUrl)
+              .then(() => fullUrl)
+              .catch((err: unknown) => {
+                console.error(`Failed to load extension: ${fullUrl}`, err)
+                return null
+              })
+          )
           for (const promise of importPromises) {
-            const result = await promise;
+            const result = await promise
             if (result !== null) {
-              console.log("[CEG:DEBUG ReactGraphEditor] Import success:", result);
+              console.log(
+                "[CEG:DEBUG ReactGraphEditor] Import success:",
+                result
+              )
             }
           }
         } catch (err) {
@@ -180,16 +263,25 @@ export function ReactGraphEditor(): JSX.Element {
         }
         rawApp.extensionsLoaded = true
 
-        console.log("[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:", String(rawApp.extensions.length), rawApp.extensions.map(e => e.name));
+        console.log(
+          "[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:",
+          String(rawApp.extensions.length),
+          rawApp.extensions.map((e) => e.name)
+        )
 
         // Re-register node defs NOW that extensions' beforeRegisterNodeDef hooks are available
-        console.log("[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available");
+        console.log(
+          "[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available"
+        )
         appService.registerNodeDefs(nodeDefs)
 
         for (const ext of rawApp.extensions) {
           if (ext.init !== undefined) {
             try {
-              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.init for:", ext.name);
+              console.log(
+                "[CEG:DEBUG ReactGraphEditor] Calling ext.init for:",
+                ext.name
+              )
               await ext.init(rawApp)
             } catch (err) {
               console.error(`Extension init failed for ${ext.name}:`, err)
@@ -211,16 +303,25 @@ export function ReactGraphEditor(): JSX.Element {
                   if (typeof factory === "function") {
                     widgetStore.registerCustomWidgetFactory(
                       typeName,
-                      factory as Parameters<typeof widgetStore.registerCustomWidgetFactory>[1]
+                      factory as Parameters<
+                        typeof widgetStore.registerCustomWidgetFactory
+                      >[1]
                     )
                   }
                 }
                 if (typeNames.length > 0) {
-                  console.log("[CEG:DEBUG ReactGraphEditor] Registered custom widgets from", ext.name, typeNames);
+                  console.log(
+                    "[CEG:DEBUG ReactGraphEditor] Registered custom widgets from",
+                    ext.name,
+                    typeNames
+                  )
                 }
               }
             } catch (err) {
-              console.error(`Extension getCustomWidgets failed for ${ext.name}:`, err)
+              console.error(
+                `Extension getCustomWidgets failed for ${ext.name}:`,
+                err
+              )
             }
           }
         }
@@ -228,10 +329,16 @@ export function ReactGraphEditor(): JSX.Element {
         for (const ext of rawApp.extensions) {
           if (ext.registerCustomNodes !== undefined) {
             try {
-              console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.registerCustomNodes for:", ext.name);
+              console.log(
+                "[CEG:DEBUG ReactGraphEditor] Calling ext.registerCustomNodes for:",
+                ext.name
+              )
               await ext.registerCustomNodes(rawApp)
             } catch (err) {
-              console.error(`Extension registerCustomNodes failed for ${ext.name}:`, err)
+              console.error(
+                `Extension registerCustomNodes failed for ${ext.name}:`,
+                err
+              )
             }
           }
         }
@@ -243,7 +350,10 @@ export function ReactGraphEditor(): JSX.Element {
       for (const ext of rawApp.extensions) {
         if (ext.setup !== undefined) {
           try {
-            console.log("[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:", ext.name);
+            console.log(
+              "[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:",
+              ext.name
+            )
             await ext.setup(rawApp)
           } catch (err) {
             console.error(`Extension setup failed for ${ext.name}:`, err)
@@ -253,18 +363,31 @@ export function ReactGraphEditor(): JSX.Element {
 
       // 최초 그래프 상태 동기화
       const state = useReactGraphStore.getState()
-      console.log("[CEG:DEBUG ReactGraphEditor] Step 3: Syncing initial state, nodes in store:", String(state.nodes.length));
+      console.log(
+        "[CEG:DEBUG ReactGraphEditor] Step 3: Syncing initial state, nodes in store:",
+        String(state.nodes.length)
+      )
       if (state.nodes.length > 0) {
         const workflow = {
-          last_node_id: Math.max(0, ...state.nodes.map(n => n.id)),
-          last_link_id: Math.max(0, ...state.links.map(l => l.id)),
+          last_node_id: Math.max(0, ...state.nodes.map((n) => n.id)),
+          last_link_id: Math.max(0, ...state.links.map((l) => l.id)),
           nodes: state.nodes,
           links: state.links,
           version: 0.4,
         }
-        console.log("[CEG:DEBUG ReactGraphEditor] Calling loadGraphData with", String(workflow.nodes.length), "nodes");
+        console.log(
+          "[CEG:DEBUG ReactGraphEditor] Calling loadGraphData with",
+          String(workflow.nodes.length),
+          "nodes"
+        )
         appService.loadGraphData(workflow)
-        console.log("[CEG:DEBUG ReactGraphEditor] loadGraphData complete, graph now has", String((appService.graph as unknown as { nodes: unknown[] }).nodes.length), "nodes");
+        console.log(
+          "[CEG:DEBUG ReactGraphEditor] loadGraphData complete, graph now has",
+          String(
+            (appService.graph as unknown as { nodes: unknown[] }).nodes.length
+          ),
+          "nodes"
+        )
       }
 
       setIsReady(true)
@@ -287,7 +410,7 @@ export function ReactGraphEditor(): JSX.Element {
       console.log("[CEG] execution_start:", detail)
       useReactGraphStore.setState({
         executionStatus: "running",
-        executingPromptId: detail.prompt_id as string | null ?? null,
+        executingPromptId: (detail.prompt_id as string | null) ?? null,
         executingNodeId: null,
         executedNodeIds: new Set<number>(),
         overallProgress: null,
@@ -308,14 +431,20 @@ export function ReactGraphEditor(): JSX.Element {
         nodeId = detail
       }
 
-      const nodeIdNum = nodeId !== null && nodeId !== undefined && nodeId !== "" ? Number(nodeId) : null
+      const nodeIdNum =
+        nodeId !== null && nodeId !== undefined && nodeId !== ""
+          ? Number(nodeId)
+          : null
       console.log("[CEG] executing node:", nodeIdNum, "promptId:", promptId)
 
       const store = useReactGraphStore.getState()
       const nextExecuted = new Set(store.executedNodeIds)
 
       // If we move to a new node, the previous node must have finished executing
-      if (store.executingNodeId !== null && store.executingNodeId !== nodeIdNum) {
+      if (
+        store.executingNodeId !== null &&
+        store.executingNodeId !== nodeIdNum
+      ) {
         nextExecuted.add(store.executingNodeId)
       }
 
@@ -345,7 +474,7 @@ export function ReactGraphEditor(): JSX.Element {
         overallProgress: {
           value: detail.value as number,
           max: detail.max as number,
-        }
+        },
       }
 
       if (detail.prompt_id !== null) {
@@ -369,7 +498,7 @@ export function ReactGraphEditor(): JSX.Element {
       console.log("[CEG] executed node:", Number(detail.node))
 
       const updateObj: Partial<typeof store> = {
-        executedNodeIds: nextExecuted
+        executedNodeIds: nextExecuted,
       }
       if (detail.prompt_id !== null) {
         updateObj.executingPromptId = detail.prompt_id as string
@@ -394,7 +523,7 @@ export function ReactGraphEditor(): JSX.Element {
       console.log("[CEG] execution_cached nodes:", detail.nodes)
 
       const updateObj: Partial<typeof store> = {
-        executedNodeIds: nextExecuted
+        executedNodeIds: nextExecuted,
       }
       if (detail.prompt_id !== null) {
         updateObj.executingPromptId = detail.prompt_id as string
@@ -411,8 +540,13 @@ export function ReactGraphEditor(): JSX.Element {
       const detail = customEvent.detail
       const store = useReactGraphStore.getState()
       console.log("[CEG] execution_success:", detail)
-      
-      if (store.executingPromptId !== null && (detail.prompt_id as string | null | undefined) !== null && (detail.prompt_id as string | null | undefined) !== undefined && store.executingPromptId !== (detail.prompt_id as string)) {
+
+      if (
+        store.executingPromptId !== null &&
+        (detail.prompt_id as string | null | undefined) !== null &&
+        (detail.prompt_id as string | null | undefined) !== undefined &&
+        store.executingPromptId !== (detail.prompt_id as string)
+      ) {
         return
       }
 
@@ -425,9 +559,11 @@ export function ReactGraphEditor(): JSX.Element {
         executionStatus: "success",
         executingNodeId: null,
         executedNodeIds: nextExecuted,
-        overallProgress: store.overallProgress ? { value: store.overallProgress.max, max: store.overallProgress.max } : null,
+        overallProgress: store.overallProgress
+          ? { value: store.overallProgress.max, max: store.overallProgress.max }
+          : null,
       })
-      
+
       setTimeout(() => {
         const current = useReactGraphStore.getState()
         if (current.executionStatus === "success") {
@@ -487,7 +623,10 @@ export function ReactGraphEditor(): JSX.Element {
       api.removeEventListener("execution_cached", handleExecutionCached)
       api.removeEventListener("execution_success", handleExecutionSuccess)
       api.removeEventListener("execution_error", handleExecutionError)
-      api.removeEventListener("execution_interrupted", handleExecutionInterrupted)
+      api.removeEventListener(
+        "execution_interrupted",
+        handleExecutionInterrupted
+      )
     }
   }, [])
 
@@ -499,7 +638,9 @@ export function ReactGraphEditor(): JSX.Element {
     datatype: string
   } | null>(null)
   const [tempLinkEnd, setTempLinkEnd] = useState<[number, number] | null>(null)
-  const [dragStartPinPos, setDragStartPinPos] = useState<[number, number] | null>(null)
+  const [dragStartPinPos, setDragStartPinPos] = useState<
+    [number, number] | null
+  >(null)
 
   // 현재 마우스가 올라가 있는 핀 추적
   const [hoveredPin, setHoveredPin] = useState<{
@@ -516,6 +657,7 @@ export function ReactGraphEditor(): JSX.Element {
     screenX: number
     screenY: number
     nodeId?: number | undefined
+    groupId?: number | undefined
   } | null>(null)
 
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null)
@@ -528,12 +670,13 @@ export function ReactGraphEditor(): JSX.Element {
     const isLeft = e.button === 0
     if (!isLeft && !isMiddle) return
 
-    // 노드, 핀, 컨텍스트 메뉴 위를 클릭했으면 팬 안함
+    // 노드, 핀, 컨텍스트 메뉴, 그룹 위를 클릭했으면 팬 안함
     const target = e.target as HTMLElement
     const isOnNode = !!target.closest("[data-node-id]")
     const isOnPin = !!target.closest("[data-slot-node-id]")
     const isOnMenu = !!target.closest(".context-menu-container")
-    if (!isMiddle && (isOnNode || isOnPin || isOnMenu)) return
+    const isOnGroup = !!target.closest("[data-group-id]")
+    if (!isMiddle && (isOnNode || isOnPin || isOnMenu || isOnGroup)) return
 
     e.preventDefault()
     deselectAll()
@@ -577,27 +720,29 @@ export function ReactGraphEditor(): JSX.Element {
       const nextZoom = e.deltaY < 0 ? zoom * zoomFactor : zoom / zoomFactor
 
       // 마우스 위치 기준으로 확대/축소: 마우스가 가리키던 월드 좌표를 유지하도록 pan 보정
-      const newPanX = mouseX - (mouseX - pan[0]) / zoom * nextZoom
-      const newPanY = mouseY - (mouseY - pan[1]) / zoom * nextZoom
+      const newPanX = mouseX - ((mouseX - pan[0]) / zoom) * nextZoom
+      const newPanY = mouseY - ((mouseY - pan[1]) / zoom) * nextZoom
 
       setZoom(nextZoom)
       setPan([newPanX, newPanY])
     }
 
     container.addEventListener("wheel", handleWheel, { passive: false })
-    return (): void => { container.removeEventListener("wheel", handleWheel); }
+    return (): void => {
+      container.removeEventListener("wheel", handleWheel)
+    }
   }, [zoom, pan, setZoom, setPan])
 
   // 화면 좌표(Screen) -> 캔버스 월드 좌표(World) 변환
-  const screenToWorld = (screenX: number, screenY: number): [number, number] => {
+  const screenToWorld = (
+    screenX: number,
+    screenY: number
+  ): [number, number] => {
     if (!containerRef.current) return [screenX, screenY]
     const rect = containerRef.current.getBoundingClientRect()
     const relativeX = screenX - rect.left
     const relativeY = screenY - rect.top
-    return [
-      (relativeX - pan[0]) / zoom,
-      (relativeY - pan[1]) / zoom,
-    ]
+    return [(relativeX - pan[0]) / zoom, (relativeY - pan[1]) / zoom]
   }
 
   // 우클릭 컨텍스트 메뉴 핸들러
@@ -611,7 +756,15 @@ export function ReactGraphEditor(): JSX.Element {
     const target = e.target as HTMLElement
     const nodeEl = target.closest("[data-node-id]")
     const idAttr = nodeEl?.getAttribute("data-node-id")
-    const clickedNodeId = idAttr !== undefined && idAttr !== null ? parseInt(idAttr, 10) : undefined
+    const clickedNodeId =
+      idAttr !== undefined && idAttr !== null ? parseInt(idAttr, 10) : undefined
+
+    const groupEl = target.closest("[data-group-id]")
+    const groupIdAttr = groupEl?.getAttribute("data-group-id")
+    const clickedGroupId =
+      groupIdAttr !== undefined && groupIdAttr !== null
+        ? parseInt(groupIdAttr, 10)
+        : undefined
 
     setContextMenu({
       x,
@@ -619,6 +772,7 @@ export function ReactGraphEditor(): JSX.Element {
       screenX: e.clientX,
       screenY: e.clientY,
       nodeId: clickedNodeId,
+      groupId: clickedGroupId,
     })
     setActiveSubmenu(null)
     setHoveredCategory(null)
@@ -720,10 +874,16 @@ export function ReactGraphEditor(): JSX.Element {
 
     const handleGlobalMouseUp = (): void => {
       // 마우스를 뗀 곳에 반대편 타입의 다른 노드 핀이 올라와 있고, 타입이 호환되는 경우에만 연결 체결
-      if (hoveredPin && hoveredPin.nodeId !== activeDragPin.nodeId && hoveredPin.type !== activeDragPin.type) {
+      if (
+        hoveredPin &&
+        hoveredPin.nodeId !== activeDragPin.nodeId &&
+        hoveredPin.type !== activeDragPin.type
+      ) {
         if (isHoveredPinCompatible) {
-          const outPin = activeDragPin.type === "output" ? activeDragPin : hoveredPin
-          const inPin = activeDragPin.type === "input" ? activeDragPin : hoveredPin
+          const outPin =
+            activeDragPin.type === "output" ? activeDragPin : hoveredPin
+          const inPin =
+            activeDragPin.type === "input" ? activeDragPin : hoveredPin
 
           connect(
             outPin.nodeId,
@@ -882,7 +1042,7 @@ export function ReactGraphEditor(): JSX.Element {
       ref={containerRef}
       onMouseDown={handleWorkspaceMouseDown}
       onContextMenu={handleContextMenu}
-      className="relative w-full h-full overflow-hidden bg-[#18181b] select-none"
+      className="relative h-full w-full overflow-hidden bg-[#18181b] select-none"
       style={{
         backgroundImage: "radial-gradient(#27272a 1.2px, transparent 1.2px)",
         backgroundSize: `${String(20 * zoom)}px ${String(20 * zoom)}px`,
@@ -890,7 +1050,7 @@ export function ReactGraphEditor(): JSX.Element {
       }}
     >
       {!isReady && (
-        <div className="absolute inset-0 z-[9999] flex flex-col items-center justify-center bg-[#18181b] text-zinc-400 gap-2 font-medium">
+        <div className="absolute inset-0 z-[9999] flex flex-col items-center justify-center gap-2 bg-[#18181b] font-medium text-zinc-400">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-400" />
           <span>Extensions / Live graph loading...</span>
         </div>
@@ -899,19 +1059,22 @@ export function ReactGraphEditor(): JSX.Element {
       <SubgraphBreadcrumb />
       {/* Zoom / Pan Wrapper */}
       <div
-        className="absolute inset-0 origin-top-left overflow-visible pointer-events-none"
+        className="pointer-events-none absolute inset-0 origin-top-left overflow-visible"
         style={{
           transform: `translate(${String(pan[0])}px, ${String(pan[1])}px) scale(${String(zoom)})`,
         }}
       >
         {/* Interactive nodes and edges inside transformed wrapper */}
-        <div className="absolute inset-0 pointer-events-auto overflow-visible">
+        <div className="pointer-events-auto absolute inset-0 overflow-visible">
+          {/* 0. 그룹 레이어 */}
+          <GroupLayer />
+
           {/* 1. SVG 연결선 레이어 */}
           <SvgConnections />
 
           {/* 2. 임시 드래깅 연결선 그리기 */}
           {activeDragPin && tempLinkEnd && (
-            <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible z-50">
+            <svg className="pointer-events-none absolute inset-0 z-50 h-full w-full overflow-visible">
               <path
                 d={tempLinkPath}
                 fill="none"
@@ -930,14 +1093,16 @@ export function ReactGraphEditor(): JSX.Element {
       {/* 4. 컨텍스트 메뉴 (Context Menu) */}
       {contextMenu && (
         <div
-          className="context-menu-container absolute bg-zinc-900/95 border border-zinc-800 rounded-lg shadow-2xl p-1 text-xs text-zinc-200 z-[1000] w-48 backdrop-blur-md flex flex-col"
+          className="context-menu-container absolute z-[1000] flex w-48 flex-col rounded-lg border border-zinc-800 bg-zinc-900/95 p-1 text-xs text-zinc-200 shadow-2xl backdrop-blur-md"
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e): void => { e.stopPropagation(); }}
+          onClick={(e): void => {
+            e.stopPropagation()
+          }}
         >
           {contextMenu.nodeId !== undefined ? (
             <>
               <button
-                className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer text-destructive hover:text-destructive"
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left text-destructive transition-colors hover:bg-zinc-800 hover:text-destructive"
                 onClick={(): void => {
                   const nodeId = contextMenu.nodeId
                   if (nodeId !== undefined) {
@@ -949,7 +1114,7 @@ export function ReactGraphEditor(): JSX.Element {
                 Delete Node
               </button>
               <button
-                className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
                 onClick={(): void => {
                   deselectAll()
                   setContextMenu(null)
@@ -958,7 +1123,7 @@ export function ReactGraphEditor(): JSX.Element {
                 Deselect
               </button>
               <button
-                className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
                 onClick={(): void => {
                   const store = useReactGraphStore.getState()
                   // 선택된 노드들을 subgraph로 변환
@@ -974,15 +1139,22 @@ export function ReactGraphEditor(): JSX.Element {
               {/* SubgraphNode 인스턴스인 경우 진입 메뉴 추가 */}
               {((): JSX.Element | null => {
                 const store = useReactGraphStore.getState()
-                const node = store.nodes.find((n) => n.id === contextMenu.nodeId)
+                const node = store.nodes.find(
+                  (n) => n.id === contextMenu.nodeId
+                )
                 if (!node) return null
-                const isSubgraphInstance = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.type)
+                const isSubgraphInstance =
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                    node.type
+                  )
                 if (!isSubgraphInstance) return null
                 return (
                   <button
-                    className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+                    className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
                     onClick={(): void => {
-                      useSubgraphNavigationStore.getState().navigateTo(node.type)
+                      useSubgraphNavigationStore
+                        .getState()
+                        .navigateTo(node.type)
                       setContextMenu(null)
                     }}
                   >
@@ -991,19 +1163,102 @@ export function ReactGraphEditor(): JSX.Element {
                 )
               })()}
             </>
+          ) : contextMenu.groupId !== undefined ? (
+            <>
+              <button
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                onClick={(): void => {
+                  const currentTitle =
+                    useReactGraphStore
+                      .getState()
+                      .groups.find((g) => g.id === contextMenu.groupId)
+                      ?.title ?? ""
+                  const newTitle = prompt(
+                    "Enter new group title:",
+                    currentTitle
+                  )
+                  if (newTitle !== null && newTitle.trim()) {
+                    useReactGraphStore
+                      .getState()
+                      .updateGroupTitle(contextMenu.groupId!, newTitle.trim())
+                  }
+                  setContextMenu(null)
+                }}
+              >
+                Rename Group
+              </button>
+              <button
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                onClick={(): void => {
+                  useReactGraphStore
+                    .getState()
+                    .toggleGroupLock(contextMenu.groupId!)
+                  setContextMenu(null)
+                }}
+              >
+                {useReactGraphStore
+                  .getState()
+                  .groups.find((g) => g.id === contextMenu.groupId)?.locked
+                  ? "Unlock Group"
+                  : "Lock Group"}
+              </button>
+              <button
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                onClick={(): void => {
+                  const colors = [
+                    "#3b82f6",
+                    "#ef4444",
+                    "#10b981",
+                    "#f59e0b",
+                    "#8b5cf6",
+                    "#ec4899",
+                    "#6b7280",
+                    "#333355",
+                  ]
+                  const curColor =
+                    useReactGraphStore
+                      .getState()
+                      .groups.find((g) => g.id === contextMenu.groupId)
+                      ?.color ?? "#333355"
+                  const nextColor =
+                    colors[(colors.indexOf(curColor) + 1) % colors.length] ??
+                    "#333355"
+                  useReactGraphStore
+                    .getState()
+                    .updateGroupColor(contextMenu.groupId!, nextColor)
+                  setContextMenu(null)
+                }}
+              >
+                Change Color
+              </button>
+              <div className="my-1 h-px bg-zinc-800" />
+              <button
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left text-destructive transition-colors hover:bg-zinc-800 hover:text-destructive"
+                onClick={(): void => {
+                  useReactGraphStore
+                    .getState()
+                    .removeGroup(contextMenu.groupId!)
+                  setContextMenu(null)
+                }}
+              >
+                Delete Group
+              </button>
+            </>
           ) : (
             <>
               {/* Add Node Submenu */}
               <div
-                className="relative flex items-center justify-between w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
-                onMouseEnter={(): void => { setActiveSubmenu("categories"); }}
+                className="relative flex w-full cursor-pointer items-center justify-between rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                onMouseEnter={(): void => {
+                  setActiveSubmenu("categories")
+                }}
               >
                 <span>Add Node</span>
                 <ChevronRight className="h-3 w-3 text-zinc-400" />
 
                 {activeSubmenu === "categories" && (
                   <div
-                    className="absolute left-full top-0 ml-1 bg-zinc-900/95 border border-zinc-800 rounded-lg shadow-2xl p-1 text-xs text-zinc-200 w-48 max-h-80 overflow-y-auto backdrop-blur-md flex flex-col"
+                    className="absolute top-0 left-full ml-1 flex max-h-80 w-48 flex-col overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/95 p-1 text-xs text-zinc-200 shadow-2xl backdrop-blur-md"
                     onMouseLeave={(): void => {
                       setActiveSubmenu(null)
                       setHoveredCategory(null)
@@ -1012,23 +1267,30 @@ export function ReactGraphEditor(): JSX.Element {
                     {Object.keys(nodeDefsByCategory).map((category) => (
                       <div
                         key={category}
-                        className="relative flex items-center justify-between w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
-                        onMouseEnter={(): void => { setHoveredCategory(category); }}
+                        className="relative flex w-full cursor-pointer items-center justify-between rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                        onMouseEnter={(): void => {
+                          setHoveredCategory(category)
+                        }}
                       >
                         <span className="truncate pr-2">{category}</span>
                         <ChevronRight className="h-3 w-3 text-zinc-400" />
 
                         {hoveredCategory === category && (
                           <div
-                            className="absolute left-full top-0 ml-1 bg-zinc-900/95 border border-zinc-800 rounded-lg shadow-2xl p-1 text-xs text-zinc-200 w-56 max-h-80 overflow-y-auto backdrop-blur-md flex flex-col"
-                            onClick={(ev): void => { ev.stopPropagation(); }}
+                            className="absolute top-0 left-full ml-1 flex max-h-80 w-56 flex-col overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/95 p-1 text-xs text-zinc-200 shadow-2xl backdrop-blur-md"
+                            onClick={(ev): void => {
+                              ev.stopPropagation()
+                            }}
                           >
                             {nodeDefsByCategory[category]?.map((def) => (
                               <button
                                 key={def.name}
-                                className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer truncate"
+                                className="flex w-full cursor-pointer items-center truncate rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
                                 onClick={(): void => {
-                                  const worldPos = screenToWorld(contextMenu.screenX, contextMenu.screenY)
+                                  const worldPos = screenToWorld(
+                                    contextMenu.screenX,
+                                    contextMenu.screenY
+                                  )
                                   addNode(def.name, worldPos, def)
                                   setContextMenu(null)
                                   setActiveSubmenu(null)
@@ -1047,10 +1309,59 @@ export function ReactGraphEditor(): JSX.Element {
                 )}
               </div>
 
-              <div className="h-px bg-zinc-800 my-1" />
+              <button
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                onClick={(): void => {
+                  const worldPos = screenToWorld(
+                    contextMenu.screenX,
+                    contextMenu.screenY
+                  )
+                  addGroup("New Group", [worldPos[0], worldPos[1], 400, 300])
+                  setContextMenu(null)
+                }}
+              >
+                Add Group
+              </button>
+
+              {useReactGraphStore.getState().selectedNodeIds.size > 0 && (
+                <button
+                  className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                  onClick={(): void => {
+                    const store = useReactGraphStore.getState()
+                    const selectedIds = Array.from(store.selectedNodeIds)
+                    const selectedNodes = store.nodes.filter((n) =>
+                      selectedIds.includes(n.id)
+                    )
+                    if (selectedNodes.length > 0) {
+                      let minX = Infinity,
+                        minY = Infinity,
+                        maxX = -Infinity,
+                        maxY = -Infinity
+                      for (const n of selectedNodes) {
+                        minX = Math.min(minX, n.pos[0])
+                        minY = Math.min(minY, n.pos[1])
+                        maxX = Math.max(maxX, n.pos[0] + n.size[0])
+                        maxY = Math.max(maxY, n.pos[1] + n.size[1])
+                      }
+                      const padding = 20
+                      addGroup("Group", [
+                        minX - padding,
+                        minY - padding - 30,
+                        maxX - minX + padding * 2,
+                        maxY - minY + padding * 2 + 30,
+                      ])
+                    }
+                    setContextMenu(null)
+                  }}
+                >
+                  Add Group For Selected Nodes
+                </button>
+              )}
+
+              <div className="my-1 h-px bg-zinc-800" />
 
               <button
-                className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
                 onClick={(): void => {
                   setZoom(1.0)
                   setPan([0, 0])
@@ -1060,7 +1371,7 @@ export function ReactGraphEditor(): JSX.Element {
                 Reset Zoom & Pan
               </button>
               <button
-                className="flex items-center w-full px-2.5 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors cursor-pointer text-destructive hover:text-destructive"
+                className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left text-destructive transition-colors hover:bg-zinc-800 hover:text-destructive"
                 onClick={(): void => {
                   clearGraph()
                   setContextMenu(null)

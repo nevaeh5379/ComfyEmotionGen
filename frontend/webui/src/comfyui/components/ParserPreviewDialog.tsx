@@ -48,12 +48,17 @@ export const ParserPreviewDialog = ({
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null)
 
-  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
+    null
+  )
 
   const items = useMemo(() => renderResponse?.items ?? [], [renderResponse])
   const axes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
   const sets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
-  const lines = useMemo(() => renderResponse?.template_structure ?? [], [renderResponse])
+  const lines = useMemo(
+    () => renderResponse?.template_structure ?? [],
+    [renderResponse]
+  )
 
   const filteredItems = useMemo(() => {
     if (!searchInput.trim()) return items
@@ -65,7 +70,8 @@ export const ParserPreviewDialog = ({
         rf.includes(needle) ||
         rp.includes(needle) ||
         Object.entries(item.meta).some(
-          ([k, v]) => k.toLowerCase().includes(needle) || v.toLowerCase().includes(needle)
+          ([k, v]) =>
+            k.toLowerCase().includes(needle) || v.toLowerCase().includes(needle)
         )
       )
     })
@@ -85,7 +91,9 @@ export const ParserPreviewDialog = ({
     void navigator.clipboard.writeText(text)
     toast.success("프롬프트가 클립보드에 복사되었습니다.")
     setCopiedIndex(index)
-    setTimeout(() => { setCopiedIndex(null); }, 2000)
+    setTimeout(() => {
+      setCopiedIndex(null)
+    }, 2000)
   }, [])
 
   const isLineHighlighted = useCallback(
@@ -116,7 +124,7 @@ export const ParserPreviewDialog = ({
   /* ---- render ---- */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] sm:max-w-[95vw] max-w-[95vw] flex-col overflow-hidden p-0">
+      <DialogContent className="flex max-h-[90vh] max-w-[95vw] flex-col overflow-hidden p-0 sm:max-w-[95vw]">
         {/* Header */}
         <DialogHeader className="shrink-0 border-b px-5 py-3">
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -126,7 +134,9 @@ export const ParserPreviewDialog = ({
           <DialogDescription className="text-xs">
             작성한 템플릿 문법에 따라 생성될{" "}
             <strong>{String(items.length)}개</strong>의 작업 목록입니다.
-            {searchInput.trim() ? ` (검색 결과 ${String(filteredItems.length)}개)` : ""}
+            {searchInput.trim()
+              ? ` (검색 결과 ${String(filteredItems.length)}개)`
+              : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -135,9 +145,11 @@ export const ParserPreviewDialog = ({
           {/* ---------- LEFT: Original Template ---------- */}
           <div className="flex w-[45%] flex-col border-r">
             <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-2">
-              <span className="text-xs font-semibold text-muted-foreground">원본 템플릿</span>
+              <span className="text-xs font-semibold text-muted-foreground">
+                원본 템플릿
+              </span>
               {selectedKeys.length > 0 && (
-                <span className="text-[10px] text-primary font-medium">
+                <span className="text-[10px] font-medium text-primary">
                   {selectedKeys.length}개 변수 강조 중
                 </span>
               )}
@@ -152,25 +164,61 @@ export const ParserPreviewDialog = ({
                       key={ln.line_num}
                       className={cn(
                         "flex gap-2 px-3 py-0.5 transition-colors duration-150",
-                        highlighted && "bg-primary/10 border-l-2 border-primary",
+                        highlighted &&
+                          "border-l-2 border-primary bg-primary/10",
                         dimmed && "opacity-30",
-                        ln.type === "set-header" && !highlighted && selectedKeys.length === 0 && "bg-emerald-500/5",
-                        ln.type === "axis-header" && !highlighted && selectedKeys.length === 0 && "bg-violet-500/5",
-                        ln.type === "axis-body" && !highlighted && selectedKeys.length === 0 && "bg-violet-500/[0.03]",
-                        ln.type === "axis-end" && !highlighted && selectedKeys.length === 0 && "bg-violet-500/5",
-                        ln.type === "template-header" && !highlighted && selectedKeys.length === 0 && "bg-amber-500/5",
-                        ln.type === "template-body" && !highlighted && selectedKeys.length === 0 && "bg-amber-500/[0.03]",
-                        ln.type === "template-end" && !highlighted && selectedKeys.length === 0 && "bg-amber-500/5",
-                        ln.type === "filename-header" && !highlighted && selectedKeys.length === 0 && "bg-sky-500/5",
-                        ln.type === "filename-body" && !highlighted && selectedKeys.length === 0 && "bg-sky-500/[0.03]",
-                        ln.type === "filename-end" && !highlighted && selectedKeys.length === 0 && "bg-sky-500/5",
-                        ln.type === "end" && !highlighted && selectedKeys.length === 0 && "opacity-50",
+                        ln.type === "set-header" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-emerald-500/5",
+                        ln.type === "axis-header" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-violet-500/5",
+                        ln.type === "axis-body" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-violet-500/[0.03]",
+                        ln.type === "axis-end" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-violet-500/5",
+                        ln.type === "template-header" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-amber-500/5",
+                        ln.type === "template-body" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-amber-500/[0.03]",
+                        ln.type === "template-end" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-amber-500/5",
+                        ln.type === "filename-header" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-sky-500/5",
+                        ln.type === "filename-body" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-sky-500/[0.03]",
+                        ln.type === "filename-end" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "bg-sky-500/5",
+                        ln.type === "end" &&
+                          !highlighted &&
+                          selectedKeys.length === 0 &&
+                          "opacity-50"
                       )}
                     >
-                      <span className="w-7 shrink-0 select-none text-right text-muted-foreground/60">
+                      <span className="w-7 shrink-0 text-right text-muted-foreground/60 select-none">
                         {ln.line_num}
                       </span>
-                      <span className="whitespace-pre text-foreground/90">{ln.text}</span>
+                      <span className="whitespace-pre text-foreground/90">
+                        {ln.text}
+                      </span>
                     </div>
                   )
                 })}
@@ -191,13 +239,17 @@ export const ParserPreviewDialog = ({
               <input
                 type="text"
                 value={searchInput}
-                onChange={(e) => { setSearchInput(e.target.value); }}
+                onChange={(e) => {
+                  setSearchInput(e.target.value)
+                }}
                 placeholder="파일명, 프롬프트, 변수값 검색..."
                 className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
               />
               {searchInput && (
                 <button
-                  onClick={() => { setSearchInput(""); }}
+                  onClick={() => {
+                    setSearchInput("")
+                  }}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -209,7 +261,11 @@ export const ParserPreviewDialog = ({
             {Object.keys(sets).length > 0 && (
               <div className="flex flex-wrap gap-1 border-b px-3 py-2">
                 {Object.entries(sets).map(([sk, sv]) => (
-                  <Badge key={sk} variant="secondary" className="text-[10px] font-mono">
+                  <Badge
+                    key={sk}
+                    variant="secondary"
+                    className="font-mono text-[10px]"
+                  >
                     set {sk} = {sv}
                   </Badge>
                 ))}
@@ -219,11 +275,11 @@ export const ParserPreviewDialog = ({
             {/* Items list */}
             <div
               ref={setScrollElement}
-              className="flex-1 overflow-auto p-3 scrollbar-thin"
+              className="flex-1 scrollbar-thin overflow-auto p-3"
             >
               <div
                 style={{
-                   height: `${String(totalSize)}px`,
+                  height: `${String(totalSize)}px`,
                   width: "100%",
                   position: "relative",
                 }}
@@ -233,7 +289,8 @@ export const ParserPreviewDialog = ({
                   if (!item) return null
                   const index = virtualItem.index
                   const key = itemKey(item)
-                  const wouldRun = !filteredByAxisSet || filteredByAxisSet.has(key)
+                  const wouldRun =
+                    !filteredByAxisSet || filteredByAxisSet.has(key)
                   const rf = substitute(item.filename, item)
                   const rp = substitute(item.prompt, item)
                   const isSelected = selectedItemKey === key
@@ -258,24 +315,25 @@ export const ParserPreviewDialog = ({
                     >
                       <div
                         className={cn(
-                          "group flex h-full flex-col gap-1.5 rounded-lg border border-line bg-background p-3 shadow-xs transition-all cursor-pointer select-none",
+                          "group flex h-full cursor-pointer flex-col gap-1.5 rounded-lg border border-line bg-background p-3 shadow-xs transition-all select-none",
                           !wouldRun && "opacity-30 grayscale",
                           anySelected && !isSelected && "opacity-40",
-                          isSelected && "ring-1 ring-primary/40 border-primary/30"
+                          isSelected &&
+                            "border-primary/30 ring-1 ring-primary/40"
                         )}
                       >
                         {/* filename */}
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-muted text-muted-foreground select-none shrink-0">
+                          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-black text-muted-foreground select-none">
                             #{index + 1}
                           </span>
-                          <span className="font-mono text-xs font-bold break-all text-foreground leading-tight flex-1">
+                          <span className="flex-1 font-mono text-xs leading-tight font-bold break-all text-foreground">
                             {rf}
                           </span>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-5 w-5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                             onClick={(e) => {
                               e.stopPropagation()
                               void navigator.clipboard.writeText(rf)
@@ -290,12 +348,14 @@ export const ParserPreviewDialog = ({
                         <div className="flex flex-wrap gap-1">
                           {Object.entries(item.meta).map(([k, v]) => {
                             const axisInfo = axes[k]
-                            const matched = axisInfo?.values.find((val) => val.key === v)
+                            const matched = axisInfo?.values.find(
+                              (val) => val.key === v
+                            )
                             return (
                               <span
                                 key={k}
                                 className={cn(
-                                  "font-mono text-[9px] font-bold border px-2 py-0.5 rounded transition-colors",
+                                  "rounded border px-2 py-0.5 font-mono text-[9px] font-bold transition-colors",
                                   isSelected
                                     ? "border-primary bg-primary/10 text-primary"
                                     : "border-line bg-muted/40 text-foreground"
@@ -308,14 +368,14 @@ export const ParserPreviewDialog = ({
                         </div>
 
                         {/* prompt preview */}
-                        <div className="relative group/prompt flex items-start gap-2 rounded-md border border-line bg-muted/20 p-2">
-                          <div className="flex-1 font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap break-all line-clamp-2">
+                        <div className="group/prompt relative flex items-start gap-2 rounded-md border border-line bg-muted/20 p-2">
+                          <div className="line-clamp-2 flex-1 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-foreground">
                             {rp}
                           </div>
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-5 w-5 shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity"
+                            className="h-5 w-5 shrink-0 opacity-0 transition-opacity group-hover/prompt:opacity-100"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleCopyPrompt(rp, index)
@@ -335,7 +395,7 @@ export const ParserPreviewDialog = ({
               </div>
 
               {filteredItems.length === 0 && (
-                <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-background p-6 text-center text-muted-foreground text-xs italic">
+                <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-background p-6 text-center text-xs text-muted-foreground italic">
                   일치하는 검색 결과가 없습니다.
                 </div>
               )}
@@ -345,7 +405,14 @@ export const ParserPreviewDialog = ({
 
         {/* Footer */}
         <div className="flex shrink-0 justify-end border-t px-5 py-3">
-          <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); }} className="font-bold">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onOpenChange(false)
+            }}
+            className="font-bold"
+          >
             확인
           </Button>
         </div>

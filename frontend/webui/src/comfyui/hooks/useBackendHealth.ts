@@ -7,7 +7,10 @@ import { isValidHttpUrl } from "../../lib/utils"
 /**
  * Periodically checks backend health and fetches object info when alive.
  */
-export function useBackendHealth(): { isAliveBackend: boolean; setIsAliveBackend: React.Dispatch<React.SetStateAction<boolean>> } {
+export function useBackendHealth(): {
+  isAliveBackend: boolean
+  setIsAliveBackend: React.Dispatch<React.SetStateAction<boolean>>
+} {
   const backendUrl = useBackendUrl()
   const [isAliveBackend, setIsAliveBackend] = useState(false)
 
@@ -33,7 +36,9 @@ export function useBackendHealth(): { isAliveBackend: boolean; setIsAliveBackend
       if (!cancelled) setIsAliveBackend(ok)
     }
     void tick()
-    const timer = setInterval(() => { void tick(); }, HEALTH_CHECK_INTERVAL_MS)
+    const timer = setInterval(() => {
+      void tick()
+    }, HEALTH_CHECK_INTERVAL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)

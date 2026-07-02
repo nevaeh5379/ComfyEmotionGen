@@ -35,10 +35,11 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
   setNodeDefs: (defs): void => {
     const byCategory: Record<string, ComfyNodeDef[]> = {}
     for (const def of Object.values(defs)) {
-      const firstPart = def.category !== ""
-        ? def.category.split("/")[0]
-        : null
-      const category = (firstPart !== null && firstPart !== undefined && firstPart !== "") ? firstPart : "Other"
+      const firstPart = def.category !== "" ? def.category.split("/")[0] : null
+      const category =
+        firstPart !== null && firstPart !== undefined && firstPart !== ""
+          ? firstPart
+          : "Other"
       byCategory[category] ??= []
       byCategory[category].push(def)
     }
@@ -57,13 +58,16 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
     }
 
     // 3. Try stripping known prefixes/suffixes
-    const stripped = type.replace(/^(ComfyUI-|Comfy-|Custom-)/i, '').replace(/-(?:Node|Simple|Provider)$/i, '')
+    const stripped = type
+      .replace(/^(ComfyUI-|Comfy-|Custom-)/i, "")
+      .replace(/-(?:Node|Simple|Provider)$/i, "")
     if (stripped !== type && defs[stripped]) return defs[stripped]
 
     // 4. Try partial match (key contains type or type contains key)
     for (const [key, def] of Object.entries(defs)) {
       const lowerKey = key.toLowerCase()
-      if (lowerKey.includes(lowerType) || lowerType.includes(lowerKey)) return def
+      if (lowerKey.includes(lowerType) || lowerType.includes(lowerKey))
+        return def
     }
 
     return undefined
@@ -72,10 +76,11 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
   registerNodeDef: (def): void => {
     const { nodeDefs, nodeDefsByCategory } = get()
     const nextDefs = { ...nodeDefs, [def.name]: def }
-    const firstPart = def.category !== ""
-      ? def.category.split("/")[0]
-      : null
-    const category = (firstPart !== null && firstPart !== undefined && firstPart !== "") ? firstPart : "Other"
+    const firstPart = def.category !== "" ? def.category.split("/")[0] : null
+    const category =
+      firstPart !== null && firstPart !== undefined && firstPart !== ""
+        ? firstPart
+        : "Other"
     const nextByCategory = { ...nodeDefsByCategory }
     const existing = nextByCategory[category] ?? []
     // 중복 제거 (같은 name이면 교체)
@@ -84,8 +89,16 @@ export const useNodeDefStore = create<NodeDefState>((set, get) => ({
     set({ nodeDefs: nextDefs, nodeDefsByCategory: nextByCategory })
   },
 
-  setShowDeprecated: (showDeprecated): void => { set({ showDeprecated }); },
-  setShowExperimental: (showExperimental): void => { set({ showExperimental }); },
-  setLoading: (isLoading): void => { set({ isLoading }); },
-  setError: (error): void => { set({ error }); },
+  setShowDeprecated: (showDeprecated): void => {
+    set({ showDeprecated })
+  },
+  setShowExperimental: (showExperimental): void => {
+    set({ showExperimental })
+  },
+  setLoading: (isLoading): void => {
+    set({ isLoading })
+  },
+  setError: (error): void => {
+    set({ error })
+  },
 }))

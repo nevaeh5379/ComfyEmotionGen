@@ -28,7 +28,9 @@ export function usePersistedItems<T>(
       if (e.key === storageKey) setItems(loadFnRef.current())
     }
     window.addEventListener("storage", onStorage)
-    return () => { window.removeEventListener("storage", onStorage); }
+    return () => {
+      window.removeEventListener("storage", onStorage)
+    }
   }, [storageKey, loadFnRef])
 
   useEffect((): (() => void) | undefined => {
@@ -43,7 +45,9 @@ export function usePersistedItems<T>(
       }
     }
     window.addEventListener(SETTINGS_READY_EVENT, onReady)
-    return () => { window.removeEventListener(SETTINGS_READY_EVENT, onReady); }
+    return () => {
+      window.removeEventListener(SETTINGS_READY_EVENT, onReady)
+    }
   }, [storageKey])
 
   useEffect((): (() => void) | undefined => {
@@ -56,36 +60,51 @@ export function usePersistedItems<T>(
         const nextValue = raw === null ? [] : (JSON.parse(raw) as T[])
         setItems(nextValue)
       } catch (err: unknown) {
-        console.warn(`usePersistedItems: ${storageKey} 업데이트 파싱 실패:`, err)
+        console.warn(
+          `usePersistedItems: ${storageKey} 업데이트 파싱 실패:`,
+          err
+        )
       }
     }
     window.addEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
-    return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated); }
-  }, [storageKey])
-
-  const persist = useCallback((next: T[]) => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(next))
-    } catch (err) {
-      console.warn(`usePersistedItems: ${storageKey} localStorage 저장 실패:`, err)
+    return () => {
+      window.removeEventListener(SETTINGS_UPDATED_EVENT, onUpdated)
     }
-    setItems(next)
-
-    effectVersionRef.current++
-    const currentVersion = effectVersionRef.current
-    if (lastSavedVersionRef.current === currentVersion) return
-    lastSavedVersionRef.current = currentVersion
-
-    const serialized = JSON.stringify(next)
-    saveSetting(storageKey, serialized).then((ok) => {
-      if (lastSavedVersionRef.current !== currentVersion) return
-      if (!ok) {
-        enqueueSync(storageKey, serialized)
-      } else {
-        clearSyncQueueFor(storageKey)
-      }
-    }).catch((err: unknown) => { console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err); })
   }, [storageKey])
+
+  const persist = useCallback(
+    (next: T[]) => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next))
+      } catch (err) {
+        console.warn(
+          `usePersistedItems: ${storageKey} localStorage 저장 실패:`,
+          err
+        )
+      }
+      setItems(next)
+
+      effectVersionRef.current++
+      const currentVersion = effectVersionRef.current
+      if (lastSavedVersionRef.current === currentVersion) return
+      lastSavedVersionRef.current = currentVersion
+
+      const serialized = JSON.stringify(next)
+      saveSetting(storageKey, serialized)
+        .then((ok) => {
+          if (lastSavedVersionRef.current !== currentVersion) return
+          if (!ok) {
+            enqueueSync(storageKey, serialized)
+          } else {
+            clearSyncQueueFor(storageKey)
+          }
+        })
+        .catch((err: unknown) => {
+          console.warn(`usePersistedItems: ${storageKey} 서버 저장 실패:`, err)
+        })
+    },
+    [storageKey]
+  )
 
   return { items, persist }
 }

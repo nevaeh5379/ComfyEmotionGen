@@ -30,4 +30,3 @@ export const STORAGE_KEYS = {
   curationListLayout: "comfy.curation.listLayout",
   curationGridSubMode: "comfy.curation.gridSubMode",
 } as const
-

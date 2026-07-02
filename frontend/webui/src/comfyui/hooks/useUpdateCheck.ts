@@ -27,16 +27,22 @@ export function useUpdateCheck(
 
     if (cached !== null && cached !== "") {
       const parsed = JSON.parse(cached) as UpdateInfo
-      queueMicrotask(() => { setUpdate(parsed); })
+      queueMicrotask(() => {
+        setUpdate(parsed)
+      })
       return
     }
 
     let active = true
-    void checkForUpdate(effectiveChannel).then((info) => {
-      if (!active) return
-      sessionStorage.setItem(cacheKey, info ? JSON.stringify(info) : "")
-      setUpdate(info)
-    }).catch((err: unknown) => { console.warn("업데이트 확인 실패:", err); })
+    void checkForUpdate(effectiveChannel)
+      .then((info) => {
+        if (!active) return
+        sessionStorage.setItem(cacheKey, info ? JSON.stringify(info) : "")
+        setUpdate(info)
+      })
+      .catch((err: unknown) => {
+        console.warn("업데이트 확인 실패:", err)
+      })
     return () => {
       active = false
     }

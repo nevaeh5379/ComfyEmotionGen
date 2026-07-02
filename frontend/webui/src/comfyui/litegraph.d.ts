@@ -4,8 +4,19 @@
  */
 
 // Re-export types only — implementations live in core/*.ts (with @ts-nocheck)
-export type { Vector2, Size, Rect, INodeInputSlot, INodeOutputSlot, IContextMenuValue } from "./core/interfaces"
-export type { IBaseWidget, IWidgetOptions, IWidgetSerialize } from "./core/types/widgets"
+export type {
+  Vector2,
+  Size,
+  Rect,
+  INodeInputSlot,
+  INodeOutputSlot,
+  IContextMenuValue,
+} from "./core/interfaces"
+export type {
+  IBaseWidget,
+  IWidgetOptions,
+  IWidgetSerialize,
+} from "./core/types/widgets"
 export { LGraphEventMode } from "./core/types/globalEnums"
 export type { NodeId } from "./core/types/nodeIdentification"
 

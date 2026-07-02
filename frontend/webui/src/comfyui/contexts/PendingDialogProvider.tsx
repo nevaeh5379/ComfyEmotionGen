@@ -1,8 +1,6 @@
 import { useState, useCallback, type ReactNode } from "react"
 import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
-import {
-  PendingDialogContext,
-} from "./PendingDialogContext"
+import { PendingDialogContext } from "./PendingDialogContext"
 
 export function PendingDialogProvider({
   children,

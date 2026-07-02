@@ -77,7 +77,9 @@ const persistTheme = (key: string, value: Theme): void => {
   } catch {
     // ignore quota errors
   }
-  saveSetting(key, value).catch((err: unknown) => { console.warn("테마 저장 실패:", err); })
+  saveSetting(key, value).catch((err: unknown) => {
+    console.warn("테마 저장 실패:", err)
+  })
 }
 
 const loadThemeFromServer = async (key: string): Promise<Theme | null> => {

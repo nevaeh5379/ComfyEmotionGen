@@ -9,34 +9,42 @@ const Breadcrumb = React.forwardRef<
   React.ComponentPropsWithoutRef<"nav"> & {
     separator?: React.ReactNode
   }
->(({ ...props }, ref): React.JSX.Element => <nav ref={ref} aria-label="breadcrumb" {...props} />)
+>(
+  ({ ...props }, ref): React.JSX.Element => (
+    <nav ref={ref} aria-label="breadcrumb" {...props} />
+  )
+)
 Breadcrumb.displayName = "Breadcrumb"
 
 const BreadcrumbList = React.forwardRef<
   HTMLOListElement,
   React.ComponentPropsWithoutRef<"ol">
->(({ className, ...props }, ref): React.JSX.Element => (
-  <ol
-    ref={ref}
-    className={cn(
-      "flex flex-wrap items-center gap-1.5 text-sm break-words text-muted-foreground sm:gap-2.5",
-      className
-    )}
-    {...props}
-  />
-))
+>(
+  ({ className, ...props }, ref): React.JSX.Element => (
+    <ol
+      ref={ref}
+      className={cn(
+        "flex flex-wrap items-center gap-1.5 text-sm break-words text-muted-foreground sm:gap-2.5",
+        className
+      )}
+      {...props}
+    />
+  )
+)
 BreadcrumbList.displayName = "BreadcrumbList"
 
 const BreadcrumbItem = React.forwardRef<
   HTMLLIElement,
   React.ComponentPropsWithoutRef<"li">
->(({ className, ...props }, ref): React.JSX.Element => (
-  <li
-    ref={ref}
-    className={cn("inline-flex items-center gap-1.5", className)}
-    {...props}
-  />
-))
+>(
+  ({ className, ...props }, ref): React.JSX.Element => (
+    <li
+      ref={ref}
+      className={cn("inline-flex items-center gap-1.5", className)}
+      {...props}
+    />
+  )
+)
 BreadcrumbItem.displayName = "BreadcrumbItem"
 
 const BreadcrumbLink = React.forwardRef<
@@ -63,16 +71,18 @@ BreadcrumbLink.displayName = "BreadcrumbLink"
 const BreadcrumbPage = React.forwardRef<
   HTMLSpanElement,
   React.ComponentPropsWithoutRef<"span">
->(({ className, ...props }, ref): React.JSX.Element => (
-  <span
-    ref={ref}
-    role="link"
-    aria-disabled="true"
-    aria-current="page"
-    className={cn("font-normal text-foreground select-none", className)}
-    {...props}
-  />
-))
+>(
+  ({ className, ...props }, ref): React.JSX.Element => (
+    <span
+      ref={ref}
+      role="link"
+      aria-disabled="true"
+      aria-current="page"
+      className={cn("font-normal text-foreground select-none", className)}
+      {...props}
+    />
+  )
+)
 BreadcrumbPage.displayName = "BreadcrumbPage"
 
 const BreadcrumbSeparator = ({

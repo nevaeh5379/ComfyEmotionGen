@@ -30,16 +30,16 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    entries: [
-      "./index.html"
-    ]
+    entries: ["./index.html"],
   },
   define: {
     __FRONTEND_VERSION__: JSON.stringify(pkg.version),
     __BUNDLE_VERSION__: JSON.stringify(process.env.CEG_BUNDLE_VERSION || "dev"),
     __COMMIT__: JSON.stringify(resolveCommit()),
     __GITHUB_REPO__: JSON.stringify("nevaeh5379/ComfyEmotionGen"),
-    __DEFAULT_BACKEND_PORT__: JSON.stringify(process.env.VITE_BACKEND_PORT || "5882"),
+    __DEFAULT_BACKEND_PORT__: JSON.stringify(
+      process.env.VITE_BACKEND_PORT || "5882"
+    ),
   },
   server: {
     proxy: {
@@ -60,8 +60,8 @@ export default defineConfig({
         ws: true,
       },
       "/api": {
-        target: "http://localhost:5882"
-      }
+        target: "http://localhost:5882",
+      },
     },
   },
 })

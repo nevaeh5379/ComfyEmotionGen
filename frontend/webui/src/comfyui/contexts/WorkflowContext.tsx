@@ -1,12 +1,7 @@
 import { createContext } from "react"
 import { useContextRequired } from "@/lib/context"
-import type {
-  SavedWorkflow,
-} from "../hooks/useSavedWorkflows"
-import type {
-  NodeMapping,
-  ComfyWorkflow,
-} from "@/lib/workflow"
+import type { SavedWorkflow } from "../hooks/useSavedWorkflows"
+import type { NodeMapping, ComfyWorkflow } from "@/lib/workflow"
 
 // ---------------------------------------------------------------------------
 // Types

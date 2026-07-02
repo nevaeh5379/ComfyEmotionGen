@@ -88,7 +88,8 @@ export function CombinationPickerDetailView({
   onOpenList,
   onOpenDetail,
 }: DetailViewProps): React.JSX.Element {
-  const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } = useCurationContext()
+  const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } =
+    useCurationContext()
   const { setStatus, imagesByFilename, renderItems } = data
 
   const selectedItem = renderItems.find(
@@ -135,14 +136,16 @@ export function CombinationPickerDetailView({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return (): void => { window.removeEventListener("keydown", handleKeyDown); }
+    return (): void => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [viewMode, visibleImages, focusedIdx, onSelectImage, selectedFilename])
   return (
     <div
       className={`flex min-w-0 flex-col md:pb-0 ${
         viewMode === "tournament"
-          ? "pb-2 flex-none border-b"
-          : "pb-20 min-h-[700px] flex-1"
+          ? "flex-none border-b pb-2"
+          : "min-h-[700px] flex-1 pb-20"
       }`}
     >
       {/* 상세 헤더 (모바일 2단 / 데스크탑 1단) */}
@@ -177,7 +180,9 @@ export function CombinationPickerDetailView({
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
-                      onClick={() => { onNavigate("prev"); }}
+                      onClick={() => {
+                        onNavigate("prev")
+                      }}
                     >
                       <ChevronUpIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
                     </Button>
@@ -212,7 +217,9 @@ export function CombinationPickerDetailView({
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 hover:bg-background/80 active:bg-background md:h-6 md:w-6"
-                      onClick={() => { onNavigate("next"); }}
+                      onClick={() => {
+                        onNavigate("next")
+                      }}
                     >
                       <ChevronDownIcon className="h-5 w-5 md:h-3.5 md:w-3.5" />
                     </Button>
@@ -336,15 +343,15 @@ export function CombinationPickerDetailView({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-              <LoadingButton
-                size="sm"
-                className="h-7 w-7 p-0 px-4 md:h-6 md:w-6"
-                onClick={() => {
-                  if (selectedFilename) onRegenerate(selectedFilename)
-                }}
-                isLoading={regenActionIsLoading}
-                icon={RefreshCwIcon}
-              ></LoadingButton>
+            <LoadingButton
+              size="sm"
+              className="h-7 w-7 p-0 px-4 md:h-6 md:w-6"
+              onClick={() => {
+                if (selectedFilename) onRegenerate(selectedFilename)
+              }}
+              isLoading={regenActionIsLoading}
+              icon={RefreshCwIcon}
+            ></LoadingButton>
           </div>
         </div>
       </div>
@@ -401,7 +408,9 @@ export function CombinationPickerDetailView({
                               onSelectImage(selectedFilename, img.hash)
                             }
                           }}
-                          onFocus={() => { setFocusedIdx(idx); }}
+                          onFocus={() => {
+                            setFocusedIdx(idx)
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault()
@@ -426,12 +435,12 @@ export function CombinationPickerDetailView({
                           />
                           <button
                             type="button"
-                            onClick={(e) =>
-                              { onToggleCompareImage(
+                            onClick={(e) => {
+                              onToggleCompareImage(
                                 `${selectedFilename}::${img.hash}`,
                                 e
-                              ); }
-                            }
+                              )
+                            }}
                             className={`absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors md:h-7 md:w-7 ${isPinned ? "bg-blue-500 text-white shadow-lg" : "bg-black/40 text-white/50 opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
                           >
                             <ColumnsIcon
@@ -444,7 +453,7 @@ export function CombinationPickerDetailView({
                               e.stopPropagation()
                               onSetPreviewHash(img.hash)
                             }}
-                            className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 md:hidden"
+                            className="absolute right-2 bottom-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 md:hidden"
                           >
                             <Maximize2Icon className="h-5 w-5" />
                           </button>
@@ -454,7 +463,7 @@ export function CombinationPickerDetailView({
                               e.stopPropagation()
                               onOpenDetail?.(img)
                             }}
-                            className="absolute bottom-2 left-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                            className="absolute bottom-2 left-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-100 shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 md:opacity-0 md:group-hover:opacity-100"
                           >
                             <InfoIcon className="h-5 w-5 md:h-4 md:w-4" />
                           </button>
@@ -491,7 +500,11 @@ export function CombinationPickerDetailView({
                     </HoverCard>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="w-44">
-                    <ContextMenuItem onClick={() => { onSetPreviewHash(img.hash); }}>
+                    <ContextMenuItem
+                      onClick={() => {
+                        onSetPreviewHash(img.hash)
+                      }}
+                    >
                       <Maximize2Icon className="h-4 w-4" /> 이미지 보기
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => onOpenDetail?.(img)}>
@@ -504,7 +517,9 @@ export function CombinationPickerDetailView({
                       </ContextMenuItem>
                     ) : isRejected ? (
                       <ContextMenuItem
-                        onClick={() => { void setStatus(img.hash, "pending"); }}
+                        onClick={() => {
+                          void setStatus(img.hash, "pending")
+                        }}
                       >
                         <RefreshCwIcon className="h-4 w-4" /> 리젝 취소
                       </ContextMenuItem>
@@ -519,7 +534,9 @@ export function CombinationPickerDetailView({
                           <CheckIcon className="h-4 w-4" /> 선택
                         </ContextMenuItem>
                         <ContextMenuItem
-                          onClick={() => { void setStatus(img.hash, "rejected"); }}
+                          onClick={() => {
+                            void setStatus(img.hash, "rejected")
+                          }}
                         >
                           <XIcon className="h-4 w-4" /> 리젝
                         </ContextMenuItem>
@@ -550,9 +567,9 @@ export function CombinationPickerDetailView({
                 >
                   <button
                     type="button"
-                    onClick={(e) =>
-                      { onToggleCompareImage(`${filename}::${hash}`, e); }
-                    }
+                    onClick={(e) => {
+                      onToggleCompareImage(`${filename}::${hash}`, e)
+                    }}
                     className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl"
                   >
                     <ColumnsIcon className="h-5 w-5" />

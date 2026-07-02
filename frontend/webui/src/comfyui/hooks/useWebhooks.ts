@@ -23,7 +23,7 @@ async function fetchWebhooks(backendUrl: string): Promise<WebhookConfig[]> {
   try {
     const res = await fetch(`${backendUrl}${API.webhooks.root}`)
     if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-    const data = await res.json() as { configs?: WebhookConfig[] }
+    const data = (await res.json()) as { configs?: WebhookConfig[] }
     return data.configs ?? []
   } catch (err: unknown) {
     console.error("Failed to fetch webhooks:", err)
@@ -123,7 +123,9 @@ async function testConfigInternal(
 
 // ── Sync callbacks (useCallback + async internal) ────────────────
 
-export const useWebhooks = (backendUrl: string): {
+export const useWebhooks = (
+  backendUrl: string
+): {
   configs: WebhookConfig[]
   isLoading: boolean
   addConfig: (payload: {
@@ -210,17 +212,20 @@ export const useWebhooks = (backendUrl: string): {
     [backendUrlRef, load]
   )
 
-  const testConfig = useCallback(async (id: string): Promise<boolean> => {
-    setIsLoading(true)
-    try {
-      const ok = await testConfigInternal(backendUrlRef.current, id)
-      return ok
-    } catch {
-      return false
-    } finally {
-      setIsLoading(false)
-    }
-  }, [backendUrlRef])
+  const testConfig = useCallback(
+    async (id: string): Promise<boolean> => {
+      setIsLoading(true)
+      try {
+        const ok = await testConfigInternal(backendUrlRef.current, id)
+        return ok
+      } catch {
+        return false
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [backendUrlRef]
+  )
 
   return {
     configs,

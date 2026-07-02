@@ -141,16 +141,19 @@ export function WorkCompositionPanel({
   }, [])
 
   // Helper to generate a unique preset/workflow/template name if conflict exists
-  const getUniquePresetName = useCallback((baseName: string, existingNames: string[]) => {
-    const trimmed = baseName.trim()
-    let name = trimmed
-    let counter = 1
-    while (existingNames.includes(name)) {
-      name = `${trimmed} (${String(counter)})`
-      counter++
-    }
-    return name
-  }, [])
+  const getUniquePresetName = useCallback(
+    (baseName: string, existingNames: string[]) => {
+      const trimmed = baseName.trim()
+      let name = trimmed
+      let counter = 1
+      while (existingNames.includes(name)) {
+        name = `${trimmed} (${String(counter)})`
+        counter++
+      }
+      return name
+    },
+    []
+  )
 
   const handleUpdateWorkflow = useCallback(() => {
     if (!workflow.activeWorkflow) return
@@ -162,10 +165,7 @@ export function WorkCompositionPanel({
         workflow.workflowJson
       )
     } else {
-      workflow.saveWorkflow(
-        workflow.activeWorkflow.name,
-        workflow.workflowJson
-      )
+      workflow.saveWorkflow(workflow.activeWorkflow.name, workflow.workflowJson)
     }
   }, [workflow])
 
@@ -197,7 +197,9 @@ export function WorkCompositionPanel({
         workflow.setActiveWorkflowId(saved.id)
         workflow.setWorkflowResetKey((k) => k + 1)
 
-        toast.success(`'${uniqueName}' 워크플로우 프리셋이 자동으로 저장되었습니다.`)
+        toast.success(
+          `'${uniqueName}' 워크플로우 프리셋이 자동으로 저장되었습니다.`
+        )
       } catch {
         toast.error("JSON 파싱에 실패했습니다.")
       }
@@ -258,7 +260,9 @@ export function WorkCompositionPanel({
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <Tabs
           value={compositionTab}
-          onValueChange={(v) => { setCompositionTab(v as "ceg" | "workflow"); }}
+          onValueChange={(v) => {
+            setCompositionTab(v as "ceg" | "workflow")
+          }}
           className="flex min-h-0 flex-1 flex-col"
         >
           <div
@@ -285,32 +289,33 @@ export function WorkCompositionPanel({
                 setTargetWorkerId={setTargetWorkerId}
                 className="hidden md:flex"
               />
-              {onToggleJobsLayoutOrientation !== undefined && jobsLayoutOrientation !== undefined && (
-                <>
-                  <div className="h-4 w-px shrink-0 bg-line/60" />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                        onClick={onToggleJobsLayoutOrientation}
-                      >
-                        {jobsLayoutOrientation === "horizontal" ? (
-                          <Rows2 className="h-4 w-4" />
-                        ) : (
-                          <Columns2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
-                      {jobsLayoutOrientation === "horizontal"
-                        ? "세로 분할 레이아웃으로 전환 (위/아래)"
-                        : "가로 분할 레이아웃으로 전환 (왼쪽/오른쪽)"}
-                    </TooltipContent>
-                  </Tooltip>
-                </>
-              )}
+              {onToggleJobsLayoutOrientation !== undefined &&
+                jobsLayoutOrientation !== undefined && (
+                  <>
+                    <div className="h-4 w-px shrink-0 bg-line/60" />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          onClick={onToggleJobsLayoutOrientation}
+                        >
+                          {jobsLayoutOrientation === "horizontal" ? (
+                            <Rows2 className="h-4 w-4" />
+                          ) : (
+                            <Columns2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
+                        {jobsLayoutOrientation === "horizontal"
+                          ? "세로 분할 레이아웃으로 전환 (위/아래)"
+                          : "가로 분할 레이아웃으로 전환 (왼쪽/오른쪽)"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </>
+                )}
               {onFloatToggle && (
                 <>
                   <div className="h-4 w-px shrink-0 bg-line/60" />
@@ -354,7 +359,9 @@ export function WorkCompositionPanel({
               activeTemplateId={template.activeTemplateId}
               onSaveTemplate={makeSaveCallback(
                 template.savedTemplates,
-                (name) => { template.onPendingSave(name, "template"); },
+                (name) => {
+                  template.onPendingSave(name, "template")
+                },
                 (name) => template.saveTemplate(name, template.cegTemplate),
                 template.setActiveTemplateId
               )}
@@ -402,7 +409,7 @@ export function WorkCompositionPanel({
             className="mt-0 flex min-h-0 flex-1 flex-col data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-1.5">
-              <div className="relative flex items-center justify-center shrink-0">
+              <div className="relative flex shrink-0 items-center justify-center">
                 <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
                 {workflow.isDirty === true && (
                   <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"></span>
@@ -413,7 +420,9 @@ export function WorkCompositionPanel({
                   key={workflow.workflowResetKey}
                   onSave={makeSaveCallback(
                     workflow.savedWorkflows,
-                    (name) => { workflow.onPendingSave(name, "workflow"); },
+                    (name) => {
+                      workflow.onPendingSave(name, "workflow")
+                    },
                     (name) =>
                       workflow.saveWorkflow(name, workflow.workflowJson),
                     workflow.setActiveWorkflowId
@@ -429,7 +438,9 @@ export function WorkCompositionPanel({
                     nodeMapping.setActiveNodeMappingPresetId(null)
                     workflow.loadWorkflowItem(
                       w,
-                      () => { nodeMapping.setNodeMappings([]); },
+                      () => {
+                        nodeMapping.setNodeMappings([])
+                      },
                       (m, presetId) => {
                         nodeMapping.setNodeMappings(m)
                         nodeMapping.setActiveNodeMappingPresetId(presetId)
@@ -446,33 +457,37 @@ export function WorkCompositionPanel({
                 />
               </div>
               {workflow.parsedWorkflow?.success === true && (
-                <span className="mono shrink-0 text-[10px] text-muted-foreground mr-1">
+                <span className="mono mr-1 shrink-0 text-[10px] text-muted-foreground">
                   {Object.keys(workflow.parsedWorkflow.data).length} Nodes
                 </span>
               )}
 
-              <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-muted/65 p-0.5 border border-line/40 select-none">
+              <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-line/40 bg-muted/65 p-0.5 select-none">
                 <Button
                   variant={viewMode === "code" ? "secondary" : "ghost"}
                   size="sm"
-                  className="h-6 px-2 text-[10px] font-extrabold shadow-xs cursor-pointer"
-                  onClick={() => { handleSetViewMode("code"); }}
+                  className="h-6 cursor-pointer px-2 text-[10px] font-extrabold shadow-xs"
+                  onClick={() => {
+                    handleSetViewMode("code")
+                  }}
                 >
-                  <Code2 className="h-3 w-3 mr-1 text-muted-foreground" />
+                  <Code2 className="mr-1 h-3 w-3 text-muted-foreground" />
                   코드
                 </Button>
                 <Button
                   variant={viewMode === "form" ? "secondary" : "ghost"}
                   size="sm"
-                  className="h-6 px-2 text-[10px] font-extrabold shadow-xs cursor-pointer"
-                  onClick={() => { handleSetViewMode("form"); }}
+                  className="h-6 cursor-pointer px-2 text-[10px] font-extrabold shadow-xs"
+                  onClick={() => {
+                    handleSetViewMode("form")
+                  }}
                 >
-                  <SlidersHorizontal className="h-3 w-3 mr-1 text-muted-foreground" />
+                  <SlidersHorizontal className="mr-1 h-3 w-3 text-muted-foreground" />
                   속성 편집
                 </Button>
               </div>
 
-              <div className="h-4 w-px bg-line/65 shrink-0" />
+              <div className="h-4 w-px shrink-0 bg-line/65" />
 
               <div className="flex shrink-0 items-center gap-1">
                 {workflow.isDirty === true && workflow.revert !== undefined && (
@@ -504,7 +519,9 @@ export function WorkCompositionPanel({
                           const file = (e.target as HTMLInputElement).files?.[0]
                           if (file) {
                             const reader = new FileReader()
-                            reader.onload = (_ev: ProgressEvent<FileReader>): void => {
+                            reader.onload = (
+                              _ev: ProgressEvent<FileReader>
+                            ): void => {
                               const content = _ev.target?.result as string
                               handleWorkflowFileOpen(content, file.name)
                             }
@@ -527,7 +544,9 @@ export function WorkCompositionPanel({
                       size="sm"
                       className="h-6 w-6 p-0 text-muted-foreground"
                       onClick={() => {
-                        void navigator.clipboard.writeText(workflow.workflowJson)
+                        void navigator.clipboard.writeText(
+                          workflow.workflowJson
+                        )
                       }}
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -559,7 +578,6 @@ export function WorkCompositionPanel({
                   </TooltipTrigger>
                   <TooltipContent>워크플로우 JSON 다운로드</TooltipContent>
                 </Tooltip>
-
               </div>
             </div>
 
@@ -572,7 +590,8 @@ export function WorkCompositionPanel({
                   if (workflow.activeWorkflow) {
                     handleUpdateWorkflow()
                   } else {
-                    const input = e.currentTarget.parentElement?.querySelector("input")
+                    const input =
+                      e.currentTarget.parentElement?.querySelector("input")
                     input?.focus()
                   }
                 }
@@ -599,18 +618,21 @@ export function WorkCompositionPanel({
                       : null
                   }
                   objectInfo={nodeMapping.objectInfo}
-                  onBackToCode={() => { handleSetViewMode("code"); }}
+                  onBackToCode={() => {
+                    handleSetViewMode("code")
+                  }}
                   workers={workers}
                   setObjectInfo={nodeMapping.setObjectInfo}
                 />
               )}
             </div>
 
-            {workflow.parsedWorkflow !== undefined && !workflow.parsedWorkflow.success && (
-              <div className="shrink-0 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
-                workflow 파싱 오류: {workflow.parsedWorkflow.error.message}
-              </div>
-            )}
+            {workflow.parsedWorkflow !== undefined &&
+              !workflow.parsedWorkflow.success && (
+                <div className="shrink-0 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+                  workflow 파싱 오류: {workflow.parsedWorkflow.error.message}
+                </div>
+              )}
 
             {workflow.parsedWorkflow?.success === true && (
               <NodeMappingSection

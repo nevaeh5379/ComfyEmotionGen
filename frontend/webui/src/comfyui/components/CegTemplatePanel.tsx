@@ -46,14 +46,15 @@ export function CegTemplatePanel({
   isDirty,
   onRevert,
 }: CegTemplatePanelProps): React.JSX.Element {
-  const activeName = activeTemplateId !== null
-    ? savedTemplates.find((t) => t.id === activeTemplateId)?.name
-    : undefined
+  const activeName =
+    activeTemplateId !== null
+      ? savedTemplates.find((t) => t.id === activeTemplateId)?.name
+      : undefined
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-line bg-muted/40 px-3 py-1.5">
-        <div className="relative flex items-center justify-center shrink-0">
+        <div className="relative flex shrink-0 items-center justify-center">
           <FileCode2 className="h-3.5 w-3.5 text-primary opacity-70" />
           {isDirty === true && (
             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"></span>
@@ -131,7 +132,8 @@ export function CegTemplatePanel({
             if (onUpdateTemplate) {
               onUpdateTemplate()
             } else {
-              const input = e.currentTarget.parentElement?.querySelector("input")
+              const input =
+                e.currentTarget.parentElement?.querySelector("input")
               input?.focus()
             }
           }

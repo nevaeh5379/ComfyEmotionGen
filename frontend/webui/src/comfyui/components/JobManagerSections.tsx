@@ -1,4 +1,11 @@
-import { memo, useRef, useEffect, useState, useCallback, type ReactNode } from "react"
+import {
+  memo,
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react"
 import { createPortal } from "react-dom"
 import {
   ArrowDown,
@@ -163,7 +170,8 @@ export const SessionPopover = memo(function SessionPopover({
   useEffect(() => {
     if (isOpen && ref.current !== null) {
       const el = ref.current
-      const isVisible = el.offsetParent !== null || getComputedStyle(el).position === "fixed"
+      const isVisible =
+        el.offsetParent !== null || getComputedStyle(el).position === "fixed"
       if (isVisible) {
         setRect(el.getBoundingClientRect())
       } else {
@@ -186,7 +194,8 @@ export const SessionPopover = memo(function SessionPopover({
 
   const dropdownStyle = rect
     ? ((): { top: number; left: number; width: number } => {
-        const popupWidth = window.innerWidth < 768 ? window.innerWidth - 32 : 304
+        const popupWidth =
+          window.innerWidth < 768 ? window.innerWidth - 32 : 304
         let left = rect.left
         if (left + popupWidth > window.innerWidth - 16) {
           left = window.innerWidth - popupWidth - 16
@@ -200,89 +209,92 @@ export const SessionPopover = memo(function SessionPopover({
       })()
     : null
 
-  const dropdownContent = isOpen && dropdownStyle !== null ? (
-    <div
-      className="fixed z-50 rounded-xl border border-line-strong/60 bg-popover/85 p-1 shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 duration-200"
-      style={dropdownStyle}
-    >
-          <div className="flex items-center justify-between border-b border-line px-3 py-2.5">
-            <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
-              세션 히스토리
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 rounded-md px-2 text-[10px] font-extrabold text-info hover:bg-info-bg/30"
-              onClick={onCreateNew}
-            >
-              + 새 세션 생성
-            </Button>
-          </div>
-          <ScrollArea className="max-h-80 pr-1.5">
-            <div className="space-y-0.5 p-1">
-              {sortedMarkers.map((m) => {
-                const count = sessionJobCounts.get(m.id) ?? 0
-                const isSelected = m.id === selectedId
-                const mIsActive = m.id === isActive
+  const dropdownContent =
+    isOpen && dropdownStyle !== null ? (
+      <div
+        className="fixed z-50 animate-in rounded-xl border border-line-strong/60 bg-popover/85 p-1 shadow-2xl backdrop-blur-md duration-200 fade-in-0 zoom-in-95"
+        style={dropdownStyle}
+      >
+        <div className="flex items-center justify-between border-b border-line px-3 py-2.5">
+          <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+            세션 히스토리
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 rounded-md px-2 text-[10px] font-extrabold text-info hover:bg-info-bg/30"
+            onClick={onCreateNew}
+          >
+            + 새 세션 생성
+          </Button>
+        </div>
+        <ScrollArea className="max-h-80 pr-1.5">
+          <div className="space-y-0.5 p-1">
+            {sortedMarkers.map((m) => {
+              const count = sessionJobCounts.get(m.id) ?? 0
+              const isSelected = m.id === selectedId
+              const mIsActive = m.id === isActive
 
-                return (
-                  <div
-                    key={m.id}
-                    className={cn(
-                      "group/session-item rounded-lg p-0.5 transition-colors",
-                      isSelected ? "bg-muted/65" : "hover:bg-muted/30"
-                    )}
+              return (
+                <div
+                  key={m.id}
+                  className={cn(
+                    "group/session-item rounded-lg p-0.5 transition-colors",
+                    isSelected ? "bg-muted/65" : "hover:bg-muted/30"
+                  )}
+                >
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-full justify-start gap-2.5 px-2.5 text-xs"
+                    onClick={() => {
+                      onSelectSession(m.id)
+                      onOpenChange(false)
+                    }}
                   >
-                    <Button
-                      variant="ghost"
-                      className="h-9 w-full justify-start gap-2.5 px-2.5 text-xs"
-                      onClick={() => {
-                        onSelectSession(m.id)
-                        onOpenChange(false)
-                      }}
+                    <span
+                      className={cn(
+                        "h-2 w-2 rounded-full transition-all duration-300",
+                        mIsActive
+                          ? "animate-pulse bg-ok shadow-[0_0_8px_rgba(var(--ok),0.5)]"
+                          : "bg-muted-foreground/30 group-hover/session-item:bg-muted-foreground/50"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "flex-1 truncate text-left font-semibold tracking-tight transition-colors",
+                        isSelected
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground group-hover/session-item:text-foreground"
+                      )}
                     >
-                      <span
-                        className={cn(
-                          "h-2 w-2 rounded-full transition-all duration-300",
-                          mIsActive
-                            ? "animate-pulse bg-ok shadow-[0_0_8px_rgba(var(--ok),0.5)]"
-                            : "bg-muted-foreground/30 group-hover/session-item:bg-muted-foreground/50"
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          "flex-1 truncate text-left font-semibold tracking-tight transition-colors",
-                          isSelected
-                            ? "font-bold text-foreground"
-                            : "text-muted-foreground group-hover/session-item:text-foreground"
-                        )}
-                      >
-                        {m.label}
-                      </span>
-                      <span
-                        className={cn(
-                          "mono rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-black transition-colors",
-                          isSelected
-                            ? "bg-background text-foreground"
-                            : "text-muted-foreground group-hover/session-item:bg-muted/80"
-                        )}
-                      >
-                        {count}
-                      </span>
-                    </Button>
-                  </div>
-                )
-              })}
-            </div>
-          </ScrollArea>
-    </div>
-  ) : null
+                      {m.label}
+                    </span>
+                    <span
+                      className={cn(
+                        "mono rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-black transition-colors",
+                        isSelected
+                          ? "bg-background text-foreground"
+                          : "text-muted-foreground group-hover/session-item:bg-muted/80"
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        </ScrollArea>
+      </div>
+    ) : null
 
   return (
     <>
       <div ref={ref}>
         <button
-          onClick={() => { onOpenChange(!isOpen); }}
+          onClick={() => {
+            onOpenChange(!isOpen)
+          }}
           className={cn(
             "flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-black transition-all hover:bg-muted/70 active:scale-95",
             isOpen ? "bg-muted/65" : ""
@@ -303,7 +315,9 @@ export const SessionPopover = memo(function SessionPopover({
           />
         </button>
       </div>
-      {dropdownContent !== null && typeof document !== "undefined" && createPortal(dropdownContent, document.body)}
+      {dropdownContent !== null &&
+        typeof document !== "undefined" &&
+        createPortal(dropdownContent, document.body)}
     </>
   )
 })
@@ -325,7 +339,8 @@ export const JobStatBar = memo(function JobStatBar({
   const cancelled = counts.cancelled
 
   const runningJobs = sessionJobs.filter((j) => j.status === "running")
-  const runningProgressSum = runningJobs.reduce((sum, j) => sum + getOverallProgress(j), 0) / 100
+  const runningProgressSum =
+    runningJobs.reduce((sum, j) => sum + getOverallProgress(j), 0) / 100
 
   let numerator: number
   let denominator: number
@@ -346,7 +361,10 @@ export const JobStatBar = memo(function JobStatBar({
       numerator = done + runningProgressSum
       denominator = total
   }
-  const progress = denominator > 0 ? Math.min(100, Math.max(0, (numerator / denominator) * 100)) : 0
+  const progress =
+    denominator > 0
+      ? Math.min(100, Math.max(0, (numerator / denominator) * 100))
+      : 0
 
   return (
     <div className="flex flex-col">
@@ -404,7 +422,8 @@ export const JobStatBar = memo(function JobStatBar({
         <div className="flex items-center justify-between text-[11px] font-black uppercase">
           <span className="text-muted-foreground">세션 전체 진행률</span>
           <span className="mono tabular-nums">
-            {numerator % 1 === 0 ? numerator : numerator.toFixed(1)}/{denominator} ({Math.round(progress)}% )
+            {numerator % 1 === 0 ? numerator : numerator.toFixed(1)}/
+            {denominator} ({Math.round(progress)}% )
           </span>
         </div>
         <Progress
@@ -421,7 +440,6 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   allJobs,
   workers,
 }: RunningJobsBannerProps): React.JSX.Element {
-   
   const { workerPreviews } = useBackend()
   const backendUrl = useBackendUrl()
 
@@ -445,7 +463,7 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
           return (
             <div
               key={j.id}
-              className="shrink-0 space-y-2 rounded-xl border border-info/20 bg-info/5 p-4 shadow-sm animate-in fade-in-0 duration-300"
+              className="shrink-0 animate-in space-y-2 rounded-xl border border-info/20 bg-info/5 p-4 shadow-sm duration-300 fade-in-0"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-mono text-[13px] font-black text-info">
@@ -494,16 +512,22 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {workers.map((w) => {
-        const runningJob = jobs.find(
-          (j) => j.workerId === w.id && (j.status === "running" || j.status === "queued")
-        ) ?? (w.currentJobId !== null ? jobs.find((j) => j.id === w.currentJobId) : undefined)
+        const runningJob =
+          jobs.find(
+            (j) =>
+              j.workerId === w.id &&
+              (j.status === "running" || j.status === "queued")
+          ) ??
+          (w.currentJobId !== null
+            ? jobs.find((j) => j.id === w.currentJobId)
+            : undefined)
         const previewToken = workerPreviews[w.id]
 
         if (!w.alive) {
           return (
             <div
               key={w.id}
-              className="shrink-0 space-y-2.5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 shadow-sm opacity-60 transition-all duration-300"
+              className="shrink-0 space-y-2.5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 opacity-60 shadow-sm transition-all duration-300"
             >
               <div className="flex items-center justify-between gap-2 border-b border-destructive/10 pb-2">
                 <div className="flex items-center gap-1.5">
@@ -511,11 +535,11 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                   <span className="font-mono text-[12px] font-bold text-destructive">
                     {w.id}
                   </span>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground/85 border">
+                  <span className="rounded border bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground/85 uppercase">
                     {w.workerType}
                   </span>
                 </div>
-                <span className="text-[10px] font-black text-destructive uppercase tracking-wider">
+                <span className="text-[10px] font-black tracking-wider text-destructive uppercase">
                   오프라인
                 </span>
               </div>
@@ -527,9 +551,13 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
         }
 
         if (w.busy) {
-          const overallPercent = runningJob !== undefined ? getOverallProgress(runningJob) : 0
+          const overallPercent =
+            runningJob !== undefined ? getOverallProgress(runningJob) : 0
           const etaStr =
-            runningJob !== undefined && runningJob.startedAt !== null && overallPercent > 0 && overallPercent < 100
+            runningJob !== undefined &&
+            runningJob.startedAt !== null &&
+            overallPercent > 0 &&
+            overallPercent < 100
               ? formatETA(runningJob.startedAt, overallPercent, allJobs)
               : null
 
@@ -540,11 +568,11 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
             >
               <div className="flex items-center justify-between gap-2 border-b border-info/10 pb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(var(--warn),0.5)]" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(var(--warn),0.5)]" />
                   <span className="font-mono text-[12px] font-bold text-foreground">
                     {w.id}
                   </span>
-                  <span className="rounded bg-info/10 border border-info/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-info">
+                  <span className="rounded border border-info/20 bg-info/10 px-1.5 py-0.5 text-[9px] font-bold text-info uppercase">
                     {w.workerType}
                   </span>
                 </div>
@@ -554,49 +582,66 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                       {etaStr}
                     </span>
                   )}
-                  <span className="text-[10px] font-black text-info uppercase tracking-wider">
+                  <span className="text-[10px] font-black tracking-wider text-info uppercase">
                     {runningJob?.status === "queued" ? "대기 중" : "작업 중"}
                   </span>
                 </div>
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-1 space-y-2 min-w-0">
+                <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate font-mono text-[12px] font-black text-foreground/90">
-                      📄 {runningJob !== undefined ? runningJob.filename : "작업 요청 처리 중..."}
+                      📄{" "}
+                      {runningJob !== undefined
+                        ? runningJob.filename
+                        : "작업 요청 처리 중..."}
                     </span>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
                       <span className="truncate">
-                        {runningJob !== undefined && runningJob.currentNodeName !== ""
+                        {runningJob !== undefined &&
+                        runningJob.currentNodeName !== ""
                           ? `노드 (${runningJob.currentNodeName})`
                           : runningJob?.status === "queued"
-                          ? "작업 준비 중..."
-                          : "노드 처리 중..."}
+                            ? "작업 준비 중..."
+                            : "노드 처리 중..."}
                       </span>
-                      <span className="mono">{runningJob !== undefined ? Math.round(runningJob.progressPercent) : 0}%</span>
+                      <span className="mono">
+                        {runningJob !== undefined
+                          ? Math.round(runningJob.progressPercent)
+                          : 0}
+                        %
+                      </span>
                     </div>
                     <Progress
-                      value={runningJob !== undefined ? runningJob.progressPercent : 0}
+                      value={
+                        runningJob !== undefined
+                          ? runningJob.progressPercent
+                          : 0
+                      }
                       className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-info"
                     />
                   </div>
-                  {runningJob !== undefined && runningJob.totalNodeCount > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
-                        <span className="truncate">
-                          전체 노드 {runningJob.completedNodeCount}/{runningJob.totalNodeCount}
-                        </span>
-                        <span className="mono">{Math.round(overallPercent)}%</span>
+                  {runningJob !== undefined &&
+                    runningJob.totalNodeCount > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground/80">
+                          <span className="truncate">
+                            전체 노드 {runningJob.completedNodeCount}/
+                            {runningJob.totalNodeCount}
+                          </span>
+                          <span className="mono">
+                            {Math.round(overallPercent)}%
+                          </span>
+                        </div>
+                        <Progress
+                          value={overallPercent}
+                          className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
+                        />
                       </div>
-                      <Progress
-                        value={overallPercent}
-                        className="h-1.5 w-full [&>[data-slot=progress-indicator]]:bg-ok"
-                      />
-                    </div>
-                  )}
+                    )}
                 </div>
                 {w.workerType === "comfyui" && previewToken !== undefined && (
                   <img
@@ -614,19 +659,19 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
         return (
           <div
             key={w.id}
-            className="shrink-0 space-y-2.5 rounded-xl border border-line-strong/30 bg-muted/20 p-4 shadow-sm opacity-80 transition-all duration-300"
+            className="shrink-0 space-y-2.5 rounded-xl border border-line-strong/30 bg-muted/20 p-4 opacity-80 shadow-sm transition-all duration-300"
           >
             <div className="flex items-center justify-between gap-2 border-b border-line pb-2">
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
                 <span className="font-mono text-[12px] font-bold text-muted-foreground">
                   {w.id}
                 </span>
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground/85 border">
+                <span className="rounded border bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground/85 uppercase">
                   {w.workerType}
                 </span>
               </div>
-              <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-wider">
+              <span className="text-[10px] font-black tracking-wider text-green-600 uppercase dark:text-green-400">
                 유휴 상태
               </span>
             </div>
@@ -688,13 +733,19 @@ export const JobRow = memo(function JobRow({
   const dotColor = "#" + "00000".substring(0, 6 - c.length) + c
 
   const currentWorkerId = job.workerId
-  const workerLabel = currentWorkerId !== null ? currentWorkerId.slice(0, 8) : "—"
+  const workerLabel =
+    currentWorkerId !== null ? currentWorkerId.slice(0, 8) : "—"
 
   const workerCell = (
-    <TableCell onClick={(e) => { e.stopPropagation(); }} className="px-2 font-mono text-[11px] w-[80px]">
+    <TableCell
+      onClick={(e) => {
+        e.stopPropagation()
+      }}
+      className="w-[80px] px-2 font-mono text-[11px]"
+    >
       {currentWorkerId !== null ? (
         <span
-          className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold hover:bg-muted text-muted-foreground select-none"
+          className="cursor-help rounded bg-muted/60 px-1.5 py-0.5 font-bold text-muted-foreground select-none hover:bg-muted"
           onMouseEnter={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
             onWorkerMouseEnter(job, currentWorkerId, rect)
@@ -713,7 +764,9 @@ export const JobRow = memo(function JobRow({
     <TableRow
       key={job.id}
       className="group/row relative cursor-pointer transition-all duration-300 hover:bg-muted/30 hover:shadow-sm"
-      onClick={() => { fetchJobImages(job.id); }} // open detail via click (handled by parent's onClick)
+      onClick={() => {
+        fetchJobImages(job.id)
+      }} // open detail via click (handled by parent's onClick)
       onMouseEnter={(e) => {
         if (job.status === "done") {
           const rect = e.currentTarget.getBoundingClientRect()
@@ -726,7 +779,9 @@ export const JobRow = memo(function JobRow({
         <TableCell className="px-2 py-4">
           <Checkbox
             checked={selectedForDelete.has(job.id)}
-            onCheckedChange={() => { onToggleSelect(job.id); }}
+            onCheckedChange={() => {
+              onToggleSelect(job.id)
+            }}
           />
         </TableCell>
       )}
@@ -757,16 +812,26 @@ export const JobRow = memo(function JobRow({
         {dur !== null ? formatDuration(dur) : "—"}
       </TableCell>
       {workerCell}
-      <TableCell onClick={(e) => { e.stopPropagation(); }} className="px-2">
+      <TableCell
+        onClick={(e) => {
+          e.stopPropagation()
+        }}
+        className="px-2"
+      >
         {job.status === "pending" ? (
           <select
             value={job.targetWorkerId ?? "auto"}
-            onChange={(e) => { onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value); }}
+            onChange={(e) => {
+              onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value)
+            }}
             className="h-6 w-24 rounded-md border border-input bg-background px-1.5 py-0.5 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
           >
             <option value="auto">자동</option>
             {workers
-              .filter((w) => (w.workerType === "comfyui" || w.workerType === "") && w.alive)
+              .filter(
+                (w) =>
+                  (w.workerType === "comfyui" || w.workerType === "") && w.alive
+              )
               .map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.id.slice(0, 8)}
@@ -829,46 +894,59 @@ export const JobTableSection = memo(function JobTableSection({
     setHoveredJob(null)
   }, [])
 
-  const handleWorkerMouseEnter = useCallback((job: JobView, workerId: string, rect: DOMRect) => {
-    if (workerTimeoutRef.current !== null) clearTimeout(workerTimeoutRef.current)
-    workerTimeoutRef.current = window.setTimeout(() => {
-      setHoveredWorker({ job, workerId, rect })
-    }, 200)
-  }, [])
+  const handleWorkerMouseEnter = useCallback(
+    (job: JobView, workerId: string, rect: DOMRect) => {
+      if (workerTimeoutRef.current !== null)
+        clearTimeout(workerTimeoutRef.current)
+      workerTimeoutRef.current = window.setTimeout(() => {
+        setHoveredWorker({ job, workerId, rect })
+      }, 200)
+    },
+    []
+  )
 
   const handleWorkerMouseLeave = useCallback(() => {
-    if (workerTimeoutRef.current !== null) clearTimeout(workerTimeoutRef.current)
+    if (workerTimeoutRef.current !== null)
+      clearTimeout(workerTimeoutRef.current)
     setHoveredWorker(null)
   }, [])
 
   useEffect(() => {
     return (): void => {
       if (jobTimeoutRef.current !== null) clearTimeout(jobTimeoutRef.current)
-      if (workerTimeoutRef.current !== null) clearTimeout(workerTimeoutRef.current)
+      if (workerTimeoutRef.current !== null)
+        clearTimeout(workerTimeoutRef.current)
     }
   }, [])
 
-  const hoveredJobImages = hoveredJob !== null ? fetchedImages.get(hoveredJob.job.id) : undefined
+  const hoveredJobImages =
+    hoveredJob !== null ? fetchedImages.get(hoveredJob.job.id) : undefined
 
-  const jobStyle: React.CSSProperties | undefined = hoveredJob !== null ? {
-    left: `${String(hoveredJob.rect.left - 12)}px`,
-    top: `${String(hoveredJob.rect.top)}px`,
-    transform: "translateX(-100%)",
-    pointerEvents: "none",
-  } : undefined
+  const jobStyle: React.CSSProperties | undefined =
+    hoveredJob !== null
+      ? {
+          left: `${String(hoveredJob.rect.left - 12)}px`,
+          top: `${String(hoveredJob.rect.top)}px`,
+          transform: "translateX(-100%)",
+          pointerEvents: "none",
+        }
+      : undefined
 
-  const workerStyle: React.CSSProperties | undefined = hoveredWorker !== null ? {
-    left: `${String(hoveredWorker.rect.left)}px`,
-    top: `${String(hoveredWorker.rect.top - 8)}px`,
-    transform: "translateY(-100%)",
-    pointerEvents: "none",
-  } : undefined
+  const workerStyle: React.CSSProperties | undefined =
+    hoveredWorker !== null
+      ? {
+          left: `${String(hoveredWorker.rect.left)}px`,
+          top: `${String(hoveredWorker.rect.top - 8)}px`,
+          transform: "translateY(-100%)",
+          pointerEvents: "none",
+        }
+      : undefined
 
   const tooltips = createPortal(
     <>
       {hoveredJob !== null && (
         <div
-          className="fixed z-[100] rounded-xl border border-line-strong/60 bg-popover/90 p-2.5 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 pointer-events-none hidden md:block"
+          className="pointer-events-none fixed z-[100] hidden animate-in rounded-xl border border-line-strong/60 bg-popover/90 p-2.5 shadow-2xl backdrop-blur-md duration-200 fade-in-0 md:block"
           style={jobStyle}
         >
           {hoveredJobImages !== undefined && hoveredJobImages.length > 0 ? (
@@ -894,7 +972,7 @@ export const JobTableSection = memo(function JobTableSection({
 
       {hoveredWorker !== null && (
         <div
-          className="fixed z-[100] w-72 rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md animate-in fade-in-0 duration-200 pointer-events-none"
+          className="pointer-events-none fixed z-[100] w-72 animate-in rounded-xl border border-line bg-popover/90 p-3 shadow-2xl backdrop-blur-md duration-200 fade-in-0"
           style={workerStyle}
         >
           {((): JSX.Element => {
@@ -907,7 +985,7 @@ export const JobTableSection = memo(function JobTableSection({
                   : "text-green-600 dark:text-green-400"
                 : "text-red-600 dark:text-red-400"
               : "text-muted-foreground"
-            
+
             const statusLabel = workerInfo
               ? workerInfo.alive
                 ? workerInfo.busy
@@ -923,23 +1001,23 @@ export const JobTableSection = memo(function JobTableSection({
                     {workerId}
                   </span>
                   {workerInfo && (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">
                       {workerInfo.workerType}
                     </span>
                   )}
-                  <span className={cn("font-bold text-[10px]", statusColor)}>
+                  <span className={cn("text-[10px] font-bold", statusColor)}>
                     {statusLabel}
                   </span>
                 </div>
                 {workerInfo && (
-                  <div className="font-mono text-[10px] text-muted-foreground/80 truncate">
+                  <div className="truncate font-mono text-[10px] text-muted-foreground/80">
                     {workerInfo.url}
                   </div>
                 )}
                 {(job.status === "running" || job.status === "queued") && (
-                  <div className="mt-1 space-y-1 bg-muted/20 rounded p-1.5">
-                    <div className="flex items-center justify-between text-[9px] text-muted-foreground font-semibold">
-                      <span className="truncate max-w-[190px] text-foreground/80">
+                  <div className="mt-1 space-y-1 rounded bg-muted/20 p-1.5">
+                    <div className="flex items-center justify-between text-[9px] font-semibold text-muted-foreground">
+                      <span className="max-w-[190px] truncate text-foreground/80">
                         📄 {job.filename}
                       </span>
                       <span className="mono font-bold tabular-nums">
@@ -965,7 +1043,7 @@ export const JobTableSection = memo(function JobTableSection({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Desktop Table View */}
       <div className="hidden min-h-0 flex-1 flex-col md:flex">
-        <ScrollArea className="mx-2 mb-2 flex-1 min-h-0 rounded-lg border bg-panel shadow-inner">
+        <ScrollArea className="mx-2 mb-2 min-h-0 flex-1 rounded-lg border bg-panel shadow-inner">
           <Table className="text-xs">
             <TableHeader className="sticky top-0 z-10 bg-panel/95 shadow-sm backdrop-blur">
               <TableRow className="hover:bg-transparent">
@@ -981,7 +1059,9 @@ export const JobTableSection = memo(function JobTableSection({
                 ) : null}
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("status"); }}
+                    onClick={() => {
+                      onSort("status")
+                    }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     상태
@@ -990,7 +1070,9 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("filename"); }}
+                    onClick={() => {
+                      onSort("filename")
+                    }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     파일명
@@ -999,23 +1081,32 @@ export const JobTableSection = memo(function JobTableSection({
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("createdAt"); }}
+                    onClick={() => {
+                      onSort("createdAt")
+                    }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     생성
-                    <SortIcon isActive={sortKey === "createdAt"} dir={sortDir} />
+                    <SortIcon
+                      isActive={sortKey === "createdAt"}
+                      dir={sortDir}
+                    />
                   </button>
                 </TableHead>
                 <TableHead className="px-2">
                   <button
-                    onClick={() => { onSort("duration"); }}
+                    onClick={() => {
+                      onSort("duration")
+                    }}
                     className="flex items-center gap-1 font-bold whitespace-nowrap transition-colors hover:text-foreground"
                   >
                     소요
                     <SortIcon isActive={sortKey === "duration"} dir={sortDir} />
                   </button>
                 </TableHead>
-                <TableHead className="px-2 font-bold whitespace-nowrap">워커</TableHead>
+                <TableHead className="px-2 font-bold whitespace-nowrap">
+                  워커
+                </TableHead>
                 <TableHead className="w-12 px-2" />
               </TableRow>
             </TableHeader>
@@ -1062,7 +1153,7 @@ export const JobTableSection = memo(function JobTableSection({
       {/* Mobile Card List View */}
       <div className="flex min-h-0 flex-1 flex-col md:hidden">
         {/* Mobile card list */}
-        <ScrollArea className="mx-2 mb-2 flex-1 min-h-0 rounded-lg bg-panel">
+        <ScrollArea className="mx-2 mb-2 min-h-0 flex-1 rounded-lg bg-panel">
           <div className="space-y-2 py-2">
             {pagedJobs.map((job) => {
               const dur = jobDuration(job)
@@ -1089,7 +1180,9 @@ export const JobTableSection = memo(function JobTableSection({
               return (
                 <div
                   key={job.id}
-                  onClick={() => { fetchJobImages(job.id); }}
+                  onClick={() => {
+                    fetchJobImages(job.id)
+                  }}
                   className="relative flex cursor-pointer items-center justify-between rounded-xl border border-line bg-card p-3.5 shadow-xs transition-colors hover:bg-muted/10 active:bg-muted/20"
                 >
                   {/* Left accent color indicator */}
@@ -1103,12 +1196,16 @@ export const JobTableSection = memo(function JobTableSection({
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
                     {selectedForDelete.size > 0 && (
                       <div
-                        onClick={(e) => { e.stopPropagation(); }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
                         className="mr-1 flex items-center"
                       >
                         <Checkbox
                           checked={selectedForDelete.has(job.id)}
-                          onCheckedChange={() => { onToggleSelect(job.id); }}
+                          onCheckedChange={() => {
+                            onToggleSelect(job.id)
+                          }}
                         />
                       </div>
                     )}
@@ -1156,17 +1253,33 @@ export const JobTableSection = memo(function JobTableSection({
                   {/* Right side indicator */}
                   <div className="flex shrink-0 items-center gap-1 pl-2 text-muted-foreground/30">
                     {job.status === "pending" ? (
-                      <div onClick={(e) => { e.stopPropagation(); }}>
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                      >
                         <select
                           value={job.targetWorkerId ?? "auto"}
-                          onChange={(e) => { onMoveJob(job.id, e.target.value === "auto" ? "" : e.target.value); }}
+                          onChange={(e) => {
+                            onMoveJob(
+                              job.id,
+                              e.target.value === "auto" ? "" : e.target.value
+                            )
+                          }}
                           className="h-6 w-20 rounded-md border border-input bg-background px-1 py-0 text-[10px] font-bold text-foreground outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
                         >
                           <option value="auto">자동</option>
                           {workers
-                            .filter((w) => (w.workerType === "comfyui" || w.workerType === "") && w.alive)
+                            .filter(
+                              (w) =>
+                                (w.workerType === "comfyui" ||
+                                  w.workerType === "") &&
+                                w.alive
+                            )
                             .map((w) => (
-                              <option key={w.id} value={w.id}>{w.id.slice(0, 8)}</option>
+                              <option key={w.id} value={w.id}>
+                                {w.id.slice(0, 8)}
+                              </option>
                             ))}
                         </select>
                       </div>
@@ -1207,7 +1320,9 @@ export const JobTableSection = memo(function JobTableSection({
             <PaginationContent className="gap-1">
               <PaginationItem>
                 <PaginationPrevious
-                  onClick={() => { if (page > 1) onPageChange(page - 1); }}
+                  onClick={() => {
+                    if (page > 1) onPageChange(page - 1)
+                  }}
                   className={cn(
                     "h-9 w-9 rounded-lg p-0",
                     page <= 1 && "pointer-events-none opacity-20"
@@ -1219,7 +1334,9 @@ export const JobTableSection = memo(function JobTableSection({
               </div>
               <PaginationItem>
                 <PaginationNext
-                  onClick={() => { if (page < totalPages) onPageChange(page + 1); }}
+                  onClick={() => {
+                    if (page < totalPages) onPageChange(page + 1)
+                  }}
                   className={cn(
                     "h-9 w-9 rounded-lg p-0",
                     page >= totalPages && "pointer-events-none opacity-20"

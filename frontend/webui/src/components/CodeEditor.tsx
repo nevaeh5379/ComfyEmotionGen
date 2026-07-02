@@ -65,7 +65,9 @@ const cegLanguage = StreamLanguage.define<CegState>({
       }
 
       // Keywords inside tag context
-      if (stream.match(/^(?:set|axis|combine|exclude|include|in|not)\b/i) !== null) {
+      if (
+        stream.match(/^(?:set|axis|combine|exclude|include|in|not)\b/i) !== null
+      ) {
         return "keyword"
       }
       if (stream.match(/^(?:AND|OR)\b/) !== null) {
@@ -138,7 +140,11 @@ const cegLanguage = StreamLanguage.define<CegState>({
 
     // 4. If we are inside template/filename blocks, highlight placeholders like {{mood}} or {{mood.key}}
     if (state.inBlock === "template" || state.inBlock === "filename") {
-      if (stream.match(/^\{\{[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)?\}\}/) !== null) {
+      if (
+        stream.match(
+          /^\{\{[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)?\}\}/
+        ) !== null
+      ) {
         return "variableName"
       }
       if (stream.match(/^[^{]+/) !== null) {
@@ -203,7 +209,6 @@ const cegLanguage = StreamLanguage.define<CegState>({
   languageData: { commentTokens: { block: { open: "{{#", close: "#}}" } } },
 })
 
-
 const baseTheme = EditorView.theme({
   "&": { fontSize: "0.875rem" },
   ".cm-content": {
@@ -220,9 +225,7 @@ const baseTheme = EditorView.theme({
   },
 })
 
-const CodeEditor = (
-  props: CodeEditorProps
-): React.JSX.Element => {
+const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
   const {
     value,
     onChange,
@@ -252,15 +255,18 @@ const CodeEditor = (
     }
   }, [onChange])
 
-  const handleLocalChange = useCallback((val: string) => {
-    pendingValueRef.current = val
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current)
-    }
-    timerRef.current = window.setTimeout(() => {
-      onChange(val)
-    }, 250)
-  }, [onChange])
+  const handleLocalChange = useCallback(
+    (val: string) => {
+      pendingValueRef.current = val
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current)
+      }
+      timerRef.current = window.setTimeout(() => {
+        onChange(val)
+      }, 250)
+    },
+    [onChange]
+  )
 
   // Flush on unmount
   useEffect(() => {

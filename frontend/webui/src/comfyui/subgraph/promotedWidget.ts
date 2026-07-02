@@ -47,7 +47,14 @@ export function matchesWidget(
 export function resolveInputWidget(
   input: SubgraphSlot,
   innerNodes: ComfyWorkflowNode[],
-  innerLinks: { id: number; origin_id: number; origin_slot: number; target_id: number; target_slot: number; type: string }[]
+  innerLinks: {
+    id: number
+    origin_id: number
+    origin_slot: number
+    target_id: number
+    target_slot: number
+    type: string
+  }[]
 ): InteriorWidget | null {
   // SubgraphInput의 linkIds에서 링크를 찾아 target 노드의 위젯을 식별
   for (const linkId of input.linkIds) {
@@ -64,7 +71,8 @@ export function resolveInputWidget(
     // 위젯인 경우: widget 필드가 있거나 타입이 위젯 타입
     if (targetInput.widget) {
       const widgetName = targetInput.widget.name
-      const widgetNames = (targetNode.properties?.widget_names ?? []) as string[]
+      const widgetNames = (targetNode.properties?.widget_names ??
+        []) as string[]
       const idx = widgetNames.indexOf(widgetName)
       const value = targetNode.widgets_values?.[idx] ?? ""
       const result: InteriorWidget = {
@@ -102,7 +110,14 @@ export function computePromotedHostWidgets(
   subgraphInputs: SubgraphSlot[],
   instanceNode: ComfyWorkflowNode,
   innerNodes: ComfyWorkflowNode[],
-  innerLinks: { id: number; origin_id: number; origin_slot: number; target_id: number; target_slot: number; type: string }[]
+  innerLinks: {
+    id: number
+    origin_id: number
+    origin_slot: number
+    target_id: number
+    target_slot: number
+    type: string
+  }[]
 ): PromotedHostWidget[] {
   const result: PromotedHostWidget[] = []
   for (let i = 0; i < subgraphInputs.length; i++) {

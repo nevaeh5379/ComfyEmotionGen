@@ -1,4 +1,7 @@
-import { ConfirmContext, type ConfirmContextValue } from "@/comfyui/contexts/ConfirmContext"
+import {
+  ConfirmContext,
+  type ConfirmContextValue,
+} from "@/comfyui/contexts/ConfirmContext"
 import { useContextRequired } from "@/lib/context"
 
 export function useConfirm(): ConfirmContextValue["confirm"] {

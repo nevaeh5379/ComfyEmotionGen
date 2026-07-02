@@ -5,7 +5,10 @@ export function useCombinationSelection(visibleFilenames: string[]): {
   setSelectionMode: React.Dispatch<React.SetStateAction<boolean>>
   selectedFilenames: Set<string>
   setSelectedFilenames: React.Dispatch<React.SetStateAction<Set<string>>>
-  toggleSelect: (filename: string, event?: React.MouseEvent | React.KeyboardEvent) => void
+  toggleSelect: (
+    filename: string,
+    event?: React.MouseEvent | React.KeyboardEvent
+  ) => void
   exitSelectionMode: () => void
 } {
   const [selectionMode, setSelectionMode] = useState(false)

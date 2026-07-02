@@ -4,12 +4,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import {
-  ExternalLink,
-  RotateCcw,
-  Workflow,
-  X as XIcon,
-} from "lucide-react"
+import { ExternalLink, RotateCcw, Workflow, X as XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -111,7 +106,10 @@ interface WindowManagerState {
   setIsCurationDocked: (v: boolean) => void
   curationDockedSide: "start" | "end"
 
-  handleHeaderDragStart: (e: React.MouseEvent, windowType: "composition" | "jobManager") => void
+  handleHeaderDragStart: (
+    e: React.MouseEvent,
+    windowType: "composition" | "jobManager"
+  ) => void
 }
 
 /** Job action handlers */
@@ -328,24 +326,33 @@ export function JobsTab({
               setTargetWorkerId={setTargetWorkerId}
               compositionTab={compositionTab}
               setCompositionTab={setCompositionTab}
-              onPreviewOpen={(): void => { setIsSheetOpen(true); }}
-              onAxisFilterOpen={(): void => { setIsAxisFilterOpen(true); }}
-              onSelectionOpen={(): void => { setIsSelectionOpen(true); }}
+              onPreviewOpen={(): void => {
+                setIsSheetOpen(true)
+              }}
+              onAxisFilterOpen={(): void => {
+                setIsAxisFilterOpen(true)
+              }}
+              onSelectionOpen={(): void => {
+                setIsSelectionOpen(true)
+              }}
               hasActiveFilter={hasActiveFilter}
               isFloating={false}
               jobsLayoutOrientation={jobsLayoutOrientation}
-              onToggleJobsLayoutOrientation={(): void =>
-                { setJobsLayoutOrientation(
+              onToggleJobsLayoutOrientation={(): void => {
+                setJobsLayoutOrientation(
                   jobsLayoutOrientation === "horizontal"
                     ? "vertical"
                     : "horizontal"
-                ); }
-              }
+                )
+              }}
               {...(useWindowMode
                 ? {
-                    onFloatToggle: (): void => { setIsCompositionFloating(true); },
-                    onHeaderDragStart: (e: React.MouseEvent): void =>
-                      { handleHeaderDragStart(e, "composition"); },
+                    onFloatToggle: (): void => {
+                      setIsCompositionFloating(true)
+                    },
+                    onHeaderDragStart: (e: React.MouseEvent): void => {
+                      handleHeaderDragStart(e, "composition")
+                    },
                   }
                 : {})}
             />
@@ -380,15 +387,17 @@ export function JobsTab({
                 isFloating={false}
                 {...(useWindowMode
                   ? {
-                      onFloatToggle: (): void => { setIsJobManagerFloating(true); },
-                      onHeaderDragStart: (e: React.MouseEvent): void =>
-                        { handleHeaderDragStart(e, "jobManager"); },
+                      onFloatToggle: (): void => {
+                        setIsJobManagerFloating(true)
+                      },
+                      onHeaderDragStart: (e: React.MouseEvent): void => {
+                        handleHeaderDragStart(e, "jobManager")
+                      },
                     }
                   : {})}
               />
             </div>
           ) : null
-
 
           // ── 패널 리스트 구성 ────────────────────────────────────
           interface PanelItem {
@@ -440,7 +449,9 @@ export function JobsTab({
                           )}
                         {panelBtn(
                           <XIcon className="h-3.5 w-3.5" />,
-                          () => { setIsStatsDocked(false); },
+                          () => {
+                            setIsStatsDocked(false)
+                          },
                           "패널 닫기"
                         )}
                       </div>
@@ -461,9 +472,7 @@ export function JobsTab({
                 el: (
                   <div className="flex h-full w-full flex-col">
                     <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-                      <span className="text-[13px] font-bold">
-                        갤러리
-                      </span>
+                      <span className="text-[13px] font-bold">갤러리</span>
                       <div className="flex items-center gap-0.5">
                         {useWindowMode &&
                           panelBtn(
@@ -476,7 +485,9 @@ export function JobsTab({
                           )}
                         {panelBtn(
                           <XIcon className="h-3.5 w-3.5" />,
-                          () => { setIsGalleryDocked(false); },
+                          () => {
+                            setIsGalleryDocked(false)
+                          },
                           "패널 닫기"
                         )}
                       </div>
@@ -512,9 +523,7 @@ export function JobsTab({
                 el: (
                   <div className="flex h-full w-full flex-col">
                     <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-                      <span className="text-[13px] font-bold">
-                        큐레이션
-                      </span>
+                      <span className="text-[13px] font-bold">큐레이션</span>
                       <div className="flex items-center gap-0.5">
                         {useWindowMode &&
                           panelBtn(
@@ -527,7 +536,9 @@ export function JobsTab({
                           )}
                         {panelBtn(
                           <XIcon className="h-3.5 w-3.5" />,
-                          () => { setIsCurationDocked(false); },
+                          () => {
+                            setIsCurationDocked(false)
+                          },
                           "패널 닫기"
                         )}
                       </div>
@@ -545,7 +556,8 @@ export function JobsTab({
                           selectedAxis: curationSelectedAxis,
                           setSelectedAxis: setCurationSelectedAxis,
                           viewMode: "gallery" as const,
-                          setViewMode: (_mode: CurationViewMode): void => void 0,
+                          setViewMode: (_mode: CurationViewMode): void =>
+                            void 0,
                           hideTopSection: true,
                         }}
                       />
@@ -613,8 +625,7 @@ export function JobsTab({
             >
               {panels.flatMap((panel, i) => {
                 const items = []
-                if (i > 0)
-                  items.push(<ResizableHandle key={`h-${panel.id}`} />)
+                if (i > 0) items.push(<ResizableHandle key={`h-${panel.id}`} />)
                 items.push(
                   <ResizablePanel
                     key={panel.id}
@@ -658,9 +669,15 @@ export function JobsTab({
               setTargetWorkerId={setTargetWorkerId}
               compositionTab={compositionTab}
               setCompositionTab={setCompositionTab}
-              onPreviewOpen={(): void => { setIsSheetOpen(true); }}
-              onAxisFilterOpen={(): void => { setIsAxisFilterOpen(true); }}
-              onSelectionOpen={(): void => { setIsSelectionOpen(true); }}
+              onPreviewOpen={(): void => {
+                setIsSheetOpen(true)
+              }}
+              onAxisFilterOpen={(): void => {
+                setIsAxisFilterOpen(true)
+              }}
+              onSelectionOpen={(): void => {
+                setIsSelectionOpen(true)
+              }}
               hasActiveFilter={hasActiveFilter}
             />
           </div>
@@ -709,7 +726,9 @@ export function JobsTab({
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={(): void => { setMobileJobTab(tab.id); }}
+                onClick={(): void => {
+                  setMobileJobTab(tab.id)
+                }}
                 className={cn(
                   "flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-black transition-all duration-200",
                   mobileJobTab === tab.id

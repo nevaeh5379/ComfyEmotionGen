@@ -37,7 +37,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [, setTick] = useState(0)
-   
+
   const confirm = useConfirm()
 
   // ── active jobs ────────────────────────────────────────────────────────
@@ -72,7 +72,9 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     const interval = setInterval(() => {
       setCurrentPage((prev) => (prev + 1) % totalPages)
     }, 3000)
-    return (): void => { clearInterval(interval); }
+    return (): void => {
+      clearInterval(interval)
+    }
   }, [cycleMinimizedProgress, runningJobs.length, totalPages])
 
   const queuedJobs = useMemo(
@@ -90,8 +92,12 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 
   useEffect(() => {
     if (runningJobs.length === 0) return
-    const id = setInterval(() => { setTick((t) => t + 1); }, 1000)
-    return (): void => { clearInterval(id); }
+    const id = setInterval(() => {
+      setTick((t) => t + 1)
+    }, 1000)
+    return (): void => {
+      clearInterval(id)
+    }
   }, [runningJobs])
 
   // ── Refs for latest values ────────────────────────────────────────
@@ -103,16 +109,18 @@ export const JobStatusPopup = memo(function JobStatusPopup({
 
   const handleTogglePause = useCallback(async () => {
     try {
-      await fetch(`${backendUrlRef.current}/jobs/${pausedRef.current ? "resume" : "pause"}`, {
-        method: "POST",
-      })
+      await fetch(
+        `${backendUrlRef.current}/jobs/${pausedRef.current ? "resume" : "pause"}`,
+        {
+          method: "POST",
+        }
+      )
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
   }, [backendUrlRef, pausedRef])
 
   const handleCancelAll = useCallback(async () => {
-     
     const confirmed = await confirmRef.current({
       title: "작업 취소",
       description: "진행 중인 모든 작업을 취소하시겠습니까?",
@@ -121,7 +129,9 @@ export const JobStatusPopup = memo(function JobStatusPopup({
     })
     if (!confirmed) return
     try {
-      await fetch(`${backendUrlRef.current}/jobs/cancel-all`, { method: "POST" })
+      await fetch(`${backendUrlRef.current}/jobs/cancel-all`, {
+        method: "POST",
+      })
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
@@ -144,9 +154,13 @@ export const JobStatusPopup = memo(function JobStatusPopup({
       .map((j) => `${String(Math.round(j.progressPercent))}%`)
       .join(" | ")
     const mainJobOverall = mainJob ? getOverallProgress(mainJob) : 0
-    const canShowETA = mainJobOverall !== 0 && mainJobOverall > 0 && mainJobOverall < 100
+    const canShowETA =
+      mainJobOverall !== 0 && mainJobOverall > 0 && mainJobOverall < 100
     const etaStr =
-      mainJob !== undefined && mainJob.startedAt !== null && mainJob.startedAt > 0 && canShowETA
+      mainJob !== undefined &&
+      mainJob.startedAt !== null &&
+      mainJob.startedAt > 0 &&
+      canShowETA
         ? formatETA(mainJob.startedAt, mainJobOverall, jobs)
         : null
 
@@ -155,7 +169,9 @@ export const JobStatusPopup = memo(function JobStatusPopup({
         className="fixed right-4 bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-lg transition-opacity hover:opacity-90 sm:right-4 sm:left-auto sm:w-auto"
         role="button"
         tabIndex={0}
-        onClick={() => { setExpanded(true); }}
+        onClick={() => {
+          setExpanded(true)
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") setExpanded(true)
         }}
@@ -172,7 +188,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
               ? "중지"
               : "대기"}
         </span>
-                  {etaStr !== null && (
+        {etaStr !== null && (
           <span className="text-[10px] text-muted-foreground tabular-nums">
             {etaStr}
           </span>
@@ -207,7 +223,9 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6"
-                onClick={() => { setExpanded(false); }}
+                onClick={() => {
+                  setExpanded(false)
+                }}
               >
                 <Minimize2 className="h-3.5 w-3.5" />
               </Button>
@@ -276,7 +294,7 @@ export const JobStatusPopup = memo(function JobStatusPopup({
                       </span>
                     )}
                   </div>
-        {etaStr !== null && (
+                  {etaStr !== null && (
                     <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                       {etaStr}
                     </span>
@@ -331,7 +349,9 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           variant="outline"
           size="sm"
           className="h-7 text-xs"
-          onClick={() => { void handleTogglePause(); }}
+          onClick={() => {
+            void handleTogglePause()
+          }}
           disabled={!isAliveBackend}
         >
           {paused ? (
@@ -348,7 +368,9 @@ export const JobStatusPopup = memo(function JobStatusPopup({
           variant="destructive"
           size="sm"
           className="h-7 text-xs"
-          onClick={() => { void handleCancelAll(); }}
+          onClick={() => {
+            void handleCancelAll()
+          }}
           disabled={!isAliveBackend || activeJobs.length === 0}
         >
           <Trash2 className="mr-1 h-3 w-3" /> 전부 취소

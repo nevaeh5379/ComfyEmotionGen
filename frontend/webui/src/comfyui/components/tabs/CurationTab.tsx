@@ -1,5 +1,8 @@
 import { CombinationPicker } from "../combinationpicker/CombinationPicker"
-import type { CurationToolbarState, CurationViewMode } from "../combinationpicker/CurationToolbarTypes"
+import type {
+  CurationToolbarState,
+  CurationViewMode,
+} from "../combinationpicker/CurationToolbarTypes"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 import type { AppSettings } from "../../hooks/useSettings"

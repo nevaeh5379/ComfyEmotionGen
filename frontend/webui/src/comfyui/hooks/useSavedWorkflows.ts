@@ -31,7 +31,9 @@ interface RawSavedWorkflow {
 
 function load(): SavedWorkflow[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as unknown
+    const parsed = JSON.parse(
+      localStorage.getItem(STORAGE_KEY) ?? "[]"
+    ) as unknown
     if (!Array.isArray(parsed)) return []
     const items = parsed as RawSavedWorkflow[]
     return items.map((w) => {
@@ -47,7 +49,10 @@ function load(): SavedWorkflow[] {
         ]
       }
       return {
-        id: typeof w.id === "string" || typeof w.id === "number" ? String(w.id) : "",
+        id:
+          typeof w.id === "string" || typeof w.id === "number"
+            ? String(w.id)
+            : "",
         name: typeof w.name === "string" ? w.name : "",
         workflow: typeof w.workflow === "string" ? w.workflow : "",
         mappingPresets,
@@ -63,8 +68,15 @@ export function useSavedWorkflows(): {
   workflows: SavedWorkflow[]
   saveWorkflow: (name: string, workflow: string) => SavedWorkflow
   deleteWorkflow: (id: string) => void
-  saveMappingPreset: (workflowId: string, name: string, mappings: NodeMapping[]) => SavedWorkflow | null
-  deleteMappingPreset: (workflowId: string, presetId: string) => SavedWorkflow | null
+  saveMappingPreset: (
+    workflowId: string,
+    name: string,
+    mappings: NodeMapping[]
+  ) => SavedWorkflow | null
+  deleteMappingPreset: (
+    workflowId: string,
+    presetId: string
+  ) => SavedWorkflow | null
 } {
   const { items: workflows, persist } = usePersistedItems(STORAGE_KEY, load)
 
@@ -149,9 +161,7 @@ export function useSavedWorkflows(): {
 
       const w = all[wIdx]
       if (w === undefined) return null
-      const nextPresets = w.mappingPresets.filter(
-        (p) => p.id !== presetId
-      )
+      const nextPresets = w.mappingPresets.filter((p) => p.id !== presetId)
       const nextW = { ...w, mappingPresets: nextPresets }
       persist(all.map((item, i) => (i === wIdx ? nextW : item)))
       return nextW

@@ -12,7 +12,9 @@ export const parseWorkflow = (json: string): ComfyWorkflow => {
     obj = JSON.parse(json)
   } catch (e) {
     console.error("Workflow JSON parse error:", e)
-    throw new Error("Invalid workflow format: " + (e instanceof Error ? e.message : String(e)))
+    throw new Error(
+      "Invalid workflow format: " + (e instanceof Error ? e.message : String(e))
+    )
   }
   const parsed = ComfyWorkflowSchema.safeParse(obj)
   if (!parsed.success) {
@@ -156,9 +158,10 @@ export const buildWorkflowForItem = (
           workflow[nodeId].inputs[inputKey] = item.filename
           break
         case "seed": {
-      const v = seedRandom === true
-        ? Math.floor(Math.random() * MAX_RANDOM_SEED)
-        : (seedValue ?? 0)
+          const v =
+            seedRandom === true
+              ? Math.floor(Math.random() * MAX_RANDOM_SEED)
+              : (seedValue ?? 0)
           workflow[nodeId].inputs[inputKey] = v
           break
         }

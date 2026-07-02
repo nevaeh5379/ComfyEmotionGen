@@ -1,6 +1,10 @@
 import { useState, useMemo } from "react"
 import { Play, Star, Search } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -64,8 +68,16 @@ export function QuickTestPopover({
     })
   }, [matchingItems, search])
 
-  const favorites = useMemo(() => filteredItems.filter((item) => favoriteCombinations.has(itemKey(item))), [filteredItems, favoriteCombinations])
-  const others = useMemo(() => filteredItems.filter((item) => !favoriteCombinations.has(itemKey(item))), [filteredItems, favoriteCombinations])
+  const favorites = useMemo(
+    () =>
+      filteredItems.filter((item) => favoriteCombinations.has(itemKey(item))),
+    [filteredItems, favoriteCombinations]
+  )
+  const others = useMemo(
+    () =>
+      filteredItems.filter((item) => !favoriteCombinations.has(itemKey(item))),
+    [filteredItems, favoriteCombinations]
+  )
 
   const handleSelect = (item: RenderItem): void => {
     setOpen(false)
@@ -75,7 +87,11 @@ export function QuickTestPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-primary">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-primary"
+        >
           <Play className="h-3 w-3" /> 테스트
         </Button>
       </PopoverTrigger>
@@ -85,20 +101,33 @@ export function QuickTestPopover({
           <Input
             placeholder="조합 검색..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); }}
-            className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 shadow-none"
+            onChange={(e) => {
+              setSearch(e.target.value)
+            }}
+            className="flex h-10 w-full rounded-md border-0 bg-transparent py-3 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
         <ScrollArea className="h-[300px]">
-          <div className="p-2 space-y-2">
+          <div className="space-y-2 p-2">
             {favorites.length > 0 && (
               <div>
-                <div className="mb-1 px-2 text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" /> 즐겨찾기
+                <div className="mb-1 flex items-center gap-1 px-2 text-[10px] font-semibold text-muted-foreground">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />{" "}
+                  즐겨찾기
                 </div>
                 <div className="space-y-1">
                   {favorites.map((item) => (
-                    <ItemRow key={itemKey(item)} item={item} isFavorite={true} onSelect={() => { handleSelect(item); }} onToggleFavorite={() => { onToggleFavorite(itemKey(item)); }} />
+                    <ItemRow
+                      key={itemKey(item)}
+                      item={item}
+                      isFavorite={true}
+                      onSelect={() => {
+                        handleSelect(item)
+                      }}
+                      onToggleFavorite={() => {
+                        onToggleFavorite(itemKey(item))
+                      }}
+                    />
                   ))}
                 </div>
               </div>
@@ -106,17 +135,31 @@ export function QuickTestPopover({
 
             {others.length > 0 && (
               <div>
-                <div className="mb-1 px-2 text-[10px] font-semibold text-muted-foreground">모든 조합</div>
+                <div className="mb-1 px-2 text-[10px] font-semibold text-muted-foreground">
+                  모든 조합
+                </div>
                 <div className="space-y-1">
                   {others.map((item) => (
-                    <ItemRow key={itemKey(item)} item={item} isFavorite={false} onSelect={() => { handleSelect(item); }} onToggleFavorite={() => { onToggleFavorite(itemKey(item)); }} />
+                    <ItemRow
+                      key={itemKey(item)}
+                      item={item}
+                      isFavorite={false}
+                      onSelect={() => {
+                        handleSelect(item)
+                      }}
+                      onToggleFavorite={() => {
+                        onToggleFavorite(itemKey(item))
+                      }}
+                    />
                   ))}
                 </div>
               </div>
             )}
 
             {filteredItems.length === 0 && (
-              <div className="py-6 text-center text-sm text-muted-foreground">검색 결과가 없습니다.</div>
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                검색 결과가 없습니다.
+              </div>
             )}
           </div>
         </ScrollArea>
@@ -125,31 +168,57 @@ export function QuickTestPopover({
   )
 }
 
-function ItemRow({ item, isFavorite, onSelect, onToggleFavorite }: { item: RenderItem; isFavorite: boolean; onSelect: () => void; onToggleFavorite: () => void }): React.JSX.Element {
+function ItemRow({
+  item,
+  isFavorite,
+  onSelect,
+  onToggleFavorite,
+}: {
+  item: RenderItem
+  isFavorite: boolean
+  onSelect: () => void
+  onToggleFavorite: () => void
+}): React.JSX.Element {
   return (
-    <div className="flex w-full items-start gap-1 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent group">
-      <button onClick={onSelect} className="flex-1 flex flex-col gap-1 items-start text-left">
+    <div className="group flex w-full items-start gap-1 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent">
+      <button
+        onClick={onSelect}
+        className="flex flex-1 flex-col items-start gap-1 text-left"
+      >
         <div className="flex flex-wrap gap-1">
-          {Object.entries(item.meta).slice(0, 3).map(([k, v]) => (
-            <Badge key={k} variant="outline" className="text-[9px] font-normal">
-              {v}
-            </Badge>
-          ))}
+          {Object.entries(item.meta)
+            .slice(0, 3)
+            .map(([k, v]) => (
+              <Badge
+                key={k}
+                variant="outline"
+                className="text-[9px] font-normal"
+              >
+                {v}
+              </Badge>
+            ))}
           {Object.keys(item.meta).length > 3 && (
-            <Badge variant="outline" className="text-[9px] font-normal">+{Object.keys(item.meta).length - 3}</Badge>
+            <Badge variant="outline" className="text-[9px] font-normal">
+              +{Object.keys(item.meta).length - 3}
+            </Badge>
           )}
         </div>
-        <div className="line-clamp-1 text-[10px] text-muted-foreground break-all">
+        <div className="line-clamp-1 text-[10px] break-all text-muted-foreground">
           {substitute(item.filename, item)}
         </div>
       </button>
-      <Button 
-        variant="ghost" 
-        size="icon" 
+      <Button
+        variant="ghost"
+        size="icon"
         className={`h-6 w-6 shrink-0 ${isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"} hover:text-yellow-500`}
-        onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggleFavorite()
+        }}
       >
-        <Star className={`h-3 w-3 ${isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+        <Star
+          className={`h-3 w-3 ${isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
+        />
       </Button>
     </div>
   )

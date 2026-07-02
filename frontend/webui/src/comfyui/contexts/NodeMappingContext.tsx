@@ -59,7 +59,9 @@ export interface NodeMappingContextValue {
 // Context
 // ---------------------------------------------------------------------------
 
-export const NodeMappingContext = createContext<NodeMappingContextValue | null>(null)
+export const NodeMappingContext = createContext<NodeMappingContextValue | null>(
+  null
+)
 
 export function useNodeMappingContext(): NodeMappingContextValue {
   return useContextRequired(NodeMappingContext, "useNodeMappingContext")

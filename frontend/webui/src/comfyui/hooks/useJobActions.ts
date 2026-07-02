@@ -14,18 +14,15 @@ export function useJobActions(): {
   handleDeleteAllFailed: () => Promise<void>
 } {
   const backendUrl = useBackendUrl()
-   
+
   const { paused } = useBackend()
-  const {
-    sortedMarkers,
-    selectedSessionId,
-    activeState,
-    refetchStats,
-  } = useSessionManager()
+  const { sortedMarkers, selectedSessionId, activeState, refetchStats } =
+    useSessionManager()
   const confirm = useConfirm()
 
   const sessionRange = useMemo(() => {
-    if (sortedMarkers.length === 0 || selectedSessionId === "") return { from: null, to: null }
+    if (sortedMarkers.length === 0 || selectedSessionId === "")
+      return { from: null, to: null }
     const targetIdx = sortedMarkers.findIndex((m) => m.id === selectedSessionId)
     if (targetIdx === -1) return { from: null, to: null }
 
@@ -49,7 +46,10 @@ export function useJobActions(): {
       if (prevMarker) {
         to = prevMarker.startAt / 1000
       }
-    } else if (activeState.activeSessionId !== "" && activeState.activeSessionId !== selectedSessionId) {
+    } else if (
+      activeState.activeSessionId !== "" &&
+      activeState.activeSessionId !== selectedSessionId
+    ) {
       to = activeState.activatedAt / 1000
     }
 
@@ -78,9 +78,11 @@ export function useJobActions(): {
     params.append("limit", "999999")
 
     try {
-      const res = await fetch(`${backendUrlRef.current}/jobs?${params.toString()}`)
+      const res = await fetch(
+        `${backendUrlRef.current}/jobs?${params.toString()}`
+      )
       if (!res.ok) throw new Error("Failed to fetch failed jobs")
-      const data = await res.json() as { items?: { id: string }[] }
+      const data = (await res.json()) as { items?: { id: string }[] }
       return (data.items ?? []).map((j) => j.id)
     } catch (err: unknown) {
       console.warn("Failed to fetch failed job IDs:", err)
@@ -91,9 +93,12 @@ export function useJobActions(): {
   // ── Sync callbacks (call async internals) ────────────────────────
   const handleTogglePause = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`${backendUrlRef.current}${pausedRef.current ? API.jobs.resume : API.jobs.pause}`, {
-        method: "POST",
-      })
+      const res = await fetch(
+        `${backendUrlRef.current}${pausedRef.current ? API.jobs.resume : API.jobs.pause}`,
+        {
+          method: "POST",
+        }
+      )
       if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
@@ -132,14 +137,20 @@ export function useJobActions(): {
     if (!confirmed) return
     try {
       const promises = failedIds.map((id) =>
-        fetch(`${backendUrlRef.current}${API.jobs.retry(id)}`, { method: "POST" })
+        fetch(`${backendUrlRef.current}${API.jobs.retry(id)}`, {
+          method: "POST",
+        })
       )
       const results = await Promise.all(promises)
       const successCount = results.filter((r) => r.ok).length
       if (successCount === failedIds.length) {
-        toast.success(`실패/취소된 작업 ${String(successCount)}개를 재시도했습니다.`)
+        toast.success(
+          `실패/취소된 작업 ${String(successCount)}개를 재시도했습니다.`
+        )
       } else {
-        toast.warning(`작업 일부 재시도 실패 (${String(successCount)}/${String(failedIds.length)} 성공)`)
+        toast.warning(
+          `작업 일부 재시도 실패 (${String(successCount)}/${String(failedIds.length)} 성공)`
+        )
       }
       refetchStatsRef.current()
       window.dispatchEvent(new CustomEvent("ceg-refetch-jobs"))
@@ -176,15 +187,18 @@ export function useJobActions(): {
     }
   }, [backendUrlRef, confirmRef, refetchStatsRef, getFailedJobIdsInternal])
 
-  return useMemo(() => ({
-    handleTogglePause,
-    handleCancelAll,
-    handleRetryAllFailed,
-    handleDeleteAllFailed,
-  }), [
-    handleTogglePause,
-    handleCancelAll,
-    handleRetryAllFailed,
-    handleDeleteAllFailed,
-  ])
+  return useMemo(
+    () => ({
+      handleTogglePause,
+      handleCancelAll,
+      handleRetryAllFailed,
+      handleDeleteAllFailed,
+    }),
+    [
+      handleTogglePause,
+      handleCancelAll,
+      handleRetryAllFailed,
+      handleDeleteAllFailed,
+    ]
+  )
 }

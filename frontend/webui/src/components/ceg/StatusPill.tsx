@@ -21,8 +21,15 @@ interface StatusPillProps {
   className?: string
 }
 
-export function StatusPill({ status, className }: StatusPillProps): React.JSX.Element {
-  const s = (STATUS_MAP[status] ?? STATUS_MAP.done) as { label: string; fg: string; bg: string }
+export function StatusPill({
+  status,
+  className,
+}: StatusPillProps): React.JSX.Element {
+  const s = (STATUS_MAP[status] ?? STATUS_MAP.done) as {
+    label: string
+    fg: string
+    bg: string
+  }
   return (
     <span
       className={cn(

@@ -55,13 +55,18 @@ export const widgetStore = {
   },
 
   /** 커스텀 위젯 팩토리 등록 (확장의 getCustomWidgets 결과) */
-  registerCustomWidgetFactory(type: string, factory: CustomWidgetFactory): void {
+  registerCustomWidgetFactory(
+    type: string,
+    factory: CustomWidgetFactory
+  ): void {
     const key = type.toUpperCase()
     customWidgetFactories.set(key, factory)
     widgetTypes.add(key)
   },
 
-  registerCustomWidgetFactories(factories: Record<string, CustomWidgetFactory>): void {
+  registerCustomWidgetFactories(
+    factories: Record<string, CustomWidgetFactory>
+  ): void {
     for (const [type, factory] of Object.entries(factories)) {
       this.registerCustomWidgetFactory(type, factory)
     }

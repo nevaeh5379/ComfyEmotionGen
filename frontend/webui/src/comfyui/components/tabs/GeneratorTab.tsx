@@ -14,9 +14,12 @@ export interface GeneratorTabProps {
 // GeneratorTab
 // ---------------------------------------------------------------------------
 
-export function GeneratorTab({ setActiveTab, backendUrl }: GeneratorTabProps): React.JSX.Element {
+export function GeneratorTab({
+  setActiveTab,
+  backendUrl,
+}: GeneratorTabProps): React.JSX.Element {
   return (
-    <div className="flex flex-1 flex-col min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col">
       <TemplateGeneratorPanel
         setActiveTab={setActiveTab}
         backendUrl={backendUrl}

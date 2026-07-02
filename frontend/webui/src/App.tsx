@@ -67,7 +67,6 @@ import { VersionDiffDialog } from "./comfyui/components/VersionDiffDialog"
 import { KeyboardShortcutsDialog } from "./comfyui/components/KeyboardShortcutsDialog"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
 
-
 // ── Floating Window Content ──
 import { WorkCompositionPanel } from "./comfyui/components/WorkCompositionPanel"
 import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
@@ -88,7 +87,7 @@ export function App(): React.JSX.Element {
     DEFAULT_BACKEND_URL
   )
   const backendUrl = IS_PACKAGE_MODE
-    ? PACKAGE_BACKEND_URL ?? storedBackendUrl
+    ? (PACKAGE_BACKEND_URL ?? storedBackendUrl)
     : storedBackendUrl
 
   return (
@@ -113,7 +112,7 @@ export function App(): React.JSX.Element {
 // ---------------------------------------------------------------------------
 function AppContent(): React.JSX.Element {
   // ── Backend ──
-   
+
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
   // ── Backend URL state ──
@@ -123,7 +122,9 @@ function AppContent(): React.JSX.Element {
     DEFAULT_BACKEND_URL
   )
   const setBackendUrl = IS_PACKAGE_MODE
-    ? (_: string): void => { /* no-op in package mode */ }
+    ? (_: string): void => {
+        /* no-op in package mode */
+      }
     : setStoredBackendUrl
 
   // ── Backend health ──
@@ -247,9 +248,12 @@ function AppContent(): React.JSX.Element {
       const totalJobs = session.sessionJobs.length
       if (totalJobs > 0) {
         const doneCount = session.sessionCounts.done
-        const errorCount = session.sessionCounts.error + session.sessionCounts.cancelled
+        const errorCount =
+          session.sessionCounts.error + session.sessionCounts.cancelled
         if (errorCount > 0) {
-          toast.info(`배치 완료! (${String(doneCount)} 완료, ${String(errorCount)} 실패/취소)`)
+          toast.info(
+            `배치 완료! (${String(doneCount)} 완료, ${String(errorCount)} 실패/취소)`
+          )
         } else {
           toast.success(`모든 작업이 완료되었습니다! (${String(doneCount)}개)`)
         }
@@ -261,7 +265,9 @@ function AppContent(): React.JSX.Element {
             error: errorCount,
             total: totalJobs,
           }),
-        }).catch(() => { /* intentionally empty - fire and forget */ })
+        }).catch(() => {
+          /* intentionally empty - fire and forget */
+        })
       }
     }
     prevActiveCount.current = current
@@ -319,7 +325,6 @@ function AppContent(): React.JSX.Element {
     )
   }, [fakeJobQueue, previewFilter])
 
-   
   const canRun =
     Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
 
@@ -329,9 +334,12 @@ function AppContent(): React.JSX.Element {
     fetch(`${backendUrl}${API.objectInfo}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data !== null && typeof data === "object") nodeMapping.setObjectInfo(data as ObjectInfo)
+        if (data !== null && typeof data === "object")
+          nodeMapping.setObjectInfo(data as ObjectInfo)
       })
-      .catch(() => { /* intentionally empty - fire and forget */ })
+      .catch(() => {
+        /* intentionally empty - fire and forget */
+      })
   }, [backendUrl, isAliveBackend, nodeMapping])
 
   // ── Quick save handler (Ctrl+S shortcut) ──
@@ -368,13 +376,17 @@ function AppContent(): React.JSX.Element {
   useGlobalShortcuts({
     activeTab,
     mobileJobTab,
-     
+
     canRun,
-    handleRun: () => { void handleRun(); },
+    handleRun: () => {
+      void handleRun()
+    },
     handleSave: handleQuickSave,
     handleGalleryRefresh: tb.handleRefresh,
     setActiveTab,
-    toggleShortcuts: () => { setShortcutsOpen((prev) => !prev); },
+    toggleShortcuts: () => {
+      setShortcutsOpen((prev) => !prev)
+    },
   })
 
   // ── Name conflict helpers ──
@@ -437,123 +449,133 @@ function AppContent(): React.JSX.Element {
     setPendingSave(null)
   }
 
-  const runnerProps = useMemo(() => ({
-    fakeJobQueue,
-    hasActiveFilter,
-    estimatedRunCount,
-    repeatCount,
-    setRepeatCount,
-    handleRun,
-    handleRandomRun,
-    handleRunUnapproved,
-    randomRunCount,
-    setRandomRunCount,
-    targetWorkerId,
-    setTargetWorkerId,
-  }), [
-    fakeJobQueue,
-    hasActiveFilter,
-    estimatedRunCount,
-    repeatCount,
-    setRepeatCount,
-    handleRun,
-    handleRandomRun,
-    handleRunUnapproved,
-    randomRunCount,
-    setRandomRunCount,
-    targetWorkerId,
-    setTargetWorkerId,
-  ])
+  const runnerProps = useMemo(
+    () => ({
+      fakeJobQueue,
+      hasActiveFilter,
+      estimatedRunCount,
+      repeatCount,
+      setRepeatCount,
+      handleRun,
+      handleRandomRun,
+      handleRunUnapproved,
+      randomRunCount,
+      setRandomRunCount,
+      targetWorkerId,
+      setTargetWorkerId,
+    }),
+    [
+      fakeJobQueue,
+      hasActiveFilter,
+      estimatedRunCount,
+      repeatCount,
+      setRepeatCount,
+      handleRun,
+      handleRandomRun,
+      handleRunUnapproved,
+      randomRunCount,
+      setRandomRunCount,
+      targetWorkerId,
+      setTargetWorkerId,
+    ]
+  )
 
-  const windowManagerProps = useMemo(() => ({
-    isCompositionFloating,
-    setIsCompositionFloating,
-    compositionFloatingPos,
-    setCompositionFloatingPos,
-    compositionFloatingSize,
-    setCompositionFloatingSize,
-    isJobManagerFloating,
-    setIsJobManagerFloating,
-    jobManagerFloatingPos,
-    setJobManagerFloatingPos,
-    jobManagerFloatingSize,
-    setJobManagerFloatingSize,
-    isGalleryFloating,
-    setIsGalleryFloating,
-    galleryFloatingPos,
-    setGalleryFloatingPos,
-    galleryFloatingSize,
-    setGalleryFloatingSize,
-    isGalleryDocked,
-    setIsGalleryDocked,
-    galleryDockedSide,
-    isStatsFloating,
-    setIsStatsFloating,
-    statsFloatingPos,
-    setStatsFloatingPos,
-    statsFloatingSize,
-    setStatsFloatingSize,
-    isStatsDocked,
-    setIsStatsDocked,
-    statsDockedSide,
-    isCurationFloating,
-    setIsCurationFloating,
-    curationFloatingPos,
-    setCurationFloatingPos,
-    curationFloatingSize,
-    setCurationFloatingSize,
-    isCurationDocked,
-    setIsCurationDocked,
-    curationDockedSide,
-    handleHeaderDragStart,
-  }), [
-    isCompositionFloating,
-    setIsCompositionFloating,
-    compositionFloatingPos,
-    setCompositionFloatingPos,
-    compositionFloatingSize,
-    setCompositionFloatingSize,
-    isJobManagerFloating,
-    setIsJobManagerFloating,
-    jobManagerFloatingPos,
-    setJobManagerFloatingPos,
-    jobManagerFloatingSize,
-    setJobManagerFloatingSize,
-    isGalleryFloating,
-    setIsGalleryFloating,
-    galleryFloatingPos,
-    setGalleryFloatingPos,
-    galleryFloatingSize,
-    setGalleryFloatingSize,
-    isGalleryDocked,
-    setIsGalleryDocked,
-    galleryDockedSide,
-    isStatsFloating,
-    setIsStatsFloating,
-    statsFloatingPos,
-    setStatsFloatingPos,
-    statsFloatingSize,
-    setStatsFloatingSize,
-    isStatsDocked,
-    setIsStatsDocked,
-    statsDockedSide,
-    isCurationFloating,
-    setIsCurationFloating,
-    curationFloatingPos,
-    setCurationFloatingPos,
-    curationFloatingSize,
-    setCurationFloatingSize,
-    isCurationDocked,
-    setIsCurationDocked,
-    curationDockedSide,
-    handleHeaderDragStart,
-  ])
+  const windowManagerProps = useMemo(
+    () => ({
+      isCompositionFloating,
+      setIsCompositionFloating,
+      compositionFloatingPos,
+      setCompositionFloatingPos,
+      compositionFloatingSize,
+      setCompositionFloatingSize,
+      isJobManagerFloating,
+      setIsJobManagerFloating,
+      jobManagerFloatingPos,
+      setJobManagerFloatingPos,
+      jobManagerFloatingSize,
+      setJobManagerFloatingSize,
+      isGalleryFloating,
+      setIsGalleryFloating,
+      galleryFloatingPos,
+      setGalleryFloatingPos,
+      galleryFloatingSize,
+      setGalleryFloatingSize,
+      isGalleryDocked,
+      setIsGalleryDocked,
+      galleryDockedSide,
+      isStatsFloating,
+      setIsStatsFloating,
+      statsFloatingPos,
+      setStatsFloatingPos,
+      statsFloatingSize,
+      setStatsFloatingSize,
+      isStatsDocked,
+      setIsStatsDocked,
+      statsDockedSide,
+      isCurationFloating,
+      setIsCurationFloating,
+      curationFloatingPos,
+      setCurationFloatingPos,
+      curationFloatingSize,
+      setCurationFloatingSize,
+      isCurationDocked,
+      setIsCurationDocked,
+      curationDockedSide,
+      handleHeaderDragStart,
+    }),
+    [
+      isCompositionFloating,
+      setIsCompositionFloating,
+      compositionFloatingPos,
+      setCompositionFloatingPos,
+      compositionFloatingSize,
+      setCompositionFloatingSize,
+      isJobManagerFloating,
+      setIsJobManagerFloating,
+      jobManagerFloatingPos,
+      setJobManagerFloatingPos,
+      jobManagerFloatingSize,
+      setJobManagerFloatingSize,
+      isGalleryFloating,
+      setIsGalleryFloating,
+      galleryFloatingPos,
+      setGalleryFloatingPos,
+      galleryFloatingSize,
+      setGalleryFloatingSize,
+      isGalleryDocked,
+      setIsGalleryDocked,
+      galleryDockedSide,
+      isStatsFloating,
+      setIsStatsFloating,
+      statsFloatingPos,
+      setStatsFloatingPos,
+      statsFloatingSize,
+      setStatsFloatingSize,
+      isStatsDocked,
+      setIsStatsDocked,
+      statsDockedSide,
+      isCurationFloating,
+      setIsCurationFloating,
+      curationFloatingPos,
+      setCurationFloatingPos,
+      curationFloatingSize,
+      setCurationFloatingSize,
+      isCurationDocked,
+      setIsCurationDocked,
+      curationDockedSide,
+      handleHeaderDragStart,
+    ]
+  )
 
   // ── Render ──
   return (
     <div
       className={`flex flex-col bg-background ${
-        activeTab === "jobs" || activeTab === "generator" || activeTab === "editor" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
+        activeTab === "jobs" ||
+        activeTab === "generator" ||
+        activeTab === "editor"
+          ? "h-[100dvh] overflow-hidden"
+          : "min-h-[100dvh]"
       }`}
     >
       <CurationToolbarProvider
@@ -566,13 +588,9 @@ function AppContent(): React.JSX.Element {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isAliveBackend={isAliveBackend}
-           
           backendAlive={backendAlive}
-           
           workers={workers}
-           
           jobs={jobs}
-           
           jobsCount={jobs.length}
           mobileJobTab={mobileJobTab}
           setMobileJobTab={setMobileJobTab}
@@ -580,58 +598,71 @@ function AppContent(): React.JSX.Element {
           setCompositionTab={setCompositionTab}
           repeatCount={repeatCount}
           setRepeatCount={setRepeatCount}
-          handleRun={() => { void handleRun(); }}
-          handleRandomRun={() => { void handleRandomRun(); }}
-          handleRunUnapproved={() => { void handleRunUnapproved(); }}
+          handleRun={() => {
+            void handleRun()
+          }}
+          handleRandomRun={() => {
+            void handleRandomRun()
+          }}
+          handleRunUnapproved={() => {
+            void handleRunUnapproved()
+          }}
           randomRunCount={randomRunCount}
           setRandomRunCount={setRandomRunCount}
           targetWorkerId={targetWorkerId}
           setTargetWorkerId={setTargetWorkerId}
-           
           canRun={canRun}
           estimatedRunCount={estimatedRunCount}
           setIsSelectionOpen={setIsSelectionOpen}
           hasActiveFilter={hasActiveFilter}
           setIsAxisFilterOpen={setIsAxisFilterOpen}
-          onStatsDragStart={(cx, cy) => { handleNavTabDragStart("stats", cx, cy); }}
-          onCurationDragStart={(cx, cy) =>
-            { handleNavTabDragStart("curation", cx, cy); }
-          }
-          onGalleryDragStart={(cx, cy) =>
-            { handleNavTabDragStart("gallery", cx, cy); }
-          }
+          onStatsDragStart={(cx, cy) => {
+            handleNavTabDragStart("stats", cx, cy)
+          }}
+          onCurationDragStart={(cx, cy) => {
+            handleNavTabDragStart("curation", cx, cy)
+          }}
+          onGalleryDragStart={(cx, cy) => {
+            handleNavTabDragStart("gallery", cx, cy)
+          }}
           sessionMarkers={session.markers}
           sessionJobCounts={session.sessionJobCounts}
           sortedMarkers={session.sortedMarkers}
           selectedSessionId={session.selectedSessionId}
-          activeSessionState={{ activeSessionId: session.activeState.activeSessionId }}
+          activeSessionState={{
+            activeSessionId: session.activeState.activeSessionId,
+          }}
           sessionPickerOpen={session.sessionPickerOpen}
           onSessionPickerOpenChange={session.setSessionPickerOpen}
           onSelectSession={session.setSelectedSessionId}
           onCreateNewSession={session.createNewSession}
-           
           paused={paused}
-          onTogglePause={() => { void jobActions.handleTogglePause(); }}
-          onCancelAll={() => { void jobActions.handleCancelAll(); }}
-          onRetryAllFailed={() => { void jobActions.handleRetryAllFailed(); }}
-          onDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed(); }}
+          onTogglePause={() => {
+            void jobActions.handleTogglePause()
+          }}
+          onCancelAll={() => {
+            void jobActions.handleCancelAll()
+          }}
+          onRetryAllFailed={() => {
+            void jobActions.handleRetryAllFailed()
+          }}
+          onDeleteAllFailed={() => {
+            void jobActions.handleDeleteAllFailed()
+          }}
           activeJobsCount={session.sessionCounts.active}
         />
 
         <main
           className={`flex w-full flex-1 flex-col ${
-            activeTab === "jobs" || activeTab === "generator" || activeTab === "editor"
+            activeTab === "jobs" ||
+            activeTab === "generator" ||
+            activeTab === "editor"
               ? "overflow-hidden"
               : ""
           }`}
         >
           {/* ── Tab Routing ── */}
-          {activeTab === "stats" &&             <StatsTab
-               
-              jobs={jobs}
-               
-              workers={workers}
-            />}
+          {activeTab === "stats" && <StatsTab jobs={jobs} workers={workers} />}
           {activeTab === "gallery" && (
             <GalleryTab
               backendUrl={backendUrl}
@@ -667,7 +698,6 @@ function AppContent(): React.JSX.Element {
               updateSetting={updateSetting}
               backendUrl={backendUrl}
               onBackendUrlChange={setBackendUrl}
-               
               workers={workers}
             />
           )}
@@ -675,11 +705,8 @@ function AppContent(): React.JSX.Element {
             <JobsTab
               backendUrl={backendUrl}
               isAliveBackend={isAliveBackend}
-               
               jobs={jobs}
-               
               workers={workers}
-               
               paused={paused}
               session={session}
               runner={runnerProps}
@@ -708,7 +735,6 @@ function AppContent(): React.JSX.Element {
               setIsSheetOpen={setIsSheetOpen}
               setIsAxisFilterOpen={setIsAxisFilterOpen}
               setIsSelectionOpen={setIsSelectionOpen}
-               
               canRun={canRun}
             />
           )}
@@ -746,7 +772,6 @@ function AppContent(): React.JSX.Element {
           onPreviewFilterChange={setPreviewFilter}
           uncheckedItems={uncheckedItems}
           selectedCount={selectedCount}
-           
           canRun={canRun}
           checkAllItems={checkAllItems}
           uncheckAllItems={uncheckAllItems}
@@ -755,14 +780,16 @@ function AppContent(): React.JSX.Element {
             const ok = await handleRunSelected()
             if (ok) setIsSelectionOpen(false)
           }}
-          onExcludeApproved={() => { void selectOnlyUnapprovedItems(); }}
+          onExcludeApproved={() => {
+            void selectOnlyUnapprovedItems()
+          }}
         />
-
-
 
         <NameConflictDialog
           pendingSave={pendingSave}
-          onClose={() => { setPendingSave(null); }}
+          onClose={() => {
+            setPendingSave(null)
+          }}
           newName={nextFreeName(pendingSave?.name ?? "", pendingSaveItems)}
           onSaveNew={handleNameConflictSaveNew}
           onOverwrite={handleNameConflictOverwrite}
@@ -770,20 +797,22 @@ function AppContent(): React.JSX.Element {
 
         {activeTab !== "jobs" && (
           <JobStatusPopup
-             
             jobs={jobs}
-             
             paused={paused}
-          backendUrl={backendUrl}
-          isAliveBackend={isAliveBackend}
-            onNavigateToJobs={() => { setActiveTab("jobs"); }}
+            backendUrl={backendUrl}
+            isAliveBackend={isAliveBackend}
+            onNavigateToJobs={() => {
+              setActiveTab("jobs")
+            }}
             cycleMinimizedProgress={settings.cycleMinimizedProgress}
           />
         )}
 
         <PresetSelectionDialog
           pendingWorkflow={pendingPresetSelection}
-          onClose={() => { setPendingPresetSelection(null); }}
+          onClose={() => {
+            setPendingPresetSelection(null)
+          }}
           onSelectPreset={(mappings: NodeMapping[], presetId: string) => {
             nodeMapping.setNodeMappings(mappings)
             nodeMapping.setActiveNodeMappingPresetId(presetId)
@@ -798,7 +827,9 @@ function AppContent(): React.JSX.Element {
 
         <VersionDiffDialog
           open={pendingDiff !== null}
-          onClose={() => { setPendingDiff(null); }}
+          onClose={() => {
+            setPendingDiff(null)
+          }}
           onConfirm={() => {
             if (!pendingDiff) return
             if (pendingDiff.type === "template") {
@@ -831,42 +862,58 @@ function AppContent(): React.JSX.Element {
           <FloatingWindow
             id="floating-window-composition"
             isOpen={isCompositionFloating}
-            onClose={() => { setIsCompositionFloating(false); }}
-            onDock={() => { setIsCompositionFloating(false); }}
+            onClose={() => {
+              setIsCompositionFloating(false)
+            }}
+            onDock={() => {
+              setIsCompositionFloating(false)
+            }}
             initialPos={compositionFloatingPos}
             initialSize={compositionFloatingSize}
             onPosChange={setCompositionFloatingPos}
             onSizeChange={setCompositionFloatingSize}
             title="작업 구성 패널"
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "composition"); }
-            }
+            onDragProgress={(cx, cy, sw, sh, isEnding) => {
+              handleDragProgress(cx, cy, sw, sh, isEnding, "composition")
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <WorkCompositionPanel
                 repeatCount={repeatCount}
                 setRepeatCount={setRepeatCount}
-                handleRun={() => { void handleRun(); }}
-                handleRandomRun={() => { void handleRandomRun(); }}
-                handleRunUnapproved={() => { void handleRunUnapproved(); }}
+                handleRun={() => {
+                  void handleRun()
+                }}
+                handleRandomRun={() => {
+                  void handleRandomRun()
+                }}
+                handleRunUnapproved={() => {
+                  void handleRunUnapproved()
+                }}
                 randomRunCount={randomRunCount}
                 setRandomRunCount={setRandomRunCount}
                 estimatedRunCount={estimatedRunCount}
-           
-          canRun={canRun}
+                canRun={canRun}
                 previewCount={fakeJobQueue.length}
-                 
                 workers={workers}
                 targetWorkerId={targetWorkerId}
                 setTargetWorkerId={setTargetWorkerId}
                 compositionTab={compositionTab}
                 setCompositionTab={setCompositionTab}
-                onPreviewOpen={() => { setIsSheetOpen(true); }}
-                onAxisFilterOpen={() => { setIsAxisFilterOpen(true); }}
-                onSelectionOpen={() => { setIsSelectionOpen(true); }}
+                onPreviewOpen={() => {
+                  setIsSheetOpen(true)
+                }}
+                onAxisFilterOpen={() => {
+                  setIsAxisFilterOpen(true)
+                }}
+                onSelectionOpen={() => {
+                  setIsSelectionOpen(true)
+                }}
                 hasActiveFilter={hasActiveFilter}
                 isFloating={true}
-                onFloatToggle={() => { setIsCompositionFloating(false); }}
+                onFloatToggle={() => {
+                  setIsCompositionFloating(false)
+                }}
               />
             </div>
           </FloatingWindow>
@@ -877,25 +924,26 @@ function AppContent(): React.JSX.Element {
           <FloatingWindow
             id="floating-window-jobManager"
             isOpen={isJobManagerFloating}
-            onClose={() => { setIsJobManagerFloating(false); }}
-            onDock={() => { setIsJobManagerFloating(false); }}
+            onClose={() => {
+              setIsJobManagerFloating(false)
+            }}
+            onDock={() => {
+              setIsJobManagerFloating(false)
+            }}
             initialPos={jobManagerFloatingPos}
             initialSize={jobManagerFloatingSize}
             onPosChange={setJobManagerFloatingPos}
             onSizeChange={setJobManagerFloatingSize}
             title="작업 큐 매니저"
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager"); }
-            }
+            onDragProgress={(cx, cy, sw, sh, isEnding) => {
+              handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <JobManagerPanel
-                   
                   jobs={jobs}
-                   
                   workers={workers}
-                   
                   paused={paused}
                   backendUrl={backendUrl}
                   isAliveBackend={isAliveBackend}
@@ -912,13 +960,23 @@ function AppContent(): React.JSX.Element {
                   sortedMarkers={session.sortedMarkers}
                   counts={session.sessionCounts}
                   sessionJobs={session.sessionJobs}
-                  handleTogglePause={() => { void jobActions.handleTogglePause(); }}
-                  handleCancelAll={() => { void jobActions.handleCancelAll(); }}
-                  handleRetryAllFailed={() => { void jobActions.handleRetryAllFailed(); }}
-                  handleDeleteAllFailed={() => { void jobActions.handleDeleteAllFailed(); }}
+                  handleTogglePause={() => {
+                    void jobActions.handleTogglePause()
+                  }}
+                  handleCancelAll={() => {
+                    void jobActions.handleCancelAll()
+                  }}
+                  handleRetryAllFailed={() => {
+                    void jobActions.handleRetryAllFailed()
+                  }}
+                  handleDeleteAllFailed={() => {
+                    void jobActions.handleDeleteAllFailed()
+                  }}
                   refetchStats={session.refetchStats}
                   isFloating={true}
-                  onFloatToggle={() => { setIsJobManagerFloating(false); }}
+                  onFloatToggle={() => {
+                    setIsJobManagerFloating(false)
+                  }}
                 />
               </div>
             </div>
@@ -929,7 +987,9 @@ function AppContent(): React.JSX.Element {
         {activeTab !== "gallery" && !isGalleryDocked && isGalleryFloating && (
           <GalleryFloatingWindow
             isOpen={true}
-            onClose={() => { setIsGalleryFloating(false); }}
+            onClose={() => {
+              setIsGalleryFloating(false)
+            }}
             onDock={() => {
               setIsGalleryFloating(false)
               setActiveTab("gallery")
@@ -938,9 +998,9 @@ function AppContent(): React.JSX.Element {
             initialSize={galleryFloatingSize}
             onPosChange={setGalleryFloatingPos}
             onSizeChange={setGalleryFloatingSize}
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "gallery"); }
-            }
+            onDragProgress={(cx, cy, sw, sh, isEnding) => {
+              handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")
+            }}
             backendUrl={backendUrl}
             enableHover={settings.enableHover}
             imagePageSize={settings.imagePageSize}
@@ -955,7 +1015,9 @@ function AppContent(): React.JSX.Element {
           <FloatingWindow
             id="floating-window-stats"
             isOpen={isStatsFloating}
-            onClose={() => { setIsStatsFloating(false); }}
+            onClose={() => {
+              setIsStatsFloating(false)
+            }}
             onDock={() => {
               setIsStatsFloating(false)
               setActiveTab("stats")
@@ -965,17 +1027,12 @@ function AppContent(): React.JSX.Element {
             onPosChange={setStatsFloatingPos}
             onSizeChange={setStatsFloatingSize}
             title="통계"
-            onDragProgress={(cx, cy, _sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, _sw, sh, isEnding, "stats"); }
-            }
+            onDragProgress={(cx, cy, _sw, sh, isEnding) => {
+              handleDragProgress(cx, cy, _sw, sh, isEnding, "stats")
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
-              <StatisticsPanel
-                 
-                jobs={jobs}
-                 
-                workers={workers}
-              />
+              <StatisticsPanel jobs={jobs} workers={workers} />
             </div>
           </FloatingWindow>
         )}
@@ -985,7 +1042,9 @@ function AppContent(): React.JSX.Element {
           <FloatingWindow
             id="floating-window-curation"
             isOpen={isCurationFloating}
-            onClose={() => { setIsCurationFloating(false); }}
+            onClose={() => {
+              setIsCurationFloating(false)
+            }}
             onDock={() => {
               setIsCurationFloating(false)
               setActiveTab("curation")
@@ -995,9 +1054,9 @@ function AppContent(): React.JSX.Element {
             onPosChange={setCurationFloatingPos}
             onSizeChange={setCurationFloatingSize}
             title="큐레이션"
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              { handleDragProgress(cx, cy, sw, sh, isEnding, "curation"); }
-            }
+            onDragProgress={(cx, cy, sw, sh, isEnding) => {
+              handleDragProgress(cx, cy, sw, sh, isEnding, "curation")
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <CombinationPicker
@@ -1012,7 +1071,9 @@ function AppContent(): React.JSX.Element {
                   selectedAxis: curationSelectedAxis,
                   setSelectedAxis: setCurationSelectedAxis,
                   viewMode: "gallery" as const,
-                  setViewMode: () => { /* no-op for curation floating window */ },
+                  setViewMode: () => {
+                    /* no-op for curation floating window */
+                  },
                   hideTopSection: true,
                 }}
               />

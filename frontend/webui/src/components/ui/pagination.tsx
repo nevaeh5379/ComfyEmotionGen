@@ -9,7 +9,10 @@ import { cn } from "@/lib/utils"
 import type { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 
-function Pagination({ className, ...props }: React.ComponentProps<"nav">): React.JSX.Element {
+function Pagination({
+  className,
+  ...props
+}: React.ComponentProps<"nav">): React.JSX.Element {
   return (
     <nav
       role="navigation"
@@ -34,7 +37,9 @@ function PaginationContent({
   )
 }
 
-function PaginationItem({ ...props }: React.ComponentProps<"li">): React.JSX.Element {
+function PaginationItem({
+  ...props
+}: React.ComponentProps<"li">): React.JSX.Element {
   return <li data-slot="pagination-item" {...props} />
 }
 

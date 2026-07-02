@@ -44,8 +44,14 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
         body: JSON.stringify({ url, worker_type: newWorkerType }),
       })
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
-        throw new Error((typeof body.detail === "string" && body.detail) || `HTTP ${String(res.status)}`)
+        const body = (await res.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >
+        throw new Error(
+          (typeof body.detail === "string" && body.detail) ||
+            `HTTP ${String(res.status)}`
+        )
       }
       setNewUrl("")
       toast.success("워커가 추가되었습니다.")
@@ -58,7 +64,10 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
     }
   }
 
-  const sendDelete = async (workerId: string, force: boolean): Promise<Response> => {
+  const sendDelete = async (
+    workerId: string,
+    force: boolean
+  ): Promise<Response> => {
     const qs = force ? "?force=true" : ""
     return fetch(`${backendUrl}${API.workers.detail(workerId)}${qs}`, {
       method: "DELETE",
@@ -72,10 +81,15 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
     try {
       const res = await sendDelete(workerId, false)
       if (res.status === HTTP_STATUS.conflict) {
-        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+        const body = (await res.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >
         const detail = (body.detail ?? {}) as Record<string, unknown>
         setConflict({
-          workerId: (typeof detail.workerId === "string" && detail.workerId) || workerId,
+          workerId:
+            (typeof detail.workerId === "string" && detail.workerId) ||
+            workerId,
           jobId: (typeof detail.jobId === "string" && detail.jobId) || "?",
         })
         return
@@ -114,7 +128,8 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
       <div className="space-y-1 rounded-md border bg-muted/30 p-2">
         {workers.length === 0 && (
           <p className="px-2 py-1.5 text-xs text-muted-foreground">
-            등록된 워커가 없습니다. 아래에서 백엔드 타입을 선택하고 URL을 추가하세요.
+            등록된 워커가 없습니다. 아래에서 백엔드 타입을 선택하고 URL을
+            추가하세요.
           </p>
         )}
         {workers.map((w) => {
@@ -132,7 +147,7 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
               <span className="w-14 flex-none font-mono text-xs text-muted-foreground">
                 {w.id}
               </span>
-              <span className="rounded bg-muted px-1 py-0.5 text-[10px] font-medium uppercase leading-none">
+              <span className="rounded bg-muted px-1 py-0.5 text-[10px] leading-none font-medium uppercase">
                 {wt}
               </span>
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
@@ -146,7 +161,9 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
                 variant="ghost"
                 size="sm"
                 className="h-7 w-7 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-                onClick={() => { void handleDelete(w.id); }}
+                onClick={() => {
+                  void handleDelete(w.id)
+                }}
                 disabled={busy}
               >
                 <X className="h-4 w-4" />
@@ -168,11 +185,19 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
         </Select>
         <Input
           type="url"
-          placeholder={newWorkerType === "nai" ? "https://api.novelai.net" : DEFAULT_WORKER_URL}
+          placeholder={
+            newWorkerType === "nai"
+              ? "https://api.novelai.net"
+              : DEFAULT_WORKER_URL
+          }
           value={newUrl}
-          onChange={(e) => { setNewUrl(e.target.value); }}
+          onChange={(e) => {
+            setNewUrl(e.target.value)
+          }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") { void handleAdd(); }
+            if (e.key === "Enter") {
+              void handleAdd()
+            }
           }}
           className="h-8 text-sm"
           disabled={busy}
@@ -180,14 +205,18 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => { void handleAdd(); }}
+          onClick={() => {
+            void handleAdd()
+          }}
           disabled={busy || !newUrl.trim()}
         >
           추가
         </Button>
       </div>
 
-      {error !== null && error !== "" && <p className="text-xs text-destructive">⚠ {error}</p>}
+      {error !== null && error !== "" && (
+        <p className="text-xs text-destructive">⚠ {error}</p>
+      )}
 
       {conflict && (
         <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm">
@@ -201,7 +230,9 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => { void confirmForceDelete(); }}
+              onClick={() => {
+                void confirmForceDelete()
+              }}
               disabled={busy}
             >
               작업 취소 후 삭제
@@ -209,7 +240,9 @@ export function WorkerManager({ backendUrl, workers }: Props): React.ReactNode {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setConflict(null); }}
+              onClick={() => {
+                setConflict(null)
+              }}
               disabled={busy}
             >
               취소

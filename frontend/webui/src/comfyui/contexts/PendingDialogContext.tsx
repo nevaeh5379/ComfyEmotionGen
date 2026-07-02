@@ -42,7 +42,9 @@ export interface PendingDialogValue {
 // Context
 // ---------------------------------------------------------------------------
 
-export const PendingDialogContext = createContext<PendingDialogValue | null>(null)
+export const PendingDialogContext = createContext<PendingDialogValue | null>(
+  null
+)
 
 export function usePendingDialog(): PendingDialogValue {
   return useContextRequired(PendingDialogContext, "usePendingDialog")

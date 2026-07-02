@@ -43,7 +43,6 @@ interface Props {
 }
 
 export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
-   
   const confirm = useConfirm()
   const {
     configs,
@@ -120,7 +119,9 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
 
   const handleToggleImage = async (cfg: WebhookConfig): Promise<void> => {
     try {
-      const ok = await updateConfig(cfg.id, { include_image: !cfg.include_image })
+      const ok = await updateConfig(cfg.id, {
+        include_image: !cfg.include_image,
+      })
       if (!ok) throw new Error("update failed")
     } catch {
       toast.error("웹훅 이미지 설정 변경에 실패했습니다.")
@@ -129,7 +130,6 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
   }
 
   const handleDelete = async (cfg: WebhookConfig): Promise<void> => {
-     
     const confirmed = await confirm({
       title: "웹훅 삭제",
       description: `'${cfg.name}' 웹훅을 삭제하시겠습니까?`,
@@ -191,11 +191,21 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
               isEditing={editingId === cfg.id}
               setEditingId={setEditingId}
               isTesting={testingId === cfg.id}
-              onToggleEnabled={(cfg) => { void handleToggleEnabled(cfg); }}
-              onDelete={(cfg) => { void handleDelete(cfg); }}
-              onTest={(cfg) => { void handleTest(cfg); }}
-              onToggleEvent={(cfg, event) => { handleToggleEvent(cfg, event); }}
-              onToggleImage={(cfg) => { void handleToggleImage(cfg); }}
+              onToggleEnabled={(cfg) => {
+                void handleToggleEnabled(cfg)
+              }}
+              onDelete={(cfg) => {
+                void handleDelete(cfg)
+              }}
+              onTest={(cfg) => {
+                void handleTest(cfg)
+              }}
+              onToggleEvent={(cfg, event) => {
+                handleToggleEvent(cfg, event)
+              }}
+              onToggleImage={(cfg) => {
+                void handleToggleImage(cfg)
+              }}
             />
           ))}
         </div>
@@ -206,15 +216,21 @@ export function WebhookSettingsPanel({ backendUrl }: Props): React.ReactNode {
         <WebhookForm
           config={newConfig}
           onUpdate={updateNewConfig}
-          onSubmit={() => { void handleAdd(); }}
-          onCancel={() => { setIsAdding(false); }}
+          onSubmit={() => {
+            void handleAdd()
+          }}
+          onCancel={() => {
+            setIsAdding(false)
+          }}
           isSubmitting={isLoading}
         />
       ) : (
         <Button
           variant="outline"
           size="sm"
-          onClick={() => { setIsAdding(true); }}
+          onClick={() => {
+            setIsAdding(true)
+          }}
           className="w-full"
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -260,7 +276,12 @@ function WebhookCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={() => { onToggleEnabled(config); }} className="shrink-0">
+          <button
+            onClick={() => {
+              onToggleEnabled(config)
+            }}
+            className="shrink-0"
+          >
             {config.enabled ? (
               <Bell className="h-4 w-4 text-ok" />
             ) : (
@@ -279,7 +300,9 @@ function WebhookCard({
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
-            onClick={() => { onTest(config); }}
+            onClick={() => {
+              onTest(config)
+            }}
             disabled={isTesting || !config.enabled}
           >
             {isTesting ? (
@@ -292,7 +315,9 @@ function WebhookCard({
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
-            onClick={() => { setEditingId(isEditing ? null : config.id); }}
+            onClick={() => {
+              setEditingId(isEditing ? null : config.id)
+            }}
           >
             {isEditing ? (
               <EyeOff className="h-3.5 w-3.5" />
@@ -304,7 +329,9 @@ function WebhookCard({
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 text-destructive"
-            onClick={() => { onDelete(config); }}
+            onClick={() => {
+              onDelete(config)
+            }}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -320,7 +347,9 @@ function WebhookCard({
           variant="ghost"
           size="sm"
           className="h-5 w-5 p-0"
-          onClick={() => { setShowUrl(!showUrl); }}
+          onClick={() => {
+            setShowUrl(!showUrl)
+          }}
         >
           {showUrl ? (
             <EyeOff className="h-3 w-3" />
@@ -343,7 +372,9 @@ function WebhookCard({
                   <Checkbox
                     id={`evt-${config.id}-${event}`}
                     checked={config.events.includes(event)}
-                    onCheckedChange={() => { onToggleEvent(config, event); }}
+                    onCheckedChange={() => {
+                      onToggleEvent(config, event)
+                    }}
                   />
                   <Label
                     htmlFor={`evt-${config.id}-${event}`}
@@ -360,7 +391,9 @@ function WebhookCard({
             <div className="flex items-center gap-2">
               <Switch
                 checked={config.include_image}
-                onCheckedChange={() => { onToggleImage(config); }}
+                onCheckedChange={() => {
+                  onToggleImage(config)
+                }}
               />
               <span className="text-xs">결과 이미지 포함</span>
             </div>
@@ -419,7 +452,9 @@ function WebhookForm({
         <Input
           placeholder="예) 메인 디스코드 채널"
           value={config.name}
-          onChange={(e) => { onUpdate("name", e.target.value); }}
+          onChange={(e) => {
+            onUpdate("name", e.target.value)
+          }}
           className="mt-1 h-8 text-sm"
         />
       </div>
@@ -431,7 +466,9 @@ function WebhookForm({
           </Label>
           <Select
             value={config.channel_type}
-            onValueChange={(v) => { onUpdate("channel_type", v as ChannelType); }}
+            onValueChange={(v) => {
+              onUpdate("channel_type", v as ChannelType)
+            }}
           >
             <SelectTrigger className="mt-1 h-8 text-xs">
               <SelectValue />
@@ -450,7 +487,9 @@ function WebhookForm({
           <div className="mt-2">
             <Switch
               checked={config.enabled}
-              onCheckedChange={(v) => { onUpdate("enabled", v); }}
+              onCheckedChange={(v) => {
+                onUpdate("enabled", v)
+              }}
             />
           </div>
         </div>
@@ -463,7 +502,9 @@ function WebhookForm({
         <Input
           placeholder={CHANNEL_PLACEHOLDERS[config.channel_type]}
           value={config.url}
-          onChange={(e) => { onUpdate("url", e.target.value); }}
+          onChange={(e) => {
+            onUpdate("url", e.target.value)
+          }}
           className="mt-1 h-8 text-sm"
         />
       </div>
@@ -479,9 +520,10 @@ function WebhookForm({
                 id={`new-evt-${event}`}
                 checked={config.events.includes(event)}
                 onCheckedChange={(checked) => {
-                  const events = checked === true
-                    ? [...config.events, event]
-                    : config.events.filter((e) => e !== event)
+                  const events =
+                    checked === true
+                      ? [...config.events, event]
+                      : config.events.filter((e) => e !== event)
                   onUpdate("events", events)
                 }}
               />
@@ -496,7 +538,9 @@ function WebhookForm({
       <div className="flex items-center gap-2">
         <Switch
           checked={config.include_image}
-          onCheckedChange={(v) => { onUpdate("include_image", v); }}
+          onCheckedChange={(v) => {
+            onUpdate("include_image", v)
+          }}
         />
         <span className="text-xs">결과 이미지 포함</span>
       </div>

@@ -82,7 +82,10 @@ function DialogContent({
   )
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function DialogHeader({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="dialog-header"
@@ -135,7 +138,9 @@ function DialogTitle({
 function DialogDescription({
   className,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Description>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DialogPrimitive.Description
+>): React.JSX.Element {
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"

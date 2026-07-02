@@ -16,12 +16,12 @@ function formatSvgNumber(n: number): string {
 
 function linkColor(type: string): string {
   const t = type.toUpperCase()
-  if (t === "MODEL")       return "#a78bfa"
-  if (t === "LATENT")      return "#f472b6"
+  if (t === "MODEL") return "#a78bfa"
+  if (t === "LATENT") return "#f472b6"
   if (t === "CONDITIONING") return "#fb923c"
-  if (t === "IMAGE")       return "#34d399"
-  if (t === "CLIP")        return "#facc15"
-  if (t === "VAE")         return "#60a5fa"
+  if (t === "IMAGE") return "#34d399"
+  if (t === "CLIP") return "#facc15"
+  if (t === "VAE") return "#60a5fa"
   return "#6ee7b7"
 }
 
@@ -72,7 +72,9 @@ export function SvgConnections(): React.JSX.Element {
   // 활성 그래프에 속한 노드/링크만 필터링
   const nodes = useMemo(() => {
     if (activeGraphId === null) {
-      return allNodes.filter((n) => n.graphId === null || n.graphId === undefined)
+      return allNodes.filter(
+        (n) => n.graphId === null || n.graphId === undefined
+      )
     }
     return allNodes.filter((n) => n.graphId === activeGraphId)
   }, [allNodes, activeGraphId])
@@ -80,9 +82,12 @@ export function SvgConnections(): React.JSX.Element {
     const nodeIds = new Set(nodes.map((n) => n.id))
     if (activeGraphId === null) {
       // 루트: IO 노드 엔드포인트 링크 제외, 양 끝점이 루트 노드인 링크만
-      return allLinks.filter((l) =>
-        l.origin_id !== -10 && l.target_id !== -20 &&
-        nodeIds.has(l.origin_id) && nodeIds.has(l.target_id)
+      return allLinks.filter(
+        (l) =>
+          l.origin_id !== -10 &&
+          l.target_id !== -20 &&
+          nodeIds.has(l.origin_id) &&
+          nodeIds.has(l.target_id)
       )
     }
     // 서브그래프: IO 노드 엔드포인트 링크 포함 + 양 끝점이 같은 서브그래프
@@ -113,8 +118,20 @@ export function SvgConnections(): React.JSX.Element {
       const dst = nodeMap.get(link.target_id)
       if (!src || !dst) continue
 
-      const srcPin = queryPin(container, src.id, "output", link.origin_slot, src.outputs?.[link.origin_slot]?.name)
-      const dstPin = queryPin(container, dst.id, "input", link.target_slot, dst.inputs?.[link.target_slot]?.name)
+      const srcPin = queryPin(
+        container,
+        src.id,
+        "output",
+        link.origin_slot,
+        src.outputs?.[link.origin_slot]?.name
+      )
+      const dstPin = queryPin(
+        container,
+        dst.id,
+        "input",
+        link.target_slot,
+        dst.inputs?.[link.target_slot]?.name
+      )
       if (!srcPin || !dstPin) continue
 
       const sr = srcPin.getBoundingClientRect()
@@ -140,7 +157,7 @@ export function SvgConnections(): React.JSX.Element {
   return (
     <svg
       ref={svgRef}
-      className="absolute inset-0 pointer-events-none overflow-visible"
+      className="pointer-events-none absolute inset-0 overflow-visible"
       style={{ width: "100%", height: "100%" }}
     >
       <defs>
@@ -151,7 +168,7 @@ export function SvgConnections(): React.JSX.Element {
       </defs>
 
       {paths.map((lp) => (
-        <g key={`link-${String(lp.id)}`} className="pointer-events-auto group">
+        <g key={`link-${String(lp.id)}`} className="group pointer-events-auto">
           <path
             d={lp.d}
             fill="none"
@@ -181,7 +198,7 @@ export function SvgConnections(): React.JSX.Element {
             fill="none"
             stroke={lp.color}
             strokeWidth={2}
-            className="group-hover:stroke-white transition-colors duration-100 cursor-pointer"
+            className="cursor-pointer transition-colors duration-100 group-hover:stroke-white"
           />
         </g>
       ))}

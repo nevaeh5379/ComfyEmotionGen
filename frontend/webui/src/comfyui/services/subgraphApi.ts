@@ -46,7 +46,11 @@ export function saveLocalBlueprint(meta: SubgraphBlueprintMeta): void {
   if (idx >= 0) {
     existing[idx] = { ...meta, modifiedAt: new Date().toISOString() }
   } else {
-    existing.push({ ...meta, createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString() })
+    existing.push({
+      ...meta,
+      createdAt: new Date().toISOString(),
+      modifiedAt: new Date().toISOString(),
+    })
   }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(existing))
@@ -88,7 +92,7 @@ export async function getGlobalSubgraphs(): Promise<GlobalSubgraphInfo[]> {
   try {
     const resp = await fetch("/global_subgraphs")
     if (!resp.ok) return []
-    const data = await resp.json() as GlobalSubgraphInfo[]
+    const data = (await resp.json()) as GlobalSubgraphInfo[]
     return Array.isArray(data) ? data : []
   } catch {
     // 엔드포인트 미지원 시 빈 배열
@@ -97,11 +101,13 @@ export async function getGlobalSubgraphs(): Promise<GlobalSubgraphInfo[]> {
 }
 
 /** 글로벌 subgraph 정의 데이터 조회 */
-export async function getGlobalSubgraphData(id: string): Promise<SubgraphDefinition | null> {
+export async function getGlobalSubgraphData(
+  id: string
+): Promise<SubgraphDefinition | null> {
   try {
     const resp = await fetch(`/global_subgraphs/${encodeURIComponent(id)}`)
     if (!resp.ok) return null
-    return await resp.json() as SubgraphDefinition
+    return (await resp.json()) as SubgraphDefinition
   } catch {
     return null
   }

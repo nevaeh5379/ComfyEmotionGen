@@ -14,18 +14,26 @@ export type SubgraphId = string
 
 /** UUID 형식 검증 (느슨한 캐노니컬 UUID) */
 export function isUuidShapedSubgraphId(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  )
 }
 
 /** 새 SubgraphId 생성 */
 export function createSubgraphId(): SubgraphId {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID()
   }
   // 폴백: Math.random 기반 UUID v4 흉내
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c: string): string => {
-    const r = (Math.random() * 16) | 0
-    const v = c === "x" ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    (c: string): string => {
+      const r = (Math.random() * 16) | 0
+      const v = c === "x" ? r : (r & 0x3) | 0x8
+      return v.toString(16)
+    }
+  )
 }

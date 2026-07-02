@@ -16,10 +16,10 @@ function dispatch(type: string, detail?: object): void {
 }
 
 function dispatchStatusFromJobs(jobs: JobView[]): void {
-  const running = jobs.filter((j): boolean => j.status === 'running').length
-  const queued = jobs.filter((j): boolean => j.status === 'queued').length
+  const running = jobs.filter((j): boolean => j.status === "running").length
+  const queued = jobs.filter((j): boolean => j.status === "queued").length
   const queueRemaining = running + queued
-  dispatch('status', {
+  dispatch("status", {
     status: {
       exec_info: { queue_remaining: queueRemaining },
     },
@@ -29,54 +29,57 @@ function dispatchStatusFromJobs(jobs: JobView[]): void {
 export function applyComfyApiBridge(event: BackendEvent): void {
   console.log("[CEG Bridge] event:", event)
   switch (event.type) {
-    case 'snapshot': {
+    case "snapshot": {
       dispatchStatusFromJobs(event.jobs)
       break
     }
 
-    case 'job.created': {
+    case "job.created": {
       dispatchStatusFromJobs([event.job])
       break
     }
 
-    case 'job.updated': {
+    case "job.updated": {
       const job = event.job
 
       switch (job.status) {
-        case 'running':
-          dispatch('executing', {
+        case "running":
+          dispatch("executing", {
             node: job.currentNodeName || null,
             prompt_id: job.id,
           })
           break
 
-        case 'done':
-          dispatch('execution_success', { prompt_id: job.id })
-          dispatch('executing', { node: null })
+        case "done":
+          dispatch("execution_success", { prompt_id: job.id })
+          dispatch("executing", { node: null })
           break
 
-        case 'error':
-          dispatch('execution_error', {
+        case "error":
+          dispatch("execution_error", {
             prompt_id: job.id,
-            node_id: '',
-            node_type: '',
-            exception_message: job.error ?? 'Unknown error',
+            node_id: "",
+            node_type: "",
+            exception_message: job.error ?? "Unknown error",
           })
-          dispatch('executing', { node: null })
+          dispatch("executing", { node: null })
           break
 
-        case 'cancelled':
-          dispatch('execution_interrupted', {
+        case "cancelled":
+          dispatch("execution_interrupted", {
             prompt_id: job.id,
-            node_id: '',
-            node_type: '',
+            node_id: "",
+            node_type: "",
           })
-          dispatch('executing', { node: null })
+          dispatch("executing", { node: null })
           break
       }
 
-      if (job.progressPercent > 0 && job.status === 'running' || job.status === 'queued') {
-        dispatch('progress', {
+      if (
+        (job.progressPercent > 0 && job.status === "running") ||
+        job.status === "queued"
+      ) {
+        dispatch("progress", {
           value: Math.round(job.completedNodeCount),
           max: Math.max(job.totalNodeCount, 1),
         })
@@ -86,16 +89,16 @@ export function applyComfyApiBridge(event: BackendEvent): void {
       break
     }
 
-    case 'job.deleted':
-    case 'control.updated':
-    case 'worker.added':
-    case 'worker.removed':
-    case 'worker.updated':
-    case 'worker.preview':
-    case 'settings.updated':
-    case 'image.saved':
-    case 'image.curation':
-    case 'image.deleted':
+    case "job.deleted":
+    case "control.updated":
+    case "worker.added":
+    case "worker.removed":
+    case "worker.updated":
+    case "worker.preview":
+    case "settings.updated":
+    case "image.saved":
+    case "image.curation":
+    case "image.deleted":
       break
   }
 }

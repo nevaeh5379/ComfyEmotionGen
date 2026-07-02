@@ -92,7 +92,10 @@ function remapNodeIds(
 }
 
 /** 링크의 origin_id/target_id를 재매핑. */
-function patchLinks(links: ComfyWorkflowLink[], remap: Map<number, number>): void {
+function patchLinks(
+  links: ComfyWorkflowLink[],
+  remap: Map<number, number>
+): void {
   for (const link of links) {
     const newOrigin = remap.get(link.origin_id)
     if (newOrigin !== undefined) link.origin_id = newOrigin
@@ -102,7 +105,10 @@ function patchLinks(links: ComfyWorkflowLink[], remap: Map<number, number>): voi
 }
 
 /** 승격 위젯의 내부 노드 참조(id)를 재매핑. */
-function patchPromotedWidgets(widgets: ExposedWidget[], remap: Map<number, number>): void {
+function patchPromotedWidgets(
+  widgets: ExposedWidget[],
+  remap: Map<number, number>
+): void {
   for (const widget of widgets) {
     const newId = remap.get(widget.id)
     if (newId !== undefined) widget.id = newId
@@ -137,7 +143,9 @@ function patchProxyWidgets(
  * 참조되는 정의가 참조하는 정의보다 먼저 오도록 보장.
  * 의존성 그래프에 사이클이 있으면 원래 순서 유지(폴백).
  */
-export function topologicalSortSubgraphs(subgraphs: SubgraphDefinition[]): SubgraphDefinition[] {
+export function topologicalSortSubgraphs(
+  subgraphs: SubgraphDefinition[]
+): SubgraphDefinition[] {
   const subgraphIds = new Set(subgraphs.map((sg) => sg.id))
   const byId = new Map(subgraphs.map((sg) => [sg.id, sg] as const))
 

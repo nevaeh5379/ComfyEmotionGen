@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, type DependencyList, type EffectCallback } from "react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type DependencyList,
+  type EffectCallback,
+} from "react"
 
 const IS_DEV = import.meta.env.DEV
 
@@ -12,14 +18,19 @@ export function useRenderLog(name: string): void {
     const gap = lastEnd.current !== null ? now - lastEnd.current : 0
     if (IS_DEV) {
       const gapStr =
-        gap < 1000 ? `+${String(Number(gap.toFixed(1)))}ms` : `+${String(Number(((gap / 1000)).toFixed(1)))}s`
+        gap < 1000
+          ? `+${String(Number(gap.toFixed(1)))}ms`
+          : `+${String(Number((gap / 1000).toFixed(1)))}s`
       console.log(`[Render] ${name} #${String(count.current)}  gap:${gapStr}`)
     }
     lastEnd.current = performance.now()
   })
 }
 
-export function useWatchValues(label: string, values: Record<string, unknown>): void {
+export function useWatchValues(
+  label: string,
+  values: Record<string, unknown>
+): void {
   const prev = useRef<Record<string, unknown>>({})
 
   useLayoutEffect(() => {

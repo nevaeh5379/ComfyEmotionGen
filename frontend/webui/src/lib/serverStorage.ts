@@ -9,13 +9,12 @@ import { STORAGE_KEYS } from "../lib/storageKeys"
 import { DEFAULT_BACKEND_URL } from "../lib/runtime"
 import { toast } from "sonner"
 
-export const CLIENT_ID = Math.random().toString(36).substring(2) + Date.now().toString(36);
+export const CLIENT_ID =
+  Math.random().toString(36).substring(2) + Date.now().toString(36)
 
 const readBackendUrl = (): string => {
   try {
-    return (
-      localStorage.getItem(STORAGE_KEYS.backendUrl) ?? DEFAULT_BACKEND_URL
-    )
+    return localStorage.getItem(STORAGE_KEYS.backendUrl) ?? DEFAULT_BACKEND_URL
   } catch (err) {
     console.warn("serverStorage: 백엔드 URL 읽기 실패:", err)
     return DEFAULT_BACKEND_URL
@@ -35,7 +34,7 @@ export async function fetchAllSettings(): Promise<Record<
       toast.error(`설정 로드 실패: HTTP ${String(res.status)}`)
       return null
     }
-    return await res.json() as Record<string, string>
+    return (await res.json()) as Record<string, string>
   } catch (err) {
     console.warn("serverStorage: 설정 목록 로드 실패:", err)
     toast.error("설정 로드 실패: 서버에 연결할 수 없습니다.")
@@ -76,7 +75,7 @@ export async function saveSetting(
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "X-Client-Id": CLIENT_ID
+          "X-Client-Id": CLIENT_ID,
         },
         body: JSON.stringify({ value }),
       }
@@ -101,8 +100,8 @@ export async function deleteSetting(key: string): Promise<boolean> {
       {
         method: "DELETE",
         headers: {
-          "X-Client-Id": CLIENT_ID
-        }
+          "X-Client-Id": CLIENT_ID,
+        },
       }
     )
     if (!res.ok) {

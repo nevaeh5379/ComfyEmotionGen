@@ -24,7 +24,12 @@ export function StatCard({
   className,
 }: StatCardProps): React.JSX.Element {
   // Determine dynamic highlight colors based on theme color tokens
-  const getThemeStyles = (): { bg: string; border: string; glow: string; iconColor: string } => {
+  const getThemeStyles = (): {
+    bg: string
+    border: string
+    glow: string
+    iconColor: string
+  } => {
     if (faded === true)
       return {
         bg: "",

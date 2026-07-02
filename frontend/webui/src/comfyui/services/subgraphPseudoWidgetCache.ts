@@ -24,7 +24,10 @@ function cacheKey(subgraphId: string, widgetName: string): string {
  * SubgraphNode별 의사위젯 캐시.
  * WeakMap으로 SubgraphModelRuntime이 GC될 때 함께 해제.
  */
-const pseudoWidgetCache = new WeakMap<SubgraphModelRuntime, Map<string, boolean>>()
+const pseudoWidgetCache = new WeakMap<
+  SubgraphModelRuntime,
+  Map<string, boolean>
+>()
 
 /**
  * Subgraph의 위젯 중 의사위젯(preview)을 식별하여 캐싱.

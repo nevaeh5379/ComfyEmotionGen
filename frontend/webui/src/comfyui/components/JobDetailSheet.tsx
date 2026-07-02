@@ -40,7 +40,9 @@ function ClipButton({ text }: { text: string }): React.JSX.Element {
     e.stopPropagation()
     void navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
-      setTimeout(() => { setCopied(false); }, COPIED_RESET_DELAY_MS)
+      setTimeout(() => {
+        setCopied(false)
+      }, COPIED_RESET_DELAY_MS)
     })
   }
   return (
@@ -330,7 +332,9 @@ export function JobDetailSheet({
                             setLightboxUrls(
                               fetchedImages
                                 .get(job.id)
-                                ?.map((hh) => `${backendUrl}/saved-images/${hh}`) ?? []
+                                ?.map(
+                                  (hh) => `${backendUrl}/saved-images/${hh}`
+                                ) ?? []
                             )
                             setLightboxIndex(i)
                           }}
@@ -353,73 +357,79 @@ export function JobDetailSheet({
         )}
 
         {lightboxUrls &&
-          (((): React.ReactNode => {
+          ((): React.ReactNode => {
             const currentUrl = lightboxUrls[lightboxIndex]
             if (currentUrl === undefined) return null
             return (
               <ImageViewer
                 src={currentUrl}
                 isOpen
-                onClose={() => { setLightboxUrls(null); }}
+                onClose={() => {
+                  setLightboxUrls(null)
+                }}
               >
-            {lightboxUrls.length > 1 && (
-              <div className="flex w-full flex-col items-center gap-3">
-                <div className="flex items-center justify-center gap-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
-                    onClick={() => { setLightboxIndex((i) => Math.max(0, i - 1)); }}
-                    disabled={lightboxIndex === 0}
-                  >
-                    <ChevronDown className="h-4 w-4 rotate-90" />
-                  </Button>
-                  <span className="font-mono text-[11px] font-bold text-white/60">
-                    {lightboxIndex + 1} / {lightboxUrls.length}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
-                    onClick={() =>
-                      { setLightboxIndex((i) =>
-                        Math.min(lightboxUrls.length - 1, i + 1)
-                      ); }
-                    }
-                    disabled={lightboxIndex === lightboxUrls.length - 1}
-                  >
-                    <ChevronDown className="h-4 w-4 -rotate-90" />
-                  </Button>
-                </div>
-
-                <div className="no-scrollbar flex max-w-[90vw] gap-2 overflow-x-auto rounded-xl border border-white/5 bg-white/5 p-1.5 backdrop-blur-md">
-                  {lightboxUrls.map((url, i) => {
-                    const isSelected = i === lightboxIndex
-                    return (
-                      <button
-                        key={url}
-                        className={cn(
-                          "relative h-12 w-12 scale-95 cursor-pointer overflow-hidden rounded-lg border-2 transition-all duration-300",
-                          isSelected
-                            ? "scale-100 border-info shadow-md ring-2 ring-info/30"
-                            : "border-transparent opacity-50 hover:scale-98 hover:opacity-100"
-                        )}
-                        onClick={() => { setLightboxIndex(i); }}
+                {lightboxUrls.length > 1 && (
+                  <div className="flex w-full flex-col items-center gap-3">
+                    <div className="flex items-center justify-center gap-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
+                        onClick={() => {
+                          setLightboxIndex((i) => Math.max(0, i - 1))
+                        }}
+                        disabled={lightboxIndex === 0}
                       >
-                        <img
-                          src={url}
-                          alt={`Thumbnail ${String(i)}`}
-                          className="h-full w-full object-cover"
-                        />
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-            </ImageViewer>
-          )
-        })())}
+                        <ChevronDown className="h-4 w-4 rotate-90" />
+                      </Button>
+                      <span className="font-mono text-[11px] font-bold text-white/60">
+                        {lightboxIndex + 1} / {lightboxUrls.length}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full border-white/10 bg-white/5 p-0 text-white/80 hover:bg-white/10 hover:text-white"
+                        onClick={() => {
+                          setLightboxIndex((i) =>
+                            Math.min(lightboxUrls.length - 1, i + 1)
+                          )
+                        }}
+                        disabled={lightboxIndex === lightboxUrls.length - 1}
+                      >
+                        <ChevronDown className="h-4 w-4 -rotate-90" />
+                      </Button>
+                    </div>
+
+                    <div className="no-scrollbar flex max-w-[90vw] gap-2 overflow-x-auto rounded-xl border border-white/5 bg-white/5 p-1.5 backdrop-blur-md">
+                      {lightboxUrls.map((url, i) => {
+                        const isSelected = i === lightboxIndex
+                        return (
+                          <button
+                            key={url}
+                            className={cn(
+                              "relative h-12 w-12 scale-95 cursor-pointer overflow-hidden rounded-lg border-2 transition-all duration-300",
+                              isSelected
+                                ? "scale-100 border-info shadow-md ring-2 ring-info/30"
+                                : "border-transparent opacity-50 hover:scale-98 hover:opacity-100"
+                            )}
+                            onClick={() => {
+                              setLightboxIndex(i)
+                            }}
+                          >
+                            <img
+                              src={url}
+                              alt={`Thumbnail ${String(i)}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </ImageViewer>
+            )
+          })()}
       </SheetContent>
     </Sheet>
   )

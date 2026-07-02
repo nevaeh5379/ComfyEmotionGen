@@ -51,7 +51,10 @@ export class SubgraphEventDispatcher {
   }
 
   /** 이벤트 디스패치. removing-* 이벤트에서 리스너가 false 반환 시 false 리턴(취소). */
-  dispatch<T extends SubgraphEventType>(type: T, detail: SubgraphEventMap[T]): boolean {
+  dispatch<T extends SubgraphEventType>(
+    type: T,
+    detail: SubgraphEventMap[T]
+  ): boolean {
     const set = this.listeners.get(type)
     if (!set) return true
     for (const listener of set) {
@@ -89,7 +92,9 @@ export function dtoToSlot(dto: SubgraphIODto): SubgraphSlot {
 }
 
 /** SubgraphModel 생성 팩토리: 정의로부터 런타임 모델 구성 */
-export function createSubgraphModel(def: SubgraphDefinition): SubgraphModelRuntime {
+export function createSubgraphModel(
+  def: SubgraphDefinition
+): SubgraphModelRuntime {
   return new SubgraphModelRuntime(def)
 }
 
@@ -102,8 +107,16 @@ export class SubgraphModelRuntime {
   name: string
   category?: string
   description?: string
-  inputNode: { id: number; bounding: [number, number, number, number]; pinned: boolean }
-  outputNode: { id: number; bounding: [number, number, number, number]; pinned: boolean }
+  inputNode: {
+    id: number
+    bounding: [number, number, number, number]
+    pinned: boolean
+  }
+  outputNode: {
+    id: number
+    bounding: [number, number, number, number]
+    pinned: boolean
+  }
   inputs: SubgraphSlot[]
   outputs: SubgraphSlot[]
   widgets: ExposedWidget[]
@@ -121,7 +134,12 @@ export class SubgraphModelRuntime {
     }
     this.outputNode = {
       id: def.outputNode.id,
-      bounding: [...def.outputNode.bounding] as [number, number, number, number],
+      bounding: [...def.outputNode.bounding] as [
+        number,
+        number,
+        number,
+        number,
+      ],
       pinned: def.outputNode.pinned ?? false,
     }
     this.inputs = (def.inputs ?? []).map(dtoToSlot)
@@ -131,7 +149,10 @@ export class SubgraphModelRuntime {
 
   /** 입력 슬롯 추가. adding-input(취소 가능) → input-added 이벤트. */
   addInput(name: string, type: string): SubgraphSlot | null {
-    const allowed: boolean = this.events.dispatch("adding-input", { subgraph: this, name })
+    const allowed: boolean = this.events.dispatch("adding-input", {
+      subgraph: this,
+      name,
+    })
     if (!allowed) return null
     const slot: SubgraphSlot = {
       id: createSubgraphId(),
@@ -146,7 +167,10 @@ export class SubgraphModelRuntime {
 
   /** 출력 슬롯 추가. */
   addOutput(name: string, type: string): SubgraphSlot | null {
-    const allowed: boolean = this.events.dispatch("adding-output", { subgraph: this, name })
+    const allowed: boolean = this.events.dispatch("adding-output", {
+      subgraph: this,
+      name,
+    })
     if (!allowed) return null
     const slot: SubgraphSlot = {
       id: createSubgraphId(),
@@ -161,7 +185,10 @@ export class SubgraphModelRuntime {
 
   /** 입력 슬롯 제거. removing-input(취소 가능). 연결된 링크 ID 반환(호출자가 store에서 제거). */
   removeInput(input: SubgraphSlot): number[] | null {
-    const allowed: boolean = this.events.dispatch("removing-input", { subgraph: this, input })
+    const allowed: boolean = this.events.dispatch("removing-input", {
+      subgraph: this,
+      input,
+    })
     if (!allowed) return null
     const idx = this.inputs.indexOf(input)
     if (idx === -1) return null
@@ -173,7 +200,10 @@ export class SubgraphModelRuntime {
 
   /** 출력 슬롯 제거. */
   removeOutput(output: SubgraphSlot): number[] | null {
-    const allowed: boolean = this.events.dispatch("removing-output", { subgraph: this, output })
+    const allowed: boolean = this.events.dispatch("removing-output", {
+      subgraph: this,
+      output,
+    })
     if (!allowed) return null
     const idx = this.outputs.indexOf(output)
     if (idx === -1) return null
@@ -195,22 +225,46 @@ export class SubgraphModelRuntime {
   }
 
   /** 직렬화 (DTO 생성). 내부 nodes/links는 별도 전달. */
-  asSerialisable(nodes: ComfyWorkflowNodeLite[], links: ComfyWorkflowLinkLite[]): SubgraphDefinition {
+  asSerialisable(
+    nodes: ComfyWorkflowNodeLite[],
+    links: ComfyWorkflowLinkLite[],
+    groups?: any[]
+  ): SubgraphDefinition {
     const def: SubgraphDefinition = {
       id: this.id,
       name: this.name,
       inputNode: {
         id: this.inputNode.id,
-        bounding: [...this.inputNode.bounding] as [number, number, number, number],
+        bounding: [...this.inputNode.bounding] as [
+          number,
+          number,
+          number,
+          number,
+        ],
         pinned: this.inputNode.pinned,
       },
       outputNode: {
         id: this.outputNode.id,
-        bounding: [...this.outputNode.bounding] as [number, number, number, number],
+        bounding: [...this.outputNode.bounding] as [
+          number,
+          number,
+          number,
+          number,
+        ],
         pinned: this.outputNode.pinned,
       },
       nodes,
       links,
+    }
+    if (groups && groups.length > 0) {
+      def.groups = groups.map((g) => ({
+        id: g.id,
+        title: g.title,
+        bounding: g.bounding,
+        color: g.color,
+        fontSize: g.fontSize,
+        locked: g.locked,
+      }))
     }
     if (this.category !== undefined) def.category = this.category
     if (this.description !== undefined) def.description = this.description

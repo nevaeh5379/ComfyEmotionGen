@@ -18,13 +18,18 @@ import type { ComfyWorkflowNode, ComfyWorkflowLink } from "../types/workflow"
 import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID } from "../constants"
 
 /** 계층 ID 생성: "parentId:childId" */
-export function makeHierarchicalId(parentId: string | number, childId: number): string {
+export function makeHierarchicalId(
+  parentId: string | number,
+  childId: number
+): string {
   return `${String(parentId)}:${String(childId)}`
 }
 
 /** 노드가 SubgraphNode 인스턴스인지 확인 (type이 UUID) */
 export function isSubgraphInstance(node: ComfyWorkflowNode): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.type)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    node.type
+  )
 }
 
 /**
@@ -75,9 +80,13 @@ export function flattenForExecution(
   ): void {
     for (const node of nodes) {
       // IO 노드(-10/-20)는 실행 노드가 아님 - 스킵
-      if (node.id === SUBGRAPH_INPUT_ID || node.id === SUBGRAPH_OUTPUT_ID) continue
+      if (node.id === SUBGRAPH_INPUT_ID || node.id === SUBGRAPH_OUTPUT_ID)
+        continue
 
-      const hierarchicalId = parentId !== null ? makeHierarchicalId(parentId, node.id) : String(node.id)
+      const hierarchicalId =
+        parentId !== null
+          ? makeHierarchicalId(parentId, node.id)
+          : String(node.id)
 
       // 순환 방지
       if (visited.has(hierarchicalId)) continue
@@ -91,19 +100,26 @@ export function flattenForExecution(
       if (isSubgraphInstance(node)) {
         const innerNodes = subgraphNodes.get(node.type) ?? []
         // 내부 링크: 이 subgraph에 속한 링크 (graphId가 subgraphId이거나 IO 노드 포함)
-        const innerLinks = currentLinks.filter((l) =>
-          l.origin_id === SUBGRAPH_INPUT_ID ||
-          l.target_id === SUBGRAPH_OUTPUT_ID ||
-          innerNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
+        const innerLinks = currentLinks.filter(
+          (l) =>
+            l.origin_id === SUBGRAPH_INPUT_ID ||
+            l.target_id === SUBGRAPH_OUTPUT_ID ||
+            innerNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
         )
 
         // 부모의 입력 슬롯 → 내부 SubgraphInput(-10) 링크 매핑
         // 부모에서 SubgraphNode 인스턴스로 들어오는 링크(target_id = node.id)
-        const incomingLinks = currentLinks.filter((l) => l.target_id === node.id)
+        const incomingLinks = currentLinks.filter(
+          (l) => l.target_id === node.id
+        )
         for (const link of incomingLinks) {
           // 이 링크는 부모 출력 → SubgraphNode 입력 슬롯
           // 내부에서 SubgraphInput(-10)의 동일 슬롯에서 나가는 링크를 찾아 연결
-          const innerInputLinks = innerLinks.filter((il) => il.origin_id === SUBGRAPH_INPUT_ID && il.origin_slot === link.target_slot)
+          const innerInputLinks = innerLinks.filter(
+            (il) =>
+              il.origin_id === SUBGRAPH_INPUT_ID &&
+              il.origin_slot === link.target_slot
+          )
           for (const il of innerInputLinks) {
             inputSlotToParentLink.set(il.target_slot, link)
           }
@@ -111,10 +127,16 @@ export function flattenForExecution(
 
         // 부모의 출력 슬롯 → 내부 SubgraphOutput(-20) 링크 매핑
         // 부모에서 SubgraphNode 인스턴스에서 나가는 링크(origin_id = node.id)
-        const outgoingLinks = currentLinks.filter((l) => l.origin_id === node.id)
+        const outgoingLinks = currentLinks.filter(
+          (l) => l.origin_id === node.id
+        )
         for (const link of outgoingLinks) {
           // 내부에서 SubgraphOutput(-20)로 들어오는 링크를 찾아 연결
-          const innerOutputLinks = innerLinks.filter((il) => il.target_id === SUBGRAPH_OUTPUT_ID && il.target_slot === link.origin_slot)
+          const innerOutputLinks = innerLinks.filter(
+            (il) =>
+              il.target_id === SUBGRAPH_OUTPUT_ID &&
+              il.target_slot === link.origin_slot
+          )
           outputSlotToChildLinks.set(link.origin_slot, innerOutputLinks)
         }
 
@@ -142,8 +164,9 @@ export function flattenForExecution(
   }
 
   // 루트 링크: IO 노드가 origin/target인 링크 제외 (서브그래프 내부 링크)
-  const rootLinks = allLinks.filter((l) =>
-    l.origin_id !== SUBGRAPH_INPUT_ID && l.target_id !== SUBGRAPH_OUTPUT_ID
+  const rootLinks = allLinks.filter(
+    (l) =>
+      l.origin_id !== SUBGRAPH_INPUT_ID && l.target_id !== SUBGRAPH_OUTPUT_ID
   )
   flatten(rootNodes, null, null, rootLinks)
 

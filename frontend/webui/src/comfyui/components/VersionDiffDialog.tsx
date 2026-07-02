@@ -106,10 +106,7 @@ export function VersionDiffDialog({
   }[] = []
   for (const line of diff) {
     const lastBlock = collapsed.at(-1)
-    if (
-      line.type === "unchanged" &&
-      lastBlock?.type === "unchanged"
-    ) {
+    if (line.type === "unchanged" && lastBlock?.type === "unchanged") {
       lastBlock.count++
     } else {
       collapsed.push({ type: line.type, content: line.content, count: 1 })
@@ -140,7 +137,10 @@ export function VersionDiffDialog({
                 if (block.type === "unchanged") {
                   if (block.count <= 3) {
                     return Array.from({ length: block.count }).map((_, j) => (
-                      <tr key={`u-${String(i)}-${String(j)}`} className="text-muted-foreground">
+                      <tr
+                        key={`u-${String(i)}-${String(j)}`}
+                        className="text-muted-foreground"
+                      >
                         <td className="px-2 py-0.5 text-right select-none">
                           {" "}
                         </td>
@@ -151,7 +151,10 @@ export function VersionDiffDialog({
                     ))
                   } else {
                     return (
-                      <tr key={`u-${String(i)}`} className="text-muted-foreground/50">
+                      <tr
+                        key={`u-${String(i)}`}
+                        className="text-muted-foreground/50"
+                      >
                         <td className="px-2 py-0.5 text-right select-none">
                           {" "}
                         </td>

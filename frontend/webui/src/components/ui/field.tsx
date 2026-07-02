@@ -5,7 +5,10 @@ import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 
-function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">): React.JSX.Element {
+function FieldSet({
+  className,
+  ...props
+}: React.ComponentProps<"fieldset">): React.JSX.Element {
   return (
     <fieldset
       data-slot="field-set"
@@ -22,7 +25,9 @@ function FieldLegend({
   className,
   variant = "legend",
   ...props
-}: React.ComponentProps<"legend"> & { variant?: "legend" | "label" }): React.JSX.Element {
+}: React.ComponentProps<"legend"> & {
+  variant?: "legend" | "label"
+}): React.JSX.Element {
   return (
     <legend
       data-slot="field-legend"
@@ -36,7 +41,10 @@ function FieldLegend({
   )
 }
 
-function FieldGroup({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function FieldGroup({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="field-group"
@@ -71,7 +79,8 @@ function Field({
   className,
   orientation = "vertical",
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>): React.JSX.Element {
+}: React.ComponentProps<"div"> &
+  VariantProps<typeof fieldVariants>): React.JSX.Element {
   return (
     <div
       role="group"
@@ -83,7 +92,10 @@ function Field({
   )
 }
 
-function FieldContent({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function FieldContent({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="field-content"
@@ -113,7 +125,10 @@ function FieldLabel({
   )
 }
 
-function FieldTitle({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function FieldTitle({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="field-label"
@@ -126,7 +141,10 @@ function FieldTitle({ className, ...props }: React.ComponentProps<"div">): React
   )
 }
 
-function FieldDescription({ className, ...props }: React.ComponentProps<"p">): React.JSX.Element {
+function FieldDescription({
+  className,
+  ...props
+}: React.ComponentProps<"p">): React.JSX.Element {
   return (
     <p
       data-slot="field-description"

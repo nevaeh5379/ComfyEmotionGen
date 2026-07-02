@@ -51,7 +51,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export const useSettings = (): {
   settings: AppSettings
-  updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void
+  updateSetting: <K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K]
+  ) => void
 } => {
   const [raw, setRaw] = useSyncedStorage<AppSettings>(
     SETTINGS_KEY,

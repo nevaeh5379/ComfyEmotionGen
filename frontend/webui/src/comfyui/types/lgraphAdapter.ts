@@ -33,7 +33,10 @@ export type LGraphExtraData = Record<string, unknown>
 // ── Callbacks ─────────────────────────────────────────────────────
 
 export type GraphNodeCallback = (node: LGraphNode) => void
-export type GraphChangeCallback = (graph: LGraphAdapterForwardRef, info?: LGraphNode | null) => void
+export type GraphChangeCallback = (
+  graph: LGraphAdapterForwardRef,
+  info?: LGraphNode | null
+) => void
 export type GraphSerializeCallback = (data: ComfyWorkflowJSON) => void
 export type GraphConfigureCallback = (data: ComfyWorkflowJSON) => void
 
@@ -49,7 +52,10 @@ export interface LGraphEventMap {
     newValue: unknown
   }
   "subgraph-created": { subgraph: SubgraphModel; data: unknown }
-  "convert-to-subgraph": { subgraph: SubgraphModel; bounds: [number, number, number, number] }
+  "convert-to-subgraph": {
+    subgraph: SubgraphModel
+    bounds: [number, number, number, number]
+  }
   "open-subgraph": { subgraph: SubgraphModel; fromNodeId: number }
 }
 
@@ -65,8 +71,9 @@ export interface LGraphAdapterInterface {
 
   // Data containers
   readonly nodes: LGraphNode[]
-  readonly links: Map<number, ComfyWorkflowLink> & Record<number, ComfyWorkflowLink>
-  readonly groups: never[] // TODO: LGraphGroup[] support
+  readonly links: Map<number, ComfyWorkflowLink> &
+    Record<number, ComfyWorkflowLink>
+  readonly groups: any[] // LGraphGroup[] support
   readonly reroutes: Map<number, never> // TODO: Reroute support
   readonly floatingLinks: ReadonlyMap<number, never> // TODO: Floating link support
   readonly subgraphs: Map<SubgraphId, SubgraphModel> // Subgraph blueprint registry (루트 그래프가 소유)

@@ -32,7 +32,7 @@ export const useExtensionStore = create<ExtensionState>((set, get) => ({
 
     set({
       extensions: updatedExtensions,
-      enabledExtensions: updatedEnabled
+      enabledExtensions: updatedEnabled,
     })
   },
 
@@ -41,7 +41,7 @@ export const useExtensionStore = create<ExtensionState>((set, get) => ({
     const disabledSet = new Set(names)
     set({
       disabledExtensionNames: names,
-      enabledExtensions: extensions.filter((e) => !disabledSet.has(e.name))
+      enabledExtensions: extensions.filter((e) => !disabledSet.has(e.name)),
     })
-  }
+  },
 }))

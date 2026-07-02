@@ -22,7 +22,9 @@ export function useJobRunner(): {
   renderResponse: RenderItemsResponse | null
   parserError: string | null
   axisValueFilter: Record<string, Record<string, boolean>>
-  setAxisValueFilter: React.Dispatch<React.SetStateAction<Record<string, Record<string, boolean>>>>
+  setAxisValueFilter: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, boolean>>>
+  >
   collapsedAxes: Set<string>
   uncheckedItems: Set<string>
   repeatCount: number
@@ -70,7 +72,8 @@ export function useJobRunner(): {
   const [randomRunCount, setRandomRunCount] = useState(1)
   const [targetWorkerId, setTargetWorkerId] = useState<string | null>(null)
 
-  const [renderResponse, setRenderResponse] = useState<RenderItemsResponse | null>(null)
+  const [renderResponse, setRenderResponse] =
+    useState<RenderItemsResponse | null>(null)
 
   // Load uncheckedItems from localStorage when activeTemplateId changes
   useEffect((): void => {
@@ -163,7 +166,9 @@ export function useJobRunner(): {
   // axisFilteredItems is derived (not a ref) — computed inside callbacks
 
   // ── Async operations (called by sync callbacks) ─────────────────
-  const callParserInternal = useCallback(async (): Promise<RenderItemsResponse | undefined> => {
+  const callParserInternal = useCallback(async (): Promise<
+    RenderItemsResponse | undefined
+  > => {
     try {
       const response = await fetch(`${backendUrlRef.current}${API.render}`, {
         method: "POST",
@@ -172,9 +177,7 @@ export function useJobRunner(): {
       })
       if (!response.ok) {
         const errorText = await response.text().catch(() => "")
-        throw new Error(
-          `HTTP ${String(response.status)}: ${errorText}`
-        )
+        throw new Error(`HTTP ${String(response.status)}: ${errorText}`)
       }
       return (await response.json()) as RenderItemsResponse
     } catch (error: unknown) {
@@ -185,60 +188,76 @@ export function useJobRunner(): {
     }
   }, [backendUrlRef, cegTemplateRef])
 
-  const submitJobsInternal = useCallback(async (items: RenderItem[]): Promise<boolean> => {
-    if (!workflowJsonRef.current || items.length === 0) return false
-    const imageNameMap: Record<string, string> = {}
-    const imageUploads: Record<string, Record<string, string>> = {}
-    for (const m of nodeMappingsRef.current) {
-      if (m.sourceType === "image" && m.imageValue !== undefined && m.imageValue !== "") {
-        imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
-        const match = /^__upload__([a-f0-9]{64})\.\w+$/.exec(m.imageValue)
-        if (match) {
-          const filename = match[1]
-          if (filename !== undefined && filename !== "") {
-            imageUploads[filename] = { name: m.imageValue }
+  const submitJobsInternal = useCallback(
+    async (items: RenderItem[]): Promise<boolean> => {
+      if (!workflowJsonRef.current || items.length === 0) return false
+      const imageNameMap: Record<string, string> = {}
+      const imageUploads: Record<string, Record<string, string>> = {}
+      for (const m of nodeMappingsRef.current) {
+        if (
+          m.sourceType === "image" &&
+          m.imageValue !== undefined &&
+          m.imageValue !== ""
+        ) {
+          imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
+          const match = /^__upload__([a-f0-9]{64})\.\w+$/.exec(m.imageValue)
+          if (match) {
+            const filename = match[1]
+            if (filename !== undefined && filename !== "") {
+              imageUploads[filename] = { name: m.imageValue }
+            }
           }
         }
       }
-    }
-    const payload = items.map((item) => ({
-      filename: item.filename,
-      prompt: item.prompt,
-      workflow: buildWorkflowForItem(
-        workflowJsonRef.current,
-        item,
-        nodeMappingsRef.current,
-        imageNameMap
-      ),
-      meta: item.meta,
-      cegTemplate: cegTemplateRef.current,
-      imageUploads,
-      workerType: "comfyui",
-      workerId: targetWorkerIdRef.current ?? undefined,
-    }))
-    try {
-      const res = await fetch(`${backendUrlRef.current}${API.jobs.root}`, {
-        method: "POST",
-        headers: HEADERS.json,
-        body: JSON.stringify({ items: payload }),
-      })
-      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-      return true
-    } catch (error: unknown) {
-      console.error("Failed to submit jobs:", error)
-      toast.error("작업 제출에 실패했습니다.")
-      return false
-    }
-  }, [backendUrlRef, cegTemplateRef, nodeMappingsRef, targetWorkerIdRef, workflowJsonRef])
+      const payload = items.map((item) => ({
+        filename: item.filename,
+        prompt: item.prompt,
+        workflow: buildWorkflowForItem(
+          workflowJsonRef.current,
+          item,
+          nodeMappingsRef.current,
+          imageNameMap
+        ),
+        meta: item.meta,
+        cegTemplate: cegTemplateRef.current,
+        imageUploads,
+        workerType: "comfyui",
+        workerId: targetWorkerIdRef.current ?? undefined,
+      }))
+      try {
+        const res = await fetch(`${backendUrlRef.current}${API.jobs.root}`, {
+          method: "POST",
+          headers: HEADERS.json,
+          body: JSON.stringify({ items: payload }),
+        })
+        if (!res.ok)
+          throw new Error(await res.text().catch(() => res.statusText))
+        return true
+      } catch (error: unknown) {
+        console.error("Failed to submit jobs:", error)
+        toast.error("작업 제출에 실패했습니다.")
+        return false
+      }
+    },
+    [
+      backendUrlRef,
+      cegTemplateRef,
+      nodeMappingsRef,
+      targetWorkerIdRef,
+      workflowJsonRef,
+    ]
+  )
 
-  const fetchApprovedFilenamesInternal = useCallback(async (): Promise<Set<string>> => {
+  const fetchApprovedFilenamesInternal = useCallback(async (): Promise<
+    Set<string>
+  > => {
     try {
-      const res = await fetch(`${backendUrlRef.current}/saved-images?limit=5000`)
+      const res = await fetch(
+        `${backendUrlRef.current}/saved-images?limit=5000`
+      )
       if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       const data = (await res.json()) as { items: SavedImage[] }
-      const approved = data.items.filter(
-        (img) => img.status === "approved"
-      )
+      const approved = data.items.filter((img) => img.status === "approved")
       return new Set(approved.map((img) => img.originalFilename))
     } catch (err: unknown) {
       console.error("Failed to fetch approved filenames:", err)
@@ -267,7 +286,9 @@ export function useJobRunner(): {
     () => (canUseParsedTemplate ? fakeJobQueue : []),
     [canUseParsedTemplate, fakeJobQueue]
   )
-  const activeRenderResponse = canUseParsedTemplate ? (renderResponse ?? null) : null
+  const activeRenderResponse = canUseParsedTemplate
+    ? (renderResponse ?? null)
+    : null
 
   const axisFilteredItems = useMemo(
     () => applyAxisFilters(activeFakeJobQueue, axisValueFilter),
@@ -278,23 +299,49 @@ export function useJobRunner(): {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return
     const parserResult = await callParser()
     if (!parserResult) return
-    const items = applyAxisFilters(parserResult.items, axisValueFilterRef.current)
+    const items = applyAxisFilters(
+      parserResult.items,
+      axisValueFilterRef.current
+    )
     const repeated =
       repeatCountRef.current > 1
         ? Array.from({ length: repeatCountRef.current }, () => items).flat()
         : items
     const ok = await submitJobs(repeated)
     if (!ok) toast.error("작업 실행에 실패했습니다.")
-  }, [workflowJsonRef, isAliveBackendRef, callParser, axisValueFilterRef, repeatCountRef, submitJobs])
+  }, [
+    workflowJsonRef,
+    isAliveBackendRef,
+    callParser,
+    axisValueFilterRef,
+    repeatCountRef,
+    submitJobs,
+  ])
 
-  const handleRandomRun = useCallback(async (count?: number): Promise<void> => {
-    const af = applyAxisFilters(activeFakeJobQueue, axisValueFilterRef.current)
-    if (!workflowJsonRef.current || !isAliveBackendRef.current || af.length === 0)
-      return
-    const selected = randomSelect(af, count ?? 1)
-    const ok = await submitJobs(selected)
-    if (!ok) toast.error("랜덤 실행에 실패했습니다.")
-  }, [activeFakeJobQueue, axisValueFilterRef, workflowJsonRef, isAliveBackendRef, submitJobs])
+  const handleRandomRun = useCallback(
+    async (count?: number): Promise<void> => {
+      const af = applyAxisFilters(
+        activeFakeJobQueue,
+        axisValueFilterRef.current
+      )
+      if (
+        !workflowJsonRef.current ||
+        !isAliveBackendRef.current ||
+        af.length === 0
+      )
+        return
+      const selected = randomSelect(af, count ?? 1)
+      const ok = await submitJobs(selected)
+      if (!ok) toast.error("랜덤 실행에 실패했습니다.")
+    },
+    [
+      activeFakeJobQueue,
+      axisValueFilterRef,
+      workflowJsonRef,
+      isAliveBackendRef,
+      submitJobs,
+    ]
+  )
 
   const handleRunSelected = useCallback(async (): Promise<boolean> => {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return false
@@ -310,15 +357,25 @@ export function useJobRunner(): {
     const ok = await submitJobs(repeated)
     if (!ok) toast.error("선택 작업 실행에 실패했습니다.")
     return ok
-  }, [workflowJsonRef, isAliveBackendRef, callParser, uncheckedItemsRef, repeatCountRef, submitJobs])
+  }, [
+    workflowJsonRef,
+    isAliveBackendRef,
+    callParser,
+    uncheckedItemsRef,
+    repeatCountRef,
+    submitJobs,
+  ])
 
-  const handleRunSingle = useCallback(async (item: RenderItem): Promise<boolean> => {
-    if (!workflowJsonRef.current || !isAliveBackendRef.current) return false
-    const ok = await submitJobs([item])
-    if (!ok) toast.error("테스트 실행에 실패했습니다.")
-    else toast.success("테스트가 큐에 추가되었습니다.")
-    return ok
-  }, [workflowJsonRef, isAliveBackendRef, submitJobs])
+  const handleRunSingle = useCallback(
+    async (item: RenderItem): Promise<boolean> => {
+      if (!workflowJsonRef.current || !isAliveBackendRef.current) return false
+      const ok = await submitJobs([item])
+      if (!ok) toast.error("테스트 실행에 실패했습니다.")
+      else toast.success("테스트가 큐에 추가되었습니다.")
+      return ok
+    },
+    [workflowJsonRef, isAliveBackendRef, submitJobs]
+  )
 
   const handleRunUnapproved = useCallback(async (): Promise<void> => {
     if (!workflowJsonRef.current || !isAliveBackendRef.current) return
@@ -335,7 +392,9 @@ export function useJobRunner(): {
       return
     }
 
-    toast.info(`축 필터를 제외한 전체 미완료 작업 ${String(filtered.length)}개를 실행합니다.`)
+    toast.info(
+      `축 필터를 제외한 전체 미완료 작업 ${String(filtered.length)}개를 실행합니다.`
+    )
 
     const repeated =
       repeatCountRef.current > 1
@@ -343,7 +402,14 @@ export function useJobRunner(): {
         : filtered
     const ok = await submitJobs(repeated)
     if (!ok) toast.error("미완료 항목 실행에 실패했습니다.")
-  }, [workflowJsonRef, isAliveBackendRef, callParser, fetchApprovedFilenames, repeatCountRef, submitJobs])
+  }, [
+    workflowJsonRef,
+    isAliveBackendRef,
+    callParser,
+    fetchApprovedFilenames,
+    repeatCountRef,
+    submitJobs,
+  ])
 
   const selectOnlyUnapprovedItems = useCallback(async (): Promise<void> => {
     const approvedSet = await fetchApprovedFilenames()
@@ -360,7 +426,9 @@ export function useJobRunner(): {
     })
     setUncheckedItems(nextUnchecked)
     if (count > 0) {
-      toast.success(`큐레이션 통과 항목 ${String(count)}개가 선택 해제되었습니다.`)
+      toast.success(
+        `큐레이션 통과 항목 ${String(count)}개가 선택 해제되었습니다.`
+      )
     } else {
       toast.info("선택 해제할 큐레이션 통과 항목이 없습니다.")
     }
@@ -375,18 +443,22 @@ export function useJobRunner(): {
     })
   }, [])
 
-  const checkAllItems = useCallback((): void => { setUncheckedItems(new Set()); }, [])
-  
-  const uncheckAllItems = useCallback((): void =>
-    { setUncheckedItems(new Set(activeFakeJobQueue.map(itemKey))); }, [activeFakeJobQueue])
+  const checkAllItems = useCallback((): void => {
+    setUncheckedItems(new Set())
+  }, [])
 
-  const toggleAxisCollapse = useCallback((axis: string): void =>
-    { setCollapsedAxes((prev) => {
+  const uncheckAllItems = useCallback((): void => {
+    setUncheckedItems(new Set(activeFakeJobQueue.map(itemKey)))
+  }, [activeFakeJobQueue])
+
+  const toggleAxisCollapse = useCallback((axis: string): void => {
+    setCollapsedAxes((prev) => {
       const next = new Set(prev)
       if (next.has(axis)) next.delete(axis)
       else next.add(axis)
       return next
-    }); }, [])
+    })
+  }, [])
 
   const estimatedRunCount = useMemo(
     () =>
@@ -403,7 +475,9 @@ export function useJobRunner(): {
 
   const filteredByAxisSet = useMemo(() => {
     if (Object.keys(axisValueFilter).length === 0) return null
-    return new Set(applyAxisFilters(activeFakeJobQueue, axisValueFilter).map(itemKey))
+    return new Set(
+      applyAxisFilters(activeFakeJobQueue, axisValueFilter).map(itemKey)
+    )
   }, [activeFakeJobQueue, axisValueFilter])
 
   const hasActiveFilter = useMemo(
@@ -417,8 +491,9 @@ export function useJobRunner(): {
   const selectedCount = useMemo(
     () =>
       activeFakeJobQueue.length > 0
-        ? activeFakeJobQueue.filter((item) => !uncheckedItems.has(itemKey(item)))
-            .length
+        ? activeFakeJobQueue.filter(
+            (item) => !uncheckedItems.has(itemKey(item))
+          ).length
         : null,
     [activeFakeJobQueue, uncheckedItems]
   )

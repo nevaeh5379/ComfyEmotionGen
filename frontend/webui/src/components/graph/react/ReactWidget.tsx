@@ -6,7 +6,9 @@ interface HTMLElementWidgetProps {
   element: HTMLElement
 }
 
-export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JSX.Element {
+export function HTMLElementWidget({
+  element,
+}: HTMLElementWidgetProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const elementRef = useRef<HTMLElement>(element)
 
@@ -29,7 +31,9 @@ export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JS
       const childCount = el.childElementCount
       const htmlLen = el.innerHTML.length
       const bounding = el.getBoundingClientRect()
-      console.log(`[CEG] HTMLElementWidget attach tag=${el.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${String(Math.round(bounding.width))}x${String(Math.round(bounding.height))}`)
+      console.log(
+        `[CEG] HTMLElementWidget attach tag=${el.tagName} children=${String(childCount)} htmlLen=${String(htmlLen)} rect=${String(Math.round(bounding.width))}x${String(Math.round(bounding.height))}`
+      )
     }
   })
 
@@ -37,14 +41,18 @@ export function HTMLElementWidget({ element }: HTMLElementWidgetProps): React.JS
   useEffect(() => {
     const el = elementRef.current
     return (): void => {
-      console.log(`[CEG] HTMLElementWidget unmounting element tag=${el.tagName}`)
+      console.log(
+        `[CEG] HTMLElementWidget unmounting element tag=${el.tagName}`
+      )
       if (el.parentNode !== null) {
         el.parentNode.removeChild(el)
       }
     }
   }, [])
 
-  return <div ref={containerRef} className="w-full min-h-[40px] text-foreground" />
+  return (
+    <div ref={containerRef} className="min-h-[40px] w-full text-foreground" />
+  )
 }
 
 export interface CanvasWidget {
@@ -53,10 +61,18 @@ export interface CanvasWidget {
   value: WidgetValue
   element?: HTMLElement
   options: Record<string, unknown>
-  callback: ((value: WidgetValue, canvas?: unknown, node?: unknown) => void) | null
+  callback:
+    | ((value: WidgetValue, canvas?: unknown, node?: unknown) => void)
+    | null
   computeSize?: (width: number) => [number, number]
   height?: number
-  draw?: (ctx: CanvasRenderingContext2D, node: CanvasNode, width: number, y: number, height: number) => void
+  draw?: (
+    ctx: CanvasRenderingContext2D,
+    node: CanvasNode,
+    width: number,
+    y: number,
+    height: number
+  ) => void
   mouse?: (event: MouseEvent, pos: [number, number], node: CanvasNode) => void
   y?: number
 }
@@ -88,11 +104,17 @@ interface CanvasWidgetProps {
   disabled?: boolean
 }
 
-export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWidgetProps): React.JSX.Element {
+export function CanvasWidget({
+  widget,
+  node,
+  width,
+  disabled = false,
+}: CanvasWidgetProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const height = typeof widget.computeSize === "function" 
-    ? widget.computeSize(width)[1] 
-    : (widget.height ?? 30)
+  const height =
+    typeof widget.computeSize === "function"
+      ? widget.computeSize(width)[1]
+      : (widget.height ?? 30)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -116,7 +138,10 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
         for (let i = 0; i < idx; i++) {
           const w = node.widgets[i]
           if (w !== undefined) {
-            widgetY += typeof w.computeSize === "function" ? w.computeSize(width)[1] : (w.height ?? 30)
+            widgetY +=
+              typeof w.computeSize === "function"
+                ? w.computeSize(width)[1]
+                : (w.height ?? 30)
             widgetY += 4 // margin
           }
         }
@@ -137,11 +162,11 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     if (disabled || typeof widget.mouse !== "function") return
-    
+
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    
+
     const localX = e.clientX - rect.left
     const localY = e.clientY - rect.top
 
@@ -152,7 +177,10 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
         for (let i = 0; i < idx; i++) {
           const w = node.widgets[i]
           if (w !== undefined) {
-            yOffset += typeof w.computeSize === "function" ? w.computeSize(width)[1] : (w.height ?? 30)
+            yOffset +=
+              typeof w.computeSize === "function"
+                ? w.computeSize(width)[1]
+                : (w.height ?? 30)
             yOffset += 4 // margin
           }
         }
@@ -166,7 +194,7 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
       const mouseFn = widget.mouse
       if (typeof mouseFn !== "function") return
       mouseFn(mockEvent, nodeRelativePos, node)
-      
+
       const onMouseMove = (moveEvent: MouseEvent): void => {
         const moveRect = canvas.getBoundingClientRect()
         const mx = moveEvent.clientX - moveRect.left
@@ -179,10 +207,10 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
         const ux = upEvent.clientX - upRect.left
         const uy = upEvent.clientY - upRect.top
         mouseFn(upEvent, [ux, uy + yOffset], node)
-        
+
         window.removeEventListener("mousemove", onMouseMove)
         window.removeEventListener("mouseup", onMouseUp)
-        
+
         if (typeof window.app.syncGraphNode === "function") {
           window.app.syncGraphNode(node.id)
         }
@@ -199,34 +227,63 @@ export function CanvasWidget({ widget, node, width, disabled = false }: CanvasWi
     <canvas
       ref={canvasRef}
       onMouseDown={handleMouseDown}
-      className="cursor-pointer select-none block"
+      className="block cursor-pointer select-none"
       style={{ width, height }}
     />
   )
 }
 
-export function ReactWidget({ name, value, spec, onChange, showLabel = true, disabled = false, element, source: _source = "?", widget, node }: ReactWidgetProps): React.JSX.Element {
+export function ReactWidget({
+  name,
+  value,
+  spec,
+  onChange,
+  showLabel = true,
+  disabled = false,
+  element,
+  source: _source = "?",
+  widget,
+  node,
+}: ReactWidgetProps): React.JSX.Element {
   const typeSpec = spec?.[0]
   const config = spec?.[1] ?? {}
 
-  const isCombo = Array.isArray(typeSpec) || (typeof typeSpec === "string" && typeSpec.toUpperCase() === "COMBO")
+  const isCombo =
+    Array.isArray(typeSpec) ||
+    (typeof typeSpec === "string" && typeSpec.toUpperCase() === "COMBO")
 
-  const isStandardType = (
-    (typeof typeSpec === "string" && ["INT", "FLOAT", "STRING", "BOOLEAN", "NUMBER", "COMBO", "TOGGLE"].includes(typeSpec.toUpperCase()))
-    || isCombo
-  )
+  const isStandardType =
+    (typeof typeSpec === "string" &&
+      [
+        "INT",
+        "FLOAT",
+        "STRING",
+        "BOOLEAN",
+        "NUMBER",
+        "COMBO",
+        "TOGGLE",
+      ].includes(typeSpec.toUpperCase())) ||
+    isCombo
 
-  const isCustomDOMElement = element !== null && element !== undefined && (
+  const isCustomDOMElement =
+    element !== null &&
+    element !== undefined &&
     !["SELECT", "INPUT", "TEXTAREA"].includes(element.tagName.toUpperCase())
-  )
 
   if (isCustomDOMElement) {
     return <HTMLElementWidget element={element} />
   }
 
   if (widget && typeof widget.draw === "function" && !isStandardType && node) {
-    const canvasWidth = (node.size?.[0] !== undefined) ? (node.size[0] - 24) : 180
-    return <CanvasWidget widget={widget} node={node} width={canvasWidth} disabled={disabled} />
+    const canvasWidth = node.size?.[0] !== undefined ? node.size[0] - 24 : 180
+    return (
+      <CanvasWidget
+        widget={widget}
+        node={node}
+        width={canvasWidth}
+        disabled={disabled}
+      />
+    )
   }
 
   if (element && !isStandardType) {
@@ -237,7 +294,15 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
 
   // 1.5 BUTTON 타입
   if (typeName === "BUTTON") {
-    const btnLabel = name || (typeof value === "string" ? value : (typeof value === "number" ? String(value) : (typeof value === "boolean" ? String(value) : "")))
+    const btnLabel =
+      name ||
+      (typeof value === "string"
+        ? value
+        : typeof value === "number"
+          ? String(value)
+          : typeof value === "boolean"
+            ? String(value)
+            : "")
     return (
       <button
         type="button"
@@ -256,7 +321,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
             window.app.syncGraphNode?.(node.id)
           }
         }}
-        className="w-full text-[11px] font-bold rounded border border-border bg-accent/30 hover:bg-accent/60 px-1.5 py-1 text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-center select-none cursor-pointer"
+        className="w-full cursor-pointer rounded border border-border bg-accent/30 px-1.5 py-1 text-center text-[11px] font-bold text-foreground transition-colors select-none hover:bg-accent/60 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {btnLabel}
       </button>
@@ -267,21 +332,27 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
   if (isCombo) {
     const options = Array.isArray(typeSpec)
       ? typeSpec
-      : ((config.values as string[] | undefined) ?? (widget ? (widget.options.values as string[] | undefined) : undefined) ?? [])
+      : ((config.values as string[] | undefined) ??
+        (widget
+          ? (widget.options.values as string[] | undefined)
+          : undefined) ??
+        [])
     const strVal = typeof value === "string" ? value : (options[0] ?? "")
 
     return (
       <div className="flex flex-col gap-0.5">
         {showLabel && (
-          <span className="text-[10px] text-muted-foreground font-bold truncate">
+          <span className="truncate text-[10px] font-bold text-muted-foreground">
             {name}
           </span>
         )}
         <select
           value={strVal}
-          onChange={(e) => { onChange(e.target.value); }}
+          onChange={(e) => {
+            onChange(e.target.value)
+          }}
           disabled={disabled}
-          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring select-none disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded border border-input bg-background/50 px-1.5 py-0.5 text-[11px] text-foreground select-none focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -298,9 +369,9 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
     const boolVal = value === true || value === 1 || value === "true"
 
     return (
-      <div className="flex items-center justify-between hover:bg-accent/10 rounded px-1 py-0.5">
+      <div className="flex items-center justify-between rounded px-1 py-0.5 hover:bg-accent/10">
         {showLabel && (
-          <span className="text-[10px] text-muted-foreground font-bold truncate">
+          <span className="truncate text-[10px] font-bold text-muted-foreground">
             {name}
           </span>
         )}
@@ -308,8 +379,10 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
           type="checkbox"
           checked={boolVal}
           disabled={disabled}
-          onChange={(e) => { onChange(e.target.checked); }}
-          className="h-3 w-3 rounded border-input bg-background focus:ring-ring text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          onChange={(e) => {
+            onChange(e.target.checked)
+          }}
+          className="h-3 w-3 rounded border-input bg-background text-primary focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
     )
@@ -323,14 +396,17 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
 
     const min = config.min !== undefined ? Number(config.min) : undefined
     const max = config.max !== undefined ? Number(config.max) : undefined
-    const step = config.step !== undefined ? Number(config.step) : (isInt ? 1 : 0.1)
+    const step =
+      config.step !== undefined ? Number(config.step) : isInt ? 1 : 0.1
 
     return (
       <div className="flex flex-col gap-0.5">
         {showLabel && (
-          <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold">
+          <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
             <span className="truncate">{name}</span>
-            <span className="mono text-[9px] opacity-75">{isNaN(numVal) ? "0" : String(numVal)}</span>
+            <span className="mono text-[9px] opacity-75">
+              {isNaN(numVal) ? "0" : String(numVal)}
+            </span>
           </div>
         )}
         <input
@@ -349,7 +425,7 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
             const val = isInt ? parseInt(rawVal, 10) : parseFloat(rawVal)
             onChange(isNaN(val) ? 0 : val)
           }}
-          className="w-full text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded border border-input bg-background/50 px-1.5 py-0.5 font-mono text-[11px] text-foreground focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
     )
@@ -361,15 +437,17 @@ export function ReactWidget({ name, value, spec, onChange, showLabel = true, dis
   return (
     <div className="flex flex-col gap-0.5">
       {showLabel && (
-        <span className="text-[10px] text-muted-foreground font-bold truncate">
+        <span className="truncate text-[10px] font-bold text-muted-foreground">
           {name}
         </span>
       )}
       <textarea
         value={strVal}
         disabled={disabled}
-        onChange={(e) => { onChange(e.target.value); }}
-        className="w-full min-h-[40px] text-[11px] rounded border border-input bg-background/50 px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed resize-y font-mono"
+        onChange={(e) => {
+          onChange(e.target.value)
+        }}
+        className="min-h-[40px] w-full resize-y rounded border border-input bg-background/50 px-1.5 py-0.5 font-mono text-[11px] text-foreground focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
   )

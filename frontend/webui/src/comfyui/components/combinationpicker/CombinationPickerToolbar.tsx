@@ -146,29 +146,33 @@ export function CombinationPickerToolbar({
 
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [toolbarHeight, setToolbarHeight] = useState(0)
-  const {
-    listLayout,
-    setListLayout,
-    gridSubMode,
-    setGridSubMode,
-  } = useCurationToolbar()
+  const { listLayout, setListLayout, gridSubMode, setGridSubMode } =
+    useCurationToolbar()
   const [isMobile, setIsMobile] = useState(false)
 
   useLayoutEffect(() => {
-    const handleResize = (): void => { setIsMobile(window.innerWidth < 768); }
+    const handleResize = (): void => {
+      setIsMobile(window.innerWidth < 768)
+    }
     handleResize()
     window.addEventListener("resize", handleResize)
-    return (): void => { window.removeEventListener("resize", handleResize); }
+    return (): void => {
+      window.removeEventListener("resize", handleResize)
+    }
   }, [])
 
   useLayoutEffect(() => {
     const el = toolbarRef.current
     if (!el) return
-    const update = (): void => { setToolbarHeight(el.offsetHeight); }
+    const update = (): void => {
+      setToolbarHeight(el.offsetHeight)
+    }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
-    return (): void => { ro.disconnect(); }
+    return (): void => {
+      ro.disconnect()
+    }
   }, [])
 
   // 필터 변경 시 자동 확장 헬퍼
@@ -185,7 +189,9 @@ export function CombinationPickerToolbar({
       ref={toolbarRef}
       className="sticky z-40 shrink-0 border-t border-line bg-panel shadow-sm"
       style={
-        { "--toolbar-height": `${String(toolbarHeight)}px` } as React.CSSProperties
+        {
+          "--toolbar-height": `${String(toolbarHeight)}px`,
+        } as React.CSSProperties
       }
     >
       {/* 메인 툴바: 모바일에서는 헤더로 이동했으므로 숨김 */}
@@ -249,9 +255,7 @@ export function CombinationPickerToolbar({
         {/* Main Mode Tabs: 목록 / 그리드 */}
         <Tabs
           value={
-            viewMode === "gallery" || viewMode === "table"
-              ? "list"
-              : "grid"
+            viewMode === "gallery" || viewMode === "table" ? "list" : "grid"
           }
           onValueChange={(v) => {
             if (v === "list") {
@@ -262,10 +266,10 @@ export function CombinationPickerToolbar({
           }}
           className="w-full sm:w-auto"
         >
-          <TabsList className="bg-muted/65 p-0.5 h-8 gap-0.5">
+          <TabsList className="h-8 gap-0.5 bg-muted/65 p-0.5">
             <TabsTrigger
               value="list"
-              className="px-3.5 py-1 text-xs font-bold gap-1.5 data-[state=active]:bg-background"
+              className="gap-1.5 px-3.5 py-1 text-xs font-bold data-[state=active]:bg-background"
             >
               <FolderIcon className="h-3.5 w-3.5" />
               <span>목록</span>
@@ -273,7 +277,7 @@ export function CombinationPickerToolbar({
             <TabsTrigger
               value="grid"
               disabled={selectedFilename === null}
-              className="px-3.5 py-1 text-xs font-bold gap-1.5 data-[state=active]:bg-background"
+              className="gap-1.5 px-3.5 py-1 text-xs font-bold data-[state=active]:bg-background"
             >
               <Maximize2Icon className="h-3.5 w-3.5" />
               <span>그리드</span>
@@ -282,8 +286,8 @@ export function CombinationPickerToolbar({
         </Tabs>
 
         {/* Sub Mode Selectors (toggled contextually) */}
-        {(viewMode === "gallery" || viewMode === "table") ? (
-          <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-background/50 p-0.5 h-8">
+        {viewMode === "gallery" || viewMode === "table" ? (
+          <div className="flex h-8 items-center gap-1 rounded-lg border border-border/80 bg-background/50 p-0.5">
             <Button
               variant={listLayout === "gallery" ? "secondary" : "ghost"}
               size="sm"
@@ -308,7 +312,7 @@ export function CombinationPickerToolbar({
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-background/50 p-0.5 h-8">
+          <div className="flex h-8 items-center gap-1 rounded-lg border border-border/80 bg-background/50 p-0.5">
             <Button
               variant={gridSubMode === "grid" ? "secondary" : "ghost"}
               size="sm"
@@ -387,7 +391,9 @@ export function CombinationPickerToolbar({
                 max="320"
                 step="10"
                 value={thumbnailSize}
-                onChange={(e) => { setThumbnailSize(Number(e.target.value)); }}
+                onChange={(e) => {
+                  setThumbnailSize(Number(e.target.value))
+                }}
                 className="h-1 w-20 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
               />
               <span className="w-[34px] text-right font-mono text-[10px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
@@ -408,7 +414,9 @@ export function CombinationPickerToolbar({
               }
               size="sm"
               className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || searchTags.length > 0) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-              onClick={() => { setFiltersExpanded(true); }}
+              onClick={() => {
+                setFiltersExpanded(true)
+              }}
             >
               <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
               <span className="hidden sm:inline">필터</span>
@@ -426,7 +434,9 @@ export function CombinationPickerToolbar({
                   }
                   size="sm"
                   className={`h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold shadow-xs transition-all md:h-8 ${(statusFilter !== "all" || searchTags.length > 0) && !filtersExpanded ? "ring-2 ring-primary/20" : ""}`}
-                  onClick={() => { setFiltersExpanded(!filtersExpanded); }}
+                  onClick={() => {
+                    setFiltersExpanded(!filtersExpanded)
+                  }}
                 >
                   <FilterIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
                   <span className="hidden sm:inline">필터</span>
@@ -442,14 +452,23 @@ export function CombinationPickerToolbar({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { void fetchData(); }}
+                onClick={() => {
+                  void fetchData()
+                }}
                 disabled={loading}
-                className="h-9 w-9 p-0 md:h-8 md:w-8 shrink-0"
+                className="h-9 w-9 shrink-0 p-0 md:h-8 md:w-8"
               >
-                <RefreshCwIcon className={cn("h-4 w-4 md:h-3.5 md:w-3.5", loading && "animate-spin")} />
+                <RefreshCwIcon
+                  className={cn(
+                    "h-4 w-4 md:h-3.5 md:w-3.5",
+                    loading && "animate-spin"
+                  )}
+                />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs font-bold">새로고침</TooltipContent>
+            <TooltipContent className="text-xs font-bold">
+              새로고침
+            </TooltipContent>
           </Tooltip>
 
           {/* 설정 드롭다운 */}
@@ -472,7 +491,9 @@ export function CombinationPickerToolbar({
               <DropdownMenuLabel className="text-xs">설정</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => { void fetchData(); }}
+                onClick={() => {
+                  void fetchData()
+                }}
                 className="py-2.5 md:py-1.5"
               >
                 <RefreshCwIcon className="mr-2 h-4 w-4 md:h-3.5 md:w-3.5" />
@@ -481,14 +502,18 @@ export function CombinationPickerToolbar({
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
                 checked={hideRejected}
-                onCheckedChange={(v) => { setHideRejected(v); }}
+                onCheckedChange={(v) => {
+                  setHideRejected(v)
+                }}
                 className="py-2.5 md:py-1.5"
               >
                 리젝 숨기기
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={autoAdvance}
-                onCheckedChange={(v) => { setAutoAdvance(v); }}
+                onCheckedChange={(v) => {
+                  setAutoAdvance(v)
+                }}
                 className="py-2.5 md:py-1.5"
               >
                 자동 다음 이동
@@ -503,7 +528,9 @@ export function CombinationPickerToolbar({
                   "py-2.5 md:py-1.5",
                   duplicateStrategy === "hash" ? "bg-accent" : ""
                 )}
-                onClick={() => { setDuplicateStrategy("hash"); }}
+                onClick={() => {
+                  setDuplicateStrategy("hash")
+                }}
               >
                 HASH
               </DropdownMenuItem>
@@ -512,14 +539,18 @@ export function CombinationPickerToolbar({
                   "py-2.5 md:py-1.5",
                   duplicateStrategy === "number" ? "bg-accent" : ""
                 )}
-                onClick={() => { setDuplicateStrategy("number"); }}
+                onClick={() => {
+                  setDuplicateStrategy("number")
+                }}
               >
                 NUM
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {unassignedGroupsSize > 0 && (
                 <DropdownMenuItem
-                  onClick={() => { setShowUnassignedPanel(!showUnassignedPanel); }}
+                  onClick={() => {
+                    setShowUnassignedPanel(!showUnassignedPanel)
+                  }}
                   className="py-2.5 md:py-1.5"
                 >
                   <AlertTriangleIcon className="mr-2 h-4 w-4 text-amber-600 md:h-3.5 md:w-3.5" />
@@ -541,7 +572,6 @@ export function CombinationPickerToolbar({
             <span className="ml-1 hidden text-xs sm:inline">내보내기</span>
           </LoadingButton>
         </div>
-
       </div>
 
       {/* 선택 모드 (인라인) — 메인 툴바 밖으로 분리, 모바일에서도 항상 표시 */}
@@ -582,10 +612,10 @@ export function CombinationPickerToolbar({
       )}
 
       {/* 메시지 영역 (툴바 아래 고정 높이 방지 위해 절대 위치 지양) */}
-        {(exportActionMessage ??
-          regenActionMessage ??
-          bulkRegenActionMessage ??
-          bulkDownloadMessage) !== null && (
+      {(exportActionMessage ??
+        regenActionMessage ??
+        bulkRegenActionMessage ??
+        bulkDownloadMessage) !== null && (
         <div className="border-b bg-muted/10 px-4 py-1 text-center">
           {exportActionMessage !== null && (
             <span className="text-[10px] font-bold text-green-600">
@@ -612,13 +642,13 @@ export function CombinationPickerToolbar({
 
       {/* 필터 바 (접이식) — 데스크톱 전용 */}
       {filtersExpanded && (
-        <div className="hidden md:flex flex-wrap items-center gap-3 border-t border-dashed bg-muted/5 px-4 py-3">
+        <div className="hidden flex-wrap items-center gap-3 border-t border-dashed bg-muted/5 px-4 py-3 md:flex">
           {/* 상태 필터 */}
           <Select
             value={statusFilter}
-            onValueChange={(v) =>
-              { withExpand(setStatusFilter, v as "all" | "done" | "pending"); }
-            }
+            onValueChange={(v) => {
+              withExpand(setStatusFilter, v as "all" | "done" | "pending")
+            }}
           >
             <SelectTrigger className="h-9 w-full text-sm font-bold md:!h-7 md:w-28 md:!py-1 md:text-[10px]">
               <SelectValue />
@@ -635,9 +665,7 @@ export function CombinationPickerToolbar({
               value={searchInput}
               tags={searchTags}
               candidates={candidates.filter((c) => {
-                const valClean = searchInput
-                  .replace(/^[@$]/, "")
-                  .toLowerCase()
+                const valClean = searchInput.replace(/^[@$]/, "").toLowerCase()
                 return c.value.toLowerCase().includes(valClean)
               })}
               placeholder="검색어 입력 (@파일명, $메타데이터)"
@@ -678,18 +706,28 @@ export function CombinationPickerToolbar({
       )}
 
       {/* 모바일 전용 필터 Drawer (Sheet) */}
-      <Sheet open={isMobile && filtersExpanded} onOpenChange={setFiltersExpanded}>
-        <SheetContent side="bottom" className="rounded-t-2xl px-6 pt-6 pb-6 h-auto max-h-[80dvh] flex flex-col overflow-hidden bg-card border-t border-line">
+      <Sheet
+        open={isMobile && filtersExpanded}
+        onOpenChange={setFiltersExpanded}
+      >
+        <SheetContent
+          side="bottom"
+          className="flex h-auto max-h-[80dvh] flex-col overflow-hidden rounded-t-2xl border-t border-line bg-card px-6 pt-6 pb-6"
+        >
           <SheetHeader className="mb-4 shrink-0 p-0">
-            <SheetTitle className="text-base font-bold text-foreground">큐레이션 설정 & 필터</SheetTitle>
+            <SheetTitle className="text-base font-bold text-foreground">
+              큐레이션 설정 & 필터
+            </SheetTitle>
           </SheetHeader>
-          
+
           {/* 스크롤 가능한 상세 필터 및 설정 목록 */}
-          <div className="flex-1 overflow-y-auto pr-1 -mr-1 flex flex-col gap-4 pb-4">
+          <div className="-mr-1 flex flex-1 flex-col gap-4 overflow-y-auto pr-1 pb-4">
             {/* 보기 형태 및 서브 기능 설정 */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground">상세 보기 형태</label>
-              {(viewMode === "gallery" || viewMode === "table") ? (
+              <label className="text-xs font-bold text-muted-foreground">
+                상세 보기 형태
+              </label>
+              {viewMode === "gallery" || viewMode === "table" ? (
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={listLayout === "gallery" ? "default" : "outline"}
@@ -716,7 +754,7 @@ export function CombinationPickerToolbar({
                 <div className="grid grid-cols-3 gap-1.5">
                   <Button
                     variant={gridSubMode === "grid" ? "default" : "outline"}
-                    className="h-9 text-[10px] font-bold px-1"
+                    className="h-9 px-1 text-[10px] font-bold"
                     onClick={() => {
                       setGridSubMode("grid")
                       onViewModeChange("grid")
@@ -727,7 +765,7 @@ export function CombinationPickerToolbar({
                   <Button
                     variant={gridSubMode === "compare" ? "default" : "outline"}
                     disabled={compareImageCount < 2}
-                    className="h-9 text-[10px] font-bold px-1"
+                    className="h-9 px-1 text-[10px] font-bold"
                     onClick={() => {
                       setGridSubMode("compare")
                       onViewModeChange("compare")
@@ -736,8 +774,10 @@ export function CombinationPickerToolbar({
                     비교
                   </Button>
                   <Button
-                    variant={gridSubMode === "tournament" ? "default" : "outline"}
-                    className="h-9 text-[10px] font-bold px-1"
+                    variant={
+                      gridSubMode === "tournament" ? "default" : "outline"
+                    }
+                    className="h-9 px-1 text-[10px] font-bold"
                     onClick={() => {
                       setGridSubMode("tournament")
                       onViewModeChange("tournament")
@@ -751,14 +791,16 @@ export function CombinationPickerToolbar({
 
             {/* 상태 필터 */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground">상태 필터</label>
+              <label className="text-xs font-bold text-muted-foreground">
+                상태 필터
+              </label>
               <Select
                 value={statusFilter}
-                onValueChange={(v) =>
-                  { withExpand(setStatusFilter, v as "all" | "done" | "pending"); }
-                }
+                onValueChange={(v) => {
+                  withExpand(setStatusFilter, v as "all" | "done" | "pending")
+                }}
               >
-                <SelectTrigger className="h-10 w-full text-sm font-bold bg-background">
+                <SelectTrigger className="h-10 w-full bg-background text-sm font-bold">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -771,7 +813,9 @@ export function CombinationPickerToolbar({
 
             {/* 통합 검색 필터 */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground">통합 검색</label>
+              <label className="text-xs font-bold text-muted-foreground">
+                통합 검색
+              </label>
               <TagInputSearch
                 value={searchInput}
                 tags={searchTags}
@@ -797,21 +841,27 @@ export function CombinationPickerToolbar({
             </div>
 
             {/* 썸네일 크기 조절 (모바일용 가로 슬라이더) */}
-            {(viewMode === "gallery" || viewMode === "grid" || viewMode === "tournament") && (
+            {(viewMode === "gallery" ||
+              viewMode === "grid" ||
+              viewMode === "tournament") && (
               <div className="space-y-2 border-t border-dashed pt-4">
-                <label className="text-xs font-bold text-muted-foreground flex justify-between">
+                <label className="flex justify-between text-xs font-bold text-muted-foreground">
                   <span>이미지 크기 조절</span>
-                  <span className="font-mono text-foreground font-black">{thumbnailSize}px</span>
+                  <span className="font-mono font-black text-foreground">
+                    {thumbnailSize}px
+                  </span>
                 </label>
                 <div className="flex items-center gap-3">
-                  <LayoutGridIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <LayoutGridIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <input
                     type="range"
                     min="120"
                     max="320"
                     step="10"
                     value={thumbnailSize}
-                    onChange={(e) => { setThumbnailSize(Number(e.target.value)); }}
+                    onChange={(e) => {
+                      setThumbnailSize(Number(e.target.value))
+                    }}
                     className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                   />
                 </div>
@@ -820,10 +870,14 @@ export function CombinationPickerToolbar({
 
             {/* 추가 작동 스위치 옵션 */}
             <div className="space-y-3 border-t border-dashed pt-4 pb-1">
-              <label className="text-xs font-bold text-muted-foreground">큐레이션 상세 옵션</label>
-              
+              <label className="text-xs font-bold text-muted-foreground">
+                큐레이션 상세 옵션
+              </label>
+
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-foreground">리젝 이미지 숨기기</span>
+                <span className="text-xs font-medium text-foreground">
+                  리젝 이미지 숨기기
+                </span>
                 <Switch
                   checked={hideRejected}
                   onCheckedChange={setHideRejected}
@@ -831,7 +885,9 @@ export function CombinationPickerToolbar({
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-foreground">선택 시 다음 조합으로 자동 이동</span>
+                <span className="text-xs font-medium text-foreground">
+                  선택 시 다음 조합으로 자동 이동
+                </span>
                 <Switch
                   checked={autoAdvance}
                   onCheckedChange={setAutoAdvance}
@@ -839,17 +895,25 @@ export function CombinationPickerToolbar({
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-foreground">중복 파일명 구분 전략</span>
+                <span className="text-xs font-medium text-foreground">
+                  중복 파일명 구분 전략
+                </span>
                 <Select
                   value={duplicateStrategy}
-                  onValueChange={(v) => { setDuplicateStrategy(v as "hash" | "number"); }}
+                  onValueChange={(v) => {
+                    setDuplicateStrategy(v as "hash" | "number")
+                  }}
                 >
-                  <SelectTrigger className="h-8 w-24 text-xs font-bold bg-background">
+                  <SelectTrigger className="h-8 w-24 bg-background text-xs font-bold">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hash" className="text-xs font-bold">HASH</SelectItem>
-                    <SelectItem value="number" className="text-xs font-bold">NUM</SelectItem>
+                    <SelectItem value="hash" className="text-xs font-bold">
+                      HASH
+                    </SelectItem>
+                    <SelectItem value="number" className="text-xs font-bold">
+                      NUM
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -859,8 +923,10 @@ export function CombinationPickerToolbar({
             <div className="flex flex-col gap-2 border-t border-dashed pt-4">
               <Button
                 variant="outline"
-                className="w-full h-10 text-xs font-bold gap-2"
-                onClick={() => { void fetchData(); }}
+                className="h-10 w-full gap-2 text-xs font-bold"
+                onClick={() => {
+                  void fetchData()
+                }}
               >
                 <RefreshCwIcon className="h-3.5 w-3.5" />
                 데이터 새로고침
@@ -868,7 +934,7 @@ export function CombinationPickerToolbar({
 
               <Button
                 variant="outline"
-                className="w-full h-10 text-xs font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5 active:bg-primary/10"
+                className="h-10 w-full gap-2 border-primary/20 text-xs font-bold text-primary hover:bg-primary/5 active:bg-primary/10"
                 onClick={handleExport}
                 disabled={exportActionIsLoading}
               >
@@ -876,12 +942,12 @@ export function CombinationPickerToolbar({
                 큐레이션 내보내기
               </Button>
 
-              <div className="flex items-center justify-between mt-2">
-                {(statusFilter !== "all" || searchTags.length > 0) ? (
+              <div className="mt-2 flex items-center justify-between">
+                {statusFilter !== "all" || searchTags.length > 0 ? (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted"
+                    className="h-8 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => {
                       setStatusFilter("all")
                       setSearchTags([])

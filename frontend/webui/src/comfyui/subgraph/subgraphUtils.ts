@@ -12,14 +12,20 @@
 
 import type { ComfyWorkflowLink, ComfyWorkflowNode } from "../types/workflow"
 import type { SubgraphDefinition, SubgraphIODto } from "../types/subgraph"
-import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID, createSubgraphId } from "../constants"
+import {
+  SUBGRAPH_INPUT_ID,
+  SUBGRAPH_OUTPUT_ID,
+  createSubgraphId,
+} from "../constants"
 
 /** 선택 아이템 분할 결과 (webui는 노드만 취급, reroute/group는 추후) */
 export interface FilteredItems {
   nodes: Set<ComfyWorkflowNode>
 }
 
-export function splitPositionables(items: Iterable<ComfyWorkflowNode>): FilteredItems {
+export function splitPositionables(
+  items: Iterable<ComfyWorkflowNode>
+): FilteredItems {
   const nodes = new Set<ComfyWorkflowNode>()
   for (const item of items) nodes.add(item)
   return { nodes }
@@ -190,7 +196,9 @@ export function mapSubgraphOutputsAndLinks(
 }
 
 /** 선택 노드의 bounding box 계산 */
-export function createBounds(nodes: ComfyWorkflowNode[]): [number, number, number, number] {
+export function createBounds(
+  nodes: ComfyWorkflowNode[]
+): [number, number, number, number] {
   if (nodes.length === 0) return [0, 0, 0, 0]
   let minX = Infinity
   let minY = Infinity
@@ -219,7 +227,12 @@ export function findUsedSubgraphIds(
     if (!nodes) break
     for (const node of nodes) {
       // SubgraphNode 인스턴스 판별 (type이 UUID)
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.type)) continue
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          node.type
+        )
+      )
+        continue
       if (used.has(node.type)) continue
       used.add(node.type)
       const def = subgraphRegistry.get(node.type)

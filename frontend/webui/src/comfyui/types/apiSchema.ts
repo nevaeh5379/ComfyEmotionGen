@@ -4,7 +4,7 @@
  * 커스텀 노드 호환을 위해 필요한 타입 정의
  */
 
-import type { NodeId } from './workflow'
+import type { NodeId } from "./workflow"
 
 // ── WS message types ──────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ export interface ProgressWsMessage {
 export interface NodeProgressState {
   value: number
   max: number
-  state: 'pending' | 'running' | 'finished' | 'error'
+  state: "pending" | "running" | "finished" | "error"
   node_id: NodeId
   prompt_id: string
   display_node_id?: NodeId
@@ -139,7 +139,7 @@ export interface AssetDownloadWsMessage {
   bytes_total: number
   bytes_downloaded: number
   progress: number
-  status: 'created' | 'running' | 'completed' | 'failed'
+  status: "created" | "running" | "completed" | "failed"
   asset_id?: string
   error?: string
 }
@@ -153,7 +153,7 @@ export interface AssetExportWsMessage {
   bytes_total: number
   bytes_processed: number
   progress: number
-  status: 'created' | 'running' | 'completed' | 'failed'
+  status: "created" | "running" | "completed" | "failed"
   error?: string
 }
 
@@ -226,7 +226,7 @@ export interface SystemStats {
 }
 
 export interface User {
-  storage: 'server'
+  storage: "server"
   migrated?: boolean
   users?: Record<string, string>
 }
@@ -239,7 +239,7 @@ export interface UserDataFullInfo {
 
 export type Settings = Record<string, unknown>
 
-export type PreviewMethod = 'default' | 'none' | 'auto' | 'latent2rgb' | 'taesd'
+export type PreviewMethod = "default" | "none" | "auto" | "latent2rgb" | "taesd"
 
 export type CustomNodesI18n = Record<string, unknown>
 

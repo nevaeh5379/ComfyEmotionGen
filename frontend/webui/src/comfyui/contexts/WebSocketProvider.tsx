@@ -46,7 +46,10 @@ const readStoredBackendUrl = (): string => {
   }
 }
 
-export const WebSocketProvider = ({ children, backendUrl }: ProviderProps): React.JSX.Element => {
+export const WebSocketProvider = ({
+  children,
+  backendUrl,
+}: ProviderProps): React.JSX.Element => {
   useRenderLog("WebSocketProvider")
   const [storedUrl, setStoredUrl] = useState<string>(readStoredBackendUrl)
   const url = backendUrl ?? storedUrl
@@ -55,7 +58,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps): Reac
   const [workers, setWorkers] = useState<WorkerView[]>([])
   const [paused, setPaused] = useState(false)
   const [sessionStartedAt] = useState<number>(() => Date.now())
-  const [workerPreviews, setWorkerPreviews] = useState<Record<string, number>>({})
+  const [workerPreviews, setWorkerPreviews] = useState<Record<string, number>>(
+    {}
+  )
 
   useEffect(() => {
     const onStorage = (e: StorageEvent): void => {
@@ -63,7 +68,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps): Reac
         setStoredUrl(e.newValue)
     }
     window.addEventListener("storage", onStorage)
-    return (): void => { window.removeEventListener("storage", onStorage); }
+    return (): void => {
+      window.removeEventListener("storage", onStorage)
+    }
   }, [])
 
   const socketRef = useRef<WebSocket | null>(null)
@@ -183,15 +190,19 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps): Reac
           backoff = WS_INITIAL_BACKOFF_MS
           console.info("[backend] connected")
           // 연결/재연결 시 전체 설정 1회 로드 → 오프라인 중 변경분 반영
-          void fetchAllSettings().then((all) => {
-            if (all) {
-              const pendingKeys = new Set(getSyncQueue().map((i) => i.key))
-              const filtered = Object.fromEntries(
-                Object.entries(all).filter(([k]) => !pendingKeys.has(k))
-              )
-              populateSettingsCache(filtered)
-            }
-          }).catch((err: unknown) => { console.warn("[WebSocket] 설정 동기화 실패:", err); })
+          void fetchAllSettings()
+            .then((all) => {
+              if (all) {
+                const pendingKeys = new Set(getSyncQueue().map((i) => i.key))
+                const filtered = Object.fromEntries(
+                  Object.entries(all).filter(([k]) => !pendingKeys.has(k))
+                )
+                populateSettingsCache(filtered)
+              }
+            })
+            .catch((err: unknown) => {
+              console.warn("[WebSocket] 설정 동기화 실패:", err)
+            })
         }
 
         socket.onmessage = (e): void => {
@@ -267,7 +278,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps): Reac
 
   return (
     <BackendUrlContext value={url}>
-      <BackendContext.Provider value={value}>{children}</BackendContext.Provider>
+      <BackendContext.Provider value={value}>
+        {children}
+      </BackendContext.Provider>
     </BackendUrlContext>
   )
 }

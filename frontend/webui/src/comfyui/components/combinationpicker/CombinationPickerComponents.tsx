@@ -39,7 +39,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { useState, useMemo, useEffect, useCallback, useRef, type ComponentProps } from "react"
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+  type ComponentProps,
+} from "react"
 import type { SavedImage } from "../../types/Message"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
@@ -84,8 +91,10 @@ export function ImagePreviewHoverCard({
   const pendingCount = images.filter((img) => img.status === "pending").length
   const trashedCount = images.filter((img) => img.status === "trashed").length
 
-  const allTags = Array.from(new Set(images.flatMap((img) => img.tags)))
-    .slice(0, 4)
+  const allTags = Array.from(new Set(images.flatMap((img) => img.tags))).slice(
+    0,
+    4
+  )
 
   const sortedImages = useMemo(() => {
     return [...images].sort((a, b) => b.createdAt - a.createdAt)
@@ -94,14 +103,15 @@ export function ImagePreviewHoverCard({
   const latestImage = sortedImages[0]
   const latestPrompt = latestImage?.prompt ?? ""
   const latestNote = latestImage?.note ?? ""
-  const latestDate = latestImage?.createdAt !== undefined
-    ? new Date(latestImage.createdAt).toLocaleString("ko-KR", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : ""
+  const latestDate =
+    latestImage?.createdAt !== undefined
+      ? new Date(latestImage.createdAt).toLocaleString("ko-KR", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : ""
 
   return (
     <HoverCardContent
@@ -298,7 +308,11 @@ export function CombinationContextMenu({
         {filename}
       </ContextMenuLabel>
       <ContextMenuSeparator />
-      <ContextMenuItem onClick={() => { onOpen(filename); }}>
+      <ContextMenuItem
+        onClick={() => {
+          onOpen(filename)
+        }}
+      >
         <FolderIcon className="h-4 w-4" /> 열기
       </ContextMenuItem>
       <ContextMenuItem
@@ -320,7 +334,11 @@ export function CombinationContextMenu({
       {onRegenerate && (
         <>
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={() => { onRegenerate(filename); }}>
+          <ContextMenuItem
+            onClick={() => {
+              onRegenerate(filename)
+            }}
+          >
             <RefreshCwIcon className="h-4 w-4" /> 재생성
           </ContextMenuItem>
         </>
@@ -357,17 +375,26 @@ export interface RegenerateDialogProps {
   currentCegTemplate: string
   savedTemplates: SavedTemplate[]
   savedWorkflows: SavedWorkflow[]
-  saveMappingPreset: (workflowId: string, name: string, mappings: NodeMapping[]) => SavedWorkflow | null
-  deleteMappingPreset: (workflowId: string, presetId: string) => SavedWorkflow | null
-  onSubmit: (items: {
-    filename: string
-    prompt: string
-    workflow: ComfyWorkflow
-    meta: Record<string, string>
-    cegTemplate: string
-    imageUploads: Record<string, Record<string, string>>
-    workerType: string
-  }[]) => Promise<void>
+  saveMappingPreset: (
+    workflowId: string,
+    name: string,
+    mappings: NodeMapping[]
+  ) => SavedWorkflow | null
+  deleteMappingPreset: (
+    workflowId: string,
+    presetId: string
+  ) => SavedWorkflow | null
+  onSubmit: (
+    items: {
+      filename: string
+      prompt: string
+      workflow: ComfyWorkflow
+      meta: Record<string, string>
+      cegTemplate: string
+      imageUploads: Record<string, Record<string, string>>
+      workerType: string
+    }[]
+  ) => Promise<void>
   isLoading: boolean
 }
 
@@ -385,19 +412,41 @@ export function RegenerateDialog({
   isLoading,
 }: RegenerateDialogProps): React.JSX.Element {
   const [count, setCount] = useLocalStorage<number>(STORAGE_KEYS.regenCount, 4)
-  const [selectedTemplateId, setSelectedTemplateId] = useLocalStorage<string>(STORAGE_KEYS.regenTemplateId, "__current__")
-  const [selectedWorkflowId, setSelectedWorkflowId] = useLocalStorage<string>(STORAGE_KEYS.regenWorkflowId, "")
-  const [nodeMappings, setNodeMappings] = useLocalStorage<NodeMapping[]>(STORAGE_KEYS.regenNodeMappings, [])
+  const [selectedTemplateId, setSelectedTemplateId] = useLocalStorage<string>(
+    STORAGE_KEYS.regenTemplateId,
+    "__current__"
+  )
+  const [selectedWorkflowId, setSelectedWorkflowId] = useLocalStorage<string>(
+    STORAGE_KEYS.regenWorkflowId,
+    ""
+  )
+  const [nodeMappings, setNodeMappings] = useLocalStorage<NodeMapping[]>(
+    STORAGE_KEYS.regenNodeMappings,
+    []
+  )
   const [objectInfo, setObjectInfo] = useState<ObjectInfo | null>(null)
-  const [imageUploads, setImageUploads] = useState({} as Record<string, { uploadedName: string | null; error: string | null; uploading: boolean; previewUrl: string | null }>)
+  const [imageUploads, setImageUploads] = useState(
+    {} as Record<
+      string,
+      {
+        uploadedName: string | null
+        error: string | null
+        uploading: boolean
+        previewUrl: string | null
+      }
+    >
+  )
   const dialogActiveRef = useRef(open)
   const previewUrlsRef = useRef(new Set<string>())
 
-  const revokePreviewUrl = useCallback((url: string | null | undefined): void => {
-    if (url === null || url === undefined) return
-    URL.revokeObjectURL(url)
-    previewUrlsRef.current.delete(url)
-  }, [])
+  const revokePreviewUrl = useCallback(
+    (url: string | null | undefined): void => {
+      if (url === null || url === undefined) return
+      URL.revokeObjectURL(url)
+      previewUrlsRef.current.delete(url)
+    },
+    []
+  )
 
   const revokeAllPreviewUrls = useCallback(() => {
     for (const url of previewUrlsRef.current) {
@@ -424,7 +473,12 @@ export function RegenerateDialog({
   }, [sourceImages])
 
   const historicalWorkflows = useMemo(() => {
-    const items: { id: string; name: string; workflow: string; createdAt: number }[] = []
+    const items: {
+      id: string
+      name: string
+      workflow: string
+      createdAt: number
+    }[] = []
     const seen = new Set<string>()
     let idx = 0
     for (const img of sourceImages) {
@@ -475,7 +529,12 @@ export function RegenerateDialog({
     }
     const st = savedTemplates.find((t) => t.id === selectedTemplateId)
     return st?.template ?? ""
-  }, [selectedTemplateId, currentCegTemplate, savedTemplates, historicalTemplates])
+  }, [
+    selectedTemplateId,
+    currentCegTemplate,
+    savedTemplates,
+    historicalTemplates,
+  ])
 
   // Fetch object_info when workflow changes
   useEffect(() => {
@@ -483,18 +542,28 @@ export function RegenerateDialog({
     const controller = new AbortController()
     fetch(`${backendUrl}/object_info`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { setObjectInfo(d as ObjectInfo | null); })
+      .then((d) => {
+        setObjectInfo(d as ObjectInfo | null)
+      })
       .catch((e: unknown) => {
         if (e instanceof Error && e.name === "AbortError") return
         setObjectInfo(null)
       })
-    return (): void => { controller.abort(); }
+    return (): void => {
+      controller.abort()
+    }
   }, [open, backendUrl])
 
   const availableNodeOptions = useMemo(() => {
     if (!parsedWorkflowData) return []
     const inUse = new Set(nodeMappings.map((m) => `${m.nodeId}.${m.inputKey}`))
-    const opts: { nodeId: string; title: string; inputKey: string; isNumeric: boolean; isLoadImage: boolean }[] = []
+    const opts: {
+      nodeId: string
+      title: string
+      inputKey: string
+      isNumeric: boolean
+      isLoadImage: boolean
+    }[] = []
     Object.entries(parsedWorkflowData).forEach(([nodeId, node]) => {
       Object.entries(node.inputs).forEach(([inputKey, value]) => {
         if (
@@ -516,8 +585,8 @@ export function RegenerateDialog({
   }, [parsedWorkflowData, nodeMappings])
 
   const updateMapping = useCallback(
-    (id: string, patch: Partial<NodeMapping>) =>
-      { setNodeMappings((prev) =>
+    (id: string, patch: Partial<NodeMapping>) => {
+      setNodeMappings((prev) =>
         prev.map((m) => {
           if (m.id !== id) return m
           if (
@@ -531,7 +600,8 @@ export function RegenerateDialog({
           }
           return { ...m, ...patch }
         })
-      ); },
+      )
+    },
     [setNodeMappings]
   )
 
@@ -540,7 +610,12 @@ export function RegenerateDialog({
       const key = `${nodeId}.${inputKey}`
       setImageUploads((prev) => ({
         ...prev,
-        [key]: { uploading: true, error: null, uploadedName: null, previewUrl: null },
+        [key]: {
+          uploading: true,
+          error: null,
+          uploadedName: null,
+          previewUrl: null,
+        },
       }))
       const formData = new FormData()
       formData.append("image", file)
@@ -559,11 +634,18 @@ export function RegenerateDialog({
             revokePreviewUrl(prev[key]?.previewUrl)
             return {
               ...prev,
-              [key]: { uploading: false, error: null, uploadedName: data.name, previewUrl },
+              [key]: {
+                uploading: false,
+                error: null,
+                uploadedName: data.name,
+                previewUrl,
+              },
             }
           })
           updateMapping(
-            nodeMappings.find((m) => m.nodeId === nodeId && m.inputKey === inputKey)?.id ?? "",
+            nodeMappings.find(
+              (m) => m.nodeId === nodeId && m.inputKey === inputKey
+            )?.id ?? "",
             { sourceType: "image", imageValue: data.name }
           )
         })
@@ -574,7 +656,12 @@ export function RegenerateDialog({
             const errorMessage = e instanceof Error ? e.message : String(e)
             return {
               ...prev,
-              [key]: { uploading: false, error: errorMessage, uploadedName: null, previewUrl: null },
+              [key]: {
+                uploading: false,
+                error: errorMessage,
+                uploadedName: null,
+                previewUrl: null,
+              },
             }
           })
         })
@@ -588,7 +675,9 @@ export function RegenerateDialog({
       revokeAllPreviewUrls()
       setImageUploads({})
     }, 0)
-    return (): void => { window.clearTimeout(resetTimer); }
+    return (): void => {
+      window.clearTimeout(resetTimer)
+    }
   }, [open, revokeAllPreviewUrls])
 
   useEffect(() => revokeAllPreviewUrls, [revokeAllPreviewUrls])
@@ -627,7 +716,10 @@ export function RegenerateDialog({
     for (const m of nodeMappingsRef.current) {
       if (m.sourceType === "image" && m.imageValue !== undefined) {
         imageNameMap[`${m.nodeId}.${m.inputKey}`] = m.imageValue
-        imageUploadsNested[m.nodeId] = { ...imageUploadsNested[m.nodeId], [m.inputKey]: m.imageValue }
+        imageUploadsNested[m.nodeId] = {
+          ...imageUploadsNested[m.nodeId],
+          [m.inputKey]: m.imageValue,
+        }
       }
     }
 
@@ -685,13 +777,23 @@ export function RegenerateDialog({
     }
 
     await onSubmitRef.current(allItems)
-  }, [backendUrlRef, countRef, isLoadingRef, nodeMappingsRef, onSubmitRef, resolvedTemplateRef, selectedWorkflowRef, sourceFilenameRef, sourceImagesRef])
+  }, [
+    backendUrlRef,
+    countRef,
+    isLoadingRef,
+    nodeMappingsRef,
+    onSubmitRef,
+    resolvedTemplateRef,
+    selectedWorkflowRef,
+    sourceFilenameRef,
+    sourceImagesRef,
+  ])
 
   const canConfirm = isLoading || !sourceImages[0]?.workflow
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RefreshCwIcon className="h-5 w-5" />
@@ -713,7 +815,9 @@ export function RegenerateDialog({
               min={1}
               max={64}
               value={count}
-              onChange={(e) => { setCount(parseInt(e.target.value) || 1); }}
+              onChange={(e) => {
+                setCount(parseInt(e.target.value) || 1)
+              }}
               className="font-mono font-bold"
             />
           </div>
@@ -727,7 +831,7 @@ export function RegenerateDialog({
             </Label>
             <Select
               value={selectedWorkflowId || "__none__"}
-              onValueChange={(v) =>{
+              onValueChange={(v) => {
                 setSelectedWorkflowId(v === "__none__" ? "" : v)
                 setNodeMappings([])
               }}
@@ -735,7 +839,10 @@ export function RegenerateDialog({
               <SelectTrigger className="w-full max-w-full truncate">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] max-h-60 overflow-y-auto">
+              <SelectContent
+                position="popper"
+                className="max-h-60 w-[var(--radix-select-trigger-width)] overflow-y-auto"
+              >
                 <SelectItem value="__none__">
                   {selectedWorkflowId
                     ? "워크플로우 해제"
@@ -782,22 +889,31 @@ export function RegenerateDialog({
               objectInfo={objectInfo}
               activeWorkflowId={selectedWorkflow?.id ?? null}
               savedNodeMappings={
-                savedWorkflows.find((w) => w.id === selectedWorkflow?.id)?.mappingPresets ?? []
+                savedWorkflows.find((w) => w.id === selectedWorkflow?.id)
+                  ?.mappingPresets ?? []
               }
               savedWorkflows={savedWorkflows}
               onSaveNodeMapping={(name) => {
                 if (selectedWorkflow === undefined) return false
                 const trimmed = name.trim()
-                const result = saveMappingPreset(selectedWorkflow.id, trimmed, [...nodeMappings])
+                const result = saveMappingPreset(selectedWorkflow.id, trimmed, [
+                  ...nodeMappings,
+                ])
                 return result !== null
               }}
-              onLoadNodeMapping={(m) => { setNodeMappings(m.mappings); }}
+              onLoadNodeMapping={(m) => {
+                setNodeMappings(m.mappings)
+              }}
               onDeleteNodeMapping={(presetId) => {
                 if (selectedWorkflow === undefined) return
                 deleteMappingPreset(selectedWorkflow.id, presetId)
               }}
-              onUpdateNodeMapping={() => { /* no-op */ }}
-              onImportFromPreset={(mappings) => { setNodeMappings(mappings); }}
+              onUpdateNodeMapping={() => {
+                /* no-op */
+              }}
+              onImportFromPreset={(mappings) => {
+                setNodeMappings(mappings)
+              }}
               handleImageUpload={handleImageUpload}
               imageUploads={imageUploads}
             />
@@ -817,7 +933,10 @@ export function RegenerateDialog({
               <SelectTrigger className="w-full max-w-full truncate">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] max-h-60 overflow-y-auto">
+              <SelectContent
+                position="popper"
+                className="max-h-60 w-[var(--radix-select-trigger-width)] overflow-y-auto"
+              >
                 <SelectItem value="__current__">
                   현재 편집 중인 템플릿
                 </SelectItem>
@@ -870,10 +989,20 @@ export function RegenerateDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:justify-end">
-          <Button variant="outline" onClick={() => { onOpenChange(false); }}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onOpenChange(false)
+            }}
+          >
             취소
           </Button>
-            <Button onClick={() => { void handleConfirm(); }} disabled={canConfirm}>
+          <Button
+            onClick={() => {
+              void handleConfirm()
+            }}
+            disabled={canConfirm}
+          >
             {isLoading && <Spinner className="mr-2 h-4 w-4" />}
             재생성 시작
           </Button>

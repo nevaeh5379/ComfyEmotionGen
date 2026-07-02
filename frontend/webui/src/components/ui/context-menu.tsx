@@ -13,7 +13,9 @@ function ContextMenu({
 function ContextMenuTrigger({
   className,
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Trigger>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof ContextMenuPrimitive.Trigger
+>): React.JSX.Element {
   return (
     <ContextMenuPrimitive.Trigger
       data-slot="context-menu-trigger"
@@ -33,7 +35,9 @@ function ContextMenuGroup({
 
 function ContextMenuPortal({
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Portal>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof ContextMenuPrimitive.Portal
+>): React.JSX.Element {
   return (
     <ContextMenuPrimitive.Portal data-slot="context-menu-portal" {...props} />
   )
@@ -47,7 +51,9 @@ function ContextMenuSub({
 
 function ContextMenuRadioGroup({
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.RadioGroup>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof ContextMenuPrimitive.RadioGroup
+>): React.JSX.Element {
   return (
     <ContextMenuPrimitive.RadioGroup
       data-slot="context-menu-radio-group"
@@ -126,7 +132,9 @@ function ContextMenuSubTrigger({
 function ContextMenuSubContent({
   className,
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof ContextMenuPrimitive.SubContent
+>): React.JSX.Element {
   return (
     <ContextMenuPrimitive.SubContent
       data-slot="context-menu-sub-content"
@@ -218,7 +226,9 @@ function ContextMenuLabel({
 function ContextMenuSeparator({
   className,
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Separator>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof ContextMenuPrimitive.Separator
+>): React.JSX.Element {
   return (
     <ContextMenuPrimitive.Separator
       data-slot="context-menu-separator"

@@ -2,7 +2,14 @@
  * ReactNode - HTML/CSS로 그려지는 리액트 노드 컴포넌트
  */
 
-import { useRef, useMemo, useLayoutEffect, useState, memo, type ReactNode as ReactNodeType } from "react"
+import {
+  useRef,
+  useMemo,
+  useLayoutEffect,
+  useState,
+  memo,
+  type ReactNode as ReactNodeType,
+} from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useSubgraphNavigationStore } from "@/comfyui/stores/subgraphNavigationStore"
@@ -47,7 +54,9 @@ function getLiveNode(id: number): LiveNode | undefined {
   const node = (window as unknown as { app?: App }).app?.graph?.getNodeById(id)
   if (node) {
     const wc = (node as unknown as { widgets?: unknown[] }).widgets?.length ?? 0
-    console.log(`[CEG] getLiveNode(id=${String(id)}): found=true widgets=${String(wc)}`)
+    console.log(
+      `[CEG] getLiveNode(id=${String(id)}): found=true widgets=${String(wc)}`
+    )
   }
   return node
 }
@@ -64,7 +73,13 @@ interface ReactNodeProps {
   selected: boolean
 }
 
-export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected }: ReactNodeProps): ReactNodeType {
+export const ReactNode = memo(function ReactNode({
+  id,
+  type,
+  pos,
+  size,
+  selected,
+}: ReactNodeProps): ReactNodeType {
   const nodeRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [minHeight, setMinHeight] = useState(80)
@@ -73,10 +88,10 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     sizeRef.current = size
   })
 
-  const updateNodePos  = useReactGraphStore((s) => s.updateNodePos)
+  const updateNodePos = useReactGraphStore((s) => s.updateNodePos)
   const updateNodeSize = useReactGraphStore((s) => s.updateNodeSize)
-  const removeNode     = useReactGraphStore((s) => s.removeNode)
-  const selectNode     = useReactGraphStore((s) => s.selectNode)
+  const removeNode = useReactGraphStore((s) => s.removeNode)
+  const selectNode = useReactGraphStore((s) => s.selectNode)
   const updateWidgetValue = useReactGraphStore((s) => s.updateWidgetValue)
   const changeNodeMode = useReactGraphStore((s) => s.changeNodeMode)
   const zoom = useReactGraphStore((s) => s.zoom)
@@ -84,8 +99,8 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
   const executedNodeIds = useReactGraphStore((s) => s.executedNodeIds)
 
   const getNodeDef = useNodeDefStore((s) => s.getNodeDef)
-  const nodeDef    = useMemo(() => getNodeDef(type), [type, getNodeDef])
-  const nodeData   = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
+  const nodeDef = useMemo(() => getNodeDef(type), [type, getNodeDef])
+  const nodeData = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
 
   const LGraphEventModeValues = LiteGraph.LGraphEventMode ?? {
     ALWAYS: 0,
@@ -94,7 +109,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
   }
   const nodeMode = nodeData?.mode ?? LGraphEventModeValues.ALWAYS
   const isBypassed = nodeMode === LGraphEventModeValues.BYPASS
-  const isMuted    = nodeMode === LGraphEventModeValues.NEVER
+  const isMuted = nodeMode === LGraphEventModeValues.NEVER
   const isDisabled = isBypassed || isMuted
 
   const isExecuting = executingNodeId === id
@@ -155,7 +170,9 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
           ins.push({
             name,
             type: String(typeSpec),
-            ...(isWidget ? { widget: { name, config: inputSpec[1] ?? {} } } : {}),
+            ...(isWidget
+              ? { widget: { name, config: inputSpec[1] ?? {} } }
+              : {}),
           })
         }
       }
@@ -163,12 +180,12 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       if (outs.length === 0 && nodeDef) {
         for (let i = 0; i < nodeDef.output.length; i++) {
           outs.push({
-            name: nodeDef.output_name[i] ?? nodeDef.output[i] ?? `out_${String(i)}`,
+            name:
+              nodeDef.output_name[i] ?? nodeDef.output[i] ?? `out_${String(i)}`,
             type: nodeDef.output[i] ?? "*",
           })
         }
       }
-
     }
 
     // Build spec from nodeDef (ComfyUI format) first, then supplement with liveNode for custom types
@@ -193,7 +210,12 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       return input
     })
 
-    return { inputs: ins, outputs: outs, widgetNames: names, widgetSpecs: specs }
+    return {
+      inputs: ins,
+      outputs: outs,
+      widgetNames: names,
+      widgetSpecs: specs,
+    }
   }, [nodeDef, nodeData, liveNode])
 
   useLayoutEffect(() => {
@@ -270,8 +292,10 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     useReactGraphStore.getState().takeSnapshot()
     selectNode(id, e.ctrlKey || e.metaKey)
 
-    const startX = pos[0], startY = pos[1]
-    const startMX = e.clientX, startMY = e.clientY
+    const startX = pos[0],
+      startY = pos[1]
+    const startMX = e.clientX,
+      startMY = e.clientY
 
     const onMove = (ev: MouseEvent): void => {
       updateNodePos(id, [
@@ -281,10 +305,10 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     }
     const onUp = (): void => {
       window.removeEventListener("mousemove", onMove)
-      window.removeEventListener("mouseup",   onUp)
+      window.removeEventListener("mouseup", onUp)
     }
     window.addEventListener("mousemove", onMove)
-    window.addEventListener("mouseup",   onUp)
+    window.addEventListener("mouseup", onUp)
   }
 
   // ─── 너비 리사이즈 (우측 핸들) ──────────────────────────────
@@ -293,18 +317,22 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     e.stopPropagation()
     e.preventDefault()
 
-    const startW = size[0], startMX = e.clientX
+    const startW = size[0],
+      startMX = e.clientX
 
     const onMove = (ev: MouseEvent): void => {
-      const nextW = Math.max(180, Math.round(startW + (ev.clientX - startMX) / zoom))
+      const nextW = Math.max(
+        180,
+        Math.round(startW + (ev.clientX - startMX) / zoom)
+      )
       updateNodeSize(id, [nextW, size[1]])
     }
     const onUp = (): void => {
       window.removeEventListener("mousemove", onMove)
-      window.removeEventListener("mouseup",   onUp)
+      window.removeEventListener("mouseup", onUp)
     }
     window.addEventListener("mousemove", onMove)
-    window.addEventListener("mouseup",   onUp)
+    window.addEventListener("mouseup", onUp)
   }
 
   // ─── 높이 리사이즈 (하단 핸들) ──────────────────────────────
@@ -313,18 +341,22 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     e.stopPropagation()
     e.preventDefault()
 
-    const startH = size[1], startMY = e.clientY
+    const startH = size[1],
+      startMY = e.clientY
 
     const onMove = (ev: MouseEvent): void => {
-      const nextH = Math.max(minHeight, Math.round(startH + (ev.clientY - startMY) / zoom))
+      const nextH = Math.max(
+        minHeight,
+        Math.round(startH + (ev.clientY - startMY) / zoom)
+      )
       updateNodeSize(id, [size[0], nextH])
     }
     const onUp = (): void => {
       window.removeEventListener("mousemove", onMove)
-      window.removeEventListener("mouseup",   onUp)
+      window.removeEventListener("mouseup", onUp)
     }
     window.addEventListener("mousemove", onMove)
-    window.addEventListener("mouseup",   onUp)
+    window.addEventListener("mouseup", onUp)
   }
 
   // ─── 코너 리사이즈 (우하단 핸들) ────────────────────────────
@@ -333,33 +365,38 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
     e.stopPropagation()
     e.preventDefault()
 
-    const startW = size[0], startH = size[1]
-    const startMX = e.clientX, startMY = e.clientY
+    const startW = size[0],
+      startH = size[1]
+    const startMX = e.clientX,
+      startMY = e.clientY
 
     const onMove = (ev: MouseEvent): void => {
-      const nextW = Math.max(180, Math.round(startW + (ev.clientX - startMX) / zoom))
-      const nextH = Math.max(minHeight, Math.round(startH + (ev.clientY - startMY) / zoom))
+      const nextW = Math.max(
+        180,
+        Math.round(startW + (ev.clientX - startMX) / zoom)
+      )
+      const nextH = Math.max(
+        minHeight,
+        Math.round(startH + (ev.clientY - startMY) / zoom)
+      )
       updateNodeSize(id, [nextW, nextH])
     }
     const onUp = (): void => {
       window.removeEventListener("mousemove", onMove)
-      window.removeEventListener("mouseup",   onUp)
+      window.removeEventListener("mouseup", onUp)
     }
     window.addEventListener("mousemove", onMove)
-    window.addEventListener("mouseup",   onUp)
+    window.addEventListener("mouseup", onUp)
   }
-
-
-
 
   // ─── 렌더 ───────────────────────────────────────────────────
   return (
     <div
       ref={nodeRef}
       data-node-id={id}
-      className={`absolute rounded-lg border shadow-md flex flex-col select-none transition-all duration-300 ${
+      className={`absolute flex flex-col rounded-lg border shadow-md transition-all duration-300 select-none ${
         selected
-          ? "border-primary ring-2 ring-primary/25 shadow-lg"
+          ? "border-primary shadow-lg ring-2 ring-primary/25"
           : isExecuting
             ? "border-green-500 shadow-[0_0_12px_rgba(34,197,94,0.45)] ring-2 ring-green-500/30"
             : isMuted
@@ -367,9 +404,9 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
               : "border-border"
       } ${isMuted ? "opacity-50" : isBypassed ? "opacity-75" : "bg-background/95"}`}
       style={{
-        left:   pos[0],
-        top:    pos[1],
-        width:  size[0],
+        left: pos[0],
+        top: pos[1],
+        width: size[0],
         height: size[1],
         zIndex: selected ? 100 : 10,
         minWidth: 180,
@@ -381,7 +418,11 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       }}
       onDoubleClick={(e) => {
         // SubgraphNode 인스턴스(type=UUID)인 경우 더블클릭으로 진입
-        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(type)) {
+        if (
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            type
+          )
+        ) {
           e.stopPropagation()
           useSubgraphNavigationStore.getState().navigateTo(type)
         }
@@ -390,28 +431,34 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       {/* ── Title bar ─────────────────────────────────────── */}
       <div
         onMouseDown={handleHeaderMouseDown}
-        className={`shrink-0 flex items-center justify-between px-3 py-1.5 border-b rounded-t-lg cursor-grab active:cursor-grabbing text-xs font-bold text-foreground ${
-          isMuted ? "bg-zinc-800/60 border-zinc-700" : isBypassed ? "bg-zinc-600/40 border-zinc-600/50" : "bg-muted/65 border-border"
+        className={`flex shrink-0 cursor-grab items-center justify-between rounded-t-lg border-b px-3 py-1.5 text-xs font-bold text-foreground active:cursor-grabbing ${
+          isMuted
+            ? "border-zinc-700 bg-zinc-800/60"
+            : isBypassed
+              ? "border-zinc-600/50 bg-zinc-600/40"
+              : "border-border bg-muted/65"
         }`}
       >
-        <span className="truncate flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 truncate">
           {isExecuting ? (
             <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
             </span>
           ) : isExecuted ? (
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)] shrink-0" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" />
           ) : null}
           <span>{nodeDef?.display_name ?? type}</span>
-          {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(type) && (
+          {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            type
+          ) && (
             <button
               title="Enter subgraph"
               onClick={(e): void => {
                 e.stopPropagation()
                 useSubgraphNavigationStore.getState().navigateTo(type)
               }}
-              className="ml-1 p-0.5 rounded hover:bg-zinc-600 transition-colors cursor-pointer"
+              className="ml-1 cursor-pointer rounded p-0.5 transition-colors hover:bg-zinc-600"
             >
               <Maximize2 className="h-3 w-3 text-blue-400" />
             </button>
@@ -420,14 +467,24 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
         <div className="flex items-center gap-1">
           {/* ── Mode toggle ── */}
           <button
-            title={isBypassed ? "Bypass (off)" : isMuted ? "Muted (off)" : "Always (on)"}
+            title={
+              isBypassed
+                ? "Bypass (off)"
+                : isMuted
+                  ? "Muted (off)"
+                  : "Always (on)"
+            }
             onClick={(e) => {
               e.stopPropagation()
               // Cycle: ALWAYS → BYPASS → NEVER → ALWAYS
-              const next = isBypassed ? LGraphEventModeValues.NEVER : isMuted ? LGraphEventModeValues.ALWAYS : LGraphEventModeValues.BYPASS
+              const next = isBypassed
+                ? LGraphEventModeValues.NEVER
+                : isMuted
+                  ? LGraphEventModeValues.ALWAYS
+                  : LGraphEventModeValues.BYPASS
               changeNodeMode(id, next)
             }}
-            className={`text-[9px] font-bold px-1 py-0.5 rounded leading-none transition-colors ${
+            className={`rounded px-1 py-0.5 text-[9px] leading-none font-bold transition-colors ${
               isMuted
                 ? "bg-red-950/60 text-red-400 hover:bg-red-900/60"
                 : isBypassed
@@ -438,8 +495,11 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
             {isMuted ? "OFF" : isBypassed ? "BYP" : "ON"}
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); removeNode(id) }}
-            className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              removeNode(id)
+            }}
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:text-destructive"
           >
             <X className="h-3 w-3" />
           </button>
@@ -447,33 +507,41 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       </div>
 
       {isExecuting && (
-        <div className="w-full h-0.5 bg-green-950/40 relative overflow-hidden shrink-0">
-          <div className="h-full bg-green-500 animate-pulse w-full" />
+        <div className="relative h-0.5 w-full shrink-0 overflow-hidden bg-green-950/40">
+          <div className="h-full w-full animate-pulse bg-green-500" />
         </div>
       )}
 
       {/* ── Content (slots + widgets) ──────────────────────── */}
-      <div ref={contentRef} className="flex-1 py-1 flex flex-col gap-0.5 text-[11px]">
+      <div
+        ref={contentRef}
+        className="flex flex-1 flex-col gap-0.5 py-1 text-[11px]"
+      >
         {/* Inputs & Outputs row */}
         <div className="grid grid-cols-2 gap-2 px-1">
           {/* Left: Pure Inputs (no widget) */}
-          <div className="flex flex-col gap-0.5 items-start">
+          <div className="flex flex-col items-start gap-0.5">
             {inputs.map((input, idx) => {
               if (input.widget) return null
               return (
-                <div key={`in-${String(idx)}`} className="flex items-center gap-1.5 text-left h-4 relative pl-3.5">
+                <div
+                  key={`in-${String(idx)}`}
+                  className="relative flex h-4 items-center gap-1.5 pl-3.5 text-left"
+                >
                   <div
                     data-slot-node-id={id}
                     data-slot-type="input"
                     data-slot-index={idx}
                     data-slot-name={input.name}
                     data-slot-datatype={input.type}
-                    className={`absolute left-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
-                      input.link !== undefined ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
+                    className={`absolute left-0 h-2.5 w-2.5 cursor-crosshair rounded-full border border-background transition-colors ${
+                      input.link !== undefined
+                        ? "bg-green-500"
+                        : "bg-gray-400/70 hover:bg-green-400"
                     }`}
                     title={input.type}
                   />
-                  <span className="truncate max-w-[80px] text-muted-foreground font-semibold">
+                  <span className="max-w-[80px] truncate font-semibold text-muted-foreground">
                     {input.name}
                   </span>
                 </div>
@@ -482,10 +550,13 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
           </div>
 
           {/* Right: Outputs */}
-          <div className="flex flex-col gap-0.5 items-end ml-auto">
+          <div className="ml-auto flex flex-col items-end gap-0.5">
             {outputs.map((output, idx) => (
-              <div key={`out-${String(idx)}`} className="flex items-center gap-1.5 text-right h-4 relative pr-3.5">
-                <span className="truncate max-w-[80px] text-muted-foreground font-semibold">
+              <div
+                key={`out-${String(idx)}`}
+                className="relative flex h-4 items-center gap-1.5 pr-3.5 text-right"
+              >
+                <span className="max-w-[80px] truncate font-semibold text-muted-foreground">
                   {output.name}
                 </span>
                 <div
@@ -494,7 +565,7 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
                   data-slot-index={idx}
                   data-slot-name={output.name}
                   data-slot-datatype={output.type}
-                  className={`absolute right-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
+                  className={`absolute right-0 h-2.5 w-2.5 cursor-crosshair rounded-full border border-background transition-colors ${
                     output.links !== undefined && output.links.length > 0
                       ? "bg-green-500"
                       : "bg-gray-400/70 hover:bg-green-400"
@@ -508,38 +579,50 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
 
         {/* Widget Inputs (socket + widget inline) */}
         {inputs.some((i) => i.widget) && (
-          <div className="flex flex-col border-t border-border/50 pt-1 gap-0">
+          <div className="flex flex-col gap-0 border-t border-border/50 pt-1">
             {inputs.map((input, idx) => {
               if (!input.widget) return null
               const widgetName = input.widget.name
               const widgetIdx = widgetNames.indexOf(widgetName)
-              const widgetValue = widgetIdx !== -1 ? (nodeData?.widgets_values?.[widgetIdx] ?? "") : ""
+              const widgetValue =
+                widgetIdx !== -1
+                  ? (nodeData?.widgets_values?.[widgetIdx] ?? "")
+                  : ""
 
               return (
-                <div key={`widget-in-${String(idx)}`} className="flex flex-col gap-0 pr-2 py-0.5">
+                <div
+                  key={`widget-in-${String(idx)}`}
+                  className="flex flex-col gap-0 py-0.5 pr-2"
+                >
                   {/* 라벨 — 입력칸 위 */}
-                  <span className="text-[10px] text-muted-foreground font-bold truncate pl-4">
+                  <span className="truncate pl-4 text-[10px] font-bold text-muted-foreground">
                     {widgetName}
                   </span>
                   {/* 소켓 + 입력칸 한 줄 */}
                   <div className="flex items-center gap-1.5">
-                  <div
-                    data-slot-node-id={id}
-                    data-slot-type="input"
-                    data-slot-index={idx}
-                    data-slot-name={input.name}
-                    data-slot-datatype={input.type}
-                    className={`shrink-0 w-2.5 h-2.5 rounded-full border border-background cursor-crosshair transition-colors ${
-                      input.link !== undefined ? "bg-green-500" : "bg-gray-400/70 hover:bg-green-400"
-                    }`}
-                    title={input.type}
-                  />
-                    <div className="flex-1 min-w-0">
+                    <div
+                      data-slot-node-id={id}
+                      data-slot-type="input"
+                      data-slot-index={idx}
+                      data-slot-name={input.name}
+                      data-slot-datatype={input.type}
+                      className={`h-2.5 w-2.5 shrink-0 cursor-crosshair rounded-full border border-background transition-colors ${
+                        input.link !== undefined
+                          ? "bg-green-500"
+                          : "bg-gray-400/70 hover:bg-green-400"
+                      }`}
+                      title={input.type}
+                    />
+                    <div className="min-w-0 flex-1">
                       {input.link !== undefined ? (
-                        <span className="text-[9px] text-green-500 font-mono">linked</span>
+                        <span className="font-mono text-[9px] text-green-500">
+                          linked
+                        </span>
                       ) : (
                         ((): React.JSX.Element => {
-                          const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === widgetName)
+                          const liveW = liveNode?.widgets?.find(
+                            (w: LiveWidget) => w.name === widgetName
+                          )
                           return (
                             <ReactWidget
                               name={widgetName}
@@ -563,8 +646,12 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
                               disabled={isDisabled}
                               source="input-widget"
                               element={liveW?.element ?? null}
-                              {...(liveW ? { widget: liveW as CanvasWidget } : {})}
-                              {...(liveNode ? { node: liveNode as CanvasNode } : {})}
+                              {...(liveW
+                                ? { widget: liveW as CanvasWidget }
+                                : {})}
+                              {...(liveNode
+                                ? { node: liveNode as CanvasNode }
+                                : {})}
                             />
                           )
                         })()
@@ -578,25 +665,33 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
         )}
 
         {/* Pure widgets not exposed as inputs */}
-        {(() : ReactNodeType | null => {
+        {((): ReactNodeType | null => {
           const linkedWidgetNames = new Set<string>()
           for (const i of inputs) {
             if (i.widget !== undefined) {
               linkedWidgetNames.add(i.widget.name)
             }
           }
-          const pureWidgets = widgetNames.filter((n) => !linkedWidgetNames.has(n))
+          const pureWidgets = widgetNames.filter(
+            (n) => !linkedWidgetNames.has(n)
+          )
           if (pureWidgets.length === 0) return null
           return (
-            <div className="flex flex-col border-t border-border/50 pt-1 gap-0">
+            <div className="flex flex-col gap-0 border-t border-border/50 pt-1">
               {pureWidgets.map((name) => (
                 <div key={`widget-${name}`} className="px-2 py-0.5">
                   {((): React.JSX.Element => {
-                    const liveW = liveNode?.widgets?.find((w: LiveWidget) => w.name === name)
+                    const liveW = liveNode?.widgets?.find(
+                      (w: LiveWidget) => w.name === name
+                    )
                     return (
                       <ReactWidget
                         name={name}
-                        value={nodeData?.widgets_values?.[widgetNames.indexOf(name)] ?? ""}
+                        value={
+                          nodeData?.widgets_values?.[
+                            widgetNames.indexOf(name)
+                          ] ?? ""
+                        }
                         spec={widgetSpecs[name]}
                         onChange={(newVal) => {
                           updateWidgetValue(id, name, newVal)
@@ -627,15 +722,22 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
         })()}
 
         {/* Custom HTML injected by properties */}
-        {(() : ReactNodeType | null => {
-          const rawHtml = liveNode?.properties?.html ?? liveNode?.properties?.custom_html ?? liveNode?.properties?.text_html ?? nodeData?.properties?.html ?? nodeData?.properties?.custom_html
+        {((): ReactNodeType | null => {
+          const rawHtml =
+            liveNode?.properties?.html ??
+            liveNode?.properties?.custom_html ??
+            liveNode?.properties?.text_html ??
+            nodeData?.properties?.html ??
+            nodeData?.properties?.custom_html
           const customHtml = typeof rawHtml === "string" ? rawHtml : ""
           if (!customHtml) return null
           return (
             <div
-              className="border-t border-border/50 p-2 overflow-auto max-h-[250px] text-xs text-foreground bg-accent/5 select-text lm-custom-html"
+              className="lm-custom-html max-h-[250px] overflow-auto border-t border-border/50 bg-accent/5 p-2 text-xs text-foreground select-text"
               dangerouslySetInnerHTML={{ __html: customHtml }}
-              onMouseDown={(e) => { e.stopPropagation() }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+              }}
             />
           )
         })()}
@@ -657,10 +759,15 @@ export const ReactNode = memo(function ReactNode({ id, type, pos, size, selected
       {/* Corner — both */}
       <div
         onMouseDown={handleCornerResize}
-        className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize flex items-center justify-center"
+        className="absolute right-0 bottom-0 flex h-3 w-3 cursor-se-resize items-center justify-center"
       >
         <svg width="6" height="6" viewBox="0 0 6 6" className="text-border/70">
-          <path d="M0 6 L6 0 M3 6 L6 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          <path
+            d="M0 6 L6 0 M3 6 L6 3"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
         </svg>
       </div>
     </div>

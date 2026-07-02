@@ -13,9 +13,14 @@ interface NodeLibrarySidebarProps {
   className?: string
 }
 
-export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySidebarProps): React.JSX.Element {
+export function NodeLibrarySidebar({
+  onAddNode,
+  className = "",
+}: NodeLibrarySidebarProps): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState("")
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set()
+  )
 
   const nodeDefsByCategory = useNodeDefStore((s) => s.nodeDefsByCategory)
 
@@ -54,18 +59,20 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
   const isSearching = searchQuery.trim().length > 0
 
   return (
-    <div className={`flex flex-col h-full bg-background border-r ${className}`}>
+    <div className={`flex h-full flex-col border-r bg-background ${className}`}>
       {/* Header */}
-      <div className="p-3 border-b">
-        <h3 className="text-sm font-semibold mb-2">Node Library</h3>
+      <div className="border-b p-3">
+        <h3 className="mb-2 text-sm font-semibold">Node Library</h3>
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search nodes..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); }}
-            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+            }}
+            className="w-full rounded-md border bg-background py-1.5 pr-3 pl-8 text-sm focus:ring-1 focus:ring-ring focus:outline-none"
           />
         </div>
       </div>
@@ -73,7 +80,7 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
       {/* Node List */}
       <div className="flex-1 overflow-y-auto">
         {Object.keys(filteredCategories).length === 0 ? (
-          <div className="p-4 text-sm text-muted-foreground text-center">
+          <div className="p-4 text-center text-sm text-muted-foreground">
             No nodes found
           </div>
         ) : (
@@ -82,28 +89,34 @@ export function NodeLibrarySidebar({ onAddNode, className = "" }: NodeLibrarySid
             return (
               <div key={category}>
                 <button
-                  className="flex items-center w-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/50 transition-colors"
-                  onClick={() => { toggleCategory(category); }}
+                  className="flex w-full items-center px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/50"
+                  onClick={() => {
+                    toggleCategory(category)
+                  }}
                 >
                   {isExpanded ? (
-                    <ChevronDown className="h-3.5 w-3.5 mr-1 shrink-0" />
+                    <ChevronDown className="mr-1 h-3.5 w-3.5 shrink-0" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 mr-1 shrink-0" />
+                    <ChevronRight className="mr-1 h-3.5 w-3.5 shrink-0" />
                   )}
                   {category}
-                  <span className="ml-auto text-[10px] text-muted-foreground/60">{defs.length}</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground/60">
+                    {defs.length}
+                  </span>
                 </button>
                 {isExpanded && (
                   <div className="ml-2">
                     {defs.map((def, idx) => (
                       <button
                         key={`${category}-${def.name}-${String(idx)}`}
-                        className="flex items-center w-full px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors group"
+                        className="group flex w-full items-center px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
                         onClick={() => onAddNode?.(def.name)}
                         title={`${def.display_name ?? def.name} (${def.name})`}
                       >
-                        <Plus className="h-3 w-3 mr-1.5 text-muted-foreground/40 group-hover:text-muted-foreground" />
-                        <span className="truncate">{def.display_name ?? def.name}</span>
+                        <Plus className="mr-1.5 h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground" />
+                        <span className="truncate">
+                          {def.display_name ?? def.name}
+                        </span>
                       </button>
                     ))}
                   </div>

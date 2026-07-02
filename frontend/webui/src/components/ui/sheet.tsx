@@ -5,7 +5,9 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>): React.JSX.Element {
+function Sheet({
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Root>): React.JSX.Element {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
@@ -83,7 +85,10 @@ function SheetContent({
   )
 }
 
-function SheetHeader({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function SheetHeader({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="sheet-header"
@@ -93,7 +98,10 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">): Reac
   )
 }
 
-function SheetFooter({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function SheetFooter({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="sheet-footer"

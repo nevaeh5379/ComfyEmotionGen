@@ -56,10 +56,20 @@ export const PreviewTable = ({
             <TableRow
               key={`${title}-${itemKey(item)}-${String(i)}`}
               className={onItemClick ? "cursor-pointer" : ""}
-              onClick={onItemClick ? (): void => { onItemClick(item); } : undefined}
+              onClick={
+                onItemClick
+                  ? (): void => {
+                      onItemClick(item)
+                    }
+                  : undefined
+              }
             >
               {showCheckboxes === true && (
-                <TableCell onClick={(e) => { e.stopPropagation(); }}>
+                <TableCell
+                  onClick={(e) => {
+                    e.stopPropagation()
+                  }}
+                >
                   <Checkbox
                     checked={getItemChecked?.(item) ?? true}
                     onCheckedChange={() => onToggleItem?.(item)}

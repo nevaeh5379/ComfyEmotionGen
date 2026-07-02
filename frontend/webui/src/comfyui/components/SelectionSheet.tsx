@@ -54,7 +54,9 @@ export const SelectionSheet = ({
   onRunSelected,
   onExcludeApproved,
 }: SelectionSheetProps): React.JSX.Element => {
-  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
+    null
+  )
 
   const rowVirtualizer = useVirtualizer({
     count: filteredPreview.length,
@@ -81,7 +83,9 @@ export const SelectionSheet = ({
               type="search"
               placeholder="filename/prompt 검색..."
               value={previewFilter}
-              onChange={(e) => { onPreviewFilterChange(e.target.value); }}
+              onChange={(e) => {
+                onPreviewFilterChange(e.target.value)
+              }}
               className="h-9 text-sm"
             />
           </div>
@@ -114,17 +118,28 @@ export const SelectionSheet = ({
         </div>
         <div
           ref={setScrollElement}
-          className="min-h-0 flex-1 overflow-auto rounded-md border shadow-inner scrollbar-thin"
+          className="min-h-0 flex-1 scrollbar-thin overflow-auto rounded-md border shadow-inner"
         >
-          <Table className="text-xs flex flex-col w-full relative">
-            <TableHeader className="sticky top-0 z-10 bg-panel/95 backdrop-blur-sm flex w-full border-b shrink-0">
+          <Table className="relative flex w-full flex-col text-xs">
+            <TableHeader className="sticky top-0 z-10 flex w-full shrink-0 border-b bg-panel/95 backdrop-blur-sm">
               <TableRow className="flex w-full hover:bg-transparent">
-                <TableHead className="w-10 px-2 flex items-center justify-center" />
-                <TableHead className="flex-1 px-2 flex items-center font-bold">파일명</TableHead>
-                <TableHead className="flex-1 px-2 flex items-center font-bold">프롬프트</TableHead>
+                <TableHead className="flex w-10 items-center justify-center px-2" />
+                <TableHead className="flex flex-1 items-center px-2 font-bold">
+                  파일명
+                </TableHead>
+                <TableHead className="flex flex-1 items-center px-2 font-bold">
+                  프롬프트
+                </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody style={{ height: `${String(totalSize)}px`, position: "relative", display: "block", width: "100%" }}>
+            <TableBody
+              style={{
+                height: `${String(totalSize)}px`,
+                position: "relative",
+                display: "block",
+                width: "100%",
+              }}
+            >
               {virtualItems.map((virtualItem) => {
                 const item = filteredPreview[virtualItem.index]
                 if (!item) return null
@@ -141,33 +156,42 @@ export const SelectionSheet = ({
                       transform: `translateY(${String(virtualItem.start)}px)`,
                     }}
                     className={cn(
-                      "flex cursor-pointer transition-opacity items-center hover:bg-muted/30 border-b",
+                      "flex cursor-pointer items-center border-b transition-opacity hover:bg-muted/30",
                       !uncheckedItems.has(key) ? "" : "opacity-40"
                     )}
-                    onClick={() => { toggleItemCheck(key); }}
+                    onClick={() => {
+                      toggleItemCheck(key)
+                    }}
                   >
                     <TableCell
-                      onClick={(e) => { e.stopPropagation(); }}
-                      className="w-10 px-2 py-3 flex items-center justify-center shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                      }}
+                      className="flex w-10 shrink-0 items-center justify-center px-2 py-3"
                     >
                       <input
                         type="checkbox"
                         checked={!uncheckedItems.has(key)}
-                        onChange={() => { toggleItemCheck(key); }}
-                        className="size-4 shrink-0 rounded-[4px] border border-input accent-primary cursor-pointer focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
+                        onChange={() => {
+                          toggleItemCheck(key)
+                        }}
+                        className="size-4 shrink-0 cursor-pointer rounded-[4px] border border-input accent-primary focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
                       />
                     </TableCell>
-                    <TableCell className="flex-1 min-w-0 px-2 font-mono text-[11px] font-bold truncate shrink-0">
+                    <TableCell className="min-w-0 flex-1 shrink-0 truncate px-2 font-mono text-[11px] font-bold">
                       {item.filename}
                     </TableCell>
-                    <TableCell className="flex-1 min-w-0 px-2 text-muted-foreground truncate">
+                    <TableCell className="min-w-0 flex-1 truncate px-2 text-muted-foreground">
                       {item.prompt}
                     </TableCell>
                   </TableRow>
                 )
               })}
               {filteredPreview.length === 0 && (
-                <TableRow key="no-results" className="flex items-center justify-center h-40 text-muted-foreground w-full">
+                <TableRow
+                  key="no-results"
+                  className="flex h-40 w-full items-center justify-center text-muted-foreground"
+                >
                   <TableCell className="text-center font-medium">
                     검색 결과가 없습니다.
                   </TableCell>
@@ -180,7 +204,9 @@ export const SelectionSheet = ({
           <Button
             variant="default"
             size="lg"
-            onClick={() => { void onRunSelected(); }}
+            onClick={() => {
+              void onRunSelected()
+            }}
             disabled={!canRun || selectedCount === 0}
             className="h-11 w-full text-base font-black sm:h-10 sm:w-auto sm:text-sm"
           >

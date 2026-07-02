@@ -90,111 +90,152 @@ export const useSavedImages = (
   const groupTotalRef = useLatestRef(groupTotal)
 
   // ── Async internals (useCallback) ─────────────────────────────
-  const fetchImagesInternal = useCallback(async (silent?: boolean): Promise<void> => {
-    if (groupModeRef.current) return
-    abortRef.current?.abort()
-    const ac = new AbortController()
-    abortRef.current = ac
-    if (silent === true) setLoading(true)
-    setError(null)
-    try {
-      const offset = Math.max(0, (pageRef.current - 1) * pageSizeRef.current)
-      const params = new URLSearchParams({
-        limit: String(pageSizeRef.current),
-        offset: String(offset),
-      })
-      if (statusRef.current && statusRef.current !== "all") params.set("status", statusRef.current)
-      if (filenameRef.current !== undefined && filenameRef.current !== "") params.set("filename", filenameRef.current)
-      if (tagRef.current !== undefined && tagRef.current !== "") params.set("tag", tagRef.current)
-      const res = await fetch(`${urlToUseRef.current}${API.savedImages.root}?${params.toString()}`, {
-        signal: ac.signal,
-      })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
-      const data = (await res.json()) as {
-        items: SavedImage[]
-        total?: number
-      }
-      setImages(data.items)
-      setTotal(typeof data.total === "number" ? data.total : data.items.length)
-    } catch (err) {
-      if ((err as Error).name === "AbortError") return
-      setError((err as Error).message)
-    } finally {
-      if (silent !== true) setLoading(false)
-    }
-  }, [groupModeRef, abortRef, pageRef, pageSizeRef, statusRef, filenameRef, tagRef, urlToUseRef])
-
-  const fetchGroupsInternal = useCallback(async (silent?: boolean): Promise<void> => {
-    if (!groupModeRef.current) return
-    abortRef.current?.abort()
-    const ac = new AbortController()
-    abortRef.current = ac
-    if (silent === true) setLoading(true)
-    setError(null)
-    try {
-      const offset = Math.max(0, (groupPageRef.current - 1) * groupPageSizeRef.current)
-      const params = new URLSearchParams({
-        limit: String(groupPageSizeRef.current),
-        offset: String(offset),
-        sort: "latest",
-      })
-      const res = await fetch(`${urlToUseRef.current}${API.assetGroups.root}?${params.toString()}`, {
-        signal: ac.signal,
-      })
-      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
-      const data = (await res.json()) as {
-        groups: AssetGroup[]
-        limit: number
-        offset: number
-      }
-      setGroups(data.groups)
-
-      // 전체 그룹 수 추정: 현재 페이지가 마지막이 아니면 대략적인 total 사용
-      // 마지막 페이지면 offset + 받은 개수
-      if (data.groups.length < groupPageSizeRef.current) {
-        setGroupTotal(offset + data.groups.length)
-      } else {
-        // 다음 페이지가 있을 수 있으므로 여유 있게
-        setGroupTotal(Math.max(groupTotalRef.current, offset + data.groups.length + 1))
-      }
-    } catch (err: unknown) {
-      if ((err as Error).name === "AbortError") return
-      setError((err as Error).message)
-    } finally {
-      if (silent !== true) setLoading(false)
-    }
-  }, [groupModeRef, abortRef, groupPageRef, groupPageSizeRef, urlToUseRef, groupTotalRef])
-
-  const fetchGroupImagesInternal = useCallback(async (
-    filenames: string[],
-    currentStatus: CurationStatus | "all" | undefined
-  ): Promise<void> => {
-    if (!groupModeRef.current || filenames.length === 0) return
-    const newMap = new Map<string, SavedImage[]>()
-    const statusParam =
-      currentStatus && currentStatus !== "all"
-        ? `?status=${currentStatus}`
-        : ""
-    const fetches = filenames.map(async (fn) => {
+  const fetchImagesInternal = useCallback(
+    async (silent?: boolean): Promise<void> => {
+      if (groupModeRef.current) return
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+      if (silent === true) setLoading(true)
+      setError(null)
       try {
+        const offset = Math.max(0, (pageRef.current - 1) * pageSizeRef.current)
+        const params = new URLSearchParams({
+          limit: String(pageSizeRef.current),
+          offset: String(offset),
+        })
+        if (statusRef.current && statusRef.current !== "all")
+          params.set("status", statusRef.current)
+        if (filenameRef.current !== undefined && filenameRef.current !== "")
+          params.set("filename", filenameRef.current)
+        if (tagRef.current !== undefined && tagRef.current !== "")
+          params.set("tag", tagRef.current)
         const res = await fetch(
-          `${urlToUseRef.current}${API.assetGroups.detail(fn)}${statusParam}`
+          `${urlToUseRef.current}${API.savedImages.root}?${params.toString()}`,
+          {
+            signal: ac.signal,
+          }
         )
         if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
         const data = (await res.json()) as {
-          filename: string
           items: SavedImage[]
+          total?: number
         }
-        newMap.set(fn, data.items)
+        setImages(data.items)
+        setTotal(
+          typeof data.total === "number" ? data.total : data.items.length
+        )
       } catch (err) {
-        console.error(`fetch group images failed for ${fn}`, err)
-        toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
-        newMap.set(fn, [])
+        if ((err as Error).name === "AbortError") return
+        setError((err as Error).message)
+      } finally {
+        if (silent !== true) setLoading(false)
       }
-    })
-    await Promise.all(fetches)
-    setGroupImagesMap(newMap)
-  }, [groupModeRef, urlToUseRef])
+    },
+    [
+      groupModeRef,
+      abortRef,
+      pageRef,
+      pageSizeRef,
+      statusRef,
+      filenameRef,
+      tagRef,
+      urlToUseRef,
+    ]
+  )
+
+  const fetchGroupsInternal = useCallback(
+    async (silent?: boolean): Promise<void> => {
+      if (!groupModeRef.current) return
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+      if (silent === true) setLoading(true)
+      setError(null)
+      try {
+        const offset = Math.max(
+          0,
+          (groupPageRef.current - 1) * groupPageSizeRef.current
+        )
+        const params = new URLSearchParams({
+          limit: String(groupPageSizeRef.current),
+          offset: String(offset),
+          sort: "latest",
+        })
+        const res = await fetch(
+          `${urlToUseRef.current}${API.assetGroups.root}?${params.toString()}`,
+          {
+            signal: ac.signal,
+          }
+        )
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+        const data = (await res.json()) as {
+          groups: AssetGroup[]
+          limit: number
+          offset: number
+        }
+        setGroups(data.groups)
+
+        // 전체 그룹 수 추정: 현재 페이지가 마지막이 아니면 대략적인 total 사용
+        // 마지막 페이지면 offset + 받은 개수
+        if (data.groups.length < groupPageSizeRef.current) {
+          setGroupTotal(offset + data.groups.length)
+        } else {
+          // 다음 페이지가 있을 수 있으므로 여유 있게
+          setGroupTotal(
+            Math.max(groupTotalRef.current, offset + data.groups.length + 1)
+          )
+        }
+      } catch (err: unknown) {
+        if ((err as Error).name === "AbortError") return
+        setError((err as Error).message)
+      } finally {
+        if (silent !== true) setLoading(false)
+      }
+    },
+    [
+      groupModeRef,
+      abortRef,
+      groupPageRef,
+      groupPageSizeRef,
+      urlToUseRef,
+      groupTotalRef,
+    ]
+  )
+
+  const fetchGroupImagesInternal = useCallback(
+    async (
+      filenames: string[],
+      currentStatus: CurationStatus | "all" | undefined
+    ): Promise<void> => {
+      if (!groupModeRef.current || filenames.length === 0) return
+      const newMap = new Map<string, SavedImage[]>()
+      const statusParam =
+        currentStatus && currentStatus !== "all"
+          ? `?status=${currentStatus}`
+          : ""
+      const fetches = filenames.map(async (fn) => {
+        try {
+          const res = await fetch(
+            `${urlToUseRef.current}${API.assetGroups.detail(fn)}${statusParam}`
+          )
+          if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+          const data = (await res.json()) as {
+            filename: string
+            items: SavedImage[]
+          }
+          newMap.set(fn, data.items)
+        } catch (err) {
+          console.error(`fetch group images failed for ${fn}`, err)
+          toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
+          newMap.set(fn, [])
+        }
+      })
+      await Promise.all(fetches)
+      setGroupImagesMap(newMap)
+    },
+    [groupModeRef, urlToUseRef]
+  )
 
   // ── Sync callbacks (call async internals) ────────────────────────
   const fetchImages = useCallback(
@@ -208,8 +249,10 @@ export const useSavedImages = (
   )
 
   const fetchGroupImages = useCallback(
-    (filenames: string[], currentStatus: CurationStatus | "all" | undefined): Promise<void> =>
-      fetchGroupImagesInternal(filenames, currentStatus),
+    (
+      filenames: string[],
+      currentStatus: CurationStatus | "all" | undefined
+    ): Promise<void> => fetchGroupImagesInternal(filenames, currentStatus),
     [fetchGroupImagesInternal]
   )
 

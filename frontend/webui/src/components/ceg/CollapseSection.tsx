@@ -45,7 +45,9 @@ export function CollapseSection({
                 open ? "" : "-rotate-90"
               )}
             />
-            {icon !== null && <span className="shrink-0 text-ink-2">{icon}</span>}
+            {icon !== null && (
+              <span className="shrink-0 text-ink-2">{icon}</span>
+            )}
             <span className="text-xs font-semibold whitespace-nowrap">
               {title}
             </span>
@@ -58,7 +60,9 @@ export function CollapseSection({
           {actions !== null && (
             <div
               className="flex items-center"
-              onClick={(e) => { e.stopPropagation(); }}
+              onClick={(e) => {
+                e.stopPropagation()
+              }}
             >
               {actions}
             </div>

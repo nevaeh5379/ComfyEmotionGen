@@ -2,7 +2,10 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-function Empty({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function Empty({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="empty"
@@ -15,7 +18,10 @@ function Empty({ className, ...props }: React.ComponentProps<"div">): React.JSX.
   )
 }
 
-function EmptyHeader({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function EmptyHeader({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="empty-header"
@@ -44,7 +50,8 @@ function EmptyMedia({
   className,
   variant = "default",
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>): React.JSX.Element {
+}: React.ComponentProps<"div"> &
+  VariantProps<typeof emptyMediaVariants>): React.JSX.Element {
   return (
     <div
       data-slot="empty-icon"
@@ -55,7 +62,10 @@ function EmptyMedia({
   )
 }
 
-function EmptyTitle({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function EmptyTitle({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="empty-title"
@@ -68,7 +78,10 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">): React
   )
 }
 
-function EmptyDescription({ className, ...props }: React.ComponentProps<"p">): React.JSX.Element {
+function EmptyDescription({
+  className,
+  ...props
+}: React.ComponentProps<"p">): React.JSX.Element {
   return (
     <div
       data-slot="empty-description"
@@ -81,7 +94,10 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">): R
   )
 }
 
-function EmptyContent({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+function EmptyContent({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div
       data-slot="empty-content"

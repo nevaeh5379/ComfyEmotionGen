@@ -1,10 +1,4 @@
-import {
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
-  type ReactNode,
-} from "react"
+import { useState, useMemo, useCallback, useRef, type ReactNode } from "react"
 import { useSyncedStorage } from "../hooks/useSyncedStorage"
 import { useLatestRef } from "../hooks/useLatestRef"
 import { useSettings } from "../hooks/useSettings"
@@ -28,7 +22,7 @@ export function GalleryToolbarProvider({
   backendUrl: string
 }): React.JSX.Element {
   const { settings } = useSettings()
-   
+
   const confirm = useConfirm()
 
   const [statusFilter, setStatusFilter] = useState<CurationStatus | "all">(
@@ -120,7 +114,6 @@ export function GalleryToolbarProvider({
 
   const handleEmptyTrash = useCallback(async () => {
     if (
-       
       !(await confirmRef.current({
         title: "휴지통 비우기",
         description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",

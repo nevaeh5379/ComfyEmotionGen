@@ -62,7 +62,9 @@ export interface GalleryToolbarValue {
 // Context
 // ---------------------------------------------------------------------------
 
-export const GalleryToolbarContext = createContext<GalleryToolbarValue | null>(null)
+export const GalleryToolbarContext = createContext<GalleryToolbarValue | null>(
+  null
+)
 
 export function useGalleryToolbar(): GalleryToolbarValue {
   return useContextRequired(GalleryToolbarContext, "useGalleryToolbar")

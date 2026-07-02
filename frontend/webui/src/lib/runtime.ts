@@ -20,9 +20,9 @@ const DEFAULT_BACKEND_PORT: string =
 
 const getBackendHost = (): string => {
   if (typeof window !== "undefined" && window.location) {
-    return window.location.hostname || "localhost";
+    return window.location.hostname || "localhost"
   }
-  return "localhost";
+  return "localhost"
 }
 
 export const DEFAULT_BACKEND_URL: string =

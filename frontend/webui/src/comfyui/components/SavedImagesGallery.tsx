@@ -116,7 +116,10 @@ import { useLatestRef } from "../hooks/useLatestRef"
 import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
 import { Kbd } from "@/components/ui/kbd"
-import type { GalleryViewMode, GallerySortKey } from "@/comfyui/contexts/GalleryToolbarContext"
+import type {
+  GalleryViewMode,
+  GallerySortKey,
+} from "@/comfyui/contexts/GalleryToolbarContext"
 
 /** 1..totalPages를 ellipsis와 함께 압축. 현재 페이지 ±1 표시. */
 function buildPageList(current: number, totalPages: number): (number | "…")[] {
@@ -203,7 +206,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   fluidGridLayout = true,
 }: Props) {
   useRenderLog("SavedImagesGallery")
-   
+
   const confirm = useConfirm()
   const { saveMappingPreset, deleteMappingPreset } = useSavedWorkflows()
   const [statusFilter, setStatusFilterState] = useState<CurationStatus | "all">(
@@ -224,19 +227,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // 그룹 접기/펴기 상태
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const toggleGroupCollapse = (name: string): void =>
-    {
-      setCollapsedGroups((prev) =>
-        prev.has(name)
-          ? new Set([...prev].filter((a) => a !== name))
-          : new Set([...prev, name])
-      )
-    }
-  const collapseAll = (): void =>
-    {
-      setCollapsedGroups(new Set(groups.map((g) => g.filename)))
-    }
-  const expandAll = (): void => { setCollapsedGroups(new Set()) }
+  const toggleGroupCollapse = (name: string): void => {
+    setCollapsedGroups((prev) =>
+      prev.has(name)
+        ? new Set([...prev].filter((a) => a !== name))
+        : new Set([...prev, name])
+    )
+  }
+  const collapseAll = (): void => {
+    setCollapsedGroups(new Set(groups.map((g) => g.filename)))
+  }
+  const expandAll = (): void => {
+    setCollapsedGroups(new Set())
+  }
 
   // 필터 변경 시 page/groupPage도 함께 1로 초기화하는 래퍼
   const setStatusFilter = (v: CurationStatus | "all"): void => {
@@ -337,9 +340,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       dragStartRef.current = startPos
 
       // Find and cache the closest scroll container to adjust coordinates if scrolled during drag
-      const scrollContainer = target.closest(
-        ".overflow-y-auto"
-      )
+      const scrollContainer = target.closest(".overflow-y-auto")
       scrollContainerRef.current = scrollContainer as HTMLElement | null
       if (scrollContainer) {
         initialScrollPosRef.current = {
@@ -487,12 +488,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const setThumbnailSize =
     toolbarState?.setThumbnailSize ?? setLocalThumbnailSize
 
-  const effectiveFilenameFilter =
-    filenameFilter ?? localFilenameFilter
-  const effectiveTagFilter =
-    tagFilter ?? localTagFilter
-  const effectiveMetadataFilter =
-    metadataFilter ?? localMetadataFilter
+  const effectiveFilenameFilter = filenameFilter ?? localFilenameFilter
+  const effectiveTagFilter = tagFilter ?? localTagFilter
+  const effectiveMetadataFilter = metadataFilter ?? localMetadataFilter
   const effectiveGeneralFilters = useMemo(
     () => generalFilters ?? [],
     [generalFilters]
@@ -530,24 +528,18 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }, [currentFiltersStr])
 
-  const {
-    images,
-    groups,
-    groupImagesMap,
-    loading,
-    error,
-    reload,
-  } = useSavedImages({
-    backendUrl,
-    status: effectiveGroupMode ? "all" : effectiveStatusFilter,
-    filename: undefined,
-    tag: undefined,
-    page: 1,
-    pageSize: 10000,
-    groupMode: effectiveGroupMode,
-    groupPage: 1,
-    groupPageSize: 1000,
-  })
+  const { images, groups, groupImagesMap, loading, error, reload } =
+    useSavedImages({
+      backendUrl,
+      status: effectiveGroupMode ? "all" : effectiveStatusFilter,
+      filename: undefined,
+      tag: undefined,
+      page: 1,
+      pageSize: 10000,
+      groupMode: effectiveGroupMode,
+      groupPage: 1,
+      groupPageSize: 1000,
+    })
 
   // Register reload function for external triggers (Header dropdown, keyboard shortcuts)
   useEffect((): void => {
@@ -650,7 +642,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       return sorted.filter((item) => item.token.includes(query))
     }
     return sorted
-  }, [breadcrumbFilteredImages, breadcrumbTags, getTokens, subTagQuery, tagSortOrder])
+  }, [
+    breadcrumbFilteredImages,
+    breadcrumbTags,
+    getTokens,
+    subTagQuery,
+    tagSortOrder,
+  ])
 
   // 리젝 숨기기 + 정렬 적용
   const visibleImages = useMemo(() => {
@@ -686,11 +684,17 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     if (!effectiveGroupMode) return []
     const lowerMeta = effectiveMetadataFilter.trim().toLowerCase() || null
     const lowerFilename = effectiveFilenameFilter.trim().toLowerCase() || null
-    const tagTerms = effectiveTagFilter.trim() !== "" ? effectiveTagFilter.toLowerCase().trim().split(/\s+/) : null
+    const tagTerms =
+      effectiveTagFilter.trim() !== ""
+        ? effectiveTagFilter.toLowerCase().trim().split(/\s+/)
+        : null
 
     const result: { name: string; items: SavedImage[] }[] = []
     for (const g of groups) {
-      if (lowerFilename !== null && !g.filename.toLowerCase().includes(lowerFilename)) {
+      if (
+        lowerFilename !== null &&
+        !g.filename.toLowerCase().includes(lowerFilename)
+      ) {
         continue
       }
 
@@ -714,7 +718,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             const inFilename = img.originalFilename
               ? img.originalFilename.toLowerCase().includes(lowerTerm)
               : false
-            const inTags = img.tags.some((t) => t.toLowerCase().includes(lowerTerm))
+            const inTags = img.tags.some((t) =>
+              t.toLowerCase().includes(lowerTerm)
+            )
             const inPrompt = img.prompt
               ? img.prompt.toLowerCase().includes(lowerTerm)
               : false
@@ -770,13 +776,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     getTokens,
   ])
 
-  const totalPages = Math.max(1, Math.ceil(visibleImages.length / imagePageSize))
+  const totalPages = Math.max(
+    1,
+    Math.ceil(visibleImages.length / imagePageSize)
+  )
   const pageList = useMemo(
     () => buildPageList(page, totalPages),
     [page, totalPages]
   )
 
-  const groupTotalPages = Math.max(1, Math.ceil(visibleGroups.length / GROUP_PAGE_SIZE))
+  const groupTotalPages = Math.max(
+    1,
+    Math.ceil(visibleGroups.length / GROUP_PAGE_SIZE)
+  )
   const groupPageList = useMemo(
     () => buildPageList(groupPage, groupTotalPages),
     [groupPage, groupTotalPages]
@@ -896,7 +908,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       if (selected) {
         if (e.key === "ArrowLeft" || e.key === "h") {
           e.preventDefault()
-          const currentIndex = navImages.findIndex((img) => img.hash === selected.hash)
+          const currentIndex = navImages.findIndex(
+            (img) => img.hash === selected.hash
+          )
           if (currentIndex > 0) {
             const prevImg = navImages[currentIndex - 1]
             if (prevImg) {
@@ -908,11 +922,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   g.items.some((img) => img.hash === prevImg.hash)
                 )
                 if (groupIndex !== -1) {
-                  const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                  const newGroupPage =
+                    Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
                   if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
                 }
               } else {
-                const newPage = Math.floor((currentIndex - 1) / imagePageSize) + 1
+                const newPage =
+                  Math.floor((currentIndex - 1) / imagePageSize) + 1
                 if (newPage !== page) setPage(newPage)
               }
               setTimeout((): void => {
@@ -925,7 +941,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           }
         } else if (e.key === "ArrowRight" || e.key === "l") {
           e.preventDefault()
-          const currentIndex = navImages.findIndex((img) => img.hash === selected.hash)
+          const currentIndex = navImages.findIndex(
+            (img) => img.hash === selected.hash
+          )
           if (currentIndex !== -1 && currentIndex < navImages.length - 1) {
             const nextImg = navImages[currentIndex + 1]
             if (nextImg) {
@@ -937,11 +955,13 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   g.items.some((img) => img.hash === nextImg.hash)
                 )
                 if (groupIndex !== -1) {
-                  const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                  const newGroupPage =
+                    Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
                   if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
                 }
               } else {
-                const newPage = Math.floor((currentIndex + 1) / imagePageSize) + 1
+                const newPage =
+                  Math.floor((currentIndex + 1) / imagePageSize) + 1
                 if (newPage !== page) setPage(newPage)
               }
               setTimeout((): void => {
@@ -971,7 +991,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 g.items.some((img) => img.hash === nextImg.hash)
               )
               if (groupIndex !== -1) {
-                const newGroupPage = Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
+                const newGroupPage =
+                  Math.floor(groupIndex / GROUP_PAGE_SIZE) + 1
                 if (newGroupPage !== groupPage) setGroupPage(newGroupPage)
               }
             } else {
@@ -1112,7 +1133,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return (): void => { window.removeEventListener("keydown", handleKeyDown); }
+    return (): void => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [
     focusedHash,
     navImages,
@@ -1201,13 +1224,19 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           await curationApi.patchStatus(backendUrl, hash, targetStatus)
           count++
         }
-        setBulkActionMessage(`${String(count)}개 → ${STATUS_LABEL[targetStatus]} 완료`)
+        setBulkActionMessage(
+          `${String(count)}개 → ${STATUS_LABEL[targetStatus]} 완료`
+        )
         exitSelectionMode()
-        setTimeout((): void => { setBulkActionMessage(null); }, 3000)
+        setTimeout((): void => {
+          setBulkActionMessage(null)
+        }, 3000)
         reload()
       } catch {
         setBulkActionMessage("일괄 작업 실패")
-        setTimeout((): void => { setBulkActionMessage(null); }, 3000)
+        setTimeout((): void => {
+          setBulkActionMessage(null)
+        }, 3000)
       } finally {
         setBulkActionLoading(false)
       }
@@ -1225,34 +1254,51 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
   // 일괄 자동 태그 생성
   const handleBulkAutoTag = useCallback(async (): Promise<void> => {
-    if (bulkActionLoadingRef.current || selectedHashesRef.current.size === 0) return
+    if (bulkActionLoadingRef.current || selectedHashesRef.current.size === 0)
+      return
     setBulkActionLoading(true)
     setBulkActionMessage("태그 일괄 완성 중...")
     try {
       const hashes = Array.from(selectedHashesRef.current)
-      const results = await curationApi.bulkAutoTags(backendUrlRef.current, hashes)
+      const results = await curationApi.bulkAutoTags(
+        backendUrlRef.current,
+        hashes
+      )
       const successCount = Object.keys(results).length
-      toast.success(`${String(successCount)}개 이미지의 자동 태그가 완성되었습니다.`)
+      toast.success(
+        `${String(successCount)}개 이미지의 자동 태그가 완성되었습니다.`
+      )
       setBulkActionMessage(`태그 일괄 완성 완료`)
       exitSelectionModeRef.current()
-      setTimeout((): void => { setBulkActionMessage(null); }, 3000)
+      setTimeout((): void => {
+        setBulkActionMessage(null)
+      }, 3000)
       reloadRef.current()
     } catch {
       toast.error("일괄 자동 태그 생성에 실패했습니다.")
       setBulkActionMessage("일괄 태그 완성 실패")
-      setTimeout((): void => { setBulkActionMessage(null); }, 3000)
+      setTimeout((): void => {
+        setBulkActionMessage(null)
+      }, 3000)
     } finally {
       setBulkActionLoading(false)
     }
-  }, [backendUrlRef, bulkActionLoadingRef, exitSelectionModeRef, reloadRef, selectedHashesRef])
+  }, [
+    backendUrlRef,
+    bulkActionLoadingRef,
+    exitSelectionModeRef,
+    reloadRef,
+    selectedHashesRef,
+  ])
 
   // 태그가 없는 모든 이미지 일괄 자동 태그 생성
   const handleAutoTagAllEmpty = useCallback(async (): Promise<void> => {
     if (bulkActionLoadingRef.current) return
-     
+
     const confirmed = await confirmRef.current({
       title: "태그 없는 모든 이미지 자동 완성",
-      description: "현재 DB에서 아무 태그도 달리지 않은 모든 활성 이미지들에 대해 일괄 자동 태그 분석 및 저장을 진행합니다. 계속하시겠습니까?",
+      description:
+        "현재 DB에서 아무 태그도 달리지 않은 모든 활성 이미지들에 대해 일괄 자동 태그 분석 및 저장을 진행합니다. 계속하시겠습니까?",
       variant: "default",
       confirmText: "실행",
     })
@@ -1263,7 +1309,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     try {
       const results = await curationApi.autoTagsAllEmpty(backendUrlRef.current)
       const successCount = Object.keys(results).length
-      toast.success(`${String(successCount)}개 이미지에 자동 태그가 성공적으로 완성되었습니다.`)
+      toast.success(
+        `${String(successCount)}개 이미지에 자동 태그가 성공적으로 완성되었습니다.`
+      )
       reloadRef.current()
     } catch {
       toast.error("전체 태그 자동 완성 작업 도중 오류가 발생했습니다.")
@@ -1292,8 +1340,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
       const downloads: { url: string; filename: string }[] = []
       for (const hash of selectedHashesRef.current) {
         const img = imageLookupRef.current.get(hash)
-        const filename = img !== undefined ? getImageFilename(img) : `${hash}.png`
-        downloads.push({ url: `${backendUrlRef.current}/saved-images/${hash}`, filename })
+        const filename =
+          img !== undefined ? getImageFilename(img) : `${hash}.png`
+        downloads.push({
+          url: `${backendUrlRef.current}/saved-images/${hash}`,
+          filename,
+        })
       }
       void downloadImagesAsZip(downloads, "gallery-images.zip")
     } finally {
@@ -1302,7 +1354,6 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   }, [backendUrlRef, imageLookupRef, selectedHashesRef])
 
   const handleEmptyTrash = async (): Promise<void> => {
-     
     const confirmed = await confirm({
       title: "휴지통 비우기",
       description: "휴지통의 이미지를 영구 삭제합니다. 계속하시겠습니까?",
@@ -1443,7 +1494,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   {/* 3. Sort: key select + direction toggle */}
                   <Select
                     value={sortKey}
-                    onValueChange={(k): void => { toggleSort(k as GallerySortKey); }}
+                    onValueChange={(k): void => {
+                      toggleSort(k as GallerySortKey)
+                    }}
                   >
                     <SelectTrigger className="h-8 w-[72px] border-line bg-background px-1.5 text-[11px] font-bold shadow-none focus:ring-0">
                       <SelectValue />
@@ -1472,7 +1525,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(): void => { toggleSort(sortKey); }}
+                    onClick={(): void => {
+                      toggleSort(sortKey)
+                    }}
                     className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
                   >
                     {sortDir === "asc" ? (
@@ -1502,9 +1557,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         max="320"
                         step="10"
                         value={thumbnailSize}
-                        onChange={(e): void =>
-                          { setThumbnailSize(Number(e.target.value)); }
-                        }
+                        onChange={(e): void => {
+                          setThumbnailSize(Number(e.target.value))
+                        }}
                         className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
                       />
                       <span className="w-[34px] text-right font-mono text-[9px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
@@ -1521,16 +1576,21 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={(): void => { void handleAutoTagAllEmpty(); }}
+                        onClick={(): void => {
+                          void handleAutoTagAllEmpty()
+                        }}
                         disabled={bulkActionLoading}
-                        className="h-8 gap-1 px-2.5 text-xs font-bold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 shadow-none transition-colors"
+                        className="h-8 gap-1 border-primary/30 bg-primary/5 px-2.5 text-xs font-bold text-primary shadow-none transition-colors hover:bg-primary/10"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">태그 없는 이미지 완성</span>
+                        <span className="hidden sm:inline">
+                          태그 없는 이미지 완성
+                        </span>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent className="text-xs font-bold">
-                      아무 태그가 없는 모든 이미지에 대해 자동 태그를 일괄 완성합니다.
+                      아무 태그가 없는 모든 이미지에 대해 자동 태그를 일괄
+                      완성합니다.
                     </TooltipContent>
                   </Tooltip>
 
@@ -1542,9 +1602,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         variant="outline"
                         onClick={reload}
                         disabled={loading}
-                        className="h-8 w-8 p-0 shrink-0"
+                        className="h-8 w-8 shrink-0 p-0"
                       >
-                        <RefreshCwIcon className={cn("h-4 w-4", loading && "animate-spin")} />
+                        <RefreshCwIcon
+                          className={cn("h-4 w-4", loading && "animate-spin")}
+                        />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent className="text-xs font-bold">
@@ -1556,7 +1618,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     size="sm"
                     variant={showFilters ? "secondary" : "outline"}
-                    onClick={(): void => { setShowFilters(!showFilters); }}
+                    onClick={(): void => {
+                      setShowFilters(!showFilters)
+                    }}
                     className="relative h-8 w-8 p-0"
                   >
                     <FilterIcon className="h-4 w-4" />
@@ -1586,7 +1650,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={(): void => { void handleEmptyTrash(); }}
+                        onClick={(): void => {
+                          void handleEmptyTrash()
+                        }}
                         className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                       >
                         <Trash2Icon className="mr-2 h-3.5 w-3.5" />
@@ -1610,24 +1676,36 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         type="search"
                         placeholder="파일명 필터"
                         value={filenameFilter}
-                        onChange={(e): void => { setFilenameFilter(e.target.value); }}
-                        onContextMenu={(e): void => { e.stopPropagation(); }}
+                        onChange={(e): void => {
+                          setFilenameFilter(e.target.value)
+                        }}
+                        onContextMenu={(e): void => {
+                          e.stopPropagation()
+                        }}
                       />
                       <Input
                         className="h-9 w-full text-sm md:h-7 md:w-36 md:text-xs"
                         type="search"
                         placeholder="태그 필터"
                         value={tagFilter}
-                        onChange={(e): void => { setTagFilter(e.target.value); }}
-                        onContextMenu={(e): void => { e.stopPropagation(); }}
+                        onChange={(e): void => {
+                          setTagFilter(e.target.value)
+                        }}
+                        onContextMenu={(e): void => {
+                          e.stopPropagation()
+                        }}
                       />
                       <Input
                         className="h-9 w-full text-sm sm:col-span-2 md:h-7 md:w-48 md:text-xs"
                         type="search"
                         placeholder="메타데이터/prompt 검색"
                         value={metadataFilter}
-                        onChange={(e): void => { setMetadataFilter(e.target.value); }}
-                        onContextMenu={(e): void => { e.stopPropagation(); }}
+                        onChange={(e): void => {
+                          setMetadataFilter(e.target.value)
+                        }}
+                        onContextMenu={(e): void => {
+                          e.stopPropagation()
+                        }}
                       />
                     </div>
                   </div>
@@ -1639,7 +1717,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       <Checkbox
                         id="hide-rejected"
                         checked={hideRejected}
-                        onCheckedChange={(v): void => { setHideRejected(v === true); }}
+                        onCheckedChange={(v): void => {
+                          setHideRejected(v === true)
+                        }}
                       />
                       <Label
                         htmlFor="hide-rejected"
@@ -1685,7 +1765,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold text-ok"
-                    onClick={(): void => { void handleBulkAction("approved"); }}
+                    onClick={(): void => {
+                      void handleBulkAction("approved")
+                    }}
                     disabled={bulkActionLoading}
                   >
                     <CheckCircleIcon className="h-3.5 w-3.5" />
@@ -1698,7 +1780,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold text-bad"
-                    onClick={(): void => { void handleBulkAction("rejected"); }}
+                    onClick={(): void => {
+                      void handleBulkAction("rejected")
+                    }}
                     disabled={bulkActionLoading}
                   >
                     <XCircleIcon className="h-3.5 w-3.5" />
@@ -1711,7 +1795,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold text-info"
-                    onClick={(): void => { void handleBulkAction("pending"); }}
+                    onClick={(): void => {
+                      void handleBulkAction("pending")
+                    }}
                     disabled={bulkActionLoading}
                   >
                     <RotateCcwIcon className="h-3.5 w-3.5" />
@@ -1726,7 +1812,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold"
-                    onClick={(): void => { void handleBulkAction("trashed"); }}
+                    onClick={(): void => {
+                      void handleBulkAction("trashed")
+                    }}
                     disabled={bulkActionLoading}
                   >
                     <Trash2Icon className="h-3.5 w-3.5" />
@@ -1736,7 +1824,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-[10px] font-bold"
-                    onClick={(): void => { handleBulkDownload(); }}
+                    onClick={(): void => {
+                      handleBulkDownload()
+                    }}
                     disabled={bulkDownloadLoading}
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
@@ -1745,8 +1835,10 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 gap-1.5 text-[10px] font-bold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
-                    onClick={(): void => { void handleBulkAutoTag(); }}
+                    className="h-8 gap-1.5 border-primary/30 bg-primary/5 text-[10px] font-bold text-primary hover:bg-primary/10"
+                    onClick={(): void => {
+                      void handleBulkAutoTag()
+                    }}
                     disabled={bulkActionLoading}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
@@ -1775,8 +1867,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
           {/* ── Scrollable Content ── */}
           <div className="flex-1 p-4" onMouseDown={handleMouseDown}>
             {/* ── Danbooru Folder-like Breadcrumb tag system ── */}
-            <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 mb-3 shadow-sm">
-              <div className="flex flex-wrap items-center gap-2 justify-between">
+            <div className="mb-3 flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   {breadcrumbTags.length > 0 ? (
                     <FolderOpen
@@ -1859,7 +1951,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                                   <ContextMenuItem
                                     onClick={(): void => {
                                       setBreadcrumbTags(
-                                        breadcrumbTags.filter((_, i) => i !== idx)
+                                        breadcrumbTags.filter(
+                                          (_, i) => i !== idx
+                                        )
                                       )
                                       setPage(1)
                                       setGroupPage(1)
@@ -1874,7 +1968,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                                     onClick={(): void => {
                                       navigator.clipboard
                                         .writeText(tag)
-                                        .catch((): void => { void 0; })
+                                        .catch((): void => {
+                                          void 0
+                                        })
                                     }}
                                     className="gap-2 font-bold"
                                   >
@@ -1896,19 +1992,27 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
-                    onClick={(): void => { setTagSortOrder(tagSortOrder === "count" ? "name" : "count"); }}
+                    className="h-7 gap-1 px-2 text-[11px] font-semibold hover:bg-accent"
+                    onClick={(): void => {
+                      setTagSortOrder(
+                        tagSortOrder === "count" ? "name" : "count"
+                      )
+                    }}
                   >
                     <Sliders className="h-3 w-3 text-muted-foreground" />
-                    <span>{tagSortOrder === "count" ? "개수순" : "이름순"}</span>
+                    <span>
+                      {tagSortOrder === "count" ? "개수순" : "이름순"}
+                    </span>
                   </Button>
 
                   {/* 세로 펼침 토글 버튼 */}
                   <Button
                     variant={isTagPanelExpanded ? "secondary" : "outline"}
                     size="sm"
-                    className="h-7 px-2 text-[11px] gap-1 font-semibold hover:bg-accent"
-                    onClick={(): void => { setIsTagPanelExpanded(!isTagPanelExpanded); }}
+                    className="h-7 gap-1 px-2 text-[11px] font-semibold hover:bg-accent"
+                    onClick={(): void => {
+                      setIsTagPanelExpanded(!isTagPanelExpanded)
+                    }}
                   >
                     {isTagPanelExpanded ? (
                       <>
@@ -1923,7 +2027,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     )}
                   </Button>
 
-                  <div className="h-4 w-px bg-border hidden sm:block" />
+                  <div className="hidden h-4 w-px bg-border sm:block" />
 
                   {/* 폴더 실시간 검색창 */}
                   <div className="relative w-36 sm:w-44">
@@ -1935,8 +2039,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       type="text"
                       placeholder="폴더(태그) 검색..."
                       value={subTagQuery}
-                      onChange={(e): void => { setSubTagQuery(e.target.value); }}
-                      onContextMenu={(e): void => { e.stopPropagation(); }}
+                      onChange={(e): void => {
+                        setSubTagQuery(e.target.value)
+                      }}
+                      onContextMenu={(e): void => {
+                        e.stopPropagation()
+                      }}
                       className="h-7 w-full rounded-md border border-input bg-transparent pr-2.5 pl-7 text-xs font-normal transition-all placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
@@ -1948,7 +2056,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 /* 1. 세로형 그리드 확장 패널 */
                 <div className="mt-2 border-t border-border/40 pt-2">
                   {nextAvailableTokens.length > 0 ? (
-                    <div className="max-h-60 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-1.5 p-2 bg-muted/20 rounded-md border border-border/40">
+                    <div className="grid max-h-60 grid-cols-2 gap-1.5 overflow-y-auto rounded-md border border-border/40 bg-muted/20 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
                       {nextAvailableTokens.map(({ token, count }) => (
                         <ContextMenu key={token}>
                           <ContextMenuTrigger asChild>
@@ -1970,7 +2078,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                                   {token}
                                 </span>
                               </div>
-                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.2 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
+                              <span className="py-0.2 shrink-0 rounded bg-muted px-1.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
                                 {count}
                               </span>
                             </button>
@@ -1993,7 +2101,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                               onClick={(): void => {
                                 navigator.clipboard
                                   .writeText(token)
-                                  .catch((): void => { void 0; })
+                                  .catch((): void => {
+                                    void 0
+                                  })
                               }}
                               className="gap-2 font-bold"
                             >
@@ -2005,7 +2115,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       ))}
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between p-2 rounded-md bg-muted/10 border border-dashed border-border/40">
+                    <div className="flex items-center justify-between rounded-md border border-dashed border-border/40 bg-muted/10 p-2">
                       <div className="text-xs font-medium text-muted-foreground">
                         더 이상 하위 폴더가 없습니다.
                       </div>
@@ -2030,60 +2140,64 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 <div className="mt-1 flex items-center gap-2">
                   {nextAvailableTokens.length > 0 ? (
                     <div className="flex flex-1 gap-1.5 overflow-x-auto py-1">
-                      {nextAvailableTokens.slice(0, 30).map(({ token, count }) => (
-                        <ContextMenu key={token}>
-                          <ContextMenuTrigger asChild>
-                            <button
-                              onClick={(): void => {
-                                setBreadcrumbTags([...breadcrumbTags, token])
-                                setSubTagQuery("")
-                                setPage(1)
-                                setGroupPage(1)
-                              }}
-                              className="group flex h-7 shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95"
-                            >
-                              <div className="flex items-center gap-1.5 overflow-hidden">
-                                <Folder
-                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
-                                  strokeWidth={1.6}
-                                />
-                                <span className="max-w-[100px] truncate leading-none font-medium text-foreground/80 group-hover:text-foreground sm:max-w-[130px]">
-                                  {token}
+                      {nextAvailableTokens
+                        .slice(0, 30)
+                        .map(({ token, count }) => (
+                          <ContextMenu key={token}>
+                            <ContextMenuTrigger asChild>
+                              <button
+                                onClick={(): void => {
+                                  setBreadcrumbTags([...breadcrumbTags, token])
+                                  setSubTagQuery("")
+                                  setPage(1)
+                                  setGroupPage(1)
+                                }}
+                                className="group flex h-7 shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95"
+                              >
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                  <Folder
+                                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-accent-foreground"
+                                    strokeWidth={1.6}
+                                  />
+                                  <span className="max-w-[100px] truncate leading-none font-medium text-foreground/80 group-hover:text-foreground sm:max-w-[130px]">
+                                    {token}
+                                  </span>
+                                </div>
+                                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
+                                  {count}
                                 </span>
-                              </div>
-                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground group-hover:bg-background">
-                                {count}
-                              </span>
-                            </button>
-                          </ContextMenuTrigger>
-                          <ContextMenuContent className="w-44">
-                            <ContextMenuItem
-                              onClick={(): void => {
-                                setBreadcrumbTags([token, ...breadcrumbTags])
-                                setSubTagQuery("")
-                                setPage(1)
-                                setGroupPage(1)
-                              }}
-                              className="gap-2 font-bold"
-                            >
-                              <FolderPlus className="h-3.5 w-3.5" />맨 앞에 경로
-                              추가
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem
-                              onClick={(): void => {
-                                navigator.clipboard
-                                  .writeText(token)
-                                  .catch((): void => { void 0; })
-                              }}
-                              className="gap-2 font-bold"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                              태그명 복사
-                            </ContextMenuItem>
-                          </ContextMenuContent>
-                        </ContextMenu>
-                      ))}
+                              </button>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-44">
+                              <ContextMenuItem
+                                onClick={(): void => {
+                                  setBreadcrumbTags([token, ...breadcrumbTags])
+                                  setSubTagQuery("")
+                                  setPage(1)
+                                  setGroupPage(1)
+                                }}
+                                className="gap-2 font-bold"
+                              >
+                                <FolderPlus className="h-3.5 w-3.5" />맨 앞에
+                                경로 추가
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                onClick={(): void => {
+                                  navigator.clipboard
+                                    .writeText(token)
+                                    .catch((): void => {
+                                      void 0
+                                    })
+                                }}
+                                className="gap-2 font-bold"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                                태그명 복사
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        ))}
                     </div>
                   ) : (
                     <div className="flex flex-1 items-center justify-between py-1">
@@ -2153,7 +2267,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                           <div className="relative cursor-pointer overflow-hidden rounded-lg border bg-black/5 shadow-inner">
                             <button
                               type="button"
-                              onClick={(): void => { togglePin(hash); }}
+                              onClick={(): void => {
+                                togglePin(hash)
+                              }}
                               className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl transition-colors hover:bg-blue-600"
                             >
                               <PinIcon className="h-5 w-5" />
@@ -2175,7 +2291,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         {img && (
                           <ContextMenuContent className="w-48">
                             <ContextMenuItem
-                              onClick={(): void => { togglePin(hash); }}
+                              onClick={(): void => {
+                                togglePin(hash)
+                              }}
                               className="gap-2 font-bold"
                             >
                               <PinIcon className="h-3.5 w-3.5" />
@@ -2183,7 +2301,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             </ContextMenuItem>
                             <ContextMenuSeparator />
                             <ContextMenuItem
-                              onClick={(): void => { void setStatus(hash, "approved"); }}
+                              onClick={(): void => {
+                                void setStatus(hash, "approved")
+                              }}
                               className="gap-2 font-bold text-ok"
                               disabled={img.status === "approved"}
                             >
@@ -2191,7 +2311,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                               통과
                             </ContextMenuItem>
                             <ContextMenuItem
-                              onClick={(): void => { void setStatus(hash, "rejected"); }}
+                              onClick={(): void => {
+                                void setStatus(hash, "rejected")
+                              }}
                               className="gap-2 font-bold text-bad"
                               disabled={img.status === "rejected"}
                             >
@@ -2199,7 +2321,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                               탈락
                             </ContextMenuItem>
                             <ContextMenuItem
-                              onClick={(): void => { void setStatus(hash, "pending"); }}
+                              onClick={(): void => {
+                                void setStatus(hash, "pending")
+                              }}
                               className="gap-2 font-bold text-info"
                               disabled={img.status === "pending"}
                             >
@@ -2208,7 +2332,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             </ContextMenuItem>
                             <ContextMenuSeparator />
                             <ContextMenuItem
-                              onClick={(): void => { setSelected(img); }}
+                              onClick={(): void => {
+                                setSelected(img)
+                              }}
                               className="gap-2 font-bold"
                             >
                               <Eye className="h-3.5 w-3.5" />
@@ -2219,7 +2345,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                                 const url = `${backendUrl}/saved-images/${hash}`
                                 navigator.clipboard
                                   .writeText(url)
-                                  .catch((): void => { void 0; })
+                                  .catch((): void => {
+                                    void 0
+                                  })
                               }}
                               className="gap-2 font-bold"
                             >
@@ -2265,7 +2393,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         {/* Collapse toggle */}
                         <button
                           type="button"
-                          onClick={(): void => { toggleGroupCollapse(name); }}
+                          onClick={(): void => {
+                            toggleGroupCollapse(name)
+                          }}
                           className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-transform hover:bg-muted/50 ${isCollapsed ? "rotate-180" : ""}`}
                           aria-label={isCollapsed ? "펴기" : "접기"}
                         >
@@ -2289,7 +2419,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={(): void => { handleRegenerate(name); }}
+                              onClick={(): void => {
+                                handleRegenerate(name)
+                              }}
                             >
                               재생성
                             </Button>
@@ -2300,7 +2432,12 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         <ImageGrid
                           items={items}
                           backendUrl={backendUrl}
-                          setStatus={(hash: string, status: CurationStatus): void => { void setStatus(hash, status); }}
+                          setStatus={(
+                            hash: string,
+                            status: CurationStatus
+                          ): void => {
+                            void setStatus(hash, status)
+                          }}
                           onOpen={setSelected}
                           selectionMode={selectionMode}
                           selectedHashes={selectedHashes}
@@ -2326,7 +2463,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       <PaginationContent>
                         <PaginationItem>
                           <PaginationPrevious
-                            onClick={(): void => { if (groupPage > 1) { setGroupPage(groupPage - 1); } }}
+                            onClick={(): void => {
+                              if (groupPage > 1) {
+                                setGroupPage(groupPage - 1)
+                              }
+                            }}
                             aria-disabled={groupPage <= 1}
                             className={
                               groupPage <= 1
@@ -2344,7 +2485,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             <PaginationItem key={p}>
                               <PaginationLink
                                 isActive={p === groupPage}
-                                onClick={(): void => { setGroupPage(p); }}
+                                onClick={(): void => {
+                                  setGroupPage(p)
+                                }}
                               >
                                 {p}
                               </PaginationLink>
@@ -2353,7 +2496,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         )}
                         <PaginationItem>
                           <PaginationNext
-                            onClick={(): void => { if (groupPage < groupTotalPages) { setGroupPage(groupPage + 1); } }}
+                            onClick={(): void => {
+                              if (groupPage < groupTotalPages) {
+                                setGroupPage(groupPage + 1)
+                              }
+                            }}
                             aria-disabled={groupPage >= groupTotalPages}
                             className={
                               groupPage >= groupTotalPages
@@ -2365,12 +2512,14 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       </PaginationContent>
                     </Pagination>
                     <p className="text-xs text-muted-foreground">
-                      총 {visibleGroups.length}개 그룹 · {groupPage}/{groupTotalPages} 페이지
+                      총 {visibleGroups.length}개 그룹 · {groupPage}/
+                      {groupTotalPages} 페이지
                     </p>
                   </div>
                 )}
               </div>
-            ) : effectiveGalleryViewMode === "grid" || pinnedHashes.length === 0 ? (
+            ) : effectiveGalleryViewMode === "grid" ||
+              pinnedHashes.length === 0 ? (
               <>
                 {effectiveGalleryViewMode === "compare" &&
                   pinnedHashes.length === 0 && (
@@ -2390,7 +2539,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 <ImageGrid
                   items={paginatedVisibleImages}
                   backendUrl={backendUrl}
-                  setStatus={(hash: string, status: CurationStatus): void => { void setStatus(hash, status); }}
+                  setStatus={(hash: string, status: CurationStatus): void => {
+                    void setStatus(hash, status)
+                  }}
                   onOpen={setSelected}
                   selectionMode={selectionMode}
                   selectedHashes={selectedHashes}
@@ -2415,7 +2566,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     <PaginationContent>
                       <PaginationItem>
                         <PaginationPrevious
-                          onClick={(): void => { if (page > 1) { setPage(page - 1); } }}
+                          onClick={(): void => {
+                            if (page > 1) {
+                              setPage(page - 1)
+                            }
+                          }}
                           aria-disabled={page <= 1}
                           className={
                             page <= 1
@@ -2433,7 +2588,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                           <PaginationItem key={p}>
                             <PaginationLink
                               isActive={p === page}
-                              onClick={(): void => { setPage(p); }}
+                              onClick={(): void => {
+                                setPage(p)
+                              }}
                             >
                               {p}
                             </PaginationLink>
@@ -2442,7 +2599,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       )}
                       <PaginationItem>
                         <PaginationNext
-                          onClick={(): void => { if (page < totalPages) { setPage(page + 1); } }}
+                          onClick={(): void => {
+                            if (page < totalPages) {
+                              setPage(page + 1)
+                            }
+                          }}
                           aria-disabled={page >= totalPages}
                           className={
                             page >= totalPages
@@ -2464,7 +2625,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                         className="h-7 text-[10px] font-bold"
                         onClick={selectAll}
                       >
-                        {selectedHashes.size === paginatedVisibleImages.length &&
+                        {selectedHashes.size ===
+                          paginatedVisibleImages.length &&
                         paginatedVisibleImages.length > 0
                           ? "전체 해제"
                           : "전체 선택"}
@@ -2479,7 +2641,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 key={selected.hash}
                 backendUrl={backendUrl}
                 image={selected}
-                onClose={(): void => { setSelected(null); }}
+                onClose={(): void => {
+                  setSelected(null)
+                }}
                 onChanged={reload}
                 singleDownloadMode={singleDownloadMode}
               />
@@ -2574,7 +2738,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
         {selectionMode && selectedHashes.size > 0 && (
           <>
             <ContextMenuItem
-              onClick={(): void => { void handleBulkAutoTag(); }}
+              onClick={(): void => {
+                void handleBulkAutoTag()
+              }}
               disabled={bulkActionLoading}
               className="gap-2 font-bold text-primary"
             >

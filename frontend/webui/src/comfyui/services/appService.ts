@@ -15,7 +15,10 @@ import type {
 } from "@/comfyui/types/workflow"
 import type { ComfyNodeDef, InputSpec } from "@/comfyui/types/nodeDef"
 import type { NodeExecutionOutput } from "@/comfyui/types/apiSchema"
-import type { ComfyExtension, ExtensionManager } from "@/comfyui/types/extensionTypes"
+import type {
+  ComfyExtension,
+  ExtensionManager,
+} from "@/comfyui/types/extensionTypes"
 import type { ComfyApi } from "@/comfyui/api"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useExtensionStore } from "@/comfyui/stores/extensionStore"
@@ -30,7 +33,10 @@ import { flattenForExecution } from "@/comfyui/subgraph/executableNodeDto"
 import type { SubgraphDefinition } from "@/comfyui/types/subgraph"
 import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID } from "@/comfyui/constants"
 import { LGraphAdapter } from "@/comfyui/services/lgraphAdapter"
-import type { LGraphNode, LGraphAdapterRef } from "@/comfyui/types/lgraphAdapterNode"
+import type {
+  LGraphNode,
+  LGraphAdapterRef,
+} from "@/comfyui/types/lgraphAdapterNode"
 
 type Point = [number, number]
 
@@ -76,7 +82,11 @@ class ComfyNode {
     this.outputs.push({ name, type, links: null })
   }
 
-  connect(_slot: number, _targetNode: LGraphNode, _targetSlot: number | string): boolean | null {
+  connect(
+    _slot: number,
+    _targetNode: LGraphNode,
+    _targetSlot: number | string
+  ): boolean | null {
     return true
   }
 
@@ -100,7 +110,9 @@ class ComfyNode {
   }
   configure(data?: Partial<ComfyWorkflowNode> | null): void {
     if (data === undefined || data === null) return
-    const lgProto = window.LiteGraph.LGraphNode.prototype as { configure?: (data: unknown) => void }
+    const lgProto = window.LiteGraph.LGraphNode.prototype as {
+      configure?: (data: unknown) => void
+    }
     if (typeof lgProto.configure === "function") {
       lgProto.configure.call(this, data)
     }
@@ -130,7 +142,9 @@ class ComfyNode {
       }
     }
   }
-  setDirtyCanvas(): void { /* noop */ }
+  setDirtyCanvas(): void {
+    /* noop */
+  }
 
   addWidget(
     type: string,
@@ -234,20 +248,29 @@ export function convertGraphToPrompt(
       const oppositeInput = originNode.inputs?.[originSlotIdx]
       if (
         oppositeInput &&
-        (oppositeInput.type === outputType || outputType === "*" || oppositeInput.type === "*")
+        (oppositeInput.type === outputType ||
+          outputType === "*" ||
+          oppositeInput.type === "*")
       ) {
         targetInputIdx = originSlotIdx
       } else {
         // 2-2. 타입이 호환되는 첫 번째 입력 슬롯을 찾음
         if (originNode.inputs) {
           targetInputIdx = originNode.inputs.findIndex(
-            (input) => input.type === outputType || outputType === "*" || input.type === "*"
+            (input) =>
+              input.type === outputType ||
+              outputType === "*" ||
+              input.type === "*"
           )
         }
       }
 
       // 2-3. 매칭되는 슬롯을 못 찾은 경우 첫 번째 입력 시도
-      if (targetInputIdx === -1 && originNode.inputs && originNode.inputs.length > 0) {
+      if (
+        targetInputIdx === -1 &&
+        originNode.inputs &&
+        originNode.inputs.length > 0
+      ) {
         targetInputIdx = 0
       }
 
@@ -278,7 +301,10 @@ export function convertGraphToPrompt(
 
       // 가져온 워크플로우 등 widget_names가 없거나 길이가 안 맞는 경우
       // nodeDef에서 위젯 순서 복원 (control_after_generate, optional 위젯 포함)
-      if (widgetNames.length === 0 || widgetNames.length !== node.widgets_values.length) {
+      if (
+        widgetNames.length === 0 ||
+        widgetNames.length !== node.widgets_values.length
+      ) {
         const def = nodeDefs[node.type]
         if (def !== undefined) {
           const inferredNames: string[] = []
@@ -320,13 +346,20 @@ export function convertGraphToPrompt(
           const resolved = resolveSource(input.link)
           if (resolved !== null) {
             // 위젯 입력이 링크된 경우 widget 값을 링크 참조로 덮어쓰기
-            inputs[input.name] = [resolved.origin_id.toString(), resolved.origin_slot]
+            inputs[input.name] = [
+              resolved.origin_id.toString(),
+              resolved.origin_slot,
+            ]
           }
         }
       }
     }
 
-    const nodeObj: { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } } = {
+    const nodeObj: {
+      inputs: Record<string, unknown>
+      class_type: string
+      _meta?: { title?: string }
+    } = {
       inputs,
       class_type: node.type,
     }
@@ -363,7 +396,9 @@ export function convertGraphToPromptWithSubgraphs(
   }
 
   // 루트 노드만 추출
-  const rootNodes = allNodes.filter((n) => n.graphId === null || n.graphId === undefined)
+  const rootNodes = allNodes.filter(
+    (n) => n.graphId === null || n.graphId === undefined
+  )
 
   // Bypass/Mute 우회 헬퍼 (단일 그래프 내에서만 동작)
   const resolveSource = (
@@ -400,7 +435,10 @@ export function convertGraphToPromptWithSubgraphs(
     // 위젯 값
     if (node.widgets_values !== undefined) {
       let widgetNames = (node.properties?.widget_names ?? []) as string[]
-      if (widgetNames.length === 0 || widgetNames.length !== node.widgets_values.length) {
+      if (
+        widgetNames.length === 0 ||
+        widgetNames.length !== node.widgets_values.length
+      ) {
         const def = nodeDefs[node.type]
         if (def !== undefined) {
           const inferredNames: string[] = []
@@ -435,15 +473,28 @@ export function convertGraphToPromptWithSubgraphs(
     // 링크된 입력
     if (node.inputs !== undefined) {
       // 이 노드가 속한 그래프의 링크와 노드를 사용
-      const currentNodes = item.parentSubgraphNodeId !== null
-        ? (subgraphNodesMap.get(allNodes.find((n) => n.id === item.parentSubgraphNodeId)?.type ?? "") ?? [])
-        : rootNodes
-      const currentLinks = item.parentSubgraphNodeId !== null
-        ? allLinks.filter((l) =>
-          l.origin_id === SUBGRAPH_INPUT_ID || l.target_id === SUBGRAPH_OUTPUT_ID ||
-          currentNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
-        )
-        : allLinks.filter((l) => l.origin_id !== SUBGRAPH_INPUT_ID && l.target_id !== SUBGRAPH_OUTPUT_ID)
+      const currentNodes =
+        item.parentSubgraphNodeId !== null
+          ? (subgraphNodesMap.get(
+              allNodes.find((n) => n.id === item.parentSubgraphNodeId)?.type ??
+                ""
+            ) ?? [])
+          : rootNodes
+      const currentLinks =
+        item.parentSubgraphNodeId !== null
+          ? allLinks.filter(
+              (l) =>
+                l.origin_id === SUBGRAPH_INPUT_ID ||
+                l.target_id === SUBGRAPH_OUTPUT_ID ||
+                currentNodes.some(
+                  (n) => n.id === l.origin_id || n.id === l.target_id
+                )
+            )
+          : allLinks.filter(
+              (l) =>
+                l.origin_id !== SUBGRAPH_INPUT_ID &&
+                l.target_id !== SUBGRAPH_OUTPUT_ID
+            )
 
       for (const input of node.inputs) {
         if (input.link !== undefined) {
@@ -454,20 +505,26 @@ export function convertGraphToPromptWithSubgraphs(
             const parentLink = item.inputSlotToParentLink.get(link.origin_slot)
             if (parentLink) {
               // 부모의 부모 노드 참조 (계층 ID)
-              const parentSubgraphNode = item.parentSubgraphNodeId !== null
-                ? allNodes.find((n) => n.id === item.parentSubgraphNodeId)
-                : null
-              const grandparentId = parentSubgraphNode !== null && parentSubgraphNode !== undefined
-                ? item.hierarchicalId.split(":").slice(0, -2).join(":")
-                : null
+              const parentSubgraphNode =
+                item.parentSubgraphNodeId !== null
+                  ? allNodes.find((n) => n.id === item.parentSubgraphNodeId)
+                  : null
+              const grandparentId =
+                parentSubgraphNode !== null && parentSubgraphNode !== undefined
+                  ? item.hierarchicalId.split(":").slice(0, -2).join(":")
+                  : null
               // 부모의 외부 origin 노드의 hierarchicalId 찾기
-              const originNode = rootNodes.find((n) => n.id === parentLink.origin_id) ??
-                (grandparentId !== null ? allNodes.find((n) => n.id === parentLink.origin_id) : null)
+              const originNode =
+                rootNodes.find((n) => n.id === parentLink.origin_id) ??
+                (grandparentId !== null
+                  ? allNodes.find((n) => n.id === parentLink.origin_id)
+                  : null)
               if (originNode) {
                 // 부모 SubgraphNode의 hierarchicalId에서 마지막 세그먼트 제거 = 부모의 부모
-                const originHierId = grandparentId !== null
-                  ? `${grandparentId}:${String(parentLink.origin_id)}`
-                  : String(parentLink.origin_id)
+                const originHierId =
+                  grandparentId !== null
+                    ? `${grandparentId}:${String(parentLink.origin_id)}`
+                    : String(parentLink.origin_id)
                 inputs[input.name] = [originHierId, parentLink.origin_slot]
               }
             }
@@ -478,11 +535,14 @@ export function convertGraphToPromptWithSubgraphs(
           const resolved = resolveSource(input.link, currentLinks, currentNodes)
           if (resolved !== null) {
             // origin 노드의 hierarchicalId 찾기
-            const originNode = currentNodes.find((n) => n.id === resolved.origin_id)
+            const originNode = currentNodes.find(
+              (n) => n.id === resolved.origin_id
+            )
             if (originNode) {
-              const originHierId = item.parentSubgraphNodeId !== null
-                ? `${item.hierarchicalId.split(":").slice(0, -1).join(":")}:${String(resolved.origin_id)}`
-                : String(resolved.origin_id)
+              const originHierId =
+                item.parentSubgraphNodeId !== null
+                  ? `${item.hierarchicalId.split(":").slice(0, -1).join(":")}:${String(resolved.origin_id)}`
+                  : String(resolved.origin_id)
               inputs[input.name] = [originHierId, resolved.origin_slot]
             }
           }
@@ -490,7 +550,11 @@ export function convertGraphToPromptWithSubgraphs(
       }
     }
 
-    const nodeObj: { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } } = {
+    const nodeObj: {
+      inputs: Record<string, unknown>
+      class_type: string
+      _meta?: { title?: string }
+    } = {
       inputs,
       class_type: node.type,
     }
@@ -544,11 +608,21 @@ export class ComfyAppService {
     this.canvas = {
       state: { readOnly: false },
       ds: { scale: 1, offset: [0, 0] },
-      resize(_w?: number, _h?: number): void { /* noop */ },
-      setDirty(_canvas?: boolean, _history?: boolean): void { /* noop */ },
-      stopRendering(): void { /* noop */ },
-      startRendering(): void { /* noop */ },
-      setCanvas(_c: HTMLCanvasElement): void { /* noop */ },
+      resize(_w?: number, _h?: number): void {
+        /* noop */
+      },
+      setDirty(_canvas?: boolean, _history?: boolean): void {
+        /* noop */
+      },
+      stopRendering(): void {
+        /* noop */
+      },
+      startRendering(): void {
+        /* noop */
+      },
+      setCanvas(_c: HTMLCanvasElement): void {
+        /* noop */
+      },
       render_canvas_border: false,
       canvas: config.canvas,
     } as unknown as LGraphCanvas
@@ -580,8 +654,12 @@ export class ComfyAppService {
     const app = getWindowApp()
     const extensions = this.extensions
 
-    const loraExt = extensions.find(e => e.name.includes("LoraManager") || e.name.includes("Lora"))
-    console.log(`[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available. loraExt=${loraExt?.name ?? "NONE"}. allNames=${extensions.map(e => e.name).join(",")}`)
+    const loraExt = extensions.find(
+      (e) => e.name.includes("LoraManager") || e.name.includes("Lora")
+    )
+    console.log(
+      `[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available. loraExt=${loraExt?.name ?? "NONE"}. allNames=${extensions.map((e) => e.name).join(",")}`
+    )
 
     for (const [type, def] of Object.entries(nodeDefs)) {
       // Create a node class for this type
@@ -600,22 +678,39 @@ export class ComfyAppService {
       let patchedByCount = 0
       for (const ext of extensions) {
         if (ext.beforeRegisterNodeDef) {
-          const hadBefore = typeof (NodeClass.prototype as { onNodeCreated?: unknown }).onNodeCreated === "function"
+          const hadBefore =
+            typeof (NodeClass.prototype as { onNodeCreated?: unknown })
+              .onNodeCreated === "function"
           try {
-            void Promise.resolve(ext.beforeRegisterNodeDef(NodeClass as unknown as typeof LGraphNode, def, app))
-            const hasAfter = typeof (NodeClass.prototype as { onNodeCreated?: unknown }).onNodeCreated === "function"
+            void Promise.resolve(
+              ext.beforeRegisterNodeDef(
+                NodeClass as unknown as typeof LGraphNode,
+                def,
+                app
+              )
+            )
+            const hasAfter =
+              typeof (NodeClass.prototype as { onNodeCreated?: unknown })
+                .onNodeCreated === "function"
             if (!hadBefore && hasAfter) patchedByCount++
           } catch (err) {
-            console.error(`Extension beforeRegisterNodeDef failed for ${ext.name}:`, err)
+            console.error(
+              `Extension beforeRegisterNodeDef failed for ${ext.name}:`,
+              err
+            )
           }
         }
       }
       // LoraManager 관련 노드거나 onNodeCreated가 패치된 경우만 로그
       if (patchedByCount > 0 || type.includes("LoraManager")) {
-        console.log(`[CEG] registerNodeDefs: type="${type}" comfyClass="${NodeClass.comfyClass}" onNodeCreatedPatchedBy=${String(patchedByCount)} extCount=${String(extensions.length)}`)
+        console.log(
+          `[CEG] registerNodeDefs: type="${type}" comfyClass="${NodeClass.comfyClass}" onNodeCreatedPatchedBy=${String(patchedByCount)} extCount=${String(extensions.length)}`
+        )
       }
       if (patchedByCount === 0 && type.includes("LoraManager")) {
-        console.warn(`[CEG] registerNodeDefs: NO extension patched onNodeCreated for "${type}". extensions=${extensions.map(e => e.name).join(",")}`)
+        console.warn(
+          `[CEG] registerNodeDefs: NO extension patched onNodeCreated for "${type}". extensions=${extensions.map((e) => e.name).join(",")}`
+        )
       }
 
       window.LiteGraph.registerNodeType(type, NodeClass)
@@ -637,7 +732,10 @@ export class ComfyAppService {
     // 2. Zustand 스토어에 새 워크플로우 반영 (subgraphs 맵 구성 포함 - setGraph가 처리)
     const store = useReactGraphStore.getState()
     // subgraph 모델들을 미리 생성하여 store에 주입 (setGraph 호출 전)
-    const subgraphMap = new Map<string, ReturnType<typeof createSubgraphModel>>()
+    const subgraphMap = new Map<
+      string,
+      ReturnType<typeof createSubgraphModel>
+    >()
     for (const def of sortedSubgraphs) {
       subgraphMap.set(def.id, createSubgraphModel(def))
     }
@@ -653,7 +751,8 @@ export class ComfyAppService {
     // 3. 백그라운드 LiteGraph 노드들 동적 복원
     // 루트 노드 + subgraph 내부 노드 모두 위젯 복원 필요.
     // IO 노드(-10/-20)는 스킵. SubgraphNode 인스턴스(type=UUID)는 스킵.
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     for (const node of workflow.nodes) {
       // SubgraphNode 인스턴스는 백그라운드 복원 스킵 (UI에서 처리)
       if (uuidRe.test(node.type)) continue
@@ -661,31 +760,40 @@ export class ComfyAppService {
       if (node.id === -10 || node.id === -20) continue
 
       try {
-        const liveNode = this.createNode(node.type, node.pos, { id: node.id, skipConfigure: true })
+        const liveNode = this.createNode(node.type, node.pos, {
+          id: node.id,
+          skipConfigure: true,
+        })
         if (liveNode && typeof liveNode.configure === "function") {
           liveNode.configure(node)
         }
         // 라이브 노드의 widgets 배열에서 위젯 이름 순서 추출 → store 동기화
-        const liveWidgets = (liveNode as { widgets?: { name: string }[] | undefined }).widgets
+        const liveWidgets = (
+          liveNode as { widgets?: { name: string }[] | undefined }
+        ).widgets
         if (liveWidgets !== undefined && liveWidgets.length > 0) {
           const widgetNames = liveWidgets.map((w) => w.name)
           const currentNodes = useReactGraphStore.getState().nodes
           useReactGraphStore.setState({
-            nodes: currentNodes.map((n: ComfyWorkflowNode): ComfyWorkflowNode =>
-              n.id === node.id
-                ? {
-                    ...n,
-                    properties: {
-                      ...(n.properties ?? {}),
-                      widget_names: widgetNames,
-                    },
-                  }
-                : n
+            nodes: currentNodes.map(
+              (n: ComfyWorkflowNode): ComfyWorkflowNode =>
+                n.id === node.id
+                  ? {
+                      ...n,
+                      properties: {
+                        ...(n.properties ?? {}),
+                        widget_names: widgetNames,
+                      },
+                    }
+                  : n
             ),
           })
         }
       } catch (err) {
-        console.error(`Failed to restore live node ${String(node.id)} (${node.type}):`, err)
+        console.error(
+          `Failed to restore live node ${String(node.id)} (${node.type}):`,
+          err
+        )
       }
     }
 
@@ -696,35 +804,53 @@ export class ComfyAppService {
         if (uuidRe.test(node.type)) continue
         if (node.id === -10 || node.id === -20) continue
         // 이미 복원됐는지 확인 (동일 ID가 루트에도 있을 수 있으므로)
-        const existing = useReactGraphStore.getState().nodes.find((n) => n.id === node.id)
-        const existingWidgetNames = existing?.properties?.widget_names as string[] | undefined
-        if (existing !== undefined && existingWidgetNames !== undefined && existingWidgetNames.length > 0) continue
+        const existing = useReactGraphStore
+          .getState()
+          .nodes.find((n) => n.id === node.id)
+        const existingWidgetNames = existing?.properties?.widget_names as
+          | string[]
+          | undefined
+        if (
+          existing !== undefined &&
+          existingWidgetNames !== undefined &&
+          existingWidgetNames.length > 0
+        )
+          continue
 
         try {
-          const liveNode = this.createNode(node.type, node.pos, { id: node.id, skipConfigure: true })
+          const liveNode = this.createNode(node.type, node.pos, {
+            id: node.id,
+            skipConfigure: true,
+          })
           if (liveNode && typeof liveNode.configure === "function") {
             liveNode.configure(node)
           }
-          const liveWidgets = (liveNode as { widgets?: { name: string }[] | undefined }).widgets
+          const liveWidgets = (
+            liveNode as { widgets?: { name: string }[] | undefined }
+          ).widgets
           if (liveWidgets !== undefined && liveWidgets.length > 0) {
             const widgetNames = liveWidgets.map((w) => w.name)
             const currentNodes = useReactGraphStore.getState().nodes
             useReactGraphStore.setState({
-              nodes: currentNodes.map((n: ComfyWorkflowNode): ComfyWorkflowNode =>
-                n.id === node.id
-                  ? {
-                      ...n,
-                      properties: {
-                        ...(n.properties ?? {}),
-                        widget_names: widgetNames,
-                      },
-                    }
-                  : n
+              nodes: currentNodes.map(
+                (n: ComfyWorkflowNode): ComfyWorkflowNode =>
+                  n.id === node.id
+                    ? {
+                        ...n,
+                        properties: {
+                          ...(n.properties ?? {}),
+                          widget_names: widgetNames,
+                        },
+                      }
+                    : n
               ),
             })
           }
         } catch (err) {
-          console.error(`Failed to restore inner node ${String(node.id)} (${node.type}):`, err)
+          console.error(
+            `Failed to restore inner node ${String(node.id)} (${node.type}):`,
+            err
+          )
         }
       }
     }
@@ -735,7 +861,9 @@ export class ComfyAppService {
    * 백그라운드 호환 레이어용 - 실제 UI는 React에서 처리.
    */
   private registerSubgraphNodeType(def: SubgraphDefinition): void {
-    const w = window as unknown as { LiteGraph?: { registerNodeType?: (type: string, cls: unknown) => void } }
+    const w = window as unknown as {
+      LiteGraph?: { registerNodeType?: (type: string, cls: unknown) => void }
+    }
     if (!w.LiteGraph?.registerNodeType) return
     // 최소한의 등록 - 실제 인스턴스 생성은 React store에서 처리
     // 이 등록은 확장 호환용이며, createNode가 실패하지 않도록 함
@@ -761,8 +889,13 @@ export class ComfyAppService {
     const state = useReactGraphStore.getState()
 
     // 루트 노드 중 SubgraphNode 인스턴스(type=UUID)가 참조하는 subgraph 정의를 BFS 수집
-    const rootNodes = state.nodes.filter((n) => n.graphId === null || n.graphId === undefined)
-    const usedIds = findUsedSubgraphIds(rootNodes, state.subgraphs as unknown as Map<string, SubgraphDefinition>)
+    const rootNodes = state.nodes.filter(
+      (n) => n.graphId === null || n.graphId === undefined
+    )
+    const usedIds = findUsedSubgraphIds(
+      rootNodes,
+      state.subgraphs as unknown as Map<string, SubgraphDefinition>
+    )
 
     // 직렬화할 subgraph 정의 목록 (사용되는 것만)
     const subgraphDefs: SubgraphDefinition[] = []
@@ -771,13 +904,21 @@ export class ComfyAppService {
       if (!model) continue
       // 내부 노드/링크 추출 (graphId가 해당 subgraphId인 것들)
       const innerNodes = state.nodes.filter((n) => n.graphId === id)
-      const innerLinks = state.links.filter((l) =>
-        l.origin_id === SUBGRAPH_INPUT_ID ||
-        l.target_id === SUBGRAPH_OUTPUT_ID ||
-        innerNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
+      const innerLinks = state.links.filter(
+        (l) =>
+          l.origin_id === SUBGRAPH_INPUT_ID ||
+          l.target_id === SUBGRAPH_OUTPUT_ID ||
+          innerNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
       )
-      subgraphDefs.push(model.asSerialisable(innerNodes, innerLinks))
+      const innerGroups = state.groups.filter((g: any) => g.graphId === id)
+      subgraphDefs.push(
+        model.asSerialisable(innerNodes, innerLinks, innerGroups)
+      )
     }
+
+    const rootGroups = state.groups.filter(
+      (g: any) => g.graphId === null || g.graphId === undefined
+    )
 
     const result: ComfyWorkflowJSON = {
       last_node_id: state.nodes.reduce((max, n) => Math.max(max, n.id), 0),
@@ -806,6 +947,14 @@ export class ComfyAppService {
         target_slot: l.target_slot,
         type: l.type,
       })),
+      groups: rootGroups.map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        bounding: g.bounding,
+        color: g.color,
+        fontSize: g.fontSize,
+        locked: g.locked,
+      })),
       version: 0.4,
     }
     if (subgraphDefs.length > 0) {
@@ -822,12 +971,16 @@ export class ComfyAppService {
   graphToPrompt(): ComfyApiWorkflow {
     const state = useReactGraphStore.getState()
     // subgraph 내부 노드가 있으면 계층 ID 방식 사용
-    const hasSubgraphs = state.subgraphs.size > 0 &&
+    const hasSubgraphs =
+      state.subgraphs.size > 0 &&
       state.nodes.some((n) => n.graphId !== null && n.graphId !== undefined)
     if (hasSubgraphs) {
       return convertGraphToPromptWithSubgraphs(state.nodes, state.links)
     }
-    return convertGraphToPrompt(state.nodes.filter((n) => n.graphId === null || n.graphId === undefined), state.links)
+    return convertGraphToPrompt(
+      state.nodes.filter((n) => n.graphId === null || n.graphId === undefined),
+      state.links
+    )
   }
 
   /**
@@ -840,15 +993,21 @@ export class ComfyAppService {
   ): LGraphNode | null {
     // 진단: 확장 store 상태
     const exts = this.extensions
-    const loraExt = exts.find(e => e.name.includes("LoraManager") || e.name.includes("Lora"))
-    console.log(`[CEG] createNode: type="${type}" nodeDefInThis=${String(this.nodeDefs[type] !== undefined)} extCount=${String(exts.length)} loraExt=${loraExt?.name ?? "NONE"}`)
+    const loraExt = exts.find(
+      (e) => e.name.includes("LoraManager") || e.name.includes("Lora")
+    )
+    console.log(
+      `[CEG] createNode: type="${type}" nodeDefInThis=${String(this.nodeDefs[type] !== undefined)} extCount=${String(exts.length)} loraExt=${loraExt?.name ?? "NONE"}`
+    )
 
     let nodeDef = this.nodeDefs[type]
     let actualType = type
     if (nodeDef === undefined) {
       const storeDef = useNodeDefStore.getState().getNodeDef(type)
       if (storeDef !== undefined) {
-        console.debug(`[CEG] createNode: fuzzy match for "${type}" via store.getNodeDef`)
+        console.debug(
+          `[CEG] createNode: fuzzy match for "${type}" via store.getNodeDef`
+        )
         nodeDef = storeDef
         // Find the actually registered key in this.nodeDefs (case-insensitive match)
         for (const key of Object.keys(this.nodeDefs)) {
@@ -866,13 +1025,17 @@ export class ComfyAppService {
               break
             }
           }
-          console.debug(`[CEG] createNode: registering "${actualType}" dynamically in LiteGraph`)
+          console.debug(
+            `[CEG] createNode: registering "${actualType}" dynamically in LiteGraph`
+          )
           // Register in LiteGraph on-the-fly so createNode works
           this.registerNodeDefs({ [actualType]: nodeDef })
           this.nodeDefs[actualType] = nodeDef
         }
       } else {
-        console.warn(`[ComfyApp] Unknown node type: ${type}, creating generic node`)
+        console.warn(
+          `[ComfyApp] Unknown node type: ${type}, creating generic node`
+        )
         const node = new ComfyNode(type)
         node.pos = pos
         this.graph.add(node as unknown as LGraphNode)
@@ -882,17 +1045,27 @@ export class ComfyAppService {
 
     const node = window.LiteGraph.createNode(actualType) as LGraphNode | null
     if (node === null) {
-      console.warn(`[CEG] createNode: LiteGraph.createNode returned null for "${actualType}"`)
+      console.warn(
+        `[CEG] createNode: LiteGraph.createNode returned null for "${actualType}"`
+      )
       return null
     }
 
     if (typeof node.addInput !== "function") return null
 
     // 진단: 생성된 노드의 클래스 정보
-    const nodeProto = Object.getPrototypeOf(node) as Record<string, unknown> | null
-    const protoOnCreated = typeof (nodeProto as { onNodeCreated?: unknown } | null)?.onNodeCreated
-    const ctorName = (nodeProto?.constructor as { name?: string } | undefined)?.name ?? "?"
-    console.log(`[CEG] createNode: created node ctor=${ctorName} proto.onNodeCreated=${protoOnCreated} own.onNodeCreated=${typeof (node as { onNodeCreated?: unknown }).onNodeCreated}`)
+    const nodeProto = Object.getPrototypeOf(node) as Record<
+      string,
+      unknown
+    > | null
+    const protoOnCreated = typeof (
+      nodeProto as { onNodeCreated?: unknown } | null
+    )?.onNodeCreated
+    const ctorName =
+      (nodeProto?.constructor as { name?: string } | undefined)?.name ?? "?"
+    console.log(
+      `[CEG] createNode: created node ctor=${ctorName} proto.onNodeCreated=${protoOnCreated} own.onNodeCreated=${typeof (node as { onNodeCreated?: unknown }).onNodeCreated}`
+    )
 
     node.pos = pos
     if (options.id !== undefined) {
@@ -982,7 +1155,10 @@ export class ComfyAppService {
     const app = getWindowApp()
 
     const addSingleWidget = (name: string, spec: InputSpec): void => {
-      if (node.widgets?.some((w: { name: string }) => w.name === name) ?? false) {
+      if (
+        node.widgets?.some((w: { name: string }) => w.name === name) ??
+        false
+      ) {
         return
       }
       const inputType = spec[0]
@@ -997,29 +1173,50 @@ export class ComfyAppService {
         try {
           const result = factory(node, name, [typeName, inputConfig], app)
           if (result) {
-            const widget = ((result as Record<string, unknown>).widget !== undefined
-              ? (result as Record<string, unknown>).widget
-              : result) as CustomWidget
-            console.log(`[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created by factory, hasElement=${String(widget.element !== undefined)}`)
+            const widget = (
+              (result as Record<string, unknown>).widget !== undefined
+                ? (result as Record<string, unknown>).widget
+                : result
+            ) as CustomWidget
+            console.log(
+              `[CEG] addNodeWidgets: custom widget "${name}" (type=${typeName}) created by factory, hasElement=${String(widget.element !== undefined)}`
+            )
             return
           }
         } catch (err) {
-          console.error(`[CEG] addNodeWidgets: custom widget factory failed for "${name}" (type=${typeName}):`, err)
+          console.error(
+            `[CEG] addNodeWidgets: custom widget factory failed for "${name}" (type=${typeName}):`,
+            err
+          )
         }
       }
 
       // 2) 커스텀 팩토리가 없거나 실패 → 기본 LiteGraph 위젯
       if (Array.isArray(inputType)) {
         // COMBO 위젯
-        node.addWidget("combo", name, inputType[0] ?? "", (): void => undefined, {
-          values: inputType,
-        })
+        node.addWidget(
+          "combo",
+          name,
+          inputType[0] ?? "",
+          (): void => undefined,
+          {
+            values: inputType,
+          }
+        )
       } else if (inputType === "INT" || inputType === "FLOAT") {
         // 숫자 위젯
-        const defaultValue = (inputConfig.default as number | undefined) ?? (inputType === "INT" ? 0 : 0.0)
-        const min = (inputConfig.min as number | undefined) ?? (inputType === "INT" ? 0 : 0.0)
-        const max = (inputConfig.max as number | undefined) ?? (inputType === "INT" ? 0x7fffffff : 1e38)
-        const step = (inputConfig.step as number | undefined) ?? (inputType === "INT" ? 1 : 0.1)
+        const defaultValue =
+          (inputConfig.default as number | undefined) ??
+          (inputType === "INT" ? 0 : 0.0)
+        const min =
+          (inputConfig.min as number | undefined) ??
+          (inputType === "INT" ? 0 : 0.0)
+        const max =
+          (inputConfig.max as number | undefined) ??
+          (inputType === "INT" ? 0x7fffffff : 1e38)
+        const step =
+          (inputConfig.step as number | undefined) ??
+          (inputType === "INT" ? 1 : 0.1)
         node.addWidget("number", name, defaultValue, (): void => undefined, {
           min,
           max,
@@ -1039,13 +1236,27 @@ export class ComfyAppService {
             { values: ["randomize", "fixed", "increment", "decrement"] }
           )
         }
-      } else if (inputType === "STRING" || inputType.startsWith("AUTOCOMPLETE_")) {
+      } else if (
+        inputType === "STRING" ||
+        inputType.startsWith("AUTOCOMPLETE_")
+      ) {
         // 텍스트 위젯 (STRING, AUTOCOMPLETE_TEXT, AUTOCOMPLETE_TEXT_LORAS, etc.)
         const defaultValue = (inputConfig.default as string | undefined) ?? ""
-        node.addWidget("text", name, defaultValue, (): void => undefined, inputConfig)
+        node.addWidget(
+          "text",
+          name,
+          defaultValue,
+          (): void => undefined,
+          inputConfig
+        )
       } else if (inputType === "BOOLEAN") {
         // 토글 위젯
-        node.addWidget("toggle", name, (inputConfig.default as boolean | undefined) ?? false, (): void => undefined)
+        node.addWidget(
+          "toggle",
+          name,
+          (inputConfig.default as boolean | undefined) ?? false,
+          (): void => undefined
+        )
       }
       // else: Skip non-widget types (MODEL, CLIP, LATENT, IMAGE, etc.)
       // They are connection-only slots and should never get a text widget.

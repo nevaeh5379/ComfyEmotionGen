@@ -12,7 +12,9 @@ function DropdownMenu({
 
 function DropdownMenuPortal({
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DropdownMenuPrimitive.Portal
+>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
   )
@@ -20,7 +22,9 @@ function DropdownMenuPortal({
 
 function DropdownMenuTrigger({
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DropdownMenuPrimitive.Trigger
+>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
@@ -34,7 +38,9 @@ function DropdownMenuContent({
   align = "start",
   sideOffset = 4,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DropdownMenuPrimitive.Content
+>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
@@ -53,7 +59,9 @@ function DropdownMenuContent({
 
 function DropdownMenuGroup({
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Group>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DropdownMenuPrimitive.Group
+>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
   )
@@ -115,7 +123,9 @@ function DropdownMenuCheckboxItem({
 
 function DropdownMenuRadioGroup({
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DropdownMenuPrimitive.RadioGroup
+>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.RadioGroup
       data-slot="dropdown-menu-radio-group"
@@ -178,7 +188,9 @@ function DropdownMenuLabel({
 function DropdownMenuSeparator({
   className,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DropdownMenuPrimitive.Separator
+>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
@@ -237,7 +249,9 @@ function DropdownMenuSubTrigger({
 function DropdownMenuSubContent({
   className,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>): React.JSX.Element {
+}: React.ComponentProps<
+  typeof DropdownMenuPrimitive.SubContent
+>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"

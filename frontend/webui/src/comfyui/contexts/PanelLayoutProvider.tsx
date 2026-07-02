@@ -1,13 +1,7 @@
 import { useEffect, type ReactNode } from "react"
 import { useSettings } from "../hooks/useSettings"
-import {
-  usePanelState,
-  useDockablePanel,
-} from "../hooks/usePanelState"
-import {
-  type PanelLayoutValue,
-  PanelLayoutContext,
-} from "./PanelLayoutContext"
+import { usePanelState, useDockablePanel } from "../hooks/usePanelState"
+import { type PanelLayoutValue, PanelLayoutContext } from "./PanelLayoutContext"
 
 export function PanelLayoutProvider({
   children,
