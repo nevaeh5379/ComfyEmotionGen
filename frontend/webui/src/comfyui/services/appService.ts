@@ -27,12 +27,12 @@ import { extensionManager } from "@/comfyui/services/extensionService"
 import { api } from "@/comfyui/api"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { widgetStore, type CustomWidget } from "@/comfyui/stores/widgetStore"
-import { findUsedSubgraphIds } from "@/comfyui/subgraph/subgraphUtils"
 import { topologicalSortSubgraphs } from "@/comfyui/subgraph/subgraphDeduplication"
 import { createSubgraphModel } from "@/comfyui/subgraph/SubgraphModel"
 import { flattenForExecution } from "@/comfyui/subgraph/executableNodeDto"
 import type { SubgraphDefinition } from "@/comfyui/types/subgraph"
 import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID } from "@/comfyui/constants"
+import { serializeGraphState } from "@/comfyui/utils/workflowGraphModel"
 import { LGraphAdapter } from "@/comfyui/services/lgraphAdapter"
 import type {
   LGraphNode,
@@ -69,7 +69,9 @@ type NodeDefWithSlotAliases = ComfyNodeDef & {
   outputs: NodeDefSlotAlias[]
 }
 
-function normalizeNodeDefForExtensions(def: ComfyNodeDef): NodeDefWithSlotAliases {
+function normalizeNodeDefForExtensions(
+  def: ComfyNodeDef
+): NodeDefWithSlotAliases {
   const inputs: NodeDefSlotAlias[] = []
   for (const entries of [
     Object.entries(def.input?.required ?? {}),
@@ -289,7 +291,10 @@ class ComfyNode {
   }
 
   snapToGrid(): void {
-    this.pos = [Math.round(this.pos[0] / 10) * 10, Math.round(this.pos[1] / 10) * 10]
+    this.pos = [
+      Math.round(this.pos[0] / 10) * 10,
+      Math.round(this.pos[1] / 10) * 10,
+    ]
   }
 
   alignToGrid(): void {
@@ -312,7 +317,9 @@ class ComfyNode {
       properties: this.properties,
       widgets_values: this.widgets?.map((widget) => widget.value),
     }
-    ;(this as { onSerialize?: (data: Record<string, unknown>) => void }).onSerialize?.(data)
+    ;(
+      this as { onSerialize?: (data: Record<string, unknown>) => void }
+    ).onSerialize?.(data)
     return data
   }
 
@@ -454,7 +461,9 @@ class ComfyNode {
     }
     const links = (this.graph as LGraphAdapterRef & { links: LGraph["links"] })
       .links
-    return links instanceof Map ? links.get(linkId) ?? null : links[linkId] ?? null
+    return links instanceof Map
+      ? (links.get(linkId) ?? null)
+      : (links[linkId] ?? null)
   }
 
   getInputNode(slot: number): LGraphNode | null {
@@ -473,7 +482,9 @@ class ComfyNode {
     const graph = this.graph as LGraphAdapterRef & { links: LGraph["links"] }
     for (const linkId of links) {
       const link =
-        graph.links instanceof Map ? graph.links.get(linkId) : graph.links[linkId]
+        graph.links instanceof Map
+          ? graph.links.get(linkId)
+          : graph.links[linkId]
       if (link !== undefined) {
         const target = this.graph.getNodeById(link.target_id)
         if (target !== undefined && target !== null) nodes.push(target)
@@ -524,7 +535,9 @@ class ComfyNode {
   }
 
   findInputSlotByType(type: string): number {
-    return this.inputs.findIndex((input) => isValidSlotConnection(input.type, type))
+    return this.inputs.findIndex((input) =>
+      isValidSlotConnection(input.type, type)
+    )
   }
 
   findOutputSlotByType(type: string): number {
@@ -534,24 +547,32 @@ class ComfyNode {
   }
 
   findSlotByType(input: boolean, type: string): number {
-    return input ? this.findInputSlotByType(type) : this.findOutputSlotByType(type)
+    return input
+      ? this.findInputSlotByType(type)
+      : this.findOutputSlotByType(type)
   }
 
   findInputByType(type: string): LGraphNodeInput | null {
     const slot = this.findInputSlotByType(type)
-    return slot >= 0 ? this.inputs[slot] ?? null : null
+    return slot >= 0 ? (this.inputs[slot] ?? null) : null
   }
 
   findOutputByType(type: string): LGraphNodeOutput | null {
     const slot = this.findOutputSlotByType(type)
-    return slot >= 0 ? this.outputs[slot] ?? null : null
+    return slot >= 0 ? (this.outputs[slot] ?? null) : null
   }
 
   findConnectByTypeSlot(type: string, isOutput = true): number {
-    return isOutput ? this.findOutputSlotByType(type) : this.findInputSlotByType(type)
+    return isOutput
+      ? this.findOutputSlotByType(type)
+      : this.findInputSlotByType(type)
   }
 
-  canConnectTo(slot: number, targetNode: LGraphNode, targetSlot: number): boolean {
+  canConnectTo(
+    slot: number,
+    targetNode: LGraphNode,
+    targetSlot: number
+  ): boolean {
     return isValidSlotConnection(
       this.outputs[slot]?.type,
       targetNode.inputs[targetSlot]?.type
@@ -578,7 +599,9 @@ class ComfyNode {
     targetSlot: number
   ): boolean | null {
     const outputSlot = this.findOutputSlotByType(targetType)
-    return outputSlot >= 0 ? this.connect(outputSlot, targetNode, targetSlot) : false
+    return outputSlot >= 0
+      ? this.connect(outputSlot, targetNode, targetSlot)
+      : false
   }
 
   getSlotFromWidget(widget: WidgetType): number {
@@ -1092,49 +1115,48 @@ export class ComfyAppService {
   constructor(config: ComfyAppConfig) {
     this.nodeDefs = config.nodeDefs
     this.graph = new LGraphAdapter()
-    const canvasProto = (window as unknown as { LGraphCanvas?: { prototype: unknown } }).LGraphCanvas?.prototype ?? Object.prototype
-    this.canvas = Object.assign(
-      Object.create(canvasProto),
-      {
-        state: { readOnly: false },
-        graph: this.graph,
-        ds: { scale: 1, offset: [0, 0] },
-        resize(_w?: number, _h?: number): void {
-          /* noop */
-        },
-        setDirty(_canvas?: boolean, _history?: boolean): void {
-          /* noop */
-        },
-        stopRendering(): void {
-          /* noop */
-        },
-        startRendering(): void {
-          /* noop */
-        },
-        setCanvas(_c: HTMLCanvasElement): void {
-          /* noop */
-        },
-        addEventListener(_type: string, _listener: (e: Event) => void): void {
-          /* noop */
-        },
-        removeEventListener(_type: string, _listener: (e: Event) => void): void {
-          /* noop */
-        },
-        getCanvasMenuOptions(): unknown[] {
-          return []
-        },
-        getContextMenuOptions(): unknown[] {
-          return []
-        },
-        getCurrentGraph(): LGraph | undefined {
-          return window.app.graph
-        },
-        render_canvas_border: false,
-        canvas: config.canvas,
-        default_connection_color_byType: {} as Record<string, string>,
-        link_type_colors: {} as Record<string, string>,
-      }
-    ) as unknown as LGraphCanvas
+    const canvasProto =
+      (window as unknown as { LGraphCanvas?: { prototype: unknown } })
+        .LGraphCanvas?.prototype ?? Object.prototype
+    this.canvas = Object.assign(Object.create(canvasProto), {
+      state: { readOnly: false },
+      graph: this.graph,
+      ds: { scale: 1, offset: [0, 0] },
+      resize(_w?: number, _h?: number): void {
+        /* noop */
+      },
+      setDirty(_canvas?: boolean, _history?: boolean): void {
+        /* noop */
+      },
+      stopRendering(): void {
+        /* noop */
+      },
+      startRendering(): void {
+        /* noop */
+      },
+      setCanvas(_c: HTMLCanvasElement): void {
+        /* noop */
+      },
+      addEventListener(_type: string, _listener: (e: Event) => void): void {
+        /* noop */
+      },
+      removeEventListener(_type: string, _listener: (e: Event) => void): void {
+        /* noop */
+      },
+      getCanvasMenuOptions(): unknown[] {
+        return []
+      },
+      getContextMenuOptions(): unknown[] {
+        return []
+      },
+      getCurrentGraph(): LGraph | undefined {
+        return window.app.graph
+      },
+      render_canvas_border: false,
+      canvas: config.canvas,
+      default_connection_color_byType: {} as Record<string, string>,
+      link_type_colors: {} as Record<string, string>,
+    }) as unknown as LGraphCanvas
 
     // Set up canvas (creates bgcanvas, binds events)
     this.canvas.setCanvas(config.canvas)
@@ -1224,7 +1246,6 @@ export class ComfyAppService {
         }
       }
 
-
       window.LiteGraph.registerNodeType(type, NodeClass)
     }
   }
@@ -1243,7 +1264,10 @@ export class ComfyAppService {
           ext.beforeConfigureGraph(workflow, missingNodeTypes, app)
         )
       } catch (err) {
-        console.error(`Extension beforeConfigureGraph failed for ${ext.name}:`, err)
+        console.error(
+          `Extension beforeConfigureGraph failed for ${ext.name}:`,
+          err
+        )
       }
     }
 
@@ -1387,7 +1411,10 @@ export class ComfyAppService {
       try {
         void Promise.resolve(ext.afterConfigureGraph(missingNodeTypes, app))
       } catch (err) {
-        console.error(`Extension afterConfigureGraph failed for ${ext.name}:`, err)
+        console.error(
+          `Extension afterConfigureGraph failed for ${ext.name}:`,
+          err
+        )
       }
     }
   }
@@ -1436,80 +1463,7 @@ export class ComfyAppService {
    */
   serializeGraph(): ComfyWorkflowJSON {
     const state = useReactGraphStore.getState()
-
-    // 루트 노드 중 SubgraphNode 인스턴스(type=UUID)가 참조하는 subgraph 정의를 BFS 수집
-    const rootNodes = state.nodes.filter(
-      (n) => n.graphId === null || n.graphId === undefined
-    )
-    const usedIds = findUsedSubgraphIds(
-      rootNodes,
-      state.subgraphs as unknown as Map<string, SubgraphDefinition>
-    )
-
-    // 직렬화할 subgraph 정의 목록 (사용되는 것만)
-    const subgraphDefs: SubgraphDefinition[] = []
-    for (const id of usedIds) {
-      const model = state.subgraphs.get(id)
-      if (!model) continue
-      // 내부 노드/링크 추출 (graphId가 해당 subgraphId인 것들)
-      const innerNodes = state.nodes.filter((n) => n.graphId === id)
-      const innerLinks = state.links.filter(
-        (l) =>
-          l.origin_id === SUBGRAPH_INPUT_ID ||
-          l.target_id === SUBGRAPH_OUTPUT_ID ||
-          innerNodes.some((n) => n.id === l.origin_id || n.id === l.target_id)
-      )
-      const innerGroups = state.groups.filter((g: any) => g.graphId === id)
-      subgraphDefs.push(
-        model.asSerialisable(innerNodes, innerLinks, innerGroups)
-      )
-    }
-
-    const rootGroups = state.groups.filter(
-      (g: any) => g.graphId === null || g.graphId === undefined
-    )
-
-    const result: ComfyWorkflowJSON = {
-      last_node_id: state.nodes.reduce((max, n) => Math.max(max, n.id), 0),
-      last_link_id: state.links.reduce((max, l) => Math.max(max, l.id), 0),
-      nodes: state.nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        pos: n.pos,
-        size: n.size,
-        inputs: n.inputs,
-        outputs: n.outputs,
-        widgets_values: n.widgets_values,
-        properties: n.properties,
-        mode: n.mode,
-        flags: n.flags,
-        order: n.order,
-        color: n.color,
-        bgcolor: n.bgcolor,
-        ...(n.graphId !== undefined ? { graphId: n.graphId } : {}),
-      })),
-      links: state.links.map((l) => ({
-        id: l.id,
-        origin_id: l.origin_id,
-        origin_slot: l.origin_slot,
-        target_id: l.target_id,
-        target_slot: l.target_slot,
-        type: l.type,
-      })),
-      groups: rootGroups.map((g: any) => ({
-        id: g.id,
-        title: g.title,
-        bounding: g.bounding,
-        color: g.color,
-        fontSize: g.fontSize,
-        locked: g.locked,
-      })),
-      version: 0.4,
-    }
-    if (subgraphDefs.length > 0) {
-      result.definitions = { subgraphs: subgraphDefs }
-    }
-    return result
+    return serializeGraphState(state)
   }
 
   /**
@@ -1582,7 +1536,9 @@ export class ComfyAppService {
             ? window.LiteGraph.getNodeType(type)
             : undefined
         if (frontendOnlyType !== undefined) {
-          const frontendNode = window.LiteGraph.createNode(type) as LGraphNode | null
+          const frontendNode = window.LiteGraph.createNode(
+            type
+          ) as LGraphNode | null
           if (frontendNode !== null) {
             frontendNode.pos = pos
             if (options.id !== undefined) frontendNode.id = options.id

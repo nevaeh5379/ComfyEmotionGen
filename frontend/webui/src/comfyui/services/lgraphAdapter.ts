@@ -25,11 +25,9 @@ import type {
 } from "@/comfyui/types/workflow"
 import type { SubgraphModel } from "@/comfyui/types/subgraph"
 import type { SubgraphId } from "@/comfyui/constants"
-import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID } from "@/comfyui/constants"
-import { findUsedSubgraphIds } from "@/comfyui/subgraph/subgraphUtils"
-import type { SubgraphDefinition } from "@/comfyui/types/subgraph"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { serializeGraphState } from "@/comfyui/utils/workflowGraphModel"
 
 function normalizeSlotType(type: unknown): string {
   return Array.isArray(type) ? type.join(",") : String(type ?? "*")
@@ -289,13 +287,11 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   /** Zustand store에서 현재 nodes를 읽습니다. */
   public get nodes(): LGraphNode[] {
     const store = useReactGraphStore
-    return store
-      .getState()
-      .nodes.map((n: ComfyWorkflowNode) => {
-        const liveNode = this._liveNodes.get(n.id)
-        if (liveNode !== undefined) return this.ensureLiveNodeReady(liveNode)
-        return this.materializeLiveNode(n) ?? this.wrapNode(n)
-      })
+    return store.getState().nodes.map((n: ComfyWorkflowNode) => {
+      const liveNode = this._liveNodes.get(n.id)
+      if (liveNode !== undefined) return this.ensureLiveNodeReady(liveNode)
+      return this.materializeLiveNode(n) ?? this.wrapNode(n)
+    })
   }
 
   public get _nodes(): LGraphNode[] {
@@ -455,87 +451,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   public serialize(): ComfyWorkflowJSON {
     const store = useReactGraphStore
     const state = store.getState()
-
-    // Subgraph definitions 직렬화 (사용되는 것만)
-    const rootNodes = state.nodes.filter(
-      (n: ComfyWorkflowNode) => n.graphId === null || n.graphId === undefined
-    )
-    const usedIds = findUsedSubgraphIds(
-      rootNodes,
-      state.subgraphs as unknown as Map<string, SubgraphDefinition>
-    )
-    const subgraphDefs: SubgraphDefinition[] = []
-    for (const id of usedIds) {
-      const model = state.subgraphs.get(id)
-      if (!model) continue
-      const innerNodes = state.nodes.filter(
-        (n: ComfyWorkflowNode) => n.graphId === id
-      )
-      const innerLinks = state.links.filter(
-        (l: ComfyWorkflowLink) =>
-          l.origin_id === SUBGRAPH_INPUT_ID ||
-          l.target_id === SUBGRAPH_OUTPUT_ID ||
-          innerNodes.some(
-            (n: ComfyWorkflowNode) =>
-              n.id === l.origin_id || n.id === l.target_id
-          )
-      )
-      const innerGroups = state.groups.filter((g: any) => g.graphId === id)
-      subgraphDefs.push(
-        model.asSerialisable(innerNodes, innerLinks, innerGroups)
-      )
-    }
-
-    const rootGroups = state.groups.filter(
-      (g: any) => g.graphId === null || g.graphId === undefined
-    )
-
-    const workflow: ComfyWorkflowJSON = {
-      last_node_id: state.nodes.reduce(
-        (max: number, n: ComfyWorkflowNode) => Math.max(max, n.id),
-        0
-      ),
-      last_link_id: state.links.reduce(
-        (max: number, l: ComfyWorkflowLink) => Math.max(max, l.id),
-        0
-      ),
-      nodes: state.nodes.map((n: ComfyWorkflowNode) => ({
-        id: n.id,
-        type: n.type,
-        pos: n.pos,
-        size: n.size,
-        inputs: n.inputs,
-        outputs: n.outputs,
-        widgets_values: n.widgets_values,
-        properties: n.properties,
-        mode: n.mode,
-        flags: n.flags,
-        order: n.order,
-        color: n.color,
-        bgcolor: n.bgcolor,
-        ...(n.graphId !== undefined ? { graphId: n.graphId } : {}),
-      })),
-      links: state.links.map((l: ComfyWorkflowLink) => ({
-        id: l.id,
-        origin_id: l.origin_id,
-        origin_slot: l.origin_slot,
-        target_id: l.target_id,
-        target_slot: l.target_slot,
-        type: l.type,
-      })),
-      groups: rootGroups.map((g: any) => ({
-        id: g.id,
-        title: g.title,
-        bounding: g.bounding,
-        color: g.color,
-        fontSize: g.fontSize,
-        locked: g.locked,
-      })),
-      version: 0.4,
-    }
-    if (subgraphDefs.length > 0) {
-      workflow.definitions = { subgraphs: subgraphDefs }
-    }
+    const workflow = serializeGraphState(state)
 
     this.onSerialize?.(workflow)
     return workflow
@@ -630,14 +546,19 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         const current = store
           .getState()
           .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
-        const nodeDef = useNodeDefStore.getState().getNodeDef(node.type ?? "") as any
+        const nodeDef = useNodeDefStore
+          .getState()
+          .getNodeDef(node.type ?? "") as any
         return (current?.inputs ?? []).map((i) => {
-          const defInput = nodeDef?.inputs?.find((di: { name: string }) => di.name === i.name)
+          const defInput = nodeDef?.inputs?.find(
+            (di: { name: string }) => di.name === i.name
+          )
           return {
             name: i.name,
             type: i.type,
             link: i.link ?? null,
-            localized_name: i.localized_name ?? defInput?.localized_name ?? i.name,
+            localized_name:
+              i.localized_name ?? defInput?.localized_name ?? i.name,
             widget: i.widget ? { name: i.widget.name } : null,
           }
         })
@@ -651,14 +572,19 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         const current = store
           .getState()
           .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
-        const nodeDef = useNodeDefStore.getState().getNodeDef(node.type ?? "") as any
+        const nodeDef = useNodeDefStore
+          .getState()
+          .getNodeDef(node.type ?? "") as any
         return (current?.outputs ?? []).map((o) => {
-          const defOutput = nodeDef?.outputs?.find((do_: { name: string }) => do_.name === o.name)
+          const defOutput = nodeDef?.outputs?.find(
+            (do_: { name: string }) => do_.name === o.name
+          )
           return {
             name: o.name,
             type: o.type,
             links: o.links ?? null,
-            localized_name: o.localized_name ?? defOutput?.localized_name ?? o.name,
+            localized_name:
+              o.localized_name ?? defOutput?.localized_name ?? o.name,
           }
         })
       },
@@ -685,7 +611,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         if (current?.widgets_values === undefined) return undefined
         const wv = current.widgets_values
         if (Array.isArray(wv)) {
-          const widgetNames = (current.properties?.widget_names ?? []) as string[]
+          const widgetNames = (current.properties?.widget_names ??
+            []) as string[]
           const projected = wv.map((v: unknown, idx: number) => ({
             type: "text",
             name: widgetNames[idx] ?? `widget_${idx.toString()}`,
@@ -721,7 +648,10 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         // intentional no-op
       },
       computeSize(minWidth?: number): [number, number] {
-        return [Math.max(minWidth ?? 200, node.size?.[0] ?? 200), node.size?.[1] ?? 80]
+        return [
+          Math.max(minWidth ?? 200, node.size?.[0] ?? 200),
+          node.size?.[1] ?? 80,
+        ]
       },
       expandToFitContent(): void {
         // Store-backed nodes keep their explicit serialized size.
@@ -730,23 +660,31 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         store.getState().updateNodeSize(node.id, size)
       },
       setPos(x: number | [number, number], y?: number): void {
-        const pos: [number, number] = Array.isArray(x) ? [x[0], x[1]] : [x, y ?? node.pos[1]]
+        const pos: [number, number] = Array.isArray(x)
+          ? [x[0], x[1]]
+          : [x, y ?? node.pos[1]]
         store.getState().updateNodePos(node.id, pos)
       },
       move(deltaX: number, deltaY: number): void {
-        store.getState().updateNodePos(node.id, [
-          node.pos[0] + deltaX,
-          node.pos[1] + deltaY,
-        ])
+        store
+          .getState()
+          .updateNodePos(node.id, [node.pos[0] + deltaX, node.pos[1] + deltaY])
       },
       getBounding(): [number, number, number, number] {
-        return [node.pos[0], node.pos[1], node.size?.[0] ?? 0, node.size?.[1] ?? 0]
+        return [
+          node.pos[0],
+          node.pos[1],
+          node.size?.[0] ?? 0,
+          node.size?.[1] ?? 0,
+        ]
       },
       snapToGrid(): void {
-        store.getState().updateNodePos(node.id, [
-          Math.round(node.pos[0] / 10) * 10,
-          Math.round(node.pos[1] / 10) * 10,
-        ])
+        store
+          .getState()
+          .updateNodePos(node.id, [
+            Math.round(node.pos[0] / 10) * 10,
+            Math.round(node.pos[1] / 10) * 10,
+          ])
       },
       alignToGrid(): void {
         this.snapToGrid()
@@ -855,7 +793,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       },
       removeProperty(name: string): void {
         if (node.properties !== undefined) delete node.properties[name]
-        if (this.properties_info !== undefined) delete this.properties_info[name]
+        if (this.properties_info !== undefined)
+          delete this.properties_info[name]
       },
       addCustomWidget<TWidget extends ReturnType<LGraphNode["addWidget"]>>(
         customWidget: TWidget
@@ -868,13 +807,16 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           (w) => w.name === (customWidget as { name?: string }).name
         )
         if (existingIdx >= 0) {
-          liveWidgets[existingIdx] = customWidget as typeof liveWidgets[number]
+          liveWidgets[existingIdx] =
+            customWidget as (typeof liveWidgets)[number]
         } else {
-          liveWidgets.push(customWidget as typeof liveWidgets[number])
+          liveWidgets.push(customWidget as (typeof liveWidgets)[number])
         }
         return customWidget
       },
-      removeWidget(_widgetOrSlot: ReturnType<LGraphNode["addWidget"]> | number): void {
+      removeWidget(
+        _widgetOrSlot: ReturnType<LGraphNode["addWidget"]> | number
+      ): void {
         // Store-backed wrapper widgets are projected from node.widgets_values.
       },
       ensureWidgetRemoved(_widget: ReturnType<LGraphNode["addWidget"]>): void {
@@ -970,7 +912,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       },
       getInputOrProperty(name: string): unknown {
         const inputSlot = this.findInputSlot(name) as number
-        const inputData = inputSlot >= 0 ? this.getInputData(inputSlot) : undefined
+        const inputData =
+          inputSlot >= 0 ? this.getInputData(inputSlot) : undefined
         return inputData ?? this.properties?.[name]
       },
       findInputSlotFree(): number {
@@ -992,20 +935,30 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         )
       },
       findSlotByType(input: boolean, type: string): number {
-        return input ? this.findInputSlotByType(type) : this.findOutputSlotByType(type)
+        return input
+          ? this.findInputSlotByType(type)
+          : this.findOutputSlotByType(type)
       },
       findConnectByTypeSlot(type: string, isOutput = true): number {
-        return isOutput ? this.findOutputSlotByType(type) : this.findInputSlotByType(type)
+        return isOutput
+          ? this.findOutputSlotByType(type)
+          : this.findInputSlotByType(type)
       },
       findInputByType(type: string): ReturnType<LGraphNode["findInputByType"]> {
         const slot = this.findInputSlotByType(type)
-        return slot >= 0 ? this.inputs[slot] ?? null : null
+        return slot >= 0 ? (this.inputs[slot] ?? null) : null
       },
-      findOutputByType(type: string): ReturnType<LGraphNode["findOutputByType"]> {
+      findOutputByType(
+        type: string
+      ): ReturnType<LGraphNode["findOutputByType"]> {
         const slot = this.findOutputSlotByType(type)
-        return slot >= 0 ? this.outputs[slot] ?? null : null
+        return slot >= 0 ? (this.outputs[slot] ?? null) : null
       },
-      canConnectTo(slot: number, targetNode: LGraphNode, targetSlot: number): boolean {
+      canConnectTo(
+        slot: number,
+        targetNode: LGraphNode,
+        targetSlot: number
+      ): boolean {
         return isValidSlotConnection(
           this.outputs[slot]?.type,
           targetNode.inputs[targetSlot]?.type
@@ -1017,7 +970,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         targetType: string
       ): boolean | null {
         const targetSlot = targetNode.findInputSlotByType(targetType)
-        return targetSlot >= 0 ? this.connect(slot, targetNode, targetSlot) : false
+        return targetSlot >= 0
+          ? this.connect(slot, targetNode, targetSlot)
+          : false
       },
       connectByTypeOutput(
         targetType: string,
@@ -1032,7 +987,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       getSlotFromWidget(widget: ReturnType<LGraphNode["addWidget"]>): number {
         return this.widgets?.indexOf(widget) ?? -1
       },
-      getWidgetFromSlot(slot: number): ReturnType<LGraphNode["getWidgetFromSlot"]> {
+      getWidgetFromSlot(
+        slot: number
+      ): ReturnType<LGraphNode["getWidgetFromSlot"]> {
         return this.widgets?.[slot]
       },
       addTitleButton(
@@ -1166,10 +1123,10 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     liveNode.id = node.id
     liveNode.pos = node.pos
     liveNode.size = node.size
-    liveNode.mode = node.mode
-    liveNode.order = node.order
-    liveNode.color = node.color
-    liveNode.bgcolor = node.bgcolor
+    if (node.mode !== undefined) liveNode.mode = node.mode
+    if (node.order !== undefined) liveNode.order = node.order
+    if (node.color !== undefined) liveNode.color = node.color
+    if (node.bgcolor !== undefined) liveNode.bgcolor = node.bgcolor
     liveNode.properties = { ...(node.properties ?? {}) }
     this.linkNodeToGraph(liveNode, this)
     if (typeof liveNode.configure === "function") {

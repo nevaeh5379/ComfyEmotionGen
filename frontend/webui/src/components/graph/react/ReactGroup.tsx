@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useShallow } from "zustand/react/shallow"
 import { Lock, Unlock, Trash2, Palette } from "lucide-react"
+import { isRootGraphId } from "@/comfyui/utils/workflowGraphModel"
 
 interface ReactGroupProps {
   id: number
@@ -40,9 +41,7 @@ export function ReactGroup({ id }: ReactGroupProps): React.JSX.Element | null {
     // 드래그 시작 시 그룹 영역 내에 있는 노드들을 수집
     const activeId = useReactGraphStore.getState().activeGraphId
     const activeNodes = nodes.filter((n) =>
-      activeId === null
-        ? n.graphId === null || n.graphId === undefined
-        : n.graphId === activeId
+      activeId === null ? isRootGraphId(n.graphId) : n.graphId === activeId
     )
 
     // center point overlap check

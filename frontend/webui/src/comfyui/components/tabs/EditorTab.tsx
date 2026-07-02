@@ -11,7 +11,6 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { useGraphStore } from "@/comfyui/stores/graphStore"
 import type {
   ComfyWorkflowJSON,
-  ComfyWorkflowNode,
   ComfyWorkflowLink,
 } from "@/comfyui/types/workflow"
 import { Button } from "@/components/ui/button"
@@ -51,43 +50,10 @@ import {
   type EditorSavedWorkflow,
 } from "@/comfyui/hooks/useEditorSavedWorkflows"
 import { convertGraphToPrompt } from "@/comfyui/services/appService"
-
-/* ------------------------------------------------------------------ */
-/*  헬퍼 함수                                                          */
-/* ------------------------------------------------------------------ */
-
-/** ComfyWorkflowNode[] / ComfyWorkflowLink[] → ComfyWorkflowJSON */
-function buildWorkflowJSON(
-  nodes: ComfyWorkflowNode[],
-  links: ComfyWorkflowLink[]
-): ComfyWorkflowJSON {
-  return {
-    last_node_id: Math.max(0, ...(nodes.map((n) => n.id), [])),
-    last_link_id: Math.max(0, ...(links.map((l) => l.id), [])),
-    nodes,
-    links,
-    version: 0.4,
-  }
-}
-
-/** 원시 배열 링크 [id, origin_id, …] → ComfyWorkflowLink 객체로 정규화 */
-function normalizeLinks(
-  raw: (ComfyWorkflowLink | unknown[])[]
-): ComfyWorkflowLink[] {
-  return raw.map((l: ComfyWorkflowLink | unknown[]) => {
-    if (Array.isArray(l)) {
-      return {
-        id: l[0] as number,
-        origin_id: l[1] as number,
-        origin_slot: l[2] as number,
-        target_id: l[3] as number,
-        target_slot: l[4] as number,
-        type: typeof l[5] === "string" ? l[5] : "*",
-      }
-    }
-    return l
-  })
-}
+import {
+  buildWorkflowJSON,
+  normalizeWorkflowLinks,
+} from "@/comfyui/utils/workflowGraphModel"
 
 /* ------------------------------------------------------------------ */
 /*  실행 상태 뱃지 컴포넌트                                            */
@@ -345,10 +311,10 @@ export function EditorTab(): React.JSX.Element {
             )
           }
           const linksVal = workflow.links as
-            | (ComfyWorkflowLink | unknown[])[]
+            | (ComfyWorkflowLink | number[])[]
             | undefined
           if (linksVal !== undefined && Array.isArray(linksVal)) {
-            workflow.links = normalizeLinks(linksVal)
+            workflow.links = normalizeWorkflowLinks(linksVal)
           }
           setCurrentWorkflow(workflow as unknown as ComfyWorkflowJSON)
         } catch (err) {
@@ -504,7 +470,12 @@ export function EditorTab(): React.JSX.Element {
           </Button>
         )}
         <div className="mx-1 h-4 w-px bg-border" />
-        <Button variant="ghost" size="sm" id="comfy-clear-button" onClick={handleNewWorkflow}>
+        <Button
+          variant="ghost"
+          size="sm"
+          id="comfy-clear-button"
+          onClick={handleNewWorkflow}
+        >
           <FolderOpen className="mr-1 h-4 w-4" />새 워크플로우
         </Button>
         <Button

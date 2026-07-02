@@ -9,6 +9,7 @@
 import { useLayoutEffect, useRef, useState, useMemo } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import type { ComfyWorkflowNode } from "@/comfyui/types/workflow"
+import { isRootGraphId } from "@/comfyui/utils/workflowGraphModel"
 
 function formatSvgNumber(n: number): string {
   return n.toFixed(2)
@@ -72,9 +73,7 @@ export function SvgConnections(): React.JSX.Element {
   // 활성 그래프에 속한 노드/링크만 필터링
   const nodes = useMemo(() => {
     if (activeGraphId === null) {
-      return allNodes.filter(
-        (n) => n.graphId === null || n.graphId === undefined
-      )
+      return allNodes.filter((n) => isRootGraphId(n.graphId))
     }
     return allNodes.filter((n) => n.graphId === activeGraphId)
   }, [allNodes, activeGraphId])

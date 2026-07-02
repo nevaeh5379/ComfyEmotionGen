@@ -32,6 +32,11 @@ import {
   mapSubgraphOutputsAndLinks,
   createBounds,
 } from "../subgraph/subgraphUtils"
+import {
+  isRootGraphId,
+  isValidSlotConnection,
+  normalizeWorkflowForEditor,
+} from "../utils/workflowGraphModel"
 
 interface SnapshotEntry {
   nodes: ComfyWorkflowNode[]
@@ -159,131 +164,26 @@ export const useReactGraphStore = create<ReactGraphState>(
     redoStack: [],
 
     setGraph: (workflow: ComfyWorkflowJSON): void => {
-      const normalizedLinks: ComfyWorkflowLink[] = workflow.links.map(
-        (l: ComfyWorkflowLink | number[]): ComfyWorkflowLink => {
-          if (Array.isArray(l)) {
-            const linkData = l as [
-              number,
-              number,
-              number,
-              number,
-              number,
-              string | undefined,
-            ]
-            return {
-              id: linkData[0],
-              origin_id: linkData[1],
-              origin_slot: linkData[2],
-              target_id: linkData[3],
-              target_slot: linkData[4],
-              type: linkData[5] ?? "*",
-            }
-          }
-          return l
-        }
-      )
-
-      // ── 핵심 수정: subgraph 정의의 nodes/links/groups를 graphId 태그와 함께 store에 머지 ──
-      // 업스트림 ComfyUI 포맷: definitions.subgraphs[].nodes 는 별개 배열이며 graphId 없음.
-      // 루트 workflow.nodes 는 루트 그래프 소속 + SubgraphNode 인스턴스(type=UUID).
-
-      // 1. Subgraph 정의 로드 → SubgraphModelRuntime 맵
-      const subgraphMap = new Map<SubgraphId, SubgraphModelRuntime>()
-      const defs = workflow.definitions?.subgraphs ?? []
-
-      // 2. 루트 노드: graphId = null 명시 (undefined → null)
-      const rootNodes: ComfyWorkflowNode[] = workflow.nodes.map((n) => ({
-        ...n,
-        graphId: n.graphId !== undefined ? n.graphId : null,
-      }))
-
-      // 2b. 루트 그룹: graphId = null 명시, id 할당
-      let lastGroupId = 0
-      const rootGroups: ComfyWorkflowGroup[] = (workflow.groups ?? []).map(
-        (g, idx) => {
-          const gid = g.id !== undefined ? g.id : idx + 1
-          lastGroupId = Math.max(lastGroupId, gid)
-          return {
-            ...g,
-            id: gid,
-            graphId: g.graphId !== undefined ? g.graphId : null,
-          }
-        }
-      )
-
-      // 3. 모든 노드/링크/그룹을 단일 배열로 머지
-      const allNodes: ComfyWorkflowNode[] = [...rootNodes]
-      const allLinks: ComfyWorkflowLink[] = [...normalizedLinks]
-      const allGroups: ComfyWorkflowGroup[] = [...rootGroups]
-
-      for (const def of defs) {
-        subgraphMap.set(def.id, createSubgraphModel(def))
-
-        // subgraph 정의의 inner nodes: graphId = subgraphId 태그
-        const innerNodes: ComfyWorkflowNode[] = def.nodes.map((n) => ({
-          ...n,
-          graphId: def.id,
-        }))
-        allNodes.push(...innerNodes)
-
-        // subgraph 정의의 inner links: 배열 형태 정규화 + 머지
-        const innerLinks: ComfyWorkflowLink[] = def.links.map(
-          (l: ComfyWorkflowLink | number[]): ComfyWorkflowLink => {
-            if (Array.isArray(l)) {
-              const linkData = l as [
-                number,
-                number,
-                number,
-                number,
-                number,
-                string | undefined,
-              ]
-              return {
-                id: linkData[0],
-                origin_id: linkData[1],
-                origin_slot: linkData[2],
-                target_id: linkData[3],
-                target_slot: linkData[4],
-                type: linkData[5] ?? "*",
-              }
-            }
-            return l
-          }
-        )
-        allLinks.push(...innerLinks)
-
-        // subgraph 정의의 inner groups: graphId = def.id 명시 + id 할당
-        const innerGroups: ComfyWorkflowGroup[] = (
-          (def as any).groups ?? []
-        ).map((g: any) => {
-          lastGroupId++
-          return {
-            ...g,
-            id: g.id !== undefined ? g.id : lastGroupId,
-            graphId: def.id,
-          }
-        })
-        allGroups.push(...innerGroups)
-      }
+      const normalized = normalizeWorkflowForEditor(workflow)
 
       // 동일 체크 (전체 머지된 상태 기준)
       const currentNodes = get().nodes
       const currentLinks = get().links
       const currentGroups = get().groups
       const nodesEqual =
-        JSON.stringify(currentNodes) === JSON.stringify(allNodes)
+        JSON.stringify(currentNodes) === JSON.stringify(normalized.nodes)
       const linksEqual =
-        JSON.stringify(currentLinks) === JSON.stringify(allLinks)
+        JSON.stringify(currentLinks) === JSON.stringify(normalized.links)
       const groupsEqual =
-        JSON.stringify(currentGroups) === JSON.stringify(allGroups)
+        JSON.stringify(currentGroups) === JSON.stringify(normalized.groups)
       if (nodesEqual && linksEqual && groupsEqual) return
 
       set({
-        nodes: allNodes,
-        links: allLinks,
-        groups: allGroups,
+        nodes: normalized.nodes,
+        links: normalized.links,
+        groups: normalized.groups,
         selectedNodeIds: new Set<number>(),
-        subgraphs: subgraphMap,
+        subgraphs: normalized.subgraphs,
         activeGraphId: null,
         navigationStack: [],
       })
@@ -592,39 +492,7 @@ export const useReactGraphStore = create<ReactGraphState>(
 
       if (originOutput === undefined || targetInput === undefined) return
 
-      const isValidConnection = (
-        typeA: string | number | undefined,
-        typeB: string | number | undefined
-      ): boolean => {
-        if (typeA === undefined || typeA === "" || typeA === "*") return true
-        if (typeB === undefined || typeB === "" || typeB === "*") return true
-
-        const aStr = String(typeA).toLowerCase()
-        const bStr = String(typeB).toLowerCase()
-
-        if (aStr === bStr) return true
-
-        const typesA = aStr.split(",")
-        const typesB = bStr.split(",")
-        for (const ta of typesA) {
-          for (const tb of typesB) {
-            const cleanA = ta.trim()
-            const cleanB = tb.trim()
-            if (
-              cleanA === "" ||
-              cleanA === "*" ||
-              cleanB === "" ||
-              cleanB === "*"
-            )
-              return true
-            if (cleanA === cleanB) return true
-          }
-        }
-
-        return false
-      }
-
-      if (!isValidConnection(originOutput.type, targetInput.type)) {
+      if (!isValidSlotConnection(originOutput.type, targetInput.type)) {
         console.warn(
           `Incompatible connection: Output type "${originOutput.type}" cannot be connected to Input type "${targetInput.type}"`
         )
@@ -1192,9 +1060,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const { nodes, activeGraphId } = get()
       if (activeGraphId === null) {
         // 루트: graphId가 null 또는 undefined인 노드
-        return nodes.filter(
-          (n) => n.graphId === null || n.graphId === undefined
-        )
+        return nodes.filter((n) => isRootGraphId(n.graphId))
       }
       // 서브그래프: graphId가 해당 subgraphId인 노드
       return nodes.filter((n) => n.graphId === activeGraphId)
@@ -1294,7 +1160,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const { groups, activeGraphId } = get()
       return groups.filter((g) =>
         activeGraphId === null
-          ? g.graphId === null || g.graphId === undefined
+          ? isRootGraphId(g.graphId)
           : g.graphId === activeGraphId
       )
     },

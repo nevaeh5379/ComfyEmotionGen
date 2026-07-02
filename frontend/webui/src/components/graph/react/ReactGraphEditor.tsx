@@ -10,9 +10,13 @@ import { ReactNode } from "./ReactNode"
 import { SvgConnections } from "./SvgConnections"
 import { ReactGroup } from "./ReactGroup"
 import { ChevronRight } from "lucide-react"
-import { ComfyAppService } from "@/comfyui/services/appService"
-import { widgetStore, type WidgetValue } from "@/comfyui/stores/widgetStore"
 import { useShallow } from "zustand/react/shallow"
+import {
+  isRootGraphId,
+  isValidSlotConnection,
+} from "@/comfyui/utils/workflowGraphModel"
+import { useComfyRuntimeBridge } from "./useComfyRuntimeBridge"
+import { useExecutionStatusBridge } from "./useExecutionStatusBridge"
 
 const NodeLayerItem = memo(function NodeLayerItem({
   id,
@@ -43,9 +47,7 @@ const NodeLayer = memo(function NodeLayer(): JSX.Element {
       const activeId = s.activeGraphId
       return s.nodes
         .filter((n) =>
-          activeId === null
-            ? n.graphId === null || n.graphId === undefined
-            : n.graphId === activeId
+          activeId === null ? isRootGraphId(n.graphId) : n.graphId === activeId
         )
         .map((n) => n.id)
     })
@@ -74,9 +76,7 @@ const GroupLayer = memo(function GroupLayer(): JSX.Element {
       const activeId = s.activeGraphId
       return s.groups
         .filter((g) =>
-          activeId === null
-            ? g.graphId === null || g.graphId === undefined
-            : g.graphId === activeId
+          activeId === null ? isRootGraphId(g.graphId) : g.graphId === activeId
         )
         .map((g) => g.id)
     })
@@ -148,8 +148,13 @@ export function ReactGraphEditor(): JSX.Element {
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null)
   const hiddenContainerRef = useRef<HTMLDivElement>(null)
 
-  const [isReady, setIsReady] = useState(false)
   const nodeDefs = useNodeDefStore((s) => s.nodeDefs)
+  const isReady = useComfyRuntimeBridge({
+    hiddenCanvasRef,
+    hiddenContainerRef,
+    nodeDefs,
+  })
+  useExecutionStatusBridge()
 
   const zoom = useReactGraphStore((s) => s.zoom)
   const pan = useReactGraphStore((s) => s.pan)
@@ -163,516 +168,6 @@ export function ReactGraphEditor(): JSX.Element {
   const clearGraph = useReactGraphStore((s) => s.clearGraph)
 
   const nodeDefsByCategory = useNodeDefStore((s) => s.nodeDefsByCategory)
-
-  // 백그라운드 LiteGraph 및 익스텐션 초기화
-  useEffect(() => {
-    let cancelled = false
-    async function initApp(): Promise<void> {
-      const rawApp = window.app
-      console.log(
-        "[CEG:DEBUG ReactGraphEditor] useEffect START, hiddenCanvas=" +
-          String(!!hiddenCanvasRef.current),
-        "hiddenContainer=" + String(!!hiddenContainerRef.current),
-        "extensionsLoaded=" + String(rawApp.extensionsLoaded ?? false),
-        "app.graph=" + String(true),
-        "nodeDefs=" + String(Object.keys(nodeDefs).length),
-        "extensions=" + String(rawApp.extensions.length)
-      )
-
-      if (!hiddenCanvasRef.current || !hiddenContainerRef.current) {
-        console.log("[CEG:DEBUG ReactGraphEditor] SKIPPED: refs null")
-        return
-      }
-
-      // 1. 백그라운드 ComfyAppService 인스턴스 먼저 생성 (ext.init() 전에 실제 graph 필요)
-      console.log(
-        "[CEG:DEBUG ReactGraphEditor] Step 1: Creating ComfyAppService with nodeDefs count:",
-        String(Object.keys(nodeDefs).length)
-      )
-
-      const appService = new ComfyAppService({
-        canvas: hiddenCanvasRef.current,
-        container: hiddenContainerRef.current,
-        nodeDefs,
-      })
-      rawApp.graph = appService.graph as unknown as LGraph
-      rawApp.canvas = appService.canvas
-      rawApp.extensionManager = appService.extensionManager
-      rawApp.api = appService.api
-      rawApp.syncGraphNode = (nodeId: number): void => {
-        const liveNode = appService.graph.getNodeById(nodeId)
-        if (liveNode === null) return
-        const widgetsValues =
-          (liveNode as { widgets?: { value: unknown }[] }).widgets?.map(
-            (w) => w.value as WidgetValue
-          ) ?? []
-        useReactGraphStore.setState({
-          nodes: useReactGraphStore
-            .getState()
-            .nodes.map((n) =>
-              n.id === nodeId ? { ...n, widgets_values: widgetsValues } : n
-            ),
-        })
-      }
-      ;(rawApp.graph as unknown as Record<string, unknown>)._canvas =
-        appService.canvas
-      appService.canvas.app = rawApp
-
-      window.__comfyAppService = appService
-
-      // 2. 익스텐션 로드 및 init (실제 graph/canvas 위에서 실행)
-      if (rawApp.extensionsLoaded !== true) {
-        const apiClient: {
-          getExtensions(): Promise<string[]>
-          api_base: string
-        } = window.api
-        try {
-          const extensionUrls = await apiClient.getExtensions()
-          console.log(
-            "[CEG:DEBUG ReactGraphEditor] Step 2a: Got extension URLs:",
-            String(extensionUrls.length),
-            extensionUrls
-          )
-          // 병렬로 import()를 시작하고, 배열 순서대로 await하여 등록 순서를 보존합니다.
-          const fullUrls = extensionUrls.map((url) =>
-            url.startsWith("http") ? url : `${apiClient.api_base}${url}`
-          )
-          console.log(
-            "[CEG:DEBUG ReactGraphEditor] Importing extensions in parallel:",
-            fullUrls.length
-          )
-          const importPromises = fullUrls.map((fullUrl) =>
-            import(/* @vite-ignore */ fullUrl)
-              .then(() => fullUrl)
-              .catch((err: unknown) => {
-                console.error(`Failed to load extension: ${fullUrl}`, err)
-                return null
-              })
-          )
-          for (const promise of importPromises) {
-            const result = await promise
-            if (result !== null) {
-              console.log(
-                "[CEG:DEBUG ReactGraphEditor] Import success:",
-                result
-              )
-            }
-          }
-        } catch (err) {
-          console.error("Failed to fetch extension list:", err)
-        }
-        rawApp.extensionsLoaded = true
-
-        console.log(
-          "[CEG:DEBUG ReactGraphEditor] Step 2b: Extensions registered:",
-          String(rawApp.extensions.length),
-          rawApp.extensions.map((e) => e.name)
-        )
-
-        for (const ext of rawApp.extensions) {
-          if (ext.init !== undefined) {
-            try {
-              console.log(
-                "[CEG:DEBUG ReactGraphEditor] Calling ext.init for:",
-                ext.name
-              )
-              await ext.init(rawApp)
-              ;(ext as ComfyExtension & { __cegInitDone?: boolean }).__cegInitDone =
-                true
-            } catch (err) {
-              console.error(`Extension init failed for ${ext.name}:`, err)
-            }
-          }
-        }
-
-        for (const ext of rawApp.extensions) {
-          if (ext.addCustomNodeDefs !== undefined) {
-            try {
-              console.log(
-                "[CEG:DEBUG ReactGraphEditor] Calling ext.addCustomNodeDefs for:",
-                ext.name
-              )
-              await ext.addCustomNodeDefs(nodeDefs, rawApp)
-            } catch (err) {
-              console.error(
-                `Extension addCustomNodeDefs failed for ${ext.name}:`,
-                err
-              )
-            }
-          }
-        }
-
-        // Re-register node defs after init so beforeRegister hooks can close over initialized extension state.
-        console.log(
-          "[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available"
-        )
-        appService.registerNodeDefs(nodeDefs)
-
-        // Register custom widget types from extensions' getCustomWidgets()
-        for (const ext of rawApp.extensions) {
-          if (ext.getCustomWidgets !== undefined) {
-            try {
-              const customWidgets = await ext.getCustomWidgets(rawApp)
-              if (customWidgets !== undefined && customWidgets !== null) {
-                const factories = customWidgets
-                const typeNames = Object.keys(factories)
-                // 타입 이름 등록 + 실제 팩토리 함수 저장
-                widgetStore.registerMany(typeNames)
-                for (const [typeName, factory] of Object.entries(factories)) {
-                  if (typeof factory === "function") {
-                    widgetStore.registerCustomWidgetFactory(
-                      typeName,
-                      factory as Parameters<
-                        typeof widgetStore.registerCustomWidgetFactory
-                      >[1]
-                    )
-                    if (rawApp.widgets === undefined) {
-                      ;(rawApp as unknown as { widgets: Record<string, unknown> }).widgets = {}
-                    }
-                    ;(rawApp as unknown as { widgets: Record<string, unknown> }).widgets[typeName] = factory
-                  }
-                }
-                if (typeNames.length > 0) {
-                  console.log(
-                    "[CEG:DEBUG ReactGraphEditor] Registered custom widgets from",
-                    ext.name,
-                    typeNames
-                  )
-                }
-              }
-            } catch (err) {
-              console.error(
-                `Extension getCustomWidgets failed for ${ext.name}:`,
-                err
-              )
-            }
-          }
-        }
-
-        for (const ext of rawApp.extensions) {
-          if (ext.registerCustomNodes !== undefined) {
-            try {
-              console.log(
-                "[CEG:DEBUG ReactGraphEditor] Calling ext.registerCustomNodes for:",
-                ext.name
-              )
-              await ext.registerCustomNodes(rawApp)
-            } catch (err) {
-              console.error(
-                `Extension registerCustomNodes failed for ${ext.name}:`,
-                err
-              )
-            }
-          }
-        }
-      }
-
-      for (const ext of rawApp.extensions) {
-        const extState = ext as ComfyExtension & {
-          __cegInitDone?: boolean
-        }
-        if (ext.init === undefined) continue
-        if (extState.__cegInitDone === true) continue
-        try {
-          console.log(
-            "[CEG:DEBUG ReactGraphEditor] Ensuring ext.init for:",
-            ext.name
-          )
-          await ext.init(rawApp)
-          extState.__cegInitDone = true
-        } catch (err) {
-          console.error(`Extension init failed for ${ext.name}:`, err)
-        }
-      }
-
-      if (cancelled) return
-
-      // setup 훅 실행
-      for (const ext of rawApp.extensions) {
-        if (ext.setup !== undefined) {
-          try {
-            console.log(
-              "[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:",
-              ext.name
-            )
-            await ext.setup(rawApp)
-          } catch (err) {
-            console.error(`Extension setup failed for ${ext.name}:`, err)
-          }
-        }
-      }
-
-      // 최초 그래프 상태 동기화
-      const state = useReactGraphStore.getState()
-      console.log(
-        "[CEG:DEBUG ReactGraphEditor] Step 3: Syncing initial state, nodes in store:",
-        String(state.nodes.length)
-      )
-      if (state.nodes.length > 0) {
-        const workflow = {
-          last_node_id: Math.max(0, ...state.nodes.map((n) => n.id)),
-          last_link_id: Math.max(0, ...state.links.map((l) => l.id)),
-          nodes: state.nodes,
-          links: state.links,
-          groups: state.groups.filter(
-            (g) => g.graphId === null || g.graphId === undefined
-          ),
-          version: 0.4,
-        }
-        console.log(
-          "[CEG:DEBUG ReactGraphEditor] Calling loadGraphData with",
-          String(workflow.nodes.length),
-          "nodes"
-        )
-        appService.loadGraphData(workflow)
-        console.log(
-          "[CEG:DEBUG ReactGraphEditor] loadGraphData complete, graph now has",
-          String(
-            (appService.graph as unknown as { nodes: unknown[] }).nodes.length
-          ),
-          "nodes"
-        )
-      }
-
-      setIsReady(true)
-    }
-
-    void initApp()
-
-    return (): void => {
-      cancelled = true
-    }
-  }, [nodeDefs])
-
-  // ComfyUI 백엔드 실행 상태 WebSocket 이벤트 리스너 등록
-  useEffect(() => {
-    const api = window.api
-
-    const handleExecutionStart = (e: Event): void => {
-      const customEvent = e as CustomEvent<Record<string, unknown>>
-      const detail = customEvent.detail
-      console.log("[CEG] execution_start:", detail)
-      useReactGraphStore.setState({
-        executionStatus: "running",
-        executingPromptId: (detail.prompt_id as string | null) ?? null,
-        executingNodeId: null,
-        executedNodeIds: new Set<number>(),
-        overallProgress: null,
-      })
-    }
-
-    const handleExecuting = (e: Event): void => {
-      const customEvent = e as CustomEvent<Record<string, unknown>>
-      const detail = customEvent.detail
-
-      let nodeId: unknown = null
-      let promptId: string | null = null
-
-      if (typeof detail === "object") {
-        nodeId = detail.node
-        promptId = (detail.prompt_id as string | null) ?? null
-      } else {
-        nodeId = detail
-      }
-
-      const nodeIdNum =
-        nodeId !== null && nodeId !== undefined && nodeId !== ""
-          ? Number(nodeId)
-          : null
-      console.log("[CEG] executing node:", nodeIdNum, "promptId:", promptId)
-
-      const store = useReactGraphStore.getState()
-      const nextExecuted = new Set(store.executedNodeIds)
-
-      // If we move to a new node, the previous node must have finished executing
-      if (
-        store.executingNodeId !== null &&
-        store.executingNodeId !== nodeIdNum
-      ) {
-        nextExecuted.add(store.executingNodeId)
-      }
-
-      const updateObj: Partial<typeof store> = {
-        executingNodeId: nodeIdNum,
-        executedNodeIds: nextExecuted,
-      }
-
-      if (promptId !== null) {
-        updateObj.executingPromptId = promptId
-      }
-
-      if (nodeIdNum !== null && store.executionStatus === "idle") {
-        updateObj.executionStatus = "running"
-      }
-
-      useReactGraphStore.setState(updateObj)
-    }
-
-    const handleProgress = (e: Event): void => {
-      const customEvent = e as CustomEvent<Record<string, unknown>>
-      const detail = customEvent.detail
-      const store = useReactGraphStore.getState()
-      console.log("[CEG] progress:", detail)
-
-      const updateObj: Partial<typeof store> = {
-        overallProgress: {
-          value: detail.value as number,
-          max: detail.max as number,
-        },
-      }
-
-      if (detail.prompt_id !== null) {
-        updateObj.executingPromptId = detail.prompt_id as string
-      }
-      if (store.executionStatus === "idle") {
-        updateObj.executionStatus = "running"
-      }
-
-      useReactGraphStore.setState(updateObj)
-    }
-
-    const handleExecuted = (e: Event): void => {
-      const customEvent = e as CustomEvent<Record<string, unknown>>
-      const detail = customEvent.detail
-      const store = useReactGraphStore.getState()
-      const nextExecuted = new Set(store.executedNodeIds)
-      if (detail.node !== null && detail.node !== undefined) {
-        nextExecuted.add(Number(detail.node))
-      }
-      console.log("[CEG] executed node:", Number(detail.node))
-
-      const updateObj: Partial<typeof store> = {
-        executedNodeIds: nextExecuted,
-      }
-      if (detail.prompt_id !== null) {
-        updateObj.executingPromptId = detail.prompt_id as string
-      }
-      if (store.executionStatus === "idle") {
-        updateObj.executionStatus = "running"
-      }
-
-      useReactGraphStore.setState(updateObj)
-    }
-
-    const handleExecutionCached = (e: Event): void => {
-      const customEvent = e as CustomEvent<Record<string, unknown>>
-      const detail = customEvent.detail
-      const store = useReactGraphStore.getState()
-      const nextExecuted = new Set(store.executedNodeIds)
-      if (Array.isArray(detail.nodes)) {
-        detail.nodes.forEach((n: unknown) => {
-          nextExecuted.add(Number(n))
-        })
-      }
-      console.log("[CEG] execution_cached nodes:", detail.nodes)
-
-      const updateObj: Partial<typeof store> = {
-        executedNodeIds: nextExecuted,
-      }
-      if (detail.prompt_id !== null) {
-        updateObj.executingPromptId = detail.prompt_id as string
-      }
-      if (store.executionStatus === "idle") {
-        updateObj.executionStatus = "running"
-      }
-
-      useReactGraphStore.setState(updateObj)
-    }
-
-    const handleExecutionSuccess = (e: Event): void => {
-      const customEvent = e as CustomEvent<Record<string, unknown>>
-      const detail = customEvent.detail
-      const store = useReactGraphStore.getState()
-      console.log("[CEG] execution_success:", detail)
-
-      if (
-        store.executingPromptId !== null &&
-        (detail.prompt_id as string | null | undefined) !== null &&
-        (detail.prompt_id as string | null | undefined) !== undefined &&
-        store.executingPromptId !== (detail.prompt_id as string)
-      ) {
-        return
-      }
-
-      const nextExecuted = new Set(store.executedNodeIds)
-      if (store.executingNodeId !== null) {
-        nextExecuted.add(store.executingNodeId)
-      }
-
-      useReactGraphStore.setState({
-        executionStatus: "success",
-        executingNodeId: null,
-        executedNodeIds: nextExecuted,
-        overallProgress: store.overallProgress
-          ? { value: store.overallProgress.max, max: store.overallProgress.max }
-          : null,
-      })
-
-      setTimeout(() => {
-        const current = useReactGraphStore.getState()
-        if (current.executionStatus === "success") {
-          useReactGraphStore.setState({
-            executionStatus: "idle",
-            executingPromptId: null,
-            executedNodeIds: new Set<number>(),
-            overallProgress: null,
-          })
-        }
-      }, 3000)
-    }
-
-    const handleExecutionError = (_e: Event): void => {
-      console.log("[CEG] execution_error")
-      useReactGraphStore.setState({
-        executionStatus: "error",
-        executingNodeId: null,
-        overallProgress: null,
-      })
-    }
-
-    const handleExecutionInterrupted = (_e: Event): void => {
-      console.log("[CEG] execution_interrupted")
-      useReactGraphStore.setState({
-        executionStatus: "interrupted",
-        executingNodeId: null,
-        overallProgress: null,
-      })
-      setTimeout(() => {
-        const current = useReactGraphStore.getState()
-        if (current.executionStatus === "interrupted") {
-          useReactGraphStore.setState({
-            executionStatus: "idle",
-            executingPromptId: null,
-            executedNodeIds: new Set<number>(),
-            overallProgress: null,
-          })
-        }
-      }, 3000)
-    }
-
-    api.addEventListener("execution_start", handleExecutionStart)
-    api.addEventListener("executing", handleExecuting)
-    api.addEventListener("progress", handleProgress)
-    api.addEventListener("executed", handleExecuted)
-    api.addEventListener("execution_cached", handleExecutionCached)
-    api.addEventListener("execution_success", handleExecutionSuccess)
-    api.addEventListener("execution_error", handleExecutionError)
-    api.addEventListener("execution_interrupted", handleExecutionInterrupted)
-
-    return (): void => {
-      api.removeEventListener("execution_start", handleExecutionStart)
-      api.removeEventListener("executing", handleExecuting)
-      api.removeEventListener("progress", handleProgress)
-      api.removeEventListener("executed", handleExecuted)
-      api.removeEventListener("execution_cached", handleExecutionCached)
-      api.removeEventListener("execution_success", handleExecutionSuccess)
-      api.removeEventListener("execution_error", handleExecutionError)
-      api.removeEventListener(
-        "execution_interrupted",
-        handleExecutionInterrupted
-      )
-    }
-  }, [])
 
   // 드래그 중인 핀 및 임시 선 끝점 관리
   const [activeDragPin, setActiveDragPin] = useState<{
@@ -866,35 +361,11 @@ export function ReactGraphEditor(): JSX.Element {
     return `M ${String(p1[0])} ${String(p1[1])} C ${String(cp1x)} ${String(cp1y)}, ${String(cp2x)} ${String(cp2y)}, ${String(p2[0])} ${String(p2[1])}`
   }, [dragStartPinPos, tempLinkEnd, activeDragPin])
 
-  // 타입 매칭 검사 헬퍼
-  const isValidConnection = (typeA: string, typeB: string): boolean => {
-    if (!typeA || typeA === "" || typeA === "*") return true
-    if (!typeB || typeB === "" || typeB === "*") return true
-
-    const aStr = typeA.toLowerCase()
-    const bStr = typeB.toLowerCase()
-
-    if (aStr === bStr) return true
-
-    const typesA = aStr.split(",")
-    const typesB = bStr.split(",")
-    for (const ta of typesA) {
-      for (const tb of typesB) {
-        const cleanA = ta.trim()
-        const cleanB = tb.trim()
-        if (!cleanA || cleanA === "*" || !cleanB || cleanB === "*") return true
-        if (cleanA === cleanB) return true
-      }
-    }
-
-    return false
-  }
-
   const isHoveredPinCompatible = useMemo(() => {
     if (!activeDragPin || !hoveredPin) return false
     if (activeDragPin.nodeId === hoveredPin.nodeId) return false
     if (activeDragPin.type === hoveredPin.type) return false
-    return isValidConnection(activeDragPin.datatype, hoveredPin.datatype)
+    return isValidSlotConnection(activeDragPin.datatype, hoveredPin.datatype)
   }, [activeDragPin, hoveredPin])
 
   const linkColor = useMemo(() => {
