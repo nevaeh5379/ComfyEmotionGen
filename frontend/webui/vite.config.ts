@@ -62,6 +62,42 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:5882",
       },
+      "/erenodes": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/system_stats": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/manager": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/dasiwa": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/reslyf": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/upload": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/view": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/rgthree": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
+      "/lm": {
+        target: "http://localhost:5882",
+        changeOrigin: true,
+      },
     },
   },
 })

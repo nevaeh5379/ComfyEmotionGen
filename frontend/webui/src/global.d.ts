@@ -272,6 +272,8 @@ declare global {
     startRendering(): void
     setCanvas(canvas: HTMLCanvasElement): void
     render_canvas_border: boolean
+    default_connection_color_byType?: Record<string, string>
+    link_type_colors?: Record<string, string>
     app?: ComfyApp
     graph?: LGraph | null
     graph_mouse?: [number, number]
@@ -404,6 +406,8 @@ declare global {
     getSettingValue(id: string): unknown
     setSettingValue(id: string, value: unknown): void
     settingsLookup: SettingsLookup
+    addEventListener?(type: string, listener: (e: unknown) => void): void
+    removeEventListener?(type: string, listener: (e: unknown) => void): void
   }
 
   interface ComfyAppUI {
@@ -435,6 +439,7 @@ declare global {
     extensionsLoaded?: boolean
     api?: ComfyApi
     syncGraphNode?(id: number): void
+    widgets?: Record<string, (node: unknown, name: string, inputData: unknown[], app: unknown) => unknown>
   }
 
   interface ComfyWidgetsAPI {

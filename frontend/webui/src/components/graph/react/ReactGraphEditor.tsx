@@ -326,6 +326,10 @@ export function ReactGraphEditor(): JSX.Element {
                         typeof widgetStore.registerCustomWidgetFactory
                       >[1]
                     )
+                    if (rawApp.widgets === undefined) {
+                      ;(rawApp as unknown as { widgets: Record<string, unknown> }).widgets = {}
+                    }
+                    ;(rawApp as unknown as { widgets: Record<string, unknown> }).widgets[typeName] = factory
                   }
                 }
                 if (typeNames.length > 0) {

@@ -182,7 +182,6 @@ try {
       node.size = [lg.NODE_DEFAULT_WIDTH ?? 200, lg.NODE_DEFAULT_HEIGHT ?? 80]
     }
     if (options !== undefined) Object.assign(node, options)
-    node.onNodeCreated?.()
     return node
   }
   lg.NODE_DEFAULT_WIDTH ??= 200
@@ -1201,6 +1200,12 @@ function createDefaultApp(): ComfyApp {
       /* noop */
     },
     settingsLookup: settingsLookupProxy,
+    addEventListener(_type: string, _listener: (e: unknown) => void): void {
+      /* noop */
+    },
+    removeEventListener(_type: string, _listener: (e: unknown) => void): void {
+      /* noop */
+    },
   }
 
   const stubGraph: LGraph = Object.assign(
@@ -1288,6 +1293,34 @@ function createDefaultApp(): ComfyApp {
     },
     settings: defaultSettings,
     extensions: [],
+    widgets: {
+      STRING(node: unknown, name: string, inputData: unknown[]): unknown {
+        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const cfg = (inputData?.[1] as Record<string, unknown>) ?? {}
+        return n.addWidget?.("text", name, (cfg.default as string) ?? "", () => undefined, cfg)
+      },
+      INT(node: unknown, name: string, inputData: unknown[]): unknown {
+        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const cfg = (inputData?.[1] as Record<string, unknown>) ?? {}
+        return n.addWidget?.("number", name, (cfg.default as number) ?? 0, () => undefined, cfg)
+      },
+      FLOAT(node: unknown, name: string, inputData: unknown[]): unknown {
+        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const cfg = (inputData?.[1] as Record<string, unknown>) ?? {}
+        return n.addWidget?.("number", name, (cfg.default as number) ?? 0, () => undefined, cfg)
+      },
+      COMBO(node: unknown, name: string, inputData: unknown[]): unknown {
+        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const values = Array.isArray(inputData?.[0]) ? (inputData[0] as unknown[]) : []
+        const cfg = (inputData?.[1] as Record<string, unknown>) ?? {}
+        return n.addWidget?.("combo", name, values[0] ?? "", () => undefined, { values, ...cfg })
+      },
+      BOOLEAN(node: unknown, name: string, inputData: unknown[]): unknown {
+        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const cfg = (inputData?.[1] as Record<string, unknown>) ?? {}
+        return n.addWidget?.("toggle", name, (cfg.default as boolean) ?? false, () => undefined, cfg)
+      },
+    },
     registerExtension(ext: ComfyExtension): void {
       if (!app.extensions.includes(ext)) {
         app.extensions.push(ext)
@@ -1424,6 +1457,12 @@ _appUi.settings = {
     /* noop */
   },
   settingsLookup: settingsLookupProxy,
+  addEventListener(_type: string, _listener: (e: unknown) => void): void {
+    /* noop */
+  },
+  removeEventListener(_type: string, _listener: (e: unknown) => void): void {
+    /* noop */
+  },
 }
 _appSettings.addSetting = (_setting: unknown): unknown => ({})
 _appSettings.getSettingValue = (_id: string): unknown => null
@@ -1431,6 +1470,18 @@ _appSettings.setSettingValue = (_id: string, _value: unknown): void => {
   /* noop */
 }
 _appSettings.settingsLookup = settingsLookupProxy
+;(_appSettings as unknown as { addEventListener?: unknown }).addEventListener = (
+  _type: string,
+  _listener: (e: unknown) => void
+): void => {
+  /* noop */
+}
+;(_appSettings as unknown as { removeEventListener?: unknown }).removeEventListener = (
+  _type: string,
+  _listener: (e: unknown) => void
+): void => {
+  /* noop */
+}
 
 installSettingValueHook(_appUi.settings)
 installSettingValueHook(_appSettings)

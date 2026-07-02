@@ -539,6 +539,14 @@ export class LGraphAdapter implements LGraphAdapterInterface {
 
   private wrapNode(node: ComfyWorkflowNode): LGraphNode {
     const store = useReactGraphStore
+    const liveWidgets: {
+      type: string
+      name: string
+      value: string | number | boolean
+      element: HTMLElement
+      options: Record<string, unknown>
+      callback: ((v: string | number | boolean) => void) | null
+    }[] = []
 
     return {
       id: node.id,
@@ -617,19 +625,43 @@ export class LGraphAdapter implements LGraphAdapterInterface {
             callback: ((v: string | number | boolean) => void) | null
           }[]
         | undefined {
+        // Live widgets (created via addWidget/addCustomWidget/addDOMWidget)
+        // take precedence — they mirror real ComfyUI node.widgets.
+        if (liveWidgets.length > 0) {
+          return [...liveWidgets]
+        }
+        // Fallback: project widgets from the store when live widgets haven't
+        // been created yet (e.g. before addNodeWidgets runs).
         const current = store
           .getState()
           .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
         if (current?.widgets_values === undefined) return undefined
-        const widgetNames = (current.properties?.widget_names ?? []) as string[]
-        return current.widgets_values.map((v: unknown, idx: number) => ({
-          type: "text",
-          name: widgetNames[idx] ?? `widget_${idx.toString()}`,
-          value: v as string | number | boolean,
-          element: document.createElement("div"),
-          options: {},
-          callback: null,
-        }))
+        const wv = current.widgets_values
+        if (Array.isArray(wv)) {
+          const widgetNames = (current.properties?.widget_names ?? []) as string[]
+          const projected = wv.map((v: unknown, idx: number) => ({
+            type: "text",
+            name: widgetNames[idx] ?? `widget_${idx.toString()}`,
+            value: v as string | number | boolean,
+            element: document.createElement("div"),
+            options: {},
+            callback: null,
+          }))
+          return projected.length > 0 ? projected : undefined
+        }
+        if (wv !== null && typeof wv === "object") {
+          const obj = wv as Record<string, unknown>
+          const projected = Object.keys(obj).map((name) => ({
+            type: "text",
+            name,
+            value: obj[name] as string | number | boolean,
+            element: document.createElement("div"),
+            options: {},
+            callback: null,
+          }))
+          return projected.length > 0 ? projected : undefined
+        }
+        return undefined
       },
       mode: node.mode,
       order: node.order,
@@ -781,6 +813,14 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         customWidget.options = {
           hideOnZoom: false,
           ...(customWidget.options ?? {}),
+        }
+        const existingIdx = liveWidgets.findIndex(
+          (w) => w.name === (customWidget as { name?: string }).name
+        )
+        if (existingIdx >= 0) {
+          liveWidgets[existingIdx] = customWidget as typeof liveWidgets[number]
+        } else {
+          liveWidgets.push(customWidget as typeof liveWidgets[number])
         }
         return customWidget
       },
@@ -994,7 +1034,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         callback: (v: string | number | boolean) => void,
         options?: Record<string, unknown>
       ): ReturnType<LGraphNode["addWidget"]> {
-        return {
+        const w = {
           type,
           name,
           value,
@@ -1002,6 +1042,13 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           options: options ?? {},
           callback,
         }
+        const existingIdx = liveWidgets.findIndex((lw) => lw.name === name)
+        if (existingIdx >= 0) {
+          liveWidgets[existingIdx] = w
+        } else {
+          liveWidgets.push(w)
+        }
+        return w
       },
       addDOMWidget(
         name: string,
@@ -1047,6 +1094,12 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           configurable: true,
           enumerable: true,
         })
+        const existingIdx = liveWidgets.findIndex((lw) => lw.name === name)
+        if (existingIdx >= 0) {
+          liveWidgets[existingIdx] = w
+        } else {
+          liveWidgets.push(w)
+        }
         return w
       },
       setDirtyCanvas(): void {

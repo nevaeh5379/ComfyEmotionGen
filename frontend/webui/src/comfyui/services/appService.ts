@@ -1127,6 +1127,8 @@ export class ComfyAppService {
         },
         render_canvas_border: false,
         canvas: config.canvas,
+        default_connection_color_byType: {} as Record<string, string>,
+        link_type_colors: {} as Record<string, string>,
       }
     ) as unknown as LGraphCanvas
 
@@ -1575,6 +1577,7 @@ export class ComfyAppService {
                 size: frontendNode.size,
               } as ComfyWorkflowNode)
             }
+            frontendNode.onNodeCreated?.()
             return frontendNode
           }
         }
