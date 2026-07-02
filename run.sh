@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # Starts backend + frontend preview.
-# Port defaults: BACKEND_PORT (default 8000), FRONTEND_PORT (default 4173).
+# Port defaults: BACKEND_PORT (default 5882), FRONTEND_PORT (default 6974).
 # Configure ComfyUI with COMFYUI_WORKERS env var (default http://localhost:8188).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-BACKEND_PORT="${BACKEND_PORT:-8000}"
-FRONTEND_PORT="${FRONTEND_PORT:-4173}"
+BACKEND_PORT="${BACKEND_PORT:-5882}"
+FRONTEND_PORT="${FRONTEND_PORT:-6974}"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 
-if [[ ! -x "$ROOT/backend/.venv/bin/python" ]]; then
-  echo "Backend venv missing. Run ./install.sh first." >&2
+if [[ ! -x "$ROOT/.python/bin/python3" ]]; then
+  echo "Python not found. Run ./install.sh first." >&2
+  exit 1
+fi
+if [[ ! -x "$ROOT/.node/bin/node" ]]; then
+  echo "Node.js not found. Run ./install.sh first." >&2
   exit 1
 fi
 if [[ ! -d "$ROOT/frontend/webui/dist" ]]; then
@@ -27,11 +31,11 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "==> Starting backend on :${BACKEND_PORT}"
-(cd "$ROOT/backend/src" && BACKEND_PORT="$BACKEND_PORT" BACKEND_HOST="$BACKEND_HOST" "$ROOT/backend/.venv/bin/python" run.py) &
+(cd "$ROOT/backend/src" && BACKEND_PORT="$BACKEND_PORT" BACKEND_HOST="$BACKEND_HOST" "$ROOT/.python/bin/python3" run.py) &
 BACKEND_PID=$!
 
 echo "==> Starting frontend on :${FRONTEND_PORT}"
-(cd "$ROOT/frontend/webui" && FRONTEND_PORT="$FRONTEND_PORT" npm run preview -- --host --port "$FRONTEND_PORT") &
+(cd "$ROOT/frontend/webui" && FRONTEND_PORT="$FRONTEND_PORT" "$ROOT/.node/bin/npm" run preview -- --host --port "$FRONTEND_PORT") &
 FRONTEND_PID=$!
 
 echo

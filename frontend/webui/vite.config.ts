@@ -39,28 +39,28 @@ export default defineConfig({
     __BUNDLE_VERSION__: JSON.stringify(process.env.CEG_BUNDLE_VERSION || "dev"),
     __COMMIT__: JSON.stringify(resolveCommit()),
     __GITHUB_REPO__: JSON.stringify("nevaeh5379/ComfyEmotionGen"),
-    __DEFAULT_BACKEND_PORT__: JSON.stringify(process.env.VITE_BACKEND_PORT || "8000"),
+    __DEFAULT_BACKEND_PORT__: JSON.stringify(process.env.VITE_BACKEND_PORT || "5882"),
   },
   server: {
     proxy: {
       "/object_info": {
-        target: "http://localhost:8000",
+        target: "http://localhost:5882",
         changeOrigin: true,
       },
       "/extensions": {
-        target: "http://localhost:8000",
+        target: "http://localhost:5882",
         changeOrigin: true,
       },
       "/kjweb_async": {
-        target: "http://localhost:8000",
+        target: "http://localhost:5882",
         changeOrigin: true,
       },
       "/ws": {
-        target: "ws://localhost:8000",
+        target: "ws://localhost:5882",
         ws: true,
       },
       "/api": {
-        target: "http://localhost:8000"
+        target: "http://localhost:5882"
       }
     },
   },
