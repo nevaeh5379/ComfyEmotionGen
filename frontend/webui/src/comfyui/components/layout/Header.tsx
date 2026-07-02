@@ -13,7 +13,6 @@ import {
   Moon,
   Monitor,
   LayoutGrid,
-  ChevronDown,
   ExternalLink,
   Save,
   ArrowRight,
@@ -173,6 +172,43 @@ export function Header(props: HeaderProps): JSX.Element {
   const cachedTabsWidthRef = useRef<number>(480)
   const cachedGalleryToolbarWidthRef = useRef<number>(560)
   const cachedGalleryToolbarCompactWidthRef = useRef<number>(340)
+
+  useEffect(() => {
+    const tabsEl = tabsRef.current
+    if (tabsEl === null) return
+
+    const handleWheel = (e: WheelEvent): void => {
+      if (tabsEl.scrollWidth > tabsEl.clientWidth) {
+        e.preventDefault()
+        tabsEl.scrollLeft += e.deltaY
+      }
+    }
+
+    tabsEl.addEventListener("wheel", handleWheel, { passive: false })
+    return (): void => {
+      tabsEl.removeEventListener("wheel", handleWheel)
+    }
+  }, [])
+
+  useEffect(() => {
+    const tabsEl = tabsRef.current
+    if (tabsEl === null) return
+
+    const timer = setTimeout(() => {
+      const activeTabEl = tabsEl.querySelector('[aria-selected="true"]')
+      if (activeTabEl !== null) {
+        activeTabEl.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        })
+      }
+    }, 50)
+
+    return (): void => {
+      clearTimeout(timer)
+    }
+  }, [props.activeTab])
 
   useEffect(() => {
     if (headerRef.current === null) return
@@ -393,175 +429,120 @@ export function Header(props: HeaderProps): JSX.Element {
           </span>
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
           {/* Desktop tabs */}
-          {isCompact ? (
-            <div className="hidden md:block shrink-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-2 rounded-full border-line bg-background px-4 text-[13px] font-black shadow-xs hover:bg-accent/50 shrink-0"
-                  >
-                    {((): JSX.Element => {
-                      const activeTabInfo = NAV_TABS.find(
-                        (t) => t.id === props.activeTab
-                      )
-                      const ActiveIcon = activeTabInfo?.icon
-                      return (
-                        <>
-                          {ActiveIcon !== undefined && (
-                            <ActiveIcon className="h-4 w-4 opacity-100" />
-                          )}
-                          <span>{activeTabInfo?.label}</span>
-                        </>
-                      )
-                    })()}
-                    <ChevronDown className="h-3.5 w-3.5 opacity-55" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[150px] p-1.5">
-                  {NAV_TABS.map((tab) => {
-                    const TabIcon = tab.icon
-                    const isActive = props.activeTab === tab.id
-                    return (
-                      <DropdownMenuItem
-                        key={tab.id}
-                        onClick={() => { props.setActiveTab(tab.id); }}
-                        className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold ${
-                          isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                        }`}
-                      >
-                        <TabIcon
-                          className={`h-3.5 w-3.5 ${isActive ? "opacity-100" : "opacity-60"}`}
-                        />
-                        <span>{tab.label}</span>
-                        {isActive && (
-                          <div className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-foreground" />
-                        )}
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <div
-              ref={tabsRef}
-              className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex shrink-0"
-              role="tablist"
-              aria-label="메인 탭 네비게이션"
-            >
-              {NAV_TABS.map((tab) => {
-                const Icon = tab.icon
-                const isDraggableTab =
-                  props.useWindowMode === true &&
-                  (tab.id === "stats" ||
-                    tab.id === "curation" ||
-                    tab.id === "gallery")
-                const dragCb =
-                  tab.id === "stats"
-                    ? props.onStatsDragStart
-                    : tab.id === "curation"
-                      ? props.onCurationDragStart
-                      : tab.id === "gallery"
-                        ? props.onGalleryDragStart
-                        : undefined
-                const isDetached =
-                  (tab.id === "stats" &&
-                    (panel.stats.isFloating || panel.stats.isDocked)) ||
-                  (tab.id === "curation" &&
-                    (panel.curation.isFloating || panel.curation.isDocked)) ||
-                  (tab.id === "gallery" &&
-                    (panel.gallery.isFloating || panel.gallery.isDocked))
-                return (
-                  <Button
-                    key={tab.id}
-                    variant="ghost"
-                    size="sm"
-                    role="tab"
-                    aria-selected={props.activeTab === tab.id}
-                    aria-label={tab.label}
-                    onClick={() => {
-                      if (tabDragRef.current?.wasDragged === true) {
-                        tabDragRef.current = null
-                        return
-                      }
-                      props.setActiveTab(tab.id)
-                    }}
-                    onMouseDown={
-                      isDraggableTab && dragCb !== undefined
-                        ? (e: React.MouseEvent<HTMLButtonElement>): void => {
-                            tabDragRef.current = {
-                              tabId: tab.id,
-                              startX: e.clientX,
-                              startY: e.clientY,
-                              wasDragged: false,
-                            }
+          <div
+            ref={tabsRef}
+            className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex min-w-0 max-w-[280px] lg:max-w-[480px] xl:max-w-[640px] scroll-smooth"
+            role="tablist"
+            aria-label="메인 탭 네비게이션"
+          >
+            {NAV_TABS.map((tab) => {
+              const Icon = tab.icon
+              const isDraggableTab =
+                props.useWindowMode === true &&
+                (tab.id === "stats" ||
+                  tab.id === "curation" ||
+                  tab.id === "gallery")
+              const dragCb =
+                tab.id === "stats"
+                  ? props.onStatsDragStart
+                  : tab.id === "curation"
+                    ? props.onCurationDragStart
+                    : tab.id === "gallery"
+                      ? props.onGalleryDragStart
+                      : undefined
+              const isDetached =
+                (tab.id === "stats" &&
+                  (panel.stats.isFloating || panel.stats.isDocked)) ||
+                (tab.id === "curation" &&
+                  (panel.curation.isFloating || panel.curation.isDocked)) ||
+                (tab.id === "gallery" &&
+                  (panel.gallery.isFloating || panel.gallery.isDocked))
+              return (
+                <Button
+                  key={tab.id}
+                  variant="ghost"
+                  size="sm"
+                  role="tab"
+                  aria-selected={props.activeTab === tab.id}
+                  aria-label={tab.label}
+                  onClick={() => {
+                    if (tabDragRef.current?.wasDragged === true) {
+                      tabDragRef.current = null
+                      return
+                    }
+                    props.setActiveTab(tab.id)
+                  }}
+                  onMouseDown={
+                    isDraggableTab && dragCb !== undefined
+                      ? (e: React.MouseEvent<HTMLButtonElement>): void => {
+                          tabDragRef.current = {
+                            tabId: tab.id,
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            wasDragged: false,
+                          }
 
-                            const handleMove = (me: MouseEvent): void => {
-                              if (tabDragRef.current === null) return
-                              const dx = me.clientX - tabDragRef.current.startX
-                              const dy = me.clientY - tabDragRef.current.startY
-                              if (
-                                Math.sqrt(dx * dx + dy * dy) > 8 &&
-                                !tabDragRef.current.wasDragged
-                              ) {
-                                tabDragRef.current.wasDragged = true
-                                dragCb(
-                                  tabDragRef.current.startX,
-                                  tabDragRef.current.startY
-                                )
-                                document.removeEventListener(
-                                  "mousemove",
-                                  handleMove
-                                )
-                                document.removeEventListener(
-                                  "mouseup",
-                                  handleUp
-                                )
-                              }
-                            }
-                            const handleUp = (): void => {
+                          const handleMove = (me: MouseEvent): void => {
+                            if (tabDragRef.current === null) return
+                            const dx = me.clientX - tabDragRef.current.startX
+                            const dy = me.clientY - tabDragRef.current.startY
+                            if (
+                              Math.sqrt(dx * dx + dy * dy) > 8 &&
+                              !tabDragRef.current.wasDragged
+                            ) {
+                              tabDragRef.current.wasDragged = true
+                              dragCb(
+                                tabDragRef.current.startX,
+                                tabDragRef.current.startY
+                              )
                               document.removeEventListener(
                                 "mousemove",
                                 handleMove
                               )
-                              document.removeEventListener("mouseup", handleUp)
-                              if (tabDragRef.current?.wasDragged !== true) {
-                                tabDragRef.current = null
-                              }
+                              document.removeEventListener(
+                                "mouseup",
+                                handleUp
+                              )
                             }
-                            document.addEventListener("mousemove", handleMove)
-                            document.addEventListener("mouseup", handleUp)
                           }
-                        : undefined
+                          const handleUp = (): void => {
+                            document.removeEventListener(
+                              "mousemove",
+                              handleMove
+                            )
+                            document.removeEventListener("mouseup", handleUp)
+                            if (tabDragRef.current?.wasDragged !== true) {
+                              tabDragRef.current = null
+                            }
+                          }
+                          document.addEventListener("mousemove", handleMove)
+                          document.addEventListener("mouseup", handleUp)
+                        }
+                      : undefined
+                  }
+                  className={`relative h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
+                    props.activeTab === tab.id
+                      ? "bg-foreground text-background shadow-lg"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  } ${isDraggableTab ? "cursor-grab select-none active:cursor-grabbing" : ""}`}
+                >
+                  <Icon
+                    className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
+                  />
+                  <span
+                    className={
+                      props.activeTab === tab.id ? "" : "hidden sm:inline"
                     }
-                    className={`relative h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
-                      props.activeTab === tab.id
-                        ? "bg-foreground text-background shadow-lg"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    } ${isDraggableTab ? "cursor-grab select-none active:cursor-grabbing" : ""}`}
                   >
-                    <Icon
-                      className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
-                    />
-                    <span
-                      className={
-                        props.activeTab === tab.id ? "" : "hidden sm:inline"
-                      }
-                    >
-                      {tab.label}
-                    </span>
-                    {isDetached && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
-                    )}
-                  </Button>
-                )
-              })}
-            </div>
-          )}
+                    {tab.label}
+                  </span>
+                  {isDetached && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+                  )}
+                </Button>
+              )
+            })}
+          </div>
           {/* Mobile composition tabs (jobs editor only) */}
           {props.activeTab === "jobs" && props.mobileJobTab === "editor" && (
             <div className="no-scrollbar flex flex-1 items-center justify-between gap-2 overflow-x-auto md:hidden">
