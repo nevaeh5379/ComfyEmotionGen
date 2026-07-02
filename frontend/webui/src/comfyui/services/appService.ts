@@ -701,17 +701,7 @@ export class ComfyAppService {
           }
         }
       }
-      // LoraManager 관련 노드거나 onNodeCreated가 패치된 경우만 로그
-      if (patchedByCount > 0 || type.includes("LoraManager")) {
-        console.log(
-          `[CEG] registerNodeDefs: type="${type}" comfyClass="${NodeClass.comfyClass}" onNodeCreatedPatchedBy=${String(patchedByCount)} extCount=${String(extensions.length)}`
-        )
-      }
-      if (patchedByCount === 0 && type.includes("LoraManager")) {
-        console.warn(
-          `[CEG] registerNodeDefs: NO extension patched onNodeCreated for "${type}". extensions=${extensions.map((e) => e.name).join(",")}`
-        )
-      }
+
 
       window.LiteGraph.registerNodeType(type, NodeClass)
     }

@@ -41,3 +41,5 @@ data/
 debug/
 *.log
 .DS_Store
+.node/
+.python/
