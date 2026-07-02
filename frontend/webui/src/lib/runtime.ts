@@ -18,5 +18,12 @@ const DEFAULT_BACKEND_PORT: string =
     ? __DEFAULT_BACKEND_PORT__
     : String(import.meta.env.VITE_BACKEND_PORT ?? "5882")
 
+const getBackendHost = (): string => {
+  if (typeof window !== "undefined" && window.location) {
+    return window.location.hostname || "localhost";
+  }
+  return "localhost";
+}
+
 export const DEFAULT_BACKEND_URL: string =
-  PACKAGE_BACKEND_URL ?? `http://localhost:${DEFAULT_BACKEND_PORT}`
+  PACKAGE_BACKEND_URL ?? `http://${getBackendHost()}:${DEFAULT_BACKEND_PORT}`

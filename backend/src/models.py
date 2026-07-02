@@ -224,7 +224,7 @@ class SavedImageResponse(BaseModel):
     comfyFilename: str
     subfolder: str
     type: str
-    workerId: str
+    workerId: Optional[str] = None
     extension: str
     sizeBytes: int
     prompt: str

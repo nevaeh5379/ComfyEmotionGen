@@ -138,7 +138,7 @@ export function SettingsPanel({
               description={
                 IS_PACKAGE_MODE
                   ? "포터블 모드: 런처가 할당한 백엔드 포트에 자동 연결됩니다."
-                  : "CEG 백엔드 서버 주소입니다. (예: http://localhost:8000)"
+                  : "CEG 백엔드 서버 주소입니다. (예: http://localhost:5882)"
               }
             >
               <Input
