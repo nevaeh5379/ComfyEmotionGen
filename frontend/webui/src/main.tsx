@@ -93,29 +93,239 @@ try {
 // These are real constructors that extensions can extend and instantiate.
 {
   const _nodeTypes: Record<string, new (...args: unknown[]) => unknown> = {}
+  const normalizeSlotType = (type: unknown): string =>
+    Array.isArray(type) ? type.join(",") : String(type ?? "*")
+  const isWildcardType = (type: unknown): boolean => {
+    const normalized = normalizeSlotType(type).toUpperCase()
+    return (
+      normalized === "*" ||
+      normalized === "" ||
+      normalized === "0" ||
+      normalized === "ANY" ||
+      normalized === "COMBO"
+    )
+  }
+  const isValidConnection = (a: unknown, b: unknown): boolean => {
+    if (isWildcardType(a) || isWildcardType(b)) return true
+    const left = normalizeSlotType(a).toUpperCase().split(",")
+    const right = normalizeSlotType(b).toUpperCase().split(",")
+    return left.some((type) => right.includes(type))
+  }
+  const clonePlain = <T,>(value: T): T => {
+    if (typeof structuredClone === "function") {
+      try {
+        return structuredClone(value)
+      } catch {
+        // Fall through to JSON clone for plain data.
+      }
+    }
+    try {
+      return JSON.parse(JSON.stringify(value)) as T
+    } catch {
+      return value
+    }
+  }
   window.LiteGraph ??= {} as unknown as typeof window.LiteGraph
   const lg = window.LiteGraph as unknown as Record<string, unknown>
+  lg.Nodes ??= {}
+  lg.registered_node_types ??= _nodeTypes
   lg.registerNodeType ??= (
     type: string,
     cls: new (...args: unknown[]) => unknown
   ): void => {
+    const classRecord = cls as unknown as Record<string, unknown>
+    classRecord.type ??= type
+    classRecord.title ??= type.split("/").pop() ?? type
     _nodeTypes[type] = cls
+    ;(lg.registered_node_types as Record<string, unknown>)[type] = cls
+    ;(lg.Nodes as Record<string, unknown>)[type] = cls
+    ;(
+      lg as {
+        onNodeTypeRegistered?: (type: string, cls: unknown) => void
+      }
+    ).onNodeTypeRegistered?.(type, cls)
   }
-  lg.createNode ??= (type: string): unknown => {
+  lg.getNodeType ??= (type: string): unknown =>
+    (lg.registered_node_types as Record<string, unknown>)[type]
+  lg.unregisterNodeType ??= (type: string): void => {
+    delete _nodeTypes[type]
+    delete (lg.registered_node_types as Record<string, unknown>)[type]
+    delete (lg.Nodes as Record<string, unknown>)[type]
+  }
+  lg.wrapFunction ??= (
+    obj: Record<string, unknown> | null | undefined,
+    name: string,
+    fn: (...args: unknown[]) => unknown
+  ): void => {
+    if (obj === null || obj === undefined) return
+    const old = obj[name]
+    obj[name] = function (this: unknown, ...args: unknown[]): unknown {
+      return fn.call(this, old, ...args)
+    }
+  }
+  lg.createNode ??= (
+    type: string,
+    title?: string,
+    options?: Record<string, unknown>
+  ): unknown => {
     const Cls = _nodeTypes[type]
-    return Cls !== undefined ? new Cls() : null
+    if (Cls === undefined) return null
+    const node = new Cls() as Record<string, unknown> & {
+      onNodeCreated?: () => void
+    }
+    node.type ??= type
+    node.title ??= title ?? (Cls as unknown as { title?: string }).title ?? type
+    node.properties ??= {}
+    node.flags ??= {}
+    if (Array.isArray(node.pos) === false) node.pos = [0, 0]
+    if (Array.isArray(node.size) === false) {
+      node.size = [lg.NODE_DEFAULT_WIDTH ?? 200, lg.NODE_DEFAULT_HEIGHT ?? 80]
+    }
+    if (options !== undefined) Object.assign(node, options)
+    node.onNodeCreated?.()
+    return node
   }
   lg.NODE_DEFAULT_WIDTH ??= 200
   lg.NODE_DEFAULT_HEIGHT ??= 80
+  lg.NODE_WIDTH ??= 140
+  lg.NODE_TITLE_HEIGHT ??= 24
+  lg.NODE_SLOT_HEIGHT ??= 20
+  lg.NODE_WIDGET_HEIGHT ??= 20
+  lg.NODE_TEXT_SIZE ??= 14
+  lg.WIDGET_BGCOLOR ??= "#222"
+  lg.LINK_COLOR ??= "#9A9"
+  lg.EVENT_LINK_COLOR ??= "#A86"
+  lg.NORMAL_TITLE ??= 0
+  lg.NO_TITLE ??= 1
+  lg.TRANSPARENT_TITLE ??= 2
+  lg.AUTOHIDE_TITLE ??= 3
   lg.ALWAYS ??= 0
   lg.NEVER ??= 2
   lg.BYPASS ??= 4
+  lg.ACTION ??= -1
+  lg.EVENT ??= -1
+  lg.INPUT ??= 1
+  lg.OUTPUT ??= 2
+  lg.HIDDEN_LINK ??= 0
+  lg.STRAIGHT_LINK ??= 0
+  lg.LINEAR_LINK ??= 1
+  lg.SPLINE_LINK ??= 2
+  lg.VALID_SHAPES ??= ["default", "box", "round", "card", "circle"]
+  lg.NODE_MODES ??= ["Always", "On Event", "Never", "On Trigger", "Bypass"]
+  lg.NODE_MODES_COLORS ??= ["#666", "#422", "#333", "#224", "#886"]
   lg.LGraphEventMode ??= { ALWAYS: 0, NEVER: 2, BYPASS: 4 }
   lg.registered_slot_in_types ??= {}
   lg.registered_slot_out_types ??= {}
+  lg.slot_types_in ??= lg.registered_slot_in_types
+  lg.slot_types_out ??= lg.registered_slot_out_types
   lg.slot_types_default_in ??= {}
   lg.slot_types_default_out ??= {}
   lg.getAtomicGraphClasses ??= (): Record<string, unknown> => ({})
+  lg.isValidConnection ??= isValidConnection
+  lg.cloneObject ??= clonePlain
+  lg.getTime ??= (): number => performance.now()
+  lg.uuidv4 ??= (): string =>
+    crypto.randomUUID?.() ??
+    "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0
+      const v = c === "x" ? r : (r & 0x3) | 0x8
+      return v.toString(16)
+    })
+  lg.getParameterNames ??= (fn: (...args: unknown[]) => unknown): string[] => {
+    const source = fn.toString().replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")
+    const match = source.match(/^[^(]*\(([^)]*)\)/)
+    return (
+      match?.[1]
+        ?.split(",")
+        .map((part) => part.trim())
+        .filter(Boolean) ?? []
+    )
+  }
+  lg.colorToString ??= (color: unknown): string =>
+    Array.isArray(color)
+      ? `rgb(${color.slice(0, 3).join(",")})`
+      : String(color ?? "")
+  lg.hex2num ??= (hex: string): number[] => {
+    const clean = hex.replace("#", "")
+    const num = Number.parseInt(clean, 16)
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255]
+  }
+  lg.num2hex ??= (triplet: number[]): string =>
+    `#${triplet
+      .slice(0, 3)
+      .map((n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0"))
+      .join("")}`
+  lg.pointerListenerAdd ??= (
+    target: EventTarget,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: AddEventListenerOptions
+  ): void => target.addEventListener(type, listener, options)
+  lg.pointerListenerRemove ??= (
+    target: EventTarget,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: EventListenerOptions
+  ): void => target.removeEventListener(type, listener, options)
+  lg.closeAllContextMenus ??= (): void => {
+    document.querySelectorAll(".litecontextmenu").forEach((el) => el.remove())
+  }
+  lg.extendClass ??= (target: { prototype?: object }, origin: { prototype?: object }): void => {
+    if (target.prototype === undefined || origin.prototype === undefined) return
+    for (const name of Object.getOwnPropertyNames(origin.prototype)) {
+      if (name === "constructor") continue
+      if (Object.prototype.hasOwnProperty.call(target.prototype, name)) continue
+      const descriptor = Object.getOwnPropertyDescriptor(origin.prototype, name)
+      if (descriptor !== undefined) {
+        Object.defineProperty(target.prototype, name, descriptor)
+      }
+    }
+  }
+  lg.registerNodeAndSlotType ??= (
+    type: string,
+    cls: new (...args: unknown[]) => unknown
+  ): void => {
+    ;(lg.registerNodeType as (type: string, cls: new (...args: unknown[]) => unknown) => void)(type, cls)
+    ;(lg.registered_slot_in_types as Record<string, unknown>)[type] = true
+    ;(lg.registered_slot_out_types as Record<string, unknown>)[type] = true
+  }
+  lg.clearRegisteredTypes ??= (): void => {
+    for (const key of Object.keys(_nodeTypes)) delete _nodeTypes[key]
+    for (const key of Object.keys(lg.registered_node_types as Record<string, unknown>)) {
+      delete (lg.registered_node_types as Record<string, unknown>)[key]
+    }
+    lg.Nodes = {}
+  }
+  lg.getNodeTypesCategories ??= (filter?: string): string[] => {
+    const categories = new Set<string>()
+    for (const [type, cls] of Object.entries(
+      lg.registered_node_types as Record<string, { category?: string }>
+    )) {
+      if (filter !== undefined && !type.includes(filter)) continue
+      categories.add(cls.category ?? type.split("/").slice(0, -1).join("/") ?? "")
+    }
+    return [...categories].filter(Boolean).sort()
+  }
+  lg.getNodeTypesInCategory ??= (category: string, filter?: string): unknown[] =>
+    Object.entries(lg.registered_node_types as Record<string, { category?: string }>)
+      .filter(([type, cls]) => {
+        const nodeCategory = cls.category ?? type.split("/").slice(0, -1).join("/")
+        return (
+          nodeCategory === category &&
+          (filter === undefined || type.toLowerCase().includes(filter.toLowerCase()))
+        )
+      })
+      .map(([, cls]) => cls)
+  lg.ContextMenu ??= class ContextMenu {
+    readonly values?: unknown[]
+    readonly options?: Record<string, unknown>
+    constructor(values?: unknown[], options?: Record<string, unknown>) {
+      if (values !== undefined) this.values = values
+      if (options !== undefined) this.options = options
+    }
+  }
+  ;(lg as { node_menu_options?: unknown[] }).node_menu_options ??= []
+  ;(lg as { canvas_menu_options?: unknown[] }).canvas_menu_options ??= []
 
   // LGraphNode — base class for all node types
   if (
@@ -130,36 +340,382 @@ try {
       bgcolor?: string
       pos: [number, number] = [0, 0]
       size: [number, number] = [0, 0]
-      inputs: { name: string; type: string; link: null }[] = []
-      outputs: { name: string; type: string; links: null }[] = []
+      private _inputs: {
+        name: string
+        type: string
+        link: number | null
+        localized_name: string
+      }[] = []
+      private _outputs: {
+        name: string
+        type: string
+        links: number[] | null
+        localized_name: string
+      }[] = []
       widgets?: unknown[] = []
-      graph: unknown = null
+      graph: LGraph | null = null
       mode = 0
       order = 0
       properties?: Record<string, unknown> = {}
+      properties_info?: Record<string, Record<string, unknown>> = {}
+      flags?: Record<string, unknown> = {}
+      title?: string
+      title_buttons?: unknown[]
+      _output_data?: Record<number, unknown> = {}
       constructor(type?: string) {
         if (type !== undefined) this.type = type
+        if (type !== undefined) this.title = type
+      }
+      get inputs(): {
+        name: string
+        type: string
+        link: number | null
+        localized_name: string
+      }[] {
+        return this._inputs
+      }
+      set inputs(value: unknown) {
+        if (Array.isArray(value)) {
+          this._inputs = value as typeof this._inputs
+        }
+      }
+      get outputs(): {
+        name: string
+        type: string
+        links: number[] | null
+        localized_name: string
+      }[] {
+        return this._outputs
+      }
+      set outputs(value: unknown) {
+        if (Array.isArray(value)) {
+          this._outputs = value as typeof this._outputs
+        }
       }
       addInput(name: string, type: string): void {
-        this.inputs.push({ name, type, link: null })
+        this.inputs.push({ name, type, link: null, localized_name: name })
       }
       addOutput(name: string, type: string): void {
-        this.outputs.push({ name, type, links: null })
+        this.outputs.push({ name, type, links: null, localized_name: name })
       }
-      connect(): boolean | null {
+      connect(slot: number, node: unknown, inputSlot: number | string): boolean | null {
+        const target = node as {
+          id?: number
+          inputs?: { name?: string; link: number | null; type?: string }[]
+          graph?: unknown
+        }
+        const inputIndex =
+          typeof inputSlot === "string"
+            ? target.inputs?.findIndex((input) => input.name === inputSlot) ?? -1
+            : inputSlot
+        if (target.inputs === undefined || inputIndex < 0) return false
+        const output = this.outputs[slot]
+        const input = target.inputs[inputIndex]
+        if (output === undefined || input === undefined) return false
+        if (!isValidConnection(output.type, input.type)) return false
+        const graph = (this.graph ?? target.graph) as {
+          links?: Map<number, unknown> | Record<number, unknown>
+          state?: { lastLinkId?: number }
+        } | null
+        const nextId = (graph?.state?.lastLinkId ?? 0) + 1
+        if (graph?.state !== undefined) graph.state.lastLinkId = nextId
+        const link = {
+          id: nextId,
+          origin_id: this.id,
+          origin_slot: slot,
+          target_id: target.id ?? 0,
+          target_slot: inputIndex,
+          type: output.type,
+        }
+        if (graph?.links instanceof Map) graph.links.set(nextId, link)
+        else if (graph?.links !== undefined) graph.links[nextId] = link
+        input.link = nextId
+        output.links ??= []
+        output.links.push(nextId)
         return true
       }
-      disconnectInput(): void {
-        /* noop */
+      disconnectInput(slot: number): void {
+        const linkId = this.inputs[slot]?.link
+        if (linkId == null) return
+        const input = this.inputs[slot]
+        if (input !== undefined) input.link = null
+        const graph = this.graph as { links?: Map<number, unknown> | Record<number, unknown> } | null
+        if (graph?.links instanceof Map) graph.links.delete(linkId)
+        else if (graph?.links !== undefined) delete graph.links[linkId]
       }
-      disconnectOutput(): void {
-        /* noop */
+      disconnectOutput(slot: number): void {
+        const links = this.outputs[slot]?.links
+        if (!Array.isArray(links)) return
+        const graph = this.graph as { links?: Map<number, unknown> | Record<number, unknown> } | null
+        for (const linkId of links) {
+          if (graph?.links instanceof Map) graph.links.delete(linkId)
+          else if (graph?.links !== undefined) delete graph.links[linkId]
+        }
+        const output = this.outputs[slot]
+        if (output !== undefined) output.links = []
       }
-      configure(): void {
-        /* noop */
+      configure(data?: Record<string, unknown>): void {
+        if (data === undefined) return
+        if (typeof data.id === "number") this.id = data.id
+        if (typeof data.type === "string") this.type = data.type
+        if (typeof data.title === "string") this.title = data.title
+        if (Array.isArray(data.pos)) this.pos = data.pos as [number, number]
+        if (Array.isArray(data.size)) this.size = data.size as [number, number]
+        if (typeof data.mode === "number") this.mode = data.mode
+        if (typeof data.order === "number") this.order = data.order
+        if (typeof data.properties === "object" && data.properties !== null) {
+          this.properties = data.properties as Record<string, unknown>
+        }
+        ;(this as { onConfigure?: (data: Record<string, unknown>) => void }).onConfigure?.(data)
       }
       setDirtyCanvas(): void {
-        /* noop */
+        ;(this.graph as { setDirtyCanvas?: (flag?: boolean, history?: boolean) => void } | null)
+          ?.setDirtyCanvas?.(true, true)
+      }
+      setSize(size: [number, number]): void {
+        this.size = [size[0], size[1]]
+        this.setDirtyCanvas()
+      }
+      setPos(x: number | [number, number], y?: number): void {
+        this.pos = Array.isArray(x) ? [x[0], x[1]] : [x, y ?? this.pos[1]]
+        this.setDirtyCanvas()
+      }
+      move(deltaX: number, deltaY: number): void {
+        this.pos = [this.pos[0] + deltaX, this.pos[1] + deltaY]
+        this.setDirtyCanvas()
+      }
+      snapToGrid(): void {
+        this.pos = [Math.round(this.pos[0] / 10) * 10, Math.round(this.pos[1] / 10) * 10]
+      }
+      alignToGrid(): void {
+        this.snapToGrid()
+      }
+      expandToFitContent(): void {
+        const [width, height] = this.computeSize(this.size[0] || undefined)
+        this.size = [Math.max(this.size[0], width), Math.max(this.size[1], height)]
+      }
+      addProperty(
+        name: string,
+        defaultValue: unknown,
+        type?: string,
+        extraInfo?: Record<string, unknown>
+      ): void {
+        this.properties ??= {}
+        this.properties_info ??= {}
+        if (!(name in this.properties)) {
+          this.properties[name] = defaultValue
+        }
+        this.properties_info[name] = {
+          name,
+          default_value: defaultValue,
+          type,
+          ...(extraInfo ?? {}),
+        }
+      }
+      setProperty(name: string, value: unknown): void {
+        this.properties ??= {}
+        this.properties[name] = value
+      }
+      getProperty(name: string): unknown {
+        return this.properties?.[name]
+      }
+      getPropertyInfo(name: string): Record<string, unknown> | undefined {
+        return this.properties_info?.[name]
+      }
+      removeProperty(name: string): void {
+        if (this.properties !== undefined) delete this.properties[name]
+        if (this.properties_info !== undefined) delete this.properties_info[name]
+      }
+      addCustomWidget<TWidget extends Record<string, unknown>>(
+        customWidget: TWidget
+      ): TWidget {
+        this.widgets ??= []
+        const widget = customWidget
+        const widgetRecord = widget as Record<string, unknown>
+        if (widgetRecord.options === undefined) {
+          widgetRecord.options = {}
+        }
+        const options = widgetRecord.options as Record<string, unknown>
+        options.hideOnZoom ??= false
+        this.widgets.push(widget)
+        return widget
+      }
+      removeWidget(widgetOrSlot: unknown): void {
+        if (this.widgets === undefined) return
+        const index =
+          typeof widgetOrSlot === "number"
+            ? widgetOrSlot
+            : this.widgets.indexOf(widgetOrSlot)
+        if (index >= 0) this.widgets.splice(index, 1)
+      }
+      ensureWidgetRemoved(widget: unknown): void {
+        this.removeWidget(widget)
+      }
+      findInputSlot(name: string, returnObj?: boolean): unknown {
+        const index = this.inputs.findIndex((input) => input.name === name)
+        return returnObj === true ? this.inputs[index] : index
+      }
+      findOutputSlot(name: string, returnObj?: boolean): unknown {
+        const index = this.outputs.findIndex((output) => output.name === name)
+        return returnObj === true ? this.outputs[index] : index
+      }
+      getInputInfo(slot: number): unknown {
+        return this.inputs[slot] ?? null
+      }
+      getOutputInfo(slot: number): unknown {
+        return this.outputs[slot] ?? null
+      }
+      isInputConnected(slot: number): boolean {
+        return this.inputs[slot]?.link != null
+      }
+      isOutputConnected(slot: number): boolean {
+        const links = this.outputs[slot]?.links
+        return Array.isArray(links) && links.length > 0
+      }
+      isAnyOutputConnected(): boolean {
+        return this.outputs.some((_, index) => this.isOutputConnected(index))
+      }
+      removeInput(slot: number): void {
+        this.inputs.splice(slot, 1)
+      }
+      removeOutput(slot: number): void {
+        this.outputs.splice(slot, 1)
+      }
+      getInputLink(slot: number): unknown {
+        const linkId = this.inputs[slot]?.link
+        if (linkId == null) return null
+        const graph = this.graph as { links?: Map<number, unknown> | Record<number, unknown> } | null
+        return graph?.links instanceof Map ? graph.links.get(linkId) : graph?.links?.[linkId] ?? null
+      }
+      getInputNode(slot: number): unknown {
+        const link = this.getInputLink(slot) as { origin_id?: number } | null
+        const graph = this.graph as { getNodeById?: (id: number) => unknown } | null
+        return link?.origin_id !== undefined ? graph?.getNodeById?.(link.origin_id) ?? null : null
+      }
+      getOutputNodes(slot: number): unknown[] | null {
+        const links = this.outputs[slot]?.links
+        if (!Array.isArray(links) || links.length === 0) return null
+        const graph = this.graph as {
+          links?: Map<number, unknown> | Record<number, unknown>
+          getNodeById?: (id: number) => unknown
+        } | null
+        const nodes: unknown[] = []
+        for (const linkId of links) {
+          const link = graph?.links instanceof Map ? graph.links.get(linkId) : graph?.links?.[linkId]
+          const targetId = (link as { target_id?: number } | undefined)?.target_id
+          if (targetId !== undefined) {
+            const target = graph?.getNodeById?.(targetId)
+            if (target !== undefined && target !== null) nodes.push(target)
+          }
+        }
+        return nodes
+      }
+      getInputData(_slot?: number, _forceUpdate?: boolean): undefined {
+        return undefined
+      }
+      getInputDataByName(_slotName?: string, _forceUpdate?: boolean): null {
+        return null
+      }
+      setOutputData(slot = 0, data?: unknown): void {
+        this._output_data ??= {}
+        this._output_data[slot] = data
+      }
+      getOutputData(slot = 0): unknown {
+        return this._output_data?.[slot]
+      }
+      setOutputDataType(slot: number, type: string): void {
+        if (this.outputs[slot] !== undefined) this.outputs[slot].type = type
+      }
+      getInputDataType(slot: number): string | undefined {
+        return this.inputs[slot]?.type
+      }
+      getInputOrProperty(name: string): unknown {
+        const inputIndex = this.findInputSlot(name) as number
+        const inputData = inputIndex >= 0 ? this.getInputData(inputIndex) : undefined
+        return inputData ?? this.properties?.[name]
+      }
+      findInputSlotFree(): number {
+        return this.inputs.findIndex((input) => input.link == null)
+      }
+      findOutputSlotFree(): number {
+        return this.outputs.findIndex(
+          (output) => !Array.isArray(output.links) || output.links.length === 0
+        )
+      }
+      findInputSlotByType(type: string): number {
+        return this.inputs.findIndex((input) => isValidConnection(input.type, type))
+      }
+      findOutputSlotByType(type: string): number {
+        return this.outputs.findIndex((output) => isValidConnection(output.type, type))
+      }
+      findSlotByType(input: boolean, type: string): number {
+        return input ? this.findInputSlotByType(type) : this.findOutputSlotByType(type)
+      }
+      findInputByType(type: string): unknown {
+        const index = this.findInputSlotByType(type)
+        return index >= 0 ? this.inputs[index] : null
+      }
+      findOutputByType(type: string): unknown {
+        const index = this.findOutputSlotByType(type)
+        return index >= 0 ? this.outputs[index] : null
+      }
+      findConnectByTypeSlot(type: string, isOutput = true): number {
+        return isOutput ? this.findOutputSlotByType(type) : this.findInputSlotByType(type)
+      }
+      canConnectTo(slot: number, targetNode: unknown, targetSlot: number): boolean {
+        const target = targetNode as { inputs?: { type?: string }[] }
+        return isValidConnection(this.outputs[slot]?.type, target.inputs?.[targetSlot]?.type)
+      }
+      connectByType(slot: number, targetNode: unknown, targetType: string): boolean | null {
+        const target = targetNode as { findInputSlotByType?: (type: string) => number }
+        const targetSlot = target.findInputSlotByType?.(targetType) ?? -1
+        return targetSlot >= 0 ? this.connect(slot, targetNode, targetSlot) : false
+      }
+      connectByTypeOutput(targetType: string, targetNode: unknown, targetSlot: number): boolean | null {
+        const outputSlot = this.findOutputSlotByType(targetType)
+        return outputSlot >= 0 ? this.connect(outputSlot, targetNode, targetSlot) : false
+      }
+      getSlotFromWidget(widget: unknown): number {
+        return this.widgets?.indexOf(widget) ?? -1
+      }
+      getWidgetFromSlot(slot: number): unknown {
+        return this.widgets?.[slot]
+      }
+      addTitleButton(name: string, label: string, callback?: () => void): unknown {
+        this.title_buttons ??= []
+        const button = { name, label, callback }
+        this.title_buttons.push(button)
+        return button
+      }
+      onTitleButtonClick(name: string): void {
+        const button = this.title_buttons?.find(
+          (item) => (item as { name?: string }).name === name
+        ) as { callback?: () => void } | undefined
+        button?.callback?.()
+      }
+      collapse(force?: boolean): void {
+        this.flags ??= {}
+        this.flags.collapsed = force ?? !this.flags.collapsed
+      }
+      toggleAdvanced(): void {
+        this.flags ??= {}
+        this.flags.advanced = !this.flags.advanced
+      }
+      pin(): void {
+        this.flags ??= {}
+        this.flags.pinned = true
+      }
+      unpin(): void {
+        this.flags ??= {}
+        this.flags.pinned = false
+      }
+      loadImage(url: string): HTMLImageElement {
+        const img = new Image()
+        img.src = url
+        return img
+      }
+      trace(...args: unknown[]): void {
+        console.debug("[LGraphNode]", ...args)
       }
       addWidget(
         type: string,
@@ -168,16 +724,16 @@ try {
         callback?: (v: unknown) => void,
         options?: Record<string, unknown>
       ): unknown {
-        this.widgets ??= []
         const widget = {
           type,
           name,
           value,
           callback,
-          options: options ?? {},
+          options: { hideOnZoom: false, ...(options ?? {}) },
         }
-        this.widgets.push(widget)
-        return widget
+        const added = this.addCustomWidget(widget)
+        this.expandToFitContent()
+        return added
       }
       addDOMWidget(
         type: string,
@@ -192,17 +748,30 @@ try {
         return [min_width ?? 200, 80]
       }
       getTitle(): string {
-        return this.type ?? ""
+        return this.title ?? this.type ?? ""
       }
       serialize(): Record<string, unknown> {
-        return {
+        const data = {
           id: this.id,
           type: this.type,
+          title: this.title,
           pos: this.pos,
           size: this.size,
           mode: this.mode,
+          order: this.order,
+          flags: this.flags,
           properties: this.properties,
         }
+        ;(this as { onSerialize?: (data: Record<string, unknown>) => void }).onSerialize?.(data)
+        return data
+      }
+      clone(): unknown {
+        const ctor = this.constructor as new (...args: unknown[]) => LGraphNodeImpl
+        const cloned = new ctor(this.type)
+        cloned.configure(clonePlain(this.serialize()))
+        cloned.id = 0
+        cloned.graph = null
+        return cloned
       }
     }
     window.LGraphNode = LGraphNodeImpl as unknown as typeof window.LGraphNode
@@ -214,30 +783,114 @@ try {
   ) {
     class LGraphImpl {
       _nodes_by_id: Record<string, unknown> = {}
-      links: Map<number, unknown> | Record<number, unknown> = {}
+      links: Map<number, unknown> | Record<number, unknown> = new Map()
       groups: unknown[] = []
       nodes: unknown[] = []
       id = 0
       revision = 0
       status = 0
+      state = { lastNodeId: 0, lastLinkId: 0, lastGroupId: 0, lastRerouteId: 0 }
+      _canvas?: unknown
       add(node: unknown): void {
+        const nodeRecord = node as { id?: number; graph?: unknown; onAdded?: (graph: unknown) => void }
+        if (nodeRecord.id === undefined || nodeRecord.id === 0) {
+          nodeRecord.id = ++this.state.lastNodeId
+        } else {
+          this.state.lastNodeId = Math.max(this.state.lastNodeId, nodeRecord.id)
+        }
+        nodeRecord.graph = this
         this.nodes.push(node)
+        this._nodes_by_id[String(nodeRecord.id)] = node
+        nodeRecord.onAdded?.(this)
+        ;(this as { onNodeAdded?: (node: unknown) => void }).onNodeAdded?.(node)
+        this.afterChange(node)
       }
       remove(node: unknown): void {
         const i = this.nodes.indexOf(node)
         if (i !== -1) this.nodes.splice(i, 1)
+        const nodeRecord = node as { id?: number; graph?: unknown; onRemoved?: () => void }
+        if (nodeRecord.id !== undefined) delete this._nodes_by_id[String(nodeRecord.id)]
+        nodeRecord.graph = null
+        nodeRecord.onRemoved?.()
+        ;(this as { onNodeRemoved?: (node: unknown) => void }).onNodeRemoved?.(node)
+        this.afterChange(null)
       }
       clear(): void {
         this.nodes = []
         this._nodes_by_id = {}
-        this.links = {}
+        this.links = new Map()
         this.groups = []
+        this.afterChange(null)
       }
-      getNodeById(_id: number | string): undefined {
-        return undefined
+      getNodeById(id: number | string): unknown {
+        return this._nodes_by_id[String(id)]
       }
-      setDirtyCanvas(): void {
+      findNodesByType(type: string): unknown[] {
+        return this.nodes.filter((node) => (node as { type?: string }).type === type)
+      }
+      findNodesByTitle(title: string): unknown[] {
+        return this.nodes.filter((node) => (node as { title?: string }).title === title)
+      }
+      serialize(): Record<string, unknown> {
+        const data = {
+          id: this.id,
+          revision: this.revision,
+          nodes: this.nodes.map((node) =>
+            typeof (node as { serialize?: () => unknown }).serialize === "function"
+              ? (node as { serialize: () => unknown }).serialize()
+              : clonePlain(node)
+          ),
+          links:
+            this.links instanceof Map
+              ? Array.from(this.links.values())
+              : Object.values(this.links),
+          groups: this.groups,
+        }
+        ;(this as { onSerialize?: (data: Record<string, unknown>) => void }).onSerialize?.(data)
+        return data
+      }
+      configure(data?: Record<string, unknown>): void {
+        if (data === undefined) return
+        this.clear()
+        if (Array.isArray(data.nodes)) {
+          for (const rawNode of data.nodes as Record<string, unknown>[]) {
+            const type = String(rawNode.type ?? "")
+            const node = (window.LiteGraph.createNode(type) ??
+              new window.LGraphNode(type)) as { configure?: (data: Record<string, unknown>) => void }
+            node.configure?.(rawNode)
+            this.add(node)
+          }
+        }
+        ;(this as { onConfigure?: (data: Record<string, unknown>) => void }).onConfigure?.(data)
+      }
+      beforeChange(info?: unknown): void {
+        ;(this as { onBeforeChange?: (graph: unknown, info?: unknown) => void }).onBeforeChange?.(this, info)
+      }
+      afterChange(info?: unknown): void {
+        this.revision++
+        ;(this as { onAfterChange?: (graph: unknown, info?: unknown) => void }).onAfterChange?.(this, info)
+      }
+      change(): void {
+        this.afterChange(null)
+      }
+      incrementVersion(): void {
+        this.revision++
+      }
+      updateExecutionOrder(): void {
         /* noop */
+      }
+      computeExecutionOrder(): unknown[] {
+        return [...this.nodes]
+      }
+      attachCanvas(canvas: unknown): void {
+        this._canvas = canvas
+      }
+      detachCanvas(canvas?: unknown): void {
+        if (canvas === undefined || this._canvas === canvas) this._canvas = undefined
+      }
+      setDirtyCanvas(flag?: boolean, history?: boolean): void {
+        ;(this._canvas as { setDirty?: (flag?: boolean, history?: boolean) => void } | undefined)
+          ?.setDirty?.(flag, history)
       }
     }
     window.LGraph = LGraphImpl as unknown as typeof window.LGraph
@@ -252,10 +905,22 @@ try {
       state = { readOnly: false }
       ds = { scale: 1, offset: [0, 0] as [number, number] }
       canvas: HTMLCanvasElement | null = null
+      graph: unknown = null
       graph_mouse?: [number, number] = [0, 0]
+      canvas_mouse?: [number, number] = [0, 0]
+      selected_nodes: Record<string, unknown> = {}
+      selectedItems: Set<unknown> = new Set()
+      visible_nodes: unknown[] = []
+      node_over?: unknown
+      allow_searchbox = true
       render_canvas_border = false
-      constructor(canvas?: HTMLCanvasElement | null, _graph?: unknown) {
+      constructor(canvas?: HTMLCanvasElement | null, graph?: LGraph) {
         if (canvas !== undefined && canvas !== null) this.canvas = canvas
+        if (graph !== undefined) this.setGraph(graph)
+      }
+      setGraph(graph: LGraph): void {
+        this.graph = graph
+        ;(graph as { attachCanvas?: (canvas: unknown) => void })?.attachCanvas?.(this)
       }
       resize(): void {
         /* noop */
@@ -272,8 +937,177 @@ try {
       setCanvas(c: HTMLCanvasElement): void {
         this.canvas = c
       }
+      addEventListener(): void {
+        /* noop */
+      }
+      removeEventListener(): void {
+        /* noop */
+      }
+      getCanvasMenuOptions(): unknown[] {
+        return []
+      }
+      getNodeMenuOptions(node?: unknown): unknown[] {
+        const options = (node as { getExtraMenuOptions?: () => unknown[] } | undefined)
+          ?.getExtraMenuOptions?.()
+        return Array.isArray(options) ? options : []
+      }
+      getGroupMenuOptions(): unknown[] {
+        return []
+      }
+      getContextMenuOptions(): unknown[] {
+        return []
+      }
+      getCurrentGraph(): unknown {
+        return this.graph ?? window.app.graph
+      }
+      draw(): void {
+        /* noop */
+      }
+      processKey(): boolean {
+        return false
+      }
+      processMouseDown(): boolean {
+        return false
+      }
+      processMouseMove(): boolean {
+        return false
+      }
+      processMouseUp(): boolean {
+        return false
+      }
+      processMouseWheel(): boolean {
+        return false
+      }
+      copyToClipboard(items?: unknown): void {
+        const payload = items ?? Array.from(this.selectedItems)
+        try {
+          localStorage.setItem("litegraph_clipboard", JSON.stringify(payload))
+        } catch {
+          /* noop */
+        }
+      }
+      pasteFromClipboard(): unknown {
+        try {
+          return JSON.parse(localStorage.getItem("litegraph_clipboard") ?? "null")
+        } catch {
+          return null
+        }
+      }
+      prompt(
+        _title: string,
+        value: string,
+        callback?: (value: string) => void
+      ): HTMLInputElement {
+        const input = document.createElement("input")
+        input.value = value
+        callback?.(value)
+        return input
+      }
+      showSearchBox(): HTMLInputElement {
+        return this.prompt("Search", "", undefined)
+      }
+      showEditPropertyValue(): HTMLInputElement {
+        return this.prompt("Value", "", undefined)
+      }
+      createDialog(): HTMLDivElement {
+        return document.createElement("div")
+      }
+      createPanel(): HTMLDivElement {
+        return document.createElement("div")
+      }
+      closePanels(): void {
+        /* noop */
+      }
+      checkPanels(): void {
+        /* noop */
+      }
+      selectNode(node: unknown): void {
+        const id = (node as { id?: number | string }).id
+        if (id !== undefined) this.selected_nodes[String(id)] = node
+        this.selectedItems.add(node)
+      }
+      selectNodes(nodes: unknown[] = []): void {
+        for (const node of nodes) this.selectNode(node)
+      }
+      deselectNode(node: unknown): void {
+        const id = (node as { id?: number | string }).id
+        if (id !== undefined) delete this.selected_nodes[String(id)]
+        this.selectedItems.delete(node)
+      }
+      deselectAll(): void {
+        this.selected_nodes = {}
+        this.selectedItems.clear()
+      }
+      deselectAllNodes(): void {
+        this.deselectAll()
+      }
+      deleteSelected(): void {
+        for (const node of this.selectedItems) {
+          ;(this.graph as { remove?: (node: unknown) => void } | null)?.remove?.(node)
+        }
+        this.deselectAll()
+      }
+      deleteSelectedNodes(): void {
+        this.deleteSelected()
+      }
+      centerOnNode(node: unknown): void {
+        const pos = (node as { pos?: [number, number] }).pos
+        if (pos !== undefined) this.ds.offset = [-pos[0], -pos[1]]
+      }
+      setZoom(value: number): void {
+        this.ds.scale = value
+      }
+      bringToFront(node: unknown): void {
+        const graph = this.graph as { nodes?: unknown[] } | null
+        if (!Array.isArray(graph?.nodes)) return
+        const index = graph.nodes.indexOf(node)
+        if (index >= 0) graph.nodes.push(...graph.nodes.splice(index, 1))
+      }
+      sendToBack(node: unknown): void {
+        const graph = this.graph as { nodes?: unknown[] } | null
+        if (!Array.isArray(graph?.nodes)) return
+        const index = graph.nodes.indexOf(node)
+        if (index >= 0) graph.nodes.unshift(...graph.nodes.splice(index, 1))
+      }
+      processContextMenu(): unknown {
+        return new (window.LiteGraph as unknown as { ContextMenu: new (...args: unknown[]) => unknown }).ContextMenu([])
+      }
+      convertOffsetToCanvas(pos: [number, number]): [number, number] {
+        return [
+          (pos[0] - this.ds.offset[0]) / this.ds.scale,
+          (pos[1] - this.ds.offset[1]) / this.ds.scale,
+        ]
+      }
+      convertCanvasToOffset(pos: [number, number]): [number, number] {
+        return [
+          pos[0] * this.ds.scale + this.ds.offset[0],
+          pos[1] * this.ds.scale + this.ds.offset[1],
+        ]
+      }
+      convertEventToCanvasOffset(event: MouseEvent): [number, number] {
+        return this.convertOffsetToCanvas([event.offsetX, event.offsetY])
+      }
+      isNodeVisible(): boolean {
+        return true
+      }
+      computeVisibleNodes(): unknown[] {
+        const nodes = (this.graph as { nodes?: unknown[] } | null)?.nodes ?? []
+        this.visible_nodes = [...nodes]
+        return this.visible_nodes
+      }
     }
-    window.LGraphCanvas = LGraphCanvasImpl
+    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).node_menu_options =
+      []
+    ;(
+      LGraphCanvasImpl as unknown as Record<string, unknown>
+    ).canvas_menu_options = []
+    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).link_type_colors ??=
+      {}
+    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).node_colors ??= {}
+    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).active_canvas ??=
+      null
+    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).search_limit ??= 100
+    window.LGraphCanvas = LGraphCanvasImpl as unknown as typeof window.LGraphCanvas
   }
 
   // LLink — link between nodes
@@ -305,6 +1139,16 @@ try {
     }
     window.LGraphGroup = LGraphGroupImpl
   }
+  ;(window.LiteGraph as unknown as Record<string, unknown>).LGraphNode ??=
+    window.LGraphNode
+  ;(window.LiteGraph as unknown as Record<string, unknown>).LGraph ??=
+    window.LGraph
+  ;(window.LiteGraph as unknown as Record<string, unknown>).LGraphCanvas ??=
+    window.LGraphCanvas
+  ;(window.LiteGraph as unknown as Record<string, unknown>).LLink ??=
+    window.LLink
+  ;(window.LiteGraph as unknown as Record<string, unknown>).LGraphGroup ??=
+    window.LGraphGroup
 }
 
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
@@ -666,17 +1510,44 @@ appObj.syncGraph = (): void => {
   if (w.$el === undefined) {
     w.$el = (
       tag: string,
-      attrs:
-        | Record<string, object | string | number | boolean | null>
+      propsOrChildren:
+        | Record<string, object | string | number | boolean | null | undefined>
+        | HTMLElement
+        | HTMLElement[]
+        | string
+        | string[]
         | null
         | undefined,
-      _children?: object
+      children?: HTMLElement | HTMLElement[] | string | string[]
     ): HTMLElement => {
-      const el: HTMLElement = document.createElement(tag)
-      if (attrs !== null && attrs !== undefined) {
+      const parts = tag.split(".")
+      const el: HTMLElement = document.createElement(parts.shift() || "div")
+      if (parts.length > 0) el.classList.add(...parts)
+      const appendChildren = (
+        target: HTMLElement,
+        value?: HTMLElement | HTMLElement[] | string | string[]
+      ): void => {
+        if (value === undefined) return
+        target.append(...(Array.isArray(value) ? value : [value]))
+      }
+      if (typeof propsOrChildren === "string") {
+        el.textContent = propsOrChildren
+      } else if (propsOrChildren instanceof HTMLElement) {
+        el.append(propsOrChildren)
+      } else if (Array.isArray(propsOrChildren)) {
+        el.append(...propsOrChildren)
+      } else if (propsOrChildren !== null && propsOrChildren !== undefined) {
+        const attrs = propsOrChildren
+        const parent = attrs.parent
+        const callback = attrs.$
+        const dataset = attrs.dataset
+        const style = attrs.style
         for (const [k, v] of Object.entries(attrs)) {
+          if (["parent", "$", "dataset", "style"].includes(k)) continue
           if (k === "style" && typeof v === "object" && v !== null) {
             Object.assign(el.style, v)
+          } else if (k === "for") {
+            el.setAttribute("for", String(v))
           } else {
             const elRec = el as object as Record<
               string,
@@ -685,18 +1556,35 @@ appObj.syncGraph = (): void => {
             elRec[k] = v
           }
         }
+        if (typeof style === "object" && style !== null) {
+          Object.assign(el.style, style)
+        }
+        if (typeof dataset === "object" && dataset !== null) {
+          Object.assign(el.dataset, dataset)
+        }
+        appendChildren(el, children)
+        if (parent instanceof HTMLElement) parent.append(el)
+        if (typeof callback === "function") callback(el)
       }
       return el
     }
   }
 
   if (w.addStylesheet === undefined) {
-    w.addStylesheet = (url: string): HTMLLinkElement => {
+    w.addStylesheet = (url: string, relativeTo?: string | URL): Promise<void> => {
       const link: HTMLLinkElement = document.createElement("link")
       link.rel = "stylesheet"
-      link.href = url
+      const cssUrl = url.endsWith(".js") ? `${url.slice(0, -3)}.css` : url
+      link.href =
+        relativeTo !== undefined
+          ? new URL(cssUrl, relativeTo).toString()
+          : new URL(cssUrl, window.location.href).toString()
       document.head.appendChild(link)
-      return link
+      return new Promise((resolve) => {
+        link.onload = (): void => resolve()
+        link.onerror = (): void => resolve()
+        if (link.sheet !== null) resolve()
+      })
     }
   }
 
@@ -725,6 +1613,35 @@ appObj.syncGraph = (): void => {
       }),
     }
   }
+
+  const helpDOM = (w.helpDOM ?? {}) as {
+    addHelp?: (
+      target: HTMLElement | object | null | undefined,
+      content?: string | HTMLElement
+    ) => HTMLElement
+    removeHelp?: (target?: HTMLElement | null) => void
+  }
+  helpDOM.addHelp ??= (
+    target: HTMLElement | object | null | undefined,
+    content?: string | HTMLElement
+  ): HTMLElement => {
+    const help = document.createElement("div")
+    help.className = "ceg-extension-help"
+    help.style.display = "none"
+    if (typeof content === "string") {
+      help.textContent = content
+    } else if (content instanceof HTMLElement) {
+      help.appendChild(content)
+    }
+    if (target instanceof HTMLElement) {
+      target.appendChild(help)
+    }
+    return help
+  }
+  helpDOM.removeHelp ??= (target?: HTMLElement | null): void => {
+    target?.querySelectorAll(".ceg-extension-help").forEach((el) => el.remove())
+  }
+  w.helpDOM = helpDOM
 
   // Mock constructors with dummy properties to avoid no-extraneous-class
   if (w.ComfyApp === undefined) {
@@ -783,19 +1700,113 @@ appObj.syncGraph = (): void => {
       /* noop */
     },
   }
+  const widgetConfigSymbol = Symbol.for("Comfy.WidgetConfig")
+  const widgetGetConfigSymbol = Symbol.for("Comfy.GetWidgetConfig")
+  class CorePrimitiveNode extends window.LGraphNode {
+    serialize_widgets = true
+    isVirtualNode = true
+    constructor(title = "Primitive") {
+      super(title)
+      this.type = "PrimitiveNode"
+      this.title = title
+      if (this.outputs.length === 0) {
+        this.addOutput("connect to widget input", "*")
+      }
+      if (!this.properties || !("Run widget replace on values" in this.properties)) {
+        this.addProperty("Run widget replace on values", false, "boolean")
+      }
+    }
+    applyToGraph(): void {
+      /* Value propagation is handled during prompt serialization in this frontend. */
+    }
+    refreshComboInNode(): void {
+      const widget = this.widgets?.[0] as
+        | { type?: string; value?: unknown; options?: { values?: unknown[] } }
+        | undefined
+      const output = this.outputs[0] as
+        | { widget?: { [widgetGetConfigSymbol]?: () => [unknown, { values?: unknown[] }] } }
+        | undefined
+      if (widget?.type !== "combo") return
+      const values = output?.widget?.[widgetGetConfigSymbol]?.()?.[1]?.values
+      if (Array.isArray(values)) {
+        widget.options ??= {}
+        widget.options.values = values
+        if (!values.includes(widget.value)) widget.value = values[0]
+      }
+    }
+  }
+  Object.assign(CorePrimitiveNode, {
+    title: "Primitive",
+    category: "utilities/primitive",
+    type: "PrimitiveNode",
+    comfyClass: "PrimitiveNode",
+  })
+  if (window.LiteGraph.getNodeType?.("PrimitiveNode") === undefined) {
+    window.LiteGraph.registerNodeType(
+      "PrimitiveNode",
+      CorePrimitiveNode as unknown as new (...args: unknown[]) => unknown
+    )
+  }
   comfyAPI.widgetInputs ??= {
-    PrimitiveNode: class {
-      __ceg = true
+    PrimitiveNode: CorePrimitiveNode as unknown as new () => object,
+    getWidgetConfig: (
+      slot?: { widget?: Record<PropertyKey, unknown> | null }
+    ): [unknown, Record<string, unknown>] => {
+      const widget = slot?.widget
+      const config = widget?.[widgetConfigSymbol]
+      const getConfig = widget?.[widgetGetConfigSymbol]
+      if (Array.isArray(config)) return config as [unknown, Record<string, unknown>]
+      if (typeof getConfig === "function") {
+        const value = (getConfig as () => unknown)()
+        if (Array.isArray(value)) return value as [unknown, Record<string, unknown>]
+      }
+      return ["*", {}]
     },
-    getWidgetConfig: (): Record<string, unknown> => ({}),
-    convertToInput: (): void => {
-      /* noop */
+    convertToInput: (
+      node?: LGraphNode,
+      widget?: { name?: string; type?: string }
+    ): LGraphNodeInput | undefined => {
+      if (node === undefined || widget?.name === undefined) return undefined
+      const existing = node.inputs.find((slot) => slot.widget?.name === widget.name)
+      if (existing !== undefined) return existing
+      const input = {
+        name: widget.name,
+        localized_name: widget.name,
+        type: widget.type ?? "*",
+        link: null,
+        widget: { name: widget.name },
+      }
+      node.inputs.push(input)
+      return input
     },
-    setWidgetConfig: (): void => {
-      /* noop */
+    setWidgetConfig: (
+      slot?: { widget?: Record<PropertyKey, unknown> | null },
+      config?: [unknown, Record<string, unknown>]
+    ): void => {
+      if (slot?.widget === undefined || slot.widget === null) return
+      if (config === undefined) {
+        delete slot.widget[widgetConfigSymbol]
+        delete slot.widget[widgetGetConfigSymbol]
+      } else {
+        slot.widget[widgetConfigSymbol] = config
+        slot.widget[widgetGetConfigSymbol] = (): [unknown, Record<string, unknown>] =>
+          config
+      }
     },
-    mergeIfValid: (): void => {
-      /* noop */
+    mergeIfValid: (
+      output?: { widget?: Record<PropertyKey, unknown> | null },
+      config?: [unknown, Record<string, unknown>]
+    ): [unknown, Record<string, unknown>] | undefined => {
+      if (config === undefined) return undefined
+      const current = comfyAPI.widgetInputs?.getWidgetConfig(output)
+      if (!Array.isArray(current)) return config
+      return [
+        current[0] === "*" ? config[0] : current[0],
+        {
+          ...(current[1] as Record<string, unknown>),
+          ...(config[1] as Record<string, unknown>),
+        },
+      ]
     },
   }
   comfyAPI.groupNode ??= {
@@ -1047,15 +2058,38 @@ appObj.syncGraph = (): void => {
   }
 
   const createRecursiveProxy = (name: string): object => {
-    const fn = (): void => {
-      /* noop */
+    function ComfyApiCompatStub(
+      this: Record<string, unknown> | undefined
+    ): void {
+      if (this !== undefined) {
+        this.__cegCompatName = name
+      }
     }
-    const handler: ProxyHandler<() => void> = {
-      get(target, prop, receiver): object {
+    const fn = ComfyApiCompatStub as unknown as {
+      (...args: unknown[]): void
+      new (...args: unknown[]): Record<string, unknown>
+    }
+    Object.defineProperty(fn, "name", {
+      value: name.replace(/[^A-Za-z0-9_$]/g, "_") || "ComfyApiCompatStub",
+      configurable: true,
+    })
+    fn.prototype ??= {}
+    const handler: ProxyHandler<typeof fn> = {
+      apply(): void {
+        /* noop */
+      },
+      construct(): Record<string, unknown> {
+        return { __cegCompatName: name }
+      },
+      get(target, prop, receiver): object | string | boolean | undefined {
+        if (prop === Symbol.toStringTag) return "ComfyApiCompatStub"
+        if (prop === "__esModule") return true
+        if (prop === "default") return createRecursiveProxy(name)
         if (prop === "prototype") {
           const val = Reflect.get(target, prop, receiver) as object | undefined
           return val ?? {}
         }
+        if (prop === "then") return undefined
         if (prop === name) {
           return createRecursiveProxy(name)
         }
@@ -1093,55 +2127,6 @@ appObj.syncGraph = (): void => {
     const cdClass = w.ClipspaceDialog as { registerButton?: () => void }
     cdClass.registerButton ??= (): void => {
       /* noop */
-    }
-  }
-
-  if (w.rgthree === undefined) {
-    w.rgthree = {
-      addEventListener(): void {
-        /* noop */
-      },
-      removeEventListener(): void {
-        /* noop */
-      },
-      newLogSession(): { end(): void } {
-        return {
-          end(): void {
-            /* noop */
-          },
-        }
-      },
-      logger: {
-        log(..._args: unknown[]): void {
-          /* noop */
-        },
-      },
-    }
-  } else {
-    const rgt = w.rgthree as { newLogSession?: () => { end(): void } }
-    rgt.newLogSession ??= (): { end(): void } => ({
-      end(): void {
-        /* noop */
-      },
-    })
-  }
-
-  if (w.NodeTypesString === undefined) {
-    w.NodeTypesString = {}
-  }
-
-  if (w.rgthreeConfig === undefined) {
-    w.rgthreeConfig = {
-      enabled: true,
-      tweaks: { enabled: true },
-      features: { enabled: true },
-      nodes: {
-        reroute: {
-          fast_reroute: {
-            enabled: true,
-          },
-        },
-      },
     }
   }
 

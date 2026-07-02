@@ -66,6 +66,7 @@ export interface ComfyNodeInput {
   name: string
   type: string
   link?: number | undefined
+  localized_name?: string | undefined
   widget?:
     | {
         name: string
@@ -79,6 +80,7 @@ export interface ComfyNodeOutput {
   type: string
   links?: number[] | undefined
   slot_index?: number | undefined
+  localized_name?: string | undefined
 }
 
 export interface ComfyWorkflowLink {

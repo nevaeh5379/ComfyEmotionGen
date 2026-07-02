@@ -18,6 +18,7 @@ import type { NodeExecutionOutput } from "@/comfyui/types/apiSchema"
 import type {
   ComfyExtension,
   ExtensionManager,
+  MissingNodeType,
 } from "@/comfyui/types/extensionTypes"
 import type { ComfyApi } from "@/comfyui/api"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
@@ -40,6 +41,64 @@ import type {
 
 type Point = [number, number]
 
+function normalizeSlotType(type: unknown): string {
+  return Array.isArray(type) ? type.join(",") : String(type ?? "*")
+}
+
+function isWildcardSlotType(type: unknown): boolean {
+  const normalized = normalizeSlotType(type).toUpperCase()
+  return ["*", "", "0", "ANY", "COMBO"].includes(normalized)
+}
+
+function isValidSlotConnection(a: unknown, b: unknown): boolean {
+  if (isWildcardSlotType(a) || isWildcardSlotType(b)) return true
+  const left = normalizeSlotType(a).toUpperCase().split(",")
+  const right = normalizeSlotType(b).toUpperCase().split(",")
+  return left.some((type) => right.includes(type))
+}
+
+type NodeDefSlotAlias = {
+  name: string
+  localized_name: string
+  type: string
+  widget?: { name: string } | null
+}
+
+type NodeDefWithSlotAliases = ComfyNodeDef & {
+  inputs: NodeDefSlotAlias[]
+  outputs: NodeDefSlotAlias[]
+}
+
+function normalizeNodeDefForExtensions(def: ComfyNodeDef): NodeDefWithSlotAliases {
+  const inputs: NodeDefSlotAlias[] = []
+  for (const entries of [
+    Object.entries(def.input?.required ?? {}),
+    Object.entries(def.input?.optional ?? {}),
+  ]) {
+    for (const [name, spec] of entries) {
+      const type = Array.isArray(spec[0]) ? "COMBO" : spec[0]
+      inputs.push({
+        name,
+        localized_name: name,
+        type,
+        widget: { name },
+      })
+    }
+  }
+
+  const outputs = def.output.map((type, index) => {
+    const name = def.output_name[index] ?? type
+    return {
+      name,
+      localized_name: name,
+      type,
+      widget: null,
+    }
+  })
+
+  return Object.assign(def, { inputs, outputs })
+}
+
 interface AppWithExtensions {
   extensions?: ComfyExtension[]
 }
@@ -60,26 +119,90 @@ class ComfyNode {
   bgcolor?: string
   pos: [number, number] = [0, 0]
   size: [number, number] = [0, 0]
-  inputs: LGraphNodeInput[] = []
-  outputs: LGraphNodeOutput[] = []
+  private _inputs: LGraphNodeInput[] = []
+  private _outputs: LGraphNodeOutput[] = []
   widgets?: WidgetType[] = []
   order?: number
   mode?: number
   properties?: Record<string, unknown>
+  properties_info?: Record<string, Record<string, unknown>>
+  flags?: Record<string, unknown>
+  title_buttons?: unknown[]
+  private outputData?: Record<number, unknown>
   graph?: LGraphAdapterRef | null
   onConfigure?: (data: Partial<ComfyWorkflowNode>) => void
 
   constructor(title: string) {
     this.type = title
     this.comfyClass = title
+
+    // Populate default inputs/outputs from static nodeData if defined (e.g. for LiteGraph.createNode)
+    const ctor = this.constructor as typeof ComfyNode & {
+      nodeData?: {
+        inputs?: {
+          name: string
+          type: string
+          localized_name?: string
+          widget?: { name: string } | null
+        }[]
+        outputs?: {
+          name: string
+          type: string
+          localized_name?: string
+        }[]
+      }
+    }
+    if (ctor.nodeData) {
+      if (ctor.nodeData.inputs) {
+        for (const input of ctor.nodeData.inputs) {
+          this._inputs.push({
+            name: input.name,
+            type: input.type,
+            link: null,
+            localized_name: input.localized_name ?? input.name,
+            widget: input.widget ? { name: input.widget.name } : null,
+          })
+        }
+      }
+      if (ctor.nodeData.outputs) {
+        for (const output of ctor.nodeData.outputs) {
+          this._outputs.push({
+            name: output.name,
+            type: output.type,
+            links: null,
+            localized_name: output.localized_name ?? output.name,
+          })
+        }
+      }
+    }
+  }
+
+  get inputs(): LGraphNodeInput[] {
+    return this._inputs
+  }
+
+  set inputs(value: unknown) {
+    if (Array.isArray(value)) {
+      this._inputs = value as LGraphNodeInput[]
+    }
+  }
+
+  get outputs(): LGraphNodeOutput[] {
+    return this._outputs
+  }
+
+  set outputs(value: unknown) {
+    if (Array.isArray(value)) {
+      this._outputs = value as LGraphNodeOutput[]
+    }
   }
 
   addInput(name: string, type: string): void {
-    this.inputs.push({ name, type, link: null })
+    this.inputs.push({ name, type, link: null, localized_name: name })
   }
 
   addOutput(name: string, type: string): void {
-    this.outputs.push({ name, type, links: null })
+    this.outputs.push({ name, type, links: null, localized_name: name })
   }
 
   connect(
@@ -143,7 +266,367 @@ class ComfyNode {
     }
   }
   setDirtyCanvas(): void {
-    /* noop */
+    this.graph?.setDirtyCanvas?.(true, true)
+  }
+
+  setSize(size: [number, number]): void {
+    this.size = [size[0], size[1]]
+    this.setDirtyCanvas()
+  }
+
+  setPos(x: number | [number, number], y?: number): void {
+    this.pos = Array.isArray(x) ? [x[0], x[1]] : [x, y ?? this.pos[1]]
+    this.setDirtyCanvas()
+  }
+
+  move(deltaX: number, deltaY: number): void {
+    this.pos = [this.pos[0] + deltaX, this.pos[1] + deltaY]
+    this.setDirtyCanvas()
+  }
+
+  snapToGrid(): void {
+    this.pos = [Math.round(this.pos[0] / 10) * 10, Math.round(this.pos[1] / 10) * 10]
+  }
+
+  alignToGrid(): void {
+    this.snapToGrid()
+  }
+
+  getTitle(): string {
+    return this.type ?? this.comfyClass ?? ""
+  }
+
+  serialize(): Record<string, unknown> {
+    const data = {
+      id: this.id,
+      type: this.type,
+      pos: this.pos,
+      size: this.size,
+      order: this.order,
+      mode: this.mode,
+      flags: this.flags,
+      properties: this.properties,
+      widgets_values: this.widgets?.map((widget) => widget.value),
+    }
+    ;(this as { onSerialize?: (data: Record<string, unknown>) => void }).onSerialize?.(data)
+    return data
+  }
+
+  clone(): LGraphNode {
+    const ctor = this.constructor as new () => ComfyNode
+    const cloned = new ctor()
+    cloned.configure(this.serialize() as Partial<ComfyWorkflowNode>)
+    cloned.id = 0
+    cloned.graph = null
+    return cloned as unknown as LGraphNode
+  }
+
+  computeSize(minWidth?: number): [number, number] {
+    const width = Math.max(minWidth ?? 200, this.size[0] || 200)
+    const widgetHeight = (this.widgets?.length ?? 0) * 24
+    const slotHeight = Math.max(this.inputs.length, this.outputs.length) * 20
+    return [width, Math.max(80, 40 + widgetHeight + slotHeight)]
+  }
+
+  expandToFitContent(): void {
+    const [width, height] = this.computeSize(this.size[0] || undefined)
+    this.size = [Math.max(this.size[0], width), Math.max(this.size[1], height)]
+  }
+
+  addProperty(
+    name: string,
+    defaultValue: unknown,
+    type?: string,
+    extraInfo?: Record<string, unknown>
+  ): void {
+    this.properties ??= {}
+    this.properties_info ??= {}
+    if (!(name in this.properties)) {
+      this.properties[name] = defaultValue
+    }
+    this.properties_info[name] = {
+      name,
+      default_value: defaultValue,
+      type,
+      ...(extraInfo ?? {}),
+    }
+  }
+
+  setProperty(name: string, value: unknown): void {
+    this.properties ??= {}
+    this.properties[name] = value
+  }
+
+  getProperty(name: string): unknown {
+    return this.properties?.[name]
+  }
+
+  getPropertyInfo(name: string): Record<string, unknown> | undefined {
+    return this.properties_info?.[name]
+  }
+
+  removeProperty(name: string): void {
+    if (this.properties !== undefined) delete this.properties[name]
+    if (this.properties_info !== undefined) delete this.properties_info[name]
+  }
+
+  addCustomWidget<TWidget extends WidgetType>(customWidget: TWidget): TWidget {
+    this.widgets ??= []
+    const options = customWidget.options ?? {}
+    customWidget.options = {
+      ...options,
+      hideOnZoom: options.hideOnZoom ?? false,
+    }
+    this.widgets.push(customWidget)
+    return customWidget
+  }
+
+  removeWidget(widgetOrSlot: WidgetType | number): void {
+    if (this.widgets === undefined) return
+    const index =
+      typeof widgetOrSlot === "number"
+        ? widgetOrSlot
+        : this.widgets.indexOf(widgetOrSlot)
+    if (index >= 0) this.widgets.splice(index, 1)
+  }
+
+  ensureWidgetRemoved(widget: WidgetType): void {
+    this.removeWidget(widget)
+  }
+
+  findInputSlot(name: string, returnObj?: false): number
+  findInputSlot(name: string, returnObj: true): LGraphNodeInput | undefined
+  findInputSlot(
+    name: string,
+    returnObj = false
+  ): number | LGraphNodeInput | undefined {
+    const index = this.inputs.findIndex((input) => input.name === name)
+    return returnObj ? this.inputs[index] : index
+  }
+
+  findOutputSlot(name: string, returnObj?: false): number
+  findOutputSlot(name: string, returnObj: true): LGraphNodeOutput | undefined
+  findOutputSlot(
+    name: string,
+    returnObj = false
+  ): number | LGraphNodeOutput | undefined {
+    const index = this.outputs.findIndex((output) => output.name === name)
+    return returnObj ? this.outputs[index] : index
+  }
+
+  getInputInfo(slot: number): LGraphNodeInput | null {
+    return this.inputs[slot] ?? null
+  }
+
+  getOutputInfo(slot: number): LGraphNodeOutput | null {
+    return this.outputs[slot] ?? null
+  }
+
+  isInputConnected(slot: number): boolean {
+    return this.inputs[slot]?.link != null
+  }
+
+  isOutputConnected(slot: number): boolean {
+    const links = this.outputs[slot]?.links
+    return Array.isArray(links) && links.length > 0
+  }
+
+  isAnyOutputConnected(): boolean {
+    return this.outputs.some((_, index) => this.isOutputConnected(index))
+  }
+
+  removeInput(slot: number): void {
+    this.inputs.splice(slot, 1)
+  }
+
+  removeOutput(slot: number): void {
+    this.outputs.splice(slot, 1)
+  }
+
+  getInputLink(slot: number): LLink | null {
+    const linkId = this.inputs[slot]?.link
+    if (linkId == null || this.graph === null || this.graph === undefined) {
+      return null
+    }
+    const links = (this.graph as LGraphAdapterRef & { links: LGraph["links"] })
+      .links
+    return links instanceof Map ? links.get(linkId) ?? null : links[linkId] ?? null
+  }
+
+  getInputNode(slot: number): LGraphNode | null {
+    const link = this.getInputLink(slot)
+    if (link === null || this.graph === null || this.graph === undefined) {
+      return null
+    }
+    return this.graph.getNodeById(link.origin_id) ?? null
+  }
+
+  getOutputNodes(slot: number): LGraphNode[] | null {
+    const links = this.outputs[slot]?.links
+    if (!Array.isArray(links) || links.length === 0) return null
+    if (this.graph === null || this.graph === undefined) return null
+    const nodes: LGraphNode[] = []
+    const graph = this.graph as LGraphAdapterRef & { links: LGraph["links"] }
+    for (const linkId of links) {
+      const link =
+        graph.links instanceof Map ? graph.links.get(linkId) : graph.links[linkId]
+      if (link !== undefined) {
+        const target = this.graph.getNodeById(link.target_id)
+        if (target !== undefined && target !== null) nodes.push(target)
+      }
+    }
+    return nodes
+  }
+
+  getInputData(_slot?: number, _forceUpdate?: boolean): undefined {
+    return undefined
+  }
+
+  getInputDataByName(_slotName?: string, _forceUpdate?: boolean): null {
+    return null
+  }
+
+  setOutputData(slot = 0, data?: unknown): void {
+    this.outputData ??= {}
+    this.outputData[slot] = data
+  }
+
+  getOutputData(slot = 0): unknown {
+    return this.outputData?.[slot]
+  }
+
+  setOutputDataType(slot: number, type: string): void {
+    if (this.outputs[slot] !== undefined) this.outputs[slot].type = type
+  }
+
+  getInputDataType(slot: number): string | undefined {
+    return this.inputs[slot]?.type
+  }
+
+  getInputOrProperty(name: string): unknown {
+    const inputSlot = this.findInputSlot(name) as number
+    const inputData = inputSlot >= 0 ? this.getInputData(inputSlot) : undefined
+    return inputData ?? this.properties?.[name]
+  }
+
+  findInputSlotFree(): number {
+    return this.inputs.findIndex((input) => input.link == null)
+  }
+
+  findOutputSlotFree(): number {
+    return this.outputs.findIndex(
+      (output) => !Array.isArray(output.links) || output.links.length === 0
+    )
+  }
+
+  findInputSlotByType(type: string): number {
+    return this.inputs.findIndex((input) => isValidSlotConnection(input.type, type))
+  }
+
+  findOutputSlotByType(type: string): number {
+    return this.outputs.findIndex((output) =>
+      isValidSlotConnection(output.type, type)
+    )
+  }
+
+  findSlotByType(input: boolean, type: string): number {
+    return input ? this.findInputSlotByType(type) : this.findOutputSlotByType(type)
+  }
+
+  findInputByType(type: string): LGraphNodeInput | null {
+    const slot = this.findInputSlotByType(type)
+    return slot >= 0 ? this.inputs[slot] ?? null : null
+  }
+
+  findOutputByType(type: string): LGraphNodeOutput | null {
+    const slot = this.findOutputSlotByType(type)
+    return slot >= 0 ? this.outputs[slot] ?? null : null
+  }
+
+  findConnectByTypeSlot(type: string, isOutput = true): number {
+    return isOutput ? this.findOutputSlotByType(type) : this.findInputSlotByType(type)
+  }
+
+  canConnectTo(slot: number, targetNode: LGraphNode, targetSlot: number): boolean {
+    return isValidSlotConnection(
+      this.outputs[slot]?.type,
+      targetNode.inputs[targetSlot]?.type
+    )
+  }
+
+  connectByType(
+    slot: number,
+    targetNode: LGraphNode,
+    targetType: string
+  ): boolean | null {
+    const targetSlot =
+      typeof targetNode.findInputSlotByType === "function"
+        ? targetNode.findInputSlotByType(targetType)
+        : targetNode.inputs.findIndex((input) =>
+            isValidSlotConnection(input.type, targetType)
+          )
+    return targetSlot >= 0 ? this.connect(slot, targetNode, targetSlot) : false
+  }
+
+  connectByTypeOutput(
+    targetType: string,
+    targetNode: LGraphNode,
+    targetSlot: number
+  ): boolean | null {
+    const outputSlot = this.findOutputSlotByType(targetType)
+    return outputSlot >= 0 ? this.connect(outputSlot, targetNode, targetSlot) : false
+  }
+
+  getSlotFromWidget(widget: WidgetType): number {
+    return this.widgets?.indexOf(widget) ?? -1
+  }
+
+  getWidgetFromSlot(slot: number): WidgetType | undefined {
+    return this.widgets?.[slot]
+  }
+
+  addTitleButton(name: string, label: string, callback?: () => void): unknown {
+    this.title_buttons ??= []
+    const button = { name, label, callback }
+    this.title_buttons.push(button)
+    return button
+  }
+
+  onTitleButtonClick(name: string): void {
+    const button = this.title_buttons?.find(
+      (item) => (item as { name?: string }).name === name
+    ) as { callback?: () => void } | undefined
+    button?.callback?.()
+  }
+
+  collapse(force?: boolean): void {
+    this.flags ??= {}
+    this.flags.collapsed = force ?? !this.flags.collapsed
+  }
+
+  toggleAdvanced(): void {
+    this.flags ??= {}
+    this.flags.advanced = !this.flags.advanced
+  }
+
+  pin(): void {
+    this.flags ??= {}
+    this.flags.pinned = true
+  }
+
+  unpin(): void {
+    this.flags ??= {}
+    this.flags.pinned = false
+  }
+
+  loadImage(url: string): HTMLImageElement {
+    const img = new Image()
+    img.src = url
+    return img
+  }
+
+  trace(...args: unknown[]): void {
+    console.debug("[ComfyNode]", ...args)
   }
 
   addWidget(
@@ -161,9 +644,9 @@ class ComfyNode {
       value: value,
       callback: callback as WidgetType["callback"],
     }
-    this.widgets ??= []
-    this.widgets.push(w)
-    return w
+    const widget = this.addCustomWidget(w)
+    this.expandToFitContent()
+    return widget
   }
 
   addDOMWidget(
@@ -623,6 +1106,21 @@ export class ComfyAppService {
       setCanvas(_c: HTMLCanvasElement): void {
         /* noop */
       },
+      addEventListener(_type: string, _listener: (e: Event) => void): void {
+        /* noop */
+      },
+      removeEventListener(_type: string, _listener: (e: Event) => void): void {
+        /* noop */
+      },
+      getCanvasMenuOptions(): unknown[] {
+        return []
+      },
+      getContextMenuOptions(): unknown[] {
+        return []
+      },
+      getCurrentGraph(): LGraph | undefined {
+        return window.app.graph
+      },
       render_canvas_border: false,
       canvas: config.canvas,
     } as unknown as LGraphCanvas
@@ -654,20 +1152,19 @@ export class ComfyAppService {
     const app = getWindowApp()
     const extensions = this.extensions
 
-    const loraExt = extensions.find(
-      (e) => e.name.includes("LoraManager") || e.name.includes("Lora")
-    )
     console.log(
-      `[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available. loraExt=${loraExt?.name ?? "NONE"}. allNames=${extensions.map((e) => e.name).join(",")}`
+      `[CEG] registerNodeDefs: registering ${String(Object.keys(nodeDefs).length)} types, ${String(extensions.length)} extensions available.`
     )
 
     for (const [type, def] of Object.entries(nodeDefs)) {
+      const extensionNodeDef = normalizeNodeDefForExtensions(def)
       // Create a node class for this type
       const NodeClass = class extends ComfyNode {
         static title = def.display_name ?? def.name
         static category = def.category
         static type = type
         static comfyClass = def.name
+        static nodeData = extensionNodeDef
 
         constructor() {
           super(NodeClass.title)
@@ -685,7 +1182,7 @@ export class ComfyAppService {
             void Promise.resolve(
               ext.beforeRegisterNodeDef(
                 NodeClass as unknown as typeof LGraphNode,
-                def,
+                extensionNodeDef,
                 app
               )
             )
@@ -712,6 +1209,19 @@ export class ComfyAppService {
    * Subgraph 지원: definitions.subgraphs 를 위상 정렬(leaf-first)하여 순서대로 등록.
    */
   loadGraphData(workflow: ComfyWorkflowJSON): void {
+    const app = getWindowApp()
+    const missingNodeTypes: MissingNodeType[] = []
+    for (const ext of this.extensions) {
+      if (ext.beforeConfigureGraph === undefined) continue
+      try {
+        void Promise.resolve(
+          ext.beforeConfigureGraph(workflow, missingNodeTypes, app)
+        )
+      } catch (err) {
+        console.error(`Extension beforeConfigureGraph failed for ${ext.name}:`, err)
+      }
+    }
+
     // 1. 기존 라이브 노드 및 Zustand 스토어 초기화
     this.graph.clear()
 
@@ -757,6 +1267,7 @@ export class ComfyAppService {
         if (liveNode && typeof liveNode.configure === "function") {
           liveNode.configure(node)
         }
+        this.notifyLoadedGraphNode(liveNode)
         // 라이브 노드의 widgets 배열에서 위젯 이름 순서 추출 → store 동기화
         const liveWidgets = (
           liveNode as { widgets?: { name: string }[] | undefined }
@@ -815,6 +1326,7 @@ export class ComfyAppService {
           if (liveNode && typeof liveNode.configure === "function") {
             liveNode.configure(node)
           }
+          this.notifyLoadedGraphNode(liveNode)
           const liveWidgets = (
             liveNode as { widgets?: { name: string }[] | undefined }
           ).widgets
@@ -842,6 +1354,28 @@ export class ComfyAppService {
             err
           )
         }
+      }
+    }
+
+    for (const ext of this.extensions) {
+      if (ext.afterConfigureGraph === undefined) continue
+      try {
+        void Promise.resolve(ext.afterConfigureGraph(missingNodeTypes, app))
+      } catch (err) {
+        console.error(`Extension afterConfigureGraph failed for ${ext.name}:`, err)
+      }
+    }
+  }
+
+  private notifyLoadedGraphNode(node: LGraphNode | null): void {
+    if (node === null) return
+    const app = getWindowApp()
+    for (const ext of this.extensions) {
+      if (ext.loadedGraphNode === undefined) continue
+      try {
+        ext.loadedGraphNode(node, app)
+      } catch (err) {
+        console.error(`Extension loadedGraphNode failed for ${ext.name}:`, err)
       }
     }
   }
@@ -981,13 +1515,8 @@ export class ComfyAppService {
     pos: Point = [0, 0],
     options: { skipConfigure?: boolean; id?: number } = {}
   ): LGraphNode | null {
-    // 진단: 확장 store 상태
-    const exts = this.extensions
-    const loraExt = exts.find(
-      (e) => e.name.includes("LoraManager") || e.name.includes("Lora")
-    )
     console.log(
-      `[CEG] createNode: type="${type}" nodeDefInThis=${String(this.nodeDefs[type] !== undefined)} extCount=${String(exts.length)} loraExt=${loraExt?.name ?? "NONE"}`
+      `[CEG] createNode: type="${type}" nodeDefInThis=${String(this.nodeDefs[type] !== undefined)} extCount=${String(this.extensions.length)}`
     )
 
     let nodeDef = this.nodeDefs[type]
@@ -1023,6 +1552,27 @@ export class ComfyAppService {
           this.nodeDefs[actualType] = nodeDef
         }
       } else {
+        const frontendOnlyType =
+          typeof window.LiteGraph.getNodeType === "function"
+            ? window.LiteGraph.getNodeType(type)
+            : undefined
+        if (frontendOnlyType !== undefined) {
+          const frontendNode = window.LiteGraph.createNode(type) as LGraphNode | null
+          if (frontendNode !== null) {
+            frontendNode.pos = pos
+            if (options.id !== undefined) frontendNode.id = options.id
+            this.graph.add(frontendNode)
+            if (options.skipConfigure !== true) {
+              frontendNode.configure?.({
+                id: frontendNode.id,
+                type,
+                pos,
+                size: frontendNode.size,
+              } as ComfyWorkflowNode)
+            }
+            return frontendNode
+          }
+        }
         console.warn(
           `[ComfyApp] Unknown node type: ${type}, creating generic node`
         )

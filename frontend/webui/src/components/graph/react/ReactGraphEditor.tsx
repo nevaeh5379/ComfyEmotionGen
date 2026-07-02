@@ -269,12 +269,6 @@ export function ReactGraphEditor(): JSX.Element {
           rawApp.extensions.map((e) => e.name)
         )
 
-        // Re-register node defs NOW that extensions' beforeRegisterNodeDef hooks are available
-        console.log(
-          "[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available"
-        )
-        appService.registerNodeDefs(nodeDefs)
-
         for (const ext of rawApp.extensions) {
           if (ext.init !== undefined) {
             try {
@@ -283,11 +277,36 @@ export function ReactGraphEditor(): JSX.Element {
                 ext.name
               )
               await ext.init(rawApp)
+              ;(ext as ComfyExtension & { __cegInitDone?: boolean }).__cegInitDone =
+                true
             } catch (err) {
               console.error(`Extension init failed for ${ext.name}:`, err)
             }
           }
         }
+
+        for (const ext of rawApp.extensions) {
+          if (ext.addCustomNodeDefs !== undefined) {
+            try {
+              console.log(
+                "[CEG:DEBUG ReactGraphEditor] Calling ext.addCustomNodeDefs for:",
+                ext.name
+              )
+              await ext.addCustomNodeDefs(nodeDefs, rawApp)
+            } catch (err) {
+              console.error(
+                `Extension addCustomNodeDefs failed for ${ext.name}:`,
+                err
+              )
+            }
+          }
+        }
+
+        // Re-register node defs after init so beforeRegister hooks can close over initialized extension state.
+        console.log(
+          "[CEG:DEBUG ReactGraphEditor] Step 2c: Re-registering node defs with extensions available"
+        )
+        appService.registerNodeDefs(nodeDefs)
 
         // Register custom widget types from extensions' getCustomWidgets()
         for (const ext of rawApp.extensions) {
@@ -341,6 +360,24 @@ export function ReactGraphEditor(): JSX.Element {
               )
             }
           }
+        }
+      }
+
+      for (const ext of rawApp.extensions) {
+        const extState = ext as ComfyExtension & {
+          __cegInitDone?: boolean
+        }
+        if (ext.init === undefined) continue
+        if (extState.__cegInitDone === true) continue
+        try {
+          console.log(
+            "[CEG:DEBUG ReactGraphEditor] Ensuring ext.init for:",
+            ext.name
+          )
+          await ext.init(rawApp)
+          extState.__cegInitDone = true
+        } catch (err) {
+          console.error(`Extension init failed for ${ext.name}:`, err)
         }
       }
 
@@ -1404,7 +1441,7 @@ export function ReactGraphEditor(): JSX.Element {
         aria-hidden="true"
       >
         <canvas ref={hiddenCanvasRef} />
-        {/* VHS and other extensions look for this element to configure allowed file extensions */}
+        {/* Some extensions look for this element to configure allowed file extensions */}
         <input type="file" id="comfy-file-input" style={{ display: "none" }} />
       </div>
     </div>

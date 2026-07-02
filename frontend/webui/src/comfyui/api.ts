@@ -207,6 +207,28 @@ function getDevOverride(_flagKey: string): unknown {
   return undefined
 }
 
+async function readJsonOrDefault<T>(
+  response: Response,
+  fallback: T,
+  label: string
+): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? ""
+  if (!response.ok || !contentType.includes("application/json")) {
+    console.warn(
+      `[ComfyApi] ${label} returned ${String(response.status)} ${
+        response.statusText || "non-JSON response"
+      }`
+    )
+    return fallback
+  }
+  try {
+    return (await response.json()) as T
+  } catch (err) {
+    console.warn(`[ComfyApi] Failed to parse JSON from ${label}:`, err)
+    return fallback
+  }
+}
+
 // ── ComfyApi class ────────────────────────────────────────────────
 
 export class ComfyApi extends EventTarget {
@@ -570,12 +592,16 @@ export class ComfyApi extends EventTarget {
 
   async getExtensions(): Promise<ExtensionsResponse> {
     const resp = await this.fetchApi("/extensions", { cache: "no-store" })
-    return (await resp.json()) as ExtensionsResponse
+    return await readJsonOrDefault<ExtensionsResponse>(resp, [], "/extensions")
   }
 
   async getWorkflowTemplates(): Promise<Record<string, string[]>> {
     const res = await this.fetchApi("/workflow_templates")
-    return (await res.json()) as Record<string, string[]>
+    return await readJsonOrDefault<Record<string, string[]>>(
+      res,
+      {},
+      "/workflow_templates"
+    )
   }
 
   async getCoreWorkflowTemplates(locale?: string): Promise<unknown[]> {
@@ -601,12 +627,16 @@ export class ComfyApi extends EventTarget {
 
   async getEmbeddings(): Promise<EmbeddingsResponse> {
     const resp = await this.fetchApi("/embeddings", { cache: "no-store" })
-    return (await resp.json()) as EmbeddingsResponse
+    return await readJsonOrDefault<EmbeddingsResponse>(resp, [], "/embeddings")
   }
 
   async getNodeDefs(): Promise<Record<string, ComfyNodeDef>> {
     const resp = await this.fetchApi("/object_info", { cache: "no-store" })
-    return (await resp.json()) as Record<string, ComfyNodeDef>
+    return await readJsonOrDefault<Record<string, ComfyNodeDef>>(
+      resp,
+      {},
+      "/object_info"
+    )
   }
 
   async queuePrompt(
@@ -704,7 +734,11 @@ export class ComfyApi extends EventTarget {
   async getModels(folder: string): Promise<ModelFile[]> {
     const res = await this.fetchApi(`/experiment/models/${folder}`)
     if (res.status === 404) return []
-    return (await res.json()) as ModelFile[]
+    return await readJsonOrDefault<ModelFile[]>(
+      res,
+      [],
+      `/experiment/models/${folder}`
+    )
   }
 
   async viewMetadata(folder: string, model: string): Promise<unknown> {
@@ -737,7 +771,11 @@ export class ComfyApi extends EventTarget {
   }> {
     try {
       const resp = await this.fetchApi("/queue")
-      return (await resp.json()) as { Running: unknown[]; Pending: unknown[] }
+      return await readJsonOrDefault<{ Running: unknown[]; Pending: unknown[] }>(
+        resp,
+        { Running: [], Pending: [] },
+        "/queue"
+      )
     } catch (error) {
       if (options?.throwOnError === true) throw error
       return { Running: [], Pending: [] }
@@ -756,7 +794,7 @@ export class ComfyApi extends EventTarget {
         params.set("offset", String(options.offset))
       }
       const resp = await this.fetchApi(`/history?${params}`)
-      return (await resp.json()) as unknown[]
+      return await readJsonOrDefault<unknown[]>(resp, [], "/history")
     } catch {
       return []
     }
@@ -766,7 +804,11 @@ export class ComfyApi extends EventTarget {
     try {
       const resp = await this.fetchApi(`/history/${jobId}`)
       if (resp.status === 404) return undefined
-      return (await resp.json()) as unknown
+      return await readJsonOrDefault<unknown | undefined>(
+        resp,
+        undefined,
+        `/history/${jobId}`
+      )
     } catch {
       return undefined
     }
@@ -774,7 +816,11 @@ export class ComfyApi extends EventTarget {
 
   async getSystemStats(): Promise<SystemStats> {
     const res = await this.fetchApi("/system_stats")
-    return (await res.json()) as SystemStats
+    return await readJsonOrDefault<SystemStats>(
+      res,
+      { system: {}, devices: [] } as unknown as SystemStats,
+      "/system_stats"
+    )
   }
 
   private async _postItem(
@@ -811,7 +857,7 @@ export class ComfyApi extends EventTarget {
 
   async getUserConfig(): Promise<User> {
     const res = await this.fetchApi("/users")
-    return (await res.json()) as User
+    return await readJsonOrDefault<User>(res, {} as User, "/users")
   }
 
   createUser(username: string): Promise<Response> {
@@ -829,12 +875,16 @@ export class ComfyApi extends EventTarget {
     if (resp.status === 401) {
       throw new UnauthorizedError(resp.statusText)
     }
-    return (await resp.json()) as Settings
+    return await readJsonOrDefault<Settings>(resp, {}, "/settings")
   }
 
   async getSetting(id: string): Promise<unknown> {
     const resp = await this.fetchApi(`/settings/${encodeURIComponent(id)}`)
-    return (await resp.json()) as unknown
+    return await readJsonOrDefault<unknown>(
+      resp,
+      undefined,
+      `/settings/${encodeURIComponent(id)}`
+    )
   }
 
   async storeSettings(settings: Partial<Settings>): Promise<Response> {
@@ -917,7 +967,11 @@ export class ComfyApi extends EventTarget {
         `Error getting user data list '${trimmedDir}': ${String(resp.status)} ${resp.statusText}`
       )
     }
-    return (await resp.json()) as UserDataFullInfo[]
+    return await readJsonOrDefault<UserDataFullInfo[]>(
+      resp,
+      [],
+      `/userdata?dir=${encodeURIComponent(trimmedDir)}`
+    )
   }
 
   async freeMemory(options: { freeExecutionCache: boolean }): Promise<void> {
@@ -950,7 +1004,7 @@ export class ComfyApi extends EventTarget {
 
   async getCustomNodesI18n(): Promise<CustomNodesI18n> {
     const res = await fetch(this.apiURL("/i18n"))
-    return (await res.json()) as CustomNodesI18n
+    return await readJsonOrDefault<CustomNodesI18n>(res, {}, "/i18n")
   }
 
   serverSupportsFeature(featureName: string): boolean {
@@ -990,7 +1044,11 @@ export class ComfyApi extends EventTarget {
 
   async getRawLogs(): Promise<LogsRawResponse> {
     const res = await fetch(this.internalURL("/logs/raw"))
-    return (await res.json()) as LogsRawResponse
+    return await readJsonOrDefault<LogsRawResponse>(
+      res,
+      [] as unknown as LogsRawResponse,
+      "/internal/logs/raw"
+    )
   }
 
   async subscribeLogs(enabled: boolean): Promise<void> {
@@ -1004,7 +1062,11 @@ export class ComfyApi extends EventTarget {
   async getFolderPaths(): Promise<Record<string, string[]>> {
     try {
       const res = await fetch(this.internalURL("/folder_paths"))
-      return (await res.json()) as Record<string, string[]>
+      return await readJsonOrDefault<Record<string, string[]>>(
+        res,
+        {},
+        "/internal/folder_paths"
+      )
     } catch {
       return {}
     }

@@ -29,6 +29,19 @@ import { SUBGRAPH_INPUT_ID, SUBGRAPH_OUTPUT_ID } from "@/comfyui/constants"
 import { findUsedSubgraphIds } from "@/comfyui/subgraph/subgraphUtils"
 import type { SubgraphDefinition } from "@/comfyui/types/subgraph"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+
+function normalizeSlotType(type: unknown): string {
+  return Array.isArray(type) ? type.join(",") : String(type ?? "*")
+}
+
+function isValidSlotConnection(a: unknown, b: unknown): boolean {
+  const left = normalizeSlotType(a).toUpperCase()
+  const right = normalizeSlotType(b).toUpperCase()
+  if (["*", "", "0", "ANY", "COMBO"].includes(left)) return true
+  if (["*", "", "0", "ANY", "COMBO"].includes(right)) return true
+  return left.split(",").some((type) => right.split(",").includes(type))
+}
 
 /**
  * MapProxyHandler: Map과 legacy bracket 접근(graph.links[id])을 동시에 지원
@@ -550,27 +563,43 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         name: string
         type: string
         link: number | null
+        localized_name?: string
         widget?: { name: string } | null
       }[] {
         const current = store
           .getState()
           .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
-        return (current?.inputs ?? []).map((i) => ({
-          name: i.name,
-          type: i.type,
-          link: i.link ?? null,
-          widget: i.widget ? { name: i.widget.name } : null,
-        }))
+        const nodeDef = useNodeDefStore.getState().getNodeDef(node.type ?? "") as any
+        return (current?.inputs ?? []).map((i) => {
+          const defInput = nodeDef?.inputs?.find((di: { name: string }) => di.name === i.name)
+          return {
+            name: i.name,
+            type: i.type,
+            link: i.link ?? null,
+            localized_name: i.localized_name ?? defInput?.localized_name ?? i.name,
+            widget: i.widget ? { name: i.widget.name } : null,
+          }
+        })
       },
-      get outputs(): { name: string; type: string; links: number[] | null }[] {
+      get outputs(): {
+        name: string
+        type: string
+        links: number[] | null
+        localized_name?: string
+      }[] {
         const current = store
           .getState()
           .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
-        return (current?.outputs ?? []).map((o) => ({
-          name: o.name,
-          type: o.type,
-          links: o.links ?? null,
-        }))
+        const nodeDef = useNodeDefStore.getState().getNodeDef(node.type ?? "") as any
+        return (current?.outputs ?? []).map((o) => {
+          const defOutput = nodeDef?.outputs?.find((do_: { name: string }) => do_.name === o.name)
+          return {
+            name: o.name,
+            type: o.type,
+            links: o.links ?? null,
+            localized_name: o.localized_name ?? defOutput?.localized_name ?? o.name,
+          }
+        })
       },
       get widgets():
         | {
@@ -599,11 +628,71 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       mode: node.mode,
       order: node.order,
       properties: node.properties,
+      properties_info: {},
       addInput(_name: string, _type: string): void {
         // intentional no-op
       },
       addOutput(_name: string, _type: string): void {
         // intentional no-op
+      },
+      computeSize(minWidth?: number): [number, number] {
+        return [Math.max(minWidth ?? 200, node.size?.[0] ?? 200), node.size?.[1] ?? 80]
+      },
+      expandToFitContent(): void {
+        // Store-backed nodes keep their explicit serialized size.
+      },
+      setSize(size: [number, number]): void {
+        store.getState().updateNodeSize(node.id, size)
+      },
+      setPos(x: number | [number, number], y?: number): void {
+        const pos: [number, number] = Array.isArray(x) ? [x[0], x[1]] : [x, y ?? node.pos[1]]
+        store.getState().updateNodePos(node.id, pos)
+      },
+      move(deltaX: number, deltaY: number): void {
+        store.getState().updateNodePos(node.id, [
+          node.pos[0] + deltaX,
+          node.pos[1] + deltaY,
+        ])
+      },
+      snapToGrid(): void {
+        store.getState().updateNodePos(node.id, [
+          Math.round(node.pos[0] / 10) * 10,
+          Math.round(node.pos[1] / 10) * 10,
+        ])
+      },
+      alignToGrid(): void {
+        this.snapToGrid()
+      },
+      getTitle(): string {
+        return this.title ?? this.type ?? ""
+      },
+      serialize(): Record<string, unknown> {
+        return {
+          id: node.id,
+          type: node.type,
+          title: node.type,
+          pos: node.pos,
+          size: node.size,
+          mode: node.mode,
+          order: node.order,
+          properties: node.properties,
+          widgets_values: node.widgets_values,
+        }
+      },
+      clone(): LGraphNode {
+        return {
+          ...this,
+          id: 0,
+          graph: null,
+          pos: [this.pos[0], this.pos[1]],
+          size: [this.size[0], this.size[1]],
+          inputs: this.inputs.map((input) => ({ ...input })),
+          outputs: this.outputs.map((output) => ({
+            ...output,
+            links: output.links === null ? null : [...output.links],
+          })),
+          properties: { ...(this.properties ?? {}) },
+        }
       },
       connect(
         slot: number,
@@ -648,6 +737,249 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           store.getState().updateNodePos(node.id, partialData.pos)
         if (partialData.size !== undefined)
           store.getState().updateNodeSize(node.id, partialData.size)
+      },
+      addProperty(
+        name: string,
+        defaultValue: unknown,
+        type?: string,
+        extraInfo?: Record<string, unknown>
+      ): void {
+        node.properties ??= {}
+        if (!(name in node.properties)) {
+          node.properties[name] = defaultValue
+        }
+        ;(this.properties_info ??= {})[name] = {
+          name,
+          default_value: defaultValue,
+          type,
+          ...(extraInfo ?? {}),
+        }
+      },
+      setProperty(name: string, value: unknown): void {
+        node.properties ??= {}
+        node.properties[name] = value
+      },
+      getProperty(name: string): unknown {
+        return node.properties?.[name]
+      },
+      getPropertyInfo(name: string): Record<string, unknown> | undefined {
+        return this.properties_info?.[name]
+      },
+      removeProperty(name: string): void {
+        if (node.properties !== undefined) delete node.properties[name]
+        if (this.properties_info !== undefined) delete this.properties_info[name]
+      },
+      addCustomWidget<TWidget extends ReturnType<LGraphNode["addWidget"]>>(
+        customWidget: TWidget
+      ): TWidget {
+        customWidget.options = {
+          hideOnZoom: false,
+          ...(customWidget.options ?? {}),
+        }
+        return customWidget
+      },
+      removeWidget(_widgetOrSlot: ReturnType<LGraphNode["addWidget"]> | number): void {
+        // Store-backed wrapper widgets are projected from node.widgets_values.
+      },
+      ensureWidgetRemoved(_widget: ReturnType<LGraphNode["addWidget"]>): void {
+        // Store-backed wrapper widgets are projected from node.widgets_values.
+      },
+      findInputSlot(
+        name: string,
+        returnObj?: boolean
+      ): number | ReturnType<LGraphNode["getInputInfo"]> | undefined {
+        const inputs = this.inputs
+        const index = inputs.findIndex((input) => input.name === name)
+        return returnObj === true ? inputs[index] : index
+      },
+      findOutputSlot(
+        name: string,
+        returnObj?: boolean
+      ): number | ReturnType<LGraphNode["getOutputInfo"]> | undefined {
+        const outputs = this.outputs
+        const index = outputs.findIndex((output) => output.name === name)
+        return returnObj === true ? outputs[index] : index
+      },
+      getInputInfo(slot: number): ReturnType<LGraphNode["getInputInfo"]> {
+        return this.inputs[slot] ?? null
+      },
+      getOutputInfo(slot: number): ReturnType<LGraphNode["getOutputInfo"]> {
+        return this.outputs[slot] ?? null
+      },
+      isInputConnected(slot: number): boolean {
+        return this.inputs[slot]?.link != null
+      },
+      isOutputConnected(slot: number): boolean {
+        const links = this.outputs[slot]?.links
+        return Array.isArray(links) && links.length > 0
+      },
+      isAnyOutputConnected(): boolean {
+        return this.outputs.some((_, index) => this.isOutputConnected(index))
+      },
+      removeInput(_slot: number): void {
+        // Store-backed wrapper slots are projected from workflow nodes.
+      },
+      removeOutput(_slot: number): void {
+        // Store-backed wrapper slots are projected from workflow nodes.
+      },
+      getInputLink(slot: number): ReturnType<LGraphNode["getInputLink"]> {
+        const linkId = this.inputs[slot]?.link
+        const graph = this.graph as
+          | (LGraphAdapterRef & { links: Map<number, LLink> })
+          | null
+        if (linkId == null || graph === null) return null
+        return graph.links.get(linkId) ?? null
+      },
+      getInputNode(slot: number): ReturnType<LGraphNode["getInputNode"]> {
+        const link = this.getInputLink(slot)
+        const graph = this.graph
+        return link === null || graph === null
+          ? null
+          : graph.getNodeById(link.origin_id)
+      },
+      getOutputNodes(slot: number): ReturnType<LGraphNode["getOutputNodes"]> {
+        const links = this.outputs[slot]?.links
+        if (!Array.isArray(links) || links.length === 0) return null
+        const graph = this.graph as
+          | (LGraphAdapterRef & { links: Map<number, LLink> })
+          | null
+        if (graph === null) return null
+        const nodes: LGraphNode[] = []
+        for (const linkId of links) {
+          const link = graph.links.get(linkId)
+          if (link !== undefined) {
+            const target = graph.getNodeById(link.target_id)
+            if (target !== null) nodes.push(target)
+          }
+        }
+        return nodes
+      },
+      getInputData(_slot?: number, _forceUpdate?: boolean): undefined {
+        return undefined
+      },
+      getInputDataByName(_slotName?: string, _forceUpdate?: boolean): null {
+        return null
+      },
+      setOutputData(): void {
+        // No execution data is stored in the React graph adapter.
+      },
+      getOutputData(): undefined {
+        return undefined
+      },
+      setOutputDataType(slot: number, type: string): void {
+        if (this.outputs[slot] !== undefined) this.outputs[slot].type = type
+      },
+      getInputDataType(slot: number): string | undefined {
+        return this.inputs[slot]?.type
+      },
+      getInputOrProperty(name: string): unknown {
+        const inputSlot = this.findInputSlot(name) as number
+        const inputData = inputSlot >= 0 ? this.getInputData(inputSlot) : undefined
+        return inputData ?? this.properties?.[name]
+      },
+      findInputSlotFree(): number {
+        return this.inputs.findIndex((input) => input.link == null)
+      },
+      findOutputSlotFree(): number {
+        return this.outputs.findIndex(
+          (output) => !Array.isArray(output.links) || output.links.length === 0
+        )
+      },
+      findInputSlotByType(type: string): number {
+        return this.inputs.findIndex((input) =>
+          isValidSlotConnection(input.type, type)
+        )
+      },
+      findOutputSlotByType(type: string): number {
+        return this.outputs.findIndex((output) =>
+          isValidSlotConnection(output.type, type)
+        )
+      },
+      findSlotByType(input: boolean, type: string): number {
+        return input ? this.findInputSlotByType(type) : this.findOutputSlotByType(type)
+      },
+      findConnectByTypeSlot(type: string, isOutput = true): number {
+        return isOutput ? this.findOutputSlotByType(type) : this.findInputSlotByType(type)
+      },
+      findInputByType(type: string): ReturnType<LGraphNode["findInputByType"]> {
+        const slot = this.findInputSlotByType(type)
+        return slot >= 0 ? this.inputs[slot] ?? null : null
+      },
+      findOutputByType(type: string): ReturnType<LGraphNode["findOutputByType"]> {
+        const slot = this.findOutputSlotByType(type)
+        return slot >= 0 ? this.outputs[slot] ?? null : null
+      },
+      canConnectTo(slot: number, targetNode: LGraphNode, targetSlot: number): boolean {
+        return isValidSlotConnection(
+          this.outputs[slot]?.type,
+          targetNode.inputs[targetSlot]?.type
+        )
+      },
+      connectByType(
+        slot: number,
+        targetNode: LGraphNode,
+        targetType: string
+      ): boolean | null {
+        const targetSlot = targetNode.findInputSlotByType(targetType)
+        return targetSlot >= 0 ? this.connect(slot, targetNode, targetSlot) : false
+      },
+      connectByTypeOutput(
+        targetType: string,
+        targetNode: LGraphNode,
+        targetSlot: number
+      ): boolean | null {
+        const outputSlot = this.findOutputSlotByType(targetType)
+        return outputSlot >= 0
+          ? this.connect(outputSlot, targetNode, targetSlot)
+          : false
+      },
+      getSlotFromWidget(widget: ReturnType<LGraphNode["addWidget"]>): number {
+        return this.widgets?.indexOf(widget) ?? -1
+      },
+      getWidgetFromSlot(slot: number): ReturnType<LGraphNode["getWidgetFromSlot"]> {
+        return this.widgets?.[slot]
+      },
+      addTitleButton(
+        name: string,
+        label: string,
+        callback?: () => void
+      ): unknown {
+        const record = this as LGraphNode & { title_buttons?: unknown[] }
+        record.title_buttons ??= []
+        const button = { name, label, callback }
+        record.title_buttons.push(button)
+        return button
+      },
+      onTitleButtonClick(name: string): void {
+        const record = this as LGraphNode & { title_buttons?: unknown[] }
+        const button = record.title_buttons?.find(
+          (item) => (item as { name?: string }).name === name
+        ) as { callback?: () => void } | undefined
+        button?.callback?.()
+      },
+      collapse(force?: boolean): void {
+        this.flags ??= {}
+        this.flags.collapsed = force ?? !this.flags.collapsed
+      },
+      toggleAdvanced(): void {
+        this.flags ??= {}
+        this.flags.advanced = !this.flags.advanced
+      },
+      pin(): void {
+        this.flags ??= {}
+        this.flags.pinned = true
+      },
+      unpin(): void {
+        this.flags ??= {}
+        this.flags.pinned = false
+      },
+      loadImage(url: string): HTMLImageElement {
+        const img = new Image()
+        img.src = url
+        return img
+      },
+      trace(...args: unknown[]): void {
+        console.debug("[LGraphAdapterNode]", ...args)
       },
       addWidget(
         type: string,

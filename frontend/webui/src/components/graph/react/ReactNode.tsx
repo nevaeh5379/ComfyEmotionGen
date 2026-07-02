@@ -678,12 +678,16 @@ export const ReactNode = memo(function ReactNode({
           if (pureWidgets.length === 0) return null
           return (
             <div className="flex flex-col gap-0 border-t border-border/50 pt-1">
-              {pureWidgets.map((name) => (
-                <div key={`widget-${name}`} className="px-2 py-0.5">
+              {pureWidgets.map((name, idx) => (
+                <div key={`widget-${idx}-${name}`} className="px-2 py-0.5">
                   {((): React.JSX.Element => {
-                    const liveW = liveNode?.widgets?.find(
+                    const occurrence =
+                      pureWidgets
+                        .slice(0, idx + 1)
+                        .filter((widgetName) => widgetName === name).length - 1
+                    const liveW = liveNode?.widgets?.filter(
                       (w: LiveWidget) => w.name === name
-                    )
+                    )[occurrence]
                     return (
                       <ReactWidget
                         name={name}

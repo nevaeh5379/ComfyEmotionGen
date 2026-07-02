@@ -14,13 +14,35 @@ declare global {
 
   interface LiteGraphGlobal {
     registerNodeType(type: string, base_class: unknown): void
+    unregisterNodeType?(type: string): void
+    registerNodeAndSlotType?(type: string, base_class: unknown): void
+    clearRegisteredTypes?(): void
+    getNodeType?(type: string): unknown
+    getNodeTypesCategories?(filter?: string): string[]
+    getNodeTypesInCategory?(category: string, filter?: string): unknown[]
+    isValidConnection?(typeA: unknown, typeB: unknown): boolean
+    cloneObject?<T>(value: T): T
+    extendClass?(target: { prototype?: object }, origin: { prototype?: object }): void
     NODE_DEFAULT_WIDTH: number
     NODE_DEFAULT_HEIGHT: number
+    NODE_WIDTH?: number
+    NODE_TITLE_HEIGHT?: number
+    NODE_SLOT_HEIGHT?: number
+    NODE_WIDGET_HEIGHT?: number
+    NODE_TEXT_SIZE?: number
+    ACTION?: number
+    EVENT?: number
+    INPUT?: number
+    OUTPUT?: number
     ALWAYS: number
     NEVER: number
     BYPASS: number
     LGraphEventMode?: LGraphEventMode
-    createNode(type: string): LGraphNode | null
+    createNode(
+      type: string,
+      title?: string,
+      options?: Record<string, unknown>
+    ): LGraphNode | null
     LGraphNode: typeof LGraphNode
   }
 
@@ -63,6 +85,7 @@ declare global {
     // Search
     findNodesByType?(type: string): LGraphNode[]
     findNodesByTitle?(title: string): LGraphNode[]
+    remove?(nodeOrGroup: LGraphNode | LGraphGroup): void
 
     // Serialization
     serialize?(): Record<string, unknown>
@@ -71,7 +94,10 @@ declare global {
     // Change tracking
     beforeChange?(info?: LGraphNode): void
     afterChange?(info?: LGraphNode | null): void
+    change?(): void
     incrementVersion?(): void
+    attachCanvas?(canvas: LGraphCanvas): void
+    detachCanvas?(canvas?: LGraphCanvas): void
 
     // Execution (stubs)
     updateExecutionOrder?(): void
@@ -97,12 +123,14 @@ declare global {
     name: string
     type: string
     link: number | null
+    localized_name?: string
     widget?: { name: string } | null
   }
   interface LGraphNodeOutput {
     name: string
     type: string
     links: number[] | null
+    localized_name?: string
   }
 
   interface LGraphNode {
@@ -120,8 +148,20 @@ declare global {
     order?: number
     mode?: number
     properties?: Record<string, unknown>
+    properties_info?: Record<string, Record<string, unknown>>
+    flags?: Record<string, unknown>
     addInput(name: string, type: string): void
     addOutput(name: string, type: string): void
+    computeSize(minWidth?: number): [number, number]
+    expandToFitContent(): void
+    setSize(size: [number, number]): void
+    setPos(x: number | [number, number], y?: number): void
+    move(deltaX: number, deltaY: number): void
+    snapToGrid(): void
+    alignToGrid(): void
+    getTitle(): string
+    serialize(): Record<string, unknown>
+    clone(): LGraphNode
     connect(
       slot: number,
       node: LGraphNode,
@@ -135,6 +175,72 @@ declare global {
         | Record<string, string | number | boolean | object | null | undefined>
     ): void
     onNodeCreated?(): void
+    addProperty(
+      name: string,
+      defaultValue: unknown,
+      type?: string,
+      extraInfo?: Record<string, unknown>
+    ): void
+    setProperty(name: string, value: unknown): void
+    getProperty(name: string): unknown
+    getPropertyInfo(name: string): Record<string, unknown> | undefined
+    removeProperty(name: string): void
+    addCustomWidget<TWidget extends WidgetType>(customWidget: TWidget): TWidget
+    removeWidget(widgetOrSlot: WidgetType | number): void
+    ensureWidgetRemoved(widget: WidgetType): void
+    findInputSlot(name: string, returnObj?: false): number
+    findInputSlot(name: string, returnObj: true): LGraphNodeInput | undefined
+    findOutputSlot(name: string, returnObj?: false): number
+    findOutputSlot(
+      name: string,
+      returnObj: true
+    ): LGraphNodeOutput | undefined
+    getInputInfo(slot: number): LGraphNodeInput | null
+    getOutputInfo(slot: number): LGraphNodeOutput | null
+    isInputConnected(slot: number): boolean
+    isOutputConnected(slot: number): boolean
+    isAnyOutputConnected(): boolean
+    removeInput(slot: number): void
+    removeOutput(slot: number): void
+    getInputLink(slot: number): LLink | null
+    getInputNode(slot: number): LGraphNode | null
+    getOutputNodes(slot: number): LGraphNode[] | null
+    getInputData(slot?: number, forceUpdate?: boolean): unknown
+    getInputDataByName(slotName?: string, forceUpdate?: boolean): unknown
+    setOutputData(slot?: number, data?: unknown): void
+    getOutputData(slot?: number): unknown
+    setOutputDataType(slot: number, type: string): void
+    getInputDataType(slot: number): string | undefined
+    getInputOrProperty(name: string): unknown
+    findInputSlotFree(): number
+    findOutputSlotFree(): number
+    findInputSlotByType(type: string): number
+    findOutputSlotByType(type: string): number
+    findSlotByType(input: boolean, type: string): number
+    findConnectByTypeSlot(type: string, isOutput?: boolean): number
+    findInputByType(type: string): LGraphNodeInput | null
+    findOutputByType(type: string): LGraphNodeOutput | null
+    canConnectTo(slot: number, targetNode: LGraphNode, targetSlot: number): boolean
+    connectByType(
+      slot: number,
+      targetNode: LGraphNode,
+      targetType: string
+    ): boolean | null
+    connectByTypeOutput(
+      targetType: string,
+      targetNode: LGraphNode,
+      targetSlot: number
+    ): boolean | null
+    getSlotFromWidget(widget: WidgetType): number
+    getWidgetFromSlot(slot: number): WidgetType | undefined
+    addTitleButton(name: string, label: string, callback?: () => void): unknown
+    onTitleButtonClick(name: string): void
+    collapse(force?: boolean): void
+    toggleAdvanced(): void
+    pin(): void
+    unpin(): void
+    loadImage(url: string): HTMLImageElement
+    trace(...args: unknown[]): void
     addWidget(
       type: string,
       name: string,
@@ -167,9 +273,47 @@ declare global {
     setCanvas(canvas: HTMLCanvasElement): void
     render_canvas_border: boolean
     app?: ComfyApp
+    graph?: LGraph | null
     graph_mouse?: [number, number]
+    canvas_mouse?: [number, number]
     canvas?: HTMLCanvasElement | null
     addEventListener?(type: string, listener: (e: Event) => void): void
+    removeEventListener?(type: string, listener: (e: Event) => void): void
+    setGraph?(graph: LGraph): void
+    getCurrentGraph?(): LGraph | undefined
+    getCanvasMenuOptions?(): unknown[]
+    getNodeMenuOptions?(node?: LGraphNode): unknown[]
+    getGroupMenuOptions?(group?: LGraphGroup): unknown[]
+    getContextMenuOptions?(): unknown[]
+    draw?(forceCanvas?: boolean, forceBgCanvas?: boolean): void
+    selectNode?(node: LGraphNode): void
+    selectNodes?(nodes?: LGraphNode[]): void
+    deselectNode?(node: LGraphNode): void
+    deselectAll?(): void
+    deselectAllNodes?(): void
+    deleteSelected?(): void
+    deleteSelectedNodes?(): void
+    copyToClipboard?(items?: unknown): void
+    pasteFromClipboard?(options?: unknown): unknown
+    prompt?(
+      title: string,
+      value: string,
+      callback?: (value: string) => void,
+      event?: Event,
+      multiline?: boolean
+    ): HTMLElement
+    showSearchBox?(): HTMLElement
+    showEditPropertyValue?(): HTMLElement
+    centerOnNode?(node: LGraphNode): void
+    setZoom?(value: number, center?: [number, number]): void
+    bringToFront?(node: LGraphNode): void
+    sendToBack?(node: LGraphNode): void
+    processContextMenu?(...args: unknown[]): unknown
+    convertOffsetToCanvas?(pos: [number, number]): [number, number]
+    convertCanvasToOffset?(pos: [number, number]): [number, number]
+    convertEventToCanvasOffset?(event: MouseEvent): [number, number]
+    isNodeVisible?(node: LGraphNode): boolean
+    computeVisibleNodes?(): LGraphNode[]
   }
 
   interface LLink {
@@ -297,26 +441,6 @@ declare global {
     BOOLEAN(): { widget: { inputEl: Record<string, unknown> } }
   }
 
-  interface RgthreeAPI {
-    addEventListener(): void
-    removeEventListener(): void
-    newLogSession(): { end(): void }
-    logger: { log(...args: unknown[]): void }
-  }
-
-  interface RgthreeConfig {
-    enabled: boolean
-    tweaks: { enabled: boolean }
-    features: { enabled: boolean }
-    nodes: {
-      reroute: {
-        fast_reroute: {
-          enabled: boolean
-        }
-      }
-    }
-  }
-
   interface UECallbacks {
     register_allnode_callback(): void
     register_allgraph_callback(): void
@@ -353,11 +477,22 @@ declare global {
       isValidWidgetType(): void
     }
     widgetInputs?: {
-      PrimitiveNode: new () => object
-      getWidgetConfig(): Record<string, unknown>
-      convertToInput(): void
-      setWidgetConfig(): void
-      mergeIfValid(): void
+      PrimitiveNode?: new () => object
+      getWidgetConfig(
+        slot?: { widget?: Record<PropertyKey, unknown> | null }
+      ): [unknown, Record<string, unknown>]
+      convertToInput(
+        node?: LGraphNode,
+        widget?: { name?: string; type?: string }
+      ): LGraphNodeInput | undefined
+      setWidgetConfig(
+        slot?: { widget?: Record<PropertyKey, unknown> | null },
+        config?: [unknown, Record<string, unknown>]
+      ): void
+      mergeIfValid(
+        output?: { widget?: Record<PropertyKey, unknown> | null },
+        config?: [unknown, Record<string, unknown>]
+      ): [unknown, Record<string, unknown>] | undefined
     }
     groupNode?: {
       GroupNodeConfig: (new () => object) & {
@@ -429,7 +564,7 @@ declare global {
         | undefined,
       children?: object
     ) => HTMLElement
-    addStylesheet: (url: string) => HTMLLinkElement
+    addStylesheet: (url: string, relativeTo?: string | URL) => Promise<void>
     getUrl: (path: string, base?: string | URL) => string
     ComfyWidgets: ComfyWidgetsAPI
     ComfyApp: new () => object
@@ -437,11 +572,15 @@ declare global {
     ClipspaceDialog: new () => object & { registerButton?: () => void }
     isBeforeFrontendVersion: () => boolean
     comfyAPI?: ComfyAPIObject
-    rgthree: RgthreeAPI
-    NodeTypesString: Record<string, unknown>
-    rgthreeConfig: RgthreeConfig
     Exposed: () => void
     CONFIG_SERVICE: { getConfigValue(): unknown; addEventListener(): void }
+    helpDOM: {
+      addHelp(
+        target: HTMLElement | object | null | undefined,
+        content?: string | HTMLElement
+      ): HTMLElement
+      removeHelp(target?: HTMLElement | null): void
+    }
     ue_callbacks: UECallbacks
     create: (
       tag: string,
