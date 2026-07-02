@@ -414,6 +414,9 @@ export function ReactGraphEditor(): JSX.Element {
           last_link_id: Math.max(0, ...state.links.map((l) => l.id)),
           nodes: state.nodes,
           links: state.links,
+          groups: state.groups.filter(
+            (g) => g.graphId === null || g.graphId === undefined
+          ),
           version: 0.4,
         }
         console.log(

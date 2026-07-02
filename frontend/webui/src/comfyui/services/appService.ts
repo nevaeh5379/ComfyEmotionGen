@@ -284,6 +284,10 @@ class ComfyNode {
     this.setDirtyCanvas()
   }
 
+  getBounding(): [number, number, number, number] {
+    return [this.pos[0], this.pos[1], this.size[0] ?? 0, this.size[1] ?? 0]
+  }
+
   snapToGrid(): void {
     this.pos = [Math.round(this.pos[0] / 10) * 10, Math.round(this.pos[1] / 10) * 10]
   }
@@ -1164,6 +1168,20 @@ export class ComfyAppService {
     )
 
     for (const [type, def] of Object.entries(nodeDefs)) {
+      const existingNodeType =
+        typeof window.LiteGraph.getNodeType === "function"
+          ? (window.LiteGraph.getNodeType(type) as
+              | { isStandardComfyNode?: boolean }
+              | undefined)
+          : undefined
+      if (
+        existingNodeType !== undefined &&
+        existingNodeType.isStandardComfyNode !== true
+      ) {
+        this.nodeDefs[type] = def
+        continue
+      }
+
       const extensionNodeDef = normalizeNodeDefForExtensions(def)
       // Create a node class for this type
       const NodeClass = class extends ComfyNode {

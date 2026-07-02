@@ -178,32 +178,59 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         ? g.graphId === null || g.graphId === undefined
         : g.graphId === activeId
     )
-    return activeGroups.map((g) => ({
-      id: g.id,
-      title: g.title,
-      color: g.color,
-      get bounding() {
-        return g.bounding
-      },
-      set bounding(v) {
-        store.getState().updateGroupBounding(g.id, v)
-      },
-      configure(o: any) {
-        g.title = o.title
-        g.bounding = o.bounding
-        g.color = o.color
-      },
-      serialize() {
-        return {
-          id: g.id,
-          title: g.title,
-          bounding: g.bounding,
-          color: g.color,
-        }
-      },
-      recomputeInsideNodes() {},
-      resizeTo() {},
-    }))
+    return activeGroups.map((g) => {
+      const group: any = {
+        id: g.id,
+        title: g.title,
+        color: g.color,
+        fontSize: g.fontSize,
+        locked: g.locked,
+        graph: this,
+        nodes: [],
+        _children: new Set(),
+        pos: [g.bounding[0], g.bounding[1]],
+        size: [g.bounding[2], g.bounding[3]],
+        _pos: [g.bounding[0], g.bounding[1]],
+        _bounding: [g.bounding[0], g.bounding[1], g.bounding[2], g.bounding[3]],
+        get bounding() {
+          return g.bounding
+        },
+        set bounding(v: [number, number, number, number]) {
+          store.getState().updateGroupBounding(g.id, v)
+          this.pos = [v[0], v[1]]
+          this.size = [v[2], v[3]]
+          this._pos = [v[0], v[1]]
+          this._bounding = [v[0], v[1], v[2], v[3]]
+        },
+        configure(o: any) {
+          g.title = o.title ?? g.title
+          this.bounding =
+            o.bounding ??
+            (Array.isArray(o.pos) && Array.isArray(o.size)
+              ? [o.pos[0], o.pos[1], o.size[0], o.size[1]]
+              : g.bounding)
+          g.color = o.color ?? g.color
+          g.fontSize = o.fontSize ?? g.fontSize
+          g.locked = o.locked ?? g.locked
+        },
+        serialize() {
+          return {
+            id: g.id,
+            title: g.title,
+            bounding: g.bounding,
+            color: g.color,
+            fontSize: g.fontSize,
+            locked: g.locked,
+          }
+        },
+        recomputeInsideNodes() {},
+        resizeTo() {},
+      }
+      return group
+    })
+  }
+  public get _groups(): any[] {
+    return this.groups
   }
   // TODO: Reroute support
   public readonly reroutes: Map<number, never> = new Map<number, never>()
@@ -245,6 +272,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   private _linkedNodes = new WeakSet<LGraphNode>()
   /** Live node instances with real DOM widget elements, keyed by node id. */
   private _liveNodes = new Map<number, LGraphNode>()
+  private _isRefreshingLiveNode = false
 
   constructor() {
     this.links = createMapProxy<ComfyWorkflowLink>(new Map())
@@ -263,7 +291,20 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     const store = useReactGraphStore
     return store
       .getState()
-      .nodes.map((n: ComfyWorkflowNode) => this.wrapNode(n))
+      .nodes.map((n: ComfyWorkflowNode) => {
+        const liveNode = this._liveNodes.get(n.id)
+        if (liveNode !== undefined) return this.ensureLiveNodeReady(liveNode)
+        return this.materializeLiveNode(n) ?? this.wrapNode(n)
+      })
+  }
+
+  public get _nodes(): LGraphNode[] {
+    const store = useReactGraphStore
+    return store
+      .getState()
+      .nodes.map(
+        (n: ComfyWorkflowNode) => this._liveNodes.get(n.id) ?? this.wrapNode(n)
+      )
   }
 
   /** 그래프가 비어있으면 true */
@@ -359,7 +400,13 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       .getState()
       .nodes.find((n: ComfyWorkflowNode) => n.id === numId)
     if (node === undefined) return null
-    return this.wrapNode(node)
+    return (
+      (this._liveNodes.get(numId) !== undefined
+        ? this.ensureLiveNodeReady(this._liveNodes.get(numId)!)
+        : undefined) ??
+      this.materializeLiveNode(node) ??
+      this.wrapNode(node)
+    )
   }
 
   public clear(): void {
@@ -691,6 +738,9 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           node.pos[0] + deltaX,
           node.pos[1] + deltaY,
         ])
+      },
+      getBounding(): [number, number, number, number] {
+        return [node.pos[0], node.pos[1], node.size?.[0] ?? 0, node.size?.[1] ?? 0]
       },
       snapToGrid(): void {
         store.getState().updateNodePos(node.id, [
@@ -1108,11 +1158,64 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     } as LGraphNode
   }
 
+  private materializeLiveNode(node: ComfyWorkflowNode): LGraphNode | null {
+    const liteGraph = (window as any).LiteGraph
+    if (typeof liteGraph?.createNode !== "function") return null
+    const liveNode = liteGraph.createNode(node.type) as LGraphNode | null
+    if (liveNode === null) return null
+    liveNode.id = node.id
+    liveNode.pos = node.pos
+    liveNode.size = node.size
+    liveNode.mode = node.mode
+    liveNode.order = node.order
+    liveNode.color = node.color
+    liveNode.bgcolor = node.bgcolor
+    liveNode.properties = { ...(node.properties ?? {}) }
+    this.linkNodeToGraph(liveNode, this)
+    if (typeof liveNode.configure === "function") {
+      liveNode.configure(node)
+    }
+    this._liveNodes.set(node.id, liveNode)
+    ;(liveNode as { onAdded?: (graph: LGraphAdapterRef) => void }).onAdded?.(
+      this
+    )
+    return this.ensureLiveNodeReady(liveNode)
+  }
+
+  private ensureLiveNodeReady(node: LGraphNode): LGraphNode {
+    const fastGroupNode = node as LGraphNode & {
+      refreshWidgets?: () => void
+      widgets?: unknown[]
+    }
+    if (
+      !this._isRefreshingLiveNode &&
+      typeof fastGroupNode.refreshWidgets === "function" &&
+      (fastGroupNode.widgets?.length ?? 0) === 0
+    ) {
+      this._isRefreshingLiveNode = true
+      try {
+        fastGroupNode.refreshWidgets()
+      } finally {
+        this._isRefreshingLiveNode = false
+      }
+    }
+    return node
+  }
+
   private linkNodeToGraph(
     node: LGraphNode,
     graph: LGraphAdapterRef
   ): LGraphNode {
     ;(node as { graph: LGraphAdapterRef }).graph = graph
+    const nodeWithBounding = node as LGraphNode & {
+      getBounding?: () => [number, number, number, number]
+    }
+    nodeWithBounding.getBounding ??= (): [number, number, number, number] => [
+      node.pos?.[0] ?? 0,
+      node.pos?.[1] ?? 0,
+      node.size?.[0] ?? 0,
+      node.size?.[1] ?? 0,
+    ]
     this._linkedNodes.add(node)
     return node
   }

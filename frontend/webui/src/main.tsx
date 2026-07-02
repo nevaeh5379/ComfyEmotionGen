@@ -803,6 +803,7 @@ try {
       _nodes_by_id: Record<string, unknown> = {}
       links: Map<number, unknown> | Record<number, unknown> = new Map()
       groups: unknown[] = []
+      _groups: unknown[] = this.groups
       nodes: unknown[] = []
       id = 0
       revision = 0
@@ -838,6 +839,7 @@ try {
         this._nodes_by_id = {}
         this.links = new Map()
         this.groups = []
+        this._groups = this.groups
         this.afterChange(null)
       }
       getNodeById(id: number | string): unknown {
@@ -878,6 +880,14 @@ try {
             node.configure?.(rawNode)
             this.add(node)
           }
+        }
+        if (Array.isArray(data.groups)) {
+          this.groups = (data.groups as Record<string, unknown>[]).map((rawGroup) => {
+            const group = new window.LGraphGroup()
+            ;(group as { configure?: (data: Record<string, unknown>) => void }).configure?.(rawGroup)
+            return group
+          })
+          this._groups = this.groups
         }
         ;(this as { onConfigure?: (data: Record<string, unknown>) => void }).onConfigure?.(data)
       }
@@ -1157,6 +1167,44 @@ try {
       pos: [number, number] = [0, 0]
       size: [number, number] = [0, 0]
       color?: string
+      fontSize?: number
+      locked?: boolean
+      bounding?: [number, number, number, number]
+      configure(data?: Record<string, unknown>): void {
+        if (data === undefined) return
+        this.id = Number(data.id ?? this.id)
+        this.title = String(data.title ?? this.title)
+        const bounding = data.bounding
+        if (Array.isArray(bounding)) {
+          this.bounding = [
+            Number(bounding[0] ?? 0),
+            Number(bounding[1] ?? 0),
+            Number(bounding[2] ?? 0),
+            Number(bounding[3] ?? 0),
+          ]
+          this.pos = [this.bounding[0], this.bounding[1]]
+          this.size = [this.bounding[2], this.bounding[3]]
+        } else {
+          const pos = Array.isArray(data.pos) ? data.pos : this.pos
+          const size = Array.isArray(data.size) ? data.size : this.size
+          this.pos = [Number(pos[0] ?? 0), Number(pos[1] ?? 0)]
+          this.size = [Number(size[0] ?? 0), Number(size[1] ?? 0)]
+          this.bounding = [this.pos[0], this.pos[1], this.size[0], this.size[1]]
+        }
+        if (typeof data.color === "string") this.color = data.color
+        if (typeof data.fontSize === "number") this.fontSize = data.fontSize
+        if (typeof data.locked === "boolean") this.locked = data.locked
+      }
+      serialize(): Record<string, unknown> {
+        return {
+          id: this.id,
+          title: this.title,
+          bounding: this.bounding ?? [this.pos[0], this.pos[1], this.size[0], this.size[1]],
+          color: this.color,
+          fontSize: this.fontSize,
+          locked: this.locked,
+        }
+      }
     }
     window.LGraphGroup = LGraphGroupImpl
   }
