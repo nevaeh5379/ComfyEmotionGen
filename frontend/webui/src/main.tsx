@@ -1203,54 +1203,65 @@ function createDefaultApp(): ComfyApp {
     settingsLookup: settingsLookupProxy,
   }
 
-  const stubGraph: LGraph = {
-    _nodes_by_id: {},
-    links: {},
-    groups: [],
-    nodes: [],
-    revision: 0,
-    status: 0,
-    id: 0,
-    add(_node: unknown): void {
-      /* noop */
-    },
-    remove(_node: unknown): void {
-      /* noop */
-    },
-    clear(): void {
-      /* noop */
-    },
-    getNodeById(_id: number | string): undefined {
-      return undefined
-    },
-    setDirtyCanvas(_flag?: boolean, _history?: boolean): void {
-      /* noop */
-    },
-    onAfterChange: undefined,
-  } as unknown as LGraph
+  const stubGraph: LGraph = Object.assign(
+    Object.create(
+      (window as unknown as { LGraph?: { prototype: unknown } }).LGraph?.prototype ?? Object.prototype
+    ),
+    {
+      _nodes_by_id: {},
+      links: {},
+      groups: [],
+      nodes: [],
+      revision: 0,
+      status: 0,
+      id: 0,
+      add(_node: unknown): void {
+        /* noop */
+      },
+      remove(_node: unknown): void {
+        /* noop */
+      },
+      clear(): void {
+        /* noop */
+      },
+      getNodeById(_id: number | string): undefined {
+        return undefined
+      },
+      setDirtyCanvas(_flag?: boolean, _history?: boolean): void {
+        /* noop */
+      },
+      onAfterChange: undefined,
+    }
+  ) as unknown as LGraph
 
-  const stubCanvas: LGraphCanvas = {
-    state: { readOnly: false },
-    ds: { scale: 1, offset: [0, 0] },
-    resize(_w?: number, _h?: number): void {
-      /* noop */
-    },
-    setDirty(_canvas?: boolean, _history?: boolean): void {
-      /* noop */
-    },
-    stopRendering(): void {
-      /* noop */
-    },
-    startRendering(): void {
-      /* noop */
-    },
-    setCanvas(_canvas: HTMLCanvasElement): void {
-      /* noop */
-    },
-    render_canvas_border: false,
-    graph_mouse: [0, 0],
-    canvas: null,
-  } as unknown as LGraphCanvas
+  const stubCanvas: LGraphCanvas = Object.assign(
+    Object.create(
+      (window as unknown as { LGraphCanvas?: { prototype: unknown } }).LGraphCanvas?.prototype ?? Object.prototype
+    ),
+    {
+      state: { readOnly: false },
+      graph: stubGraph,
+      ds: { scale: 1, offset: [0, 0] },
+      resize(_w?: number, _h?: number): void {
+        /* noop */
+      },
+      setDirty(_canvas?: boolean, _history?: boolean): void {
+        /* noop */
+      },
+      stopRendering(): void {
+        /* noop */
+      },
+      startRendering(): void {
+        /* noop */
+      },
+      setCanvas(_canvas: HTMLCanvasElement): void {
+        /* noop */
+      },
+      render_canvas_border: false,
+      graph_mouse: [0, 0],
+      canvas: null,
+    }
+  ) as unknown as LGraphCanvas
 
   const app: ComfyApp = {
     graph: stubGraph,
@@ -1266,10 +1277,21 @@ function createDefaultApp(): ComfyApp {
         },
       },
       settings: defaultSettings,
+      menu: {
+        get element(): HTMLElement | null {
+          return document.querySelector(".comfy-menu") as HTMLElement | null
+        },
+      },
+      get menuContainer(): HTMLElement | null {
+        return document.querySelector(".comfy-menu-container") as HTMLElement | null
+      },
     },
     settings: defaultSettings,
     extensions: [],
     registerExtension(ext: ComfyExtension): void {
+      if (!app.extensions.includes(ext)) {
+        app.extensions.push(ext)
+      }
       if (app.extensionManager.registerExtension !== undefined) {
         console.log(
           `[CEG] registerExtension: "${ext.name}" -> extensionManager.registerExtension (has onNodeCreated=${typeof ext.nodeCreated} has beforeRegisterNodeDef=${typeof ext.beforeRegisterNodeDef})`
@@ -1279,7 +1301,6 @@ function createDefaultApp(): ComfyApp {
         console.log(
           `[CEG] registerExtension: "${ext.name}" -> app.extensions.push (extManager has no registerExtension)`
         )
-        app.extensions.push(ext)
       }
     },
     extensionManager: {
@@ -1452,53 +1473,64 @@ Object.defineProperty(appObj, "settings", {
 })
 
 // Re-assign stub graph/canvas (same shape as createDefaultApp)
-appObj.graph = {
-  _nodes_by_id: {},
-  links: {},
-  groups: [],
-  nodes: [],
-  revision: 0,
-  status: 0,
-  id: 0,
-  add() {
-    /* noop */
-  },
-  remove() {
-    /* noop */
-  },
-  clear() {
-    /* noop */
-  },
-  getNodeById() {
-    return undefined
-  },
-  setDirtyCanvas() {
-    /* noop */
-  },
-  onAfterChange: undefined,
-} as unknown as LGraph
-appObj.canvas = {
-  state: { readOnly: false },
-  ds: { scale: 1, offset: [0, 0] },
-  resize() {
-    /* noop */
-  },
-  setDirty() {
-    /* noop */
-  },
-  stopRendering() {
-    /* noop */
-  },
-  startRendering() {
-    /* noop */
-  },
-  setCanvas() {
-    /* noop */
-  },
-  render_canvas_border: false,
-  graph_mouse: [0, 0],
-  canvas: null,
-} as unknown as LGraphCanvas
+appObj.graph = Object.assign(
+  Object.create(
+    (window as unknown as { LGraph?: { prototype: unknown } }).LGraph?.prototype ?? Object.prototype
+  ),
+  {
+    _nodes_by_id: {},
+    links: {},
+    groups: [],
+    nodes: [],
+    revision: 0,
+    status: 0,
+    id: 0,
+    add() {
+      /* noop */
+    },
+    remove() {
+      /* noop */
+    },
+    clear() {
+      /* noop */
+    },
+    getNodeById() {
+      return undefined
+    },
+    setDirtyCanvas() {
+      /* noop */
+    },
+    onAfterChange: undefined,
+  }
+) as unknown as LGraph
+appObj.canvas = Object.assign(
+  Object.create(
+    (window as unknown as { LGraphCanvas?: { prototype: unknown } }).LGraphCanvas?.prototype ?? Object.prototype
+  ),
+  {
+    state: { readOnly: false },
+    graph: appObj.graph,
+    ds: { scale: 1, offset: [0, 0] },
+    resize() {
+      /* noop */
+    },
+    setDirty() {
+      /* noop */
+    },
+    stopRendering() {
+      /* noop */
+    },
+    startRendering() {
+      /* noop */
+    },
+    setCanvas() {
+      /* noop */
+    },
+    render_canvas_border: false,
+    graph_mouse: [0, 0],
+    canvas: null,
+  }
+) as unknown as LGraphCanvas
 appObj.syncGraph = (): void => {
   // No-op: Zustand store가 single source of truth이므로 sync 필요 없음
 }
@@ -1506,6 +1538,86 @@ appObj.syncGraph = (): void => {
 // 필수 브라우저 글로벌 스텁 설정
 {
   const w = window as unknown as Record<string, unknown>
+
+  // Create dummy .comfy-menu and .comfy-menu-container to prevent third-party extensions (like ComfyUI-Manager) from crashing
+  if (typeof document !== "undefined") {
+    const checkAndCreateMenu = (): void => {
+      let menuEl = document.querySelector(".comfy-menu")
+      if (!menuEl) {
+        menuEl = document.createElement("div")
+        menuEl.className = "comfy-menu"
+        ;(menuEl as HTMLElement).style.display = "none"
+        document.body.appendChild(menuEl)
+      }
+      let containerEl = document.querySelector(".comfy-menu-container")
+      if (!containerEl) {
+        containerEl = document.createElement("div")
+        containerEl.className = "comfy-menu-container"
+        ;(containerEl as HTMLElement).style.display = "none"
+        document.body.appendChild(containerEl)
+      }
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", checkAndCreateMenu)
+    } else {
+      checkAndCreateMenu()
+    }
+
+    const originalGetElementById = document.getElementById.bind(document)
+    document.getElementById = function (id: string): HTMLElement | null {
+      const el = originalGetElementById(id)
+      if (el !== null) return el
+
+      const fallbackIds: Record<string, string> = {
+        "comfy-load-button": "button",
+        "comfy-save-button": "button",
+        "comfy-clear-button": "button",
+        "comfy-load-default-button": "button",
+        "comfy-file-input": "input",
+        "comfy-settings-button": "button",
+        "comfy-user-button": "button",
+        "graph-canvas": "canvas",
+      }
+
+      if (id in fallbackIds) {
+        const tagName = fallbackIds[id]
+        if (tagName !== undefined) {
+          console.log(`[CEG] document.getElementById("${id}") fallback triggered`)
+          let fallbackEl = document.querySelector(`[data-ceg-fallback-id="${id}"]`)
+          if (fallbackEl === null) {
+            fallbackEl = document.createElement(tagName)
+            fallbackEl.setAttribute("data-ceg-fallback-id", id)
+            if (id === "comfy-file-input") {
+              ;(fallbackEl as HTMLInputElement).type = "file"
+            }
+            ;(fallbackEl as HTMLElement).style.display = "none"
+            document.body.appendChild(fallbackEl)
+          }
+          return fallbackEl as HTMLElement
+        }
+      }
+      return null
+    }
+
+    const originalQuerySelector = document.querySelector.bind(document)
+    document.querySelector = function (selector: string): Element | null {
+      const el = originalQuerySelector(selector)
+      if (el !== null) return el
+
+      if (selector === ".comfy-settings-btn") {
+        console.log(`[CEG] document.querySelector("${selector}") fallback triggered`)
+        let fallbackEl = originalQuerySelector('[data-ceg-fallback-class="comfy-settings-btn"]')
+        if (fallbackEl === null) {
+          fallbackEl = document.createElement("button")
+          fallbackEl.setAttribute("data-ceg-fallback-class", "comfy-settings-btn")
+          ;(fallbackEl as HTMLElement).style.display = "none"
+          document.body.appendChild(fallbackEl)
+        }
+        return fallbackEl
+      }
+      return null
+    }
+  }
 
   if (w.$el === undefined) {
     w.$el = (

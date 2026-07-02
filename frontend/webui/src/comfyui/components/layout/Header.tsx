@@ -469,6 +469,7 @@ export function Header(props: HeaderProps): JSX.Element {
               return (
                 <Button
                   key={tab.id}
+                  id={tab.id === "settings" ? "comfy-settings-button" : undefined}
                   variant="ghost"
                   size="sm"
                   role="tab"
@@ -530,7 +531,9 @@ export function Header(props: HeaderProps): JSX.Element {
                     props.activeTab === tab.id
                       ? "bg-foreground text-background shadow-lg"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  } ${isDraggableTab ? "cursor-grab select-none active:cursor-grabbing" : ""}`}
+                  } ${isDraggableTab ? "cursor-grab select-none active:cursor-grabbing" : ""} ${
+                    tab.id === "settings" ? "comfy-settings-btn" : ""
+                  }`}
                 >
                   <Icon
                     className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}

@@ -248,6 +248,12 @@ export class LGraphAdapter implements LGraphAdapterInterface {
 
   constructor() {
     this.links = createMapProxy<ComfyWorkflowLink>(new Map())
+    if ((window as any).LGraph) {
+      const proto = Object.getPrototypeOf(this)
+      if (Object.getPrototypeOf(proto) !== (window as any).LGraph.prototype) {
+        Object.setPrototypeOf(proto, (window as any).LGraph.prototype)
+      }
+    }
   }
 
   // ── Computed getters ────────────────────────────────────────────

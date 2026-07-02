@@ -1088,42 +1088,47 @@ export class ComfyAppService {
   constructor(config: ComfyAppConfig) {
     this.nodeDefs = config.nodeDefs
     this.graph = new LGraphAdapter()
-    this.canvas = {
-      state: { readOnly: false },
-      ds: { scale: 1, offset: [0, 0] },
-      resize(_w?: number, _h?: number): void {
-        /* noop */
-      },
-      setDirty(_canvas?: boolean, _history?: boolean): void {
-        /* noop */
-      },
-      stopRendering(): void {
-        /* noop */
-      },
-      startRendering(): void {
-        /* noop */
-      },
-      setCanvas(_c: HTMLCanvasElement): void {
-        /* noop */
-      },
-      addEventListener(_type: string, _listener: (e: Event) => void): void {
-        /* noop */
-      },
-      removeEventListener(_type: string, _listener: (e: Event) => void): void {
-        /* noop */
-      },
-      getCanvasMenuOptions(): unknown[] {
-        return []
-      },
-      getContextMenuOptions(): unknown[] {
-        return []
-      },
-      getCurrentGraph(): LGraph | undefined {
-        return window.app.graph
-      },
-      render_canvas_border: false,
-      canvas: config.canvas,
-    } as unknown as LGraphCanvas
+    const canvasProto = (window as unknown as { LGraphCanvas?: { prototype: unknown } }).LGraphCanvas?.prototype ?? Object.prototype
+    this.canvas = Object.assign(
+      Object.create(canvasProto),
+      {
+        state: { readOnly: false },
+        graph: this.graph,
+        ds: { scale: 1, offset: [0, 0] },
+        resize(_w?: number, _h?: number): void {
+          /* noop */
+        },
+        setDirty(_canvas?: boolean, _history?: boolean): void {
+          /* noop */
+        },
+        stopRendering(): void {
+          /* noop */
+        },
+        startRendering(): void {
+          /* noop */
+        },
+        setCanvas(_c: HTMLCanvasElement): void {
+          /* noop */
+        },
+        addEventListener(_type: string, _listener: (e: Event) => void): void {
+          /* noop */
+        },
+        removeEventListener(_type: string, _listener: (e: Event) => void): void {
+          /* noop */
+        },
+        getCanvasMenuOptions(): unknown[] {
+          return []
+        },
+        getContextMenuOptions(): unknown[] {
+          return []
+        },
+        getCurrentGraph(): LGraph | undefined {
+          return window.app.graph
+        },
+        render_canvas_border: false,
+        canvas: config.canvas,
+      }
+    ) as unknown as LGraphCanvas
 
     // Set up canvas (creates bgcanvas, binds events)
     this.canvas.setCanvas(config.canvas)

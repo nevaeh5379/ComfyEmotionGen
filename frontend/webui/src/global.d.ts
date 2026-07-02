@@ -410,6 +410,10 @@ declare global {
     dialogs: Record<string, unknown>
     dialog: { show(): void }
     settings: AppSettings
+    menu?: {
+      readonly element: HTMLElement | null
+    }
+    menuContainer?: HTMLElement | null
   }
 
   interface ExtensionManager {

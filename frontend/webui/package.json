@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "test:extensions": "node scripts/check-extensions.js",
+    "test:extensions": "node scripts/check-extensions-browser.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -60,6 +60,7 @@
     "jsdom": "^26.0.0",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
+    "puppeteer": "^25.2.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.1",
     "vite": "^7.3.1"

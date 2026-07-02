@@ -504,12 +504,13 @@ export function EditorTab(): React.JSX.Element {
           </Button>
         )}
         <div className="mx-1 h-4 w-px bg-border" />
-        <Button variant="ghost" size="sm" onClick={handleNewWorkflow}>
+        <Button variant="ghost" size="sm" id="comfy-clear-button" onClick={handleNewWorkflow}>
           <FolderOpen className="mr-1 h-4 w-4" />새 워크플로우
         </Button>
         <Button
           variant="ghost"
           size="sm"
+          id="comfy-save-button"
           disabled={!currentWorkflow}
           onClick={() => {
             setSaveName("")
@@ -522,6 +523,7 @@ export function EditorTab(): React.JSX.Element {
         <Button
           variant="ghost"
           size="sm"
+          id="comfy-load-button"
           onClick={() => {
             setLoadDialogOpen(true)
           }}
@@ -539,6 +541,7 @@ export function EditorTab(): React.JSX.Element {
         </Button>
         <input
           ref={fileInputRef}
+          id="comfy-file-input"
           type="file"
           accept=".json,application/json"
           className="hidden"

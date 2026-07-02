@@ -1440,7 +1440,7 @@ export function ReactGraphEditor(): JSX.Element {
         }}
         aria-hidden="true"
       >
-        <canvas ref={hiddenCanvasRef} />
+        <canvas ref={hiddenCanvasRef} id="graph-canvas" />
         {/* Some extensions look for this element to configure allowed file extensions */}
         <input type="file" id="comfy-file-input" style={{ display: "none" }} />
       </div>
