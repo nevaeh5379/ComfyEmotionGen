@@ -43,60 +43,33 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/object_info": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/extensions": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/kjweb_async": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
       "/ws": {
-        target: "ws://localhost:5882",
+        target: `ws://localhost:${process.env.VITE_BACKEND_PORT || "5882"}`,
         ws: true,
       },
-      "/api": {
-        target: "http://localhost:5882",
-      },
-      "/erenodes": {
-        target: "http://localhost:5882",
+      // Avoid hardcoding specific custom nodes by proxying everything except Vite/public static assets to the backend
+      "^/(?!ws$)": {
+        target: `http://localhost:${process.env.VITE_BACKEND_PORT || "5882"}`,
         changeOrigin: true,
-      },
-      "/system_stats": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/manager": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/dasiwa": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/reslyf": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/upload": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/view": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/rgthree": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
-      },
-      "/lm": {
-        target: "http://localhost:5882",
-        changeOrigin: true,
+        bypass: (req, res, options) => {
+          const url = req.url || "";
+          if (
+            url === "/" ||
+            url.startsWith("/src/") ||
+            url.startsWith("/node_modules/") ||
+            url.startsWith("/@") ||
+            url.startsWith("/assets/") ||
+            url.includes("index.html")
+          ) {
+            return url;
+          }
+          const cleanUrl = url.split("?")[0].split("#")[0];
+          const publicFilePath = path.join(__dirname, "public", cleanUrl);
+          if (fs.existsSync(publicFilePath) && fs.statSync(publicFilePath).isFile()) {
+            return url;
+          }
+          return undefined;
+        },
       },
     },
   },

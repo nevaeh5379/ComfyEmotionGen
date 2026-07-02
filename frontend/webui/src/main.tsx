@@ -1,5 +1,6 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 
 import "./index.css"
 
@@ -144,6 +145,24 @@ try {
         onNodeTypeRegistered?: (type: string, cls: unknown) => void
       }
     ).onNodeTypeRegistered?.(type, cls)
+
+    try {
+      const store = useNodeDefStore.getState()
+      if (store.getNodeDef(type) === undefined) {
+        const category = (cls as unknown as { category?: string }).category ?? "Other"
+        const displayName = (cls as unknown as { title?: string }).title ?? type
+        store.registerNodeDef({
+          name: type,
+          display_name: displayName,
+          category: category,
+          input: {},
+          output: [],
+          output_name: [],
+        })
+      }
+    } catch (err) {
+      console.error("[CEG] Failed to register virtual node def in store:", err)
+    }
   }
   lg.getNodeType ??= (type: string): unknown =>
     (lg.registered_node_types as Record<string, unknown>)[type]
@@ -935,6 +954,9 @@ try {
       }
       setCanvas(c: HTMLCanvasElement): void {
         this.canvas = c
+      }
+      showConnectionMenu(optPass?: unknown): unknown {
+        return null
       }
       addEventListener(): void {
         /* noop */
