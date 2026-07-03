@@ -268,32 +268,80 @@ class JobStore:
                 completed_node_count, worker_type, target_worker_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                job_dict["id"],
-                job_dict["filename"],
-                job_dict["prompt"],
-                json.dumps(job_dict.get("_workflow", {})),
-                job_dict["status"],
-                job_dict.get("workerId"),
-                job_dict.get("error"),
-                json.dumps(job_dict.get("imageUrls", [])),
-                job_dict.get("progressPercent", 0.0),
-                job_dict.get("currentNodeName", ""),
-                job_dict.get("createdAt", 0.0),
-                job_dict.get("startedAt"),
-                job_dict.get("finishedAt"),
-                job_dict.get("retryCount", 0),
-                job_dict.get("executionDurationMs"),
-                json.dumps(job_dict.get("meta", {})),
-                job_dict.get("cegTemplate", ""),
-                json.dumps(job_dict.get("savedImageHashes", [])),
-                job_dict.get("totalNodeCount", 0),
-                job_dict.get("completedNodeCount", 0),
-                job_dict.get("workerType"),
-                job_dict.get("targetWorkerId"),
-            ),
+            self._job_save_params(job_dict),
         )
         await self._conn.commit()
+
+    async def save_many_with_created_events(
+        self, job_dicts: list[dict[str, JSONValue]]
+    ) -> None:
+        """여러 신규 잡과 created 이벤트를 단일 트랜잭션으로 저장합니다."""
+        if self._conn is None:
+            raise RuntimeError("JobStore is not open")
+        if not job_dicts:
+            return
+        await self._conn.executemany(
+            """
+            INSERT OR REPLACE INTO jobs (
+                id, filename, prompt, workflow_json, status, worker_id,
+                error, image_urls_json, progress_percent, current_node_name,
+                created_at, started_at, finished_at, retry_count,
+                execution_duration_ms, meta_json, ceg_template,
+                saved_image_hashes_json, total_node_count,
+                completed_node_count, worker_type, target_worker_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [self._job_save_params(job_dict) for job_dict in job_dicts],
+        )
+        now = time.time()
+        await self._conn.executemany(
+            """
+            INSERT INTO job_events (job_id, event_type, timestamp, worker_id, details)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    job_dict["id"],
+                    "created",
+                    now,
+                    None,
+                    json.dumps(
+                        {
+                            "filename": job_dict["filename"],
+                            "prompt": job_dict["prompt"],
+                        }
+                    ),
+                )
+                for job_dict in job_dicts
+            ],
+        )
+        await self._conn.commit()
+
+    def _job_save_params(self, job_dict: dict[str, JSONValue]) -> tuple[JSONValue, ...]:
+        return (
+            job_dict["id"],
+            job_dict["filename"],
+            job_dict["prompt"],
+            json.dumps(job_dict.get("_workflow", {})),
+            job_dict["status"],
+            job_dict.get("workerId"),
+            job_dict.get("error"),
+            json.dumps(job_dict.get("imageUrls", [])),
+            job_dict.get("progressPercent", 0.0),
+            job_dict.get("currentNodeName", ""),
+            job_dict.get("createdAt", 0.0),
+            job_dict.get("startedAt"),
+            job_dict.get("finishedAt"),
+            job_dict.get("retryCount", 0),
+            job_dict.get("executionDurationMs"),
+            json.dumps(job_dict.get("meta", {})),
+            job_dict.get("cegTemplate", ""),
+            json.dumps(job_dict.get("savedImageHashes", [])),
+            job_dict.get("totalNodeCount", 0),
+            job_dict.get("completedNodeCount", 0),
+            job_dict.get("workerType"),
+            job_dict.get("targetWorkerId"),
+        )
 
     async def delete(self, job_id: str) -> None:
         if self._conn is None:

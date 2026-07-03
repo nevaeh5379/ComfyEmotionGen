@@ -442,9 +442,8 @@ class JobManager:
             새로 생성된 잡 리스트 / List of newly created cloned jobs.
         """
         new_jobs = [job.clone() for job in items]
-        
-        for job in new_jobs:
-            await self._register_job(job)
+
+        await self._register_jobs(new_jobs)
         self._wakeup.set()
         return new_jobs
 
@@ -477,12 +476,11 @@ class JobManager:
         Create Jobs from multiple JobItems, register them, and wake the dispatcher.
         """
         created: list[Job] = self._create_jobs(items)
-            
 
-        for job in created:
-            await self._register_job(job)
+        await self._register_jobs(created)
         self._wakeup.set()
         return created
+
     def _create_jobs(self, items: list[JobItem]) -> list[Job]:
         """JobItem 리스트를 Job 인스턴스 리스트로 변환한다 (UUID 자동 생성).
         Convert a list of JobItems into Job instances with auto-generated UUIDs.
@@ -501,6 +499,22 @@ class JobManager:
             })
             for item in items
         ]
+
+    async def _register_jobs(self, jobs: list[Job]) -> None:
+        """여러 새 잡을 인메모리 저장소와 DB에 배치 등록하고 생성 이벤트를 발행한다.
+        Register new jobs in memory and persist them in one database transaction.
+        """
+        if not jobs:
+            return
+        async with self._lock:
+            for job in jobs:
+                self._jobs[job.id] = job
+        await self._store.save_many_with_created_events(
+            [job.to_dict() for job in jobs]
+        )
+        for job in jobs:
+            await self._emit({"type": "job.created", "job": job.to_dict()})
+
     @property
     def paused(self) -> bool:
         """디스패처가 일시정지 상태인지 반환한다.
