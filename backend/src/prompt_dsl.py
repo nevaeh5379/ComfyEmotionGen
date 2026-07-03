@@ -63,6 +63,7 @@ class TemplateLine:
 class AxisValue:
     key: str
     value: str
+    file_key: Optional[str] = None
     hide_key: bool = False
     props: Dict[str, str] = field(default_factory=dict)
 
@@ -162,14 +163,18 @@ class _Builder(Transformer[Token, object]):
 
     def axis_entry(self, items: list[object]) -> object:
         key = str(items[0])
-        val = items[1]
+        file_key = str(items[1]) if len(items) == 3 else None
+        val = items[-1]
         if isinstance(val, dict):
             props = cast(dict[str, str], val)
             value = ", ".join(props.values())
         else:
             props = {}
             value = str(val)
-        return AxisValue(key=key, value=value, props=props)
+        return AxisValue(key=key, value=value, file_key=file_key, props=props)
+
+    def axis_file_key(self, items: list[object]) -> object:
+        return str(items[1])[1:-1]
 
     def axis_value(self, items: list[object]) -> object:
         if not items:
@@ -296,7 +301,7 @@ class _RowStructure(TypedDict):
 class _StructureExtractor:
     """Lark AST에서 템플릿 줄 번호별 매핑 정보를 추출한다."""
 
-    _REF_PATTERN = re.compile(r"\{\{\s*([a-zA-Z_\-][a-zA-Z0-9_\-]*)\s*\}\}")
+    _REF_PATTERN = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 
     def __init__(self, source: str) -> None:
         self.lines = source.split("\n")
@@ -454,7 +459,13 @@ def eval_expr(expr: object, axes: Dict[str, Axis], vars: Dict[str, str]) -> List
             vals = axis.values
             if axis.include:
                 vals = [
-                    AxisValue(key=v.key, value=f"{v.value}, {axis.include}", hide_key=v.hide_key, props=v.props)
+                    AxisValue(
+                        key=v.key,
+                        value=f"{v.value}, {axis.include}",
+                        file_key=v.file_key,
+                        hide_key=v.hide_key,
+                        props=v.props,
+                    )
                     for v in vals
                 ]
             res = [{name: val} for val in vals]
@@ -476,7 +487,13 @@ def eval_expr(expr: object, axes: Dict[str, Axis], vars: Dict[str, str]) -> List
         for combo in res:
             new_combo = {}
             for k, v in combo.items():
-                new_combo[k] = AxisValue(key=v.key, value=v.value, hide_key=True, props=v.props)
+                new_combo[k] = AxisValue(
+                    key=v.key,
+                    value=v.value,
+                    file_key=v.file_key,
+                    hide_key=True,
+                    props=v.props,
+                )
             new_res.append(new_combo)
         return new_res
 
@@ -651,20 +668,22 @@ def render(prog: Program, *,
     results = []
     for combo in combos:
         ctx = dict(prog.vars)
-        keys = {}
+        render_keys = {}
+        meta_keys = {}
         
         # 생략된 선택적 축들에 대해 빈 문자열 기본값 바인딩
         for name, axis_obj in prog.axes.items():
             if name not in combo:
                 ctx[name] = ""
-                keys[name] = ""
+                render_keys[name] = ""
                 
         for k, v in combo.items():
             ctx[k] = v.value
             if not getattr(v, "hide_key", False):
-                keys[k] = v.key
+                render_keys[k] = v.file_key or v.key
+                meta_keys[k] = v.key
             else:
-                keys[k] = ""
+                render_keys[k] = ""
             for prop_name, prop_val in v.props.items():
                 ctx[f"{k}.{prop_name}"] = prop_val
             
@@ -672,11 +691,15 @@ def render(prog: Program, *,
             alias = prog.combine_alias
             # v.value가 비어있지 않은 것만 모아서 조립
             c_val = ", ".join(v.value for v in combo.values() if v.value.strip())
-            c_key = "_".join(v.key for v in combo.values() if v.key.strip() and not getattr(v, "hide_key", False))
+            c_key = "_".join(
+                (v.file_key or v.key)
+                for v in combo.values()
+                if (v.file_key or v.key).strip() and not getattr(v, "hide_key", False)
+            )
             ctx[alias] = c_val
-            keys[alias] = c_key
+            render_keys[alias] = c_key
 
-        filename = _substitute(prog.filename, ctx, keys).strip()
+        filename = _substitute(prog.filename, ctx, render_keys).strip()
         
         # clean_filename 옵션이 true(기본값)인 경우에만 다듬기 수행
         clean_opt = prog.vars.get("clean_filename", "true").lower() == "true"
@@ -688,8 +711,8 @@ def render(prog: Program, *,
 
         results.append({
             "filename": filename,
-            "prompt": _clean_prompt(_substitute(prog.template, ctx, keys)),
-            "meta": {k: v for k, v in keys.items() if k != prog.combine_alias and keys[k]},
+            "prompt": _clean_prompt(_substitute(prog.template, ctx, render_keys)),
+            "meta": {k: v for k, v in meta_keys.items() if k != prog.combine_alias and v},
         })
 
     axes_info = {}
@@ -700,6 +723,7 @@ def render(prog: Program, *,
             "values": [
                 {
                     "key": v.key,
+                    "file_key": v.file_key or v.key,
                     "value": v.value,
                     "props": dict(v.props),
                 }

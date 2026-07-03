@@ -30,7 +30,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "==> Starting backend on :${BACKEND_PORT}"
-(cd "$ROOT/backend/src" && BACKEND_PORT="$BACKEND_PORT" BACKEND_HOST="$BACKEND_HOST" "$ROOT/.python/bin/python3" run.py) &
+(cd "$ROOT/backend/src" && CEG_DATA_DIR="$ROOT/backend/data" BACKEND_PORT="$BACKEND_PORT" BACKEND_HOST="$BACKEND_HOST" "$ROOT/.python/bin/python3" run.py) &
 BACKEND_PID=$!
 
 echo "==> Starting frontend preview on :${FRONTEND_PORT}"

@@ -67,7 +67,7 @@
     },
     "keywords": {
       "name": "keyword.other.ceg",
-      "match": "\\b(?:include|AND|OR|in|not)\\b"
+      "match": "\\b(?:include|as|AND|OR|in|not)\\b"
     },
     "operators": {
       "name": "keyword.operator.ceg",
@@ -83,7 +83,7 @@
     },
     "axis-keys": {
       "name": "entity.name.tag.ceg",
-      "match": "^[ \\t]*[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*:)"
+      "match": "^[ \\t]*[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*(?:as\\s*\"(?:[^\"\\\\]|\\\\.)*\"\\s*)?:)"
     }
   }
 }

@@ -63,9 +63,24 @@ class TestParser:
         vals = prog.axes["mood"].values
         assert len(vals) == 2
         assert vals[0].key == "happy"
+        assert vals[0].file_key is None
         assert vals[0].value == "a happy scene"
         assert vals[1].key == "sad"
         assert vals[1].value == "a sad scene"
+
+    def test_axis_file_key_alias_parsed(self):
+        prog = parse(
+            '{{axis pose}}\n'
+            '  hello_world as "hello-world" : "hello world pose"\n'
+            '{{/axis}}\n'
+            '{{combine pose}}\n'
+            '{{template}}{{pose}}{{/template}}\n'
+            '{{filename}}{{pose.key}}{{/filename}}\n'
+        )
+        val = prog.axes["pose"].values[0]
+        assert val.key == "hello_world"
+        assert val.file_key == "hello-world"
+        assert val.value == "hello world pose"
 
     def test_combine_expr_parsed(self):
         prog = _simple_program()
@@ -829,6 +844,38 @@ class TestRenderFilename:
         )
         result = render(prog)
         assert result["items"][0]["filename"] == "out_happy"
+
+    def test_axis_file_key_alias_used_for_filename_key(self):
+        prog = parse(
+            '{{axis pose}}\n'
+            '  hello_world as "hello-world" : "hello world pose"\n'
+            '{{/axis}}\n'
+            '{{combine pose}}\n'
+            '{{template}}{{pose}}{{/template}}\n'
+            '{{filename}}{{pose.key}}{{/filename}}\n'
+        )
+        result = render(prog)
+        item = result["items"][0]
+        assert item["filename"] == "hello-world"
+        assert item["prompt"] == "hello world pose"
+        assert item["meta"] == {"pose": "hello_world"}
+        assert result["axes"]["pose"]["values"][0]["key"] == "hello_world"
+        assert result["axes"]["pose"]["values"][0]["file_key"] == "hello-world"
+
+    def test_combine_alias_key_uses_axis_file_key_alias(self):
+        prog = parse(
+            '{{axis pose}}\n'
+            '  hello_world as "hello-world" : "hello world pose"\n'
+            '{{/axis}}\n'
+            '{{axis mood}}\n'
+            '  very_happy as "very-happy" : "very happy"\n'
+            '{{/axis}}\n'
+            '{{combine combo = pose * mood}}\n'
+            '{{template}}{{combo}}{{/template}}\n'
+            '{{filename}}{{combo.key}}{{/filename}}\n'
+        )
+        result = render(prog)
+        assert result["items"][0]["filename"] == "hello-world_very-happy"
 
     def test_clean_filename_normalizes_double_underscores(self):
         prog = parse(
