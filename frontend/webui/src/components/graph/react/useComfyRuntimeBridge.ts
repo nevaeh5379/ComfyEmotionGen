@@ -49,6 +49,23 @@ export function useComfyRuntimeBridge({
         container: hiddenContainerRef.current,
         nodeDefs,
       })
+
+      if (typeof window !== "undefined" && (window as any).LGraphNode) {
+        Object.defineProperty((window as any).LGraphNode, Symbol.hasInstance, {
+          value: function(instance: any) {
+            if (!instance) return false;
+
+            if (instance.type === "Fast Groups Muter (rgthree)" || instance.constructor?.name?.includes("Muter")) return false;
+            
+            return instance && (
+              instance.constructor?.name?.includes("Node") || 
+              typeof instance.mode === "number"
+            );
+          },
+          configurable: true
+        });
+      }
+
       rawApp.graph = appService.graph as unknown as LGraph
       rawApp.canvas = appService.canvas
       rawApp.extensionManager = appService.extensionManager
@@ -60,21 +77,30 @@ export function useComfyRuntimeBridge({
           (liveNode as { widgets?: { value: unknown }[] }).widgets?.map(
             (widget) => widget.value as WidgetValue
           ) ?? []
+
+
         useReactGraphStore.setState({
           nodes: useReactGraphStore
             .getState()
-            .nodes.map((node) =>
-              node.id === nodeId
-                ? { ...node, widgets_values: widgetsValues }
-                : node
-            ),
+            .nodes.map((node) => {
+              const ln = appService.graph.getNodeById(node.id)
+              if (node.id === nodeId) {
+                return {
+                  ...node,
+                  widgets_values: widgetsValues,
+                  mode: ln ? ln.mode : node.mode,
+                }
+              }
+              return ln ? { ...node, mode: ln.mode } : node
+            }),
         })
       }
       ;(rawApp.graph as unknown as Record<string, unknown>)._canvas =
         appService.canvas
       appService.canvas.app = rawApp
 
-      window.__comfyAppService = appService
+      ;(window as any).__comfyAppService = appService
+      ;(window as any).__useReactGraphStore = useReactGraphStore
 
       if (rawApp.extensionsLoaded !== true) {
         const apiClient: {

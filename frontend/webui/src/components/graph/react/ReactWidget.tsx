@@ -12,7 +12,7 @@ export function HTMLElementWidget({
   const containerRef = useRef<HTMLDivElement>(null)
   const elementRef = useRef<HTMLElement>(element)
 
-  // element가 실제로 container에 붙여졌을 때만 로그
+
   useLayoutEffect(() => {
     const el = elementRef.current
     const container = containerRef.current
@@ -37,7 +37,7 @@ export function HTMLElementWidget({
     }
   })
 
-  // unmount 시에만 element를 컨테이너에서 떼어낸다.
+
   useEffect(() => {
     const el = elementRef.current
     return (): void => {
@@ -160,8 +160,8 @@ export function CanvasWidget({
     }
   }, [widget, node, width, height])
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>): void => {
-    if (disabled || typeof widget.mouse !== "function") return
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    if (typeof widget.mouse !== "function") return
 
     const canvas = canvasRef.current
     if (!canvas) return
@@ -180,7 +180,7 @@ export function CanvasWidget({
             yOffset +=
               typeof w.computeSize === "function"
                 ? w.computeSize(width)[1]
-                : (w.height ?? 30)
+                : (w.height ?? 30);
             yOffset += 4 // margin
           }
         }
@@ -190,34 +190,116 @@ export function CanvasWidget({
     const nodeRelativePos: [number, number] = [localX, localY + yOffset]
 
     try {
-      const mockEvent = e.nativeEvent
-      const mouseFn = widget.mouse
-      if (typeof mouseFn !== "function") return
-      mouseFn(mockEvent, nodeRelativePos, node)
+      const isNavArea = (widget as any).node && (localX >= (widget as any).node.size[0] - 44);
+      
+      if (!isNavArea) {
+        try {
+          const rawWidget = widget as any;
+          let nextToggled = true;
+          if (rawWidget.value) {
+            rawWidget.value.toggled = !rawWidget.value.toggled;
+            nextToggled = rawWidget.value.toggled;
+          } else {
+            rawWidget.toggled = !rawWidget.toggled;
+            nextToggled = rawWidget.toggled;
+          }
 
-      const onMouseMove = (moveEvent: MouseEvent): void => {
-        const moveRect = canvas.getBoundingClientRect()
-        const mx = moveEvent.clientX - moveRect.left
-        const my = moveEvent.clientY - moveRect.top
-        mouseFn(moveEvent, [mx, my + yOffset], node)
-      }
+          if (typeof rawWidget.toggle === "function") {
+            try { rawWidget.toggle(); } catch(e) {}
+          }
+          
+          if (typeof rawWidget.doModeChange === "function") {
+            try { rawWidget.doModeChange(); } catch(e) {}
+          }
 
-      const onMouseUp = (upEvent: MouseEvent): void => {
-        const upRect = canvas.getBoundingClientRect()
-        const ux = upEvent.clientX - upRect.left
-        const uy = upEvent.clientY - upRect.top
-        mouseFn(upEvent, [ux, uy + yOffset], node)
 
-        window.removeEventListener("mousemove", onMouseMove)
-        window.removeEventListener("mouseup", onMouseUp)
 
-        if (typeof window.app.syncGraphNode === "function") {
-          window.app.syncGraphNode(node.id)
+          if (rawWidget.group) {
+            const group = rawWidget.group;
+            const gx = group.pos[0];
+            const gy = group.pos[1];
+            const gw = group.size[0];
+            const gh = group.size[1];
+            
+            const targetMode = nextToggled ? 0 : 2; // ALWAYS(0) / NEVER(2)
+            const app = (window as any).app;
+            if (app?.graph?.nodes) {
+              app.graph.nodes.forEach((n: any) => {
+
+                if (n.id === node.id || n.type === "Fast Groups Muter (rgthree)" || n.constructor?.name?.includes("Muter")) return;
+                
+                const x = n.pos[0];
+                const y = n.pos[1];
+                if (x >= gx && x <= gx + gw && y >= gy && y <= gy + gh) {
+                  n.mode = targetMode; // 실메모리 모드 직접 대입
+                }
+              });
+            }
+          }
+          console.log("[CEG] Direct child node Mute sync success! nextToggled:", nextToggled);
+        } catch (err) {
+          console.error("[CEG] Direct toggle invocation failed:", err);
         }
       }
 
-      window.addEventListener("mousemove", onMouseMove)
-      window.addEventListener("mouseup", onMouseUp)
+      const triggerMouseFn = (evtType: "down" | "move" | "up", evt: Event, pos: [number, number]) => {
+        const mappedType = evtType === "down" ? "mousedown"
+                         : evtType === "move" ? "mousemove"
+                         : evtType === "up" ? "mouseup"
+                         : evt.type;
+        
+        const mappedEvent = Object.create(evt);
+        Object.defineProperty(mappedEvent, "type", { value: mappedType, writable: true, configurable: true });
+
+        const mouseFn = widget.mouse;
+        if (typeof mouseFn === "function") {
+          mouseFn.call(widget, mappedEvent, pos, node);
+        }
+
+        const rawWidget = widget as any;
+        if (evtType === "down") {
+          if (typeof rawWidget.onMouseDown === "function") {
+            rawWidget.onMouseDown(mappedEvent, pos, node);
+          }
+        } else if (evtType === "move") {
+          if (typeof rawWidget.onMouseMove === "function") {
+            rawWidget.onMouseMove(mappedEvent, pos, node);
+          }
+        } else if (evtType === "up") {
+          if (typeof rawWidget.onMouseUp === "function") {
+            rawWidget.onMouseUp(mappedEvent, pos, node);
+          }
+          if (typeof rawWidget.onMouseClick === "function") {
+            rawWidget.onMouseClick(mappedEvent, pos, node);
+          }
+        }
+      };
+
+      triggerMouseFn("down", e.nativeEvent, nodeRelativePos)
+ 
+      const onPointerMove = (moveEvent: PointerEvent): void => {
+        const moveRect = canvas.getBoundingClientRect()
+        const mx = moveEvent.clientX - moveRect.left
+        const my = moveEvent.clientY - moveRect.top
+        triggerMouseFn("move", moveEvent, [mx, my + yOffset])
+      }
+ 
+      const onPointerUp = (upEvent: PointerEvent): void => {
+        const upRect = canvas.getBoundingClientRect()
+        const ux = upEvent.clientX - upRect.left
+        const uy = upEvent.clientY - upRect.top
+        triggerMouseFn("up", upEvent, [ux, uy + yOffset])
+ 
+        window.removeEventListener("pointermove", onPointerMove)
+        window.removeEventListener("pointerup", onPointerUp)
+ 
+        if (typeof (window as any).app?.syncGraphNode === "function") {
+          (window as any).app.syncGraphNode(node.id)
+        }
+      }
+ 
+      window.addEventListener("pointermove", onPointerMove)
+      window.addEventListener("pointerup", onPointerUp)
     } catch (err) {
       console.error("[CEG] widget.mouse failed:", err)
     }
@@ -226,7 +308,7 @@ export function CanvasWidget({
   return (
     <canvas
       ref={canvasRef}
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
       className="block cursor-pointer select-none"
       style={{ width, height }}
     />
@@ -292,7 +374,7 @@ export function ReactWidget({
 
   const typeName = String(typeSpec).toUpperCase()
 
-  // 1.5 BUTTON 타입
+
   if (typeName === "BUTTON") {
     const btnLabel =
       name ||
@@ -328,7 +410,7 @@ export function ReactWidget({
     )
   }
 
-  // 1. COMBO 타입
+
   if (isCombo) {
     const options = Array.isArray(typeSpec)
       ? typeSpec
@@ -364,7 +446,7 @@ export function ReactWidget({
     )
   }
 
-  // 2. BOOLEAN 타입 (토글 스위치/체크박스)
+
   if (typeName === "BOOLEAN") {
     const boolVal = value === true || value === 1 || value === "true"
 
@@ -388,7 +470,7 @@ export function ReactWidget({
     )
   }
 
-  // 3. INT / FLOAT 수치 타입
+
   if (typeName === "INT" || typeName === "FLOAT") {
     const parsed = typeof value === "number" ? value : Number(value)
     const numVal = Number.isFinite(parsed) ? parsed : 0
@@ -431,7 +513,7 @@ export function ReactWidget({
     )
   }
 
-  // 4. STRING 또는 기타 기본 텍스트 필드 (textarea for multiline support)
+
   const strVal = typeof value === "string" ? value : ""
 
   return (

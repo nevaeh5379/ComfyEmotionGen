@@ -71,6 +71,7 @@ interface ReactNodeProps {
   pos: [number, number]
   size: [number, number]
   selected: boolean
+  mode?: number | undefined
 }
 
 export const ReactNode = memo(function ReactNode({
@@ -79,6 +80,7 @@ export const ReactNode = memo(function ReactNode({
   pos,
   size,
   selected,
+  mode,
 }: ReactNodeProps): ReactNodeType {
   const nodeRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -107,7 +109,7 @@ export const ReactNode = memo(function ReactNode({
     NEVER: 2,
     BYPASS: 4,
   }
-  const nodeMode = nodeData?.mode ?? LGraphEventModeValues.ALWAYS
+  const nodeMode = mode ?? nodeData?.mode ?? LGraphEventModeValues.ALWAYS
   const isBypassed = nodeMode === LGraphEventModeValues.BYPASS
   const isMuted = nodeMode === LGraphEventModeValues.NEVER
   const isDisabled = isBypassed || isMuted

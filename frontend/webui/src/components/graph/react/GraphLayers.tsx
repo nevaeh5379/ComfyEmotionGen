@@ -25,6 +25,7 @@ const NodeLayerItem = memo(function NodeLayerItem({
       pos={node.pos}
       size={node.size}
       selected={selected}
+      mode={node.mode}
     />
   )
 })
