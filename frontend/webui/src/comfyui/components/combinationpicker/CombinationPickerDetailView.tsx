@@ -10,6 +10,7 @@ import {
   ChevronDownIcon,
   LayoutListIcon,
   InfoIcon,
+  BrushIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -67,6 +68,7 @@ interface DetailViewProps {
   onNavigate: (dir: "prev" | "next") => void
   onOpenList?: () => void
   onOpenDetail?: (img: SavedImage) => void
+  onInpaint?: (img: SavedImage) => void
 }
 
 export function CombinationPickerDetailView({
@@ -87,6 +89,7 @@ export function CombinationPickerDetailView({
   onNavigate,
   onOpenList,
   onOpenDetail,
+  onInpaint,
 }: DetailViewProps): React.JSX.Element {
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } =
     useCurationContext()
@@ -509,6 +512,9 @@ export function CombinationPickerDetailView({
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => onOpenDetail?.(img)}>
                       <InfoIcon className="h-4 w-4" /> 상세 정보
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => onInpaint?.(img)}>
+                      <BrushIcon className="h-4 w-4" /> 인페인팅 편집
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     {isSelected ? (

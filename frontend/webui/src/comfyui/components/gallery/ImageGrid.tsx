@@ -5,6 +5,7 @@ import {
   CheckCircleIcon,
   CheckSquareIcon,
   CopyIcon,
+  Brush,
   EyeIcon,
   ImageOff,
   RotateCcwIcon,
@@ -47,6 +48,7 @@ export interface GridProps {
   backendUrl: string
   setStatus: (hash: string, status: CurationStatus) => void
   onOpen: (img: SavedImage) => void
+  onInpaint?: (img: SavedImage) => void
   selectionMode?: boolean
   selectedHashes?: Set<string>
   onToggleSelect?: (hash: string) => void
@@ -65,6 +67,7 @@ export function ImageGrid({
   backendUrl,
   setStatus,
   onOpen,
+  onInpaint,
   selectionMode = false,
   selectedHashes = new Set(),
   onToggleSelect,
@@ -125,6 +128,7 @@ export function ImageGrid({
             backendUrl={backendUrl}
             setStatus={setStatus}
             onOpen={onOpen}
+            onInpaint={onInpaint}
             selectionMode={selectionMode}
             isSelected={isSelected}
             onToggleSelect={onToggleSelect}
@@ -147,6 +151,7 @@ interface ImageGridItemProps {
   backendUrl: string
   setStatus: (hash: string, status: CurationStatus) => void
   onOpen: (img: SavedImage) => void
+  onInpaint: ((img: SavedImage) => void) | undefined
   selectionMode: boolean
   isSelected: boolean
   onToggleSelect: ((hash: string) => void) | undefined
@@ -164,6 +169,7 @@ const ImageGridItem = memo(function ImageGridItem({
   backendUrl,
   setStatus,
   onOpen,
+  onInpaint,
   selectionMode,
   isSelected,
   onToggleSelect,
@@ -363,6 +369,15 @@ const ImageGridItem = memo(function ImageGridItem({
         >
           <EyeIcon className="h-3.5 w-3.5" />
           상세 보기
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            onInpaint?.(img)
+          }}
+          className="gap-2 font-bold"
+        >
+          <Brush className="h-3.5 w-3.5" />
+          인페인팅 편집
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {

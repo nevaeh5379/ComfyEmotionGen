@@ -115,6 +115,7 @@ import { toast } from "sonner"
 import { useLatestRef } from "../hooks/useLatestRef"
 import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
+import { GalleryInpaintEditor } from "./GalleryInpaintEditor"
 import { Kbd } from "@/components/ui/kbd"
 import type {
   GalleryViewMode,
@@ -217,6 +218,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [localMetadataFilter, setMetadataFilterState] = useState("")
   const [groupMode, setGroupModeState] = useState(false)
   const [selected, setSelected] = useState<SavedImage | null>(null)
+  const [inpaintImage, setInpaintImage] = useState<SavedImage | null>(null)
   const [focusedHash, setFocusedHash] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [hideRejected, setHideRejected] = useState(false)
@@ -2439,6 +2441,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             void setStatus(hash, status)
                           }}
                           onOpen={setSelected}
+                          onInpaint={setInpaintImage}
                           selectionMode={selectionMode}
                           selectedHashes={selectedHashes}
                           onToggleSelect={toggleSelectHash}
@@ -2543,6 +2546,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     void setStatus(hash, status)
                   }}
                   onOpen={setSelected}
+                  onInpaint={setInpaintImage}
                   selectionMode={selectionMode}
                   selectedHashes={selectedHashes}
                   onToggleSelect={toggleSelectHash}
@@ -2646,6 +2650,16 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 }}
                 onChanged={reload}
                 singleDownloadMode={singleDownloadMode}
+              />
+            )}
+            {inpaintImage && (
+              <GalleryInpaintEditor
+                open={inpaintImage !== null}
+                imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
+                filename={getImageFilename(inpaintImage)}
+                onOpenChange={(open): void => {
+                  if (!open) setInpaintImage(null)
+                }}
               />
             )}
           </div>

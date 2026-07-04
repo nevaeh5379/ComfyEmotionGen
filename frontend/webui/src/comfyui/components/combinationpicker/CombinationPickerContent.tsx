@@ -45,6 +45,7 @@ import type { RenderItem } from "./CombinationPickerComponents"
 import { RegenerateDialog } from "./CombinationPickerComponents"
 import { ImageViewer } from "../ImageViewer"
 import { ImageDetail } from "../gallery/ImageDetail"
+import { GalleryInpaintEditor } from "../GalleryInpaintEditor"
 import { hasApproved, findApproved } from "../../types/Message"
 import { TournamentView } from "./CombinationPickerViews"
 import { GalleryView, TableView } from "./CombinationPickerViews"
@@ -140,6 +141,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     string | null
   >(STORAGE_KEYS.curationSelectedFilename, null)
   const [detailImage, setDetailImage] = useState<SavedImage | null>(null)
+  const [inpaintImage, setInpaintImage] = useState<SavedImage | null>(null)
 
   const exportAction = useAsyncAction(3000)
   const regenAction = useAsyncAction(3000)
@@ -893,6 +895,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 onOpenDetail={(img) => {
                   setDetailImage(img)
                 }}
+                onInpaint={(img) => {
+                  setInpaintImage(img)
+                }}
               />
               {viewMode === "tournament" && (
                 <div className="flex-1 overflow-hidden">
@@ -993,6 +998,16 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             }}
             onChanged={() => {
               void fetchData()
+            }}
+          />
+        )}
+        {inpaintImage && (
+          <GalleryInpaintEditor
+            open={inpaintImage !== null}
+            imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
+            filename={getImageFilename(inpaintImage)}
+            onOpenChange={(open) => {
+              if (!open) setInpaintImage(null)
             }}
           />
         )}

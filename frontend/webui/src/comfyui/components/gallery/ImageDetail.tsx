@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Copy, Download, ImageOff } from "lucide-react"
+import { Brush, Copy, Download, ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import {
@@ -18,6 +18,7 @@ import {
   triggerBlobDownload,
   getImageFilename,
 } from "../../utils/downloadImages"
+import { GalleryInpaintEditor } from "../GalleryInpaintEditor"
 
 function defaultName(filename: string): string {
   return filename.replace(/\.[^/.]+$/, "")
@@ -43,6 +44,7 @@ export function ImageDetailPanel({
   const [tags, setTags] = useState<string[]>(image.tags)
   const [imgError, setImgError] = useState(false)
   const [autoTagLoading, setAutoTagLoading] = useState(false)
+  const [inpaintOpen, setInpaintOpen] = useState(false)
 
   const handleAutoTag = async (): Promise<void> => {
     setAutoTagLoading(true)
@@ -145,6 +147,20 @@ export function ImageDetailPanel({
               variant="ghost"
               className="ml-auto"
               onClick={() => {
+                setInpaintOpen(true)
+              }}
+            >
+              <Brush className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>인페인팅 편집</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
                 const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
                 const url = `${cleanBackendUrl}/saved-images/${image.hash}`
                 if (singleDownloadMode === "direct") {
@@ -182,6 +198,12 @@ export function ImageDetailPanel({
           닫기
         </Button>
       </div>
+      <GalleryInpaintEditor
+        open={inpaintOpen}
+        imageUrl={`${backendUrl}/saved-images/${image.hash}`}
+        filename={getImageFilename(image)}
+        onOpenChange={setInpaintOpen}
+      />
       {imgError ? (
         <div className="flex h-64 w-full items-center justify-center bg-muted text-muted-foreground">
           <ImageOff className="h-10 w-10" />
