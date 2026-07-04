@@ -36,12 +36,16 @@ export function baseName(filename: string): string {
 export async function uploadToSavedImages(
   backendUrl: string,
   canvas: HTMLCanvasElement,
-  filename: string
+  filename: string,
+  parentHash?: string
 ): Promise<{ hash: string; filename: string }> {
   const blob = await canvasToPngBlob(canvas)
   const file = new File([blob], filename, { type: "image/png" })
   const form = new FormData()
   form.append("file", file)
+  if (parentHash) {
+    form.append("parent_hash", parentHash)
+  }
   const res = await fetch(`${backendUrl}/saved-images/upload`, {
     method: "POST",
     body: form,

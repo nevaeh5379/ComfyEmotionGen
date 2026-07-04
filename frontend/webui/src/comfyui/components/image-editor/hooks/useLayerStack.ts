@@ -42,6 +42,7 @@ export function useLayerStack(width: number, height: number) {
         offsetX: opts.offsetX ?? 0,
         offsetY: opts.offsetY ?? 0,
         adjust: opts.adjust,
+        updatedAt: Date.now(),
       }
       setLayers((prev) => [...prev, layer])
       setActiveLayerId(id)

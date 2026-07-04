@@ -2674,9 +2674,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 backendUrl={backendUrl}
                 imageUrl={`${backendUrl}/saved-images/${editImage.hash}`}
                 filename={getImageFilename(editImage)}
+                parentHash={editImage.hash}
                 onOpenChange={(open): void => {
                   if (!open) setEditImage(null)
                 }}
+                onSaveSuccess={reload}
               />
             )}
           </div>

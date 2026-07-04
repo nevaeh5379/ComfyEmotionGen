@@ -53,7 +53,7 @@ from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union, AsyncGenerator
 import websockets
 
-from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query
+from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -1332,7 +1332,10 @@ async def images_upload(file: UploadFile) -> dict[str, str]:
 
 
 @app.post("/saved-images/upload")
-async def saved_images_upload(file: UploadFile) -> dict[str, str]:
+async def saved_images_upload(
+    file: UploadFile,
+    parent_hash: Optional[str] = Form(None)
+) -> dict[str, str]:
     """이미지 편집기 결과를 saved-images 디렉토리에 영속화한다.
 
     SHA-256 해시로 저장하고 DB 레코드를 작성한다. job_id는 가상의 "editor" 잡으로
@@ -1352,11 +1355,49 @@ async def saved_images_upload(file: UploadFile) -> dict[str, str]:
     sha = hashlib.sha256(data).hexdigest()
     DEFAULT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     target = DEFAULT_IMAGES_DIR / f"{sha}{ext}"
+
+    # 원본 이미지의 메타데이터 복사 시도
+    parent_prompt = ""
+    parent_workflow = {}
+    parent_ceg_template = ""
+    parent_meta = {"source": "image-editor"}
+
+    if parent_hash:
+        try:
+            parent_img = await job_manager._store.get_saved_image(parent_hash)
+            if parent_img:
+                parent_prompt = parent_img.get("prompt", "")
+                parent_workflow = parent_img.get("workflow", {}) or {}
+                parent_ceg_template = parent_img.get("cegTemplate", "")
+                orig_meta = parent_img.get("meta", {}) or {}
+                if isinstance(orig_meta, dict):
+                    parent_meta.update(orig_meta)
+        except Exception:
+            logger.exception("saved-images/upload 원본 메타데이터 조회 실패: parent_hash=%s", parent_hash)
+
+    # 1. 파일 저장 (PNG인 경우 메타데이터 주입)
     if not target.exists():
         try:
-            target.write_bytes(data)
-        except OSError:
-            raise HTTPException(status_code=500, detail="failed to save file to disk")
+            if ext == ".png":
+                from PIL import Image
+                from PIL.PngImagePlugin import PngInfo
+                img = Image.open(io.BytesIO(data))
+                pnginfo = PngInfo()
+                if parent_prompt:
+                    pnginfo.add_text("prompt", parent_prompt)
+                if parent_workflow:
+                    pnginfo.add_text("workflow", json.dumps(parent_workflow))
+                img.save(target, "PNG", pnginfo=pnginfo)
+            else:
+                target.write_bytes(data)
+        except Exception:
+            # Fallback to direct write if PIL fails
+            try:
+                target.write_bytes(data)
+            except OSError:
+                raise HTTPException(status_code=500, detail="failed to save file to disk")
+
+    # 2. DB 레코드 생성
     try:
         await job_manager._store.save_image_record(
             hash=sha,
@@ -1368,10 +1409,10 @@ async def saved_images_upload(file: UploadFile) -> dict[str, str]:
             worker_id=None,
             extension=ext,
             size_bytes=len(data),
-            prompt="",
-            meta={"source": "image-editor"},
-            ceg_template="",
-            workflow={},
+            prompt=parent_prompt,
+            meta=parent_meta,
+            ceg_template=parent_ceg_template,
+            workflow=parent_workflow,
         )
     except Exception:
         logger.exception("saved-images/upload DB 기록 실패 (파일은 저장됨): hash=%s", sha)

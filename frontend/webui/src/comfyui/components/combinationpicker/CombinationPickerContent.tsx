@@ -1024,8 +1024,14 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             backendUrl={backendUrl}
             imageUrl={`${backendUrl}/saved-images/${editImage.hash}`}
             filename={getImageFilename(editImage)}
+            parentHash={editImage.hash}
             onOpenChange={(open) => {
               if (!open) setEditImage(null)
+            }}
+            onSaveSuccess={(savedImage) => {
+              if (selectedFilename !== null) {
+                void handleSelectImage(selectedFilename, savedImage.hash)
+              }
             }}
           />
         )}

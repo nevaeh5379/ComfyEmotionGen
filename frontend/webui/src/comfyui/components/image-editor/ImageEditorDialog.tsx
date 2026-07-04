@@ -20,17 +20,19 @@ import {
   ZoomOut,
   Download,
   Save,
-  Wand2,
   CircleDashed,
   ArrowUp,
   ArrowDown,
   Sliders,
+  HelpCircle,
+  Info,
 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -57,6 +59,7 @@ import {
   type Point,
   type ToolId,
   type ViewTransform,
+  type Selection,
 } from "./types"
 import {
   clearSelectionArea,
@@ -84,7 +87,9 @@ interface ImageEditorDialogProps {
   backendUrl: string
   imageUrl: string
   filename: string
+  parentHash?: string
   onOpenChange: (open: boolean) => void
+  onSaveSuccess?: (savedImage: { hash: string; filename: string }) => void
 }
 
 const TOOL_LABELS: Record<ToolId, string> = {
@@ -102,12 +107,68 @@ const TOOL_LABELS: Record<ToolId, string> = {
   adjust: "색보정",
 }
 
+function drawStrokeWithSelection(
+  activeCanvas: HTMLCanvasElement,
+  from: Point,
+  to: Point,
+  brush: BrushSettings,
+  mode: "paint" | "erase",
+  selection: Selection | null
+): void {
+  const ctx = activeCanvas.getContext("2d")
+  if (!ctx) return
+
+  if (!selection) {
+    drawStroke(ctx, from, to, brush.size, mode, brush.hardness, brush.opacity, brush.color)
+    return
+  }
+
+  const w = activeCanvas.width
+  const h = activeCanvas.height
+
+  const tempCanvas = document.createElement("canvas")
+  tempCanvas.width = w
+  tempCanvas.height = h
+  const tempCtx = tempCanvas.getContext("2d")
+  if (!tempCtx) return
+
+  drawStroke(tempCtx, from, to, brush.size, mode, brush.hardness, 1.0, brush.color)
+
+  tempCtx.globalCompositeOperation = "destination-in"
+
+  const { type, rect, maskCanvas } = selection
+  if (rect) {
+    const { x, y, w: rw, h: rh } = rect
+    tempCtx.beginPath()
+    if (type === "ellipse") {
+      tempCtx.ellipse(x + rw / 2, y + rh / 2, rw / 2, rh / 2, 0, 0, Math.PI * 2)
+    } else {
+      tempCtx.rect(x, y, rw, rh)
+    }
+    tempCtx.fill()
+  } else if (maskCanvas) {
+    tempCtx.drawImage(maskCanvas, 0, 0)
+  }
+
+  ctx.save()
+  ctx.globalAlpha = brush.opacity
+  if (mode === "erase") {
+    ctx.globalCompositeOperation = "destination-out"
+    ctx.drawImage(tempCanvas, 0, 0)
+  } else {
+    ctx.drawImage(tempCanvas, 0, 0)
+  }
+  ctx.restore()
+}
+
 export function ImageEditorDialog({
   open,
   backendUrl,
   imageUrl,
   filename,
+  parentHash,
   onOpenChange,
+  onSaveSuccess,
 }: ImageEditorDialogProps): React.JSX.Element {
   const displayCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const canvasContainerRef = useRef<HTMLDivElement | null>(null)
@@ -135,6 +196,16 @@ export function ImageEditorDialog({
   const [removing, setRemoving] = useState(false)
   const [maskReady, setMaskReady] = useState(false)
   const [inpaintCaps, setInpaintCaps] = useState<InpaintCapabilities | null>(null)
+  const [objectRemoveMode, setObjectRemoveMode] = useState<"paint" | "erase">("paint")
+  const [maskVersion, setMaskVersion] = useState(0)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [cropRect, setCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+
+  useEffect(() => {
+    setCropRect(null)
+    setDragSelectionRect(null)
+  }, [tool])
 
   const history = useCanvasHistory()
   const layerStack = useLayerStack(0, 0)
@@ -195,12 +266,140 @@ export function ImageEditorDialog({
     void fetchInpaintCapabilities(backendUrl).then(setInpaintCaps)
   }, [backendUrl, open])
 
-  // 합성 렌더 — 레이어/뷰 변경 시
+  // 합성 렌더 — 레이어/뷰/마스크/선택 영역 변경 시
   const renderComposite = useCallback(() => {
     const display = displayCanvasRef.current
     if (!display) return
+    
+    // 1. 기본 레이어 합성
     compositeLayers(layerStack.layers, display)
-  }, [layerStack.layers])
+
+    const ctx = display.getContext("2d")
+    if (!ctx) return
+
+    // 2. 객체 제거 마스크 그리기 (LaMa)
+    const mc = removeMaskCanvasRef.current
+    if (mc) {
+      ctx.save()
+      const overlayCanvas = document.createElement("canvas")
+      overlayCanvas.width = display.width
+      overlayCanvas.height = display.height
+      const octx = overlayCanvas.getContext("2d")
+      if (octx) {
+        octx.drawImage(mc, 0, 0)
+        octx.globalCompositeOperation = "source-in"
+        octx.fillStyle = "rgba(239, 68, 68, 0.45)" // 붉은색 반투명 마스크
+        octx.fillRect(0, 0, display.width, display.height)
+        ctx.drawImage(overlayCanvas, 0, 0)
+      }
+      ctx.restore()
+    }
+
+    // 3. 선택 영역 가이드라인 그리기
+    if (selection.selection) {
+      ctx.save()
+      const { type, rect, maskCanvas } = selection.selection
+      if (rect) {
+        const { x, y, w, h } = rect
+        // 줌에 맞춰 일정한 굵기의 점선 그리기
+        ctx.lineWidth = Math.max(1, 1.5 / view.zoom)
+        
+        // 흰색 점선
+        ctx.strokeStyle = "#ffffff"
+        ctx.setLineDash([4, 4])
+        ctx.lineDashOffset = 0
+        ctx.beginPath()
+        if (type === "ellipse") {
+          ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2)
+        } else {
+          ctx.rect(x, y, w, h)
+        }
+        ctx.stroke()
+
+        // 검은색 점선 오버레이
+        ctx.strokeStyle = "#000000"
+        ctx.lineDashOffset = 4
+        ctx.stroke()
+      } else if (maskCanvas) {
+        // 라소/매직완드 등은 파란색 반투명 오버레이로 그리기
+        const overlayCanvas = document.createElement("canvas")
+        overlayCanvas.width = display.width
+        overlayCanvas.height = display.height
+        const octx = overlayCanvas.getContext("2d")
+        if (octx) {
+          octx.drawImage(maskCanvas, 0, 0)
+          octx.globalCompositeOperation = "source-in"
+          octx.fillStyle = "rgba(59, 130, 246, 0.3)" // 파란색 반투명
+          octx.fillRect(0, 0, display.width, display.height)
+          ctx.drawImage(overlayCanvas, 0, 0)
+        }
+      }
+      ctx.restore()
+    }
+
+    // 3.5 드래그 중인 선택 영역 및 올가미 임시 가이드라인 그리기
+    if ((tool === "rect-select" || tool === "ellipse-select") && dragSelectionRect) {
+      ctx.save()
+      const { x, y, w, h } = dragSelectionRect
+      ctx.lineWidth = Math.max(1, 1.5 / view.zoom)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)"
+      ctx.setLineDash([4, 4])
+      ctx.lineDashOffset = 0
+      ctx.beginPath()
+      if (tool === "ellipse-select") {
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2)
+      } else {
+        ctx.rect(x, y, w, h)
+      }
+      ctx.stroke()
+
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.85)"
+      ctx.lineDashOffset = 4
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    if (tool === "lasso" && lassoPathRef.current.length > 1) {
+      ctx.save()
+      ctx.lineWidth = Math.max(1.5, 2 / view.zoom)
+      ctx.strokeStyle = "#3b82f6" // 올가미 파란색
+      ctx.beginPath()
+      const first = lassoPathRef.current[0]
+      if (first) {
+        ctx.moveTo(first.x, first.y)
+        for (let i = 1; i < lassoPathRef.current.length; i++) {
+          const p = lassoPathRef.current[i]
+          if (p) ctx.lineTo(p.x, p.y)
+        }
+      }
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // 4. 자르기(Crop) 가이드 오버레이 그리기
+    if (tool === "crop" && cropRect) {
+      ctx.save()
+      // 가이드 영역 바깥을 어둡게 칠하기
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)"
+      ctx.beginPath()
+      ctx.rect(0, 0, display.width, display.height)
+      ctx.rect(cropRect.x, cropRect.y, cropRect.w, cropRect.h)
+      ctx.clip("evenodd")
+      ctx.fillRect(0, 0, display.width, display.height)
+      ctx.restore()
+
+      // 가이드 영역 테두리 (노란색/검은색 교차 점선)
+      ctx.save()
+      ctx.lineWidth = Math.max(1.5, 2 / view.zoom)
+      ctx.strokeStyle = "#eab308" // 노란색
+      ctx.setLineDash([5, 5])
+      ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h)
+      ctx.strokeStyle = "#000000"
+      ctx.lineDashOffset = 5
+      ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h)
+      ctx.restore()
+    }
+  }, [layerStack.layers, selection.selection, view.zoom, maskVersion, cropRect, tool, dragSelectionRect])
 
   useEffect(() => {
     renderComposite()
@@ -263,6 +462,40 @@ export function ImageEditorDialog({
     },
     []
   )
+  // 자르기 적용 — 모든 이미지 레이어를 rect 영역으로 자르고 캔버스 크기 축소
+  const applyCrop = useCallback(
+    (rect: { x: number; y: number; w: number; h: number }): void => {
+      const display = displayCanvasRef.current
+      if (!display) return
+      const newW = rect.w
+      const newH = rect.h
+      const newDisplay = document.createElement("canvas")
+      newDisplay.width = newW
+      newDisplay.height = newH
+      const ndCtx = newDisplay.getContext("2d")
+      if (!ndCtx) return
+      compositeLayers(layerStack.layers, display)
+      ndCtx.drawImage(display, rect.x, rect.y, rect.w, rect.h, 0, 0, newW, newH)
+      display.width = newW
+      display.height = newH
+      const dCtx = display.getContext("2d")
+      if (!dCtx) return
+      dCtx.clearRect(0, 0, newW, newH)
+      dCtx.drawImage(newDisplay, 0, 0)
+      // 레이어 재구성 — 단일 배경 레이어로 교체
+      const bg = document.createElement("canvas")
+      bg.width = newW
+      bg.height = newH
+      const bgCtx = bg.getContext("2d")
+      if (bgCtx) bgCtx.drawImage(display, 0, 0)
+      layerStack.resetLayers()
+      layerStack.addLayer("image", { name: "배경", canvas: bg })
+      selection.clearSelection()
+      setView({ zoom: 1, pan: { x: 0, y: 0 } })
+      toast.success(`잘림: ${newW}×${newH}`)
+    },
+    [layerStack, selection]
+  )
 
   // 키보드 단축키
   useEffect(() => {
@@ -270,6 +503,20 @@ export function ImageEditorDialog({
     const onKeyDown = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return
+      
+      // 자르기 모드에서 Enter/Escape 확정/취소 처리
+      if (e.key === "Enter" && tool === "crop" && cropRect) {
+        e.preventDefault()
+        applyCrop(cropRect)
+        setCropRect(null)
+        return
+      }
+      if (e.key === "Escape" && tool === "crop" && cropRect) {
+        e.preventDefault()
+        setCropRect(null)
+        return
+      }
+
       const ctrl = e.ctrlKey || e.metaKey
       if (ctrl && e.key.toLowerCase() === "z") {
         e.preventDefault()
@@ -321,42 +568,7 @@ export function ImageEditorDialog({
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
     }
-  }, [open, activeCanvas, history, renderComposite, setZoomAt, view.zoom])
-
-  // 자르기 적용 — 모든 이미지 레이어를 rect 영역으로 자르고 캔버스 크기 축소
-  const applyCrop = useCallback(
-    (rect: { x: number; y: number; w: number; h: number }): void => {
-      const display = displayCanvasRef.current
-      if (!display) return
-      const newW = rect.w
-      const newH = rect.h
-      const newDisplay = document.createElement("canvas")
-      newDisplay.width = newW
-      newDisplay.height = newH
-      const ndCtx = newDisplay.getContext("2d")
-      if (!ndCtx) return
-      compositeLayers(layerStack.layers, display)
-      ndCtx.drawImage(display, rect.x, rect.y, rect.w, rect.h, 0, 0, newW, newH)
-      display.width = newW
-      display.height = newH
-      const dCtx = display.getContext("2d")
-      if (!dCtx) return
-      dCtx.clearRect(0, 0, newW, newH)
-      dCtx.drawImage(newDisplay, 0, 0)
-      // 레이어 재구성 — 단일 배경 레이어로 교체
-      const bg = document.createElement("canvas")
-      bg.width = newW
-      bg.height = newH
-      const bgCtx = bg.getContext("2d")
-      if (bgCtx) bgCtx.drawImage(display, 0, 0)
-      layerStack.resetLayers()
-      layerStack.addLayer("image", { name: "배경", canvas: bg })
-      selection.clearSelection()
-      setView({ zoom: 1, pan: { x: 0, y: 0 } })
-      toast.success(`잘림: ${newW}×${newH}`)
-    },
-    [layerStack, selection]
-  )
+  }, [open, activeCanvas, history, renderComposite, setZoomAt, view.zoom, cropRect, tool, applyCrop])
 
   // 포인터 다운 — 도구별 분기
   const onPointerDown = useCallback(
@@ -367,8 +579,8 @@ export function ImageEditorDialog({
       e.preventDefault()
       ;(e.target as HTMLCanvasElement).setPointerCapture(e.pointerId)
 
-      // Space=팬
-      if (spaceDown || tool === "move") {
+      // Space=팬 또는 휠클릭(1)/우클릭(2)=팬
+      if (spaceDown || tool === "move" || e.button === 1 || e.button === 2) {
         panningRef.current = true
         setPanning(true)
         panStartRef.current = { x: e.clientX, y: e.clientY, panX: view.pan.x, panY: view.pan.y }
@@ -380,9 +592,7 @@ export function ImageEditorDialog({
       if (tool === "brush" || tool === "erase") {
         if (!activeCanvas) return
         history.pushHistory(activeCanvas)
-        const ctx = activeCanvas.getContext("2d")
-        if (!ctx) return
-        drawStroke(ctx, imgPt, imgPt, brush.size, tool === "brush" ? "paint" : "erase", brush.hardness, brush.opacity, brush.color)
+        drawStrokeWithSelection(activeCanvas, imgPt, imgPt, brush, tool === "brush" ? "paint" : "erase", selection.selection)
         lastPointRef.current = imgPt
         paintingRef.current = true
         renderComposite()
@@ -401,9 +611,10 @@ export function ImageEditorDialog({
         history.pushHistory(mc)
         const ctx = mc.getContext("2d")
         if (!ctx) return
-        drawStroke(ctx, imgPt, imgPt, brush.size, "paint", brush.hardness, brush.opacity, "#ffffff")
+        drawStroke(ctx, imgPt, imgPt, brush.size, objectRemoveMode, brush.hardness, brush.opacity, "#ffffff")
         lastPointRef.current = imgPt
         paintingRef.current = true
+        setMaskVersion((v) => v + 1)
         return
       }
 
@@ -423,6 +634,7 @@ export function ImageEditorDialog({
 
       if (tool === "rect-select" || tool === "ellipse-select") {
         lassoPathRef.current = [imgPt]
+        setDragSelectionRect(null)
         return
       }
 
@@ -442,7 +654,7 @@ export function ImageEditorDialog({
         return
       }
     },
-    [ready, spaceDown, tool, view, brush, activeCanvas, history, renderComposite, magicWand, selection]
+    [ready, spaceDown, tool, view, brush, activeCanvas, history, renderComposite, magicWand, selection, objectRemoveMode, drawStrokeWithSelection, setDragSelectionRect]
   )
 
   const onPointerMove = useCallback(
@@ -466,10 +678,8 @@ export function ImageEditorDialog({
 
       if (paintingRef.current && (tool === "brush" || tool === "erase")) {
         if (!activeCanvas) return
-        const ctx = activeCanvas.getContext("2d")
-        if (!ctx) return
         const last = lastPointRef.current
-        if (last) drawStroke(ctx, last, imgPt, brush.size, tool === "brush" ? "paint" : "erase", brush.hardness, brush.opacity, brush.color)
+        if (last) drawStrokeWithSelection(activeCanvas, last, imgPt, brush, tool === "brush" ? "paint" : "erase", selection.selection)
         lastPointRef.current = imgPt
         renderComposite()
         return
@@ -481,8 +691,9 @@ export function ImageEditorDialog({
         const ctx = mc.getContext("2d")
         if (!ctx) return
         const last = lastPointRef.current
-        if (last) drawStroke(ctx, last, imgPt, brush.size, "paint", brush.hardness, brush.opacity, "#ffffff")
+        if (last) drawStroke(ctx, last, imgPt, brush.size, objectRemoveMode, brush.hardness, brush.opacity, "#ffffff")
         lastPointRef.current = imgPt
+        setMaskVersion((v) => v + 1)
         return
       }
 
@@ -510,22 +721,40 @@ export function ImageEditorDialog({
 
       if ((tool === "rect-select" || tool === "ellipse-select") && lassoPathRef.current.length > 0) {
         const first = lassoPathRef.current[0]
-        if (first) lassoPathRef.current = [first, imgPt]
+        if (first) {
+          lassoPathRef.current = [first, imgPt]
+          setDragSelectionRect({
+            x: Math.min(first.x, imgPt.x),
+            y: Math.min(first.y, imgPt.y),
+            w: Math.abs(imgPt.x - first.x),
+            h: Math.abs(imgPt.y - first.y),
+          })
+          renderComposite()
+        }
         return
       }
 
       if (tool === "lasso" && lassoPathRef.current.length > 0 && e.buttons > 0) {
         lassoPathRef.current.push(imgPt)
+        setMaskVersion((v) => v + 1)
         return
       }
 
       if (tool === "crop" && lassoPathRef.current.length > 0) {
         const first = lassoPathRef.current[0]
-        if (first) lassoPathRef.current = [first, imgPt]
+        if (first) {
+          lassoPathRef.current = [first, imgPt]
+          setCropRect({
+            x: Math.round(Math.min(first.x, imgPt.x)),
+            y: Math.round(Math.min(first.y, imgPt.y)),
+            w: Math.round(Math.abs(imgPt.x - first.x)),
+            h: Math.round(Math.abs(imgPt.y - first.y)),
+          })
+        }
         return
       }
     },
-    [ready, tool, view, activeCanvas, brush, history, renderComposite, updateCursor]
+    [ready, tool, view, activeCanvas, brush, history, renderComposite, updateCursor, objectRemoveMode, setCropRect, selection, drawStrokeWithSelection, setDragSelectionRect, setMaskVersion]
   )
 
   const onPointerUp = useCallback(
@@ -546,6 +775,10 @@ export function ImageEditorDialog({
       if (paintingRef.current) {
         paintingRef.current = false
         lastPointRef.current = null
+        // 드로잉 종료 후 썸네일 업데이트
+        if ((tool === "brush" || tool === "erase" || tool === "clone" || tool === "heal") && activeLayer) {
+          layerStack.updateLayer(activeLayer.id, { updatedAt: Date.now() })
+        }
         return
       }
 
@@ -567,6 +800,7 @@ export function ImageEditorDialog({
           }
         }
         lassoPathRef.current = []
+        setDragSelectionRect(null)
         return
       }
 
@@ -610,7 +844,9 @@ export function ImageEditorDialog({
               h: Math.round(Math.abs(b.y - a.y)),
             }
             if (rect.w > 2 && rect.h > 2) {
-              applyCrop(rect)
+              setCropRect(rect)
+            } else {
+              setCropRect(null)
             }
           }
         }
@@ -618,7 +854,7 @@ export function ImageEditorDialog({
         return
       }
     },
-    [ready, tool, view, selection, applyCrop]
+    [ready, tool, view, selection, applyCrop, activeLayer, layerStack, setCropRect, setDragSelectionRect]
   )
 
   // 선택 삭제
@@ -655,7 +891,7 @@ export function ImageEditorDialog({
       const result = await removeObject(backendUrl, display, mc)
       const url = URL.createObjectURL(result)
       const img = new Image()
-    img.onload = (): void => {
+      img.onload = (): void => {
         const out = document.createElement("canvas")
         out.width = display.width
         out.height = display.height
@@ -665,9 +901,10 @@ export function ImageEditorDialog({
         // 마스크 초기화
         const mcCtx = mc.getContext("2d")
         if (mcCtx) mcCtx.clearRect(0, 0, mc.width, mc.height)
+        setMaskVersion((v) => v + 1)
         toast.success("객체 제거 완료")
       }
-    img.onerror = (): void => {
+      img.onerror = (): void => {
         URL.revokeObjectURL(url)
         toast.error("결과 이미지 로드 실패")
       }
@@ -677,7 +914,19 @@ export function ImageEditorDialog({
     } finally {
       setRemoving(false)
     }
-  }, [backendUrl, inpaintCaps, layerStack, renderComposite])
+  }, [backendUrl, inpaintCaps, layerStack])
+
+  // 마스크 전체 지우기
+  const handleClearMask = useCallback(() => {
+    const mc = removeMaskCanvasRef.current
+    if (!mc) return
+    const ctx = mc.getContext("2d")
+    if (!ctx) return
+    history.pushHistory(mc)
+    ctx.clearRect(0, 0, mc.width, mc.height)
+    setMaskVersion((v) => v + 1)
+    toast.success("마스크가 초기화되었습니다.")
+  }, [history])
 
   // 갤러리에 저장
   const handleSaveToGallery = useCallback(async () => {
@@ -686,12 +935,13 @@ export function ImageEditorDialog({
     try {
       compositeLayers(layerStack.layers, display)
       const name = `${baseName(filename)}-edit-${Date.now()}.png`
-      const res = await uploadToSavedImages(backendUrl, display, name)
+      const res = await uploadToSavedImages(backendUrl, display, name, parentHash)
       toast.success(`갤러리에 저장됨: ${res.hash.slice(0, 8)}`)
+      onSaveSuccess?.(res)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "저장 실패")
     }
-  }, [backendUrl, filename, layerStack, renderComposite])
+  }, [backendUrl, filename, layerStack, onSaveSuccess, parentHash])
 
   // 로컬 다운로드
   const handleDownload = useCallback(() => {
@@ -704,285 +954,645 @@ export function ImageEditorDialog({
   const cursorDiameter = brush.size * cursorScale
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="h-[94vh] max-h-[94vh] gap-3 overflow-hidden p-4 sm:max-w-[96vw]"
-        onInteractOutside={(e) => { e.preventDefault(); }}
-      >
-        <DialogHeader className="shrink-0">
-          <DialogTitle className="truncate font-mono text-sm">
-            이미지 편집 · {filename}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)_220px]">
-          {/* 좌측 툴바 */}
-          <aside className="flex max-h-full min-h-0 flex-col gap-2 overflow-y-auto rounded-md border bg-muted/20 p-2">
-            <div className="grid grid-cols-4 gap-1">
-              <ToolButton tool="move" current={tool} setTool={setTool} icon={<MousePointer2 className="size-4" />} label={TOOL_LABELS.move} />
-              <ToolButton tool="brush" current={tool} setTool={setTool} icon={<Brush className="size-4" />} label={TOOL_LABELS.brush} />
-              <ToolButton tool="erase" current={tool} setTool={setTool} icon={<Eraser className="size-4" />} label={TOOL_LABELS.erase} />
-              <ToolButton tool="rect-select" current={tool} setTool={setTool} icon={<SquareDashed className="size-4" />} label={TOOL_LABELS["rect-select"]} />
-              <ToolButton tool="ellipse-select" current={tool} setTool={setTool} icon={<CircleDashed className="size-4" />} label={TOOL_LABELS["ellipse-select"]} />
-              <ToolButton tool="lasso" current={tool} setTool={setTool} icon={<Lasso className="size-4" />} label={TOOL_LABELS.lasso} />
-              <ToolButton tool="magic-wand" current={tool} setTool={setTool} icon={<MagicWandIcon className="size-4" />} label={TOOL_LABELS["magic-wand"]} />
-              <ToolButton tool="clone" current={tool} setTool={setTool} icon={<Plus className="size-4" />} label={TOOL_LABELS.clone} />
-              <ToolButton tool="crop" current={tool} setTool={setTool} icon={<Crop className="size-4" />} label={TOOL_LABELS.crop} />
-              <ToolButton tool="object-remove" current={tool} setTool={setTool} icon={<Wand2 className="size-4" />} label={TOOL_LABELS["object-remove"]} disabled={!inpaintCaps?.enabled} />
-              <ToolButton tool="adjust" current={tool} setTool={setTool} icon={<Sliders className="size-4" />} label={TOOL_LABELS.adjust} />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="h-[94vh] max-h-[94vh] gap-3 overflow-hidden p-4 sm:max-w-[96vw] bg-zinc-950 text-zinc-50 border-zinc-800"
+          onInteractOutside={(e) => {
+            e.preventDefault()
+          }}
+        >
+          <DialogHeader className="shrink-0 flex-row items-center justify-between space-y-0 pb-1 border-b border-zinc-800">
+            <div className="flex flex-col gap-0.5">
+              <DialogTitle className="truncate font-mono text-sm tracking-tight text-zinc-100 flex items-center gap-1.5">
+                <Sparkles className="size-4 text-primary animate-pulse" />
+                이미지 편집 · {filename}
+              </DialogTitle>
+              <DialogDescription className="text-[10px] text-zinc-400">
+                인페인팅, 브러시 페인팅, 색보정 및 선택 편집 도구입니다.
+              </DialogDescription>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 rounded-full"
+              onClick={() => setShowShortcuts(true)}
+            >
+              <HelpCircle className="size-4" />
+            </Button>
+          </DialogHeader>
 
-            {(tool === "brush" || tool === "erase" || tool === "object-remove" || tool === "clone") && (
-              <div className="grid gap-2 rounded-md border bg-background/60 p-2">
-                {(tool === "brush" || tool === "clone") && (
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">색상</Label>
-                    <input
-                      type="color"
-                      value={brush.color}
-                      onChange={(e) => { setBrush((b) => ({ ...b, color: e.target.value })); }}
-                      className="h-7 w-12 cursor-pointer rounded border bg-transparent"
-                    />
-                  </div>
-                )}
-                <Label className="text-xs">브러시 크기</Label>
-                <input
-                  type="range"
-                  min={4}
-                  max={220}
-                  value={brush.size}
-                  onChange={(e) => { setBrush((b) => ({ ...b, size: Number(e.target.value) })); }}
-                  className="w-full"
-                />
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">경도</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={brush.hardness}
-                    onChange={(e) => { setBrush((b) => ({ ...b, hardness: Number(e.target.value) })); }}
-                    className="h-7 w-16 text-xs"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">불투명도</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={brush.opacity}
-                    onChange={(e) => { setBrush((b) => ({ ...b, opacity: Number(e.target.value) })); }}
-                    className="h-7 w-16 text-xs"
-                  />
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_240px]">
+            {/* 좌측 툴바 */}
+            <aside className="flex max-h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+              {/* 도구 분류 1: 이동 및 선택 */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1">이동 & 선택</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <ToolButton tool="move" current={tool} setTool={setTool} icon={<MousePointer2 className="size-4" />} label={TOOL_LABELS.move} />
+                  <ToolButton tool="rect-select" current={tool} setTool={setTool} icon={<SquareDashed className="size-4" />} label={TOOL_LABELS["rect-select"]} />
+                  <ToolButton tool="ellipse-select" current={tool} setTool={setTool} icon={<CircleDashed className="size-4" />} label={TOOL_LABELS["ellipse-select"]} />
+                  <ToolButton tool="lasso" current={tool} setTool={setTool} icon={<Lasso className="size-4" />} label={TOOL_LABELS.lasso} />
+                  <ToolButton tool="magic-wand" current={tool} setTool={setTool} icon={<MagicWandIcon className="size-4" />} label={TOOL_LABELS["magic-wand"]} />
+                  <ToolButton tool="crop" current={tool} setTool={setTool} icon={<Crop className="size-4" />} label={TOOL_LABELS.crop} />
                 </div>
               </div>
-            )}
 
-            {tool === "magic-wand" && (
-              <div className="grid gap-2 rounded-md border bg-background/60 p-2">
-                <Label className="text-xs">허용 오차</Label>
-                <input
-                  type="range"
-                  min={0}
-                  max={128}
-                  value={magicWand.tolerance}
-                  onChange={(e) => { setMagicWand((m) => ({ ...m, tolerance: Number(e.target.value) })); }}
-                  className="w-full"
-                />
-                <label className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={magicWand.contiguous}
-                    onChange={(e) => { setMagicWand((m) => ({ ...m, contiguous: e.target.checked })); }}
-                  />
-                  인접 영역만
-                </label>
+              {/* 도구 분류 2: 그리기 */}
+              <div className="flex flex-col gap-1.5 border-t border-zinc-800/60 pt-2.5">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1">그리기</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <ToolButton tool="brush" current={tool} setTool={setTool} icon={<Brush className="size-4" />} label={TOOL_LABELS.brush} />
+                  <ToolButton tool="erase" current={tool} setTool={setTool} icon={<Eraser className="size-4" />} label={TOOL_LABELS.erase} />
+                </div>
               </div>
-            )}
 
-            {tool === "adjust" && (
-              <div className="grid gap-2 rounded-md border bg-background/60 p-2">
-                {(["brightness", "contrast", "saturation"] as const).map((k) => (
-                  <div key={k}>
-                    <Label className="text-xs">{k === "brightness" ? "밝기" : k === "contrast" ? "대비" : "채도"}</Label>
-                    <input
-                      type="range"
-                      min={-100}
-                      max={100}
-                      value={adjust[k]}
-                      onChange={(e) => { setAdjust((a) => ({ ...a, [k]: Number(e.target.value) })); }}
-                      className="w-full"
-                    />
-                  </div>
-                ))}
-                {(["blur", "sharpen"] as const).map((k) => (
-                  <div key={k}>
-                    <Label className="text-xs">{k === "blur" ? "블러" : "샤픈"}</Label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={20}
-                      value={adjust[k]}
-                      onChange={(e) => { setAdjust((a) => ({ ...a, [k]: Number(e.target.value) })); }}
-                      className="w-full"
-                    />
-                  </div>
-                ))}
-                <Button size="sm" onClick={handleAddAdjustLayer} className="w-full">
-                  조정 레이어 추가
-                </Button>
+              {/* 도구 분류 3: 리터칭 & 보정 */}
+              <div className="flex flex-col gap-1.5 border-t border-zinc-800/60 pt-2.5">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1">리터칭 & 보정</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <ToolButton tool="clone" current={tool} setTool={setTool} icon={<Plus className="size-4" />} label={TOOL_LABELS.clone} />
+                  <ToolButton tool="object-remove" current={tool} setTool={setTool} icon={<Sparkles className="size-4" />} label={TOOL_LABELS["object-remove"]} disabled={!inpaintCaps?.enabled} />
+                  <ToolButton tool="adjust" current={tool} setTool={setTool} icon={<Sliders className="size-4" />} label={TOOL_LABELS.adjust} />
+                </div>
               </div>
-            )}
 
-            {tool === "object-remove" && (
-              <div className="grid gap-2 rounded-md border bg-background/60 p-2">
-                <p className="text-xs text-muted-foreground">
-                  브러시로 제거할 객체를 칠하고 실행 버튼을 누르세요. (LaMa)
-                </p>
-                <Button size="sm" onClick={handleRunRemove} disabled={removing || !inpaintCaps?.enabled}>
-                  <Sparkles className="mr-1 size-3.5" />
-                  {removing ? "제거 중..." : "객체 제거 실행"}
-                </Button>
-                {!inpaintCaps?.enabled && (
-                  <p className="text-xs text-destructive">
-                    {inpaintCaps?.reason ?? "LaMa 미지원"}
-                  </p>
+              {/* 도구별 상세 설정 패널 */}
+              <div className="mt-2 flex-1 flex flex-col gap-2 min-h-0">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1 border-t border-zinc-800/60 pt-2.5">도구 설정</span>
+                
+                {/* 브러시, 지우개, 복제 도구 설정 */}
+                {(tool === "brush" || tool === "erase" || tool === "clone") && (
+                  <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
+                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">{TOOL_LABELS[tool]}</div>
+                    {(tool === "brush" || tool === "clone") && (
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] text-zinc-400">브러시 색상</Label>
+                        <input
+                          type="color"
+                          value={brush.color}
+                          onChange={(e) => {
+                            setBrush((b) => ({ ...b, color: e.target.value }))
+                          }}
+                          className="h-6 w-11 cursor-pointer rounded border border-zinc-800 bg-transparent"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] text-zinc-400">
+                        <Label>크기</Label>
+                        <span className="font-mono text-zinc-500">{brush.size}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={4}
+                        max={220}
+                        value={brush.size}
+                        onChange={(e) => {
+                          setBrush((b) => ({ ...b, size: Number(e.target.value) }))
+                        }}
+                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] text-zinc-400">
+                        <Label>경도</Label>
+                        <span className="font-mono text-zinc-500">{Math.round(brush.hardness * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={brush.hardness}
+                        onChange={(e) => {
+                          setBrush((b) => ({ ...b, hardness: Number(e.target.value) }))
+                        }}
+                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] text-zinc-400">
+                        <Label>불투명도</Label>
+                        <span className="font-mono text-zinc-500">{Math.round(brush.opacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={brush.opacity}
+                        onChange={(e) => {
+                          setBrush((b) => ({ ...b, opacity: Number(e.target.value) }))
+                        }}
+                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 매직완드 설정 */}
+                {tool === "magic-wand" && (
+                  <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
+                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">매직완드 설정</div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] text-zinc-400">
+                        <Label>허용 오차 (Tolerance)</Label>
+                        <span className="font-mono text-zinc-500">{magicWand.tolerance}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={128}
+                        value={magicWand.tolerance}
+                        onChange={(e) => {
+                          setMagicWand((m) => ({ ...m, tolerance: Number(e.target.value) }))
+                        }}
+                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 text-[11px] text-zinc-400 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={magicWand.contiguous}
+                        onChange={(e) => {
+                          setMagicWand((m) => ({ ...m, contiguous: e.target.checked }))
+                        }}
+                        className="rounded border-zinc-800 bg-zinc-900 text-primary focus:ring-primary"
+                      />
+                      인접 영역만 선택 (Contiguous)
+                    </label>
+                  </div>
+                )}
+
+                {/* 색보정 설정 */}
+                {tool === "adjust" && (
+                  <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs overflow-y-auto max-h-[220px] lg:max-h-none">
+                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">색보정 설정</div>
+                    {(["brightness", "contrast", "saturation"] as const).map((k) => (
+                      <div key={k} className="space-y-1.5">
+                        <div className="flex justify-between text-[11px] text-zinc-400">
+                          <Label>{k === "brightness" ? "밝기" : k === "contrast" ? "대비" : "채도"}</Label>
+                          <span className="font-mono text-zinc-500">{adjust[k]}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={-100}
+                          max={100}
+                          value={adjust[k]}
+                          onChange={(e) => {
+                            setAdjust((a) => ({ ...a, [k]: Number(e.target.value) }))
+                          }}
+                          className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    ))}
+                    {(["blur", "sharpen"] as const).map((k) => (
+                      <div key={k} className="space-y-1.5">
+                        <div className="flex justify-between text-[11px] text-zinc-400">
+                          <Label>{k === "blur" ? "블러" : "샤픈"}</Label>
+                          <span className="font-mono text-zinc-500">{adjust[k]}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={20}
+                          value={adjust[k]}
+                          onChange={(e) => {
+                            setAdjust((a) => ({ ...a, [k]: Number(e.target.value) }))
+                          }}
+                          className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    ))}
+                    <Button size="sm" onClick={handleAddAdjustLayer} className="w-full mt-1">
+                      조정 레이어 추가
+                    </Button>
+                  </div>
+                )}
+
+                {/* 객체 제거 (LaMa) 설정 */}
+                {tool === "object-remove" && (
+                  <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
+                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">객체 제거 (AI 인페인트)</div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      브러시로 제거하고 싶은 대상 영역을 칠한 후 제거 실행 버튼을 누르세요.
+                    </p>
+
+                    {/* 브러시 vs 지우개 모드 토글 */}
+                    <div className="flex border border-zinc-800 rounded overflow-hidden">
+                      <Button
+                        type="button"
+                        variant={objectRemoveMode === "paint" ? "default" : "ghost"}
+                        size="sm"
+                        className="flex-1 rounded-none h-8 text-[11px] p-0"
+                        onClick={() => setObjectRemoveMode("paint")}
+                      >
+                        <Brush className="size-3.5 mr-1" />
+                        마스크 추가
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={objectRemoveMode === "erase" ? "default" : "ghost"}
+                        size="sm"
+                        className="flex-1 rounded-none h-8 text-[11px] p-0"
+                        onClick={() => setObjectRemoveMode("erase")}
+                      >
+                        <Eraser className="size-3.5 mr-1" />
+                        마스크 지우개
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] text-zinc-400">
+                        <Label>브러시 크기</Label>
+                        <span className="font-mono text-zinc-500">{brush.size}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={4}
+                        max={220}
+                        value={brush.size}
+                        onChange={(e) => {
+                          setBrush((b) => ({ ...b, size: Number(e.target.value) }))
+                        }}
+                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={handleClearMask}
+                        className="flex-1 text-[11px] h-8 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+                      >
+                        마스크 초기화
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleRunRemove}
+                        disabled={removing || !inpaintCaps?.enabled}
+                        className="flex-1 text-[11px] h-8"
+                      >
+                        <Sparkles className="mr-1 size-3.5" />
+                        {removing ? "제거 중..." : "제거 실행"}
+                      </Button>
+                    </div>
+
+                    {!inpaintCaps?.enabled && (
+                      <p className="text-[10px] text-destructive leading-tight bg-destructive/5 border border-destructive/20 p-2 rounded">
+                        {inpaintCaps?.reason ?? "LaMa 미지원 (requirements-inpaint.txt 설치 필요)"}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {tool === "crop" && (
+                  <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
+                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">자르기 옵션</div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      화면에서 잘라낼 영역을 마우스로 드래그하여 지정하세요.
+                    </p>
+                    {cropRect ? (
+                      <div className="flex flex-col gap-2 pt-1">
+                        <div className="text-[10px] text-zinc-500 font-mono">
+                          선택 크기: {cropRect.w} × {cropRect.h} px
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setCropRect(null)}
+                            className="flex-1 text-[11px] h-8 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+                          >
+                            취소 (Esc)
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              applyCrop(cropRect)
+                              setCropRect(null)
+                            }}
+                            className="flex-1 text-[11px] h-8"
+                          >
+                            적용 (Enter)
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-zinc-500 italic text-center py-2">
+                        영역을 드래그하면 세부 조정이 가능합니다.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selection.selection && (
+                  <Button size="sm" variant="destructive" onClick={handleDeleteSelection} className="w-full mt-2">
+                    <Trash2 className="mr-1.5 size-3.5" />
+                    선택 영역 내용 삭제
+                  </Button>
                 )}
               </div>
-            )}
 
-            {selection.selection && (
-              <Button size="sm" variant="destructive" onClick={handleDeleteSelection}>
-                <Trash2 className="mr-1 size-3.5" />
-                선택 삭제
-              </Button>
-            )}
+              {/* 하단 히스토리 / 줌 액션바 */}
+              <div className="mt-auto border-t border-zinc-800/60 pt-3 flex items-center justify-between">
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30"
+                        onClick={() => activeCanvas && history.undo(activeCanvas)}
+                        disabled={!history.canUndo}
+                      >
+                        <Undo2 className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>실행 취소 (Ctrl+Z)</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30"
+                        onClick={() => activeCanvas && history.redo(activeCanvas)}
+                        disabled={!history.canRedo}
+                      >
+                        <Redo2 className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>다시 실행 (Ctrl+Y)</TooltipContent>
+                  </Tooltip>
+                </div>
 
-            <div className="mt-auto grid grid-cols-4 gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={() => activeCanvas && history.undo(activeCanvas)} disabled={!history.canUndo}>
-                    <Undo2 className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>실행 취소 (Ctrl+Z)</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={() => activeCanvas && history.redo(activeCanvas)} disabled={!history.canRedo}>
-                    <Redo2 className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>다시 실행 (Ctrl+Y)</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={() => { setZoomAt(view.zoom * 0.8); }}>
-                    <ZoomOut className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>축소</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={() => { setZoomAt(view.zoom * 1.25); }}>
-                    <ZoomIn className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>확대</TooltipContent>
-              </Tooltip>
-            </div>
-          </aside>
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                        onClick={() => {
+                          setZoomAt(view.zoom * 0.8)
+                        }}
+                      >
+                        <ZoomOut className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>축소 (-)</TooltipContent>
+                  </Tooltip>
+                  <span className="text-[11px] font-mono w-10 text-center text-zinc-400 select-none">
+                    {Math.round(view.zoom * 100)}%
+                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                        onClick={() => {
+                          setZoomAt(view.zoom * 1.25)
+                        }}
+                      >
+                        <ZoomIn className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>확대 (+)</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+            </aside>
 
-          {/* 캔버스 영역 */}
-          <div ref={canvasContainerRef} className="relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded-md border bg-[repeating-conic-gradient(#444_0%_25%,#333_0%_50%)] bg-[length:20px_20px]">
-            <canvas
-              ref={displayCanvasRef}
-              className={cn(
-                "block touch-none select-none",
-                (spaceDown || panning) && "cursor-grab",
-                tool === "brush" || tool === "erase" || tool === "object-remove" ? "cursor-none" : "cursor-crosshair"
-              )}
-              style={{
-                transform: `translate(${view.pan.x}px, ${view.pan.y}px) scale(${view.zoom})`,
-                transformOrigin: "center",
-                imageRendering: "pixelated",
-              }}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerLeave={() => { setCursorPos(null); }}
-              onWheel={onWheelZoom}
-            />
-            {(tool === "brush" || tool === "erase" || tool === "object-remove") && cursorPos && (
-              <div
-                ref={cursorRef}
-                className="pointer-events-none absolute rounded-full border border-white/80 mix-blend-difference"
+            {/* 캔버스 영역 */}
+            <div
+              ref={canvasContainerRef}
+              className="relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-800 bg-[repeating-conic-gradient(#222_0%_25%,#161618_0%_50%)] bg-[length:16px_16px]"
+            >
+              <canvas
+                ref={displayCanvasRef}
+                className={cn(
+                  "block touch-none select-none transition-shadow",
+                  (spaceDown || panning) ? "cursor-grab" : (tool === "brush" || tool === "erase" || tool === "object-remove" ? "cursor-none" : "cursor-crosshair")
+                )}
                 style={{
-                  width: `${cursorDiameter}px`,
-                  height: `${cursorDiameter}px`,
-                  left: `${cursorPos.x - cursorDiameter / 2}px`,
-                  top: `${cursorPos.y - cursorDiameter / 2}px`,
+                  transform: `translate(${view.pan.x}px, ${view.pan.y}px) scale(${view.zoom})`,
+                  transformOrigin: "center",
+                  imageRendering: "pixelated",
                 }}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerLeave={() => {
+                  setCursorPos(null)
+                }}
+                onWheel={onWheelZoom}
+                onContextMenu={(e) => e.preventDefault()}
               />
-            )}
-            {loadError && (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-destructive">
-                이미지 로드 실패
-              </div>
-            )}
-            {!ready && !loadError && (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-                로드 중...
-              </div>
-            )}
-            {tool === "object-remove" && maskReady && (
-              <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
-                마스크 준비됨
-              </div>
-            )}
-          </div>
-
-          {/* 우측 레이어 패널 */}
-          <aside className="flex max-h-full min-h-0 flex-col gap-2 overflow-y-auto rounded-md border bg-muted/20 p-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">레이어</Label>
-              <Button size="sm" variant="ghost" onClick={() => layerStack.addLayer("image", { name: `레이어 ${layerStack.layers.length + 1}` })}>
-                <Plus className="size-3.5" />
-              </Button>
-            </div>
-            <div className="grid gap-1">
-              {[...layerStack.layers].reverse().map((layer) => (
-                <LayerRow
-                  key={layer.id}
-                  layer={layer}
-                  active={layer.id === layerStack.activeLayerId}
-                  onSelect={() => { layerStack.setActiveLayerId(layer.id); }}
-                  onToggleVisible={() => { layerStack.updateLayer(layer.id, { visible: !layer.visible }); }}
-                  onOpacity={(v) => { layerStack.updateLayer(layer.id, { opacity: v }); }}
-                  onRemove={() => { layerStack.removeLayer(layer.id); }}
-                  onMoveUp={() => { layerStack.moveLayer(layer.id, "up"); }}
-                  onMoveDown={() => { layerStack.moveLayer(layer.id, "down"); }}
+              {/* 커서 오버레이 */}
+              {(tool === "brush" || tool === "erase" || tool === "object-remove") && cursorPos && !spaceDown && !panning && (
+                <div
+                  ref={cursorRef}
+                  className={cn(
+                    "pointer-events-none absolute rounded-full border border-white mix-blend-difference shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
+                  )}
+                  style={{
+                    width: `${cursorDiameter}px`,
+                    height: `${cursorDiameter}px`,
+                    left: `${cursorPos.x - cursorDiameter / 2}px`,
+                    top: `${cursorPos.y - cursorDiameter / 2}px`,
+                  }}
                 />
-              ))}
+              )}
+              {loadError && (
+                <div className="absolute inset-0 flex items-center justify-center text-sm text-destructive font-medium bg-zinc-950/80">
+                  이미지 로드 실패
+                </div>
+              )}
+              {!ready && !loadError && (
+                <div className="absolute inset-0 flex items-center justify-center text-sm text-zinc-400 font-medium bg-zinc-950/80">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span>이미지 로딩 중...</span>
+                  </div>
+                </div>
+              )}
+              {tool === "object-remove" && maskReady && (
+                <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-zinc-900/80 backdrop-blur border border-zinc-800 px-2 py-1 text-[10px] text-zinc-300">
+                  AI 마스크 모드 활성화됨
+                </div>
+              )}
+              {tool === "clone" && cloneSourceRef.current === null && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-zinc-900/90 backdrop-blur border border-zinc-800 px-3 py-1 text-xs text-yellow-500 flex items-center gap-1.5 shadow-lg select-none animate-bounce">
+                  <Info className="size-3.5" />
+                  <span>Alt + 클릭으로 복사할 소스점을 먼저 지정하세요.</span>
+                </div>
+              )}
             </div>
-            <div className="mt-auto grid gap-2">
-              <Button size="sm" onClick={handleDownload} disabled={!ready}>
-                <Download className="mr-1 size-3.5" />
-                다운로드
-              </Button>
-              <Button size="sm" onClick={handleSaveToGallery} disabled={!ready}>
-                <Save className="mr-1 size-3.5" />
-                갤러리에 저장
-              </Button>
+
+            {/* 우측 레이어 패널 */}
+            <aside className="flex max-h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                <Label className="text-xs font-semibold text-zinc-400 flex items-center gap-1.5">
+                  <LayersIcon className="size-3.5 text-zinc-400" />
+                  레이어 스택
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="size-7 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                      onClick={() => layerStack.addLayer("image", { name: `레이어 ${layerStack.layers.length + 1}` })}
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>새 이미지 레이어 추가</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* 레이어 리스트 */}
+              <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0 pr-0.5">
+                {[...layerStack.layers].reverse().map((layer) => (
+                  <LayerRow
+                    key={layer.id}
+                    layer={layer}
+                    active={layer.id === layerStack.activeLayerId}
+                    onSelect={() => {
+                      layerStack.setActiveLayerId(layer.id)
+                    }}
+                    onToggleVisible={() => {
+                      layerStack.updateLayer(layer.id, { visible: !layer.visible })
+                    }}
+                    onOpacity={(v) => {
+                      layerStack.updateLayer(layer.id, { opacity: v })
+                    }}
+                    onRemove={() => {
+                      layerStack.removeLayer(layer.id)
+                    }}
+                    onMoveUp={() => {
+                      layerStack.moveLayer(layer.id, "up")
+                    }}
+                    onMoveDown={() => {
+                      layerStack.moveLayer(layer.id, "down")
+                    }}
+                  />
+                ))}
+                {layerStack.layers.length === 0 && (
+                  <div className="text-[11px] text-zinc-500 text-center py-8">
+                    레이어가 없습니다.
+                  </div>
+                )}
+              </div>
+
+              {/* 레이어 스택 아래의 액션 */}
+              <div className="mt-auto border-t border-zinc-800/60 pt-3 flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleDownload}
+                  disabled={!ready}
+                  className="w-full text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-[11px]"
+                >
+                  <Download className="mr-1.5 size-3.5 text-zinc-400" />
+                  로컬 다운로드
+                </Button>
+                <Button size="sm" onClick={handleSaveToGallery} disabled={!ready} className="w-full text-[11px]">
+                  <Save className="mr-1.5 size-3.5" />
+                  갤러리에 저장
+                </Button>
+              </div>
+            </aside>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 단축키 도움말 모달 */}
+      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+        <DialogContent className="max-w-md bg-zinc-950 text-zinc-50 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100 flex items-center gap-2">
+              <HelpCircle className="size-5 text-primary" />
+              에디터 단축키 도움말
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400 text-xs">
+              이미지 편집 도구에서 활용할 수 있는 유용한 단축키들입니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2 text-xs">
+            <div className="grid grid-cols-2 gap-2 border-b border-zinc-900 pb-2">
+              <div className="font-semibold text-zinc-400">동작</div>
+              <div className="font-semibold text-zinc-400 text-right">단축키</div>
             </div>
-          </aside>
-        </div>
-      </DialogContent>
-    </Dialog>
+            
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">이동 도구 (Move)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">V</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">브러시 도구 (Brush)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">B</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">지우개 도구 (Erase)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">E</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">사각 선택 도구 (Rect)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">R</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">라소 선택 도구 (Lasso)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">L</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">매직완드 도구 (Magic)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">M</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">복제 도구 (Clone Source)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">C</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">자르기 도구 (Crop)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">K</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center border-t border-zinc-900 pt-2">
+              <span className="text-zinc-300">실행 취소 (Undo)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">Ctrl + Z</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">다시 실행 (Redo)</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">Ctrl + Y</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center border-t border-zinc-900 pt-2">
+              <span className="text-zinc-300">브러시 크기 조절</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">[ 또는 ]</kbd>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">화면 이동 (Panning)</span>
+              <span className="font-sans text-[11px] text-zinc-400 justify-self-end">Space + 드래그</span>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">확대/축소 (Zoom)</span>
+              <span className="font-sans text-[11px] text-zinc-400 justify-self-end">마우스 휠 굴리기</span>
+            </div>
+            <div className="grid grid-cols-2 items-center">
+              <span className="text-zinc-300">화면 뷰 초기화</span>
+              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">Ctrl + 0</kbd>
+            </div>
+          </div>
+          <div className="flex justify-end pt-2 border-t border-zinc-900">
+            <Button size="sm" onClick={() => setShowShortcuts(false)} className="h-8">
+              닫기
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -1019,6 +1629,50 @@ function ToolButton({
   )
 }
 
+function LayerThumbnail({
+  canvas,
+  updatedAt,
+}: {
+  canvas: HTMLCanvasElement
+  updatedAt?: number | undefined
+}): React.JSX.Element {
+  const thumbRef = useRef<HTMLCanvasElement | null>(null)
+
+  useEffect(() => {
+    const thumb = thumbRef.current
+    if (!thumb) return
+    const ctx = thumb.getContext("2d")
+    if (!ctx) return
+    ctx.clearRect(0, 0, thumb.width, thumb.height)
+
+    // 격자 투명 배경 그리기
+    const size = 3
+    for (let y = 0; y < thumb.height; y += size) {
+      for (let x = 0; x < thumb.width; x += size) {
+        ctx.fillStyle = ((x / size) + (y / size)) % 2 === 0 ? "#262626" : "#1a1a1a"
+        ctx.fillRect(x, y, size, size)
+      }
+    }
+
+    // 캔버스 그리기
+    const scale = Math.min(thumb.width / canvas.width, thumb.height / canvas.height)
+    const w = canvas.width * scale
+    const h = canvas.height * scale
+    const dx = (thumb.width - w) / 2
+    const dy = (thumb.height - h) / 2
+    ctx.drawImage(canvas, dx, dy, w, h)
+  }, [canvas, updatedAt])
+
+  return (
+    <canvas
+      ref={thumbRef}
+      width={28}
+      height={28}
+      className="size-7 rounded border border-neutral-800 object-contain bg-neutral-950 shrink-0"
+    />
+  )
+}
+
 function LayerRow({
   layer,
   active,
@@ -1041,37 +1695,71 @@ function LayerRow({
   return (
     <div
       className={cn(
-        "rounded border p-1 text-xs",
-        active ? "border-primary bg-primary/10" : "border-border"
+        "rounded-lg border p-2 text-xs flex flex-col gap-2 transition-all duration-150",
+        active
+          ? "border-primary bg-primary/5 shadow-[0_0_8px_rgba(59,130,246,0.15)]"
+          : "border-border/50 bg-background/30 hover:bg-background/55"
       )}
     >
-      <button className="flex w-full items-center gap-1" onClick={onSelect}>
-        <span onClick={(e) => { e.stopPropagation(); onToggleVisible() }} className="cursor-pointer">
-          {layer.visible ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
+      <div className="flex items-center justify-between gap-2">
+        <button className="flex flex-1 items-center gap-2 text-left min-w-0" onClick={onSelect}>
+          <LayerThumbnail canvas={layer.canvas} updatedAt={layer.updatedAt} />
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="truncate font-medium">{layer.name}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {layer.kind === "image" ? "이미지 레이어" : "색보정 레이어"}
+            </span>
+          </div>
+        </button>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="size-6 p-0 hover:bg-muted"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleVisible()
+            }}
+          >
+            {layer.visible ? (
+              <Eye className="size-3.5 text-muted-foreground" />
+            ) : (
+              <EyeOff className="size-3.5 text-muted-foreground/50" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-muted-foreground w-6 text-right font-mono">
+          {Math.round(layer.opacity * 100)}%
         </span>
-        <LayersIcon className="size-3" />
-        <span className="truncate">{layer.name}</span>
-      </button>
-      <div className="mt-1 flex items-center gap-1">
         <input
           type="range"
           min={0}
           max={1}
           step={0.05}
           value={layer.opacity}
-          onChange={(e) => { onOpacity(Number(e.target.value)); }}
-          className="w-full"
+          onChange={(e) => {
+            onOpacity(Number(e.target.value))
+          }}
+          className="w-full h-1 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
         />
       </div>
-      <div className="mt-1 flex gap-1">
-        <Button size="sm" variant="ghost" className="h-6 flex-1" onClick={onMoveUp}>
-          <ArrowUp className="size-3" />
+
+      <div className="flex gap-1 border-t border-border/20 pt-1.5 justify-end">
+        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-muted-foreground" onClick={onMoveUp}>
+          <ArrowUp className="size-3 mr-0.5" />
+          위로
         </Button>
-        <Button size="sm" variant="ghost" className="h-6 flex-1" onClick={onMoveDown}>
-          <ArrowDown className="size-3" />
+        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-muted-foreground" onClick={onMoveDown}>
+          <ArrowDown className="size-3 mr-0.5" />
+          아래로
         </Button>
-        <Button size="sm" variant="ghost" className="h-6 flex-1" onClick={onRemove}>
-          <Trash2 className="size-3" />
+        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-destructive hover:bg-destructive/10" onClick={onRemove}>
+          <Trash2 className="size-3 mr-0.5" />
+          삭제
         </Button>
       </div>
     </div>

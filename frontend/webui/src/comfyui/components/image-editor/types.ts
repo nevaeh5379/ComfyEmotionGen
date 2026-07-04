@@ -92,6 +92,8 @@ export interface Layer {
   adjust?: AdjustSettings | undefined
   /** 이 레이어가 마스크(객체 제거 결과)에 의해 생성되었는지. */
   removable?: boolean
+  /** 썸네일 업데이트 감지를 위한 타임스탬프 */
+  updatedAt?: number
 }
 
 export type SelectionType = "rect" | "ellipse" | "lasso" | "magic"

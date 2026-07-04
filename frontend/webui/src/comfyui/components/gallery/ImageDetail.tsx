@@ -227,6 +227,7 @@ export function ImageDetailPanel({
         backendUrl={backendUrl}
         imageUrl={`${backendUrl}/saved-images/${image.hash}`}
         filename={getImageFilename(image)}
+        parentHash={image.hash}
         onOpenChange={setEditOpen}
       />
       {imgError ? (
