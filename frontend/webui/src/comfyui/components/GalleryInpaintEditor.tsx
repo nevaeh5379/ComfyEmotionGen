@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
+  AlertTriangle,
   Brush,
   Download,
   Eraser,
@@ -617,6 +618,7 @@ export function GalleryInpaintEditor({
     panY: number
   } | null>(null)
   const [ready, setReady] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [mode, setMode] = useState<PaintMode>("paint")
   const [brushSize, setBrushSize] = useState(() => {
     if (typeof window !== "undefined") {
@@ -846,6 +848,7 @@ export function GalleryInpaintEditor({
   useEffect(() => {
     if (!open) return
     setReady(false)
+    setLoadError(false)
     const img = new Image()
     img.crossOrigin = "anonymous"
     img.onload = () => {
@@ -875,7 +878,21 @@ export function GalleryInpaintEditor({
       setPan({ x: 0, y: 0 })
       setReady(true)
     }
-    img.src = imageUrl
+    img.onerror = () => {
+      setLoadError(true)
+      toast.error("이미지를 불러오는데 실패했습니다. 네트워크 또는 CORS 설정을 확인해주세요.")
+    }
+    
+    // CORS 캐시 문제를 방지하기 위해 캐시 버스팅 파라미터 추가
+    let finalUrl = imageUrl
+    try {
+      const parsedUrl = new URL(imageUrl, window.location.origin)
+      parsedUrl.searchParams.set("cors", "anonymous")
+      finalUrl = parsedUrl.toString()
+    } catch {
+      finalUrl = imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
+    }
+    img.src = finalUrl
   }, [imageUrl, open])
 
   const clearMask = useCallback(() => {
@@ -2016,8 +2033,19 @@ export function GalleryInpaintEditor({
               >
                 <div className="relative flex min-h-full items-center justify-center p-4">
                   {!ready && (
-                    <div className="absolute inset-0 flex items-center justify-center text-xs text-white/70">
-                      이미지를 불러오는 중...
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-white/70">
+                      {loadError ? (
+                        <>
+                          <AlertTriangle className="size-8 text-destructive animate-pulse" />
+                          <span className="text-destructive font-medium">이미지를 불러오는데 실패했습니다.</span>
+                          <span className="text-[11px] text-white/40">CORS 설정 또는 네트워크 상태를 확인해주세요.</span>
+                        </>
+                      ) : (
+                        <>
+                          <Spinner className="size-6 text-white/50" />
+                          <span>이미지를 불러오는 중...</span>
+                        </>
+                      )}
                     </div>
                   )}
                   <div
