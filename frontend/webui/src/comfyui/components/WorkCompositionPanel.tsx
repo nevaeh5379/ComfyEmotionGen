@@ -9,10 +9,12 @@ import {
   Rows2,
   RotateCcw,
   SlidersHorizontal,
+  Server,
 } from "lucide-react"
 import { useCallback, useState } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { ComfyWorkflowImportDialog } from "./ComfyWorkflowImportDialog"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
@@ -134,6 +136,7 @@ export function WorkCompositionPanel({
     }
     return "code"
   })
+  const [isComfyImportOpen, setIsComfyImportOpen] = useState(false)
 
   const handleSetViewMode = useCallback((mode: "code" | "form") => {
     setViewMode(mode)
@@ -543,6 +546,20 @@ export function WorkCompositionPanel({
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 text-muted-foreground"
+                      onClick={() => setIsComfyImportOpen(true)}
+                    >
+                      <Server className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>ComfyUI 서버에서 워크플로우 직접 가져오기</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground"
                       onClick={() => {
                         void navigator.clipboard.writeText(
                           workflow.workflowJson
@@ -705,6 +722,35 @@ export function WorkCompositionPanel({
           </TabsContent>
         </Tabs>
       </div>
+
+      <ComfyWorkflowImportDialog
+        isOpen={isComfyImportOpen}
+        onClose={() => setIsComfyImportOpen(false)}
+        onImport={(workflowContent, fileName) => {
+          try {
+            const parsed = JSON.parse(workflowContent)
+            const formattedJson = JSON.stringify(parsed, null, 2)
+            const baseName = fileName.replace(/\.[^/.]+$/, "")
+            const existingNames = workflow.savedWorkflows.map((w) => w.name)
+            const uniqueName = getUniquePresetName(baseName, existingNames)
+
+            // 자동으로 새 프리셋으로 저장
+            const saved = workflow.saveWorkflow(uniqueName, formattedJson)
+
+            nodeMapping.setActiveNodeMappingPresetId(null)
+            nodeMapping.setNodeMappings([])
+
+            // 상태 동기화 및 렌더링 리셋
+            workflow.setWorkflowJson(formattedJson)
+            workflow.setActiveWorkflowId(saved.id)
+            workflow.setWorkflowResetKey((k) => k + 1)
+          } catch (err) {
+            console.error("Workflow loading error:", err)
+            toast.error("가져온 워크플로우를 처리하는 도중 에러가 발생했습니다.")
+          }
+        }}
+        workers={workers}
+      />
     </>
   )
 }

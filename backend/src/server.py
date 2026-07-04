@@ -920,6 +920,60 @@ async def worker_preview(worker_id: str) -> Response:
     return Response(content=preview_bytes, media_type="image/png")
 
 
+@app.get("/workers/{worker_id}/history")
+async def worker_history(worker_id: str, prompt_id: Optional[str] = None) -> dict[str, JSONValue]:
+    """특정 워커(ComfyUI 인스턴스)의 실행 히스토리를 반환한다."""
+    worker = worker_pool.get(worker_id)
+    if worker is None or not worker.alive:
+        raise HTTPException(
+            status_code=400,
+            detail=f"worker {worker_id} not found or offline"
+        )
+    try:
+        if hasattr(worker, "get_history"):
+            return await worker.get_history(prompt_id)
+        raise HTTPException(status_code=400, detail="Worker does not support history")
+    except Exception as exc:
+        logger.warning("worker get_history failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/workers/{worker_id}/comfy_workflows")
+async def worker_comfy_workflows(worker_id: str) -> list[JSONValue]:
+    """특정 워커(ComfyUI 인스턴스)의 저장된 워크플로우 파일 목록을 반환합니다."""
+    worker = worker_pool.get(worker_id)
+    if worker is None or not worker.alive:
+        raise HTTPException(
+            status_code=400,
+            detail=f"worker {worker_id} not found or offline"
+        )
+    try:
+        if hasattr(worker, "get_userdata_workflows"):
+            return await worker.get_userdata_workflows()
+        raise HTTPException(status_code=400, detail="Worker does not support userdata API")
+    except Exception as exc:
+        logger.warning("worker get_userdata_workflows failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/workers/{worker_id}/comfy_workflows/{filename}")
+async def worker_comfy_workflow_file(worker_id: str, filename: str) -> dict[str, JSONValue]:
+    """특정 워커(ComfyUI 인스턴스)의 특정 워크플로우 파일 내용을 반환합니다."""
+    worker = worker_pool.get(worker_id)
+    if worker is None or not worker.alive:
+        raise HTTPException(
+            status_code=400,
+            detail=f"worker {worker_id} not found or offline"
+        )
+    try:
+        if hasattr(worker, "get_userdata_workflow_file"):
+            return await worker.get_userdata_workflow_file(filename)
+        raise HTTPException(status_code=400, detail="Worker does not support userdata API")
+    except Exception as exc:
+        logger.warning("worker get_userdata_workflow_file failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.post("/render", response_model=RenderResponse)
 def render_endpoint(req: RenderRequest) -> dict[str, JSONValue]:
     """CEG DSL 템플릿을 파싱하고 렌더링하여 프롬프트 목록을 반환한다.

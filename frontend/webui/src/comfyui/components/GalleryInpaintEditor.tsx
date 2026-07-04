@@ -5,13 +5,20 @@ import {
   Eraser,
   Eye,
   EyeOff,
+  Hand,
+  Info,
   Play,
   Plus,
   RotateCcw,
   Save,
+  Search,
   Sparkles,
   Trash2,
+  Undo2,
+  Redo2,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -19,6 +26,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Kbd } from "@/components/ui/kbd"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Dialog,
   DialogContent,
@@ -39,6 +48,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { API, HEADERS } from "@/lib/api"
 import { MAX_RANDOM_SEED } from "@/lib/constants"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
@@ -65,6 +80,7 @@ interface WorkflowInputCandidate {
   inputKey: string
   label: string
   isNumeric: boolean
+  isImage: boolean
 }
 
 type InpaintMappingSource =
@@ -95,14 +111,6 @@ interface SavedInpaintWorkflow {
   savedAt: number
 }
 
-interface GeneratedInpaintPreview {
-  sourceUrl: string
-  maskAlphaUrl: string
-  maskRgbUrl: string
-  alphaUrl: string
-  overlayUrl: string
-}
-
 const INPAINT_SOURCE_LABELS: Record<InpaintMappingSource, string> = {
   prompt: "프롬프트",
   sourceImage: "원본 이미지",
@@ -116,6 +124,9 @@ const INPAINT_SOURCE_LABELS: Record<InpaintMappingSource, string> = {
 
 const CANVAS_MAX_SIZE = 1600
 const COMFY_DEFAULT_BRUSH_STEP_SIZE = 5
+const HISTORY_MAX = 30
+const MIN_ZOOM = 0.2
+const MAX_ZOOM = 8
 
 function getBrushSpacing(brushSize: number): number {
   const stepPercentage =
@@ -123,14 +134,21 @@ function getBrushSpacing(brushSize: number): number {
   return Math.max(1, brushSize * stepPercentage)
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
 function getPoint(
   canvas: HTMLCanvasElement,
-  event: React.PointerEvent<HTMLCanvasElement>
+  event: React.PointerEvent<HTMLCanvasElement>,
+  zoom: number,
+  pan: { x: number; y: number }
 ): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
   return {
-    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    x: ((event.clientX - rect.left - pan.x) / rect.width / zoom) * canvas.width,
+    y:
+      ((event.clientY - rect.top - pan.y) / rect.height / zoom) * canvas.height,
   }
 }
 
@@ -177,14 +195,20 @@ function extractPositivePrompt(raw: string): string {
     let fallback: string | null = null
     for (const node of Object.values(nodes)) {
       if (typeof node !== "object" || node === null) continue
-      const n = node as { class_type?: unknown; inputs?: unknown; _meta?: unknown }
+      const n = node as {
+        class_type?: unknown
+        inputs?: unknown
+        _meta?: unknown
+      }
       if (n.class_type !== "CLIPTextEncode") continue
       const inputs = n.inputs
       if (typeof inputs !== "object" || inputs === null) continue
       const text = (inputs as Record<string, unknown>).text
       if (typeof text !== "string") continue
       const metaTitle = (n._meta as { title?: unknown } | undefined)?.title
-      const title = (typeof metaTitle === "string" ? metaTitle : "").toLowerCase()
+      const title = (
+        typeof metaTitle === "string" ? metaTitle : ""
+      ).toLowerCase()
       if (/positive|prompt/.test(title)) return text
       fallback ??= text
     }
@@ -239,7 +263,9 @@ function parseWorkflowDraft(workflow: string): ComfyWorkflow | null {
   }
 }
 
-function makeInputCandidates(workflow: ComfyWorkflow | null): WorkflowInputCandidate[] {
+function makeInputCandidates(
+  workflow: ComfyWorkflow | null
+): WorkflowInputCandidate[] {
   if (workflow === null) return []
   const candidates: WorkflowInputCandidate[] = []
   for (const [nodeId, node] of Object.entries(workflow)) {
@@ -247,19 +273,24 @@ function makeInputCandidates(workflow: ComfyWorkflow | null): WorkflowInputCandi
       if (Array.isArray(value) || value === null || typeof value === "object") {
         continue
       }
+      const label =
+        `${node.class_type} ${node._meta?.title ?? ""} ${inputKey}`.toLowerCase()
       candidates.push({
         id: `${nodeId}.${inputKey}`,
         nodeId,
         inputKey,
         label: `#${nodeId} ${node._meta?.title ?? node.class_type} · ${inputKey}`,
         isNumeric: typeof value === "number",
+        isImage: /image|mask/.test(label),
       })
     }
   }
   return candidates
 }
 
-function buildAutoInpaintMappings(workflow: ComfyWorkflow): InpaintNodeMapping[] {
+function buildAutoInpaintMappings(
+  workflow: ComfyWorkflow
+): InpaintNodeMapping[] {
   const mappings: InpaintNodeMapping[] = []
   const used = new Set<string>()
   const add = (
@@ -284,27 +315,36 @@ function buildAutoInpaintMappings(workflow: ComfyWorkflow): InpaintNodeMapping[]
   const promptNode =
     entries.find(([, node]) => {
       const title = node._meta?.title?.toLowerCase() ?? ""
-      return node.class_type === "CLIPTextEncode" && /positive|prompt/.test(title)
+      return (
+        node.class_type === "CLIPTextEncode" && /positive|prompt/.test(title)
+      )
     }) ?? entries.find(([, node]) => node.class_type === "CLIPTextEncode")
   if (promptNode && "text" in promptNode[1].inputs) {
     add(promptNode[0], "text", "prompt")
   }
 
-  const imageCandidates: { nodeId: string; inputKey: string; score: number }[] = []
+  const imageCandidates: { nodeId: string; inputKey: string; score: number }[] =
+    []
   for (const [nodeId, node] of entries) {
     for (const [inputKey, value] of Object.entries(node.inputs)) {
       if (typeof value !== "string") continue
-      const label = `${node.class_type} ${node._meta?.title ?? ""} ${inputKey}`.toLowerCase()
+      const label =
+        `${node.class_type} ${node._meta?.title ?? ""} ${inputKey}`.toLowerCase()
       if (!/image|mask/.test(label)) continue
       imageCandidates.push({
         nodeId,
         inputKey,
-        score: /mask/.test(label) ? 10 : /source|input|base|original/.test(label) ? 5 : 1,
+        score: label.includes("mask")
+          ? 10
+          : /source|input|base|original/.test(label)
+            ? 5
+            : 1,
       })
     }
   }
   const maskCandidate =
-    imageCandidates.find((candidate) => candidate.score >= 10) ?? imageCandidates[1]
+    imageCandidates.find((candidate) => candidate.score >= 10) ??
+    imageCandidates[1]
   if (imageCandidates.length === 1 && imageCandidates[0]) {
     add(
       imageCandidates[0].nodeId,
@@ -316,7 +356,9 @@ function buildAutoInpaintMappings(workflow: ComfyWorkflow): InpaintNodeMapping[]
       imageCandidates.find(
         (candidate) =>
           `${candidate.nodeId}.${candidate.inputKey}` !==
-          (maskCandidate ? `${maskCandidate.nodeId}.${maskCandidate.inputKey}` : "")
+          (maskCandidate
+            ? `${maskCandidate.nodeId}.${maskCandidate.inputKey}`
+            : "")
       ) ?? imageCandidates[0]
     if (sourceCandidate) {
       add(sourceCandidate.nodeId, sourceCandidate.inputKey, "sourceImage")
@@ -333,7 +375,10 @@ function buildAutoInpaintMappings(workflow: ComfyWorkflow): InpaintNodeMapping[]
 
   for (const [nodeId, node] of entries) {
     for (const [inputKey, value] of Object.entries(node.inputs)) {
-      if (typeof value === "number" && inputKey.toLowerCase().includes("seed")) {
+      if (
+        typeof value === "number" &&
+        inputKey.toLowerCase().includes("seed")
+      ) {
         add(nodeId, inputKey, "seed", { seedValue: value, seedRandom: true })
       }
     }
@@ -369,7 +414,10 @@ function createMaskExportCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
   return output
 }
 
-function canvasToMaskFile(canvas: HTMLCanvasElement, filename: string): Promise<File> {
+function canvasToMaskFile(
+  canvas: HTMLCanvasElement,
+  filename: string
+): Promise<File> {
   return canvasToFile(
     createMaskExportCanvas(canvas),
     `${baseName(filename)}-mask-rgb.png`,
@@ -377,7 +425,9 @@ function canvasToMaskFile(canvas: HTMLCanvasElement, filename: string): Promise<
   )
 }
 
-function createAlphaMaskImageCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
+function createAlphaMaskImageCanvas(
+  canvas: HTMLCanvasElement
+): HTMLCanvasElement {
   const output = document.createElement("canvas")
   output.width = canvas.width
   output.height = canvas.height
@@ -434,7 +484,12 @@ function createAlphaMaskedImageCanvas(
   }
   ctx.drawImage(imageCanvas, 0, 0)
   const imageData = ctx.getImageData(0, 0, output.width, output.height)
-  const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height)
+  const maskData = maskCtx.getImageData(
+    0,
+    0,
+    maskCanvas.width,
+    maskCanvas.height
+  )
   for (let i = 0; i < imageData.data.length; i += 4) {
     const maskAlpha = maskData.data[i + 3] ?? 0
     const nextAlpha = 255 - maskAlpha
@@ -496,6 +551,48 @@ function createOverlayCanvas(
   return output
 }
 
+function isMaskEmpty(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return true
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] !== 0) return false
+  }
+  return true
+}
+
+function getWorkflowJsonError(
+  workflow: string
+): { line: number; column: number; message: string } | null {
+  if (workflow.trim() === "") return null
+  try {
+    JSON.parse(workflow)
+    return null
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "JSON 파싱 실패"
+    const posMatch = /position (\d+)/.exec(message)
+    if (posMatch) {
+      const pos = Number(posMatch[1])
+      const before = workflow.slice(0, pos)
+      const lines = before.split("\n")
+      return {
+        line: lines.length,
+        column: (lines[lines.length - 1]?.length ?? 0) + 1,
+        message,
+      }
+    }
+    const lineMatch = /line (\d+)/.exec(message)
+    if (lineMatch) {
+      return {
+        line: Number(lineMatch[1]),
+        column: 0,
+        message,
+      }
+    }
+    return { line: 0, column: 0, message }
+  }
+}
+
 export function GalleryInpaintEditor({
   open,
   backendUrl,
@@ -510,6 +607,16 @@ export function GalleryInpaintEditor({
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const paintingRef = useRef(false)
   const lastPointRef = useRef<{ x: number; y: number } | null>(null)
+  const cursorRef = useRef<HTMLDivElement | null>(null)
+  const historyRef = useRef<ImageData[]>([])
+  const futureRef = useRef<ImageData[]>([])
+  const panningRef = useRef(false)
+  const panStartRef = useRef<{
+    x: number
+    y: number
+    panX: number
+    panY: number
+  } | null>(null)
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<PaintMode>("paint")
   const [brushSize, setBrushSize] = useState(56)
@@ -517,9 +624,21 @@ export function GalleryInpaintEditor({
   const [brushOpacity, setBrushOpacity] = useState(1)
   const [maskOpacity, setMaskOpacity] = useState(58)
   const [showMask, setShowMask] = useState(true)
-  const [inpaintWorkflows, setInpaintWorkflows] = useState<SavedInpaintWorkflow[]>(() =>
-    loadInpaintWorkflows()
+  const [cursorVisible, setCursorVisible] = useState(false)
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(
+    null
   )
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [spaceDown, setSpaceDown] = useState(false)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const [resultTab, setResultTab] = useState<"edit" | "result">("edit")
+  const [mappingSearch, setMappingSearch] = useState("")
+  const [panning, setPanning] = useState(false)
+  const [inpaintWorkflows, setInpaintWorkflows] = useState<
+    SavedInpaintWorkflow[]
+  >(() => loadInpaintWorkflows())
   const [selectedWorkflowId, setSelectedWorkflowIdState] = useState(
     () => localStorage.getItem(STORAGE_KEYS.inpaintActiveWorkflowId) ?? ""
   )
@@ -529,11 +648,8 @@ export function GalleryInpaintEditor({
   const [promptText, setPromptText] = useState("")
   const [importWorkflowId, setImportWorkflowId] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [generatedPreview, setGeneratedPreview] =
-    useState<GeneratedInpaintPreview | null>(null)
   const [submittedJobIds, setSubmittedJobIds] = useState<string[]>([])
   const [finalImageUrls, setFinalImageUrls] = useState<string[]>([])
-  const generatedPreviewUrlsRef = useRef<string[]>([])
 
   const selectedWorkflow = useMemo(
     () =>
@@ -546,20 +662,34 @@ export function GalleryInpaintEditor({
     return parseWorkflowDraft(workflowDraft)
   }, [workflowDraft])
 
+  const workflowError = useMemo(
+    () =>
+      parsedWorkflow === null ? getWorkflowJsonError(workflowDraft) : null,
+    [parsedWorkflow, workflowDraft]
+  )
+
   const inputCandidates = useMemo(
     () => makeInputCandidates(parsedWorkflow),
     [parsedWorkflow]
   )
 
   const availableInputCandidates = useMemo(() => {
-    const used = new Set(nodeMappings.map((mapping) => `${mapping.nodeId}.${mapping.inputKey}`))
+    const used = new Set(
+      nodeMappings.map((mapping) => `${mapping.nodeId}.${mapping.inputKey}`)
+    )
     return inputCandidates.filter((candidate) => !used.has(candidate.id))
   }, [inputCandidates, nodeMappings])
 
-  const activeInpaintJob = useMemo(() => {
-    return (
-      jobs.find((job) => submittedJobIds.includes(job.id)) ?? null
+  const filteredAvailableCandidates = useMemo(() => {
+    const query = mappingSearch.trim().toLowerCase()
+    if (query === "") return availableInputCandidates
+    return availableInputCandidates.filter((candidate) =>
+      candidate.label.toLowerCase().includes(query)
     )
+  }, [availableInputCandidates, mappingSearch])
+
+  const activeInpaintJob = useMemo(() => {
+    return jobs.find((job) => submittedJobIds.includes(job.id)) ?? null
   }, [jobs, submittedJobIds])
 
   const livePreviewUrl = useMemo(() => {
@@ -570,12 +700,68 @@ export function GalleryInpaintEditor({
     return `${backendUrl}/workers/${workerId}/preview?t=${String(previewToken)}`
   }, [activeInpaintJob?.workerId, backendUrl, workerPreviews])
 
+  const hasSourceMapping = nodeMappings.some(
+    (mapping) => mapping.sourceType === "sourceImage"
+  )
+  const hasMaskMapping = nodeMappings.some(
+    (mapping) =>
+      mapping.sourceType === "maskImage" ||
+      mapping.sourceType === "maskRgbImage"
+  )
+  const hasAlphaMapping = nodeMappings.some(
+    (mapping) => mapping.sourceType === "sourceWithAlphaMask"
+  )
+  const mappingValid = (hasSourceMapping && hasMaskMapping) || hasAlphaMapping
+
+  const pushHistory = useCallback(() => {
+    const canvas = maskCanvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+    const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    historyRef.current.push(snapshot)
+    if (historyRef.current.length > HISTORY_MAX) {
+      historyRef.current.shift()
+    }
+    futureRef.current = []
+    setCanUndo(historyRef.current.length > 0)
+    setCanRedo(false)
+  }, [])
+
+  const undo = useCallback(() => {
+    const canvas = maskCanvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+    if (historyRef.current.length === 0) return
+    const current = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const previous = historyRef.current.pop()!
+    futureRef.current.push(current)
+    ctx.putImageData(previous, 0, 0)
+    setCanUndo(historyRef.current.length > 0)
+    setCanRedo(futureRef.current.length > 0)
+  }, [])
+
+  const redo = useCallback(() => {
+    const canvas = maskCanvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+    if (futureRef.current.length === 0) return
+    const current = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const next = futureRef.current.pop()!
+    historyRef.current.push(current)
+    ctx.putImageData(next, 0, 0)
+    setCanUndo(historyRef.current.length > 0)
+    setCanRedo(futureRef.current.length > 0)
+  }, [])
+
   useEffect(() => {
     persistInpaintWorkflows(inpaintWorkflows)
   }, [inpaintWorkflows])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.inpaintActiveWorkflowId, selectedWorkflowId)
+    localStorage.setItem(
+      STORAGE_KEYS.inpaintActiveWorkflowId,
+      selectedWorkflowId
+    )
   }, [selectedWorkflowId])
 
   const setSelectedWorkflowId = useCallback(
@@ -586,6 +772,10 @@ export function GalleryInpaintEditor({
       setWorkflowName(workflow?.name ?? "")
       setWorkflowDraft(workflow?.workflow ?? "")
       setNodeMappings(workflow?.mappings ?? [])
+      historyRef.current = []
+      futureRef.current = []
+      setCanUndo(false)
+      setCanRedo(false)
     },
     [inpaintWorkflows]
   )
@@ -627,6 +817,12 @@ export function GalleryInpaintEditor({
       imageCtx.clearRect(0, 0, width, height)
       imageCtx.drawImage(img, 0, 0, width, height)
       maskCtx.clearRect(0, 0, width, height)
+      historyRef.current = []
+      futureRef.current = []
+      setCanUndo(false)
+      setCanRedo(false)
+      setZoom(1)
+      setPan({ x: 0, y: 0 })
       setReady(true)
     }
     img.src = imageUrl
@@ -636,21 +832,36 @@ export function GalleryInpaintEditor({
     const canvas = maskCanvasRef.current
     const ctx = canvas?.getContext("2d")
     if (!canvas || !ctx) return
+    pushHistory()
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-  }, [])
+  }, [pushHistory])
 
   const paintTo = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = maskCanvasRef.current
       const ctx = canvas?.getContext("2d")
       if (!canvas || !ctx) return
-      const point = getPoint(canvas, event)
+      const point = getPoint(canvas, event, zoom, pan)
       const lastPoint = lastPointRef.current
       if (lastPoint === null) {
-        drawDot(ctx, point.x, point.y, brushSize, mode, brushHardness, brushOpacity)
+        drawDot(
+          ctx,
+          point.x,
+          point.y,
+          brushSize,
+          mode,
+          brushHardness,
+          brushOpacity
+        )
       } else {
-        const distance = Math.hypot(point.x - lastPoint.x, point.y - lastPoint.y)
-        const steps = Math.max(1, Math.ceil(distance / getBrushSpacing(brushSize)))
+        const distance = Math.hypot(
+          point.x - lastPoint.x,
+          point.y - lastPoint.y
+        )
+        const steps = Math.max(
+          1,
+          Math.ceil(distance / getBrushSpacing(brushSize))
+        )
         for (let i = 1; i <= steps; i++) {
           const t = i / steps
           drawDot(
@@ -666,23 +877,23 @@ export function GalleryInpaintEditor({
       }
       lastPointRef.current = point
     },
-    [brushHardness, brushOpacity, brushSize, mode]
+    [brushHardness, brushOpacity, brushSize, mode, pan, zoom]
   )
 
   const stopPaint = useCallback(() => {
+    const wasPainting = paintingRef.current
     paintingRef.current = false
     lastPointRef.current = null
+    if (wasPainting) {
+      setCanUndo(historyRef.current.length > 0)
+    }
   }, [])
 
-  const clearGeneratedPreview = useCallback(() => {
-    generatedPreviewUrlsRef.current.forEach((url) => {
-      URL.revokeObjectURL(url)
-    })
-    generatedPreviewUrlsRef.current = []
-    setGeneratedPreview(null)
+  const resetResults = useCallback(() => {
+    setFinalImageUrls([])
   }, [])
 
-  useEffect(() => clearGeneratedPreview, [clearGeneratedPreview])
+  useEffect(() => resetResults, [resetResults])
 
   useEffect(() => {
     if (activeInpaintJob === null) return
@@ -693,7 +904,9 @@ export function GalleryInpaintEditor({
       ...activeInpaintJob.imageUrls,
     ]
     if (urls.length === 0) return
-    setFinalImageUrls((prev) => Array.from(new Set([...urls, ...prev])).slice(0, 8))
+    setFinalImageUrls((prev) =>
+      Array.from(new Set([...urls, ...prev])).slice(0, 8)
+    )
   }, [activeInpaintJob, backendUrl])
 
   useEffect(() => {
@@ -702,13 +915,90 @@ export function GalleryInpaintEditor({
       if (detail.type !== "image.saved") return
       if (!submittedJobIds.includes(detail.jobId)) return
       const url = `${backendUrl}/saved-images/${detail.hash}`
-      setFinalImageUrls((prev) => Array.from(new Set([url, ...prev])).slice(0, 8))
+      setFinalImageUrls((prev) =>
+        Array.from(new Set([url, ...prev])).slice(0, 8)
+      )
     }
     window.addEventListener("ceg-image-event", handleImageEvent)
     return () => {
       window.removeEventListener("ceg-image-event", handleImageEvent)
     }
   }, [backendUrl, submittedJobIds])
+
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null
+      const isEditable =
+        target !== null &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      if (isEditable) return
+
+      if (event.code === "Space" && !event.repeat) {
+        setSpaceDown(true)
+        return
+      }
+
+      const ctrlOrMeta = event.ctrlKey || event.metaKey
+      if (ctrlOrMeta && event.key.toLowerCase() === "z") {
+        event.preventDefault()
+        if (event.shiftKey) {
+          redo()
+        } else {
+          undo()
+        }
+        return
+      }
+      if (ctrlOrMeta && event.key.toLowerCase() === "y") {
+        event.preventDefault()
+        redo()
+        return
+      }
+      if (ctrlOrMeta && event.key === "Enter") {
+        event.preventDefault()
+        const runButton = document.getElementById("ceg-inpaint-run")
+        runButton?.click()
+        return
+      }
+
+      if (event.key === "[") {
+        setBrushSize((size) => clamp(size - 4, 4, 220))
+      } else if (event.key === "]") {
+        setBrushSize((size) => clamp(size + 4, 4, 220))
+      } else if (event.key.toLowerCase() === "b") {
+        setMode("paint")
+      } else if (event.key.toLowerCase() === "e") {
+        setMode("erase")
+      } else if (event.key.toLowerCase() === "x") {
+        setMode((m) => (m === "paint" ? "erase" : "paint"))
+      } else if (event.key.toLowerCase() === "h") {
+        setShowMask((v) => !v)
+      } else if (event.key === "-" || event.key === "_") {
+        setZoom((z) => clamp(z * 0.8, MIN_ZOOM, MAX_ZOOM))
+      } else if (event.key === "+" || event.key === "=") {
+        setZoom((z) => clamp(z * 1.25, MIN_ZOOM, MAX_ZOOM))
+      } else if (event.key === "0" && ctrlOrMeta) {
+        event.preventDefault()
+        setZoom(1)
+        setPan({ x: 0, y: 0 })
+      }
+    }
+    const handleKeyUp = (event: KeyboardEvent): void => {
+      if (event.code === "Space") {
+        setSpaceDown(false)
+        setPanning(false)
+        panningRef.current = false
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    window.addEventListener("keyup", handleKeyUp)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+    }
+  }, [open, redo, undo])
 
   const downloadMask = useCallback(() => {
     const maskCanvas = maskCanvasRef.current
@@ -734,39 +1024,15 @@ export function GalleryInpaintEditor({
     )
   }, [filename, maskOpacity])
 
-  const buildGeneratedPreview = useCallback(
-    async (
-      sourceFile: File,
-      maskAlphaFile: File,
-      maskRgbFile: File,
-      alphaSourceFile: File,
-      imageCanvas: HTMLCanvasElement,
-      maskCanvas: HTMLCanvasElement
-    ): Promise<void> => {
-      clearGeneratedPreview()
-      const overlayFile = await canvasToFile(
-        createOverlayCanvas(imageCanvas, maskCanvas, maskOpacity),
-        `${baseName(filename)}-inpaint-overlay.png`,
-        "오버레이 이미지 생성 실패"
-      )
-      const urls = [
-        URL.createObjectURL(sourceFile),
-        URL.createObjectURL(maskAlphaFile),
-        URL.createObjectURL(maskRgbFile),
-        URL.createObjectURL(alphaSourceFile),
-        URL.createObjectURL(overlayFile),
-      ]
-      generatedPreviewUrlsRef.current = urls
-      setGeneratedPreview({
-        sourceUrl: urls[0] ?? "",
-        maskAlphaUrl: urls[1] ?? "",
-        maskRgbUrl: urls[2] ?? "",
-        alphaUrl: urls[3] ?? "",
-        overlayUrl: urls[4] ?? "",
+  const downloadFinalImage = useCallback((url: string) => {
+    fetch(url)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const name = url.split("/").pop() ?? "inpaint-result.png"
+        triggerBlobDownload(blob, name.endsWith(".png") ? name : `${name}.png`)
       })
-    },
-    [clearGeneratedPreview, filename, maskOpacity]
-  )
+      .catch(() => toast.error("이미지 다운로드 실패"))
+  }, [])
 
   const uploadComfyImage = useCallback(
     async (file: File): Promise<string> => {
@@ -778,7 +1044,8 @@ export function GalleryInpaintEditor({
         method: "POST",
         body: formData,
       })
-      if (!response.ok) throw new Error(`업로드 실패: HTTP ${String(response.status)}`)
+      if (!response.ok)
+        throw new Error(`업로드 실패: HTTP ${String(response.status)}`)
       const data = (await response.json()) as {
         name?: string
         subfolder?: string
@@ -815,7 +1082,10 @@ export function GalleryInpaintEditor({
       id: selectedWorkflow?.id ?? crypto.randomUUID(),
       name: trimmedName,
       workflow: workflowDraft,
-      mappings: nodeMappings.length > 0 ? nodeMappings : buildAutoInpaintMappings(parsed),
+      mappings:
+        nodeMappings.length > 0
+          ? nodeMappings
+          : buildAutoInpaintMappings(parsed),
       savedAt: Date.now(),
     }
     setInpaintWorkflows((prev) => {
@@ -878,7 +1148,11 @@ export function GalleryInpaintEditor({
           id: crypto.randomUUID(),
           nodeId: candidate.nodeId,
           inputKey: candidate.inputKey,
-          sourceType: candidate.isNumeric ? "seed" : "fixed",
+          sourceType: candidate.isNumeric
+            ? "seed"
+            : candidate.isImage
+              ? "sourceImage"
+              : "fixed",
           seedRandom: candidate.isNumeric,
           seedValue: 0,
         },
@@ -969,16 +1243,7 @@ export function GalleryInpaintEditor({
       toast.error("인페인팅 워크플로우 JSON을 선택하거나 저장해주세요.")
       return
     }
-    const hasSource = nodeMappings.some((mapping) => mapping.sourceType === "sourceImage")
-    const hasMask = nodeMappings.some(
-      (mapping) =>
-        mapping.sourceType === "maskImage" ||
-        mapping.sourceType === "maskRgbImage"
-    )
-    const hasAlphaSource = nodeMappings.some(
-      (mapping) => mapping.sourceType === "sourceWithAlphaMask"
-    )
-    if ((!hasSource || !hasMask) && !hasAlphaSource) {
+    if (!mappingValid) {
       toast.error(
         "원본+마스크(RGBA) 매핑 또는 원본 이미지/마스크 매핑을 설정해주세요."
       )
@@ -990,7 +1255,12 @@ export function GalleryInpaintEditor({
       toast.error("이미지/마스크 캔버스를 찾을 수 없습니다.")
       return
     }
+    if (isMaskEmpty(maskCanvas)) {
+      toast.error("마스크를 먼저 칠해주세요. (브러시로 수정할 영역 표시)")
+      return
+    }
     setSubmitting(true)
+    setResultTab("result")
     try {
       const sourceFile = await canvasToImageFile(imageCanvas, filename)
       const maskAlphaFile = await canvasToAlphaMaskFile(maskCanvas, filename)
@@ -1000,21 +1270,14 @@ export function GalleryInpaintEditor({
         maskCanvas,
         filename
       )
-      await buildGeneratedPreview(
-        sourceFile,
-        maskAlphaFile,
-        maskRgbFile,
-        alphaSourceFile,
-        imageCanvas,
-        maskCanvas
-      )
-      setFinalImageUrls([])
-      const [sourceName, maskAlphaName, maskRgbName, alphaSourceName] = await Promise.all([
-        uploadComfyImage(sourceFile),
-        uploadComfyImage(maskAlphaFile),
-        uploadComfyImage(maskRgbFile),
-        uploadComfyImage(alphaSourceFile),
-      ])
+      resetResults()
+      const [sourceName, maskAlphaName, maskRgbName, alphaSourceName] =
+        await Promise.all([
+          uploadComfyImage(sourceFile),
+          uploadComfyImage(maskAlphaFile),
+          uploadComfyImage(maskRgbFile),
+          uploadComfyImage(alphaSourceFile),
+        ])
 
       const built = applyMappings(
         parsedWorkflow,
@@ -1048,26 +1311,32 @@ export function GalleryInpaintEditor({
         jobIds?: string[]
       }
       if (Array.isArray(data.jobIds) && data.jobIds.length > 0) {
+        const jobIds = data.jobIds
         setSubmittedJobIds((prev) =>
-          Array.from(new Set([...data.jobIds!, ...prev])).slice(0, 12)
+          Array.from(new Set([...jobIds, ...prev])).slice(0, 12)
         )
       }
       toast.success("인페인팅 작업이 큐에 추가되었습니다.")
     } catch (error) {
       console.error(error)
-      toast.error(error instanceof Error ? error.message : "인페인팅 작업 제출 실패")
+      toast.error(
+        error instanceof Error ? error.message : "인페인팅 작업 제출 실패"
+      )
     } finally {
       setSubmitting(false)
     }
   }, [
-    backendUrl,
     applyMappings,
-    buildGeneratedPreview,
+    backendUrl,
+    resetResults,
     filename,
-    nodeMappings,
+    mappingValid,
     parsedWorkflow,
     uploadComfyImage,
   ])
+
+  const cursorDiameter = brushSize * zoom
+  const isPannable = spaceDown
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1083,12 +1352,25 @@ export function GalleryInpaintEditor({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="flex min-h-0 max-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden rounded-md border bg-muted/20 p-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[340px_minmax(0,1fr)]">
+          <aside className="flex max-h-full min-h-0 flex-col gap-3 overflow-x-hidden overflow-y-auto rounded-md border bg-muted/20 p-3">
             <div className="grid gap-2 rounded-md border bg-background/60 p-2">
-              <Label className="text-xs font-semibold">
-                인페인팅 전용 워크플로우
-              </Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-semibold">
+                  인페인팅 전용 워크플로우
+                </Label>
+                {inpaintWorkflows.length === 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="size-3.5 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-56 text-xs">
+                      일반 워크플로우 가져오기로 시작해보세요. 마스크 관련
+                      입력이 있는 ComfyUI API JSON이 필요합니다.
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               <Select
                 value={selectedWorkflowId || "__none__"}
                 onValueChange={(value) => {
@@ -1120,7 +1402,9 @@ export function GalleryInpaintEditor({
                       <SelectValue placeholder="일반 워크플로우 가져오기" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">가져올 워크플로우</SelectItem>
+                      <SelectItem value="__none__">
+                        가져올 워크플로우
+                      </SelectItem>
                       {savedWorkflows.map((workflow) => (
                         <SelectItem key={workflow.id} value={workflow.id}>
                           {workflow.name}
@@ -1155,9 +1439,19 @@ export function GalleryInpaintEditor({
                   setWorkflowDraft(event.target.value)
                   setSelectedWorkflowIdState("")
                 }}
-                className="max-h-28 min-h-20 resize-none font-mono text-[11px]"
+                className="max-h-40 min-h-24 resize-y font-mono text-[11px]"
                 placeholder="ComfyUI API workflow JSON"
+                aria-invalid={workflowError !== null}
               />
+              {workflowError !== null && workflowDraft !== "" && (
+                <p className="text-xs text-destructive" role="alert">
+                  JSON 파싱 실패
+                  {workflowError.line > 0
+                    ? ` (줄 ${String(workflowError.line)}${workflowError.column > 0 ? `:${String(workflowError.column)}` : ""})`
+                    : ""}
+                  : {workflowError.message}
+                </p>
+              )}
               <div className="grid grid-cols-3 gap-1">
                 <Button
                   type="button"
@@ -1165,6 +1459,8 @@ export function GalleryInpaintEditor({
                   size="sm"
                   className="h-8 gap-1 px-2 text-xs"
                   onClick={handleAutoMap}
+                  disabled={parsedWorkflow === null}
+                  title="워크플로우의 프롬프트/이미지/마스크/시드 입력을 자동 매핑"
                 >
                   <Plus className="size-3.5" />
                   자동
@@ -1191,11 +1487,6 @@ export function GalleryInpaintEditor({
                   삭제
                 </Button>
               </div>
-              {workflowDraft !== "" && parsedWorkflow === null && (
-                <p className="text-xs text-destructive">
-                  워크플로우 JSON을 읽을 수 없습니다.
-                </p>
-              )}
             </div>
 
             <div className="grid gap-2 rounded-md border bg-background/60 p-2">
@@ -1219,7 +1510,7 @@ export function GalleryInpaintEditor({
                 onChange={(event) => {
                   setPromptText(event.target.value)
                 }}
-                className="max-h-28 min-h-16 resize-none text-xs"
+                className="max-h-28 min-h-16 resize-y text-xs"
                 placeholder="인페인팅 프롬프트"
               />
             </div>
@@ -1241,31 +1532,62 @@ export function GalleryInpaintEditor({
                     disabled={availableInputCandidates.length === 0}
                   >
                     <Plus className="size-3.5" />
-                    매핑 추가
+                    매핑 추가 ({availableInputCandidates.length})
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="max-h-72 w-80 overflow-y-auto"
-                >
-                  {availableInputCandidates.map((candidate) => (
-                    <DropdownMenuItem
-                      key={candidate.id}
-                      className="items-start gap-2 text-xs"
-                      onSelect={() => {
-                        addMapping(candidate.id)
-                      }}
-                    >
-                      <span className="font-mono text-[10px] text-muted-foreground">
-                        #{candidate.nodeId}
-                      </span>
-                      <span className="min-w-0 break-all leading-snug">
-                        {candidate.label.replace(`#${candidate.nodeId} `, "")}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
+                <DropdownMenuContent align="start" className="w-80">
+                  <div className="border-b p-2">
+                    <div className="relative">
+                      <Search className="absolute top-1/2 left-1.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={mappingSearch}
+                        onChange={(event) => {
+                          setMappingSearch(event.target.value)
+                        }}
+                        placeholder="입력 검색..."
+                        className="h-7 pl-7 text-xs"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {filteredAvailableCandidates.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        {availableInputCandidates.length === 0
+                          ? "추가 가능한 입력이 없습니다"
+                          : "검색 결과 없음"}
+                      </div>
+                    ) : (
+                      filteredAvailableCandidates.map((candidate) => (
+                        <DropdownMenuItem
+                          key={candidate.id}
+                          className="items-start gap-2 text-xs"
+                          onSelect={() => {
+                            addMapping(candidate.id)
+                          }}
+                        >
+                          <span className="font-mono text-[10px] text-muted-foreground">
+                            #{candidate.nodeId}
+                          </span>
+                          <span className="min-w-0 leading-snug break-all">
+                            {candidate.label.replace(
+                              `#${candidate.nodeId} `,
+                              ""
+                            )}
+                          </span>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {nodeMappings.length === 0 && parsedWorkflow !== null && (
+                <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 p-2 text-[11px] text-muted-foreground">
+                  <Info className="mb-1 inline size-3" /> 매핑이 없습니다.
+                  "자동" 버튼으로 시작하거나 "매핑 추가"에서 입력을 선택하세요.
+                </div>
+              )}
 
               {nodeMappings.map((mapping) => {
                 const candidate = inputCandidates.find(
@@ -1278,7 +1600,7 @@ export function GalleryInpaintEditor({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="break-all text-[11px] leading-snug font-medium">
+                        <div className="text-[11px] leading-snug font-medium break-all">
                           {candidate?.label ??
                             `#${mapping.nodeId} · ${mapping.inputKey}`}
                         </div>
@@ -1288,6 +1610,7 @@ export function GalleryInpaintEditor({
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 shrink-0"
+                        aria-label="매핑 삭제"
                         onClick={() => {
                           setNodeMappings((prev) =>
                             prev.filter((item) => item.id !== mapping.id)
@@ -1382,6 +1705,7 @@ export function GalleryInpaintEditor({
                 onClick={() => {
                   setMode("paint")
                 }}
+                aria-pressed={mode === "paint"}
               >
                 <Brush className="size-4" />
                 칠하기
@@ -1394,6 +1718,7 @@ export function GalleryInpaintEditor({
                 onClick={() => {
                   setMode("erase")
                 }}
+                aria-pressed={mode === "erase"}
               >
                 <Eraser className="size-4" />
                 지우기
@@ -1401,7 +1726,10 @@ export function GalleryInpaintEditor({
             </div>
 
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              브러시 크기
+              <div className="flex items-center justify-between">
+                <span>브러시 크기</span>
+                <Kbd>[</Kbd>
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="range"
@@ -1412,8 +1740,13 @@ export function GalleryInpaintEditor({
                     setBrushSize(Number(event.target.value))
                   }}
                   className="w-full accent-foreground"
+                  aria-label="브러시 크기"
                 />
                 <span className="w-8 text-right font-mono">{brushSize}</span>
+              </div>
+              <div className="flex justify-between text-[9px] text-muted-foreground/70">
+                <span>4</span>
+                <span>220</span>
               </div>
             </label>
 
@@ -1429,6 +1762,7 @@ export function GalleryInpaintEditor({
                     setBrushHardness(Number(event.target.value) / 100)
                   }}
                   className="w-full accent-foreground"
+                  aria-label="브러시 경도"
                 />
                 <span className="w-8 text-right font-mono">
                   {Math.round(brushHardness * 100)}
@@ -1448,6 +1782,7 @@ export function GalleryInpaintEditor({
                     setBrushOpacity(Number(event.target.value) / 100)
                   }}
                   className="w-full accent-foreground"
+                  aria-label="브러시 농도"
                 />
                 <span className="w-8 text-right font-mono">
                   {Math.round(brushOpacity * 100)}
@@ -1467,12 +1802,42 @@ export function GalleryInpaintEditor({
                     setMaskOpacity(Number(event.target.value))
                   }}
                   className="w-full accent-foreground"
+                  aria-label="마스크 표시 불투명도"
                 />
                 <span className="w-8 text-right font-mono">{maskOpacity}</span>
               </div>
             </label>
 
-            <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="justify-start gap-1.5"
+                onClick={undo}
+                disabled={!canUndo}
+                aria-label="실행 취소"
+                title="실행 취소 (Ctrl+Z)"
+              >
+                <Undo2 className="size-4" />
+                취소
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="justify-start gap-1.5"
+                onClick={redo}
+                disabled={!canRedo}
+                aria-label="다시 실행"
+                title="다시 실행 (Ctrl+Shift+Z)"
+              >
+                <Redo2 className="size-4" />
+                재실행
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -1481,6 +1846,8 @@ export function GalleryInpaintEditor({
                 onClick={() => {
                   setShowMask((value) => !value)
                 }}
+                aria-pressed={showMask}
+                title="마스크 표시 토글 (H)"
               >
                 {showMask ? (
                   <EyeOff className="size-4" />
@@ -1495,150 +1862,322 @@ export function GalleryInpaintEditor({
                 size="sm"
                 className="justify-start gap-1.5"
                 onClick={clearMask}
+                aria-label="마스크 초기화"
               >
                 <RotateCcw className="size-4" />
                 마스크 초기화
               </Button>
             </div>
+
+            <div className="grid grid-cols-4 gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 px-1 text-[11px]"
+                onClick={() => {
+                  setZoom((z) => clamp(z * 0.8, MIN_ZOOM, MAX_ZOOM))
+                }}
+                title="축소 (-)"
+                aria-label="축소"
+              >
+                <ZoomOut className="size-3.5" />
+              </Button>
+              <div className="flex items-center justify-center font-mono text-[11px] text-muted-foreground">
+                {Math.round(zoom * 100)}%
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 px-1 text-[11px]"
+                onClick={() => {
+                  setZoom((z) => clamp(z * 1.25, MIN_ZOOM, MAX_ZOOM))
+                }}
+                title="확대 (+)"
+                aria-label="확대"
+              >
+                <ZoomIn className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 px-1 text-[11px]"
+                onClick={() => {
+                  setZoom(1)
+                  setPan({ x: 0, y: 0 })
+                }}
+                title="원본 크기 (Ctrl+0)"
+                aria-label="원본 크기로"
+              >
+                <RotateCcw className="size-3.5" />
+              </Button>
+            </div>
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              <Hand className="mr-1 inline size-3" />
+              스페이스+드래그로 이동, 휠로 줌. 단축키: <Kbd>B</Kbd> 칠하기{" "}
+              <Kbd>E</Kbd> 지우기 <Kbd>X</Kbd> 전환 <Kbd>H</Kbd> 마스크{" "}
+              <Kbd>[</Kbd>
+              <Kbd>]</Kbd> 브러시 크기 <Kbd>Ctrl</Kbd>+<Kbd>Z</Kbd> 취소{" "}
+              <Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd> 재실행{" "}
+              <Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd> 실행
+            </p>
           </aside>
 
-          <div className="relative min-h-0 overflow-auto rounded-md border bg-neutral-950">
-            {!ready && (
-              <div className="absolute inset-0 flex items-center justify-center text-xs text-white/70">
-                이미지를 불러오는 중...
-              </div>
-            )}
-            <div className="relative mx-auto w-fit min-w-0">
-              <canvas ref={imageCanvasRef} className="block max-h-[78vh] max-w-full" />
-              <canvas
-                ref={maskCanvasRef}
-                className="absolute inset-0 block max-h-[78vh] max-w-full cursor-crosshair touch-none"
-                style={{
-                  opacity: showMask ? maskOpacity / 100 : 0,
-                  filter:
-                    "sepia(1) saturate(12) hue-rotate(300deg) brightness(1.2)",
-                }}
-                onPointerDown={(event) => {
-                  event.currentTarget.setPointerCapture(event.pointerId)
-                  paintingRef.current = true
-                  lastPointRef.current = null
-                  paintTo(event)
-                }}
-                onPointerMove={(event) => {
-                  if (paintingRef.current) paintTo(event)
-                }}
-                onPointerUp={stopPaint}
-                onPointerCancel={stopPaint}
-                onPointerLeave={stopPaint}
-              />
-            </div>
-            {generatedPreview !== null && (
-              <div className="sticky bottom-0 border-t border-white/10 bg-neutral-950/95 p-3 backdrop-blur">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="text-xs font-semibold text-white/85">
-                    업로드 입력 확인
+          <div className="relative min-h-0 overflow-hidden rounded-md border bg-neutral-950">
+            <Tabs
+              value={resultTab}
+              onValueChange={(v) => {
+                setResultTab(v as "edit" | "result")
+              }}
+              className="flex h-full min-h-0 flex-col"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-neutral-900/60 px-2 py-1">
+                <TabsList className="h-8 bg-white/5">
+                  <TabsTrigger value="edit" className="text-xs">
+                    편집
+                  </TabsTrigger>
+                  <TabsTrigger value="result" className="text-xs">
+                    결과
+                    {finalImageUrls.length > 0 && (
+                      <span className="ml-1 rounded bg-white/15 px-1 text-[9px]">
+                        {finalImageUrls.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+                {resultTab === "edit" && (
+                  <div className="flex items-center gap-2 text-[10px] text-white/50">
+                    {isPannable && (
+                      <span className="flex items-center gap-1">
+                        <Hand className="size-3" /> 이동 모드
+                      </span>
+                    )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 border-white/20 bg-white/10 px-2 text-xs text-white hover:bg-white/20"
-                    onClick={clearGeneratedPreview}
-                  >
-                    숨김
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-                  {[
-                    ["원본", generatedPreview.sourceUrl],
-                    ["마스크(LoadImage MASK)", generatedPreview.maskAlphaUrl],
-                    ["마스크 RGB", generatedPreview.maskRgbUrl],
-                    ["원본+마스크(RGBA · 투명부=마스크)", generatedPreview.alphaUrl],
-                    ["오버레이", generatedPreview.overlayUrl],
-                  ].map(([label, url]) => (
-                    <div
-                      key={label}
-                      className="min-w-0 rounded-md border border-white/10 bg-white/5 p-2"
-                    >
-                      <div className="mb-1 truncate text-[10px] font-medium text-white/70">
-                        {label}
-                      </div>
-                      <div className="flex aspect-square items-center justify-center overflow-hidden rounded bg-[linear-gradient(45deg,#555_25%,transparent_25%),linear-gradient(-45deg,#555_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#555_75%),linear-gradient(-45deg,transparent_75%,#555_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0]">
-                        <img
-                          src={url}
-                          alt={label}
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      </div>
+                )}
+              </div>
+
+              <TabsContent
+                value="edit"
+                forceMount
+                hidden={resultTab !== "edit"}
+                className="mt-0 min-h-0 flex-1 overflow-auto data-[state=inactive]:hidden"
+              >
+                <div className="relative flex min-h-full items-center justify-center p-4">
+                  {!ready && (
+                    <div className="absolute inset-0 flex items-center justify-center text-xs text-white/70">
+                      이미지를 불러오는 중...
                     </div>
-                  ))}
+                  )}
+                  <div
+                    className="relative w-fit min-w-0"
+                    style={{
+                      transform: `translate(${String(pan.x)}px, ${String(pan.y)}px) scale(${String(zoom)})`,
+                      transformOrigin: "center center",
+                      transition: panning ? "none" : "transform 80ms",
+                    }}
+                  >
+                    <canvas
+                      ref={imageCanvasRef}
+                      className="block max-h-[78vh] max-w-full"
+                    />
+                    <canvas
+                      ref={maskCanvasRef}
+                      className="absolute inset-0 block max-h-[78vh] max-w-full touch-none"
+                      style={{
+                        opacity: showMask ? maskOpacity / 100 : 0,
+                        filter:
+                          "sepia(1) saturate(12) hue-rotate(300deg) brightness(1.2)",
+                        cursor: isPannable ? "grab" : "none",
+                      }}
+                      onPointerDown={(event) => {
+                        if (isPannable) {
+                          setPanning(true)
+                          panningRef.current = true
+                          panStartRef.current = {
+                            x: event.clientX,
+                            y: event.clientY,
+                            panX: pan.x,
+                            panY: pan.y,
+                          }
+                          event.currentTarget.setPointerCapture(event.pointerId)
+                          return
+                        }
+                        event.currentTarget.setPointerCapture(event.pointerId)
+                        paintingRef.current = true
+                        lastPointRef.current = null
+                        pushHistory()
+                        paintTo(event)
+                      }}
+                      onPointerMove={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect()
+                        setCursorPos({
+                          x: event.clientX - rect.left,
+                          y: event.clientY - rect.top,
+                        })
+                        if (
+                          isPannable &&
+                          panningRef.current &&
+                          panStartRef.current
+                        ) {
+                          setPan({
+                            x:
+                              panStartRef.current.panX +
+                              (event.clientX - panStartRef.current.x),
+                            y:
+                              panStartRef.current.panY +
+                              (event.clientY - panStartRef.current.y),
+                          })
+                          return
+                        }
+                        if (paintingRef.current) paintTo(event)
+                      }}
+                      onPointerUp={(event) => {
+                        if (isPannable) {
+                          setPanning(false)
+                          panningRef.current = false
+                          panStartRef.current = null
+                        }
+                        stopPaint()
+                        event.currentTarget.releasePointerCapture(
+                          event.pointerId
+                        )
+                      }}
+                      onPointerCancel={stopPaint}
+                      onPointerEnter={() => {
+                        setCursorVisible(true)
+                      }}
+                      onPointerLeave={() => {
+                        setCursorVisible(false)
+                        stopPaint()
+                      }}
+                      onWheel={(event) => {
+                        event.preventDefault()
+                        const delta = -event.deltaY
+                        setZoom((z) =>
+                          clamp(z * (delta > 0 ? 1.1 : 0.9), MIN_ZOOM, MAX_ZOOM)
+                        )
+                      }}
+                    />
+                    {cursorVisible && cursorPos !== null && !isPannable && (
+                      <div
+                        ref={cursorRef}
+                        className="pointer-events-none absolute rounded-full border-2 mix-blend-difference"
+                        style={{
+                          left: cursorPos.x - cursorDiameter / 2,
+                          top: cursorPos.y - cursorDiameter / 2,
+                          width: cursorDiameter,
+                          height: cursorDiameter,
+                          borderColor:
+                            mode === "paint"
+                              ? "rgb(255, 200, 80)"
+                              : "rgb(255, 80, 80)",
+                          backgroundColor:
+                            mode === "paint"
+                              ? "rgba(255, 200, 80, 0.1)"
+                              : "rgba(255, 80, 80, 0.1)",
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
-                {(activeInpaintJob !== null ||
-                  livePreviewUrl !== null ||
-                  finalImageUrls.length > 0) && (
-                  <div className="mt-3 border-t border-white/10 pt-3">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <div className="text-xs font-semibold text-white/85">
-                        생성 프리뷰 / 완료 이미지
+              </TabsContent>
+
+              <TabsContent
+                value="result"
+                className="mt-0 min-h-0 flex-1 overflow-auto bg-neutral-950"
+              >
+                <div className="p-3">
+                  {activeInpaintJob === null &&
+                    livePreviewUrl === null &&
+                    finalImageUrls.length === 0 && (
+                      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-white/50">
+                        <Info className="size-8 text-white/30" />
+                        <div className="text-sm">
+                          아직 실행된 인페인팅이 없습니다
+                        </div>
+                        <p className="max-w-sm text-xs text-white/40">
+                          마스크를 칠하고 "인페인팅 실행" 버튼을 누르면 여기에
+                          생성 결과가 표시됩니다.
+                        </p>
                       </div>
-                      {activeInpaintJob !== null && (
-                        <div className="min-w-0 truncate text-[10px] text-white/60">
+                    )}
+
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div className="text-xs font-semibold text-white/85">
+                      결과
+                    </div>
+                    {activeInpaintJob !== null && (
+                      <div className="flex min-w-0 items-center gap-2 truncate text-[10px] text-white/60">
+                        {activeInpaintJob.status === "running" && (
+                          <Spinner className="size-3.5 text-white/70" />
+                        )}
+                        <span className="truncate">
                           {activeInpaintJob.currentNodeName
                             ? `${activeInpaintJob.currentNodeName} · `
                             : ""}
                           {Math.round(activeInpaintJob.progressPercent)}%
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
+                    {livePreviewUrl !== null && finalImageUrls.length === 0 && (
                       <div className="min-w-0 rounded-md border border-white/10 bg-white/5 p-2">
                         <div className="mb-1 truncate text-[10px] font-medium text-white/70">
                           생성 중 프리뷰
                         </div>
-                        <div className="flex aspect-video items-center justify-center overflow-hidden rounded bg-black/40">
-                          {livePreviewUrl !== null ? (
-                            <img
-                              src={livePreviewUrl}
-                              alt="생성 중 프리뷰"
-                              className="max-h-full max-w-full object-contain"
-                            />
-                          ) : (
-                            <span className="text-[11px] text-white/45">
-                              프리뷰 대기 중
-                            </span>
-                          )}
+                        <div className="flex aspect-square items-center justify-center overflow-hidden rounded bg-black/40">
+                          <img
+                            src={livePreviewUrl}
+                            alt="생성 중 프리뷰"
+                            className="max-h-full max-w-full object-contain"
+                          />
                         </div>
                       </div>
-                      <div className="min-w-0 rounded-md border border-white/10 bg-white/5 p-2">
-                        <div className="mb-1 truncate text-[10px] font-medium text-white/70">
-                          완료 이미지
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {finalImageUrls.length > 0 ? (
-                            finalImageUrls.map((url) => (
-                              <div
-                                key={url}
-                                className="flex aspect-square items-center justify-center overflow-hidden rounded bg-black/40"
-                              >
-                                <img
-                                  src={url}
-                                  alt="완료 이미지"
-                                  className="max-h-full max-w-full object-contain"
-                                />
-                              </div>
-                            ))
-                          ) : (
-                            <div className="col-span-2 flex aspect-video items-center justify-center rounded bg-black/40 text-[11px] text-white/45">
-                              완료 이미지 대기 중
+                    )}
+                    {finalImageUrls.length > 0
+                      ? finalImageUrls.map((url) => (
+                          <div
+                            key={url}
+                            className="group relative min-w-0 rounded-md border border-white/10 bg-white/5 p-2"
+                          >
+                            <div className="mb-1 truncate text-[10px] font-medium text-white/70">
+                              완료 이미지
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                            <div className="flex aspect-square items-center justify-center overflow-hidden rounded bg-black/40">
+                              <img
+                                src={url}
+                                alt="완료 이미지"
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 rounded bg-black/60 p-1 opacity-0 transition group-hover:opacity-100"
+                              onClick={() => {
+                                downloadFinalImage(url)
+                              }}
+                              aria-label="이 이미지 다운로드"
+                            >
+                              <Download className="size-3 text-white" />
+                            </button>
+                          </div>
+                        ))
+                      : livePreviewUrl === null &&
+                        activeInpaintJob !== null && (
+                          <div className="col-span-full flex aspect-video items-center justify-center rounded bg-black/40 text-[11px] text-white/45">
+                            {activeInpaintJob.status === "running"
+                              ? "생성 중..."
+                              : "완료 이미지 대기 중"}
+                          </div>
+                        )}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
@@ -1674,19 +2213,32 @@ export function GalleryInpaintEditor({
             마스크 저장
           </Button>
           <Button
+            id="ceg-inpaint-run"
             type="button"
             className="gap-1.5"
             disabled={
-              !ready ||
-              submitting ||
-              parsedWorkflow === null
+              !ready || submitting || parsedWorkflow === null || !mappingValid
             }
             onClick={() => {
               void handleRunInpaint()
             }}
+            title={
+              !mappingValid
+                ? "원본/마스크 또는 RGBA 매핑을 먼저 설정하세요"
+                : "인페인팅 실행 (Ctrl+Enter)"
+            }
           >
-            <Play className="size-4" />
-            {submitting ? "제출 중..." : "인페인팅 실행"}
+            {submitting ? (
+              <>
+                <Spinner className="size-4" />
+                제출 중...
+              </>
+            ) : (
+              <>
+                <Play className="size-4" />
+                인페인팅 실행
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -604,6 +604,16 @@ export class ComfyApi extends EventTarget {
     )
   }
 
+  async getComfyWorkflows(workerId: string): Promise<any[]> {
+    const res = await this.fetchApi(`/workers/${workerId}/comfy_workflows`)
+    return await readJsonOrDefault<any[]>(res, [], `/workers/${workerId}/comfy_workflows`)
+  }
+
+  async getComfyWorkflowContent(workerId: string, filename: string): Promise<Record<string, any>> {
+    const res = await this.fetchApi(`/workers/${workerId}/comfy_workflows/${filename}`)
+    return await readJsonOrDefault<Record<string, any>>(res, {}, `/workers/${workerId}/comfy_workflows/${filename}`)
+  }
+
   async getCoreWorkflowTemplates(locale?: string): Promise<unknown[]> {
     const fileName =
       locale !== undefined && locale !== "en"
