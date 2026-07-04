@@ -46,6 +46,7 @@ import { RegenerateDialog } from "./CombinationPickerComponents"
 import { ImageViewer } from "../ImageViewer"
 import { ImageDetail } from "../gallery/ImageDetail"
 import { GalleryInpaintEditor } from "../GalleryInpaintEditor"
+import { ImageEditorDialog } from "../image-editor/ImageEditorDialog"
 import { hasApproved, findApproved } from "../../types/Message"
 import { TournamentView } from "./CombinationPickerViews"
 import { GalleryView, TableView } from "./CombinationPickerViews"
@@ -142,6 +143,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   >(STORAGE_KEYS.curationSelectedFilename, null)
   const [detailImage, setDetailImage] = useState<SavedImage | null>(null)
   const [inpaintImage, setInpaintImage] = useState<SavedImage | null>(null)
+  const [editImage, setEditImage] = useState<SavedImage | null>(null)
 
   const exportAction = useAsyncAction(3000)
   const regenAction = useAsyncAction(3000)
@@ -898,6 +900,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 onInpaint={(img) => {
                   setInpaintImage(img)
                 }}
+                onEdit={(img) => {
+                  setEditImage(img)
+                }}
               />
               {viewMode === "tournament" && (
                 <div className="flex-1 overflow-hidden">
@@ -1010,6 +1015,17 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             sourcePrompt={inpaintImage.prompt}
             onOpenChange={(open) => {
               if (!open) setInpaintImage(null)
+            }}
+          />
+        )}
+        {editImage && (
+          <ImageEditorDialog
+            open={editImage !== null}
+            backendUrl={backendUrl}
+            imageUrl={`${backendUrl}/saved-images/${editImage.hash}`}
+            filename={getImageFilename(editImage)}
+            onOpenChange={(open) => {
+              if (!open) setEditImage(null)
             }}
           />
         )}

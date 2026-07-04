@@ -64,6 +64,7 @@ from backend.src.worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_wo
 from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
 from backend.src.job_store import JobStore
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
+from backend.src.inpaint import get_capabilities as get_inpaint_capabilities, is_inpaint_available, remove_object as lama_remove_object
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 from backend.src.models import (
     JobItem,
@@ -1325,6 +1326,93 @@ async def images_upload(file: UploadFile) -> dict[str, str]:
         except OSError:
             raise HTTPException(status_code=500, detail="failed to save uploaded file to disk")
     return {"hash": sha, "filename": file.filename, "name": f"{sha}{ext}"}
+
+
+# ====== 이미지 편집기 (객체 제거 / 결과 저장) ======
+
+
+@app.post("/saved-images/upload")
+async def saved_images_upload(file: UploadFile) -> dict[str, str]:
+    """이미지 편집기 결과를 saved-images 디렉토리에 영속화한다.
+
+    SHA-256 해시로 저장하고 DB 레코드를 작성한다. job_id는 가상의 "editor" 잡으로
+    기록하여 큐레이션 흐름과 호환되도록 한다.
+
+    Persist an editor result image into the saved-images directory.
+    Stores the file under its SHA-256 hash and writes a DB record.
+    job_id is set to a sentinel "editor" value to stay compatible with curation.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="empty filename")
+    ext = Path(file.filename).suffix.lower() or ".png"
+    try:
+        data = await file.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="failed to read uploaded file")
+    sha = hashlib.sha256(data).hexdigest()
+    DEFAULT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    target = DEFAULT_IMAGES_DIR / f"{sha}{ext}"
+    if not target.exists():
+        try:
+            target.write_bytes(data)
+        except OSError:
+            raise HTTPException(status_code=500, detail="failed to save file to disk")
+    try:
+        await job_manager._store.save_image_record(
+            hash=sha,
+            job_id="editor",
+            original_filename=file.filename,
+            comfy_filename=f"{sha}{ext}",
+            subfolder="",
+            type_="output",
+            worker_id=None,
+            extension=ext,
+            size_bytes=len(data),
+            prompt="",
+            meta={"source": "image-editor"},
+            ceg_template="",
+            workflow={},
+        )
+    except Exception:
+        logger.exception("saved-images/upload DB 기록 실패 (파일은 저장됨): hash=%s", sha)
+    return {"hash": sha, "filename": file.filename}
+
+
+@app.get("/inpaint/capabilities")
+async def inpaint_capabilities() -> dict[str, object]:
+    """LaMa 객체 제거 기능 지원 여부와 장치를 반환한다.
+
+    Returns LaMa object-removal capability status and device.
+    enabled=false when optional deps (torch/torchvision/PIL/numpy) are missing.
+    """
+    return get_inpaint_capabilities()
+
+
+@app.post("/inpaint/remove")
+async def inpaint_remove(image: UploadFile, mask: UploadFile) -> Response:
+    """LaMa로 객체 제거를 수행한다. image + mask(흰=제거 영역) → 결과 PNG.
+
+    Runs LaMa object removal synchronously. Returns inpainted PNG bytes.
+    Returns 503 when optional LaMa dependencies are not installed.
+    """
+    if not is_inpaint_available():
+        raise HTTPException(
+            status_code=503,
+            detail="LaMa 의존성 미설치 — backend/requirements-inpaint.txt 설치 필요",
+        )
+    try:
+        image_bytes = await image.read()
+        mask_bytes = await mask.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="failed to read uploaded files")
+    if not image_bytes or not mask_bytes:
+        raise HTTPException(status_code=400, detail="image and mask are required")
+    try:
+        result_bytes = await lama_remove_object(image_bytes, mask_bytes)
+    except Exception as exc:
+        logger.exception("LaMa 추론 실패")
+        raise HTTPException(status_code=500, detail=f"inference failed: {exc}") from exc
+    return Response(content=result_bytes, media_type="image/png")
 
 
 

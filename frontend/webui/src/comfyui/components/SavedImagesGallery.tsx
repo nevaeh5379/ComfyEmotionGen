@@ -116,6 +116,7 @@ import { useLatestRef } from "../hooks/useLatestRef"
 import { ImageGrid } from "./gallery/ImageGrid"
 import { ImageDetail } from "./gallery/ImageDetail"
 import { GalleryInpaintEditor } from "./GalleryInpaintEditor"
+import { ImageEditorDialog } from "./image-editor/ImageEditorDialog"
 import { Kbd } from "@/components/ui/kbd"
 import type {
   GalleryViewMode,
@@ -219,6 +220,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
   const [groupMode, setGroupModeState] = useState(false)
   const [selected, setSelected] = useState<SavedImage | null>(null)
   const [inpaintImage, setInpaintImage] = useState<SavedImage | null>(null)
+  const [editImage, setEditImage] = useState<SavedImage | null>(null)
   const [focusedHash, setFocusedHash] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [hideRejected, setHideRejected] = useState(false)
@@ -2442,6 +2444,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                           }}
                           onOpen={setSelected}
                           onInpaint={setInpaintImage}
+                          onEdit={setEditImage}
                           selectionMode={selectionMode}
                           selectedHashes={selectedHashes}
                           onToggleSelect={toggleSelectHash}
@@ -2547,6 +2550,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                   }}
                   onOpen={setSelected}
                   onInpaint={setInpaintImage}
+                  onEdit={setEditImage}
                   selectionMode={selectionMode}
                   selectedHashes={selectedHashes}
                   onToggleSelect={toggleSelectHash}
@@ -2661,6 +2665,17 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 sourcePrompt={inpaintImage.prompt}
                 onOpenChange={(open): void => {
                   if (!open) setInpaintImage(null)
+                }}
+              />
+            )}
+            {editImage && (
+              <ImageEditorDialog
+                open={editImage !== null}
+                backendUrl={backendUrl}
+                imageUrl={`${backendUrl}/saved-images/${editImage.hash}`}
+                filename={getImageFilename(editImage)}
+                onOpenChange={(open): void => {
+                  if (!open) setEditImage(null)
                 }}
               />
             )}
