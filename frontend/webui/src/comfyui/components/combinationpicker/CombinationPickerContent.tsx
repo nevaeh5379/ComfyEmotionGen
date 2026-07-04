@@ -1028,10 +1028,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             onOpenChange={(open) => {
               if (!open) setEditImage(null)
             }}
-            onSaveSuccess={(savedImage) => {
-              if (selectedFilename !== null) {
-                void handleSelectImage(selectedFilename, savedImage.hash)
-              }
+            onSaveSuccess={() => {
+              void fetchData()
             }}
           />
         )}

@@ -297,6 +297,7 @@ class CurationPatch(BaseModel):
     """
     status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = None
     note: Optional[str] = None
+    meta: Optional[dict[str, str]] = None
 
 
 class TagsAddRequest(BaseModel):
@@ -1334,7 +1335,11 @@ async def images_upload(file: UploadFile) -> dict[str, str]:
 @app.post("/saved-images/upload")
 async def saved_images_upload(
     file: UploadFile,
-    parent_hash: Optional[str] = Form(None)
+    parent_hash: Optional[str] = Form(None),
+    prompt: Optional[str] = Form(None),
+    meta: Optional[str] = Form(None),
+    ceg_template: Optional[str] = Form(None),
+    workflow: Optional[str] = Form(None),
 ) -> dict[str, str]:
     """이미지 편집기 결과를 saved-images 디렉토리에 영속화한다.
 
@@ -1356,6 +1361,33 @@ async def saved_images_upload(
     DEFAULT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     target = DEFAULT_IMAGES_DIR / f"{sha}{ext}"
 
+    print(f"=== [DEBUG] saved_images_upload started ===", flush=True)
+    print(f"  filename: {file.filename}", flush=True)
+    print(f"  sha: {sha}", flush=True)
+    print(f"  parent_hash: {parent_hash}", flush=True)
+    print(f"  prompt: {prompt}", flush=True)
+    print(f"  meta: {meta}", flush=True)
+    print(f"  ceg_template: {ceg_template}", flush=True)
+    print(f"  workflow: {workflow}", flush=True)
+
+    # 폼으로 직접 전달된 값 파싱
+    form_prompt = prompt or ""
+    form_workflow = {}
+    if workflow:
+        try:
+            form_workflow = json.loads(workflow)
+        except Exception as e:
+            print(f"=== [DEBUG] failed to parse workflow JSON: {e} ===", flush=True)
+            pass
+    form_ceg_template = ceg_template or ""
+    form_meta = {}
+    if meta:
+        try:
+            form_meta = json.loads(meta)
+        except Exception as e:
+            print(f"=== [DEBUG] failed to parse meta JSON: {e} ===", flush=True)
+            pass
+
     # 원본 이미지의 메타데이터 복사 시도
     parent_prompt = ""
     parent_workflow = {}
@@ -1372,8 +1404,24 @@ async def saved_images_upload(
                 orig_meta = parent_img.get("meta", {}) or {}
                 if isinstance(orig_meta, dict):
                     parent_meta.update(orig_meta)
-        except Exception:
+        except Exception as e:
             logger.exception("saved-images/upload 원본 메타데이터 조회 실패: parent_hash=%s", parent_hash)
+            print(f"=== [DEBUG] get_saved_image failed: {e} ===", flush=True)
+
+    # 폼에서 전달받은 값 우선 적용 및 병합
+    final_prompt = form_prompt or parent_prompt
+    final_workflow = form_workflow or parent_workflow
+    final_ceg_template = form_ceg_template or parent_ceg_template
+    
+    final_meta = {}
+    final_meta.update(parent_meta)
+    final_meta.update(form_meta)
+
+    print(f"=== [DEBUG] final parameter values to save ===", flush=True)
+    print(f"  final_prompt: {final_prompt}", flush=True)
+    print(f"  final_workflow: {final_workflow}", flush=True)
+    print(f"  final_ceg_template: {final_ceg_template}", flush=True)
+    print(f"  final_meta: {final_meta}", flush=True)
 
     # 1. 파일 저장 (PNG인 경우 메타데이터 주입)
     if not target.exists():
@@ -1383,15 +1431,15 @@ async def saved_images_upload(
                 from PIL.PngImagePlugin import PngInfo
                 img = Image.open(io.BytesIO(data))
                 pnginfo = PngInfo()
-                if parent_prompt:
-                    pnginfo.add_text("prompt", parent_prompt)
-                if parent_workflow:
-                    pnginfo.add_text("workflow", json.dumps(parent_workflow))
+                if final_prompt:
+                    pnginfo.add_text("prompt", final_prompt)
+                if final_workflow:
+                    pnginfo.add_text("workflow", json.dumps(final_workflow))
                 img.save(target, "PNG", pnginfo=pnginfo)
             else:
                 target.write_bytes(data)
-        except Exception:
-            # Fallback to direct write if PIL fails
+        except Exception as e:
+            print(f"=== [DEBUG] PIL save failed, falling back to direct write: {e} ===", flush=True)
             try:
                 target.write_bytes(data)
             except OSError:
@@ -1409,13 +1457,19 @@ async def saved_images_upload(
             worker_id=None,
             extension=ext,
             size_bytes=len(data),
-            prompt=parent_prompt,
-            meta=parent_meta,
-            ceg_template=parent_ceg_template,
-            workflow=parent_workflow,
+            prompt=final_prompt,
+            meta=final_meta,
+            ceg_template=final_ceg_template,
+            workflow=final_workflow,
         )
-    except Exception:
+    except Exception as e:
         logger.exception("saved-images/upload DB 기록 실패 (파일은 저장됨): hash=%s", sha)
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database record insertion failed: {str(e)}"
+        )
     return {"hash": sha, "filename": file.filename}
 
 
@@ -1539,7 +1593,7 @@ async def saved_image_patch(hash: str, body: CurationPatch) -> SavedImageRespons
     Update curation status (approved/rejected/trashed) or note of a persisted image.
     """
     updated = await job_manager.update_curation(
-        hash, status=body.status, note=body.note
+        hash, status=body.status, note=body.note, meta=body.meta
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="image not found")

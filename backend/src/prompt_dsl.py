@@ -568,7 +568,7 @@ def render(prog: Program, *,
             "items": [{
                 "filename": _substitute(prog.filename, prog.vars, {}).strip(),
                 "prompt": _clean_prompt(_substitute(prog.template, prog.vars, {})),
-                "meta": {},
+                "meta": {f"set.{vk}": str(vv) for vk, vv in prog.vars.items() if vk != "clean_filename"},
             }],
             "axes": {},
             "sets": dict(prog.vars),
@@ -709,10 +709,15 @@ def render(prog: Program, *,
             filename = re.sub(r'\.\.+', '.', filename)
             filename = filename.strip('_-. ')
 
+        meta_dict = {k: v for k, v in meta_keys.items() if k != prog.combine_alias and v}
+        for vk, vv in prog.vars.items():
+            if vk != "clean_filename":
+                meta_dict[f"set.{vk}"] = str(vv)
+
         results.append({
             "filename": filename,
             "prompt": _clean_prompt(_substitute(prog.template, ctx, render_keys)),
-            "meta": {k: v for k, v in meta_keys.items() if k != prog.combine_alias and v},
+            "meta": meta_dict,
         })
 
     axes_info = {}

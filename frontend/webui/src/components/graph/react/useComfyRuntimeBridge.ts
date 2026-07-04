@@ -95,21 +95,18 @@ export function useComfyRuntimeBridge({
             (widget) => widget.value as WidgetValue
           ) ?? []
 
-
         useReactGraphStore.setState({
-          nodes: useReactGraphStore
-            .getState()
-            .nodes.map((node) => {
-              const ln = appService.graph.getNodeById(node.id)
-              if (node.id === nodeId) {
-                return {
-                  ...node,
-                  widgets_values: widgetsValues,
-                  mode: ln ? ln.mode : node.mode,
-                }
+          nodes: useReactGraphStore.getState().nodes.map((node) => {
+            const ln = appService.graph.getNodeById(node.id)
+            if (node.id === nodeId) {
+              return {
+                ...node,
+                widgets_values: widgetsValues,
+                mode: ln ? ln.mode : node.mode,
               }
-              return ln ? { ...node, mode: ln.mode } : node
-            }),
+            }
+            return ln ? { ...node, mode: ln.mode } : node
+          }),
         })
       }
       ;(rawApp.graph as unknown as Record<string, unknown>)._canvas =

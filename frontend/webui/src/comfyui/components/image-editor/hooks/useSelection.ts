@@ -10,7 +10,10 @@ export function useSelection() {
   const [selection, setSelection] = useState<Selection | null>(null)
 
   const setRectSelection = useCallback(
-    (type: SelectionType, rect: { x: number; y: number; w: number; h: number }) => {
+    (
+      type: SelectionType,
+      rect: { x: number; y: number; w: number; h: number }
+    ) => {
       setSelection({ type, rect })
     },
     []

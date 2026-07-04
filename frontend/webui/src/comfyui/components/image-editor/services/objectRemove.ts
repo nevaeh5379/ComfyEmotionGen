@@ -13,7 +13,8 @@ export async function fetchInpaintCapabilities(
 ): Promise<InpaintCapabilities> {
   try {
     const res = await fetch(`${backendUrl}/inpaint/capabilities`)
-    if (!res.ok) return { enabled: false, device: null, reason: "지원 정보 조회 실패" }
+    if (!res.ok)
+      return { enabled: false, device: null, reason: "지원 정보 조회 실패" }
     return (await res.json()) as InpaintCapabilities
   } catch {
     return { enabled: false, device: null, reason: "백엔드 연결 불가" }
@@ -41,7 +42,9 @@ export async function removeObject(
     body: form,
   })
   if (res.status === 503) {
-    throw new Error("백엔드에 LaMa 의존성이 설치되어 있지 않습니다. requirements-inpaint.txt 설치 필요.")
+    throw new Error(
+      "백엔드에 LaMa 의존성이 설치되어 있지 않습니다. requirements-inpaint.txt 설치 필요."
+    )
   }
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
@@ -52,15 +55,12 @@ export async function removeObject(
 
 function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error("캔버스를 Blob으로 변환 실패"))
-          return
-        }
-        resolve(blob)
-      },
-      "image/png"
-    )
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("캔버스를 Blob으로 변환 실패"))
+        return
+      }
+      resolve(blob)
+    }, "image/png")
   })
 }

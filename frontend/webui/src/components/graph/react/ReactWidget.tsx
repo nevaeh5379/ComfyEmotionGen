@@ -12,7 +12,6 @@ export function HTMLElementWidget({
   const containerRef = useRef<HTMLDivElement>(null)
   const elementRef = useRef<HTMLElement>(element)
 
-
   useLayoutEffect(() => {
     const el = elementRef.current
     const container = containerRef.current
@@ -36,7 +35,6 @@ export function HTMLElementWidget({
       )
     }
   })
-
 
   useEffect(() => {
     const el = elementRef.current
@@ -119,22 +117,10 @@ interface RuntimeWidgetExtra {
   toggle?: () => void
   doModeChange?: () => void
   group?: WidgetGroupBounds
-  onMouseDown?: (
-    event: Event,
-    pos: [number, number],
-    node: CanvasNode
-  ) => void
-  onMouseMove?: (
-    event: Event,
-    pos: [number, number],
-    node: CanvasNode
-  ) => void
+  onMouseDown?: (event: Event, pos: [number, number], node: CanvasNode) => void
+  onMouseMove?: (event: Event, pos: [number, number], node: CanvasNode) => void
   onMouseUp?: (event: Event, pos: [number, number], node: CanvasNode) => void
-  onMouseClick?: (
-    event: Event,
-    pos: [number, number],
-    node: CanvasNode
-  ) => void
+  onMouseClick?: (event: Event, pos: [number, number], node: CanvasNode) => void
 }
 
 function isToggleValue(value: unknown): value is ToggleValue {
@@ -144,7 +130,10 @@ function isToggleValue(value: unknown): value is ToggleValue {
 type RuntimeWidget = CanvasWidget & RuntimeWidgetExtra
 
 function readWidgetToggle(widget: RuntimeWidget): boolean {
-  if (isToggleValue(widget.value) && typeof widget.value.toggled === "boolean") {
+  if (
+    isToggleValue(widget.value) &&
+    typeof widget.value.toggled === "boolean"
+  ) {
     return widget.value.toggled
   }
   return widget.toggled === true
@@ -243,7 +232,9 @@ export function CanvasWidget({
     }
   }, [widget, node, width, height])
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+  const handlePointerDown = (
+    e: React.PointerEvent<HTMLCanvasElement>
+  ): void => {
     if (typeof widget.mouse !== "function") return
 
     const canvas = canvasRef.current
@@ -263,7 +254,7 @@ export function CanvasWidget({
             yOffset +=
               typeof w.computeSize === "function"
                 ? w.computeSize(width)[1]
-                : (w.height ?? 30);
+                : (w.height ?? 30)
             yOffset += 4 // margin
           }
         }
@@ -312,9 +303,9 @@ export function CanvasWidget({
           configurable: true,
         })
 
-        const mouseFn = widget.mouse;
+        const mouseFn = widget.mouse
         if (typeof mouseFn === "function") {
-          mouseFn.call(widget, mappedEvent, pos, node);
+          mouseFn.call(widget, mappedEvent, pos, node)
         }
 
         if (evtType === "down") {
@@ -328,26 +319,26 @@ export function CanvasWidget({
       }
 
       triggerMouseFn("down", e.nativeEvent, nodeRelativePos)
- 
+
       const onPointerMove = (moveEvent: PointerEvent): void => {
         const moveRect = canvas.getBoundingClientRect()
         const mx = moveEvent.clientX - moveRect.left
         const my = moveEvent.clientY - moveRect.top
         triggerMouseFn("move", moveEvent, [mx, my + yOffset])
       }
- 
+
       const onPointerUp = (upEvent: PointerEvent): void => {
         const upRect = canvas.getBoundingClientRect()
         const ux = upEvent.clientX - upRect.left
         const uy = upEvent.clientY - upRect.top
         triggerMouseFn("up", upEvent, [ux, uy + yOffset])
- 
+
         window.removeEventListener("pointermove", onPointerMove)
         window.removeEventListener("pointerup", onPointerUp)
- 
+
         window.app.syncGraphNode?.(node.id)
       }
- 
+
       window.addEventListener("pointermove", onPointerMove)
       window.addEventListener("pointerup", onPointerUp)
     } catch (err) {
@@ -424,7 +415,6 @@ export function ReactWidget({
 
   const typeName = String(typeSpec).toUpperCase()
 
-
   if (typeName === "BUTTON") {
     const btnLabel =
       name ||
@@ -459,7 +449,6 @@ export function ReactWidget({
       </button>
     )
   }
-
 
   if (isCombo) {
     const options = Array.isArray(typeSpec)
@@ -496,7 +485,6 @@ export function ReactWidget({
     )
   }
 
-
   if (typeName === "BOOLEAN") {
     const boolVal = value === true || value === 1 || value === "true"
 
@@ -519,7 +507,6 @@ export function ReactWidget({
       </div>
     )
   }
-
 
   if (typeName === "INT" || typeName === "FLOAT") {
     const parsed = typeof value === "number" ? value : Number(value)
@@ -562,7 +549,6 @@ export function ReactWidget({
       </div>
     )
   }
-
 
   const strVal = typeof value === "string" ? value : ""
 

@@ -65,9 +65,7 @@ export function normalizeWorkflowNodeForEditor(
 export function normalizeWorkflowForEditor(
   workflow: ComfyWorkflowJSON
 ): NormalizedWorkflowGraph {
-  const normalizedLinks = normalizeWorkflowLinks(
-    workflow.links
-  )
+  const normalizedLinks = normalizeWorkflowLinks(workflow.links)
   const subgraphs = new Map<SubgraphId, SubgraphModelRuntime>()
 
   const rootNodes = workflow.nodes.map((node) =>

@@ -606,12 +606,25 @@ export class ComfyApi extends EventTarget {
 
   async getComfyWorkflows(workerId: string): Promise<any[]> {
     const res = await this.fetchApi(`/workers/${workerId}/comfy_workflows`)
-    return await readJsonOrDefault<any[]>(res, [], `/workers/${workerId}/comfy_workflows`)
+    return await readJsonOrDefault<any[]>(
+      res,
+      [],
+      `/workers/${workerId}/comfy_workflows`
+    )
   }
 
-  async getComfyWorkflowContent(workerId: string, filename: string): Promise<Record<string, any>> {
-    const res = await this.fetchApi(`/workers/${workerId}/comfy_workflows/${filename}`)
-    return await readJsonOrDefault<Record<string, any>>(res, {}, `/workers/${workerId}/comfy_workflows/${filename}`)
+  async getComfyWorkflowContent(
+    workerId: string,
+    filename: string
+  ): Promise<Record<string, any>> {
+    const res = await this.fetchApi(
+      `/workers/${workerId}/comfy_workflows/${filename}`
+    )
+    return await readJsonOrDefault<Record<string, any>>(
+      res,
+      {},
+      `/workers/${workerId}/comfy_workflows/${filename}`
+    )
   }
 
   async getCoreWorkflowTemplates(locale?: string): Promise<unknown[]> {
@@ -781,11 +794,10 @@ export class ComfyApi extends EventTarget {
   }> {
     try {
       const resp = await this.fetchApi("/queue")
-      return await readJsonOrDefault<{ Running: unknown[]; Pending: unknown[] }>(
-        resp,
-        { Running: [], Pending: [] },
-        "/queue"
-      )
+      return await readJsonOrDefault<{
+        Running: unknown[]
+        Pending: unknown[]
+      }>(resp, { Running: [], Pending: [] }, "/queue")
     } catch (error) {
       if (options?.throwOnError === true) throw error
       return { Running: [], Pending: [] }

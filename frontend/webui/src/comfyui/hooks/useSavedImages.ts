@@ -347,6 +347,18 @@ export const curationApi = {
     })
     if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
+  async patchMeta(
+    backendUrl: string,
+    hash: string,
+    meta: Record<string, string>
+  ): Promise<void> {
+    const res = await fetch(`${backendUrl}${API.savedImages.detail(hash)}`, {
+      method: "PATCH",
+      headers: HEADERS.json,
+      body: JSON.stringify({ meta }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+  },
   async patchNote(
     backendUrl: string,
     hash: string,

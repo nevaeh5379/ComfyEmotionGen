@@ -30,7 +30,7 @@ export function useLayerStack(width: number, height: number) {
         offsetY?: number
       } = {}
     ): Layer => {
-      const id = `layer-${Date.now()}-${String(idCounter.current += 1)}`
+      const id = `layer-${Date.now()}-${String((idCounter.current += 1))}`
       const canvas = opts.canvas ?? createLayerCanvas(width, height)
       const layer: Layer = {
         id,
@@ -54,7 +54,9 @@ export function useLayerStack(width: number, height: number) {
   const removeLayer = useCallback((id: string) => {
     setLayers((prev) => {
       const next = prev.filter((l) => l.id !== id)
-      setActiveLayerId((curr) => (curr === id ? (next[next.length - 1]?.id ?? null) : curr))
+      setActiveLayerId((curr) =>
+        curr === id ? (next[next.length - 1]?.id ?? null) : curr
+      )
       return next
     })
   }, [])

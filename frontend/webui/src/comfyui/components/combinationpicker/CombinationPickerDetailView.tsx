@@ -12,6 +12,7 @@ import {
   InfoIcon,
   BrushIcon,
   Edit3 as Edit3Icon,
+  Upload as UploadIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -96,12 +97,28 @@ export function CombinationPickerDetailView({
 }: DetailViewProps): React.JSX.Element {
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } =
     useCurationContext()
-  const { setStatus, imagesByFilename, renderItems } = data
+  const { setStatus, imagesByFilename, renderItems, uploadUserImage } = data
 
   const selectedItem = renderItems.find(
     (ri) => ri.filename === selectedFilename
   )
   const selectedImages = imagesByFilename.get(selectedFilename) ?? []
+
+  const handleUploadClick = (): void => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = "image/*"
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      try {
+        await uploadUserImage(file, selectedItem?.meta)
+      } catch (err) {
+        // Handled in useCombinationData
+      }
+    }
+    input.click()
+  }
 
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null)
 
@@ -292,6 +309,14 @@ export function CombinationPickerDetailView({
                 isLoading={regenActionIsLoading}
                 icon={RefreshCwIcon}
               ></LoadingButton>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0"
+                onClick={handleUploadClick}
+              >
+                <UploadIcon className="h-5 w-5" />
+              </Button>
             </div>
           </div>
 
@@ -358,6 +383,19 @@ export function CombinationPickerDetailView({
               isLoading={regenActionIsLoading}
               icon={RefreshCwIcon}
             ></LoadingButton>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0 md:h-6 md:w-6"
+                  onClick={handleUploadClick}
+                >
+                  <UploadIcon className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>외부 이미지 직접 업로드</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>

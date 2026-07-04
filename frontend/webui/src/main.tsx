@@ -173,7 +173,8 @@ try {
     try {
       const store = useNodeDefStore.getState()
       if (store.getNodeDef(type) === undefined) {
-        const category = (cls as unknown as { category?: string }).category ?? "Other"
+        const category =
+          (cls as unknown as { category?: string }).category ?? "Other"
         const displayName = (cls as unknown as { title?: string }).title ?? type
         store.registerNodeDef({
           name: type,
@@ -271,8 +272,7 @@ try {
   lg.isValidConnection ??= isValidConnection
   lg.cloneObject ??= clonePlain
   lg.getTime ??= (): number => performance.now()
-  lg.uuidv4 ??= (): string =>
-    crypto.randomUUID()
+  lg.uuidv4 ??= (): string => crypto.randomUUID()
   lg.getParameterNames ??= (fn: (...args: unknown[]) => unknown): string[] => {
     const source = fn.toString().replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")
     const match = /^[^(]*\(([^)]*)\)/.exec(source)
@@ -323,7 +323,10 @@ try {
       el.remove()
     }
   }
-  lg.extendClass ??= (target: { prototype?: object }, origin: { prototype?: object }): void => {
+  lg.extendClass ??= (
+    target: { prototype?: object },
+    origin: { prototype?: object }
+  ): void => {
     if (target.prototype === undefined || origin.prototype === undefined) return
     for (const name of Object.getOwnPropertyNames(origin.prototype)) {
       if (name === "constructor") continue
@@ -369,13 +372,20 @@ try {
     }
     return [...categories].filter(Boolean).sort()
   }
-  lg.getNodeTypesInCategory ??= (category: string, filter?: string): unknown[] =>
-    Object.entries(lg.registered_node_types as Record<string, { category?: string }>)
+  lg.getNodeTypesInCategory ??= (
+    category: string,
+    filter?: string
+  ): unknown[] =>
+    Object.entries(
+      lg.registered_node_types as Record<string, { category?: string }>
+    )
       .filter(([type, cls]) => {
-        const nodeCategory = cls.category ?? type.split("/").slice(0, -1).join("/")
+        const nodeCategory =
+          cls.category ?? type.split("/").slice(0, -1).join("/")
         return (
           nodeCategory === category &&
-          (filter === undefined || type.toLowerCase().includes(filter.toLowerCase()))
+          (filter === undefined ||
+            type.toLowerCase().includes(filter.toLowerCase()))
         )
       })
       .map(([, cls]) => cls)
@@ -461,7 +471,11 @@ try {
       addOutput(name: string, type: string): void {
         this.outputs.push({ name, type, links: null, localized_name: name })
       }
-      connect(slot: number, node: unknown, inputSlot: number | string): boolean | null {
+      connect(
+        slot: number,
+        node: unknown,
+        inputSlot: number | string
+      ): boolean | null {
         const target = node as {
           id?: number
           inputs?: { name?: string; link: number | null; type?: string }[]
@@ -469,7 +483,8 @@ try {
         }
         const inputIndex =
           typeof inputSlot === "string"
-            ? target.inputs?.findIndex((input) => input.name === inputSlot) ?? -1
+            ? (target.inputs?.findIndex((input) => input.name === inputSlot) ??
+              -1)
             : inputSlot
         if (target.inputs === undefined || inputIndex < 0) return false
         const output = this.outputs[slot]
@@ -502,17 +517,23 @@ try {
         if (linkId === null || linkId === undefined) return
         const input = this.inputs[slot]
         if (input !== undefined) input.link = null
-        const graph = this.graph as { links?: Map<number, unknown> | Record<number, unknown> } | null
+        const graph = this.graph as {
+          links?: Map<number, unknown> | Record<number, unknown>
+        } | null
         if (graph?.links instanceof Map) graph.links.delete(linkId)
-        else if (graph?.links !== undefined) Reflect.deleteProperty(graph.links, linkId)
+        else if (graph?.links !== undefined)
+          Reflect.deleteProperty(graph.links, linkId)
       }
       disconnectOutput(slot: number): void {
         const links = this.outputs[slot]?.links
         if (!Array.isArray(links)) return
-        const graph = this.graph as { links?: Map<number, unknown> | Record<number, unknown> } | null
+        const graph = this.graph as {
+          links?: Map<number, unknown> | Record<number, unknown>
+        } | null
         for (const linkId of links) {
           if (graph?.links instanceof Map) graph.links.delete(linkId)
-          else if (graph?.links !== undefined) Reflect.deleteProperty(graph.links, linkId)
+          else if (graph?.links !== undefined)
+            Reflect.deleteProperty(graph.links, linkId)
         }
         const output = this.outputs[slot]
         if (output !== undefined) output.links = []
@@ -529,11 +550,16 @@ try {
         if (typeof data.properties === "object" && data.properties !== null) {
           this.properties = data.properties as Record<string, unknown>
         }
-        ;(this as { onConfigure?: (data: Record<string, unknown>) => void }).onConfigure?.(data)
+        ;(
+          this as { onConfigure?: (data: Record<string, unknown>) => void }
+        ).onConfigure?.(data)
       }
       setDirtyCanvas(): void {
-        ;(this.graph as { setDirtyCanvas?: (flag?: boolean, history?: boolean) => void } | null)
-          ?.setDirtyCanvas?.(true, true)
+        ;(
+          this.graph as {
+            setDirtyCanvas?: (flag?: boolean, history?: boolean) => void
+          } | null
+        )?.setDirtyCanvas?.(true, true)
       }
       setSize(size: [number, number]): void {
         this.size = [size[0], size[1]]
@@ -548,14 +574,20 @@ try {
         this.setDirtyCanvas()
       }
       snapToGrid(): void {
-        this.pos = [Math.round(this.pos[0] / 10) * 10, Math.round(this.pos[1] / 10) * 10]
+        this.pos = [
+          Math.round(this.pos[0] / 10) * 10,
+          Math.round(this.pos[1] / 10) * 10,
+        ]
       }
       alignToGrid(): void {
         this.snapToGrid()
       }
       expandToFitContent(): void {
         const [width, height] = this.computeSize(this.size[0] || undefined)
-        this.size = [Math.max(this.size[0], width), Math.max(this.size[1], height)]
+        this.size = [
+          Math.max(this.size[0], width),
+          Math.max(this.size[1], height),
+        ]
       }
       addProperty(
         name: string,
@@ -651,13 +683,21 @@ try {
       getInputLink(slot: number): unknown {
         const linkId = this.inputs[slot]?.link
         if (linkId === null || linkId === undefined) return null
-        const graph = this.graph as { links?: Map<number, unknown> | Record<number, unknown> } | null
-        return graph?.links instanceof Map ? graph.links.get(linkId) : graph?.links?.[linkId] ?? null
+        const graph = this.graph as {
+          links?: Map<number, unknown> | Record<number, unknown>
+        } | null
+        return graph?.links instanceof Map
+          ? graph.links.get(linkId)
+          : (graph?.links?.[linkId] ?? null)
       }
       getInputNode(slot: number): unknown {
         const link = this.getInputLink(slot) as { origin_id?: number } | null
-        const graph = this.graph as { getNodeById?: (id: number) => unknown } | null
-        return link?.origin_id !== undefined ? graph?.getNodeById?.(link.origin_id) ?? null : null
+        const graph = this.graph as {
+          getNodeById?: (id: number) => unknown
+        } | null
+        return link?.origin_id !== undefined
+          ? (graph?.getNodeById?.(link.origin_id) ?? null)
+          : null
       }
       getOutputNodes(slot: number): unknown[] | null {
         const links = this.outputs[slot]?.links
@@ -668,8 +708,12 @@ try {
         } | null
         const nodes: unknown[] = []
         for (const linkId of links) {
-          const link = graph?.links instanceof Map ? graph.links.get(linkId) : graph?.links?.[linkId]
-          const targetId = (link as { target_id?: number } | undefined)?.target_id
+          const link =
+            graph?.links instanceof Map
+              ? graph.links.get(linkId)
+              : graph?.links?.[linkId]
+          const targetId = (link as { target_id?: number } | undefined)
+            ?.target_id
           if (targetId !== undefined) {
             const target = graph?.getNodeById?.(targetId)
             if (target !== undefined && target !== null) nodes.push(target)
@@ -708,13 +752,19 @@ try {
         )
       }
       findInputSlotByType(type: string): number {
-        return this.inputs.findIndex((input) => isValidConnection(input.type, type))
+        return this.inputs.findIndex((input) =>
+          isValidConnection(input.type, type)
+        )
       }
       findOutputSlotByType(type: string): number {
-        return this.outputs.findIndex((output) => isValidConnection(output.type, type))
+        return this.outputs.findIndex((output) =>
+          isValidConnection(output.type, type)
+        )
       }
       findSlotByType(input: boolean, type: string): number {
-        return input ? this.findInputSlotByType(type) : this.findOutputSlotByType(type)
+        return input
+          ? this.findInputSlotByType(type)
+          : this.findOutputSlotByType(type)
       }
       findInputByType(type: string): unknown {
         const index = this.findInputSlotByType(type)
@@ -725,20 +775,43 @@ try {
         return index >= 0 ? this.outputs[index] : null
       }
       findConnectByTypeSlot(type: string, isOutput = true): number {
-        return isOutput ? this.findOutputSlotByType(type) : this.findInputSlotByType(type)
+        return isOutput
+          ? this.findOutputSlotByType(type)
+          : this.findInputSlotByType(type)
       }
-      canConnectTo(slot: number, targetNode: unknown, targetSlot: number): boolean {
+      canConnectTo(
+        slot: number,
+        targetNode: unknown,
+        targetSlot: number
+      ): boolean {
         const target = targetNode as { inputs?: { type?: string }[] }
-        return isValidConnection(this.outputs[slot]?.type, target.inputs?.[targetSlot]?.type)
+        return isValidConnection(
+          this.outputs[slot]?.type,
+          target.inputs?.[targetSlot]?.type
+        )
       }
-      connectByType(slot: number, targetNode: unknown, targetType: string): boolean | null {
-        const target = targetNode as { findInputSlotByType?: (type: string) => number }
+      connectByType(
+        slot: number,
+        targetNode: unknown,
+        targetType: string
+      ): boolean | null {
+        const target = targetNode as {
+          findInputSlotByType?: (type: string) => number
+        }
         const targetSlot = target.findInputSlotByType?.(targetType) ?? -1
-        return targetSlot >= 0 ? this.connect(slot, targetNode, targetSlot) : false
+        return targetSlot >= 0
+          ? this.connect(slot, targetNode, targetSlot)
+          : false
       }
-      connectByTypeOutput(targetType: string, targetNode: unknown, targetSlot: number): boolean | null {
+      connectByTypeOutput(
+        targetType: string,
+        targetNode: unknown,
+        targetSlot: number
+      ): boolean | null {
         const outputSlot = this.findOutputSlotByType(targetType)
-        return outputSlot >= 0 ? this.connect(outputSlot, targetNode, targetSlot) : false
+        return outputSlot >= 0
+          ? this.connect(outputSlot, targetNode, targetSlot)
+          : false
       }
       getSlotFromWidget(widget: unknown): number {
         return this.widgets?.indexOf(widget) ?? -1
@@ -746,7 +819,11 @@ try {
       getWidgetFromSlot(slot: number): unknown {
         return this.widgets?.[slot]
       }
-      addTitleButton(name: string, label: string, callback?: () => void): unknown {
+      addTitleButton(
+        name: string,
+        label: string,
+        callback?: () => void
+      ): unknown {
         this.title_buttons ??= []
         const button = { name, label, callback }
         this.title_buttons.push(button)
@@ -760,7 +837,8 @@ try {
       }
       collapse(force?: boolean): void {
         this.flags ??= {}
-        this.flags.collapsed = force ?? !readBooleanProperty(this.flags, "collapsed")
+        this.flags.collapsed =
+          force ?? !readBooleanProperty(this.flags, "collapsed")
       }
       toggleAdvanced(): void {
         this.flags ??= {}
@@ -827,11 +905,15 @@ try {
           flags: this.flags,
           properties: this.properties,
         }
-        ;(this as { onSerialize?: (data: Record<string, unknown>) => void }).onSerialize?.(data)
+        ;(
+          this as { onSerialize?: (data: Record<string, unknown>) => void }
+        ).onSerialize?.(data)
         return data
       }
       clone(): unknown {
-        const ctor = this.constructor as new (...args: unknown[]) => LGraphNodeImpl
+        const ctor = this.constructor as new (
+          ...args: unknown[]
+        ) => LGraphNodeImpl
         const cloned = new ctor(this.type)
         cloned.configure(clonePlain(this.serialize()))
         cloned.id = 0
@@ -858,7 +940,11 @@ try {
       state = { lastNodeId: 0, lastLinkId: 0, lastGroupId: 0, lastRerouteId: 0 }
       _canvas?: unknown
       add(node: unknown): void {
-        const nodeRecord = node as { id?: number; graph?: unknown; onAdded?: (graph: unknown) => void }
+        const nodeRecord = node as {
+          id?: number
+          graph?: unknown
+          onAdded?: (graph: unknown) => void
+        }
         if (nodeRecord.id === undefined || nodeRecord.id === 0) {
           nodeRecord.id = ++this.state.lastNodeId
         } else {
@@ -874,13 +960,19 @@ try {
       remove(node: unknown): void {
         const i = this.nodes.indexOf(node)
         if (i !== -1) this.nodes.splice(i, 1)
-        const nodeRecord = node as { id?: number; graph?: unknown; onRemoved?: () => void }
+        const nodeRecord = node as {
+          id?: number
+          graph?: unknown
+          onRemoved?: () => void
+        }
         if (nodeRecord.id !== undefined) {
           Reflect.deleteProperty(this._nodes_by_id, String(nodeRecord.id))
         }
         nodeRecord.graph = null
         nodeRecord.onRemoved?.()
-        ;(this as { onNodeRemoved?: (node: unknown) => void }).onNodeRemoved?.(node)
+        ;(this as { onNodeRemoved?: (node: unknown) => void }).onNodeRemoved?.(
+          node
+        )
         this.afterChange(null)
       }
       clear(): void {
@@ -895,17 +987,22 @@ try {
         return this._nodes_by_id[String(id)]
       }
       findNodesByType(type: string): unknown[] {
-        return this.nodes.filter((node) => (node as { type?: string }).type === type)
+        return this.nodes.filter(
+          (node) => (node as { type?: string }).type === type
+        )
       }
       findNodesByTitle(title: string): unknown[] {
-        return this.nodes.filter((node) => (node as { title?: string }).title === title)
+        return this.nodes.filter(
+          (node) => (node as { title?: string }).title === title
+        )
       }
       serialize(): Record<string, unknown> {
         const data = {
           id: this.id,
           revision: this.revision,
           nodes: this.nodes.map((node) =>
-            typeof (node as { serialize?: () => unknown }).serialize === "function"
+            typeof (node as { serialize?: () => unknown }).serialize ===
+            "function"
               ? (node as { serialize: () => unknown }).serialize()
               : clonePlain(node)
           ),
@@ -915,7 +1012,9 @@ try {
               : Object.values(this.links),
           groups: this.groups,
         }
-        ;(this as { onSerialize?: (data: Record<string, unknown>) => void }).onSerialize?.(data)
+        ;(
+          this as { onSerialize?: (data: Record<string, unknown>) => void }
+        ).onSerialize?.(data)
         return data
       }
       configure(data?: Record<string, unknown>): void {
@@ -925,27 +1024,39 @@ try {
           for (const rawNode of data.nodes as Record<string, unknown>[]) {
             const type = normalizeSlotType(rawNode.type)
             const node = (window.LiteGraph.createNode(type) ??
-              new window.LGraphNode(type)) as { configure?: (data: Record<string, unknown>) => void }
+              new window.LGraphNode(type)) as {
+              configure?: (data: Record<string, unknown>) => void
+            }
             node.configure?.(rawNode)
             this.add(node)
           }
         }
         if (Array.isArray(data.groups)) {
-          this.groups = (data.groups as Record<string, unknown>[]).map((rawGroup) => {
-            const group = new window.LGraphGroup()
-            ;(group as { configure?: (data: Record<string, unknown>) => void }).configure?.(rawGroup)
-            return group
-          })
+          this.groups = (data.groups as Record<string, unknown>[]).map(
+            (rawGroup) => {
+              const group = new window.LGraphGroup()
+              ;(
+                group as { configure?: (data: Record<string, unknown>) => void }
+              ).configure?.(rawGroup)
+              return group
+            }
+          )
           this._groups = this.groups
         }
-        ;(this as { onConfigure?: (data: Record<string, unknown>) => void }).onConfigure?.(data)
+        ;(
+          this as { onConfigure?: (data: Record<string, unknown>) => void }
+        ).onConfigure?.(data)
       }
       beforeChange(info?: unknown): void {
-        ;(this as { onBeforeChange?: (graph: unknown, info?: unknown) => void }).onBeforeChange?.(this, info)
+        ;(
+          this as { onBeforeChange?: (graph: unknown, info?: unknown) => void }
+        ).onBeforeChange?.(this, info)
       }
       afterChange(info?: unknown): void {
         this.revision++
-        ;(this as { onAfterChange?: (graph: unknown, info?: unknown) => void }).onAfterChange?.(this, info)
+        ;(
+          this as { onAfterChange?: (graph: unknown, info?: unknown) => void }
+        ).onAfterChange?.(this, info)
       }
       change(): void {
         this.afterChange(null)
@@ -963,11 +1074,15 @@ try {
         this._canvas = canvas
       }
       detachCanvas(canvas?: unknown): void {
-        if (canvas === undefined || this._canvas === canvas) this._canvas = undefined
+        if (canvas === undefined || this._canvas === canvas)
+          this._canvas = undefined
       }
       setDirtyCanvas(flag?: boolean, history?: boolean): void {
-        ;(this._canvas as { setDirty?: (flag?: boolean, history?: boolean) => void } | undefined)
-          ?.setDirty?.(flag, history)
+        ;(
+          this._canvas as
+            | { setDirty?: (flag?: boolean, history?: boolean) => void }
+            | undefined
+        )?.setDirty?.(flag, history)
       }
     }
     window.LGraph = LGraphImpl as unknown as typeof window.LGraph
@@ -997,7 +1112,9 @@ try {
       }
       setGraph(graph: LGraph): void {
         this.graph = graph
-        ;(graph as { attachCanvas?: (canvas: unknown) => void }).attachCanvas?.(this)
+        ;(graph as { attachCanvas?: (canvas: unknown) => void }).attachCanvas?.(
+          this
+        )
       }
       resize(): void {
         /* noop */
@@ -1027,8 +1144,9 @@ try {
         return []
       }
       getNodeMenuOptions(node?: unknown): unknown[] {
-        const options = (node as { getExtraMenuOptions?: () => unknown[] } | undefined)
-          ?.getExtraMenuOptions?.()
+        const options = (
+          node as { getExtraMenuOptions?: () => unknown[] } | undefined
+        )?.getExtraMenuOptions?.()
         return Array.isArray(options) ? options : []
       }
       getGroupMenuOptions(): unknown[] {
@@ -1068,7 +1186,9 @@ try {
       }
       pasteFromClipboard(): unknown {
         try {
-          return JSON.parse(localStorage.getItem("litegraph_clipboard") ?? "null")
+          return JSON.parse(
+            localStorage.getItem("litegraph_clipboard") ?? "null"
+          )
         } catch {
           return null
         }
@@ -1125,7 +1245,9 @@ try {
       }
       deleteSelected(): void {
         for (const node of this.selectedItems) {
-          ;(this.graph as { remove?: (node: unknown) => void } | null)?.remove?.(node)
+          ;(
+            this.graph as { remove?: (node: unknown) => void } | null
+          )?.remove?.(node)
         }
         this.deselectAll()
       }
@@ -1152,7 +1274,11 @@ try {
         if (index >= 0) graph.nodes.unshift(...graph.nodes.splice(index, 1))
       }
       processContextMenu(): unknown {
-        return new (window.LiteGraph as unknown as { ContextMenu: new (...args: unknown[]) => unknown }).ContextMenu([])
+        return new (
+          window.LiteGraph as unknown as {
+            ContextMenu: new (...args: unknown[]) => unknown
+          }
+        ).ContextMenu([])
       }
       convertOffsetToCanvas(pos: [number, number]): [number, number] {
         return [
@@ -1178,18 +1304,22 @@ try {
         return this.visible_nodes
       }
     }
-    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).node_menu_options =
-      []
+    ;(
+      LGraphCanvasImpl as unknown as Record<string, unknown>
+    ).node_menu_options = []
     ;(
       LGraphCanvasImpl as unknown as Record<string, unknown>
     ).canvas_menu_options = []
-    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).link_type_colors ??=
-      {}
+    ;(
+      LGraphCanvasImpl as unknown as Record<string, unknown>
+    ).link_type_colors ??= {}
     ;(LGraphCanvasImpl as unknown as Record<string, unknown>).node_colors ??= {}
     ;(LGraphCanvasImpl as unknown as Record<string, unknown>).active_canvas ??=
       null
-    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).search_limit ??= 100
-    window.LGraphCanvas = LGraphCanvasImpl as unknown as typeof window.LGraphCanvas
+    ;(LGraphCanvasImpl as unknown as Record<string, unknown>).search_limit ??=
+      100
+    window.LGraphCanvas =
+      LGraphCanvasImpl as unknown as typeof window.LGraphCanvas
   }
 
   // LLink — link between nodes
@@ -1254,7 +1384,12 @@ try {
         return {
           id: this.id,
           title: this.title,
-          bounding: this.bounding ?? [this.pos[0], this.pos[1], this.size[0], this.size[1]],
+          bounding: this.bounding ?? [
+            this.pos[0],
+            this.pos[1],
+            this.size[0],
+            this.size[1],
+          ],
           color: this.color,
           fontSize: this.fontSize,
           locked: this.locked,
@@ -1334,64 +1469,58 @@ function createDefaultApp(): ComfyApp {
   }
 
   const stubGraphBase = Object.create(window.LGraph.prototype) as LGraph
-  const stubGraph: LGraph = Object.assign(
-    stubGraphBase,
-    {
-      _nodes_by_id: {},
-      links: {},
-      groups: [],
-      nodes: [],
-      revision: 0,
-      status: 0,
-      id: 0,
-      add(_node: unknown): void {
-        /* noop */
-      },
-      remove(_node: unknown): void {
-        /* noop */
-      },
-      clear(): void {
-        /* noop */
-      },
-      getNodeById(_id: number | string): undefined {
-        return undefined
-      },
-      setDirtyCanvas(_flag?: boolean, _history?: boolean): void {
-        /* noop */
-      },
-      onAfterChange: undefined,
-    }
-  )
+  const stubGraph: LGraph = Object.assign(stubGraphBase, {
+    _nodes_by_id: {},
+    links: {},
+    groups: [],
+    nodes: [],
+    revision: 0,
+    status: 0,
+    id: 0,
+    add(_node: unknown): void {
+      /* noop */
+    },
+    remove(_node: unknown): void {
+      /* noop */
+    },
+    clear(): void {
+      /* noop */
+    },
+    getNodeById(_id: number | string): undefined {
+      return undefined
+    },
+    setDirtyCanvas(_flag?: boolean, _history?: boolean): void {
+      /* noop */
+    },
+    onAfterChange: undefined,
+  })
 
   const stubCanvasBase = Object.create(
     window.LGraphCanvas.prototype
   ) as LGraphCanvas
-  const stubCanvas: LGraphCanvas = Object.assign(
-    stubCanvasBase,
-    {
-      state: { readOnly: false },
-      graph: stubGraph,
-      ds: { scale: 1, offset: [0, 0] },
-      resize(_w?: number, _h?: number): void {
-        /* noop */
-      },
-      setDirty(_canvas?: boolean, _history?: boolean): void {
-        /* noop */
-      },
-      stopRendering(): void {
-        /* noop */
-      },
-      startRendering(): void {
-        /* noop */
-      },
-      setCanvas(_canvas: HTMLCanvasElement): void {
-        /* noop */
-      },
-      render_canvas_border: false,
-      graph_mouse: [0, 0],
-      canvas: null,
-    }
-  )
+  const stubCanvas: LGraphCanvas = Object.assign(stubCanvasBase, {
+    state: { readOnly: false },
+    graph: stubGraph,
+    ds: { scale: 1, offset: [0, 0] },
+    resize(_w?: number, _h?: number): void {
+      /* noop */
+    },
+    setDirty(_canvas?: boolean, _history?: boolean): void {
+      /* noop */
+    },
+    stopRendering(): void {
+      /* noop */
+    },
+    startRendering(): void {
+      /* noop */
+    },
+    setCanvas(_canvas: HTMLCanvasElement): void {
+      /* noop */
+    },
+    render_canvas_border: false,
+    graph_mouse: [0, 0],
+    canvas: null,
+  })
 
   const app: ComfyApp = {
     graph: stubGraph,
@@ -1420,30 +1549,97 @@ function createDefaultApp(): ComfyApp {
     extensions: [],
     widgets: {
       STRING(node: unknown, name: string, inputData: unknown[]): unknown {
-        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const n = node as {
+          addWidget?: (
+            type: string,
+            name: string,
+            value: unknown,
+            cb: () => void,
+            opts?: unknown
+          ) => unknown
+        }
         const cfg = (inputData[1] as Record<string, unknown> | undefined) ?? {}
-        return n.addWidget?.("text", name, (cfg.default) ?? "", () => undefined, cfg)
+        return n.addWidget?.(
+          "text",
+          name,
+          cfg.default ?? "",
+          () => undefined,
+          cfg
+        )
       },
       INT(node: unknown, name: string, inputData: unknown[]): unknown {
-        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const n = node as {
+          addWidget?: (
+            type: string,
+            name: string,
+            value: unknown,
+            cb: () => void,
+            opts?: unknown
+          ) => unknown
+        }
         const cfg = (inputData[1] as Record<string, unknown> | undefined) ?? {}
-        return n.addWidget?.("number", name, (cfg.default) ?? 0, () => undefined, cfg)
+        return n.addWidget?.(
+          "number",
+          name,
+          cfg.default ?? 0,
+          () => undefined,
+          cfg
+        )
       },
       FLOAT(node: unknown, name: string, inputData: unknown[]): unknown {
-        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const n = node as {
+          addWidget?: (
+            type: string,
+            name: string,
+            value: unknown,
+            cb: () => void,
+            opts?: unknown
+          ) => unknown
+        }
         const cfg = (inputData[1] as Record<string, unknown> | undefined) ?? {}
-        return n.addWidget?.("number", name, (cfg.default) ?? 0, () => undefined, cfg)
+        return n.addWidget?.(
+          "number",
+          name,
+          cfg.default ?? 0,
+          () => undefined,
+          cfg
+        )
       },
       COMBO(node: unknown, name: string, inputData: unknown[]): unknown {
-        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const n = node as {
+          addWidget?: (
+            type: string,
+            name: string,
+            value: unknown,
+            cb: () => void,
+            opts?: unknown
+          ) => unknown
+        }
         const values = Array.isArray(inputData[0]) ? inputData[0] : []
         const cfg = (inputData[1] as Record<string, unknown> | undefined) ?? {}
-        return n.addWidget?.("combo", name, values[0] ?? "", () => undefined, { values, ...cfg })
+        return n.addWidget?.("combo", name, values[0] ?? "", () => undefined, {
+          values,
+          ...cfg,
+        })
       },
       BOOLEAN(node: unknown, name: string, inputData: unknown[]): unknown {
-        const n = node as { addWidget?: (type: string, name: string, value: unknown, cb: () => void, opts?: unknown) => unknown }
+        const n = node as {
+          addWidget?: (
+            type: string,
+            name: string,
+            value: unknown,
+            cb: () => void,
+            opts?: unknown
+          ) => unknown
+        }
         const cfg = (inputData[1] as Record<string, unknown> | undefined) ?? {}
-        return n.addWidget?.("toggle", name, (cfg.default) ?? false, () => undefined, cfg)
+        return n.addWidget?.(
+          "toggle",
+          name,
+          cfg.default ?? false,
+          () => undefined,
+          cfg
+        )
       },
     },
     registerExtension(ext: ComfyExtension): void {
@@ -1595,13 +1791,13 @@ _appSettings.setSettingValue = (_id: string, _value: unknown): void => {
   /* noop */
 }
 _appSettings.settingsLookup = settingsLookupProxy
-;(_appSettings as unknown as { addEventListener?: unknown }).addEventListener = (
-  _type: string,
-  _listener: (e: unknown) => void
-): void => {
-  /* noop */
-}
-;(_appSettings as unknown as { removeEventListener?: unknown }).removeEventListener = (
+;(_appSettings as unknown as { addEventListener?: unknown }).addEventListener =
+  (_type: string, _listener: (e: unknown) => void): void => {
+    /* noop */
+  }
+;(
+  _appSettings as unknown as { removeEventListener?: unknown }
+).removeEventListener = (
   _type: string,
   _listener: (e: unknown) => void
 ): void => {
@@ -1650,61 +1846,57 @@ Object.defineProperty(appObj, "settings", {
 
 // Re-assign stub graph/canvas (same shape as createDefaultApp)
 const appGraphBase = Object.create(window.LGraph.prototype) as LGraph
-appObj.graph = Object.assign(
-  appGraphBase,
-  {
-    _nodes_by_id: {},
-    links: {},
-    groups: [],
-    nodes: [],
-    revision: 0,
-    status: 0,
-    id: 0,
-    add() {
-      /* noop */
-    },
-    remove() {
-      /* noop */
-    },
-    clear() {
-      /* noop */
-    },
-    getNodeById() {
-      return undefined
-    },
-    setDirtyCanvas() {
-      /* noop */
-    },
-    onAfterChange: undefined,
-  }
-)
-const appCanvasBase = Object.create(window.LGraphCanvas.prototype) as LGraphCanvas
-appObj.canvas = Object.assign(
-  appCanvasBase,
-  {
-    state: { readOnly: false },
-    graph: appObj.graph,
-    ds: { scale: 1, offset: [0, 0] },
-    resize() {
-      /* noop */
-    },
-    setDirty() {
-      /* noop */
-    },
-    stopRendering() {
-      /* noop */
-    },
-    startRendering() {
-      /* noop */
-    },
-    setCanvas() {
-      /* noop */
-    },
-    render_canvas_border: false,
-    graph_mouse: [0, 0],
-    canvas: null,
-  }
-)
+appObj.graph = Object.assign(appGraphBase, {
+  _nodes_by_id: {},
+  links: {},
+  groups: [],
+  nodes: [],
+  revision: 0,
+  status: 0,
+  id: 0,
+  add() {
+    /* noop */
+  },
+  remove() {
+    /* noop */
+  },
+  clear() {
+    /* noop */
+  },
+  getNodeById() {
+    return undefined
+  },
+  setDirtyCanvas() {
+    /* noop */
+  },
+  onAfterChange: undefined,
+})
+const appCanvasBase = Object.create(
+  window.LGraphCanvas.prototype
+) as LGraphCanvas
+appObj.canvas = Object.assign(appCanvasBase, {
+  state: { readOnly: false },
+  graph: appObj.graph,
+  ds: { scale: 1, offset: [0, 0] },
+  resize() {
+    /* noop */
+  },
+  setDirty() {
+    /* noop */
+  },
+  stopRendering() {
+    /* noop */
+  },
+  startRendering() {
+    /* noop */
+  },
+  setCanvas() {
+    /* noop */
+  },
+  render_canvas_border: false,
+  graph_mouse: [0, 0],
+  canvas: null,
+})
 appObj.syncGraph = (): void => {
   // No-op: Zustand store가 single source of truth이므로 sync 필요 없음
 }
@@ -1764,7 +1956,9 @@ appObj.syncGraph = (): void => {
       if (id in fallbackIds) {
         const tagName = fallbackIds[id]
         if (tagName !== undefined) {
-          console.log(`[CEG] document.getElementById("${id}") fallback triggered`)
+          console.log(
+            `[CEG] document.getElementById("${id}") fallback triggered`
+          )
           let fallbackEl = firstByAttribute("data-ceg-fallback-id", id)
           if (fallbackEl === null) {
             fallbackEl = document.createElement(tagName)
@@ -1797,24 +1991,29 @@ appObj.syncGraph = (): void => {
         : (_selector: string): Element | null => null
     Object.defineProperty(document, "querySelector", {
       value(selector: string): Element | null {
-      const el = originalQuerySelector(selector)
-      if (el !== null) return el
+        const el = originalQuerySelector(selector)
+        if (el !== null) return el
 
-      if (selector === ".comfy-settings-btn") {
-        console.log(`[CEG] document.querySelector("${selector}") fallback triggered`)
-        let fallbackEl = firstByAttribute(
-          "data-ceg-fallback-class",
-          "comfy-settings-btn"
-        )
-        if (fallbackEl === null) {
-          fallbackEl = document.createElement("button")
-          fallbackEl.setAttribute("data-ceg-fallback-class", "comfy-settings-btn")
-          ;(fallbackEl as HTMLElement).style.display = "none"
-          document.body.appendChild(fallbackEl)
+        if (selector === ".comfy-settings-btn") {
+          console.log(
+            `[CEG] document.querySelector("${selector}") fallback triggered`
+          )
+          let fallbackEl = firstByAttribute(
+            "data-ceg-fallback-class",
+            "comfy-settings-btn"
+          )
+          if (fallbackEl === null) {
+            fallbackEl = document.createElement("button")
+            fallbackEl.setAttribute(
+              "data-ceg-fallback-class",
+              "comfy-settings-btn"
+            )
+            ;(fallbackEl as HTMLElement).style.display = "none"
+            document.body.appendChild(fallbackEl)
+          }
+          return fallbackEl
         }
-        return fallbackEl
-      }
-      return null
+        return null
       },
       configurable: true,
     })
@@ -1862,9 +2061,7 @@ appObj.syncGraph = (): void => {
           } else if (k === "for") {
             el.setAttribute(
               "for",
-              typeof v === "string" || typeof v === "number"
-                ? String(v)
-                : ""
+              typeof v === "string" || typeof v === "number" ? String(v) : ""
             )
           } else {
             const elRec = el as object as Record<
@@ -1892,7 +2089,10 @@ appObj.syncGraph = (): void => {
   }
 
   if (w.addStylesheet === undefined) {
-    w.addStylesheet = (url: string, relativeTo?: string | URL): Promise<void> => {
+    w.addStylesheet = (
+      url: string,
+      relativeTo?: string | URL
+    ): Promise<void> => {
       const link: HTMLLinkElement = document.createElement("link")
       link.rel = "stylesheet"
       const cssUrl = url.endsWith(".js") ? `${url.slice(0, -3)}.css` : url
@@ -1902,8 +2102,12 @@ appObj.syncGraph = (): void => {
           : new URL(cssUrl, window.location.href).toString()
       document.head.appendChild(link)
       return new Promise((resolve) => {
-        link.onload = (): void => { resolve(); }
-        link.onerror = (): void => { resolve(); }
+        link.onload = (): void => {
+          resolve()
+        }
+        link.onerror = (): void => {
+          resolve()
+        }
         if (link.sheet !== null) resolve()
       })
     }
@@ -1960,7 +2164,9 @@ appObj.syncGraph = (): void => {
     return help
   }
   helpDOM.removeHelp ??= (target?: HTMLElement | null): void => {
-    target?.querySelectorAll(".ceg-extension-help").forEach((el) => { el.remove(); })
+    target?.querySelectorAll(".ceg-extension-help").forEach((el) => {
+      el.remove()
+    })
   }
   w.helpDOM = helpDOM
 
@@ -2033,7 +2239,10 @@ appObj.syncGraph = (): void => {
       if (this.outputs.length === 0) {
         this.addOutput("connect to widget input", "*")
       }
-      if (!this.properties || !("Run widget replace on values" in this.properties)) {
+      if (
+        !this.properties ||
+        !("Run widget replace on values" in this.properties)
+      ) {
         this.addProperty("Run widget replace on values", false, "boolean")
       }
     }
@@ -2045,7 +2254,11 @@ appObj.syncGraph = (): void => {
         | { type?: string; value?: unknown; options?: { values?: unknown[] } }
         | undefined
       const output = this.outputs[0] as
-        | { widget?: { [widgetGetConfigSymbol]?: () => [unknown, { values?: unknown[] }] } }
+        | {
+            widget?: {
+              [widgetGetConfigSymbol]?: () => [unknown, { values?: unknown[] }]
+            }
+          }
         | undefined
       if (widget?.type !== "combo") return
       const outputWidget = output?.widget
@@ -2068,23 +2281,22 @@ appObj.syncGraph = (): void => {
     comfyClass: "PrimitiveNode",
   })
   if (window.LiteGraph.getNodeType?.("PrimitiveNode") === undefined) {
-    window.LiteGraph.registerNodeType(
-      "PrimitiveNode",
-      CorePrimitiveNode
-    )
+    window.LiteGraph.registerNodeType("PrimitiveNode", CorePrimitiveNode)
   }
   comfyAPI.widgetInputs ??= {
     PrimitiveNode: CorePrimitiveNode,
-    getWidgetConfig: (
-      slot?: { widget?: Record<PropertyKey, unknown> | null }
-    ): [unknown, Record<string, unknown>] => {
+    getWidgetConfig: (slot?: {
+      widget?: Record<PropertyKey, unknown> | null
+    }): [unknown, Record<string, unknown>] => {
       const widget = slot?.widget
       const config = widget?.[widgetConfigSymbol]
       const getConfig = widget?.[widgetGetConfigSymbol]
-      if (Array.isArray(config)) return config as [unknown, Record<string, unknown>]
+      if (Array.isArray(config))
+        return config as [unknown, Record<string, unknown>]
       if (typeof getConfig === "function") {
         const value = (getConfig as () => unknown)()
-        if (Array.isArray(value)) return value as [unknown, Record<string, unknown>]
+        if (Array.isArray(value))
+          return value as [unknown, Record<string, unknown>]
       }
       return ["*", {}]
     },
@@ -2093,7 +2305,9 @@ appObj.syncGraph = (): void => {
       widget?: { name?: string; type?: string }
     ): LGraphNodeInput | undefined => {
       if (node === undefined || widget?.name === undefined) return undefined
-      const existing = node.inputs.find((slot) => slot.widget?.name === widget.name)
+      const existing = node.inputs.find(
+        (slot) => slot.widget?.name === widget.name
+      )
       if (existing !== undefined) return existing
       const input = {
         name: widget.name,
@@ -2115,8 +2329,10 @@ appObj.syncGraph = (): void => {
         Reflect.deleteProperty(slot.widget, widgetGetConfigSymbol)
       } else {
         slot.widget[widgetConfigSymbol] = config
-        slot.widget[widgetGetConfigSymbol] = (): [unknown, Record<string, unknown>] =>
-          config
+        slot.widget[widgetGetConfigSymbol] = (): [
+          unknown,
+          Record<string, unknown>,
+        ] => config
       }
     },
     mergeIfValid: (
@@ -2129,8 +2345,8 @@ appObj.syncGraph = (): void => {
       return [
         current[0] === "*" ? config[0] : current[0],
         {
-          ...(current[1]),
-          ...(config[1]),
+          ...current[1],
+          ...config[1],
         },
       ]
     },

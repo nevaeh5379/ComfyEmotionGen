@@ -22,7 +22,10 @@ declare global {
     getNodeTypesInCategory?(category: string, filter?: string): unknown[]
     isValidConnection?(typeA: unknown, typeB: unknown): boolean
     cloneObject?<T>(value: T): T
-    extendClass?(target: { prototype?: object }, origin: { prototype?: object }): void
+    extendClass?(
+      target: { prototype?: object },
+      origin: { prototype?: object }
+    ): void
     NODE_DEFAULT_WIDTH: number
     NODE_DEFAULT_HEIGHT: number
     NODE_WIDTH?: number
@@ -191,10 +194,7 @@ declare global {
     findInputSlot(name: string, returnObj?: false): number
     findInputSlot(name: string, returnObj: true): LGraphNodeInput | undefined
     findOutputSlot(name: string, returnObj?: false): number
-    findOutputSlot(
-      name: string,
-      returnObj: true
-    ): LGraphNodeOutput | undefined
+    findOutputSlot(name: string, returnObj: true): LGraphNodeOutput | undefined
     getInputInfo(slot: number): LGraphNodeInput | null
     getOutputInfo(slot: number): LGraphNodeOutput | null
     isInputConnected(slot: number): boolean
@@ -220,7 +220,11 @@ declare global {
     findConnectByTypeSlot(type: string, isOutput?: boolean): number
     findInputByType(type: string): LGraphNodeInput | null
     findOutputByType(type: string): LGraphNodeOutput | null
-    canConnectTo(slot: number, targetNode: LGraphNode, targetSlot: number): boolean
+    canConnectTo(
+      slot: number,
+      targetNode: LGraphNode,
+      targetSlot: number
+    ): boolean
     connectByType(
       slot: number,
       targetNode: LGraphNode,
@@ -439,7 +443,15 @@ declare global {
     extensionsLoaded?: boolean
     api?: ComfyApi
     syncGraphNode?(id: number): void
-    widgets?: Record<string, (node: unknown, name: string, inputData: unknown[], app: unknown) => unknown>
+    widgets?: Record<
+      string,
+      (
+        node: unknown,
+        name: string,
+        inputData: unknown[],
+        app: unknown
+      ) => unknown
+    >
   }
 
   interface Window {
@@ -495,9 +507,9 @@ declare global {
     }
     widgetInputs?: {
       PrimitiveNode?: new () => object
-      getWidgetConfig(
-        slot?: { widget?: Record<PropertyKey, unknown> | null }
-      ): [unknown, Record<string, unknown>]
+      getWidgetConfig(slot?: {
+        widget?: Record<PropertyKey, unknown> | null
+      }): [unknown, Record<string, unknown>]
       convertToInput(
         node?: LGraphNode,
         widget?: { name?: string; type?: string }

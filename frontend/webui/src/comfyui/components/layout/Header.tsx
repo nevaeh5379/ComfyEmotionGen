@@ -469,7 +469,9 @@ export function Header(props: HeaderProps): JSX.Element {
               return (
                 <Button
                   key={tab.id}
-                  id={tab.id === "settings" ? "comfy-settings-button" : undefined}
+                  id={
+                    tab.id === "settings" ? "comfy-settings-button" : undefined
+                  }
                   variant="ghost"
                   size="sm"
                   role="tab"

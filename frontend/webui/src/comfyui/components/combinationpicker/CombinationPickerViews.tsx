@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type ElementType,
 } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   FolderIcon,
@@ -392,6 +393,42 @@ function GalleryGridItem({
   const isDone = hasApproved(imgs)
   const [aspect, setAspect] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const { data } = useCurationContext()
+
+  const handleDragOver = (e: React.DragEvent): void => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (): void => {
+    setIsDragOver(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent): Promise<void> => {
+    e.preventDefault()
+    setIsDragOver(false)
+    try {
+      const dataStr = e.dataTransfer.getData("text/plain")
+      if (!dataStr) return
+      const dragData = JSON.parse(dataStr) as {
+        type?: string
+        hashes?: string[]
+      }
+      if (
+        dragData.type === "unassigned-image" &&
+        Array.isArray(dragData.hashes)
+      ) {
+        await Promise.all(
+          dragData.hashes.map((hash) => data.updateImageMeta(hash, item.meta))
+        )
+        toast.success("이미지가 성공적으로 분류되었습니다.")
+      }
+    } catch (err) {
+      console.error("Drop failed:", err)
+    }
+  }
 
   return (
     <ContextMenu key={item.filename}>
@@ -415,7 +452,16 @@ function GalleryGridItem({
                     onSelect(item.filename)
                   }
                 }}
-                className={`group relative rounded-xl border bg-card p-0.5 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] md:p-1 ${isSelected ? "border-blue-500/80 bg-blue-50/10 shadow-md ring-2 shadow-blue-500/10 ring-blue-500" : "border-border/80 hover:border-primary/50"}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`group relative rounded-xl border bg-card p-0.5 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] md:p-1 ${
+                  isDragOver
+                    ? "border-primary bg-primary/5 ring-2 ring-primary"
+                    : isSelected
+                      ? "border-blue-500/80 bg-blue-50/10 shadow-md ring-2 shadow-blue-500/10 ring-blue-500"
+                      : "border-border/80 hover:border-primary/50"
+                }`}
               >
                 <div
                   className="relative overflow-hidden rounded-lg bg-muted"

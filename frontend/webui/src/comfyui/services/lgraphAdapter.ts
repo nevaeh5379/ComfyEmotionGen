@@ -734,12 +734,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           .updateNodePos(node.id, [node.pos[0] + deltaX, node.pos[1] + deltaY])
       },
       getBounding(): [number, number, number, number] {
-        return [
-          node.pos[0],
-          node.pos[1],
-          node.size[0],
-          node.size[1],
-        ]
+        return [node.pos[0], node.pos[1], node.size[0], node.size[1]]
       },
       snapToGrid(): void {
         store
@@ -871,8 +866,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           (w) => w.name === (customWidget as { name?: string }).name
         )
         if (existingIdx >= 0) {
-          liveWidgets[existingIdx] =
-            customWidget
+          liveWidgets[existingIdx] = customWidget
         } else {
           liveWidgets.push(customWidget)
         }
@@ -929,7 +923,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         const graph = this.graph as
           | (LGraphAdapterRef & { links: Map<number, LLink> })
           | null
-        if (linkId === null || linkId === undefined || graph === null) return null
+        if (linkId === null || linkId === undefined || graph === null)
+          return null
         return graph.links.get(linkId) ?? null
       },
       getInputNode(slot: number): ReturnType<LGraphNode["getInputNode"]> {
@@ -1076,7 +1071,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       },
       collapse(force?: boolean): void {
         this.flags ??= {}
-        this.flags.collapsed = force ?? !readBooleanProperty(this.flags, "collapsed")
+        this.flags.collapsed =
+          force ?? !readBooleanProperty(this.flags, "collapsed")
       },
       toggleAdvanced(): void {
         this.flags ??= {}

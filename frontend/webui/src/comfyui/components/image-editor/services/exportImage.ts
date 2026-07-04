@@ -6,20 +6,20 @@ import { triggerBlobDownload } from "../../../utils/downloadImages"
 
 function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error("캔버스를 Blob으로 변환 실패"))
-          return
-        }
-        resolve(blob)
-      },
-      "image/png"
-    )
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("캔버스를 Blob으로 변환 실패"))
+        return
+      }
+      resolve(blob)
+    }, "image/png")
   })
 }
 
-export function downloadCanvas(canvas: HTMLCanvasElement, filename: string): void {
+export function downloadCanvas(
+  canvas: HTMLCanvasElement,
+  filename: string
+): void {
   canvas.toBlob((blob) => {
     if (blob) triggerBlobDownload(blob, filename)
   }, "image/png")

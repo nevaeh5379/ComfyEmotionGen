@@ -551,7 +551,9 @@ export function WorkCompositionPanel({
                       <Server className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>ComfyUI 서버에서 워크플로우 직접 가져오기</TooltipContent>
+                  <TooltipContent>
+                    ComfyUI 서버에서 워크플로우 직접 가져오기
+                  </TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -746,7 +748,9 @@ export function WorkCompositionPanel({
             workflow.setWorkflowResetKey((k) => k + 1)
           } catch (err) {
             console.error("Workflow loading error:", err)
-            toast.error("가져온 워크플로우를 처리하는 도중 에러가 발생했습니다.")
+            toast.error(
+              "가져온 워크플로우를 처리하는 도중 에러가 발생했습니다."
+            )
           }
         }}
         workers={workers}

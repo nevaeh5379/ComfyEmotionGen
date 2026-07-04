@@ -880,9 +880,11 @@ export function GalleryInpaintEditor({
     }
     img.onerror = () => {
       setLoadError(true)
-      toast.error("이미지를 불러오는데 실패했습니다. 네트워크 또는 CORS 설정을 확인해주세요.")
+      toast.error(
+        "이미지를 불러오는데 실패했습니다. 네트워크 또는 CORS 설정을 확인해주세요."
+      )
     }
-    
+
     // CORS 캐시 문제를 방지하기 위해 캐시 버스팅 파라미터 추가
     let finalUrl = imageUrl
     try {
@@ -890,7 +892,8 @@ export function GalleryInpaintEditor({
       parsedUrl.searchParams.set("cors", "anonymous")
       finalUrl = parsedUrl.toString()
     } catch {
-      finalUrl = imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
+      finalUrl =
+        imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
     }
     img.src = finalUrl
   }, [imageUrl, open])
@@ -2036,9 +2039,13 @@ export function GalleryInpaintEditor({
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-white/70">
                       {loadError ? (
                         <>
-                          <AlertTriangle className="size-8 text-destructive animate-pulse" />
-                          <span className="text-destructive font-medium">이미지를 불러오는데 실패했습니다.</span>
-                          <span className="text-[11px] text-white/40">CORS 설정 또는 네트워크 상태를 확인해주세요.</span>
+                          <AlertTriangle className="size-8 animate-pulse text-destructive" />
+                          <span className="font-medium text-destructive">
+                            이미지를 불러오는데 실패했습니다.
+                          </span>
+                          <span className="text-[11px] text-white/40">
+                            CORS 설정 또는 네트워크 상태를 확인해주세요.
+                          </span>
                         </>
                       ) : (
                         <>
@@ -2094,7 +2101,8 @@ export function GalleryInpaintEditor({
                           x: (event.clientX - rect.left) / zoom,
                           y: (event.clientY - rect.top) / zoom,
                         })
-                        const currentScale = (rect.width / zoom) / event.currentTarget.width
+                        const currentScale =
+                          rect.width / zoom / event.currentTarget.width
                         setCursorScale(currentScale)
                         if (
                           isPannable &&
@@ -2132,7 +2140,8 @@ export function GalleryInpaintEditor({
                           x: (event.clientX - rect.left) / zoom,
                           y: (event.clientY - rect.top) / zoom,
                         })
-                        const currentScale = (rect.width / zoom) / event.currentTarget.width
+                        const currentScale =
+                          rect.width / zoom / event.currentTarget.width
                         setCursorScale(currentScale)
                       }}
                       onPointerLeave={() => {

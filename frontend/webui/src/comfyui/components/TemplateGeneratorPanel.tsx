@@ -281,7 +281,10 @@ function parseCegTemplate(code: string): ParsedTemplate {
     for (const line of (match[3] ?? "").split("\n")) {
       const t = line.trim()
       if (t === "" || t.startsWith("#") || t.startsWith("//")) continue
-      const s = /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*"((?:[^"\\]|\\.)*)"$/.exec(t)
+      const s =
+        /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*"((?:[^"\\]|\\.)*)"$/.exec(
+          t
+        )
       if (s !== null) {
         entries.push({
           id: `e-${String(ai)}-${String(ei++)}`,
@@ -293,7 +296,10 @@ function parseCegTemplate(code: string): ParsedTemplate {
         })
         continue
       }
-      const c = /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*\{\s*([^{}]+)\s*\}$/.exec(t)
+      const c =
+        /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*\{\s*([^{}]+)\s*\}$/.exec(
+          t
+        )
       if (c !== null) {
         const props: AxisEntryProperty[] = []
         const pr = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*"((?:[^"\\]|\\.)*)"/g
@@ -1203,7 +1209,8 @@ export function TemplateGeneratorPanel({
       const incStr = trimmedInc !== "" ? ` include="${trimmedInc}"` : ""
       c += `{{axis ${a.name}${incStr}}}\n`
       a.entries.forEach((e) => {
-        const fileKeyStr = e.fileKey.trim() !== "" ? ` as "${e.fileKey.trim()}"` : ""
+        const fileKeyStr =
+          e.fileKey.trim() !== "" ? ` as "${e.fileKey.trim()}"` : ""
         if (e.isComplex) {
           const props = e.properties
             .map((p) => `${p.name}: "${p.value}"`)
@@ -1727,7 +1734,8 @@ export function TemplateGeneratorPanel({
                               )
                             }}
                           />
-                          {entry.fileKey.trim() !== "" || entry.key.trim() !== "" ? (
+                          {entry.fileKey.trim() !== "" ||
+                          entry.key.trim() !== "" ? (
                             <>
                               <span className="font-mono text-[10px] text-muted-foreground/40 select-none">
                                 as

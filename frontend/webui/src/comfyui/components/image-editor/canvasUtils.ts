@@ -8,7 +8,11 @@ import type { AdjustSettings, Layer, Selection, ViewTransform } from "./types"
 /** #rrggbb 또는 #rgb → rgba(...) 문자열. alpha는 "0"~"1" 문자열. */
 export function hexToRgba(hex: string, alpha: string): string {
   let h = hex.replace("#", "")
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("")
+  if (h.length === 3)
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("")
   const r = Number.parseInt(h.slice(0, 2) ?? "ff", 16)
   const g = Number.parseInt(h.slice(2, 4) ?? "ff", 16)
   const b = Number.parseInt(h.slice(4, 6) ?? "ff", 16)
@@ -42,7 +46,8 @@ export function clientToImagePoint(
   const scale = rect.width / displayCanvas.width
   return {
     x: (clientX - rect.left - rect.width / 2) / scale + displayCanvas.width / 2,
-    y: (clientY - rect.top - rect.height / 2) / scale + displayCanvas.height / 2,
+    y:
+      (clientY - rect.top - rect.height / 2) / scale + displayCanvas.height / 2,
   }
 }
 
@@ -100,7 +105,16 @@ export function drawStroke(
   const steps = Math.max(1, Math.ceil(distance / getBrushSpacing(size)))
   for (let i = 1; i <= steps; i++) {
     const t = i / steps
-    drawDot(ctx, from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, size, mode, hardness, opacity, color)
+    drawDot(
+      ctx,
+      from.x + (to.x - from.x) * t,
+      from.y + (to.y - from.y) * t,
+      size,
+      mode,
+      hardness,
+      opacity,
+      color
+    )
   }
 }
 
@@ -176,7 +190,10 @@ export function floodFill(
   return out
 }
 
-export function blankMaskCanvas(width: number, height: number): HTMLCanvasElement {
+export function blankMaskCanvas(
+  width: number,
+  height: number
+): HTMLCanvasElement {
   const c = document.createElement("canvas")
   c.width = width
   c.height = height
@@ -240,7 +257,11 @@ function boxBlur(image: ImageData, radius: number): void {
   const r = Math.max(1, radius)
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
-      let sr = 0, sg = 0, sb = 0, sa = 0, count = 0
+      let sr = 0,
+        sg = 0,
+        sb = 0,
+        sa = 0,
+        count = 0
       for (let dy = -r; dy <= r; dy += 1) {
         const ny = y + dy
         if (ny < 0 || ny >= h) continue
@@ -272,7 +293,9 @@ function sharpenPass(image: ImageData, amount: number): void {
   const half = 1
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
-      let sr = 0, sg = 0, sb = 0
+      let sr = 0,
+        sg = 0,
+        sb = 0
       for (let ky = 0; ky < kSize; ky += 1) {
         for (let kx = 0; kx < kSize; kx += 1) {
           const px = Math.min(w - 1, Math.max(0, x + kx - half))

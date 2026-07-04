@@ -79,6 +79,7 @@ export interface SavedImage {
   tags: string[]
   cegTemplate?: string
   workflow?: Record<string, unknown>
+  meta?: Record<string, string>
 }
 
 export interface AssetGroup {

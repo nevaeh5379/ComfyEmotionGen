@@ -62,7 +62,7 @@ export function ComfyWorkflowImportDialog({
     setError(null)
     try {
       const data = await api.getComfyWorkflows(workerId)
-      
+
       // 다양한 ComfyUI API 버전 응답 스펙 호환 처리
       const fileNames = data
         .map((item: any) => {
@@ -114,21 +114,23 @@ export function ComfyWorkflowImportDialog({
       // UI 포맷 JSON 인지 검증 (ComfyUI의 일반 저장 포맷은 nodes 배열을 포함함)
       if (Array.isArray(content.nodes)) {
         const rawLinks = content.links || []
-        
+
         // ComfyUI UI JSON의 links는 보통 튜플(배열) 형태이므로 ComfyWorkflowLink 인터페이스로 변환
-        const formattedLinks: ComfyWorkflowLink[] = rawLinks.map((link: any) => {
-          if (Array.isArray(link)) {
-            return {
-              id: link[0],
-              origin_id: link[1],
-              origin_slot: link[2],
-              target_id: link[3],
-              target_slot: link[4],
-              type: link[5],
+        const formattedLinks: ComfyWorkflowLink[] = rawLinks.map(
+          (link: any) => {
+            if (Array.isArray(link)) {
+              return {
+                id: link[0],
+                origin_id: link[1],
+                origin_slot: link[2],
+                target_id: link[3],
+                target_slot: link[4],
+                type: link[5],
+              }
             }
+            return link
           }
-          return link
-        })
+        )
 
         // convertGraphToPrompt 호출하여 API 포맷으로 변환
         const apiPrompt = convertGraphToPrompt(
@@ -138,7 +140,9 @@ export function ComfyWorkflowImportDialog({
 
         const baseName = filename.replace(/\.[^/.]+$/, "")
         onImport(JSON.stringify(apiPrompt, null, 2), baseName)
-        toast.success(`'${filename}' 워크플로우를 성공적으로 변환하여 로드했습니다.`)
+        toast.success(
+          `'${filename}' 워크플로우를 성공적으로 변환하여 로드했습니다.`
+        )
         onClose()
       } else {
         // 이미 API 포맷일 경우 바로 임포트
@@ -149,7 +153,9 @@ export function ComfyWorkflowImportDialog({
       }
     } catch (err) {
       console.error("Failed to load workflow content:", err)
-      toast.error("워크플로우 데이터를 로드하고 변환하는 도중 오류가 발생했습니다.")
+      toast.error(
+        "워크플로우 데이터를 로드하고 변환하는 도중 오류가 발생했습니다."
+      )
     } finally {
       setLoading(false)
     }
@@ -165,16 +171,22 @@ export function ComfyWorkflowImportDialog({
         <DialogHeader>
           <DialogTitle>ComfyUI 워크플로우 직접 로드</DialogTitle>
           <DialogDescription>
-            ComfyUI 서버에 저장된 워크플로우 파일을 선택하여 WebUI의 API 형식으로 직접 변환해 가져옵니다.
+            ComfyUI 서버에 저장된 워크플로우 파일을 선택하여 WebUI의 API
+            형식으로 직접 변환해 가져옵니다.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-2">
           {/* 워커 선택 */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground shrink-0 w-16">서버 선택</span>
-            <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
-              <SelectTrigger className="flex-1 h-9">
+            <span className="w-16 shrink-0 text-xs font-bold text-muted-foreground">
+              서버 선택
+            </span>
+            <Select
+              value={selectedWorkerId}
+              onValueChange={setSelectedWorkerId}
+            >
+              <SelectTrigger className="h-9 flex-1">
                 <SelectValue placeholder="ComfyUI 서버 선택..." />
               </SelectTrigger>
               <SelectContent>
@@ -195,41 +207,43 @@ export function ComfyWorkflowImportDialog({
 
           {/* 검색 바 */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="워크플로우 이름 검색..."
-              className="pl-9 h-9"
+              className="h-9 pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
           {/* 리스트 영역 */}
-          <div className="border rounded-lg max-h-60 overflow-y-auto divide-y bg-background">
+          <div className="max-h-60 divide-y overflow-y-auto rounded-lg border bg-background">
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-2 text-xs text-muted-foreground">
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 목록을 불러오는 중...
               </div>
             ) : error ? (
-              <div className="text-center py-8 text-xs text-destructive px-4">
+              <div className="px-4 py-8 text-center text-xs text-destructive">
                 {error}
               </div>
             ) : filteredWorkflows.length === 0 ? (
-              <div className="text-center py-8 text-xs text-muted-foreground">
-                {searchQuery ? "검색 결과가 없습니다." : "저장된 워크플로우 파일이 없습니다."}
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                {searchQuery
+                  ? "검색 결과가 없습니다."
+                  : "저장된 워크플로우 파일이 없습니다."}
               </div>
             ) : (
               filteredWorkflows.map((filename) => (
                 <button
                   key={filename}
                   type="button"
-                  className="w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-muted/70 transition-colors flex items-center justify-between"
+                  className="flex w-full items-center justify-between px-3 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted/70"
                   onClick={() => void handleSelectWorkflow(filename)}
                 >
-                  <span className="truncate flex-1 pr-4">{filename}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0 bg-muted px-1.5 py-0.5 rounded font-mono">
+                  <span className="flex-1 truncate pr-4">{filename}</span>
+                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                     Load
                   </span>
                 </button>

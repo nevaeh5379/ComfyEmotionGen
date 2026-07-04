@@ -119,7 +119,16 @@ function drawStrokeWithSelection(
   if (!ctx) return
 
   if (!selection) {
-    drawStroke(ctx, from, to, brush.size, mode, brush.hardness, brush.opacity, brush.color)
+    drawStroke(
+      ctx,
+      from,
+      to,
+      brush.size,
+      mode,
+      brush.hardness,
+      brush.opacity,
+      brush.color
+    )
     return
   }
 
@@ -132,7 +141,16 @@ function drawStrokeWithSelection(
   const tempCtx = tempCanvas.getContext("2d")
   if (!tempCtx) return
 
-  drawStroke(tempCtx, from, to, brush.size, mode, brush.hardness, 1.0, brush.color)
+  drawStroke(
+    tempCtx,
+    from,
+    to,
+    brush.size,
+    mode,
+    brush.hardness,
+    1.0,
+    brush.color
+  )
 
   tempCtx.globalCompositeOperation = "destination-in"
 
@@ -175,7 +193,12 @@ export function ImageEditorDialog({
   const paintingRef = useRef(false)
   const lastPointRef = useRef<Point | null>(null)
   const panningRef = useRef(false)
-  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
+  const panStartRef = useRef<{
+    x: number
+    y: number
+    panX: number
+    panY: number
+  } | null>(null)
   const lassoPathRef = useRef<Point[]>([])
   const cloneSourceRef = useRef<Point | null>(null)
   const removeMaskCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -186,21 +209,39 @@ export function ImageEditorDialog({
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
   const [tool, setTool] = useState<ToolId>("move")
   const [brush, setBrush] = useState<BrushSettings>(DEFAULT_BRUSH)
-  const [magicWand, setMagicWand] = useState<MagicWandSettings>(DEFAULT_MAGIC_WAND)
+  const [magicWand, setMagicWand] =
+    useState<MagicWandSettings>(DEFAULT_MAGIC_WAND)
   const [adjust, setAdjust] = useState<AdjustSettings>(DEFAULT_ADJUST)
-  const [view, setView] = useState<ViewTransform>({ zoom: 1, pan: { x: 0, y: 0 } })
+  const [view, setView] = useState<ViewTransform>({
+    zoom: 1,
+    pan: { x: 0, y: 0 },
+  })
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
   const [cursorPos, setCursorPos] = useState<Point | null>(null)
   const [cursorScale, setCursorScale] = useState(1)
   const [removing, setRemoving] = useState(false)
   const [maskReady, setMaskReady] = useState(false)
-  const [inpaintCaps, setInpaintCaps] = useState<InpaintCapabilities | null>(null)
-  const [objectRemoveMode, setObjectRemoveMode] = useState<"paint" | "erase">("paint")
+  const [inpaintCaps, setInpaintCaps] = useState<InpaintCapabilities | null>(
+    null
+  )
+  const [objectRemoveMode, setObjectRemoveMode] = useState<"paint" | "erase">(
+    "paint"
+  )
   const [maskVersion, setMaskVersion] = useState(0)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [cropRect, setCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
-  const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [cropRect, setCropRect] = useState<{
+    x: number
+    y: number
+    w: number
+    h: number
+  } | null>(null)
+  const [dragSelectionRect, setDragSelectionRect] = useState<{
+    x: number
+    y: number
+    w: number
+    h: number
+  } | null>(null)
 
   useEffect(() => {
     setCropRect(null)
@@ -223,7 +264,10 @@ export function ImageEditorDialog({
     const img = new Image()
     img.crossOrigin = "anonymous"
     img.onload = (): void => {
-      const scale = Math.min(1, CANVAS_MAX_SIZE / Math.max(img.naturalWidth, img.naturalHeight))
+      const scale = Math.min(
+        1,
+        CANVAS_MAX_SIZE / Math.max(img.naturalWidth, img.naturalHeight)
+      )
       const w = Math.max(1, Math.round(img.naturalWidth * scale))
       const h = Math.max(1, Math.round(img.naturalHeight * scale))
       const display = displayCanvasRef.current
@@ -258,7 +302,14 @@ export function ImageEditorDialog({
       src = imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
     }
     img.src = src
-  }, [imageUrl, open, selectionClear, layerStackReset, layerStackAdd, historyReset])
+  }, [
+    imageUrl,
+    open,
+    selectionClear,
+    layerStackReset,
+    layerStackAdd,
+    historyReset,
+  ])
 
   // capabilities 조회
   useEffect(() => {
@@ -270,7 +321,7 @@ export function ImageEditorDialog({
   const renderComposite = useCallback(() => {
     const display = displayCanvasRef.current
     if (!display) return
-    
+
     // 1. 기본 레이어 합성
     compositeLayers(layerStack.layers, display)
 
@@ -303,7 +354,7 @@ export function ImageEditorDialog({
         const { x, y, w, h } = rect
         // 줌에 맞춰 일정한 굵기의 점선 그리기
         ctx.lineWidth = Math.max(1, 1.5 / view.zoom)
-        
+
         // 흰색 점선
         ctx.strokeStyle = "#ffffff"
         ctx.setLineDash([4, 4])
@@ -338,7 +389,10 @@ export function ImageEditorDialog({
     }
 
     // 3.5 드래그 중인 선택 영역 및 올가미 임시 가이드라인 그리기
-    if ((tool === "rect-select" || tool === "ellipse-select") && dragSelectionRect) {
+    if (
+      (tool === "rect-select" || tool === "ellipse-select") &&
+      dragSelectionRect
+    ) {
       ctx.save()
       const { x, y, w, h } = dragSelectionRect
       ctx.lineWidth = Math.max(1, 1.5 / view.zoom)
@@ -399,7 +453,15 @@ export function ImageEditorDialog({
       ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h)
       ctx.restore()
     }
-  }, [layerStack.layers, selection.selection, view.zoom, maskVersion, cropRect, tool, dragSelectionRect])
+  }, [
+    layerStack.layers,
+    selection.selection,
+    view.zoom,
+    maskVersion,
+    cropRect,
+    tool,
+    dragSelectionRect,
+  ])
 
   useEffect(() => {
     renderComposite()
@@ -502,8 +564,14 @@ export function ImageEditorDialog({
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return
-      
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      )
+        return
+
       // 자르기 모드에서 Enter/Escape 확정/취소 처리
       if (e.key === "Enter" && tool === "crop" && cropRect) {
         e.preventDefault()
@@ -538,8 +606,10 @@ export function ImageEditorDialog({
         setSpaceDown(true)
         return
       }
-      if (e.key === "[") setBrush((b) => ({ ...b, size: clamp(b.size - 4, 4, 220) }))
-      else if (e.key === "]") setBrush((b) => ({ ...b, size: clamp(b.size + 4, 4, 220) }))
+      if (e.key === "[")
+        setBrush((b) => ({ ...b, size: clamp(b.size - 4, 4, 220) }))
+      else if (e.key === "]")
+        setBrush((b) => ({ ...b, size: clamp(b.size + 4, 4, 220) }))
       else if (e.key.toLowerCase() === "v") setTool("move")
       else if (e.key.toLowerCase() === "b") setTool("brush")
       else if (e.key.toLowerCase() === "e") setTool("erase")
@@ -568,7 +638,17 @@ export function ImageEditorDialog({
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
     }
-  }, [open, activeCanvas, history, renderComposite, setZoomAt, view.zoom, cropRect, tool, applyCrop])
+  }, [
+    open,
+    activeCanvas,
+    history,
+    renderComposite,
+    setZoomAt,
+    view.zoom,
+    cropRect,
+    tool,
+    applyCrop,
+  ])
 
   // 포인터 다운 — 도구별 분기
   const onPointerDown = useCallback(
@@ -583,7 +663,12 @@ export function ImageEditorDialog({
       if (spaceDown || tool === "move" || e.button === 1 || e.button === 2) {
         panningRef.current = true
         setPanning(true)
-        panStartRef.current = { x: e.clientX, y: e.clientY, panX: view.pan.x, panY: view.pan.y }
+        panStartRef.current = {
+          x: e.clientX,
+          y: e.clientY,
+          panX: view.pan.x,
+          panY: view.pan.y,
+        }
         return
       }
 
@@ -592,7 +677,14 @@ export function ImageEditorDialog({
       if (tool === "brush" || tool === "erase") {
         if (!activeCanvas) return
         history.pushHistory(activeCanvas)
-        drawStrokeWithSelection(activeCanvas, imgPt, imgPt, brush, tool === "brush" ? "paint" : "erase", selection.selection)
+        drawStrokeWithSelection(
+          activeCanvas,
+          imgPt,
+          imgPt,
+          brush,
+          tool === "brush" ? "paint" : "erase",
+          selection.selection
+        )
         lastPointRef.current = imgPt
         paintingRef.current = true
         renderComposite()
@@ -611,7 +703,16 @@ export function ImageEditorDialog({
         history.pushHistory(mc)
         const ctx = mc.getContext("2d")
         if (!ctx) return
-        drawStroke(ctx, imgPt, imgPt, brush.size, objectRemoveMode, brush.hardness, brush.opacity, "#ffffff")
+        drawStroke(
+          ctx,
+          imgPt,
+          imgPt,
+          brush.size,
+          objectRemoveMode,
+          brush.hardness,
+          brush.opacity,
+          "#ffffff"
+        )
         lastPointRef.current = imgPt
         paintingRef.current = true
         setMaskVersion((v) => v + 1)
@@ -644,7 +745,13 @@ export function ImageEditorDialog({
       }
 
       if (tool === "magic-wand") {
-        const mask = floodFill(display, imgPt.x, imgPt.y, magicWand.tolerance, magicWand.contiguous)
+        const mask = floodFill(
+          display,
+          imgPt.x,
+          imgPt.y,
+          magicWand.tolerance,
+          magicWand.contiguous
+        )
         selection.setMaskSelection("magic", mask)
         return
       }
@@ -654,7 +761,21 @@ export function ImageEditorDialog({
         return
       }
     },
-    [ready, spaceDown, tool, view, brush, activeCanvas, history, renderComposite, magicWand, selection, objectRemoveMode, drawStrokeWithSelection, setDragSelectionRect]
+    [
+      ready,
+      spaceDown,
+      tool,
+      view,
+      brush,
+      activeCanvas,
+      history,
+      renderComposite,
+      magicWand,
+      selection,
+      objectRemoveMode,
+      drawStrokeWithSelection,
+      setDragSelectionRect,
+    ]
   )
 
   const onPointerMove = useCallback(
@@ -669,7 +790,10 @@ export function ImageEditorDialog({
         if (!start) return
         setView((v) => ({
           ...v,
-          pan: { x: start.panX + (e.clientX - start.x), y: start.panY + (e.clientY - start.y) },
+          pan: {
+            x: start.panX + (e.clientX - start.x),
+            y: start.panY + (e.clientY - start.y),
+          },
         }))
         return
       }
@@ -679,7 +803,15 @@ export function ImageEditorDialog({
       if (paintingRef.current && (tool === "brush" || tool === "erase")) {
         if (!activeCanvas) return
         const last = lastPointRef.current
-        if (last) drawStrokeWithSelection(activeCanvas, last, imgPt, brush, tool === "brush" ? "paint" : "erase", selection.selection)
+        if (last)
+          drawStrokeWithSelection(
+            activeCanvas,
+            last,
+            imgPt,
+            brush,
+            tool === "brush" ? "paint" : "erase",
+            selection.selection
+          )
         lastPointRef.current = imgPt
         renderComposite()
         return
@@ -691,7 +823,17 @@ export function ImageEditorDialog({
         const ctx = mc.getContext("2d")
         if (!ctx) return
         const last = lastPointRef.current
-        if (last) drawStroke(ctx, last, imgPt, brush.size, objectRemoveMode, brush.hardness, brush.opacity, "#ffffff")
+        if (last)
+          drawStroke(
+            ctx,
+            last,
+            imgPt,
+            brush.size,
+            objectRemoveMode,
+            brush.hardness,
+            brush.opacity,
+            "#ffffff"
+          )
         lastPointRef.current = imgPt
         setMaskVersion((v) => v + 1)
         return
@@ -711,7 +853,17 @@ export function ImageEditorDialog({
           ctx.beginPath()
           ctx.arc(imgPt.x, imgPt.y, brush.size / 2, 0, Math.PI * 2)
           ctx.clip()
-          ctx.drawImage(activeCanvas, src.x + dx, src.y + dy, 1, 1, imgPt.x - brush.size / 2, imgPt.y - brush.size / 2, brush.size, brush.size)
+          ctx.drawImage(
+            activeCanvas,
+            src.x + dx,
+            src.y + dy,
+            1,
+            1,
+            imgPt.x - brush.size / 2,
+            imgPt.y - brush.size / 2,
+            brush.size,
+            brush.size
+          )
           ctx.restore()
         }
         lastPointRef.current = imgPt
@@ -719,7 +871,10 @@ export function ImageEditorDialog({
         return
       }
 
-      if ((tool === "rect-select" || tool === "ellipse-select") && lassoPathRef.current.length > 0) {
+      if (
+        (tool === "rect-select" || tool === "ellipse-select") &&
+        lassoPathRef.current.length > 0
+      ) {
         const first = lassoPathRef.current[0]
         if (first) {
           lassoPathRef.current = [first, imgPt]
@@ -734,7 +889,11 @@ export function ImageEditorDialog({
         return
       }
 
-      if (tool === "lasso" && lassoPathRef.current.length > 0 && e.buttons > 0) {
+      if (
+        tool === "lasso" &&
+        lassoPathRef.current.length > 0 &&
+        e.buttons > 0
+      ) {
         lassoPathRef.current.push(imgPt)
         setMaskVersion((v) => v + 1)
         return
@@ -754,7 +913,22 @@ export function ImageEditorDialog({
         return
       }
     },
-    [ready, tool, view, activeCanvas, brush, history, renderComposite, updateCursor, objectRemoveMode, setCropRect, selection, drawStrokeWithSelection, setDragSelectionRect, setMaskVersion]
+    [
+      ready,
+      tool,
+      view,
+      activeCanvas,
+      brush,
+      history,
+      renderComposite,
+      updateCursor,
+      objectRemoveMode,
+      setCropRect,
+      selection,
+      drawStrokeWithSelection,
+      setDragSelectionRect,
+      setMaskVersion,
+    ]
   )
 
   const onPointerUp = useCallback(
@@ -776,7 +950,13 @@ export function ImageEditorDialog({
         paintingRef.current = false
         lastPointRef.current = null
         // 드로잉 종료 후 썸네일 업데이트
-        if ((tool === "brush" || tool === "erase" || tool === "clone" || tool === "heal") && activeLayer) {
+        if (
+          (tool === "brush" ||
+            tool === "erase" ||
+            tool === "clone" ||
+            tool === "heal") &&
+          activeLayer
+        ) {
           layerStack.updateLayer(activeLayer.id, { updatedAt: Date.now() })
         }
         return
@@ -795,7 +975,10 @@ export function ImageEditorDialog({
               h: Math.abs(b.y - a.y),
             }
             if (rect.w > 2 && rect.h > 2) {
-              selection.setRectSelection(tool === "rect-select" ? "rect" : "ellipse", rect)
+              selection.setRectSelection(
+                tool === "rect-select" ? "rect" : "ellipse",
+                rect
+              )
             }
           }
         }
@@ -854,7 +1037,17 @@ export function ImageEditorDialog({
         return
       }
     },
-    [ready, tool, view, selection, applyCrop, activeLayer, layerStack, setCropRect, setDragSelectionRect]
+    [
+      ready,
+      tool,
+      view,
+      selection,
+      applyCrop,
+      activeLayer,
+      layerStack,
+      setCropRect,
+      setDragSelectionRect,
+    ]
   )
 
   // 선택 삭제
@@ -863,7 +1056,12 @@ export function ImageEditorDialog({
     history.pushHistory(activeCanvas)
     const ctx = activeCanvas.getContext("2d")
     if (!ctx) return
-    clearSelectionArea(ctx, selection.selection, activeCanvas.width, activeCanvas.height)
+    clearSelectionArea(
+      ctx,
+      selection.selection,
+      activeCanvas.width,
+      activeCanvas.height
+    )
     renderComposite()
     selection.clearSelection()
   }, [selection, activeCanvas, history, renderComposite])
@@ -895,7 +1093,9 @@ export function ImageEditorDialog({
         const out = document.createElement("canvas")
         out.width = display.width
         out.height = display.height
-        out.getContext("2d")!.drawImage(img, 0, 0, display.width, display.height)
+        out
+          .getContext("2d")!
+          .drawImage(img, 0, 0, display.width, display.height)
         layerStack.addLayer("image", { name: "객체 제거 결과", canvas: out })
         URL.revokeObjectURL(url)
         // 마스크 초기화
@@ -935,7 +1135,12 @@ export function ImageEditorDialog({
     try {
       compositeLayers(layerStack.layers, display)
       const name = `${baseName(filename)}-edit-${Date.now()}.png`
-      const res = await uploadToSavedImages(backendUrl, display, name, parentHash)
+      const res = await uploadToSavedImages(
+        backendUrl,
+        display,
+        name,
+        parentHash
+      )
       toast.success(`갤러리에 저장됨: ${res.hash.slice(0, 8)}`)
       onSaveSuccess?.(res)
     } catch (err) {
@@ -957,15 +1162,15 @@ export function ImageEditorDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="h-[94vh] max-h-[94vh] gap-3 overflow-hidden p-4 sm:max-w-[96vw] bg-zinc-950 text-zinc-50 border-zinc-800"
+          className="h-[94vh] max-h-[94vh] gap-3 overflow-hidden border-zinc-800 bg-zinc-950 p-4 text-zinc-50 sm:max-w-[96vw]"
           onInteractOutside={(e) => {
             e.preventDefault()
           }}
         >
-          <DialogHeader className="shrink-0 flex-row items-center justify-between space-y-0 pb-1 border-b border-zinc-800">
+          <DialogHeader className="shrink-0 flex-row items-center justify-between space-y-0 border-b border-zinc-800 pb-1">
             <div className="flex flex-col gap-0.5">
-              <DialogTitle className="truncate font-mono text-sm tracking-tight text-zinc-100 flex items-center gap-1.5">
-                <Sparkles className="size-4 text-primary animate-pulse" />
+              <DialogTitle className="flex items-center gap-1.5 truncate font-mono text-sm tracking-tight text-zinc-100">
+                <Sparkles className="size-4 animate-pulse text-primary" />
                 이미지 편집 · {filename}
               </DialogTitle>
               <DialogDescription className="text-[10px] text-zinc-400">
@@ -975,7 +1180,7 @@ export function ImageEditorDialog({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 rounded-full"
+              className="h-7 w-7 rounded-full p-0 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
               onClick={() => setShowShortcuts(true)}
             >
               <HelpCircle className="size-4" />
@@ -987,47 +1192,126 @@ export function ImageEditorDialog({
             <aside className="flex max-h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
               {/* 도구 분류 1: 이동 및 선택 */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1">이동 & 선택</span>
+                <span className="pl-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                  이동 & 선택
+                </span>
                 <div className="grid grid-cols-4 gap-1.5">
-                  <ToolButton tool="move" current={tool} setTool={setTool} icon={<MousePointer2 className="size-4" />} label={TOOL_LABELS.move} />
-                  <ToolButton tool="rect-select" current={tool} setTool={setTool} icon={<SquareDashed className="size-4" />} label={TOOL_LABELS["rect-select"]} />
-                  <ToolButton tool="ellipse-select" current={tool} setTool={setTool} icon={<CircleDashed className="size-4" />} label={TOOL_LABELS["ellipse-select"]} />
-                  <ToolButton tool="lasso" current={tool} setTool={setTool} icon={<Lasso className="size-4" />} label={TOOL_LABELS.lasso} />
-                  <ToolButton tool="magic-wand" current={tool} setTool={setTool} icon={<MagicWandIcon className="size-4" />} label={TOOL_LABELS["magic-wand"]} />
-                  <ToolButton tool="crop" current={tool} setTool={setTool} icon={<Crop className="size-4" />} label={TOOL_LABELS.crop} />
+                  <ToolButton
+                    tool="move"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<MousePointer2 className="size-4" />}
+                    label={TOOL_LABELS.move}
+                  />
+                  <ToolButton
+                    tool="rect-select"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<SquareDashed className="size-4" />}
+                    label={TOOL_LABELS["rect-select"]}
+                  />
+                  <ToolButton
+                    tool="ellipse-select"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<CircleDashed className="size-4" />}
+                    label={TOOL_LABELS["ellipse-select"]}
+                  />
+                  <ToolButton
+                    tool="lasso"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<Lasso className="size-4" />}
+                    label={TOOL_LABELS.lasso}
+                  />
+                  <ToolButton
+                    tool="magic-wand"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<MagicWandIcon className="size-4" />}
+                    label={TOOL_LABELS["magic-wand"]}
+                  />
+                  <ToolButton
+                    tool="crop"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<Crop className="size-4" />}
+                    label={TOOL_LABELS.crop}
+                  />
                 </div>
               </div>
 
               {/* 도구 분류 2: 그리기 */}
               <div className="flex flex-col gap-1.5 border-t border-zinc-800/60 pt-2.5">
-                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1">그리기</span>
+                <span className="pl-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                  그리기
+                </span>
                 <div className="grid grid-cols-4 gap-1.5">
-                  <ToolButton tool="brush" current={tool} setTool={setTool} icon={<Brush className="size-4" />} label={TOOL_LABELS.brush} />
-                  <ToolButton tool="erase" current={tool} setTool={setTool} icon={<Eraser className="size-4" />} label={TOOL_LABELS.erase} />
+                  <ToolButton
+                    tool="brush"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<Brush className="size-4" />}
+                    label={TOOL_LABELS.brush}
+                  />
+                  <ToolButton
+                    tool="erase"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<Eraser className="size-4" />}
+                    label={TOOL_LABELS.erase}
+                  />
                 </div>
               </div>
 
               {/* 도구 분류 3: 리터칭 & 보정 */}
               <div className="flex flex-col gap-1.5 border-t border-zinc-800/60 pt-2.5">
-                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1">리터칭 & 보정</span>
+                <span className="pl-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                  리터칭 & 보정
+                </span>
                 <div className="grid grid-cols-4 gap-1.5">
-                  <ToolButton tool="clone" current={tool} setTool={setTool} icon={<Plus className="size-4" />} label={TOOL_LABELS.clone} />
-                  <ToolButton tool="object-remove" current={tool} setTool={setTool} icon={<Sparkles className="size-4" />} label={TOOL_LABELS["object-remove"]} disabled={!inpaintCaps?.enabled} />
-                  <ToolButton tool="adjust" current={tool} setTool={setTool} icon={<Sliders className="size-4" />} label={TOOL_LABELS.adjust} />
+                  <ToolButton
+                    tool="clone"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<Plus className="size-4" />}
+                    label={TOOL_LABELS.clone}
+                  />
+                  <ToolButton
+                    tool="object-remove"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<Sparkles className="size-4" />}
+                    label={TOOL_LABELS["object-remove"]}
+                    disabled={!inpaintCaps?.enabled}
+                  />
+                  <ToolButton
+                    tool="adjust"
+                    current={tool}
+                    setTool={setTool}
+                    icon={<Sliders className="size-4" />}
+                    label={TOOL_LABELS.adjust}
+                  />
                 </div>
               </div>
 
               {/* 도구별 상세 설정 패널 */}
-              <div className="mt-2 flex-1 flex flex-col gap-2 min-h-0">
-                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider pl-1 border-t border-zinc-800/60 pt-2.5">도구 설정</span>
-                
+              <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2">
+                <span className="border-t border-zinc-800/60 pt-2.5 pl-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                  도구 설정
+                </span>
+
                 {/* 브러시, 지우개, 복제 도구 설정 */}
                 {(tool === "brush" || tool === "erase" || tool === "clone") && (
                   <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
-                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">{TOOL_LABELS[tool]}</div>
+                    <div className="border-b border-zinc-900 pb-1 font-semibold text-zinc-300">
+                      {TOOL_LABELS[tool]}
+                    </div>
                     {(tool === "brush" || tool === "clone") && (
                       <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-zinc-400">브러시 색상</Label>
+                        <Label className="text-[11px] text-zinc-400">
+                          브러시 색상
+                        </Label>
                         <input
                           type="color"
                           value={brush.color}
@@ -1041,7 +1325,9 @@ export function ImageEditorDialog({
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[11px] text-zinc-400">
                         <Label>크기</Label>
-                        <span className="font-mono text-zinc-500">{brush.size}px</span>
+                        <span className="font-mono text-zinc-500">
+                          {brush.size}px
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -1049,15 +1335,20 @@ export function ImageEditorDialog({
                         max={220}
                         value={brush.size}
                         onChange={(e) => {
-                          setBrush((b) => ({ ...b, size: Number(e.target.value) }))
+                          setBrush((b) => ({
+                            ...b,
+                            size: Number(e.target.value),
+                          }))
                         }}
-                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-primary"
                       />
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[11px] text-zinc-400">
                         <Label>경도</Label>
-                        <span className="font-mono text-zinc-500">{Math.round(brush.hardness * 100)}%</span>
+                        <span className="font-mono text-zinc-500">
+                          {Math.round(brush.hardness * 100)}%
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -1066,15 +1357,20 @@ export function ImageEditorDialog({
                         step={0.05}
                         value={brush.hardness}
                         onChange={(e) => {
-                          setBrush((b) => ({ ...b, hardness: Number(e.target.value) }))
+                          setBrush((b) => ({
+                            ...b,
+                            hardness: Number(e.target.value),
+                          }))
                         }}
-                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-primary"
                       />
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[11px] text-zinc-400">
                         <Label>불투명도</Label>
-                        <span className="font-mono text-zinc-500">{Math.round(brush.opacity * 100)}%</span>
+                        <span className="font-mono text-zinc-500">
+                          {Math.round(brush.opacity * 100)}%
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -1083,9 +1379,12 @@ export function ImageEditorDialog({
                         step={0.05}
                         value={brush.opacity}
                         onChange={(e) => {
-                          setBrush((b) => ({ ...b, opacity: Number(e.target.value) }))
+                          setBrush((b) => ({
+                            ...b,
+                            opacity: Number(e.target.value),
+                          }))
                         }}
-                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-primary"
                       />
                     </div>
                   </div>
@@ -1094,11 +1393,15 @@ export function ImageEditorDialog({
                 {/* 매직완드 설정 */}
                 {tool === "magic-wand" && (
                   <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
-                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">매직완드 설정</div>
+                    <div className="border-b border-zinc-900 pb-1 font-semibold text-zinc-300">
+                      매직완드 설정
+                    </div>
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[11px] text-zinc-400">
                         <Label>허용 오차 (Tolerance)</Label>
-                        <span className="font-mono text-zinc-500">{magicWand.tolerance}</span>
+                        <span className="font-mono text-zinc-500">
+                          {magicWand.tolerance}
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -1106,17 +1409,23 @@ export function ImageEditorDialog({
                         max={128}
                         value={magicWand.tolerance}
                         onChange={(e) => {
-                          setMagicWand((m) => ({ ...m, tolerance: Number(e.target.value) }))
+                          setMagicWand((m) => ({
+                            ...m,
+                            tolerance: Number(e.target.value),
+                          }))
                         }}
-                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-primary"
                       />
                     </div>
-                    <label className="flex items-center gap-2 text-[11px] text-zinc-400 cursor-pointer select-none">
+                    <label className="flex cursor-pointer items-center gap-2 text-[11px] text-zinc-400 select-none">
                       <input
                         type="checkbox"
                         checked={magicWand.contiguous}
                         onChange={(e) => {
-                          setMagicWand((m) => ({ ...m, contiguous: e.target.checked }))
+                          setMagicWand((m) => ({
+                            ...m,
+                            contiguous: e.target.checked,
+                          }))
                         }}
                         className="rounded border-zinc-800 bg-zinc-900 text-primary focus:ring-primary"
                       />
@@ -1127,31 +1436,48 @@ export function ImageEditorDialog({
 
                 {/* 색보정 설정 */}
                 {tool === "adjust" && (
-                  <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs overflow-y-auto max-h-[220px] lg:max-h-none">
-                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">색보정 설정</div>
-                    {(["brightness", "contrast", "saturation"] as const).map((k) => (
-                      <div key={k} className="space-y-1.5">
-                        <div className="flex justify-between text-[11px] text-zinc-400">
-                          <Label>{k === "brightness" ? "밝기" : k === "contrast" ? "대비" : "채도"}</Label>
-                          <span className="font-mono text-zinc-500">{adjust[k]}</span>
+                  <div className="grid max-h-[220px] gap-3 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs lg:max-h-none">
+                    <div className="border-b border-zinc-900 pb-1 font-semibold text-zinc-300">
+                      색보정 설정
+                    </div>
+                    {(["brightness", "contrast", "saturation"] as const).map(
+                      (k) => (
+                        <div key={k} className="space-y-1.5">
+                          <div className="flex justify-between text-[11px] text-zinc-400">
+                            <Label>
+                              {k === "brightness"
+                                ? "밝기"
+                                : k === "contrast"
+                                  ? "대비"
+                                  : "채도"}
+                            </Label>
+                            <span className="font-mono text-zinc-500">
+                              {adjust[k]}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={-100}
+                            max={100}
+                            value={adjust[k]}
+                            onChange={(e) => {
+                              setAdjust((a) => ({
+                                ...a,
+                                [k]: Number(e.target.value),
+                              }))
+                            }}
+                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-primary"
+                          />
                         </div>
-                        <input
-                          type="range"
-                          min={-100}
-                          max={100}
-                          value={adjust[k]}
-                          onChange={(e) => {
-                            setAdjust((a) => ({ ...a, [k]: Number(e.target.value) }))
-                          }}
-                          className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                    ))}
+                      )
+                    )}
                     {(["blur", "sharpen"] as const).map((k) => (
                       <div key={k} className="space-y-1.5">
                         <div className="flex justify-between text-[11px] text-zinc-400">
                           <Label>{k === "blur" ? "블러" : "샤픈"}</Label>
-                          <span className="font-mono text-zinc-500">{adjust[k]}</span>
+                          <span className="font-mono text-zinc-500">
+                            {adjust[k]}
+                          </span>
                         </div>
                         <input
                           type="range"
@@ -1159,13 +1485,20 @@ export function ImageEditorDialog({
                           max={20}
                           value={adjust[k]}
                           onChange={(e) => {
-                            setAdjust((a) => ({ ...a, [k]: Number(e.target.value) }))
+                            setAdjust((a) => ({
+                              ...a,
+                              [k]: Number(e.target.value),
+                            }))
                           }}
-                          className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                          className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-primary"
                         />
                       </div>
                     ))}
-                    <Button size="sm" onClick={handleAddAdjustLayer} className="w-full mt-1">
+                    <Button
+                      size="sm"
+                      onClick={handleAddAdjustLayer}
+                      className="mt-1 w-full"
+                    >
                       조정 레이어 추가
                     </Button>
                   </div>
@@ -1174,31 +1507,38 @@ export function ImageEditorDialog({
                 {/* 객체 제거 (LaMa) 설정 */}
                 {tool === "object-remove" && (
                   <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
-                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">객체 제거 (AI 인페인트)</div>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      브러시로 제거하고 싶은 대상 영역을 칠한 후 제거 실행 버튼을 누르세요.
+                    <div className="border-b border-zinc-900 pb-1 font-semibold text-zinc-300">
+                      객체 제거 (AI 인페인트)
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-zinc-400">
+                      브러시로 제거하고 싶은 대상 영역을 칠한 후 제거 실행
+                      버튼을 누르세요.
                     </p>
 
                     {/* 브러시 vs 지우개 모드 토글 */}
-                    <div className="flex border border-zinc-800 rounded overflow-hidden">
+                    <div className="flex overflow-hidden rounded border border-zinc-800">
                       <Button
                         type="button"
-                        variant={objectRemoveMode === "paint" ? "default" : "ghost"}
+                        variant={
+                          objectRemoveMode === "paint" ? "default" : "ghost"
+                        }
                         size="sm"
-                        className="flex-1 rounded-none h-8 text-[11px] p-0"
+                        className="h-8 flex-1 rounded-none p-0 text-[11px]"
                         onClick={() => setObjectRemoveMode("paint")}
                       >
-                        <Brush className="size-3.5 mr-1" />
+                        <Brush className="mr-1 size-3.5" />
                         마스크 추가
                       </Button>
                       <Button
                         type="button"
-                        variant={objectRemoveMode === "erase" ? "default" : "ghost"}
+                        variant={
+                          objectRemoveMode === "erase" ? "default" : "ghost"
+                        }
                         size="sm"
-                        className="flex-1 rounded-none h-8 text-[11px] p-0"
+                        className="h-8 flex-1 rounded-none p-0 text-[11px]"
                         onClick={() => setObjectRemoveMode("erase")}
                       >
-                        <Eraser className="size-3.5 mr-1" />
+                        <Eraser className="mr-1 size-3.5" />
                         마스크 지우개
                       </Button>
                     </div>
@@ -1206,7 +1546,9 @@ export function ImageEditorDialog({
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[11px] text-zinc-400">
                         <Label>브러시 크기</Label>
-                        <span className="font-mono text-zinc-500">{brush.size}px</span>
+                        <span className="font-mono text-zinc-500">
+                          {brush.size}px
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -1214,9 +1556,12 @@ export function ImageEditorDialog({
                         max={220}
                         value={brush.size}
                         onChange={(e) => {
-                          setBrush((b) => ({ ...b, size: Number(e.target.value) }))
+                          setBrush((b) => ({
+                            ...b,
+                            size: Number(e.target.value),
+                          }))
                         }}
-                        className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-primary"
                       />
                     </div>
 
@@ -1225,7 +1570,7 @@ export function ImageEditorDialog({
                         size="sm"
                         variant="secondary"
                         onClick={handleClearMask}
-                        className="flex-1 text-[11px] h-8 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+                        className="h-8 flex-1 border border-zinc-800 bg-zinc-900 text-[11px] text-zinc-300 hover:bg-zinc-800"
                       >
                         마스크 초기화
                       </Button>
@@ -1233,7 +1578,7 @@ export function ImageEditorDialog({
                         size="sm"
                         onClick={handleRunRemove}
                         disabled={removing || !inpaintCaps?.enabled}
-                        className="flex-1 text-[11px] h-8"
+                        className="h-8 flex-1 text-[11px]"
                       >
                         <Sparkles className="mr-1 size-3.5" />
                         {removing ? "제거 중..." : "제거 실행"}
@@ -1241,8 +1586,9 @@ export function ImageEditorDialog({
                     </div>
 
                     {!inpaintCaps?.enabled && (
-                      <p className="text-[10px] text-destructive leading-tight bg-destructive/5 border border-destructive/20 p-2 rounded">
-                        {inpaintCaps?.reason ?? "LaMa 미지원 (requirements-inpaint.txt 설치 필요)"}
+                      <p className="rounded border border-destructive/20 bg-destructive/5 p-2 text-[10px] leading-tight text-destructive">
+                        {inpaintCaps?.reason ??
+                          "LaMa 미지원 (requirements-inpaint.txt 설치 필요)"}
                       </p>
                     )}
                   </div>
@@ -1250,13 +1596,15 @@ export function ImageEditorDialog({
 
                 {tool === "crop" && (
                   <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
-                    <div className="font-semibold text-zinc-300 pb-1 border-b border-zinc-900">자르기 옵션</div>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    <div className="border-b border-zinc-900 pb-1 font-semibold text-zinc-300">
+                      자르기 옵션
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-zinc-400">
                       화면에서 잘라낼 영역을 마우스로 드래그하여 지정하세요.
                     </p>
                     {cropRect ? (
                       <div className="flex flex-col gap-2 pt-1">
-                        <div className="text-[10px] text-zinc-500 font-mono">
+                        <div className="font-mono text-[10px] text-zinc-500">
                           선택 크기: {cropRect.w} × {cropRect.h} px
                         </div>
                         <div className="flex gap-2">
@@ -1264,7 +1612,7 @@ export function ImageEditorDialog({
                             size="sm"
                             variant="secondary"
                             onClick={() => setCropRect(null)}
-                            className="flex-1 text-[11px] h-8 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+                            className="h-8 flex-1 border border-zinc-800 bg-zinc-900 text-[11px] text-zinc-300 hover:bg-zinc-800"
                           >
                             취소 (Esc)
                           </Button>
@@ -1274,14 +1622,14 @@ export function ImageEditorDialog({
                               applyCrop(cropRect)
                               setCropRect(null)
                             }}
-                            className="flex-1 text-[11px] h-8"
+                            className="h-8 flex-1 text-[11px]"
                           >
                             적용 (Enter)
                           </Button>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-[10px] text-zinc-500 italic text-center py-2">
+                      <div className="py-2 text-center text-[10px] text-zinc-500 italic">
                         영역을 드래그하면 세부 조정이 가능합니다.
                       </div>
                     )}
@@ -1289,7 +1637,12 @@ export function ImageEditorDialog({
                 )}
 
                 {selection.selection && (
-                  <Button size="sm" variant="destructive" onClick={handleDeleteSelection} className="w-full mt-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleDeleteSelection}
+                    className="mt-2 w-full"
+                  >
                     <Trash2 className="mr-1.5 size-3.5" />
                     선택 영역 내용 삭제
                   </Button>
@@ -1297,15 +1650,17 @@ export function ImageEditorDialog({
               </div>
 
               {/* 하단 히스토리 / 줌 액션바 */}
-              <div className="mt-auto border-t border-zinc-800/60 pt-3 flex items-center justify-between">
+              <div className="mt-auto flex items-center justify-between border-t border-zinc-800/60 pt-3">
                 <div className="flex items-center gap-0.5">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30"
-                        onClick={() => activeCanvas && history.undo(activeCanvas)}
+                        className="size-8 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30"
+                        onClick={() =>
+                          activeCanvas && history.undo(activeCanvas)
+                        }
                         disabled={!history.canUndo}
                       >
                         <Undo2 className="size-4" />
@@ -1318,8 +1673,10 @@ export function ImageEditorDialog({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30"
-                        onClick={() => activeCanvas && history.redo(activeCanvas)}
+                        className="size-8 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30"
+                        onClick={() =>
+                          activeCanvas && history.redo(activeCanvas)
+                        }
                         disabled={!history.canRedo}
                       >
                         <Redo2 className="size-4" />
@@ -1335,7 +1692,7 @@ export function ImageEditorDialog({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                        className="size-8 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
                         onClick={() => {
                           setZoomAt(view.zoom * 0.8)
                         }}
@@ -1345,7 +1702,7 @@ export function ImageEditorDialog({
                     </TooltipTrigger>
                     <TooltipContent>축소 (-)</TooltipContent>
                   </Tooltip>
-                  <span className="text-[11px] font-mono w-10 text-center text-zinc-400 select-none">
+                  <span className="w-10 text-center font-mono text-[11px] text-zinc-400 select-none">
                     {Math.round(view.zoom * 100)}%
                   </span>
                   <Tooltip>
@@ -1353,7 +1710,7 @@ export function ImageEditorDialog({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="size-8 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                        className="size-8 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
                         onClick={() => {
                           setZoomAt(view.zoom * 1.25)
                         }}
@@ -1375,8 +1732,14 @@ export function ImageEditorDialog({
               <canvas
                 ref={displayCanvasRef}
                 className={cn(
-                  "block touch-none select-none transition-shadow",
-                  (spaceDown || panning) ? "cursor-grab" : (tool === "brush" || tool === "erase" || tool === "object-remove" ? "cursor-none" : "cursor-crosshair")
+                  "block touch-none transition-shadow select-none",
+                  spaceDown || panning
+                    ? "cursor-grab"
+                    : tool === "brush" ||
+                        tool === "erase" ||
+                        tool === "object-remove"
+                      ? "cursor-none"
+                      : "cursor-crosshair"
                 )}
                 style={{
                   transform: `translate(${view.pan.x}px, ${view.pan.y}px) scale(${view.zoom})`,
@@ -1393,40 +1756,45 @@ export function ImageEditorDialog({
                 onContextMenu={(e) => e.preventDefault()}
               />
               {/* 커서 오버레이 */}
-              {(tool === "brush" || tool === "erase" || tool === "object-remove") && cursorPos && !spaceDown && !panning && (
-                <div
-                  ref={cursorRef}
-                  className={cn(
-                    "pointer-events-none absolute rounded-full border border-white mix-blend-difference shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
-                  )}
-                  style={{
-                    width: `${cursorDiameter}px`,
-                    height: `${cursorDiameter}px`,
-                    left: `${cursorPos.x - cursorDiameter / 2}px`,
-                    top: `${cursorPos.y - cursorDiameter / 2}px`,
-                  }}
-                />
-              )}
+              {(tool === "brush" ||
+                tool === "erase" ||
+                tool === "object-remove") &&
+                cursorPos &&
+                !spaceDown &&
+                !panning && (
+                  <div
+                    ref={cursorRef}
+                    className={cn(
+                      "pointer-events-none absolute rounded-full border border-white mix-blend-difference shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
+                    )}
+                    style={{
+                      width: `${cursorDiameter}px`,
+                      height: `${cursorDiameter}px`,
+                      left: `${cursorPos.x - cursorDiameter / 2}px`,
+                      top: `${cursorPos.y - cursorDiameter / 2}px`,
+                    }}
+                  />
+                )}
               {loadError && (
-                <div className="absolute inset-0 flex items-center justify-center text-sm text-destructive font-medium bg-zinc-950/80">
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/80 text-sm font-medium text-destructive">
                   이미지 로드 실패
                 </div>
               )}
               {!ready && !loadError && (
-                <div className="absolute inset-0 flex items-center justify-center text-sm text-zinc-400 font-medium bg-zinc-950/80">
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/80 text-sm font-medium text-zinc-400">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     <span>이미지 로딩 중...</span>
                   </div>
                 </div>
               )}
               {tool === "object-remove" && maskReady && (
-                <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-zinc-900/80 backdrop-blur border border-zinc-800 px-2 py-1 text-[10px] text-zinc-300">
+                <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-[10px] text-zinc-300 backdrop-blur">
                   AI 마스크 모드 활성화됨
                 </div>
               )}
               {tool === "clone" && cloneSourceRef.current === null && (
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-zinc-900/90 backdrop-blur border border-zinc-800 px-3 py-1 text-xs text-yellow-500 flex items-center gap-1.5 shadow-lg select-none animate-bounce">
+                <div className="absolute top-3 left-1/2 flex -translate-x-1/2 animate-bounce items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-1 text-xs text-yellow-500 shadow-lg backdrop-blur select-none">
                   <Info className="size-3.5" />
                   <span>Alt + 클릭으로 복사할 소스점을 먼저 지정하세요.</span>
                 </div>
@@ -1436,7 +1804,7 @@ export function ImageEditorDialog({
             {/* 우측 레이어 패널 */}
             <aside className="flex max-h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <Label className="text-xs font-semibold text-zinc-400 flex items-center gap-1.5">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400">
                   <LayersIcon className="size-3.5 text-zinc-400" />
                   레이어 스택
                 </Label>
@@ -1445,8 +1813,12 @@ export function ImageEditorDialog({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="size-7 p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
-                      onClick={() => layerStack.addLayer("image", { name: `레이어 ${layerStack.layers.length + 1}` })}
+                      className="size-7 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                      onClick={() =>
+                        layerStack.addLayer("image", {
+                          name: `레이어 ${layerStack.layers.length + 1}`,
+                        })
+                      }
                     >
                       <Plus className="size-4" />
                     </Button>
@@ -1456,7 +1828,7 @@ export function ImageEditorDialog({
               </div>
 
               {/* 레이어 리스트 */}
-              <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0 pr-0.5">
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
                 {[...layerStack.layers].reverse().map((layer) => (
                   <LayerRow
                     key={layer.id}
@@ -1466,7 +1838,9 @@ export function ImageEditorDialog({
                       layerStack.setActiveLayerId(layer.id)
                     }}
                     onToggleVisible={() => {
-                      layerStack.updateLayer(layer.id, { visible: !layer.visible })
+                      layerStack.updateLayer(layer.id, {
+                        visible: !layer.visible,
+                      })
                     }}
                     onOpacity={(v) => {
                       layerStack.updateLayer(layer.id, { opacity: v })
@@ -1483,24 +1857,29 @@ export function ImageEditorDialog({
                   />
                 ))}
                 {layerStack.layers.length === 0 && (
-                  <div className="text-[11px] text-zinc-500 text-center py-8">
+                  <div className="py-8 text-center text-[11px] text-zinc-500">
                     레이어가 없습니다.
                   </div>
                 )}
               </div>
 
               {/* 레이어 스택 아래의 액션 */}
-              <div className="mt-auto border-t border-zinc-800/60 pt-3 flex flex-col gap-2">
+              <div className="mt-auto flex flex-col gap-2 border-t border-zinc-800/60 pt-3">
                 <Button
                   size="sm"
                   onClick={handleDownload}
                   disabled={!ready}
-                  className="w-full text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-[11px]"
+                  className="w-full border border-zinc-800 bg-zinc-900 text-[11px] text-zinc-300 hover:bg-zinc-800"
                 >
                   <Download className="mr-1.5 size-3.5 text-zinc-400" />
                   로컬 다운로드
                 </Button>
-                <Button size="sm" onClick={handleSaveToGallery} disabled={!ready} className="w-full text-[11px]">
+                <Button
+                  size="sm"
+                  onClick={handleSaveToGallery}
+                  disabled={!ready}
+                  className="w-full text-[11px]"
+                >
                   <Save className="mr-1.5 size-3.5" />
                   갤러리에 저장
                 </Button>
@@ -1512,81 +1891,115 @@ export function ImageEditorDialog({
 
       {/* 단축키 도움말 모달 */}
       <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
-        <DialogContent className="max-w-md bg-zinc-950 text-zinc-50 border-zinc-800">
+        <DialogContent className="max-w-md border-zinc-800 bg-zinc-950 text-zinc-50">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100 flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-zinc-100">
               <HelpCircle className="size-5 text-primary" />
               에디터 단축키 도움말
             </DialogTitle>
-            <DialogDescription className="text-zinc-400 text-xs">
+            <DialogDescription className="text-xs text-zinc-400">
               이미지 편집 도구에서 활용할 수 있는 유용한 단축키들입니다.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2 text-xs">
             <div className="grid grid-cols-2 gap-2 border-b border-zinc-900 pb-2">
               <div className="font-semibold text-zinc-400">동작</div>
-              <div className="font-semibold text-zinc-400 text-right">단축키</div>
+              <div className="text-right font-semibold text-zinc-400">
+                단축키
+              </div>
             </div>
-            
+
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">이동 도구 (Move)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">V</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                V
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">브러시 도구 (Brush)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">B</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                B
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">지우개 도구 (Erase)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">E</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                E
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">사각 선택 도구 (Rect)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">R</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                R
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">라소 선택 도구 (Lasso)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">L</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                L
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">매직완드 도구 (Magic)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">M</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                M
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">복제 도구 (Clone Source)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">C</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                C
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">자르기 도구 (Crop)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">K</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                K
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center border-t border-zinc-900 pt-2">
               <span className="text-zinc-300">실행 취소 (Undo)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">Ctrl + Z</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                Ctrl + Z
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">다시 실행 (Redo)</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">Ctrl + Y</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                Ctrl + Y
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center border-t border-zinc-900 pt-2">
               <span className="text-zinc-300">브러시 크기 조절</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">[ 또는 ]</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                [ 또는 ]
+              </kbd>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">화면 이동 (Panning)</span>
-              <span className="font-sans text-[11px] text-zinc-400 justify-self-end">Space + 드래그</span>
+              <span className="justify-self-end font-sans text-[11px] text-zinc-400">
+                Space + 드래그
+              </span>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">확대/축소 (Zoom)</span>
-              <span className="font-sans text-[11px] text-zinc-400 justify-self-end">마우스 휠 굴리기</span>
+              <span className="justify-self-end font-sans text-[11px] text-zinc-400">
+                마우스 휠 굴리기
+              </span>
             </div>
             <div className="grid grid-cols-2 items-center">
               <span className="text-zinc-300">화면 뷰 초기화</span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-400 justify-self-end">Ctrl + 0</kbd>
+              <kbd className="justify-self-end rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                Ctrl + 0
+              </kbd>
             </div>
           </div>
-          <div className="flex justify-end pt-2 border-t border-zinc-900">
-            <Button size="sm" onClick={() => setShowShortcuts(false)} className="h-8">
+          <div className="flex justify-end border-t border-zinc-900 pt-2">
+            <Button
+              size="sm"
+              onClick={() => setShowShortcuts(false)}
+              className="h-8"
+            >
               닫기
             </Button>
           </div>
@@ -1619,7 +2032,9 @@ function ToolButton({
           size="sm"
           className="aspect-square p-0"
           disabled={disabled}
-          onClick={() => { setTool(tool); }}
+          onClick={() => {
+            setTool(tool)
+          }}
         >
           {icon}
         </Button>
@@ -1649,13 +2064,16 @@ function LayerThumbnail({
     const size = 3
     for (let y = 0; y < thumb.height; y += size) {
       for (let x = 0; x < thumb.width; x += size) {
-        ctx.fillStyle = ((x / size) + (y / size)) % 2 === 0 ? "#262626" : "#1a1a1a"
+        ctx.fillStyle = (x / size + y / size) % 2 === 0 ? "#262626" : "#1a1a1a"
         ctx.fillRect(x, y, size, size)
       }
     }
 
     // 캔버스 그리기
-    const scale = Math.min(thumb.width / canvas.width, thumb.height / canvas.height)
+    const scale = Math.min(
+      thumb.width / canvas.width,
+      thumb.height / canvas.height
+    )
     const w = canvas.width * scale
     const h = canvas.height * scale
     const dx = (thumb.width - w) / 2
@@ -1668,7 +2086,7 @@ function LayerThumbnail({
       ref={thumbRef}
       width={28}
       height={28}
-      className="size-7 rounded border border-neutral-800 object-contain bg-neutral-950 shrink-0"
+      className="size-7 shrink-0 rounded border border-neutral-800 bg-neutral-950 object-contain"
     />
   )
 }
@@ -1695,16 +2113,19 @@ function LayerRow({
   return (
     <div
       className={cn(
-        "rounded-lg border p-2 text-xs flex flex-col gap-2 transition-all duration-150",
+        "flex flex-col gap-2 rounded-lg border p-2 text-xs transition-all duration-150",
         active
           ? "border-primary bg-primary/5 shadow-[0_0_8px_rgba(59,130,246,0.15)]"
           : "border-border/50 bg-background/30 hover:bg-background/55"
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <button className="flex flex-1 items-center gap-2 text-left min-w-0" onClick={onSelect}>
+        <button
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          onClick={onSelect}
+        >
           <LayerThumbnail canvas={layer.canvas} updatedAt={layer.updatedAt} />
-          <div className="flex flex-col min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-medium">{layer.name}</span>
             <span className="text-[10px] text-muted-foreground">
               {layer.kind === "image" ? "이미지 레이어" : "색보정 레이어"}
@@ -1712,7 +2133,7 @@ function LayerRow({
           </div>
         </button>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             size="sm"
             variant="ghost"
@@ -1732,7 +2153,7 @@ function LayerRow({
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground w-6 text-right font-mono">
+        <span className="w-6 text-right font-mono text-[10px] text-muted-foreground">
           {Math.round(layer.opacity * 100)}%
         </span>
         <input
@@ -1744,21 +2165,36 @@ function LayerRow({
           onChange={(e) => {
             onOpacity(Number(e.target.value))
           }}
-          className="w-full h-1 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+          className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary"
         />
       </div>
 
-      <div className="flex gap-1 border-t border-border/20 pt-1.5 justify-end">
-        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-muted-foreground" onClick={onMoveUp}>
-          <ArrowUp className="size-3 mr-0.5" />
+      <div className="flex justify-end gap-1 border-t border-border/20 pt-1.5">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-1.5 text-[11px] text-muted-foreground"
+          onClick={onMoveUp}
+        >
+          <ArrowUp className="mr-0.5 size-3" />
           위로
         </Button>
-        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-muted-foreground" onClick={onMoveDown}>
-          <ArrowDown className="size-3 mr-0.5" />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-1.5 text-[11px] text-muted-foreground"
+          onClick={onMoveDown}
+        >
+          <ArrowDown className="mr-0.5 size-3" />
           아래로
         </Button>
-        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-destructive hover:bg-destructive/10" onClick={onRemove}>
-          <Trash2 className="size-3 mr-0.5" />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-1.5 text-[11px] text-destructive hover:bg-destructive/10"
+          onClick={onRemove}
+        >
+          <Trash2 className="mr-0.5 size-3" />
           삭제
         </Button>
       </div>

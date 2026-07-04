@@ -52,7 +52,7 @@ export default defineConfig({
         target: `http://localhost:${process.env.VITE_BACKEND_PORT || "5882"}`,
         changeOrigin: true,
         bypass: (req, res, options) => {
-          const url = req.url || "";
+          const url = req.url || ""
           if (
             url === "/" ||
             url.startsWith("/src/") ||
@@ -61,14 +61,17 @@ export default defineConfig({
             url.startsWith("/assets/") ||
             url.includes("index.html")
           ) {
-            return url;
+            return url
           }
-          const cleanUrl = url.split("?")[0].split("#")[0];
-          const publicFilePath = path.join(__dirname, "public", cleanUrl);
-          if (fs.existsSync(publicFilePath) && fs.statSync(publicFilePath).isFile()) {
-            return url;
+          const cleanUrl = url.split("?")[0].split("#")[0]
+          const publicFilePath = path.join(__dirname, "public", cleanUrl)
+          if (
+            fs.existsSync(publicFilePath) &&
+            fs.statSync(publicFilePath).isFile()
+          ) {
+            return url
           }
-          return undefined;
+          return undefined
         },
       },
     },

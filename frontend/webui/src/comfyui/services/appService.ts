@@ -659,7 +659,8 @@ class ComfyNode {
 
   collapse(force?: boolean): void {
     this.flags ??= {}
-    this.flags.collapsed = force ?? !readBooleanProperty(this.flags, "collapsed")
+    this.flags.collapsed =
+      force ?? !readBooleanProperty(this.flags, "collapsed")
   }
 
   toggleAdvanced(): void {

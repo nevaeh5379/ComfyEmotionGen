@@ -54,12 +54,24 @@ function UnassignedGridItem({
   const [aspect, setAspect] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const handleDragStart = (e: React.DragEvent): void => {
+    e.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        type: "unassigned-image",
+        hashes: imgs.map((img) => img.hash),
+      })
+    )
+  }
+
   return (
     <button
       onClick={() => {
         handleUnassignedToggleSelect(filename)
       }}
-      className={`group relative flex flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors ${
+      draggable={true}
+      onDragStart={handleDragStart}
+      className={`group relative flex cursor-grab flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors active:cursor-grabbing ${
         isSelected
           ? "bg-red-50/30 ring-2 ring-red-500"
           : isTrueOrphan && templateAffiliationCache.size > 0

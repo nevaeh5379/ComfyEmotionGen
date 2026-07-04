@@ -101,10 +101,7 @@ export interface LGraphNode {
   removeWidget(widgetOrSlot: LGraphWidget | number): void
   ensureWidgetRemoved(widget: LGraphWidget): void
   findInputSlot(name: string, returnObj?: false): number
-  findInputSlot(
-    name: string,
-    returnObj: true
-  ): LGraphNodeSlotInput | undefined
+  findInputSlot(name: string, returnObj: true): LGraphNodeSlotInput | undefined
   findOutputSlot(name: string, returnObj?: false): number
   findOutputSlot(
     name: string,
@@ -135,7 +132,11 @@ export interface LGraphNode {
   findConnectByTypeSlot(type: string, isOutput?: boolean): number
   findInputByType(type: string): LGraphNodeSlotInput | null
   findOutputByType(type: string): LGraphNodeSlotOutput | null
-  canConnectTo(slot: number, targetNode: LGraphNode, targetSlot: number): boolean
+  canConnectTo(
+    slot: number,
+    targetNode: LGraphNode,
+    targetSlot: number
+  ): boolean
   connectByType(
     slot: number,
     targetNode: LGraphNode,

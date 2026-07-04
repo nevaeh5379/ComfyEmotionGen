@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react"
+import { toast } from "sonner"
 import { curationApi } from "../../hooks/useSavedImages"
 import { useLatestRef } from "../../hooks/useLatestRef"
 import { hasApproved } from "../../types/Message"
@@ -50,6 +51,11 @@ export function useCombinationData({
     status: SavedImage["status"]
   ) => Promise<void>
   approveImage: (filename: string, selectedHash: string) => Promise<void>
+  updateImageMeta: (hash: string, meta: Record<string, string>) => Promise<void>
+  uploadUserImage: (
+    file: File,
+    meta?: Record<string, string>
+  ) => Promise<{ hash: string; filename: string }>
 } {
   const [rawRenderItems, setRawRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])
@@ -131,14 +137,46 @@ export function useCombinationData({
     const map = new Map<string, SavedImage[]>()
     for (const img of allImages) {
       if (img.status === "trashed") continue
-      if (!map.has(img.originalFilename)) map.set(img.originalFilename, [])
-      const imgArr = map.get(img.originalFilename)
-      if (imgArr) {
-        imgArr.push(img)
+
+      let matchedFilename: string | null = null
+      const imgMeta = img.meta || {}
+      const hasMeta = Object.keys(imgMeta).length > 0
+
+      if (hasMeta) {
+        for (const ri of rawRenderItems) {
+          let isMatch = true
+          const riMetaKeys = Object.keys(ri.meta)
+          if (riMetaKeys.length === 0) continue
+
+          for (const key of riMetaKeys) {
+            if (String(imgMeta[key]) !== String(ri.meta[key])) {
+              isMatch = false
+              break
+            }
+          }
+          if (isMatch) {
+            matchedFilename = ri.filename
+            break
+          }
+        }
+      }
+
+      if (!matchedFilename) {
+        const matchByFile = rawRenderItems.find(
+          (ri) => ri.filename === img.originalFilename
+        )
+        if (matchByFile) {
+          matchedFilename = matchByFile.filename
+        }
+      }
+
+      if (matchedFilename) {
+        if (!map.has(matchedFilename)) map.set(matchedFilename, [])
+        map.get(matchedFilename)!.push(img)
       }
     }
     return map
-  }, [allImages, freeGroupMode])
+  }, [allImages, rawRenderItems, freeGroupMode])
 
   const renderItems = useMemo(() => {
     if (!hideEmptyCurationFolders) return rawRenderItems
@@ -237,20 +275,24 @@ export function useCombinationData({
 
   const unassignedGroups = useMemo(() => {
     if (freeGroupMode !== null) return new Map<string, SavedImage[]>()
-    const renderFilenames = new Set(rawRenderItems.map((ri) => ri.filename))
     const map = new Map<string, SavedImage[]>()
+
+    const assignedHashes = new Set<string>()
+    for (const imgs of imagesByFilename.values()) {
+      for (const img of imgs) {
+        assignedHashes.add(img.hash)
+      }
+    }
+
     for (const img of allImages) {
       if (img.status === "trashed") continue
-      if (!renderFilenames.has(img.originalFilename)) {
+      if (!assignedHashes.has(img.hash)) {
         if (!map.has(img.originalFilename)) map.set(img.originalFilename, [])
-        const unassignedArr = map.get(img.originalFilename)
-        if (unassignedArr) {
-          unassignedArr.push(img)
-        }
+        map.get(img.originalFilename)!.push(img)
       }
     }
     return map
-  }, [allImages, rawRenderItems, freeGroupMode])
+  }, [allImages, imagesByFilename, freeGroupMode])
 
   const unassignedTotalCount = useMemo(
     () =>
@@ -325,6 +367,47 @@ export function useCombinationData({
     [backendUrl, imagesByFilename]
   )
 
+  const updateImageMeta = useCallback(
+    async (hash: string, meta: Record<string, string>) => {
+      setAllImages((prev) =>
+        prev.map((img) => (img.hash === hash ? { ...img, meta } : img))
+      )
+      await curationApi.patchMeta(backendUrl, hash, meta)
+    },
+    [backendUrl]
+  )
+
+  const uploadUserImage = useCallback(
+    async (file: File, meta?: Record<string, string>) => {
+      const form = new FormData()
+      form.append("file", file)
+      if (meta) {
+        form.append("meta", JSON.stringify(meta))
+      }
+      setLoading(true)
+      try {
+        const res = await fetch(`${backendUrl}/saved-images/upload`, {
+          method: "POST",
+          body: form,
+        })
+        if (!res.ok) {
+          const text = await res.text().catch(() => res.statusText)
+          throw new Error(`이미지 업로드 실패: ${text}`)
+        }
+        const resJson = (await res.json()) as { hash: string; filename: string }
+        toast.success("이미지가 성공적으로 업로드되었습니다.")
+        await fetchData()
+        return resJson
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "업로드 실패")
+        throw err
+      } finally {
+        setLoading(false)
+      }
+    },
+    [backendUrl, fetchData]
+  )
+
   return {
     renderItems,
     allImages,
@@ -347,5 +430,7 @@ export function useCombinationData({
     setStatus,
     batchUpdateStatus,
     approveImage,
+    updateImageMeta,
+    uploadUserImage,
   }
 }

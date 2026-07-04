@@ -1746,6 +1746,7 @@ class JobManager:
         *,
         status: Optional[str] = None,
         note: Optional[str] = None,
+        meta: Optional[dict[str, str]] = None,
     ) -> Optional[SavedImageResponse]:
         """저장된 이미지의 큐레이션 상태/노트를 업데이트한다.
         Update the curation status and/or note of a saved image.
@@ -1757,6 +1758,7 @@ class JobManager:
             hash: 이미지 해시 / Image hash.
             status: 새 큐레이션 상태 (예: 'approved', 'trashed') / New curation status.
             note: 큐레이션 노트 / Curation note.
+            meta: 큐레이션 메타데이터 / Curation metadata.
 
         Returns:
             업데이트된 이미지 응답 또는 None / Updated image response, or None if not found.
@@ -1765,7 +1767,7 @@ class JobManager:
         if existing is None:
             return None
         old_status = str(existing.get("status") or "")
-        updated_dict = await self._store.update_curation(hash, status=status, note=note)
+        updated_dict = await self._store.update_curation(hash, status=status, note=note, meta=meta)
         if updated_dict is None:
             return None
 
