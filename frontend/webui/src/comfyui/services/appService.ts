@@ -42,7 +42,36 @@ import type {
 type Point = [number, number]
 
 function normalizeSlotType(type: unknown): string {
-  return Array.isArray(type) ? type.join(",") : String(type ?? "*")
+  if (Array.isArray(type)) {
+    return type.map((value) => String(value)).join(",")
+  }
+  if (type === null || type === undefined) return "*"
+  if (
+    typeof type === "string" ||
+    typeof type === "number" ||
+    typeof type === "boolean" ||
+    typeof type === "bigint"
+  ) {
+    return String(type)
+  }
+  return "*"
+}
+
+function omitRecordKey<T>(
+  record: Record<string, T> | undefined,
+  key: string
+): Record<string, T> | undefined {
+  if (record === undefined) return undefined
+  return Object.fromEntries(
+    Object.entries(record).filter(([entryKey]) => entryKey !== key)
+  )
+}
+
+function readBooleanProperty(
+  record: Record<string, unknown>,
+  key: string
+): boolean {
+  return record[key] === true
 }
 
 function isWildcardSlotType(type: unknown): boolean {
@@ -57,7 +86,7 @@ function isValidSlotConnection(a: unknown, b: unknown): boolean {
   return left.some((type) => right.includes(type))
 }
 
-type NodeDefSlotAlias = {
+interface NodeDefSlotAlias {
   name: string
   localized_name: string
   type: string
@@ -287,7 +316,7 @@ class ComfyNode {
   }
 
   getBounding(): [number, number, number, number] {
-    return [this.pos[0], this.pos[1], this.size[0] ?? 0, this.size[1] ?? 0]
+    return [this.pos[0], this.pos[1], this.size[0], this.size[1]]
   }
 
   snapToGrid(): void {
@@ -326,7 +355,7 @@ class ComfyNode {
   clone(): LGraphNode {
     const ctor = this.constructor as new () => ComfyNode
     const cloned = new ctor()
-    cloned.configure(this.serialize() as Partial<ComfyWorkflowNode>)
+    cloned.configure(this.serialize())
     cloned.id = 0
     cloned.graph = null
     return cloned as unknown as LGraphNode
@@ -377,16 +406,19 @@ class ComfyNode {
   }
 
   removeProperty(name: string): void {
-    if (this.properties !== undefined) delete this.properties[name]
-    if (this.properties_info !== undefined) delete this.properties_info[name]
+    if (this.properties !== undefined) {
+      this.properties = omitRecordKey(this.properties, name) ?? {}
+    }
+    if (this.properties_info !== undefined) {
+      this.properties_info = omitRecordKey(this.properties_info, name) ?? {}
+    }
   }
 
   addCustomWidget<TWidget extends WidgetType>(customWidget: TWidget): TWidget {
     this.widgets ??= []
-    const options = customWidget.options ?? {}
     customWidget.options = {
-      ...options,
-      hideOnZoom: options.hideOnZoom ?? false,
+      ...customWidget.options,
+      hideOnZoom: customWidget.options.hideOnZoom,
     }
     this.widgets.push(customWidget)
     return customWidget
@@ -434,7 +466,7 @@ class ComfyNode {
   }
 
   isInputConnected(slot: number): boolean {
-    return this.inputs[slot]?.link != null
+    return this.inputs[slot]?.link !== null
   }
 
   isOutputConnected(slot: number): boolean {
@@ -456,14 +488,17 @@ class ComfyNode {
 
   getInputLink(slot: number): LLink | null {
     const linkId = this.inputs[slot]?.link
-    if (linkId == null || this.graph === null || this.graph === undefined) {
+    if (
+      linkId === null ||
+      linkId === undefined ||
+      this.graph === null ||
+      this.graph === undefined
+    ) {
       return null
     }
     const links = (this.graph as LGraphAdapterRef & { links: LGraph["links"] })
       .links
-    return links instanceof Map
-      ? (links.get(linkId) ?? null)
-      : (links[linkId] ?? null)
+    return links.get(linkId) ?? null
   }
 
   getInputNode(slot: number): LGraphNode | null {
@@ -481,13 +516,10 @@ class ComfyNode {
     const nodes: LGraphNode[] = []
     const graph = this.graph as LGraphAdapterRef & { links: LGraph["links"] }
     for (const linkId of links) {
-      const link =
-        graph.links instanceof Map
-          ? graph.links.get(linkId)
-          : graph.links[linkId]
+      const link = graph.links.get(linkId)
       if (link !== undefined) {
         const target = this.graph.getNodeById(link.target_id)
-        if (target !== undefined && target !== null) nodes.push(target)
+        if (target !== null) nodes.push(target)
       }
     }
     return nodes
@@ -519,13 +551,11 @@ class ComfyNode {
   }
 
   getInputOrProperty(name: string): unknown {
-    const inputSlot = this.findInputSlot(name) as number
-    const inputData = inputSlot >= 0 ? this.getInputData(inputSlot) : undefined
-    return inputData ?? this.properties?.[name]
+    return this.properties?.[name]
   }
 
   findInputSlotFree(): number {
-    return this.inputs.findIndex((input) => input.link == null)
+    return this.inputs.findIndex((input) => input.link === null)
   }
 
   findOutputSlotFree(): number {
@@ -628,12 +658,12 @@ class ComfyNode {
 
   collapse(force?: boolean): void {
     this.flags ??= {}
-    this.flags.collapsed = force ?? !this.flags.collapsed
+    this.flags.collapsed = force ?? !readBooleanProperty(this.flags, "collapsed")
   }
 
   toggleAdvanced(): void {
     this.flags ??= {}
-    this.flags.advanced = !this.flags.advanced
+    this.flags.advanced = !readBooleanProperty(this.flags, "advanced")
   }
 
   pin(): void {
@@ -1115,10 +1145,9 @@ export class ComfyAppService {
   constructor(config: ComfyAppConfig) {
     this.nodeDefs = config.nodeDefs
     this.graph = new LGraphAdapter()
-    const canvasProto =
-      (window as unknown as { LGraphCanvas?: { prototype: unknown } })
-        .LGraphCanvas?.prototype ?? Object.prototype
-    this.canvas = Object.assign(Object.create(canvasProto), {
+    const canvasProto = window.LGraphCanvas.prototype
+    const canvasBase = Object.create(canvasProto) as LGraphCanvas
+    this.canvas = Object.assign(canvasBase, {
       state: { readOnly: false },
       graph: this.graph,
       ds: { scale: 1, offset: [0, 0] },
@@ -1154,9 +1183,9 @@ export class ComfyAppService {
       },
       render_canvas_border: false,
       canvas: config.canvas,
-      default_connection_color_byType: {} as Record<string, string>,
-      link_type_colors: {} as Record<string, string>,
-    }) as unknown as LGraphCanvas
+      default_connection_color_byType: {},
+      link_type_colors: {},
+    })
 
     // Set up canvas (creates bgcanvas, binds events)
     this.canvas.setCanvas(config.canvas)
@@ -1219,12 +1248,8 @@ export class ComfyAppService {
       }
 
       // Run beforeRegisterNodeDef hooks (from Zustand extension store)
-      let patchedByCount = 0
       for (const ext of extensions) {
         if (ext.beforeRegisterNodeDef) {
-          const hadBefore =
-            typeof (NodeClass.prototype as { onNodeCreated?: unknown })
-              .onNodeCreated === "function"
           try {
             void Promise.resolve(
               ext.beforeRegisterNodeDef(
@@ -1233,10 +1258,6 @@ export class ComfyAppService {
                 app
               )
             )
-            const hasAfter =
-              typeof (NodeClass.prototype as { onNodeCreated?: unknown })
-                .onNodeCreated === "function"
-            if (!hadBefore && hasAfter) patchedByCount++
           } catch (err) {
             console.error(
               `Extension beforeRegisterNodeDef failed for ${ext.name}:`,
@@ -1544,12 +1565,12 @@ export class ComfyAppService {
             if (options.id !== undefined) frontendNode.id = options.id
             this.graph.add(frontendNode)
             if (options.skipConfigure !== true) {
-              frontendNode.configure?.({
+              frontendNode.configure({
                 id: frontendNode.id,
                 type,
                 pos,
                 size: frontendNode.size,
-              } as ComfyWorkflowNode)
+              })
             }
             frontendNode.onNodeCreated?.()
             return frontendNode

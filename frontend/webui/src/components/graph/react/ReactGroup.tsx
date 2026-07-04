@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react"
+import React, { useState } from "react"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useShallow } from "zustand/react/shallow"
 import { Lock, Unlock, Trash2, Palette } from "lucide-react"
@@ -23,7 +23,7 @@ export function ReactGroup({ id }: ReactGroupProps): React.JSX.Element | null {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState("")
 
-  if (!group) return null
+  if (group === null) return null
 
   const [gx, gy, gw, gh] = group.bounding
   const color = group.color ?? "#333355"
@@ -63,7 +63,7 @@ export function ReactGroup({ id }: ReactGroupProps): React.JSX.Element | null {
     }))
 
     const onMove = (ev: MouseEvent): void => {
-      if (group.locked) return
+      if (group.locked === true) return
       const dx = Math.round((ev.clientX - startMX) / zoom)
       const dy = Math.round((ev.clientY - startMY) / zoom)
 
@@ -100,7 +100,7 @@ export function ReactGroup({ id }: ReactGroupProps): React.JSX.Element | null {
     const startH = gh
 
     const onMove = (ev: MouseEvent): void => {
-      if (group.locked) return
+      if (group.locked === true) return
       const dx = Math.round((ev.clientX - startMX) / zoom)
       const dy = Math.round((ev.clientY - startMY) / zoom)
 
@@ -189,9 +189,9 @@ export function ReactGroup({ id }: ReactGroupProps): React.JSX.Element | null {
               toggleGroupLock(id)
             }}
             className="hover:bg-zinc-850 rounded p-0.5 text-zinc-300 transition-colors hover:text-zinc-100"
-            title={group.locked ? "Unlock Group" : "Lock Group"}
+            title={group.locked === true ? "Unlock Group" : "Lock Group"}
           >
-            {group.locked ? (
+            {group.locked === true ? (
               <Lock size={12} className="text-amber-500" />
             ) : (
               <Unlock size={12} />
@@ -234,7 +234,7 @@ export function ReactGroup({ id }: ReactGroupProps): React.JSX.Element | null {
       </div>
 
       {/* Resize Handle at bottom right */}
-      {!group.locked && (
+      {group.locked !== true && (
         <div
           data-no-drag
           className="absolute right-0 bottom-0 flex h-4 w-4 cursor-se-resize items-end justify-end p-0.5"

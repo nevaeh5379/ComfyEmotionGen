@@ -19,6 +19,11 @@ import type {
   SubgraphEventMap,
   ExposedWidget,
 } from "../types/subgraph"
+import type {
+  ComfyWorkflowGroup,
+  ComfyWorkflowLink as ComfyWorkflowLinkLite,
+  ComfyWorkflowNode as ComfyWorkflowNodeLite,
+} from "../types/workflow"
 import { createSubgraphId, type SubgraphId } from "../constants"
 
 type SubgraphEventType = keyof SubgraphEventMap
@@ -228,7 +233,7 @@ export class SubgraphModelRuntime {
   asSerialisable(
     nodes: ComfyWorkflowNodeLite[],
     links: ComfyWorkflowLinkLite[],
-    groups?: any[]
+    groups?: ComfyWorkflowGroup[]
   ): SubgraphDefinition {
     const def: SubgraphDefinition = {
       id: this.id,
@@ -256,7 +261,7 @@ export class SubgraphModelRuntime {
       nodes,
       links,
     }
-    if (groups && groups.length > 0) {
+    if (groups !== undefined && groups.length > 0) {
       def.groups = groups.map((g) => ({
         id: g.id,
         title: g.title,
@@ -276,7 +281,3 @@ export class SubgraphModelRuntime {
     return def
   }
 }
-
-// 내부 직렬화용 타입 별칭 (순환 import 방지)
-import type { ComfyWorkflowNode as ComfyWorkflowNodeLite } from "../types/workflow"
-import type { ComfyWorkflowLink as ComfyWorkflowLinkLite } from "../types/workflow"

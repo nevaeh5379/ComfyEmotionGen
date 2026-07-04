@@ -681,7 +681,10 @@ export const ReactNode = memo(function ReactNode({
           return (
             <div className="flex flex-col gap-0 border-t border-border/50 pt-1">
               {pureWidgets.map((name, idx) => (
-                <div key={`widget-${idx}-${name}`} className="px-2 py-0.5">
+                <div
+                  key={`widget-${idx.toString()}-${name}`}
+                  className="px-2 py-0.5"
+                >
                   {((): React.JSX.Element => {
                     const occurrence =
                       pureWidgets

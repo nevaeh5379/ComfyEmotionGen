@@ -156,7 +156,7 @@ export function Header(props: HeaderProps): JSX.Element {
     wasDragged: boolean
   } | null>(null)
 
-  const [isCompact, setIsCompact] = useState(false)
+  const [, setIsCompact] = useState(false)
   const [isGalleryToolbarCompact, setIsGalleryToolbarCompact] = useState(false)
   const [isGalleryToolbarUltraCompact, setIsGalleryToolbarUltraCompact] =
     useState(false)

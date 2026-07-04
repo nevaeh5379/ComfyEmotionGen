@@ -804,7 +804,7 @@ export class ComfyApi extends EventTarget {
     try {
       const resp = await this.fetchApi(`/history/${jobId}`)
       if (resp.status === 404) return undefined
-      return await readJsonOrDefault<unknown | undefined>(
+      return await readJsonOrDefault<unknown>(
         resp,
         undefined,
         `/history/${jobId}`

@@ -12,6 +12,30 @@ interface UseComfyRuntimeBridgeOptions {
   nodeDefs: Record<string, ComfyNodeDef>
 }
 
+function isRuntimeNodeLike(instance: unknown): instance is {
+  type?: string
+  mode?: number
+  constructor: { name: string }
+} {
+  if (typeof instance !== "object" || instance === null) return false
+  const record = instance as Record<PropertyKey, unknown>
+  const constructorValue = record.constructor
+  return typeof constructorValue === "function"
+}
+
+function shouldTreatAsLGraphNode(instance: unknown): boolean {
+  if (!isRuntimeNodeLike(instance)) return false
+  const constructorName = instance.constructor.name
+  if (
+    instance.type === "Fast Groups Muter (rgthree)" ||
+    constructorName.includes("Muter")
+  ) {
+    return false
+  }
+
+  return constructorName.includes("Node") || typeof instance.mode === "number"
+}
+
 export function useComfyRuntimeBridge({
   hiddenCanvasRef,
   hiddenContainerRef,
@@ -50,20 +74,13 @@ export function useComfyRuntimeBridge({
         nodeDefs,
       })
 
-      if (typeof window !== "undefined" && (window as any).LGraphNode) {
-        Object.defineProperty((window as any).LGraphNode, Symbol.hasInstance, {
-          value: function(instance: any) {
-            if (!instance) return false;
-
-            if (instance.type === "Fast Groups Muter (rgthree)" || instance.constructor?.name?.includes("Muter")) return false;
-            
-            return instance && (
-              instance.constructor?.name?.includes("Node") || 
-              typeof instance.mode === "number"
-            );
+      if (typeof window.LGraphNode === "function") {
+        Object.defineProperty(window.LGraphNode, Symbol.hasInstance, {
+          value(instance: unknown): boolean {
+            return shouldTreatAsLGraphNode(instance)
           },
-          configurable: true
-        });
+          configurable: true,
+        })
       }
 
       rawApp.graph = appService.graph as unknown as LGraph
@@ -99,8 +116,8 @@ export function useComfyRuntimeBridge({
         appService.canvas
       appService.canvas.app = rawApp
 
-      ;(window as any).__comfyAppService = appService
-      ;(window as any).__useReactGraphStore = useReactGraphStore
+      window.__comfyAppService = appService
+      window.__useReactGraphStore = useReactGraphStore
 
       if (rawApp.extensionsLoaded !== true) {
         const apiClient: {

@@ -51,24 +51,24 @@ export function normalizeWorkflowForEditor(
   workflow: ComfyWorkflowJSON
 ): NormalizedWorkflowGraph {
   const normalizedLinks = normalizeWorkflowLinks(
-    workflow.links as RawWorkflowLink[]
+    workflow.links
   )
   const subgraphs = new Map<SubgraphId, SubgraphModelRuntime>()
 
   const rootNodes: ComfyWorkflowNode[] = workflow.nodes.map((node) => ({
     ...node,
-    graphId: node.graphId !== undefined ? node.graphId : null,
+    graphId: node.graphId ?? null,
   }))
 
   let lastGroupId = 0
   const rootGroups: ComfyWorkflowGroup[] = (workflow.groups ?? []).map(
-    (group, index) => {
-      const id = group.id !== undefined ? group.id : index + 1
+    (group) => {
+      const id = group.id
       lastGroupId = Math.max(lastGroupId, id)
       return {
         ...group,
         id,
-        graphId: group.graphId !== undefined ? group.graphId : null,
+        graphId: group.graphId ?? null,
       }
     }
   )
@@ -87,7 +87,7 @@ export function normalizeWorkflowForEditor(
       }))
     )
 
-    links.push(...normalizeWorkflowLinks(definition.links as RawWorkflowLink[]))
+    links.push(...normalizeWorkflowLinks(definition.links))
 
     const definitionGroups = definition.groups as
       | ComfyWorkflowGroup[]
@@ -96,7 +96,7 @@ export function normalizeWorkflowForEditor(
       lastGroupId++
       groups.push({
         ...group,
-        id: group.id !== undefined ? group.id : lastGroupId,
+        id: group.id,
         graphId: definition.id,
       })
     }

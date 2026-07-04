@@ -104,11 +104,94 @@ interface CanvasWidgetProps {
   disabled?: boolean
 }
 
+interface ToggleValue {
+  toggled?: boolean
+}
+
+interface WidgetGroupBounds {
+  pos: [number, number]
+  size: [number, number]
+}
+
+interface RuntimeWidgetExtra {
+  node?: { size: [number, number] }
+  toggled?: boolean
+  toggle?: () => void
+  doModeChange?: () => void
+  group?: WidgetGroupBounds
+  onMouseDown?: (
+    event: Event,
+    pos: [number, number],
+    node: CanvasNode
+  ) => void
+  onMouseMove?: (
+    event: Event,
+    pos: [number, number],
+    node: CanvasNode
+  ) => void
+  onMouseUp?: (event: Event, pos: [number, number], node: CanvasNode) => void
+  onMouseClick?: (
+    event: Event,
+    pos: [number, number],
+    node: CanvasNode
+  ) => void
+}
+
+function isToggleValue(value: unknown): value is ToggleValue {
+  return typeof value === "object" && value !== null && "toggled" in value
+}
+
+type RuntimeWidget = CanvasWidget & RuntimeWidgetExtra
+
+function readWidgetToggle(widget: RuntimeWidget): boolean {
+  if (isToggleValue(widget.value) && typeof widget.value.toggled === "boolean") {
+    return widget.value.toggled
+  }
+  return widget.toggled === true
+}
+
+function invokeOptional(callback: (() => void) | undefined): void {
+  if (callback === undefined) return
+  try {
+    callback()
+  } catch {
+    // Some LiteGraph widgets intentionally throw while probing canvas state.
+  }
+}
+
+function syncGroupedNodeModes(
+  widget: RuntimeWidget,
+  sourceNodeId: number,
+  targetMode: number
+): void {
+  const group = widget.group
+  const graphNodes = window.app.graph.nodes
+  if (group === undefined) return
+
+  const [gx, gy] = group.pos
+  const [gw, gh] = group.size
+  for (const graphNode of graphNodes) {
+    const ctorName = graphNode.constructor.name
+    if (
+      graphNode.id === sourceNodeId ||
+      graphNode.type === "Fast Groups Muter (rgthree)" ||
+      ctorName.includes("Muter")
+    ) {
+      continue
+    }
+
+    const [x, y] = graphNode.pos
+    if (x >= gx && x <= gx + gw && y >= gy && y <= gy + gh) {
+      graphNode.mode = targetMode
+    }
+  }
+}
+
 export function CanvasWidget({
   widget,
   node,
   width,
-  disabled = false,
+  disabled: _disabled = false,
 }: CanvasWidgetProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const height =
@@ -190,90 +273,59 @@ export function CanvasWidget({
     const nodeRelativePos: [number, number] = [localX, localY + yOffset]
 
     try {
-      const isNavArea = (widget as any).node && (localX >= (widget as any).node.size[0] - 44);
-      
+      const rawWidget: RuntimeWidget = widget
+      const isNavArea =
+        rawWidget.node !== undefined && localX >= rawWidget.node.size[0] - 44
+
       if (!isNavArea) {
         try {
-          const rawWidget = widget as any;
-          let nextToggled = true;
-          if (rawWidget.value) {
-            rawWidget.value.toggled = !rawWidget.value.toggled;
-            nextToggled = rawWidget.value.toggled;
-          } else {
-            rawWidget.toggled = !rawWidget.toggled;
-            nextToggled = rawWidget.toggled;
-          }
+          const nextToggled = !readWidgetToggle(rawWidget)
+          invokeOptional(rawWidget.toggle)
+          invokeOptional(rawWidget.doModeChange)
 
-          if (typeof rawWidget.toggle === "function") {
-            try { rawWidget.toggle(); } catch(e) {}
-          }
-          
-          if (typeof rawWidget.doModeChange === "function") {
-            try { rawWidget.doModeChange(); } catch(e) {}
-          }
-
-
-
-          if (rawWidget.group) {
-            const group = rawWidget.group;
-            const gx = group.pos[0];
-            const gy = group.pos[1];
-            const gw = group.size[0];
-            const gh = group.size[1];
-            
-            const targetMode = nextToggled ? 0 : 2; // ALWAYS(0) / NEVER(2)
-            const app = (window as any).app;
-            if (app?.graph?.nodes) {
-              app.graph.nodes.forEach((n: any) => {
-
-                if (n.id === node.id || n.type === "Fast Groups Muter (rgthree)" || n.constructor?.name?.includes("Muter")) return;
-                
-                const x = n.pos[0];
-                const y = n.pos[1];
-                if (x >= gx && x <= gx + gw && y >= gy && y <= gy + gh) {
-                  n.mode = targetMode; // 실메모리 모드 직접 대입
-                }
-              });
-            }
-          }
-          console.log("[CEG] Direct child node Mute sync success! nextToggled:", nextToggled);
+          syncGroupedNodeModes(rawWidget, node.id, nextToggled ? 0 : 2)
+          console.log(
+            "[CEG] Direct child node Mute sync success! nextToggled:",
+            nextToggled
+          )
         } catch (err) {
-          console.error("[CEG] Direct toggle invocation failed:", err);
+          console.error("[CEG] Direct toggle invocation failed:", err)
         }
       }
 
-      const triggerMouseFn = (evtType: "down" | "move" | "up", evt: Event, pos: [number, number]) => {
-        const mappedType = evtType === "down" ? "mousedown"
-                         : evtType === "move" ? "mousemove"
-                         : evtType === "up" ? "mouseup"
-                         : evt.type;
-        
-        const mappedEvent = Object.create(evt);
-        Object.defineProperty(mappedEvent, "type", { value: mappedType, writable: true, configurable: true });
+      const triggerMouseFn = (
+        evtType: "down" | "move" | "up",
+        evt: Event,
+        pos: [number, number]
+      ): void => {
+        const mappedType =
+          evtType === "down"
+            ? "mousedown"
+            : evtType === "move"
+              ? "mousemove"
+              : "mouseup"
+
+        const mappedEvent = Object.create(evt) as MouseEvent
+        Object.defineProperty(mappedEvent, "type", {
+          value: mappedType,
+          writable: true,
+          configurable: true,
+        })
 
         const mouseFn = widget.mouse;
         if (typeof mouseFn === "function") {
           mouseFn.call(widget, mappedEvent, pos, node);
         }
 
-        const rawWidget = widget as any;
         if (evtType === "down") {
-          if (typeof rawWidget.onMouseDown === "function") {
-            rawWidget.onMouseDown(mappedEvent, pos, node);
-          }
+          rawWidget.onMouseDown?.(mappedEvent, pos, node)
         } else if (evtType === "move") {
-          if (typeof rawWidget.onMouseMove === "function") {
-            rawWidget.onMouseMove(mappedEvent, pos, node);
-          }
-        } else if (evtType === "up") {
-          if (typeof rawWidget.onMouseUp === "function") {
-            rawWidget.onMouseUp(mappedEvent, pos, node);
-          }
-          if (typeof rawWidget.onMouseClick === "function") {
-            rawWidget.onMouseClick(mappedEvent, pos, node);
-          }
+          rawWidget.onMouseMove?.(mappedEvent, pos, node)
+        } else {
+          rawWidget.onMouseUp?.(mappedEvent, pos, node)
+          rawWidget.onMouseClick?.(mappedEvent, pos, node)
         }
-      };
+      }
 
       triggerMouseFn("down", e.nativeEvent, nodeRelativePos)
  
@@ -293,9 +345,7 @@ export function CanvasWidget({
         window.removeEventListener("pointermove", onPointerMove)
         window.removeEventListener("pointerup", onPointerUp)
  
-        if (typeof (window as any).app?.syncGraphNode === "function") {
-          (window as any).app.syncGraphNode(node.id)
-        }
+        window.app.syncGraphNode?.(node.id)
       }
  
       window.addEventListener("pointermove", onPointerMove)

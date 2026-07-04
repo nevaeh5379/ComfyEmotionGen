@@ -1151,7 +1151,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const { groups } = get()
       set({
         groups: groups.map((g) =>
-          g.id === id ? { ...g, locked: !g.locked } : g
+          g.id === id ? { ...g, locked: g.locked !== true } : g
         ),
       })
     },

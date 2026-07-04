@@ -30,7 +30,80 @@ import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
 import { serializeGraphState } from "@/comfyui/utils/workflowGraphModel"
 
 function normalizeSlotType(type: unknown): string {
-  return Array.isArray(type) ? type.join(",") : String(type ?? "*")
+  if (Array.isArray(type)) {
+    return type.map((value) => String(value)).join(",")
+  }
+  if (type === null || type === undefined) return "*"
+  if (
+    typeof type === "string" ||
+    typeof type === "number" ||
+    typeof type === "boolean" ||
+    typeof type === "bigint"
+  ) {
+    return String(type)
+  }
+  return "*"
+}
+
+interface LGraphGroupAdapter {
+  id: number
+  title: string
+  color?: string
+  fontSize?: number
+  locked?: boolean
+  graph: LGraphAdapter
+  nodes: LGraphNode[]
+  _children: Set<unknown>
+  pos: [number, number]
+  size: [number, number]
+  _pos: [number, number]
+  _bounding: [number, number, number, number]
+  bounding: [number, number, number, number]
+  configure(o: Partial<LGraphGroupAdapter>): void
+  serialize(): {
+    id: number
+    title: string
+    bounding: [number, number, number, number]
+    color?: string
+    fontSize?: number
+    locked?: boolean
+  }
+  recomputeInsideNodes(): void
+  resizeTo(): void
+}
+
+interface LegacyNodeDefSlot {
+  name: string
+  localized_name?: string
+}
+
+interface LegacyNodeDef {
+  inputs?: LegacyNodeDefSlot[]
+  outputs?: LegacyNodeDefSlot[]
+}
+
+function getLegacyNodeDef(type: string): LegacyNodeDef | undefined {
+  const nodeDef = useNodeDefStore.getState().getNodeDef(type) as
+    | LegacyNodeDef
+    | undefined
+  return nodeDef
+}
+
+function omitRecordKey<T>(
+  record: Record<string, T> | undefined,
+  key: string
+): Record<string, T> | undefined {
+  if (record === undefined) return undefined
+  return Object.fromEntries(
+    Object.entries(record).filter(([entryKey]) => entryKey !== key)
+  )
+}
+
+function readBooleanProperty(
+  record: Record<string, unknown>,
+  key: string
+): boolean {
+  return record[key] === true
 }
 
 function isValidSlotConnection(a: unknown, b: unknown): boolean {
@@ -167,7 +240,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
     Record<number, ComfyWorkflowLink>
 
   // LGraphGroup[] support
-  public get groups(): any[] {
+  public get groups(): LGraphGroupAdapter[] {
     const store = useReactGraphStore
     const state = store.getState()
     const activeId = state.activeGraphId
@@ -176,13 +249,13 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         ? g.graphId === null || g.graphId === undefined
         : g.graphId === activeId
     )
-    return activeGroups.map((g) => {
-      const group: any = {
+    return activeGroups.map((g): LGraphGroupAdapter => {
+      const group: LGraphGroupAdapter = {
         id: g.id,
         title: g.title,
-        color: g.color,
-        fontSize: g.fontSize,
-        locked: g.locked,
+        ...(g.color !== undefined ? { color: g.color } : {}),
+        ...(g.fontSize !== undefined ? { fontSize: g.fontSize } : {}),
+        ...(g.locked !== undefined ? { locked: g.locked } : {}),
         graph: this,
         nodes: [],
         _children: new Set(),
@@ -200,7 +273,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           this._pos = [v[0], v[1]]
           this._bounding = [v[0], v[1], v[2], v[3]]
         },
-        configure(o: any) {
+        configure(this: LGraphGroupAdapter, o: Partial<LGraphGroupAdapter>) {
           g.title = o.title ?? g.title
           this.bounding =
             o.bounding ??
@@ -216,18 +289,22 @@ export class LGraphAdapter implements LGraphAdapterInterface {
             id: g.id,
             title: g.title,
             bounding: g.bounding,
-            color: g.color,
-            fontSize: g.fontSize,
-            locked: g.locked,
+            ...(g.color !== undefined ? { color: g.color } : {}),
+            ...(g.fontSize !== undefined ? { fontSize: g.fontSize } : {}),
+            ...(g.locked !== undefined ? { locked: g.locked } : {}),
           }
         },
-        recomputeInsideNodes() {},
-        resizeTo() {},
+        recomputeInsideNodes(): void {
+          // Store-backed groups compute membership in React rendering.
+        },
+        resizeTo(): void {
+          // Store-backed groups resize through the bounding setter.
+        },
       }
       return group
     })
   }
-  public get _groups(): any[] {
+  public get _groups(): LGraphGroupAdapter[] {
     return this.groups
   }
   // TODO: Reroute support
@@ -274,10 +351,13 @@ export class LGraphAdapter implements LGraphAdapterInterface {
 
   constructor() {
     this.links = createMapProxy<ComfyWorkflowLink>(new Map())
-    if ((window as any).LGraph) {
-      const proto = Object.getPrototypeOf(this)
-      if (Object.getPrototypeOf(proto) !== (window as any).LGraph.prototype) {
-        Object.setPrototypeOf(proto, (window as any).LGraph.prototype)
+    if (typeof window.LGraph === "function") {
+      const proto = Reflect.getPrototypeOf(this)
+      if (
+        proto !== null &&
+        Reflect.getPrototypeOf(proto) !== window.LGraph.prototype
+      ) {
+        Object.setPrototypeOf(proto, window.LGraph.prototype)
       }
     }
   }
@@ -396,13 +476,11 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       .getState()
       .nodes.find((n: ComfyWorkflowNode) => n.id === numId)
     if (node === undefined) return null
-    return (
-      (this._liveNodes.get(numId) !== undefined
-        ? this.ensureLiveNodeReady(this._liveNodes.get(numId)!)
-        : undefined) ??
-      this.materializeLiveNode(node) ??
-      this.wrapNode(node)
-    )
+    const currentLiveNode = this._liveNodes.get(numId)
+    if (currentLiveNode !== undefined) {
+      return this.ensureLiveNodeReady(currentLiveNode)
+    }
+    return this.materializeLiveNode(node) ?? this.wrapNode(node)
   }
 
   public clear(): void {
@@ -546,9 +624,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         const current = store
           .getState()
           .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
-        const nodeDef = useNodeDefStore
-          .getState()
-          .getNodeDef(node.type ?? "") as any
+        const nodeDef = getLegacyNodeDef(node.type)
         return (current?.inputs ?? []).map((i) => {
           const defInput = nodeDef?.inputs?.find(
             (di: { name: string }) => di.name === i.name
@@ -572,9 +648,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         const current = store
           .getState()
           .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)
-        const nodeDef = useNodeDefStore
-          .getState()
-          .getNodeDef(node.type ?? "") as any
+        const nodeDef = getLegacyNodeDef(node.type)
         return (current?.outputs ?? []).map((o) => {
           const defOutput = nodeDef?.outputs?.find(
             (do_: { name: string }) => do_.name === o.name
@@ -623,7 +697,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
           }))
           return projected.length > 0 ? projected : undefined
         }
-        if (wv !== null && typeof wv === "object") {
+        if (typeof wv === "object") {
           const obj = wv as Record<string, unknown>
           const projected = Object.keys(obj).map((name) => ({
             type: "text",
@@ -648,10 +722,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         // intentional no-op
       },
       computeSize(minWidth?: number): [number, number] {
-        return [
-          Math.max(minWidth ?? 200, node.size?.[0] ?? 200),
-          node.size?.[1] ?? 80,
-        ]
+        return [Math.max(minWidth ?? 200, node.size[0]), node.size[1]]
       },
       expandToFitContent(): void {
         // Store-backed nodes keep their explicit serialized size.
@@ -674,8 +745,8 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         return [
           node.pos[0],
           node.pos[1],
-          node.size?.[0] ?? 0,
-          node.size?.[1] ?? 0,
+          node.size[0],
+          node.size[1],
         ]
       },
       snapToGrid(): void {
@@ -792,25 +863,26 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         return this.properties_info?.[name]
       },
       removeProperty(name: string): void {
-        if (node.properties !== undefined) delete node.properties[name]
-        if (this.properties_info !== undefined)
-          delete this.properties_info[name]
+        node.properties = omitRecordKey(node.properties, name)
+        if (this.properties_info !== undefined) {
+          this.properties_info = omitRecordKey(this.properties_info, name) ?? {}
+        }
       },
       addCustomWidget<TWidget extends ReturnType<LGraphNode["addWidget"]>>(
         customWidget: TWidget
       ): TWidget {
         customWidget.options = {
           hideOnZoom: false,
-          ...(customWidget.options ?? {}),
+          ...customWidget.options,
         }
         const existingIdx = liveWidgets.findIndex(
           (w) => w.name === (customWidget as { name?: string }).name
         )
         if (existingIdx >= 0) {
           liveWidgets[existingIdx] =
-            customWidget as (typeof liveWidgets)[number]
+            customWidget
         } else {
-          liveWidgets.push(customWidget as (typeof liveWidgets)[number])
+          liveWidgets.push(customWidget)
         }
         return customWidget
       },
@@ -845,7 +917,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         return this.outputs[slot] ?? null
       },
       isInputConnected(slot: number): boolean {
-        return this.inputs[slot]?.link != null
+        return this.inputs[slot]?.link !== null
       },
       isOutputConnected(slot: number): boolean {
         const links = this.outputs[slot]?.links
@@ -865,7 +937,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         const graph = this.graph as
           | (LGraphAdapterRef & { links: Map<number, LLink> })
           | null
-        if (linkId == null || graph === null) return null
+        if (linkId === null || linkId === undefined || graph === null) return null
         return graph.links.get(linkId) ?? null
       },
       getInputNode(slot: number): ReturnType<LGraphNode["getInputNode"]> {
@@ -911,13 +983,13 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         return this.inputs[slot]?.type
       },
       getInputOrProperty(name: string): unknown {
-        const inputSlot = this.findInputSlot(name) as number
+        const inputSlot = this.findInputSlot(name)
         const inputData =
           inputSlot >= 0 ? this.getInputData(inputSlot) : undefined
         return inputData ?? this.properties?.[name]
       },
       findInputSlotFree(): number {
-        return this.inputs.findIndex((input) => input.link == null)
+        return this.inputs.findIndex((input) => input.link === null)
       },
       findOutputSlotFree(): number {
         return this.outputs.findIndex(
@@ -1012,11 +1084,11 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       },
       collapse(force?: boolean): void {
         this.flags ??= {}
-        this.flags.collapsed = force ?? !this.flags.collapsed
+        this.flags.collapsed = force ?? !readBooleanProperty(this.flags, "collapsed")
       },
       toggleAdvanced(): void {
         this.flags ??= {}
-        this.flags.advanced = !this.flags.advanced
+        this.flags.advanced = !readBooleanProperty(this.flags, "advanced")
       },
       pin(): void {
         this.flags ??= {}
@@ -1116,9 +1188,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
   }
 
   private materializeLiveNode(node: ComfyWorkflowNode): LGraphNode | null {
-    const liteGraph = (window as any).LiteGraph
-    if (typeof liteGraph?.createNode !== "function") return null
-    const liveNode = liteGraph.createNode(node.type) as LGraphNode | null
+    const liveNode = window.LiteGraph.createNode(node.type) as LGraphNode | null
     if (liveNode === null) return null
     liveNode.id = node.id
     liveNode.pos = node.pos
@@ -1168,10 +1238,10 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       getBounding?: () => [number, number, number, number]
     }
     nodeWithBounding.getBounding ??= (): [number, number, number, number] => [
-      node.pos?.[0] ?? 0,
-      node.pos?.[1] ?? 0,
-      node.size?.[0] ?? 0,
-      node.size?.[1] ?? 0,
+      node.pos[0],
+      node.pos[1],
+      node.size[0],
+      node.size[1],
     ]
     this._linkedNodes.add(node)
     return node

@@ -73,7 +73,7 @@ export interface LGraphAdapterInterface {
   readonly nodes: LGraphNode[]
   readonly links: Map<number, ComfyWorkflowLink> &
     Record<number, ComfyWorkflowLink>
-  readonly groups: any[] // LGraphGroup[] support
+  readonly groups: unknown[] // LGraphGroup[] support
   readonly reroutes: Map<number, never> // TODO: Reroute support
   readonly floatingLinks: ReadonlyMap<number, never> // TODO: Floating link support
   readonly subgraphs: Map<SubgraphId, SubgraphModel> // Subgraph blueprint registry (루트 그래프가 소유)

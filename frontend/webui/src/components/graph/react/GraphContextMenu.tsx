@@ -143,7 +143,7 @@ function NodeContextMenu({
       >
         Convert to Subgraph
       </button>
-      {isSubgraphInstance && node !== undefined ? (
+      {isSubgraphInstance ? (
         <button
           className="flex w-full cursor-pointer items-center rounded px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-800"
           onClick={(): void => {
@@ -176,7 +176,7 @@ function GroupContextMenu({
         onClick={(): void => {
           const currentTitle = group?.title ?? ""
           const newTitle = prompt("Enter new group title:", currentTitle)
-          if (newTitle !== null && newTitle.trim()) {
+          if (newTitle !== null && newTitle.trim() !== "") {
             useReactGraphStore
               .getState()
               .updateGroupTitle(groupId, newTitle.trim())

@@ -442,6 +442,14 @@ declare global {
     widgets?: Record<string, (node: unknown, name: string, inputData: unknown[], app: unknown) => unknown>
   }
 
+  interface Window {
+    app: ComfyApp
+    api: ComfyApi
+    LGraphNode: LGraphNodeConstructor
+    __comfyAppService?: ComfyAppService
+    __useReactGraphStore?: unknown
+  }
+
   interface ComfyWidgetsAPI {
     STRING(): { widget: { inputEl: Record<string, unknown> } }
     INT(): { widget: { inputEl: Record<string, unknown> } }
