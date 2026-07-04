@@ -2658,6 +2658,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 backendUrl={backendUrl}
                 imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
                 filename={getImageFilename(inpaintImage)}
+                sourcePrompt={inpaintImage.prompt}
                 onOpenChange={(open): void => {
                   if (!open) setInpaintImage(null)
                 }}

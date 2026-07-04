@@ -203,6 +203,7 @@ export function ImageDetailPanel({
         backendUrl={backendUrl}
         imageUrl={`${backendUrl}/saved-images/${image.hash}`}
         filename={getImageFilename(image)}
+        sourcePrompt={image.prompt}
         onOpenChange={setInpaintOpen}
       />
       {imgError ? (

@@ -9,6 +9,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react"
@@ -52,6 +53,7 @@ interface GalleryInpaintEditorProps {
   backendUrl: string
   imageUrl: string
   filename: string
+  sourcePrompt?: string
   onOpenChange: (open: boolean) => void
 }
 
@@ -137,16 +139,59 @@ function drawDot(
   x: number,
   y: number,
   size: number,
-  mode: PaintMode
+  mode: PaintMode,
+  hardness: number,
+  opacity: number
 ): void {
+  const radius = Math.max(0.5, size / 2)
   ctx.save()
   ctx.globalCompositeOperation =
     mode === "paint" ? "source-over" : "destination-out"
-  ctx.fillStyle = "rgb(255, 255, 255)"
+  if (hardness >= 1 && opacity >= 1) {
+    ctx.fillStyle = "rgb(255, 255, 255)"
+  } else {
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius)
+    const innerAlpha = Math.min(1, Math.max(0, opacity))
+    const hardStop = Math.min(1, Math.max(0, hardness))
+    const innerColor = `rgba(255, 255, 255, ${innerAlpha.toFixed(3)})`
+    gradient.addColorStop(0, innerColor)
+    gradient.addColorStop(hardStop, innerColor)
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)")
+    ctx.fillStyle = gradient
+  }
   ctx.beginPath()
-  ctx.arc(x, y, size / 2, 0, Math.PI * 2)
+  ctx.arc(x, y, radius, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
+}
+
+function extractPositivePrompt(raw: string): string {
+  const trimmed = raw.trim()
+  if (trimmed === "") return raw
+  if (!trimmed.startsWith("{")) return raw
+  try {
+    const parsed = JSON.parse(trimmed) as unknown
+    if (typeof parsed === "string") return parsed
+    if (typeof parsed !== "object" || parsed === null) return raw
+    const nodes = parsed as Record<string, unknown>
+    let fallback: string | null = null
+    for (const node of Object.values(nodes)) {
+      if (typeof node !== "object" || node === null) continue
+      const n = node as { class_type?: unknown; inputs?: unknown; _meta?: unknown }
+      if (n.class_type !== "CLIPTextEncode") continue
+      const inputs = n.inputs
+      if (typeof inputs !== "object" || inputs === null) continue
+      const text = (inputs as Record<string, unknown>).text
+      if (typeof text !== "string") continue
+      const metaTitle = (n._meta as { title?: unknown } | undefined)?.title
+      const title = (typeof metaTitle === "string" ? metaTitle : "").toLowerCase()
+      if (/positive|prompt/.test(title)) return text
+      fallback ??= text
+    }
+    return fallback ?? raw
+  } catch {
+    return raw
+  }
 }
 
 function downloadCanvas(canvas: HTMLCanvasElement, filename: string): void {
@@ -456,6 +501,7 @@ export function GalleryInpaintEditor({
   backendUrl,
   imageUrl,
   filename,
+  sourcePrompt,
   onOpenChange,
 }: GalleryInpaintEditorProps): React.JSX.Element {
   const { savedWorkflows } = useWorkflowContext()
@@ -467,6 +513,8 @@ export function GalleryInpaintEditor({
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<PaintMode>("paint")
   const [brushSize, setBrushSize] = useState(56)
+  const [brushHardness, setBrushHardness] = useState(1)
+  const [brushOpacity, setBrushOpacity] = useState(1)
   const [maskOpacity, setMaskOpacity] = useState(58)
   const [showMask, setShowMask] = useState(true)
   const [inpaintWorkflows, setInpaintWorkflows] = useState<SavedInpaintWorkflow[]>(() =>
@@ -599,7 +647,7 @@ export function GalleryInpaintEditor({
       const point = getPoint(canvas, event)
       const lastPoint = lastPointRef.current
       if (lastPoint === null) {
-        drawDot(ctx, point.x, point.y, brushSize, mode)
+        drawDot(ctx, point.x, point.y, brushSize, mode, brushHardness, brushOpacity)
       } else {
         const distance = Math.hypot(point.x - lastPoint.x, point.y - lastPoint.y)
         const steps = Math.max(1, Math.ceil(distance / getBrushSpacing(brushSize)))
@@ -610,13 +658,15 @@ export function GalleryInpaintEditor({
             lastPoint.x + (point.x - lastPoint.x) * t,
             lastPoint.y + (point.y - lastPoint.y) * t,
             brushSize,
-            mode
+            mode,
+            brushHardness,
+            brushOpacity
           )
         }
       }
       lastPointRef.current = point
     },
-    [brushSize, mode]
+    [brushHardness, brushOpacity, brushSize, mode]
   )
 
   const stopPaint = useCallback(() => {
@@ -796,6 +846,16 @@ export function GalleryInpaintEditor({
     }
     setNodeMappings(buildAutoInpaintMappings(parsedWorkflow))
   }, [parsedWorkflow])
+
+  const handleImportSourcePrompt = useCallback(() => {
+    if (!sourcePrompt || sourcePrompt.trim() === "") {
+      toast.error("원본 프롬프트 정보가 없습니다.")
+      return
+    }
+    const extracted = extractPositivePrompt(sourcePrompt)
+    setPromptText(extracted)
+    toast.success("원본 프롬프트를 가져왔습니다.")
+  }, [sourcePrompt])
 
   const updateMapping = useCallback(
     (id: string, patch: Partial<InpaintNodeMapping>) => {
@@ -1139,7 +1199,21 @@ export function GalleryInpaintEditor({
             </div>
 
             <div className="grid gap-2 rounded-md border bg-background/60 p-2">
-              <Label className="text-xs font-semibold">프롬프트</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-semibold">프롬프트</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-[11px]"
+                  disabled={!sourcePrompt || sourcePrompt.trim() === ""}
+                  onClick={handleImportSourcePrompt}
+                  title="이미지 생성에 사용된 프롬프트 가져오기"
+                >
+                  <Sparkles className="size-3" />
+                  원본 프롬프트
+                </Button>
+              </div>
               <Textarea
                 value={promptText}
                 onChange={(event) => {
@@ -1344,7 +1418,45 @@ export function GalleryInpaintEditor({
             </label>
 
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              마스크 불투명도
+              브러시 경도
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(brushHardness * 100)}
+                  onChange={(event) => {
+                    setBrushHardness(Number(event.target.value) / 100)
+                  }}
+                  className="w-full accent-foreground"
+                />
+                <span className="w-8 text-right font-mono">
+                  {Math.round(brushHardness * 100)}
+                </span>
+              </div>
+            </label>
+
+            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              브러시 농도
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={Math.round(brushOpacity * 100)}
+                  onChange={(event) => {
+                    setBrushOpacity(Number(event.target.value) / 100)
+                  }}
+                  className="w-full accent-foreground"
+                />
+                <span className="w-8 text-right font-mono">
+                  {Math.round(brushOpacity * 100)}
+                </span>
+              </div>
+            </label>
+
+            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+              마스크 표시 불투명도
               <div className="flex items-center gap-2">
                 <input
                   type="range"

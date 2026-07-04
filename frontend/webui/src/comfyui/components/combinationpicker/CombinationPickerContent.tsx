@@ -1007,6 +1007,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             backendUrl={backendUrl}
             imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
             filename={getImageFilename(inpaintImage)}
+            sourcePrompt={inpaintImage.prompt}
             onOpenChange={(open) => {
               if (!open) setInpaintImage(null)
             }}
