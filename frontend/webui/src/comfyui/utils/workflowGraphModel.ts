@@ -3,6 +3,7 @@ import type {
   ComfyWorkflowJSON,
   ComfyWorkflowLink,
   ComfyWorkflowNode,
+  EditorWorkflowNode,
 } from "@/comfyui/types/workflow"
 import type { SubgraphDefinition, GraphId } from "@/comfyui/types/subgraph"
 import type { SubgraphId } from "@/comfyui/constants"
@@ -12,14 +13,14 @@ import type { SubgraphModelRuntime } from "@/comfyui/subgraph/SubgraphModel"
 import { findUsedSubgraphIds } from "@/comfyui/subgraph/subgraphUtils"
 
 export interface NormalizedWorkflowGraph {
-  nodes: ComfyWorkflowNode[]
+  nodes: EditorWorkflowNode[]
   links: ComfyWorkflowLink[]
   groups: ComfyWorkflowGroup[]
   subgraphs: Map<SubgraphId, SubgraphModelRuntime>
 }
 
 export interface SerializableGraphState {
-  nodes: ComfyWorkflowNode[]
+  nodes: EditorWorkflowNode[]
   links: ComfyWorkflowLink[]
   groups: ComfyWorkflowGroup[]
   subgraphs: Map<SubgraphId, SubgraphModelRuntime>
@@ -47,6 +48,20 @@ export function normalizeWorkflowLinks(
   })
 }
 
+export function normalizeWorkflowNodeForEditor(
+  node: ComfyWorkflowNode,
+  graphId: GraphId = null
+): EditorWorkflowNode {
+  return {
+    ...node,
+    inputs: node.inputs ?? [],
+    outputs: node.outputs ?? [],
+    properties: node.properties ?? {},
+    widgets_values: node.widgets_values ?? [],
+    graphId: graphId ?? node.graphId ?? null,
+  }
+}
+
 export function normalizeWorkflowForEditor(
   workflow: ComfyWorkflowJSON
 ): NormalizedWorkflowGraph {
@@ -55,10 +70,9 @@ export function normalizeWorkflowForEditor(
   )
   const subgraphs = new Map<SubgraphId, SubgraphModelRuntime>()
 
-  const rootNodes: ComfyWorkflowNode[] = workflow.nodes.map((node) => ({
-    ...node,
-    graphId: node.graphId ?? null,
-  }))
+  const rootNodes = workflow.nodes.map((node) =>
+    normalizeWorkflowNodeForEditor(node, node.graphId ?? null)
+  )
 
   let lastGroupId = 0
   const rootGroups: ComfyWorkflowGroup[] = (workflow.groups ?? []).map(
@@ -82,8 +96,7 @@ export function normalizeWorkflowForEditor(
 
     nodes.push(
       ...definition.nodes.map((node) => ({
-        ...node,
-        graphId: definition.id,
+        ...normalizeWorkflowNodeForEditor(node, definition.id),
       }))
     )
 
@@ -111,7 +124,7 @@ export function buildWorkflowJSON(
   groups: ComfyWorkflowGroup[] = []
 ): ComfyWorkflowJSON {
   return serializeGraphState({
-    nodes,
+    nodes: nodes.map((node) => normalizeWorkflowNodeForEditor(node)),
     links,
     groups,
     subgraphs: new Map<SubgraphId, SubgraphModelRuntime>(),

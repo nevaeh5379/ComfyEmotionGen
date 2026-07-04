@@ -638,7 +638,11 @@ export const ReactNode = memo(function ReactNode({
                                     try {
                                       liveW.callback(newVal)
                                     } catch (err) {
-                                      void err
+                                      console.error(
+                                        "[CEG] input widget callback failed",
+                                        { nodeId: id, widgetName },
+                                        err
+                                      )
                                     }
                                   }
                                 }
@@ -710,7 +714,11 @@ export const ReactNode = memo(function ReactNode({
                               try {
                                 liveW.callback(newVal)
                               } catch (err) {
-                                void err
+                                console.error(
+                                  "[CEG] pure widget callback failed",
+                                  { nodeId: id, widgetName: name },
+                                  err
+                                )
                               }
                             }
                           }

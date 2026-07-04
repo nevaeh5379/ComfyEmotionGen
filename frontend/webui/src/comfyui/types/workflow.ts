@@ -55,6 +55,20 @@ export interface ComfyWorkflowNode {
   graphId?: string | null | undefined
 }
 
+/**
+ * React workflow editor 내부에서 사용하는 정규화 노드.
+ * 외부 ComfyUI workflow JSON은 inputs/outputs/widgets_values 등이 생략될 수 있지만,
+ * 에디터 store 내부에서는 항상 배열/객체로 고정해 silent no-op과 반복 undefined
+ * 방어를 줄인다.
+ */
+export interface EditorWorkflowNode extends ComfyWorkflowNode {
+  inputs: ComfyNodeInput[]
+  outputs: ComfyNodeOutput[]
+  properties: Record<string, unknown>
+  widgets_values: (string | number | boolean)[]
+  graphId: string | null
+}
+
 /** SubgraphNode 인스턴스 노드인지 확인 (type이 UUID 형식) */
 export function isSubgraphNodeInstance(node: ComfyWorkflowNode): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

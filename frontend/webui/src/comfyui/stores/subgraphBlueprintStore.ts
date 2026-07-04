@@ -28,9 +28,9 @@ import {
 } from "@/comfyui/services/subgraphApi"
 import { findUsedSubgraphIds } from "@/comfyui/subgraph/subgraphUtils"
 import { createSubgraphModel } from "@/comfyui/subgraph/SubgraphModel"
+import { normalizeWorkflowNodeForEditor } from "@/comfyui/utils/workflowGraphModel"
 import type { SubgraphDefinition } from "@/comfyui/types/subgraph"
 import type { ComfyNodeDef } from "@/comfyui/types/nodeDef"
-import type { ComfyWorkflowNode } from "@/comfyui/types/workflow"
 
 const TYPE_PREFIX = "SubgraphBlueprint."
 
@@ -155,7 +155,7 @@ export const useSubgraphBlueprintStore = create<SubgraphBlueprintState>(
       // SubgraphNode 인스턴스 노드 추가
       const maxId = graphStore.nodes.reduce((max, n) => Math.max(max, n.id), 0)
       const newId = maxId + 1
-      const newInstance: ComfyWorkflowNode = {
+      const newInstance = normalizeWorkflowNodeForEditor({
         id: newId,
         type: meta.definition.id,
         pos,
@@ -171,7 +171,7 @@ export const useSubgraphBlueprintStore = create<SubgraphBlueprintState>(
           links: undefined,
         })),
         graphId: null,
-      }
+      })
 
       useReactGraphStore.setState({
         nodes: [...graphStore.nodes, newInstance],

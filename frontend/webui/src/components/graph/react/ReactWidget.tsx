@@ -154,8 +154,8 @@ function invokeOptional(callback: (() => void) | undefined): void {
   if (callback === undefined) return
   try {
     callback()
-  } catch {
-    // Some LiteGraph widgets intentionally throw while probing canvas state.
+  } catch (err) {
+    console.warn("[CEG] optional LiteGraph widget callback failed:", err)
   }
 }
 

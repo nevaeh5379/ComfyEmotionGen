@@ -27,7 +27,10 @@ import type { SubgraphModel } from "@/comfyui/types/subgraph"
 import type { SubgraphId } from "@/comfyui/constants"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
-import { serializeGraphState } from "@/comfyui/utils/workflowGraphModel"
+import {
+  normalizeWorkflowNodeForEditor,
+  serializeGraphState,
+} from "@/comfyui/utils/workflowGraphModel"
 
 function normalizeSlotType(type: unknown): string {
   if (Array.isArray(type)) {
@@ -406,42 +409,31 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         (n: ComfyWorkflowNode) => n.id === nodeOrGroup.id
       )
     ) {
-      const workflowNode: ComfyWorkflowNode = {
+      const workflowNode = normalizeWorkflowNodeForEditor({
         id: linkedNode.id,
         type: linkedNode.type ?? "",
         pos: linkedNode.pos,
         size: linkedNode.size,
-        inputs:
-          linkedNode.inputs.length > 0
-            ? linkedNode.inputs.map((i) => ({
-                name: i.name,
-                type: i.type,
-                link: i.link ?? undefined,
-              }))
-            : undefined,
-        outputs:
-          linkedNode.outputs.length > 0
-            ? linkedNode.outputs.map((o, idx: number) => ({
-                name: o.name,
-                type: o.type,
-                links: o.links ?? undefined,
-                slot_index: idx,
-              }))
-            : undefined,
-        widgets_values:
-          (linkedNode.widgets?.length ?? 0) > 0
-            ? (linkedNode.widgets ?? []).map((w) => w.value)
-            : undefined,
-        properties: linkedNode.properties
-          ? {
-              ...linkedNode.properties,
-              widget_names: linkedNode.widgets?.map((w) => w.name) ?? [],
-            }
-          : undefined,
+        inputs: linkedNode.inputs.map((i) => ({
+          name: i.name,
+          type: i.type,
+          link: i.link ?? undefined,
+        })),
+        outputs: linkedNode.outputs.map((o, idx: number) => ({
+          name: o.name,
+          type: o.type,
+          links: o.links ?? undefined,
+          slot_index: idx,
+        })),
+        widgets_values: (linkedNode.widgets ?? []).map((w) => w.value),
+        properties: {
+          ...(linkedNode.properties ?? {}),
+          widget_names: linkedNode.widgets?.map((w) => w.name) ?? [],
+        },
         mode: linkedNode.mode,
         color: linkedNode.color,
         bgcolor: linkedNode.bgcolor,
-      }
+      })
 
       store.getState().takeSnapshot()
       const currentNodes = store.getState().nodes

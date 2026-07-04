@@ -11,6 +11,7 @@ import type {
   ComfyWorkflowJSON,
   ComfyApiWorkflow,
   ComfyWorkflowNode,
+  EditorWorkflowNode,
   ComfyWorkflowLink,
 } from "@/comfyui/types/workflow"
 import type { ComfyNodeDef, InputSpec } from "@/comfyui/types/nodeDef"
@@ -1347,7 +1348,7 @@ export class ComfyAppService {
           const currentNodes = useReactGraphStore.getState().nodes
           useReactGraphStore.setState({
             nodes: currentNodes.map(
-              (n: ComfyWorkflowNode): ComfyWorkflowNode =>
+              (n: EditorWorkflowNode): EditorWorkflowNode =>
                 n.id === node.id
                   ? {
                       ...n,
@@ -1405,7 +1406,7 @@ export class ComfyAppService {
             const currentNodes = useReactGraphStore.getState().nodes
             useReactGraphStore.setState({
               nodes: currentNodes.map(
-                (n: ComfyWorkflowNode): ComfyWorkflowNode =>
+                (n: EditorWorkflowNode): EditorWorkflowNode =>
                   n.id === node.id
                     ? {
                         ...n,

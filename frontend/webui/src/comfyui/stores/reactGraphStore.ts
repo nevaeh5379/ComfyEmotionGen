@@ -7,7 +7,7 @@
 import { create } from "zustand"
 import type {
   ComfyWorkflowJSON,
-  ComfyWorkflowNode,
+  EditorWorkflowNode,
   ComfyWorkflowLink,
   ComfyNodeInput,
   ComfyNodeOutput,
@@ -35,11 +35,12 @@ import {
 import {
   isRootGraphId,
   isValidSlotConnection,
+  normalizeWorkflowNodeForEditor,
   normalizeWorkflowForEditor,
 } from "../utils/workflowGraphModel"
 
 interface SnapshotEntry {
-  nodes: ComfyWorkflowNode[]
+  nodes: EditorWorkflowNode[]
   links: ComfyWorkflowLink[]
   groups: ComfyWorkflowGroup[]
   subgraphs: readonly (readonly [SubgraphId, SubgraphDefinition])[]
@@ -48,7 +49,7 @@ interface SnapshotEntry {
 }
 
 interface ReactGraphState {
-  nodes: ComfyWorkflowNode[]
+  nodes: EditorWorkflowNode[]
   links: ComfyWorkflowLink[]
   zoom: number
   pan: [number, number]
@@ -115,7 +116,7 @@ interface ReactGraphState {
   enterSubgraph: (subgraphId: SubgraphId) => void
   exitSubgraph: () => void
   /** 현재 활성 그래프에 속한 노드만 반환 */
-  getActiveNodes: () => ComfyWorkflowNode[]
+  getActiveNodes: () => EditorWorkflowNode[]
   /** 현재 활성 그래프에 속한 링크만 반환 */
   getActiveLinks: () => ComfyWorkflowLink[]
 
@@ -202,7 +203,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       get().takeSnapshot()
       const { nodes } = get()
       const maxId = nodes.reduce(
-        (max: number, n: ComfyWorkflowNode): number => Math.max(max, n.id),
+        (max: number, n: EditorWorkflowNode): number => Math.max(max, n.id),
         0
       )
       const newId = maxId + 1
@@ -265,7 +266,7 @@ export const useReactGraphStore = create<ReactGraphState>(
         }
       }
 
-      const newNode: ComfyWorkflowNode = {
+      const newNode: EditorWorkflowNode = {
         id: newId,
         type,
         pos,
@@ -276,11 +277,10 @@ export const useReactGraphStore = create<ReactGraphState>(
             widgetNames.length * 40 +
             8,
         ],
-        inputs: inputs.length > 0 ? inputs : undefined,
-        outputs: outputs.length > 0 ? outputs : undefined,
-        widgets_values: widgetsValues.length > 0 ? widgetsValues : undefined,
-        properties:
-          widgetNames.length > 0 ? { widget_names: widgetNames } : undefined,
+        inputs,
+        outputs,
+        widgets_values: widgetsValues,
+        properties: widgetNames.length > 0 ? { widget_names: widgetNames } : {},
         // 활성 그래프에 소속시킴 (루트면 null, 서브그래프면 해당 UUID)
         graphId: get().activeGraphId,
       }
@@ -346,7 +346,7 @@ export const useReactGraphStore = create<ReactGraphState>(
                 )
                 set({
                   nodes: get().nodes.map(
-                    (n: ComfyWorkflowNode): ComfyWorkflowNode =>
+                    (n: EditorWorkflowNode): EditorWorkflowNode =>
                       n.id === newId
                         ? {
                             ...n,
@@ -382,7 +382,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const idSet = new Set(ids)
 
       const filteredNodes = nodes.filter(
-        (n: ComfyWorkflowNode): boolean => !idSet.has(n.id)
+        (n: EditorWorkflowNode): boolean => !idSet.has(n.id)
       )
       const filteredLinks = links.filter(
         (l: ComfyWorkflowLink): boolean =>
@@ -395,8 +395,8 @@ export const useReactGraphStore = create<ReactGraphState>(
       })
 
       const cleanedNodes = filteredNodes.map(
-        (node: ComfyWorkflowNode): ComfyWorkflowNode => {
-          const nextInputs = node.inputs?.map(
+        (node: EditorWorkflowNode): EditorWorkflowNode => {
+          const nextInputs = node.inputs.map(
             (input: ComfyNodeInput): ComfyNodeInput => {
               if (
                 input.link !== undefined &&
@@ -410,7 +410,7 @@ export const useReactGraphStore = create<ReactGraphState>(
             }
           )
 
-          const nextOutputs = node.outputs?.map(
+          const nextOutputs = node.outputs.map(
             (output: ComfyNodeOutput): ComfyNodeOutput => {
               if (output.links !== undefined) {
                 const validLinks = output.links.filter(
@@ -453,7 +453,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const { nodes } = get()
       set({
         nodes: nodes.map(
-          (n: ComfyWorkflowNode): ComfyWorkflowNode =>
+          (n: EditorWorkflowNode): EditorWorkflowNode =>
             n.id === id ? { ...n, pos } : n
         ),
       })
@@ -463,7 +463,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const { nodes } = get()
       set({
         nodes: nodes.map(
-          (n: ComfyWorkflowNode): ComfyWorkflowNode =>
+          (n: EditorWorkflowNode): EditorWorkflowNode =>
             n.id === id ? { ...n, size } : n
         ),
       })
@@ -479,18 +479,36 @@ export const useReactGraphStore = create<ReactGraphState>(
       const { nodes } = get()
 
       const originNode = nodes.find(
-        (n: ComfyWorkflowNode): boolean => n.id === originNodeId
+        (n: EditorWorkflowNode): boolean => n.id === originNodeId
       )
       const targetNode = nodes.find(
-        (n: ComfyWorkflowNode): boolean => n.id === targetNodeId
+        (n: EditorWorkflowNode): boolean => n.id === targetNodeId
       )
 
-      if (originNode === undefined || targetNode === undefined) return
+      if (originNode === undefined || targetNode === undefined) {
+        console.warn("[CEG] connect skipped: node not found", {
+          originNodeId,
+          targetNodeId,
+          hasOriginNode: originNode !== undefined,
+          hasTargetNode: targetNode !== undefined,
+        })
+        return
+      }
 
-      const originOutput = originNode.outputs?.[originSlotIdx]
-      const targetInput = targetNode.inputs?.[targetSlotIdx]
+      const originOutput = originNode.outputs[originSlotIdx]
+      const targetInput = targetNode.inputs[targetSlotIdx]
 
-      if (originOutput === undefined || targetInput === undefined) return
+      if (originOutput === undefined || targetInput === undefined) {
+        console.warn("[CEG] connect skipped: slot not found", {
+          originNodeId,
+          originSlotIdx,
+          originOutputs: originNode.outputs.length,
+          targetNodeId,
+          targetSlotIdx,
+          targetInputs: targetNode.inputs.length,
+        })
+        return
+      }
 
       if (!isValidSlotConnection(originOutput.type, targetInput.type)) {
         console.warn(
@@ -525,28 +543,26 @@ export const useReactGraphStore = create<ReactGraphState>(
       nextLinks = [...nextLinks, newLink]
 
       const nextNodes = currentNodes.map(
-        (node: ComfyWorkflowNode): ComfyWorkflowNode => {
-          if (node.id === targetNodeId && node.inputs) {
+        (node: EditorWorkflowNode): EditorWorkflowNode => {
+          if (node.id === targetNodeId) {
             const nextInputs = [...node.inputs]
             const targetInputSlot = nextInputs[targetSlotIdx]
-            if (targetInputSlot !== undefined) {
-              nextInputs[targetSlotIdx] = {
-                ...targetInputSlot,
-                link: newLinkId,
-              }
+            if (targetInputSlot === undefined) return node
+            nextInputs[targetSlotIdx] = {
+              ...targetInputSlot,
+              link: newLinkId,
             }
             return { ...node, inputs: nextInputs }
           }
 
-          if (node.id === originNodeId && node.outputs) {
+          if (node.id === originNodeId) {
             const nextOutputs = [...node.outputs]
             const originOutputSlot = nextOutputs[originSlotIdx]
-            if (originOutputSlot !== undefined) {
-              const linksArr = originOutputSlot.links ?? []
-              nextOutputs[originSlotIdx] = {
-                ...originOutputSlot,
-                links: [...linksArr, newLinkId],
-              }
+            if (originOutputSlot === undefined) return node
+            const linksArr = originOutputSlot.links ?? []
+            nextOutputs[originSlotIdx] = {
+              ...originOutputSlot,
+              links: [...linksArr, newLinkId],
             }
             return { ...node, outputs: nextOutputs }
           }
@@ -567,8 +583,8 @@ export const useReactGraphStore = create<ReactGraphState>(
       )
 
       const nextNodes = nodes.map(
-        (node: ComfyWorkflowNode): ComfyWorkflowNode => {
-          const nextInputs = node.inputs?.map(
+        (node: EditorWorkflowNode): EditorWorkflowNode => {
+          const nextInputs = node.inputs.map(
             (input: ComfyNodeInput): ComfyNodeInput => {
               if (input.link === linkId) {
                 return { ...input, link: undefined }
@@ -577,7 +593,7 @@ export const useReactGraphStore = create<ReactGraphState>(
             }
           )
 
-          const nextOutputs = node.outputs?.map(
+          const nextOutputs = node.outputs.map(
             (output: ComfyNodeOutput): ComfyNodeOutput => {
               if (output.links?.includes(linkId) === true) {
                 const valid = output.links.filter(
@@ -612,7 +628,7 @@ export const useReactGraphStore = create<ReactGraphState>(
 
       const { nodes } = get()
       set({
-        nodes: nodes.map((node: ComfyWorkflowNode): ComfyWorkflowNode => {
+        nodes: nodes.map((node: EditorWorkflowNode): EditorWorkflowNode => {
           if (node.id !== nodeId) return node
 
           const widgetNames = (node.properties?.widget_names ?? []) as string[]
@@ -657,7 +673,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const { nodes } = get()
       set({
         nodes: nodes.map(
-          (node: ComfyWorkflowNode): ComfyWorkflowNode =>
+          (node: EditorWorkflowNode): EditorWorkflowNode =>
             node.id === nodeId ? { ...node, mode } : node
         ),
       })
@@ -717,7 +733,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const nextUndo = [
         ...undoStack,
         {
-          nodes: JSON.parse(JSON.stringify(nodes)) as ComfyWorkflowNode[],
+          nodes: JSON.parse(JSON.stringify(nodes)) as EditorWorkflowNode[],
           links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[],
           groups: JSON.parse(JSON.stringify(groups)) as ComfyWorkflowGroup[],
           subgraphs: Array.from(subgraphs.entries()).map(
@@ -756,7 +772,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const nextUndo = undoStack.slice(0, -1)
       const nextRedo = [
         {
-          nodes: JSON.parse(JSON.stringify(nodes)) as ComfyWorkflowNode[],
+          nodes: JSON.parse(JSON.stringify(nodes)) as EditorWorkflowNode[],
           links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[],
           groups: JSON.parse(JSON.stringify(groups)) as ComfyWorkflowGroup[],
           subgraphs: Array.from(subgraphs.entries()).map(
@@ -808,7 +824,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       const nextUndo = [
         ...undoStack,
         {
-          nodes: JSON.parse(JSON.stringify(nodes)) as ComfyWorkflowNode[],
+          nodes: JSON.parse(JSON.stringify(nodes)) as EditorWorkflowNode[],
           links: JSON.parse(JSON.stringify(links)) as ComfyWorkflowLink[],
           groups: JSON.parse(JSON.stringify(groups)) as ComfyWorkflowGroup[],
           subgraphs: Array.from(subgraphs.entries()).map(
@@ -910,12 +926,12 @@ export const useReactGraphStore = create<ReactGraphState>(
       const remainingNodes = nodes.filter((n) => !idSet.has(n.id))
       // 기존 노드의 inputs/outputs에서 제거된 링크 정리
       const cleanedRemainingNodes = remainingNodes.map((node) => {
-        const nextInputs = node.inputs?.map((input) =>
+        const nextInputs = node.inputs.map((input) =>
           input.link !== undefined && removedLinkIds.has(input.link)
             ? { ...input, link: undefined }
             : input
         )
-        const nextOutputs = node.outputs?.map((output) => {
+        const nextOutputs = node.outputs.map((output) => {
           if (output.links) {
             const valid = output.links.filter((lid) => !removedLinkIds.has(lid))
             if (valid.length !== output.links.length) {
@@ -933,7 +949,7 @@ export const useReactGraphStore = create<ReactGraphState>(
         0
       )
       const newNodeId = maxNodeId + 1
-      const subgraphNodeInstance: ComfyWorkflowNode = {
+      const subgraphNodeInstance: EditorWorkflowNode = {
         id: newNodeId,
         type: subgraphId,
         pos: [
@@ -951,6 +967,8 @@ export const useReactGraphStore = create<ReactGraphState>(
           type: dto.type,
           links: undefined,
         })),
+        properties: {},
+        widgets_values: [],
         graphId: null,
       }
 
@@ -1056,7 +1074,7 @@ export const useReactGraphStore = create<ReactGraphState>(
       })
     },
 
-    getActiveNodes: (): ComfyWorkflowNode[] => {
+    getActiveNodes: (): EditorWorkflowNode[] => {
       const { nodes, activeGraphId } = get()
       if (activeGraphId === null) {
         // 루트: graphId가 null 또는 undefined인 노드
