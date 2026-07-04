@@ -200,6 +200,7 @@ export function ImageDetailPanel({
       </div>
       <GalleryInpaintEditor
         open={inpaintOpen}
+        backendUrl={backendUrl}
         imageUrl={`${backendUrl}/saved-images/${image.hash}`}
         filename={getImageFilename(image)}
         onOpenChange={setInpaintOpen}

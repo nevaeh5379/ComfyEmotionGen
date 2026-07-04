@@ -25,6 +25,8 @@ export const STORAGE_KEYS = {
   regenTemplateId: "ceg_regenTemplateId",
   regenWorkflowId: "ceg_regenWorkflowId",
   regenNodeMappings: "ceg_regenNodeMappings",
+  inpaintWorkflows: "ceg_inpaint_workflows",
+  inpaintActiveWorkflowId: "ceg_inpaint_active_workflow_id",
   curationSelectedFilename: "comfy.curation.selectedFilename",
   curationViewMode: "comfy.curation.viewMode",
   curationListLayout: "comfy.curation.listLayout",

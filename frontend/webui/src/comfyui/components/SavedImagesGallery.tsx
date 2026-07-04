@@ -2655,6 +2655,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
             {inpaintImage && (
               <GalleryInpaintEditor
                 open={inpaintImage !== null}
+                backendUrl={backendUrl}
                 imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
                 filename={getImageFilename(inpaintImage)}
                 onOpenChange={(open): void => {
