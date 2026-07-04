@@ -75,6 +75,7 @@ interface AxisEntryProperty {
 interface VisualAxisEntry {
   id: string
   key: string
+  fileKey: string
   value: string
   properties: AxisEntryProperty[]
   isComplex: boolean
@@ -260,7 +261,7 @@ function parseCegTemplate(code: string): ParsedTemplate {
     }
   let match: RegExpExecArray | null
   const setRe =
-    /\{\{\s*set\s+([a-zA-Z_-][a-zA-Z0-9_-]*)\s*=\s*"((?:[^"\\]|\\.)*)"\s*\}\}/g
+    /\{\{\s*set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"\s*\}\}/g
   let vi = 0
   while ((match = setRe.exec(code)) !== null) {
     const name = match[1] ?? ""
@@ -272,7 +273,7 @@ function parseCegTemplate(code: string): ParsedTemplate {
     }
   }
   const axRe =
-    /\{\{\s*axis\s+([a-zA-Z_-][a-zA-Z0-9_-]*)(?:\s+include="((?:[^"\\]|\\.)*)")?\s*\}\}([\s\S]*?)\{\{\s*\/axis\s*\}\}/gi
+    /\{\{\s*axis\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+include="((?:[^"\\]|\\.)*)")?\s*\}\}([\s\S]*?)\{\{\s*\/axis\s*\}\}/gi
   let ai = 0
   while ((match = axRe.exec(code)) !== null) {
     const entries: VisualAxisEntry[] = []
@@ -280,24 +281,25 @@ function parseCegTemplate(code: string): ParsedTemplate {
     for (const line of (match[3] ?? "").split("\n")) {
       const t = line.trim()
       if (t === "" || t.startsWith("#") || t.startsWith("//")) continue
-      const s = /^([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*"((?:[^"\\]|\\.)*)"$/.exec(t)
+      const s = /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*"((?:[^"\\]|\\.)*)"$/.exec(t)
       if (s !== null) {
         entries.push({
           id: `e-${String(ai)}-${String(ei++)}`,
           key: s[1] ?? "",
-          value: s[2] ?? "",
+          fileKey: s[2] ?? "",
+          value: s[3] ?? "",
           properties: [],
           isComplex: false,
         })
         continue
       }
-      const c = /^([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*\{\s*([^{}]+)\s*\}$/.exec(t)
+      const c = /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*\{\s*([^{}]+)\s*\}$/.exec(t)
       if (c !== null) {
         const props: AxisEntryProperty[] = []
-        const pr = /([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*"((?:[^"\\]|\\.)*)"/g
+        const pr = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*"((?:[^"\\]|\\.)*)"/g
         let pm: RegExpExecArray | null
         let pi = 0
-        while ((pm = pr.exec(c[2] ?? "")) !== null)
+        while ((pm = pr.exec(c[3] ?? "")) !== null)
           props.push({
             id: `p-${String(ai)}-${String(ei)}-${String(pi++)}`,
             name: pm[1] ?? "",
@@ -306,6 +308,7 @@ function parseCegTemplate(code: string): ParsedTemplate {
         entries.push({
           id: `e-${String(ai)}-${String(ei++)}`,
           key: c[1] ?? "",
+          fileKey: c[2] ?? "",
           value: "",
           properties: props,
           isComplex: true,
@@ -888,6 +891,7 @@ export function TemplateGeneratorPanel({
                 {
                   id: `e-${String(Date.now())}`,
                   key: `val_${String(a.entries.length + 1)}`,
+                  fileKey: "",
                   value: "",
                   properties: [],
                   isComplex: false,
@@ -920,6 +924,20 @@ export function TemplateGeneratorPanel({
               ...a,
               entries: a.entries.map((e) =>
                 e.id === eId ? { ...e, value: v } : e
+              ),
+            }
+      )
+    )
+  }
+  const setEFileKey = (axId: string, eId: string, fk: string): void => {
+    setAxes((p) =>
+      p.map((a) =>
+        a.id !== axId
+          ? a
+          : {
+              ...a,
+              entries: a.entries.map((e) =>
+                e.id === eId ? { ...e, fileKey: fk } : e
               ),
             }
       )
@@ -1185,13 +1203,14 @@ export function TemplateGeneratorPanel({
       const incStr = trimmedInc !== "" ? ` include="${trimmedInc}"` : ""
       c += `{{axis ${a.name}${incStr}}}\n`
       a.entries.forEach((e) => {
+        const fileKeyStr = e.fileKey.trim() !== "" ? ` as "${e.fileKey.trim()}"` : ""
         if (e.isComplex) {
           const props = e.properties
             .map((p) => `${p.name}: "${p.value}"`)
             .join(", ")
-          c += `  ${e.key}: { ${props} }\n`
+          c += `  ${e.key}${fileKeyStr}: { ${props} }\n`
         } else {
-          c += `  ${e.key}: "${e.value}"\n`
+          c += `  ${e.key}${fileKeyStr}: "${e.value}"\n`
         }
       })
       c += `{{/axis}}\n\n`
@@ -1708,6 +1727,21 @@ export function TemplateGeneratorPanel({
                               )
                             }}
                           />
+                          {entry.fileKey.trim() !== "" || entry.key.trim() !== "" ? (
+                            <>
+                              <span className="font-mono text-[10px] text-muted-foreground/40 select-none">
+                                as
+                              </span>
+                              <Input
+                                value={entry.fileKey}
+                                onChange={(e) => {
+                                  setEFileKey(axis.id, entry.id, e.target.value)
+                                }}
+                                placeholder="파일키"
+                                className="h-7 w-20 shrink-0 font-mono text-xs"
+                              />
+                            </>
+                          ) : null}
                           <span className="font-mono text-xs text-muted-foreground/40 select-none">
                             :
                           </span>

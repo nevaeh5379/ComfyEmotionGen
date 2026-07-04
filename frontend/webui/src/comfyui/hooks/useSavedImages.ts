@@ -96,7 +96,7 @@ export const useSavedImages = (
       abortRef.current?.abort()
       const ac = new AbortController()
       abortRef.current = ac
-      if (silent === true) setLoading(true)
+      if (silent !== true) setLoading(true)
       setError(null)
       try {
         const offset = Math.max(0, (pageRef.current - 1) * pageSizeRef.current)
@@ -150,7 +150,7 @@ export const useSavedImages = (
       abortRef.current?.abort()
       const ac = new AbortController()
       abortRef.current = ac
-      if (silent === true) setLoading(true)
+      if (silent !== true) setLoading(true)
       setError(null)
       try {
         const offset = Math.max(
