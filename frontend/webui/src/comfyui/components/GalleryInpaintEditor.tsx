@@ -146,9 +146,8 @@ function getPoint(
 ): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
   return {
-    x: ((event.clientX - rect.left - pan.x) / rect.width / zoom) * canvas.width,
-    y:
-      ((event.clientY - rect.top - pan.y) / rect.height / zoom) * canvas.height,
+    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
   }
 }
 
@@ -619,9 +618,28 @@ export function GalleryInpaintEditor({
   } | null>(null)
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<PaintMode>("paint")
-  const [brushSize, setBrushSize] = useState(56)
-  const [brushHardness, setBrushHardness] = useState(1)
-  const [brushOpacity, setBrushOpacity] = useState(1)
+  const [brushSize, setBrushSize] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ceg_inpaint_brush_size")
+      return saved ? Number(saved) : 56
+    }
+    return 56
+  })
+  const [brushHardness, setBrushHardness] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ceg_inpaint_brush_hardness")
+      return saved ? Number(saved) : 1
+    }
+    return 1
+  })
+  const [brushOpacity, setBrushOpacity] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ceg_inpaint_brush_opacity")
+      return saved ? Number(saved) : 1
+    }
+    return 1
+  })
+  const [cursorScale, setCursorScale] = useState(1)
   const [maskOpacity, setMaskOpacity] = useState(58)
   const [showMask, setShowMask] = useState(true)
   const [cursorVisible, setCursorVisible] = useState(false)
@@ -763,6 +781,38 @@ export function GalleryInpaintEditor({
       selectedWorkflowId
     )
   }, [selectedWorkflowId])
+
+  useEffect(() => {
+    localStorage.setItem("ceg_inpaint_brush_size", String(brushSize))
+  }, [brushSize])
+
+  useEffect(() => {
+    localStorage.setItem("ceg_inpaint_brush_hardness", String(brushHardness))
+  }, [brushHardness])
+
+  useEffect(() => {
+    localStorage.setItem("ceg_inpaint_brush_opacity", String(brushOpacity))
+  }, [brushOpacity])
+
+  // nodeMappings 가 변경될 때마다 현재 활성 워크플로우에 오토세이브
+  useEffect(() => {
+    if (!selectedWorkflowId) return
+    setInpaintWorkflows((prev) => {
+      return prev.map((item) => {
+        if (item.id === selectedWorkflowId) {
+          if (JSON.stringify(item.mappings) === JSON.stringify(nodeMappings)) {
+            return item
+          }
+          return {
+            ...item,
+            mappings: nodeMappings,
+            savedAt: Date.now(),
+          }
+        }
+        return item
+      })
+    })
+  }, [nodeMappings, selectedWorkflowId])
 
   const setSelectedWorkflowId = useCallback(
     (workflowId: string) => {
@@ -1335,7 +1385,7 @@ export function GalleryInpaintEditor({
     uploadComfyImage,
   ])
 
-  const cursorDiameter = brushSize * zoom
+  const cursorDiameter = brushSize * cursorScale
   const isPannable = spaceDown
 
   return (
@@ -2013,9 +2063,11 @@ export function GalleryInpaintEditor({
                       onPointerMove={(event) => {
                         const rect = event.currentTarget.getBoundingClientRect()
                         setCursorPos({
-                          x: event.clientX - rect.left,
-                          y: event.clientY - rect.top,
+                          x: (event.clientX - rect.left) / zoom,
+                          y: (event.clientY - rect.top) / zoom,
                         })
+                        const currentScale = (rect.width / zoom) / event.currentTarget.width
+                        setCursorScale(currentScale)
                         if (
                           isPannable &&
                           panningRef.current &&
@@ -2045,8 +2097,15 @@ export function GalleryInpaintEditor({
                         )
                       }}
                       onPointerCancel={stopPaint}
-                      onPointerEnter={() => {
+                      onPointerEnter={(event) => {
                         setCursorVisible(true)
+                        const rect = event.currentTarget.getBoundingClientRect()
+                        setCursorPos({
+                          x: (event.clientX - rect.left) / zoom,
+                          y: (event.clientY - rect.top) / zoom,
+                        })
+                        const currentScale = (rect.width / zoom) / event.currentTarget.width
+                        setCursorScale(currentScale)
                       }}
                       onPointerLeave={() => {
                         setCursorVisible(false)
