@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import { curationApi } from "../../hooks/useSavedImages"
-import { useLatestRef } from "../../hooks/useLatestRef"
 import { hasApproved } from "../../types/Message"
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
@@ -11,11 +10,26 @@ import {
   type FreeGroupBy,
 } from "./freeCurationGroupers"
 
+export interface CurationGroup {
+  id: string
+  name: string
+  selectedAxis: string
+  filters: Record<string, string>
+}
+
 interface UseCombinationDataProps {
   backendUrl: string
   activeTemplate: string
   freeGroupMode: FreeGroupBy | null
   hideEmptyCurationFolders?: boolean
+  selectedAxis: string
+  setSelectedAxis: (axis: string) => void
+  activeGroupId: string
+  setActiveGroupId: (id: string) => void
+  activeFilters: Record<string, string>
+  setActiveFilters: (filters: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  setSavedGroups: (groups: CurationGroup[]) => void
 }
 
 export function useCombinationData({
@@ -23,6 +37,14 @@ export function useCombinationData({
   activeTemplate,
   freeGroupMode,
   hideEmptyCurationFolders = false,
+  selectedAxis,
+  setSelectedAxis,
+  activeGroupId,
+  setActiveGroupId,
+  activeFilters: activeCurationFilters,
+  setActiveFilters: setActiveCurationFilters,
+  savedGroups,
+  setSavedGroups,
 }: UseCombinationDataProps): {
   renderItems: RenderItem[]
   allImages: SavedImage[]
@@ -56,6 +78,15 @@ export function useCombinationData({
     file: File,
     meta?: Record<string, string>
   ) => Promise<{ hash: string; filename: string }>
+  activeCurationFilters: Record<string, string>
+  setActiveCurationFilters: (filters: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  activeGroupId: string
+  setActiveGroupId: (id: string) => void
+  availableFilters: Record<string, string[]>
+  saveCurationGroup: (name: string) => void
+  deleteCurationGroup: (id: string) => void
+  selectCurationGroup: (id: string) => void
 } {
   const [rawRenderItems, setRawRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])
@@ -69,86 +100,189 @@ export function useCombinationData({
   const [searchTags, setSearchTags] = useState<string[]>([])
   const [searchInput, setSearchInput] = useState("")
 
-  // ── Refs for latest values ────────────────────────────────────────
-  const backendUrlRef = useLatestRef(backendUrl)
-  const activeTemplateRef = useLatestRef(activeTemplate)
-  const freeGroupModeRef = useLatestRef(freeGroupMode)
-
   const fetchData = useCallback(async () => {
-    if (freeGroupModeRef.current !== null) {
-      setLoading(true)
-      setError(null)
-      try {
-        const imagesRes = await fetch(
-          `${backendUrlRef.current}/saved-images?limit=5000`
-        )
-        if (!imagesRes.ok)
-          throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
-        const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
-        setAllImages(imagesData.items)
-        setRawRenderItems(
-          groupSavedImagesAsRenderItems(
-            imagesData.items,
-            freeGroupModeRef.current
-          )
-        )
-      } catch (err) {
-        setError((err as Error).message)
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-    if (!activeTemplateRef.current.trim()) {
-      setError("CEG 템플릿을 먼저 작성해주세요.")
-      setRawRenderItems([])
-      return
-    }
     setLoading(true)
     setError(null)
     try {
+      if (!activeTemplate.trim()) {
+        if (freeGroupMode !== null) {
+          const imagesRes = await fetch(
+            `${backendUrl}/saved-images?limit=5000`
+          )
+          if (!imagesRes.ok)
+            throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
+          const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
+          setAllImages(imagesData.items)
+          setRawRenderItems(
+            groupSavedImagesAsRenderItems(
+              imagesData.items,
+              freeGroupMode
+            )
+          )
+        } else {
+          setError("CEG 템플릿을 먼저 작성해주세요.")
+          setRawRenderItems([])
+        }
+        return
+      }
+
       const [renderRes, imagesRes] = await Promise.all([
-        fetch(`${backendUrlRef.current}/render`, {
+        fetch(`${backendUrl}/render`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ template: activeTemplateRef.current }),
+          body: JSON.stringify({ template: activeTemplate }),
         }),
-        fetch(`${backendUrlRef.current}/saved-images?limit=5000`),
+        fetch(`${backendUrl}/saved-images?limit=5000`),
       ])
       if (!renderRes.ok)
         throw new Error(`렌더 실패: HTTP ${String(renderRes.status)}`)
       if (!imagesRes.ok)
         throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
-      const renderData = (await renderRes.json()) as { items: RenderItem[] }
+      const renderData = (await renderRes.json()) as {
+        items: RenderItem[]
+        sets?: Record<string, string>
+      }
       const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
-      setRawRenderItems(renderData.items)
+
+      if (freeGroupMode !== null) {
+        setRawRenderItems(
+          groupSavedImagesAsRenderItems(
+            imagesData.items,
+            freeGroupMode
+          )
+        )
+      } else {
+        setRawRenderItems(renderData.items)
+      }
       setAllImages(imagesData.items)
     } catch (err) {
       setError((err as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [backendUrlRef, activeTemplateRef, freeGroupModeRef])
+  }, [backendUrl, activeTemplate, freeGroupMode])
 
-  const imagesByFilename = useMemo(() => {
-    if (freeGroupMode !== null) {
-      return buildImagesByGroupKey(allImages, freeGroupMode)
-    }
-    const map = new Map<string, SavedImage[]>()
+  const availableFilters = useMemo(() => {
+    const keys: Record<string, Set<string>> = {}
     for (const img of allImages) {
       if (img.status === "trashed") continue
+      const imgMeta = img.meta ?? {}
+      for (const [mKey, mVal] of Object.entries(imgMeta)) {
+        if (mKey.startsWith("set.")) {
+          const varName = mKey.slice("set.".length)
+          keys[varName] ??= new Set<string>()
+          if (mVal) {
+            keys[varName].add(mVal)
+          }
+        }
+      }
+    }
+    const result: Record<string, string[]> = {}
+    for (const [k, v] of Object.entries(keys)) {
+      result[k] = Array.from(v).sort()
+    }
+    return result
+  }, [allImages])
 
+  const saveCurationGroup = useCallback((name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+
+    const existing = savedGroups.find((g) => g.id === activeGroupId)
+    if (existing) {
+      const updated = savedGroups.map((g) =>
+        g.id === activeGroupId
+          ? {
+              ...g,
+              selectedAxis,
+              filters: activeCurationFilters,
+            }
+          : g
+      )
+      setSavedGroups(updated)
+      toast.success("큐레이션 그룹이 업데이트되었습니다.")
+    } else {
+      const next: CurationGroup = {
+        id: `group-${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+        name: trimmed,
+        selectedAxis,
+        filters: activeCurationFilters,
+      }
+      setSavedGroups([...savedGroups, next])
+      setActiveGroupId(next.id)
+      toast.success("새 큐레이션 그룹이 저장되었습니다.")
+    }
+  }, [activeGroupId, savedGroups, selectedAxis, activeCurationFilters, setSavedGroups, setActiveGroupId])
+
+  const deleteCurationGroup = useCallback((id: string) => {
+    setSavedGroups(savedGroups.filter((g) => g.id !== id))
+    if (activeGroupId === id) {
+      setActiveGroupId("__all__")
+      setActiveCurationFilters({})
+    }
+    toast.success("큐레이션 그룹이 삭제되었습니다.")
+  }, [activeGroupId, savedGroups, setSavedGroups, setActiveGroupId, setActiveCurationFilters])
+
+  const selectCurationGroup = useCallback((id: string) => {
+    if (id === "__all__") {
+      setActiveGroupId("__all__")
+      setActiveCurationFilters({})
+      return
+    }
+    if (id.startsWith("preset:")) {
+      const axis = id.slice("preset:".length)
+      setActiveGroupId(id)
+      setActiveCurationFilters({})
+      setSelectedAxis(axis)
+      return
+    }
+    const group = savedGroups.find((g) => g.id === id)
+    if (group) {
+      setActiveGroupId(id)
+      setActiveCurationFilters(group.filters)
+      setSelectedAxis(group.selectedAxis)
+    }
+  }, [savedGroups, setSelectedAxis, setActiveGroupId, setActiveCurationFilters])
+  const updateActiveCurationFilters = useCallback((filters: Record<string, string>) => {
+    setActiveCurationFilters(filters)
+    setActiveGroupId("custom")
+  }, [setActiveCurationFilters, setActiveGroupId])
+
+  const imagesByFilename = useMemo(() => {
+    // 1. 글로벌 필터 및 trashed 필터링 우선 적용 (템플릿/자유 모드 공통)
+    const filteredImages = allImages.filter((img) => {
+      if (img.status === "trashed") return false
+
+      const imgMeta = img.meta ?? {}
+      for (const [key, expectedVal] of Object.entries(activeCurationFilters)) {
+        const actualVal = imgMeta[`set.${key}`]
+        if (actualVal === undefined || actualVal !== expectedVal) {
+          return false
+        }
+      }
+      return true
+    })
+
+    if (freeGroupMode !== null) {
+      return buildImagesByGroupKey(filteredImages, freeGroupMode)
+    }
+
+    const map = new Map<string, SavedImage[]>()
+    for (const img of filteredImages) {
       let matchedFilename: string | null = null
-      const imgMeta = img.meta || {}
+      const imgMeta = img.meta ?? {}
       const hasMeta = Object.keys(imgMeta).length > 0
 
       if (hasMeta) {
+        // 2. 그룹 분류 매칭: ri.meta에서 set.*를 제외한 순수 조합 축(Axis) 정보만 대조
         for (const ri of rawRenderItems) {
           let isMatch = true
           const riMetaKeys = Object.keys(ri.meta)
-          if (riMetaKeys.length === 0) continue
+          
+          const axisKeys = riMetaKeys.filter((key) => !key.startsWith("set."))
+          if (axisKeys.length === 0) continue
 
-          for (const key of riMetaKeys) {
+          for (const key of axisKeys) {
             if (String(imgMeta[key]) !== String(ri.meta[key])) {
               isMatch = false
               break
@@ -176,7 +310,7 @@ export function useCombinationData({
       }
     }
     return map
-  }, [allImages, rawRenderItems, freeGroupMode])
+  }, [allImages, rawRenderItems, freeGroupMode, activeCurationFilters])
 
   const renderItems = useMemo(() => {
     if (!hideEmptyCurationFolders) return rawRenderItems
@@ -432,5 +566,14 @@ export function useCombinationData({
     approveImage,
     updateImageMeta,
     uploadUserImage,
+    activeCurationFilters,
+    setActiveCurationFilters: updateActiveCurationFilters,
+    savedGroups,
+    activeGroupId,
+    setActiveGroupId,
+    availableFilters,
+    saveCurationGroup,
+    deleteCurationGroup,
+    selectCurationGroup,
   }
 }

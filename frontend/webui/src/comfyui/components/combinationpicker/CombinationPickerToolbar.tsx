@@ -25,7 +25,6 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -140,6 +139,13 @@ export function CombinationPickerToolbar({
     filteredRenderItems,
     fetchData,
     loading,
+    activeCurationFilters,
+    setActiveCurationFilters,
+    savedGroups,
+    activeGroupId,
+    availableFilters,
+    saveCurationGroup,
+    deleteCurationGroup,
   } = data
 
   const { selectionMode, selectedFilenames, exitSelectionMode } = selection
@@ -206,7 +212,7 @@ export function CombinationPickerToolbar({
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel className="text-[10px] text-muted-foreground">
-                    템플릿
+                    분류 기준
                   </SelectLabel>
                   <SelectItem
                     value={encodeAxis({
@@ -214,7 +220,7 @@ export function CombinationPickerToolbar({
                       templateId: CURRENT_TEMPLATE_ID,
                     })}
                   >
-                    현재 편집 중인 템플릿
+                    현재 템플릿 축 조합
                   </SelectItem>
                   {savedTemplates.map((t) => (
                     <SelectItem
@@ -224,24 +230,25 @@ export function CombinationPickerToolbar({
                         templateId: t.id,
                       })}
                     >
-                      {t.name}
+                      {t.name} (축 조합)
                     </SelectItem>
                   ))}
-                </SelectGroup>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel className="text-[10px] text-muted-foreground">
-                    기타 분류
-                  </SelectLabel>
                   {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
-                    (mode) => (
-                      <SelectItem
-                        key={mode}
-                        value={encodeAxis({ kind: "free", mode })}
-                      >
-                        {FREE_GROUP_LABELS[mode]}
-                      </SelectItem>
-                    )
+                    (mode) => {
+                      let label = FREE_GROUP_LABELS[mode];
+                      if (mode === "filename") label = "파일명 기준";
+                      if (mode === "parsedFilename") label = "파일명 패턴 파싱";
+                      if (mode === "tags") label = "태그별 분류";
+                      if (mode === "savedTemplate") label = "템플릿 해시별";
+                      return (
+                        <SelectItem
+                          key={mode}
+                          value={encodeAxis({ kind: "free", mode })}
+                        >
+                          {label}
+                        </SelectItem>
+                      );
+                    }
                   )}
                 </SelectGroup>
               </SelectContent>
@@ -643,6 +650,142 @@ export function CombinationPickerToolbar({
       {/* 필터 바 (접이식) — 데스크톱 전용 */}
       {filtersExpanded && (
         <div className="hidden flex-wrap items-center gap-3 border-t border-dashed bg-muted/5 px-4 py-3 md:flex">
+          {/* 분류 기준 설정 */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase mr-1">분류 기준:</span>
+            <Select
+              value={selectedAxis}
+              onValueChange={(val) => {
+                setSelectedAxis(val)
+              }}
+            >
+              <SelectTrigger className="h-6 text-[10px] font-bold px-2 py-0 min-w-[130px]">
+                <SelectValue placeholder="분류 기준 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value={encodeAxis({
+                    kind: "template",
+                    templateId: CURRENT_TEMPLATE_ID,
+                  })}
+                  className="text-[12px] font-bold"
+                >
+                  현재 템플릿 축 조합
+                </SelectItem>
+                {savedTemplates.map((t) => (
+                  <SelectItem
+                    key={t.id}
+                    value={encodeAxis({
+                      kind: "template",
+                      templateId: t.id,
+                    })}
+                    className="text-[12px] font-bold"
+                  >
+                    {t.name} (축 조합)
+                  </SelectItem>
+                ))}
+                {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
+                  (mode) => {
+                    let label = FREE_GROUP_LABELS[mode];
+                    if (mode === "filename") label = "파일명 기준";
+                    if (mode === "parsedFilename") label = "파일명 패턴 파싱";
+                    if (mode === "tags") label = "태그별 분류";
+                    if (mode === "savedTemplate") label = "템플릿 해시별";
+                    return (
+                      <SelectItem
+                        key={mode}
+                        value={encodeAxis({ kind: "free", mode })}
+                        className="text-[12px] font-bold"
+                      >
+                        {label}
+                      </SelectItem>
+                    );
+                  }
+                )}
+              </SelectContent>
+            </Select>
+
+            {/* 그룹 저장/수정/삭제 버튼 */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px] font-bold text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                const name = prompt("큐레이션 그룹 이름을 입력하세요:")
+                if (name !== null) {
+                  saveCurationGroup(name)
+                }
+              }}
+            >
+              새 그룹 저장
+            </Button>
+
+            {activeGroupId !== "__all__" && activeGroupId !== "custom" && !activeGroupId.startsWith("preset:") && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-[10px] font-bold bg-primary/5 border-primary/20 text-primary"
+                  onClick={() => {
+                    const existingName = savedGroups.find((g) => g.id === activeGroupId)?.name ?? ""
+                    if (confirm(`'${existingName}' 그룹 설정을 현재 필터/분류 기준으로 덮어쓰시겠습니까?`)) {
+                      saveCurationGroup(existingName)
+                    }
+                  }}
+                >
+                  업데이트
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-6 px-2 text-[10px] font-bold bg-red-500 hover:bg-red-600 text-white border-0"
+                  onClick={() => {
+                    if (confirm("정말로 이 큐레이션 그룹을 삭제하시겠습니까?")) {
+                      deleteCurationGroup(activeGroupId)
+                    }
+                  }}
+                >
+                  삭제
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* 글로벌 필터 (동적 메타데이터 기준) */}
+          {Object.entries(availableFilters).map(([key, options]) => {
+            const currentVal = activeCurationFilters[key] ?? ""
+            return (
+              <div key={key} className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase mr-1">{key}:</span>
+                <Select
+                  value={currentVal !== "" ? currentVal : "__all__"}
+                  onValueChange={(val) => {
+                    if (val === "__all__") {
+                      const { [key]: _, ...rest } = activeCurationFilters
+                      setActiveCurationFilters(rest)
+                    } else {
+                      const next = { ...activeCurationFilters }
+                      next[key] = val
+                      setActiveCurationFilters(next)
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-6 text-[10px] font-bold px-2 py-0 border-0 bg-transparent hover:bg-muted/10">
+                    <SelectValue placeholder="전체" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">전체</SelectItem>
+                    {options.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )
+          })}
+
           {/* 상태 필터 */}
           <Select
             value={statusFilter}
@@ -810,6 +953,154 @@ export function CombinationPickerToolbar({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 분류 기준 설정 — 모바일 */}
+            <div className="space-y-1.5 border-t border-dashed pt-4">
+              <label className="text-xs font-bold text-muted-foreground">
+                분류 기준
+              </label>
+              <Select
+                value={selectedAxis}
+                onValueChange={(val) => {
+                  setSelectedAxis(val)
+                  setFiltersExpanded(false)
+                }}
+              >
+                <SelectTrigger className="h-10 text-sm font-bold w-full bg-background">
+                  <SelectValue placeholder="분류 기준 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    value={encodeAxis({
+                      kind: "template",
+                      templateId: CURRENT_TEMPLATE_ID,
+                    })}
+                    className="text-[13px] font-bold"
+                  >
+                    현재 템플릿 축 조합
+                  </SelectItem>
+                  {savedTemplates.map((t) => (
+                    <SelectItem
+                      key={t.id}
+                      value={encodeAxis({
+                        kind: "template",
+                        templateId: t.id,
+                      })}
+                      className="text-[13px] font-bold"
+                    >
+                      {t.name} (축 조합)
+                    </SelectItem>
+                  ))}
+                  {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
+                    (mode) => {
+                      let label = FREE_GROUP_LABELS[mode];
+                      if (mode === "filename") label = "파일명 기준";
+                      if (mode === "parsedFilename") label = "파일명 패턴 파싱";
+                      if (mode === "tags") label = "태그별 분류";
+                      if (mode === "savedTemplate") label = "템플릿 해시별";
+                      return (
+                        <SelectItem
+                          key={mode}
+                          value={encodeAxis({ kind: "free", mode })}
+                          className="text-[13px] font-bold"
+                        >
+                          {label}
+                        </SelectItem>
+                      );
+                    }
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 그룹 관리 버튼 — 모바일 */}
+            <div className="space-y-1.5 border-t border-dashed pt-4">
+              <label className="text-xs font-bold text-muted-foreground">
+                그룹 관리
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 text-xs font-bold flex-1"
+                  onClick={() => {
+                    const name = prompt("큐레이션 그룹 이름을 입력하세요:")
+                    if (name !== null) {
+                      saveCurationGroup(name)
+                    }
+                  }}
+                >
+                  새 그룹 저장
+                </Button>
+
+                {activeGroupId !== "__all__" && activeGroupId !== "custom" && !activeGroupId.startsWith("preset:") && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 text-xs font-bold bg-primary/5 border-primary/20 text-primary px-3"
+                      onClick={() => {
+                        const existingName = savedGroups.find((g) => g.id === activeGroupId)?.name ?? ""
+                        if (confirm(`'${existingName}' 그룹 설정을 현재 필터/분류 기준으로 덮어쓰시겠습니까?`)) {
+                          saveCurationGroup(existingName)
+                        }
+                      }}
+                    >
+                      업데이트
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-10 text-xs font-bold bg-red-500 hover:bg-red-600 text-white border-0 px-3"
+                      onClick={() => {
+                        if (confirm("정말로 이 큐레이션 그룹을 삭제하시겠습니까?")) {
+                          deleteCurationGroup(activeGroupId)
+                        }
+                      }}
+                    >
+                      삭제
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 글로벌 필터 — 모바일 */}
+            {Object.entries(availableFilters).map(([key, options]) => {
+              const currentVal = activeCurationFilters[key] ?? ""
+              return (
+                <div key={key} className="space-y-1.5 border-t border-dashed pt-4">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">
+                    필터: {key}
+                  </label>
+                  <Select
+                    value={currentVal !== "" ? currentVal : "__all__"}
+                    onValueChange={(val) => {
+                      if (val === "__all__") {
+                        const { [key]: _, ...rest } = activeCurationFilters
+                        setActiveCurationFilters(rest)
+                      } else {
+                        const next = { ...activeCurationFilters }
+                        next[key] = val
+                        setActiveCurationFilters(next)
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-10 text-sm font-bold bg-background">
+                      <SelectValue placeholder="전체" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">전체</SelectItem>
+                      {options.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+            })}
 
             {/* 통합 검색 필터 */}
             <div className="space-y-1.5">

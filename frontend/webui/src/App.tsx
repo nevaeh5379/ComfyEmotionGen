@@ -15,7 +15,7 @@ import { useBackendHealth } from "./comfyui/hooks/useBackendHealth"
 import { useBackendUrl } from "./comfyui/hooks/useBackendUrl"
 
 // ── Contexts ──
-import { CurationToolbarProvider } from "./comfyui/components/combinationpicker/CurationToolbarTypes"
+import { CurationToolbarProvider, type CurationGroup } from "./comfyui/components/combinationpicker/CurationToolbarTypes"
 import { useTemplateContext } from "./comfyui/contexts/useTemplateContext"
 import { useWorkflowContext } from "./comfyui/contexts/WorkflowContext"
 import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
@@ -176,9 +176,21 @@ function AppContent(): React.JSX.Element {
   >("ceg_jobsPanelOrder", "composition-first")
 
   // ── Curation toolbar ──
-  const [curationSelectedAxis, setCurationSelectedAxis] = useSyncedStorage(
+  const [curationSelectedAxis, setCurationSelectedAxis] = useSyncedStorage<string>(
     STORAGE_KEYS.curationSelectedAxis,
     DEFAULT_AXIS
+  )
+  const [curationSavedGroups, setCurationSavedGroups] = useSyncedStorage<CurationGroup[]>(
+    STORAGE_KEYS.curationSavedGroups,
+    []
+  )
+  const [curationActiveGroupId, setCurationActiveGroupId] = useSyncedStorage<string>(
+    STORAGE_KEYS.curationActiveGroupId,
+    "preset:template:__current__"
+  )
+  const [curationActiveFilters, setCurationActiveFilters] = useSyncedStorage<Record<string, string>>(
+    STORAGE_KEYS.curationActiveFilters,
+    {}
   )
 
   // ── Window manager ──
@@ -581,6 +593,12 @@ function AppContent(): React.JSX.Element {
       <CurationToolbarProvider
         selectedAxis={curationSelectedAxis}
         setSelectedAxis={setCurationSelectedAxis}
+        activeGroupId={curationActiveGroupId}
+        setActiveGroupId={setCurationActiveGroupId}
+        activeFilters={curationActiveFilters}
+        setActiveFilters={setCurationActiveFilters}
+        savedGroups={curationSavedGroups}
+        setSavedGroups={setCurationSavedGroups}
         savedTemplates={template.savedTemplates}
       >
         <Header
@@ -686,6 +704,12 @@ function AppContent(): React.JSX.Element {
               fluidGridLayout={settings.fluidGridLayout}
               curationSelectedAxis={curationSelectedAxis}
               setCurationSelectedAxis={setCurationSelectedAxis}
+              curationActiveGroupId={curationActiveGroupId}
+              setCurationActiveGroupId={setCurationActiveGroupId}
+              curationActiveFilters={curationActiveFilters}
+              setCurationActiveFilters={setCurationActiveFilters}
+              curationSavedGroups={curationSavedGroups}
+              setCurationSavedGroups={setCurationSavedGroups}
             />
           )}
           {activeTab === "generator" && (

@@ -1,4 +1,5 @@
 import { CombinationPicker } from "../combinationpicker/CombinationPicker"
+import { type CurationGroup } from "../combinationpicker/CurationToolbarTypes"
 import type {
   CurationToolbarState,
   CurationViewMode,
@@ -22,6 +23,12 @@ export interface CurationTabProps {
   fluidGridLayout: AppSettings["fluidGridLayout"]
   curationSelectedAxis: string
   setCurationSelectedAxis: (axis: string) => void
+  curationActiveGroupId: string
+  setCurationActiveGroupId: (id: string) => void
+  curationActiveFilters: Record<string, string>
+  setCurationActiveFilters: (filters: Record<string, string>) => void
+  curationSavedGroups: CurationGroup[]
+  setCurationSavedGroups: (groups: CurationGroup[]) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +46,12 @@ export function CurationTab({
   fluidGridLayout,
   curationSelectedAxis,
   setCurationSelectedAxis,
+  curationActiveGroupId,
+  setCurationActiveGroupId,
+  curationActiveFilters,
+  setCurationActiveFilters,
+  curationSavedGroups,
+  setCurationSavedGroups,
 }: CurationTabProps): React.JSX.Element {
   const toolbarState: CurationToolbarState = {
     selectedAxis: curationSelectedAxis,
@@ -60,6 +73,12 @@ export function CurationTab({
         savedWorkflows={savedWorkflows}
         fluidGridLayout={fluidGridLayout}
         toolbarState={toolbarState}
+        activeGroupId={curationActiveGroupId}
+        setActiveGroupId={setCurationActiveGroupId}
+        activeFilters={curationActiveFilters}
+        setActiveFilters={setCurationActiveFilters}
+        savedGroups={curationSavedGroups}
+        setSavedGroups={setCurationSavedGroups}
       />
     </div>
   )

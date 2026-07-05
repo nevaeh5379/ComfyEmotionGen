@@ -11,6 +11,13 @@ export type CurationViewMode =
   | "compare"
   | "tournament"
 
+export interface CurationGroup {
+  id: string
+  name: string
+  selectedAxis: string
+  filters: Record<string, string>
+}
+
 export interface CurationToolbarState {
   selectedAxis: string
   setSelectedAxis: (axis: string) => void
@@ -53,17 +60,37 @@ export interface CurationToolbarValue {
   setExportHandler: (fn: () => void) => void
   onRefresh: () => void
   setRefreshHandler: (fn: () => void) => void
+
+  activeGroupId: string
+  setActiveGroupId: (v: string) => void
+  activeFilters: Record<string, string>
+  setActiveFilters: (v: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  setSavedGroups: (v: CurationGroup[]) => void
+  selectCurationGroup: (id: string) => void
 }
 
 export function CurationToolbarProvider({
   children,
   selectedAxis,
   setSelectedAxis,
+  activeGroupId,
+  setActiveGroupId,
+  activeFilters,
+  setActiveFilters,
+  savedGroups,
+  setSavedGroups,
   savedTemplates,
 }: {
   children: React.ReactNode
   selectedAxis: string
   setSelectedAxis: (v: string) => void
+  activeGroupId: string
+  setActiveGroupId: (v: string) => void
+  activeFilters: Record<string, string>
+  setActiveFilters: (v: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  setSavedGroups: (v: CurationGroup[]) => void
   savedTemplates: { id: string; name: string }[]
 }): React.JSX.Element {
   const [viewMode, setViewModeState] = useLocalStorage<CurationViewMode>(
@@ -132,6 +159,27 @@ export function CurationToolbarProvider({
     refreshRef.current()
   }, [])
 
+  const selectCurationGroup = useCallback((id: string) => {
+    if (id === "__all__") {
+      setActiveGroupId("__all__")
+      setActiveFilters({})
+      return
+    }
+    if (id.startsWith("preset:")) {
+      const axis = id.slice("preset:".length)
+      setActiveGroupId(id)
+      setActiveFilters({})
+      setSelectedAxis(axis)
+      return
+    }
+    const group = savedGroups.find((g) => g.id === id)
+    if (group) {
+      setActiveGroupId(id)
+      setActiveFilters(group.filters)
+      setSelectedAxis(group.selectedAxis)
+    }
+  }, [savedGroups, setSelectedAxis, setActiveGroupId, setActiveFilters])
+
   const value = useMemo(
     () => ({
       selectedAxis,
@@ -159,6 +207,13 @@ export function CurationToolbarProvider({
       setExportHandler,
       onRefresh,
       setRefreshHandler,
+      activeGroupId,
+      setActiveGroupId,
+      activeFilters,
+      setActiveFilters,
+      savedGroups,
+      setSavedGroups,
+      selectCurationGroup,
     }),
     [
       selectedAxis,
@@ -186,6 +241,13 @@ export function CurationToolbarProvider({
       setExportHandler,
       onRefresh,
       setRefreshHandler,
+      activeGroupId,
+      setActiveGroupId,
+      activeFilters,
+      setActiveFilters,
+      savedGroups,
+      setSavedGroups,
+      selectCurationGroup,
     ]
   )
 

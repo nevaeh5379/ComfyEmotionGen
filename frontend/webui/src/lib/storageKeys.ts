@@ -31,4 +31,8 @@ export const STORAGE_KEYS = {
   curationViewMode: "comfy.curation.viewMode",
   curationListLayout: "comfy.curation.listLayout",
   curationGridSubMode: "comfy.curation.gridSubMode",
+  curationGlobalFilterKeys: "comfy.curation.globalFilterKeys",
+  curationSavedGroups: "comfy.curation.savedGroups",
+  curationActiveGroupId: "comfy.curation.activeGroupId",
+  curationActiveFilters: "comfy.curation.activeFilters",
 } as const
