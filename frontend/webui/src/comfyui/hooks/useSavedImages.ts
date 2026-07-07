@@ -266,7 +266,18 @@ export const useSavedImages = (
         void fetchImages(false)
       }
     },
-    [fetchImages, fetchGroups, groupMode]
+    [
+      fetchImages,
+      fetchGroups,
+      groupMode,
+      status,
+      filename,
+      tag,
+      page,
+      pageSize,
+      groupPage,
+      groupPageSize,
+    ]
   )
 
   // 그룹 목록이 바뀌면 이미지 fetch

@@ -264,6 +264,7 @@ class SavedImageResponse(BaseModel):
     trashedAt: Optional[float] = None
     tags: list[str] = Field(default_factory=list)
     meta: dict[str, str] = Field(default_factory=dict)
+    cegTemplate: str = ""
 
 
 class SavedImageListItemResponse(BaseModel):
@@ -287,6 +288,7 @@ class SavedImageListItemResponse(BaseModel):
     trashedAt: Optional[float] = None
     tags: list[str] = Field(default_factory=list)
     meta: dict[str, str] = Field(default_factory=dict)
+    cegTemplate: str = ""
 
 
 class SavedImagesListResponse(BaseModel):

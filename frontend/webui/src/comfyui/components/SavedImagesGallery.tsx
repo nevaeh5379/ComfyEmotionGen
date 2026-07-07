@@ -49,6 +49,7 @@ import {
   Search,
   FolderPlus,
   Copy,
+  FileCode2,
   Scissors,
   Eye,
   Sliders,
@@ -77,6 +78,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { copyImageUrlToClipboard } from "@/lib/clipboard"
 import {
   Select,
   SelectContent,
@@ -2355,6 +2357,48 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             >
                               <Eye className="h-3.5 w-3.5" />
                               상세 보기
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={(): void => {
+                                if (img.cegTemplate?.trim()) {
+                                  void navigator.clipboard
+                                    .writeText(img.cegTemplate)
+                                    .then(() => {
+                                      toast.success(
+                                        "CEG 문법이 클립보드에 복사되었습니다."
+                                      )
+                                    })
+                                    .catch(() => {
+                                      toast.error(
+                                        "CEG 문법 복사에 실패했습니다."
+                                      )
+                                    })
+                                }
+                              }}
+                              disabled={!img.cegTemplate?.trim()}
+                              className="gap-2 font-bold"
+                            >
+                              <FileCode2 className="h-3.5 w-3.5" />
+                              CEG 문법 복사
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={(): void => {
+                                void copyImageUrlToClipboard(
+                                  `${backendUrl}/saved-images/${hash}`
+                                )
+                                  .then(() => {
+                                    toast.success(
+                                      "이미지가 클립보드에 복사되었습니다."
+                                    )
+                                  })
+                                  .catch(() => {
+                                    toast.error("이미지 복사에 실패했습니다.")
+                                  })
+                              }}
+                              className="gap-2 font-bold"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              이미지 복사
                             </ContextMenuItem>
                             <ContextMenuItem
                               onClick={(): void => {

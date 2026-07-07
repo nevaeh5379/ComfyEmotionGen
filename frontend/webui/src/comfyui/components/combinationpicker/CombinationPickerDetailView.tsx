@@ -15,6 +15,7 @@ import {
   Upload as UploadIcon,
   FileCode2Icon,
   RotateCcwIcon,
+  CopyIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -45,6 +46,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import { API } from "@/lib/api"
+import { copyImageUrlToClipboard } from "@/lib/clipboard"
 import { toast } from "sonner"
 import type { SavedImage } from "../../types/Message"
 import { LoadingButton } from "./CombinationPickerComponents"
@@ -902,6 +904,40 @@ export function CombinationPickerDetailView({
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => onEdit?.(img)}>
                       <Edit3Icon className="h-4 w-4" /> 이미지 편집
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onClick={() => {
+                        if (img.cegTemplate?.trim()) {
+                          void navigator.clipboard
+                            .writeText(img.cegTemplate)
+                            .then(() => {
+                              toast.success(
+                                "CEG 문법이 클립보드에 복사되었습니다."
+                              )
+                            })
+                            .catch(() => {
+                              toast.error("CEG 문법 복사에 실패했습니다.")
+                            })
+                        }
+                      }}
+                      disabled={!img.cegTemplate?.trim()}
+                    >
+                      <FileCode2Icon className="h-4 w-4" /> CEG 문법 복사
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onClick={() => {
+                        void copyImageUrlToClipboard(
+                          `${backendUrl}/saved-images/${img.hash}`
+                        )
+                          .then(() => {
+                            toast.success("이미지가 클립보드에 복사되었습니다.")
+                          })
+                          .catch(() => {
+                            toast.error("이미지 복사에 실패했습니다.")
+                          })
+                      }}
+                    >
+                      <CopyIcon className="h-4 w-4" /> 이미지 복사
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     {isSelected ? (

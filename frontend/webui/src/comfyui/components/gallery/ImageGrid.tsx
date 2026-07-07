@@ -15,8 +15,11 @@ import {
   XCircleIcon,
   Download,
   FileJson,
+  FileCode2,
   Tag,
 } from "lucide-react"
+import { toast } from "sonner"
+import { copyImageUrlToClipboard } from "@/lib/clipboard"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -421,6 +424,25 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
+            if (img.cegTemplate?.trim()) {
+              void navigator.clipboard
+                .writeText(img.cegTemplate)
+                .then(() => {
+                  toast.success("CEG 문법이 클립보드에 복사되었습니다.")
+                })
+                .catch(() => {
+                  toast.error("CEG 문법 복사에 실패했습니다.")
+                })
+            }
+          }}
+          disabled={!img.cegTemplate?.trim()}
+          className="gap-2 font-bold"
+        >
+          <FileCode2 className="h-3.5 w-3.5" />
+          CEG 문법 복사
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
             if (img.tags.length > 0) {
               void navigator.clipboard.writeText(img.tags.join(", "))
             }
@@ -446,6 +468,22 @@ const ImageGridItem = memo(function ImageGridItem({
         >
           <Download className="h-3.5 w-3.5" />
           원래 이름으로 다운로드
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            const url = `${backendUrl}/saved-images/${img.hash}`
+            void copyImageUrlToClipboard(url)
+              .then(() => {
+                toast.success("이미지가 클립보드에 복사되었습니다.")
+              })
+              .catch(() => {
+                toast.error("이미지 복사에 실패했습니다.")
+              })
+          }}
+          className="gap-2 font-bold"
+        >
+          <CopyIcon className="h-3.5 w-3.5" />
+          이미지 복사
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
