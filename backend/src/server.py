@@ -77,6 +77,7 @@ from backend.src.models import (
     SnapshotEvent,
     SettingsUpdatedEvent,
     SavedImageResponse,
+    SavedImageListItemResponse,
     SavedImagesListResponse,
     JobSavedImagesResponse,
     JSONValue,
@@ -1622,7 +1623,7 @@ async def saved_images_list(
     total = await job_manager._store.count_saved_images(
         job_id=job_id, status=status, filename=filename, tag=tag
     )
-    items = [SavedImageResponse.model_validate(it) for it in items_raw]
+    items = [SavedImageListItemResponse.model_validate(it) for it in items_raw]
     return SavedImagesListResponse(items=items, limit=limit, offset=offset, total=total)
 
 
@@ -1635,7 +1636,7 @@ async def saved_images_for_job(job_id: str) -> JobSavedImagesResponse:
     items_raw = await job_manager._store.list_saved_images(
         limit=10_000, offset=0, job_id=job_id
     )
-    items = [SavedImageResponse.model_validate(it) for it in items_raw]
+    items = [SavedImageListItemResponse.model_validate(it) for it in items_raw]
     return JobSavedImagesResponse(jobId=job_id, items=items)
 
 

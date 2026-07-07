@@ -81,6 +81,35 @@ class JobResponse(BaseModel):
     targetWorkerId: Optional[str] = None
 
 
+class JobViewResponse(BaseModel):
+    """
+    Lightweight job view for lists and realtime events.
+    Large workflow payloads are intentionally excluded from this model.
+    """
+    id: str
+    filename: str
+    prompt: str
+    status: JobStatus
+    createdAt: float
+    workerId: Optional[str] = None
+    error: Optional[str] = None
+    imageUrls: list[str] = Field(default_factory=list)
+    savedImageHashes: list[str] = Field(default_factory=list)
+    progressPercent: float = 0.0
+    currentNodeName: str = ""
+    totalNodeCount: int = 0
+    completedNodeCount: int = 0
+    startedAt: Optional[float] = None
+    finishedAt: Optional[float] = None
+    retryCount: int = 0
+    executionDurationMs: Optional[float] = None
+    meta: dict[str, str] = Field(default_factory=dict)
+    cegTemplate: str = ""
+    imageUploads: dict[str, dict[str, str]] = Field(default_factory=dict)
+    workerType: Optional[str] = None
+    targetWorkerId: Optional[str] = None
+
+
 class WorkerViewResponse(BaseModel):
     """
     API response model displaying the connectivity and processing state of a worker.
@@ -114,7 +143,7 @@ class JobQueryResponse(BaseModel):
     조건에 맞게 필터링된 작업 목록과 페이지네이션 메타데이터를 함께 담아 전달하는 API 응답 모델 클래스입니다.
     """
     total: int
-    items: list[JobResponse]
+    items: list[JobViewResponse]
     limit: int
     offset: int
 
@@ -133,7 +162,7 @@ class JobCreatedEvent(BaseEvent):
     새로운 이미지 생성 작업이 대기열에 무사히 생성 및 등록되었을 때 전송되는 실시간 웹소켓 이벤트 클래스입니다.
     """
     type: Literal["job.created"]
-    job: JobResponse
+    job: JobViewResponse
 
 
 class JobUpdatedEvent(BaseEvent):
@@ -142,7 +171,7 @@ class JobUpdatedEvent(BaseEvent):
     작업의 상태 변화, 렌더링 노드 전환 및 진행률 변경 정보를 실시간으로 알리는 웹소켓 이벤트 클래스입니다.
     """
     type: Literal["job.updated"]
-    job: JobResponse
+    job: JobViewResponse
 
 
 class JobDeletedEvent(BaseEvent):
@@ -237,12 +266,35 @@ class SavedImageResponse(BaseModel):
     meta: dict[str, str] = Field(default_factory=dict)
 
 
+class SavedImageListItemResponse(BaseModel):
+    """
+    Lightweight saved-image item for gallery lists.
+    The full workflow is available from detail endpoints when needed.
+    """
+    hash: str
+    jobId: str
+    originalFilename: str
+    comfyFilename: str
+    subfolder: str
+    type: str
+    workerId: Optional[str] = None
+    extension: str
+    sizeBytes: int
+    prompt: str
+    createdAt: float
+    status: str
+    note: str
+    trashedAt: Optional[float] = None
+    tags: list[str] = Field(default_factory=list)
+    meta: dict[str, str] = Field(default_factory=dict)
+
+
 class SavedImagesListResponse(BaseModel):
     """
     API response model containing a paginated slice of curated, saved images.
     사용자가 생성하여 보관 중인 이미지 목록을 페이지네이션 정보와 함께 안전하게 전송하는 API 응답 모델 클래스입니다.
     """
-    items: list[SavedImageResponse]
+    items: list[SavedImageListItemResponse]
     limit: int
     offset: int
     total: int
@@ -254,7 +306,7 @@ class JobSavedImagesResponse(BaseModel):
     단일 이미지 생성 작업(Job)에서 생성되어 저장된 결과 이미지들의 그룹 목록을 반환하는 API 응답 모델 클래스입니다.
     """
     jobId: str
-    items: list[SavedImageResponse]
+    items: list[SavedImageListItemResponse]
 
 
 class ImageCurationEvent(BaseEvent):
@@ -263,7 +315,7 @@ class ImageCurationEvent(BaseEvent):
     저장된 이미지의 큐레이션 상태(보관/휴지통 등) 또는 태그 조합이 변경되었을 때 실시간으로 통보하는 웹소켓 이벤트 클래스입니다.
     """
     type: Literal["image.curation"]
-    image: Optional[SavedImageResponse] = None
+    image: Optional[SavedImageListItemResponse] = None
     hash: Optional[str] = None
     tags: Optional[list[str]] = None
 
@@ -295,7 +347,7 @@ class SnapshotEvent(BaseModel):
     화면 초기 접속 또는 대폭적인 갱신 시, 현재 큐에 있는 모든 작업과 활성화된 모든 워커의 상태를 일괄 동기화하는 이벤트 클래스입니다.
     """
     type: Literal["snapshot"]
-    jobs: list[JobResponse]
+    jobs: list[JobViewResponse]
     workers: list[SnapshotWorker]
     paused: bool
 

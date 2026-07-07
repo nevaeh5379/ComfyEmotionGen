@@ -50,7 +50,10 @@ export function useJobRunner(): {
   selectedCount: number | null
   isAliveBackend: boolean
   backendUrl: string
-  handleRunSingle: (item: RenderItem) => Promise<boolean>
+  handleRunSingle: (
+    item: RenderItem,
+    options?: { cegTemplate?: string }
+  ) => Promise<boolean>
   callParser: () => Promise<RenderItemsResponse | undefined>
   submitJobs: (items: RenderItem[]) => Promise<boolean>
   fetchApprovedFilenames: () => Promise<Set<string>>
@@ -189,8 +192,12 @@ export function useJobRunner(): {
   }, [backendUrlRef, cegTemplateRef])
 
   const submitJobsInternal = useCallback(
-    async (items: RenderItem[]): Promise<boolean> => {
+    async (
+      items: RenderItem[],
+      options?: { cegTemplate?: string }
+    ): Promise<boolean> => {
       if (!workflowJsonRef.current || items.length === 0) return false
+      const templateForPayload = options?.cegTemplate ?? cegTemplateRef.current
       const imageNameMap: Record<string, string> = {}
       const imageUploads: Record<string, Record<string, string>> = {}
       for (const m of nodeMappingsRef.current) {
@@ -219,7 +226,7 @@ export function useJobRunner(): {
           imageNameMap
         ),
         meta: item.meta,
-        cegTemplate: cegTemplateRef.current,
+        cegTemplate: templateForPayload,
         imageUploads,
         workerType: "comfyui",
         workerId: targetWorkerIdRef.current ?? undefined,
@@ -367,14 +374,17 @@ export function useJobRunner(): {
   ])
 
   const handleRunSingle = useCallback(
-    async (item: RenderItem): Promise<boolean> => {
+    async (
+      item: RenderItem,
+      options?: { cegTemplate?: string }
+    ): Promise<boolean> => {
       if (!workflowJsonRef.current || !isAliveBackendRef.current) return false
-      const ok = await submitJobs([item])
+      const ok = await submitJobsInternal([item], options)
       if (!ok) toast.error("테스트 실행에 실패했습니다.")
       else toast.success("테스트가 큐에 추가되었습니다.")
       return ok
     },
-    [workflowJsonRef, isAliveBackendRef, submitJobs]
+    [workflowJsonRef, isAliveBackendRef, submitJobsInternal]
   )
 
   const handleRunUnapproved = useCallback(async (): Promise<void> => {

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -62,6 +63,21 @@ export function NodeMappingProvider({
   const [imageUploads, setImageUploads] = useState<
     Record<string, ImageUploadState>
   >({})
+  const imageUploadsRef = useRef(imageUploads)
+
+  useEffect(() => {
+    imageUploadsRef.current = imageUploads
+  }, [imageUploads])
+
+  useEffect(() => {
+    return () => {
+      Object.values(imageUploadsRef.current).forEach((upload) => {
+        if (upload.previewUrl?.startsWith("blob:") === true) {
+          URL.revokeObjectURL(upload.previewUrl)
+        }
+      })
+    }
+  }, [])
 
   const savedNodeMappings = useMemo(
     () => activeWorkflow?.mappingPresets ?? [],
@@ -172,19 +188,21 @@ export function NodeMappingProvider({
         const data = (await res.json()) as { hash: string; filename: string }
         // imageValue에 __upload__{hash}.{ext} 마커 저장
         const ext = file.name.split(".").pop() ?? "png"
+        const uploadedPreviewUrl = `${backendUrl}/uploaded_images/${data.hash}.${ext}`
         updateMapping(
           nodeMappings.find(
             (m) => m.nodeId === nodeId && m.inputKey === inputKey
           )?.id ?? "",
           { imageValue: `__upload__${data.hash}.${ext}` }
         )
+        URL.revokeObjectURL(previewUrl)
         setImageUploads((prev) => ({
           ...prev,
           [key]: {
             uploadedName: data.hash,
             error: null,
             uploading: false,
-            previewUrl,
+            previewUrl: uploadedPreviewUrl,
           },
         }))
       } catch (err) {

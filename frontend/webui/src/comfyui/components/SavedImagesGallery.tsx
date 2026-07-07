@@ -122,6 +122,10 @@ import type {
   GalleryViewMode,
   GallerySortKey,
 } from "@/comfyui/contexts/GalleryToolbarContext"
+import {
+  DEFAULT_GROUP_PAGE_SIZE,
+  DEFAULT_IMAGE_PAGE_SIZE,
+} from "@/lib/constants"
 
 /** 1..totalPages를 ellipsis와 함께 압축. 현재 페이지 ±1 표시. */
 function buildPageList(current: number, totalPages: number): (number | "…")[] {
@@ -189,8 +193,8 @@ interface Props {
   fluidGridLayout?: boolean
 }
 
-const DEFAULT_PAGE_SIZE = 48
-const GROUP_PAGE_SIZE = 20
+const DEFAULT_PAGE_SIZE = DEFAULT_IMAGE_PAGE_SIZE
+const GROUP_PAGE_SIZE = DEFAULT_GROUP_PAGE_SIZE
 
 export const SavedImagesGallery = memo(function SavedImagesGallery({
   backendUrl,
@@ -532,18 +536,26 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     }
   }, [currentFiltersStr])
 
-  const { images, groups, groupImagesMap, loading, error, reload } =
-    useSavedImages({
-      backendUrl,
-      status: effectiveGroupMode ? "all" : effectiveStatusFilter,
-      filename: undefined,
-      tag: undefined,
-      page: 1,
-      pageSize: 10000,
-      groupMode: effectiveGroupMode,
-      groupPage: 1,
-      groupPageSize: 1000,
-    })
+  const {
+    images,
+    groups,
+    groupImagesMap,
+    total,
+    groupTotal,
+    loading,
+    error,
+    reload,
+  } = useSavedImages({
+    backendUrl,
+    status: effectiveGroupMode ? "all" : effectiveStatusFilter,
+    filename: effectiveFilenameFilter || undefined,
+    tag: effectiveTagFilter || undefined,
+    page,
+    pageSize: imagePageSize,
+    groupMode: effectiveGroupMode,
+    groupPage,
+    groupPageSize: GROUP_PAGE_SIZE,
+  })
 
   // Register reload function for external triggers (Header dropdown, keyboard shortcuts)
   useEffect((): void => {
@@ -780,35 +792,35 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
     getTokens,
   ])
 
+  const hasClientOnlyImageFilters =
+    effectiveMetadataFilter.trim() !== "" ||
+    effectiveGeneralFilters.length > 0 ||
+    breadcrumbTags.length > 0 ||
+    effectiveHideRejected
   const totalPages = Math.max(
     1,
-    Math.ceil(visibleImages.length / imagePageSize)
+    Math.ceil(
+      (hasClientOnlyImageFilters ? visibleImages.length : total) / imagePageSize
+    )
   )
   const pageList = useMemo(
     () => buildPageList(page, totalPages),
     [page, totalPages]
   )
 
-  const groupTotalPages = Math.max(
-    1,
-    Math.ceil(visibleGroups.length / GROUP_PAGE_SIZE)
-  )
+  const groupTotalPages = Math.max(1, Math.ceil(groupTotal / GROUP_PAGE_SIZE))
   const groupPageList = useMemo(
     () => buildPageList(groupPage, groupTotalPages),
     [groupPage, groupTotalPages]
   )
 
   const paginatedVisibleImages = useMemo(() => {
-    const start = (page - 1) * imagePageSize
-    const end = page * imagePageSize
-    return visibleImages.slice(start, end)
-  }, [visibleImages, page, imagePageSize])
+    return visibleImages
+  }, [visibleImages])
 
   const paginatedVisibleGroups = useMemo(() => {
-    const start = (groupPage - 1) * GROUP_PAGE_SIZE
-    const end = groupPage * GROUP_PAGE_SIZE
-    return visibleGroups.slice(start, end)
-  }, [visibleGroups, groupPage])
+    return visibleGroups
+  }, [visibleGroups])
 
   // total 변동으로 현재 page가 범위 밖이면 클램프
   // (totalPages는 비동기 API 결과에서 파생되므로 렌더 중 파생값으로 처리할 수 없음)
@@ -2463,7 +2475,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 })}
 
                 {/* 그룹 페이지네이션 */}
-                {visibleGroups.length > GROUP_PAGE_SIZE && (
+                {groupTotalPages > 1 && (
                   <div className="flex flex-col items-center gap-2">
                     <Pagination>
                       <PaginationContent>
@@ -2518,8 +2530,8 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                       </PaginationContent>
                     </Pagination>
                     <p className="text-xs text-muted-foreground">
-                      총 {visibleGroups.length}개 그룹 · {groupPage}/
-                      {groupTotalPages} 페이지
+                      총 {groupTotal}개 그룹 · {groupPage}/{groupTotalPages}{" "}
+                      페이지
                     </p>
                   </div>
                 )}
@@ -2568,7 +2580,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
 
             {!effectiveGroupMode &&
               effectiveGalleryViewMode === "grid" &&
-              visibleImages.length > imagePageSize && (
+              totalPages > 1 && (
                 <div className="flex flex-col items-center gap-2">
                   <Pagination>
                     <PaginationContent>
@@ -2623,7 +2635,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                     </PaginationContent>
                   </Pagination>
                   <p className="text-xs text-muted-foreground">
-                    총 {visibleImages.length}개 · {page}/{totalPages} 페이지
+                    총{" "}
+                    {hasClientOnlyImageFilters ? visibleImages.length : total}개
+                    · {page}/{totalPages} 페이지
                   </p>
                   {selectionMode && (
                     <div className="flex items-center gap-2">

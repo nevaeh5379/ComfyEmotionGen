@@ -27,7 +27,6 @@ function dispatchStatusFromJobs(jobs: JobView[]): void {
 }
 
 export function applyComfyApiBridge(event: BackendEvent): void {
-  console.log("[CEG Bridge] event:", event)
   switch (event.type) {
     case "snapshot": {
       dispatchStatusFromJobs(event.jobs)

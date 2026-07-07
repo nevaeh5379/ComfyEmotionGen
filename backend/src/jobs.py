@@ -35,6 +35,7 @@ from backend.src.models import (
     JobItem,
     JobStatus,
     JobResponse,
+    JobViewResponse,
     WorkerViewResponse,
     DiagnosticsSnapshotResponse,
     JobQueryResponse,
@@ -202,6 +203,33 @@ class Job(BaseModel):
             filename=self.filename,
             prompt=self.prompt,
             workflow=self.workflow,
+            status=self.status,
+            workerId=self.worker_id,
+            error=self.error,
+            imageUrls=self.image_urls,
+            savedImageHashes=self.saved_image_hashes,
+            progressPercent=self.progress_percent,
+            currentNodeName=self.current_node_name,
+            totalNodeCount=self.total_node_count,
+            completedNodeCount=self.completed_node_count,
+            createdAt=self.created_at,
+            startedAt=self.started_at,
+            finishedAt=self.finished_at,
+            retryCount=self.retry_count,
+            executionDurationMs=self.execution_duration_ms,
+            meta=self.meta,
+            cegTemplate=self.ceg_template,
+            imageUploads=self.image_uploads,
+            workerType=self.worker_type,
+            targetWorkerId=self.target_worker_id,
+        )
+
+    def to_view_response(self) -> JobViewResponse:
+        """잡을 목록/이벤트용 경량 응답 모델로 변환한다."""
+        return JobViewResponse(
+            id=self.id,
+            filename=self.filename,
+            prompt=self.prompt,
             status=self.status,
             workerId=self.worker_id,
             error=self.error,
@@ -805,12 +833,12 @@ class JobManager:
         self._wakeup.set()
         return True
 
-    async def snapshot(self) -> list[JobResponse]:
+    async def snapshot(self) -> list[JobViewResponse]:
         """현재 인메모리에 있는 모든 활성 잡의 스냅샷을 반환한다.
         Returns a snapshot of all currently active in-memory jobs.
         """
         async with self._lock:
-            return [j.to_response() for j in self._jobs.values()]
+            return [j.to_view_response() for j in self._jobs.values()]
 
     async def diagnostics_snapshot(self) -> DiagnosticsSnapshotResponse:
         """시스템 진단 정보 스냅샷을 반환한다 (잡 수, 리스너 수, 디스패처 상태 등).
@@ -885,14 +913,14 @@ class JobManager:
             sort_by=sort_by,
             sort_order=sort_order,
         )
-        response_items: list[JobResponse] = []
+        response_items: list[JobViewResponse] = []
         async with self._lock:
             for item in items:
                 jid = item["id"]
                 if jid in self._jobs:
-                    response_items.append(self._jobs[jid].to_response())
+                    response_items.append(self._jobs[jid].to_view_response())
                 else:
-                    response_items.append(Job.from_dict(item).to_response())
+                    response_items.append(Job.from_dict(item).to_view_response())
         return JobQueryResponse(total=total, items=response_items, limit=limit, offset=offset)
 
     async def get_job(self, job_id: str) -> Optional[Job]:

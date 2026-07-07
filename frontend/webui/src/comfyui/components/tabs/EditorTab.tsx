@@ -250,6 +250,10 @@ export function EditorTab(): React.JSX.Element {
 
   // object_info 로드
   useEffect(() => {
+    if (Object.keys(nodeDefs).length > 0) {
+      setIsLoading(false)
+      return
+    }
     let cancelled = false
     async function load(): Promise<void> {
       try {
@@ -268,7 +272,7 @@ export function EditorTab(): React.JSX.Element {
     return (): void => {
       cancelled = true
     }
-  }, [setNodeDefs, backendUrl])
+  }, [nodeDefs, setNodeDefs, backendUrl])
 
   const handleSaveWorkflow = useCallback((): void => {
     if (saveName.trim() === "") return

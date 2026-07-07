@@ -15,7 +15,10 @@ import { useBackendHealth } from "./comfyui/hooks/useBackendHealth"
 import { useBackendUrl } from "./comfyui/hooks/useBackendUrl"
 
 // ── Contexts ──
-import { CurationToolbarProvider, type CurationGroup } from "./comfyui/components/combinationpicker/CurationToolbarTypes"
+import {
+  CurationToolbarProvider,
+  type CurationGroup,
+} from "./comfyui/components/combinationpicker/CurationToolbarTypes"
 import { useTemplateContext } from "./comfyui/contexts/useTemplateContext"
 import { useWorkflowContext } from "./comfyui/contexts/WorkflowContext"
 import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
@@ -176,22 +179,19 @@ function AppContent(): React.JSX.Element {
   >("ceg_jobsPanelOrder", "composition-first")
 
   // ── Curation toolbar ──
-  const [curationSelectedAxis, setCurationSelectedAxis] = useSyncedStorage<string>(
-    STORAGE_KEYS.curationSelectedAxis,
-    DEFAULT_AXIS
-  )
-  const [curationSavedGroups, setCurationSavedGroups] = useSyncedStorage<CurationGroup[]>(
-    STORAGE_KEYS.curationSavedGroups,
-    []
-  )
-  const [curationActiveGroupId, setCurationActiveGroupId] = useSyncedStorage<string>(
-    STORAGE_KEYS.curationActiveGroupId,
-    "preset:template:__current__"
-  )
-  const [curationActiveFilters, setCurationActiveFilters] = useSyncedStorage<Record<string, string>>(
-    STORAGE_KEYS.curationActiveFilters,
-    {}
-  )
+  const [curationSelectedAxis, setCurationSelectedAxis] =
+    useSyncedStorage<string>(STORAGE_KEYS.curationSelectedAxis, DEFAULT_AXIS)
+  const [curationSavedGroups, setCurationSavedGroups] = useSyncedStorage<
+    CurationGroup[]
+  >(STORAGE_KEYS.curationSavedGroups, [])
+  const [curationActiveGroupId, setCurationActiveGroupId] =
+    useSyncedStorage<string>(
+      STORAGE_KEYS.curationActiveGroupId,
+      "preset:template:__current__"
+    )
+  const [curationActiveFilters, setCurationActiveFilters] = useSyncedStorage<
+    Record<string, string>
+  >(STORAGE_KEYS.curationActiveFilters, {})
 
   // ── Window manager ──
   const {
@@ -339,20 +339,25 @@ function AppContent(): React.JSX.Element {
 
   const canRun =
     Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
+  const setObjectInfo = nodeMapping.setObjectInfo
 
   // ── Object info fetch ──
   useEffect(() => {
     if (!isAliveBackend) return
-    fetch(`${backendUrl}${API.objectInfo}`)
+    const controller = new AbortController()
+    fetch(`${backendUrl}${API.objectInfo}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data !== null && typeof data === "object")
-          nodeMapping.setObjectInfo(data as ObjectInfo)
+          setObjectInfo(data as ObjectInfo)
       })
-      .catch(() => {
-        /* intentionally empty - fire and forget */
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return
       })
-  }, [backendUrl, isAliveBackend, nodeMapping])
+    return (): void => {
+      controller.abort()
+    }
+  }, [backendUrl, isAliveBackend, setObjectInfo])
 
   // ── Quick save handler (Ctrl+S shortcut) ──
   const handleQuickSave = useCallback(() => {

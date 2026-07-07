@@ -31,7 +31,6 @@ export function useExecutionStatusBridge(): void {
 
     const handleExecutionStart = (event: Event): void => {
       const detail = detailFromEvent(event)
-      console.log("[CEG] execution_start:", detail)
       useReactGraphStore.setState({
         executionStatus: "running",
         executingPromptId: promptIdFromDetail(detail),
@@ -58,8 +57,6 @@ export function useExecutionStatusBridge(): void {
         nodeId !== null && nodeId !== undefined && nodeId !== ""
           ? Number(nodeId)
           : null
-      console.log("[CEG] executing node:", nodeIdNum, "promptId:", promptId)
-
       const store = useReactGraphStore.getState()
       const nextExecuted = new Set(store.executedNodeIds)
 
@@ -89,7 +86,6 @@ export function useExecutionStatusBridge(): void {
     const handleProgress = (event: Event): void => {
       const detail = detailFromEvent(event)
       const store = useReactGraphStore.getState()
-      console.log("[CEG] progress:", detail)
 
       const updateObj: Partial<typeof store> = {
         overallProgress: {
@@ -116,8 +112,6 @@ export function useExecutionStatusBridge(): void {
       if (detail.node !== null && detail.node !== undefined) {
         nextExecuted.add(Number(detail.node))
       }
-      console.log("[CEG] executed node:", Number(detail.node))
-
       const updateObj: Partial<typeof store> = {
         executedNodeIds: nextExecuted,
       }
@@ -141,8 +135,6 @@ export function useExecutionStatusBridge(): void {
           nextExecuted.add(Number(node))
         })
       }
-      console.log("[CEG] execution_cached nodes:", detail.nodes)
-
       const updateObj: Partial<typeof store> = {
         executedNodeIds: nextExecuted,
       }
@@ -160,7 +152,6 @@ export function useExecutionStatusBridge(): void {
     const handleExecutionSuccess = (event: Event): void => {
       const detail = detailFromEvent(event)
       const store = useReactGraphStore.getState()
-      console.log("[CEG] execution_success:", detail)
 
       const promptId = promptIdFromDetail(detail)
       if (
@@ -189,7 +180,6 @@ export function useExecutionStatusBridge(): void {
     }
 
     const handleExecutionError = (): void => {
-      console.log("[CEG] execution_error")
       useReactGraphStore.setState({
         executionStatus: "error",
         executingNodeId: null,
@@ -198,7 +188,6 @@ export function useExecutionStatusBridge(): void {
     }
 
     const handleExecutionInterrupted = (): void => {
-      console.log("[CEG] execution_interrupted")
       useReactGraphStore.setState({
         executionStatus: "interrupted",
         executingNodeId: null,
