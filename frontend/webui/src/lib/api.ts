@@ -8,6 +8,7 @@ export const API = {
   jobs: {
     root: "/jobs",
     detail: (id: string) => `/jobs/${id}`,
+    cancel: (id: string) => `/jobs/${id}`,
     pause: "/jobs/pause",
     resume: "/jobs/resume",
     retry: (id: string) => `/jobs/${id}/retry`,

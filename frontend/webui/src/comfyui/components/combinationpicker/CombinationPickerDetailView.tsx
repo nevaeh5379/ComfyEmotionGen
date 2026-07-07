@@ -44,13 +44,17 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
+import { API } from "@/lib/api"
+import { toast } from "sonner"
 import type { SavedImage } from "../../types/Message"
 import { LoadingButton } from "./CombinationPickerComponents"
 import { MetaTags, ImageWithSkeleton } from "./CombinationPickerHelpers"
 import { Magnifier } from "./CombinationPickerViews"
 import { hasApproved } from "../../types/Message"
 import { useCurationContext } from "./CurationContext"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useBackend } from "../../hooks/useBackend"
+import type { JobView } from "../../types/Message"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
@@ -60,6 +64,113 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
     target.closest(
       "input, textarea, select, [contenteditable='true'], .cm-editor, [role='textbox']"
     ) !== null
+  )
+}
+
+function getJobPreviewUrl(
+  job: JobView,
+  backendUrl: string,
+  previewToken: number | undefined
+): string | null {
+  const savedHash = job.savedImageHashes[0]
+  if (savedHash !== undefined) return `${backendUrl}/saved-images/${savedHash}`
+
+  const imageUrl = job.imageUrls[0]
+  if (imageUrl !== undefined && imageUrl !== "") {
+    if (/^https?:\/\//.test(imageUrl)) return imageUrl
+    return `${backendUrl}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`
+  }
+
+  if (
+    job.workerId !== null &&
+    previewToken !== undefined &&
+    (job.status === "running" || job.status === "queued")
+  ) {
+    return `${backendUrl}/workers/${job.workerId}/preview?t=${String(previewToken)}`
+  }
+
+  return null
+}
+
+function ActiveJobImageCard({
+  job,
+  backendUrl,
+  previewToken,
+  isCancelling,
+  onCancel,
+}: {
+  job: JobView
+  backendUrl: string
+  previewToken: number | undefined
+  isCancelling: boolean
+  onCancel: (jobId: string) => void
+}): React.JSX.Element {
+  const previewUrl = getJobPreviewUrl(job, backendUrl, previewToken)
+  const canCancel =
+    job.status === "pending" || job.status === "queued" || job.status === "running"
+  const statusLabel =
+    job.status === "done"
+      ? "완료"
+      : job.status === "running"
+        ? `생성 중 ${String(Math.round(job.progressPercent))}%`
+        : job.status === "queued"
+          ? "대기 중"
+          : "준비 중"
+
+  return (
+    <div className="group relative overflow-hidden rounded-xl border border-primary/30 bg-primary/[0.03] shadow-sm ring-1 ring-primary/10">
+      {previewUrl !== null ? (
+        <img
+          src={previewUrl}
+          alt={statusLabel}
+          className="h-full min-h-40 w-full object-contain"
+        />
+      ) : (
+        <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+          <RefreshCwIcon className="h-6 w-6 animate-spin opacity-50" />
+          <span className="text-xs font-bold">{statusLabel}</span>
+        </div>
+      )}
+      <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-black text-white backdrop-blur-sm">
+        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+        {statusLabel}
+      </div>
+      {canCancel && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="absolute top-2 right-2 h-7 w-7 rounded-full p-0 shadow-lg"
+              disabled={isCancelling}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onCancel(job.id)
+              }}
+            >
+              {isCancelling ? (
+                <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <XIcon className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>이 생성 취소</TooltipContent>
+        </Tooltip>
+      )}
+      {job.status === "running" && (
+        <div className="absolute right-2 bottom-2 left-2 h-1 overflow-hidden rounded-full bg-black/30">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{
+              width: `${String(Math.min(100, Math.max(0, job.progressPercent)))}%`,
+            }}
+          />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -120,12 +231,25 @@ export function CombinationPickerDetailView({
 }: DetailViewProps): React.JSX.Element {
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } =
     useCurationContext()
+  const { jobs, workerPreviews } = useBackend()
   const { setStatus, imagesByFilename, renderItems, uploadUserImage } = data
 
   const selectedItem = renderItems.find(
     (ri) => ri.filename === selectedFilename
   )
   const selectedImages = imagesByFilename.get(selectedFilename) ?? []
+  const activeJobsForSelection = useMemo(
+    () =>
+      jobs.filter(
+        (job) =>
+          job.filename === selectedFilename &&
+          (job.status === "pending" ||
+            job.status === "queued" ||
+            job.status === "running" ||
+            job.status === "done")
+      ),
+    [jobs, selectedFilename]
+  )
 
   const handleUploadClick = (): void => {
     const input = document.createElement("input")
@@ -145,6 +269,9 @@ export function CombinationPickerDetailView({
 
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null)
   const [cegEditorOpen, setCegEditorOpen] = useState(false)
+  const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(
+    () => new Set()
+  )
   const cegDraftDirty = cegDraft !== activeTemplate
   const [draftPromptPreview, setDraftPromptPreview] = useState(
     selectedItem?.prompt ?? ""
@@ -171,6 +298,33 @@ export function CombinationPickerDetailView({
     }
     return result
   }, [compareImageKeys])
+
+  const handleCancelActiveJob = useCallback(
+    (jobId: string): void => {
+      setCancellingJobIds((prev) => new Set(prev).add(jobId))
+      void (async (): Promise<void> => {
+        try {
+          const res = await fetch(`${backendUrl}${API.jobs.cancel(jobId)}`, {
+            method: "DELETE",
+          })
+          if (!res.ok) {
+            throw new Error(await res.text().catch(() => res.statusText))
+          }
+          toast.success("생성을 취소했습니다.")
+          window.dispatchEvent(new CustomEvent("ceg-refetch-jobs"))
+        } catch {
+          toast.error("생성 취소 요청에 실패했습니다.")
+        } finally {
+          setCancellingJobIds((prev) => {
+            const next = new Set(prev)
+            next.delete(jobId)
+            return next
+          })
+        }
+      })()
+    },
+    [backendUrl]
+  )
 
   useEffect(() => {
     if (viewMode !== "grid") return
@@ -577,7 +731,7 @@ export function CombinationPickerDetailView({
 
       {/* 이미지 뷰어 */}
       <div className="relative flex-1 overflow-y-auto p-2 md:py-1">
-        {visibleImages.length === 0 ? (
+        {visibleImages.length === 0 && activeJobsForSelection.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center space-y-4 text-muted-foreground">
             <Maximize2Icon className="h-10 w-10 opacity-20" />
             <p className="text-sm font-bold">생성된 이미지가 없습니다</p>
@@ -598,9 +752,23 @@ export function CombinationPickerDetailView({
             style={{
               gridTemplateColumns: fluidGridLayout
                 ? `repeat(auto-fill, minmax(${String(thumbnailSize)}px, 1fr))`
-                : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
+              : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
             }}
           >
+            {activeJobsForSelection.map((job) => (
+              <ActiveJobImageCard
+                key={job.id}
+                job={job}
+                backendUrl={backendUrl}
+                previewToken={
+                  job.workerId !== null
+                    ? workerPreviews[job.workerId]
+                    : undefined
+                }
+                isCancelling={cancellingJobIds.has(job.id)}
+                onCancel={handleCancelActiveJob}
+              />
+            ))}
             {visibleImages.map((img, idx) => {
               const isSelected = img.hash === selectedApprovedHash
               const isRejected = img.status === "rejected"

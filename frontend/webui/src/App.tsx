@@ -384,37 +384,13 @@ function AppContent(): React.JSX.Element {
 
   const handleSaveCurationCegTemplate = useCallback(
     (nextTemplate: string): void => {
-      const loadTemplates = (): typeof template.savedTemplates => {
-        try {
-          return JSON.parse(
-            localStorage.getItem(STORAGE_KEYS.savedTemplates) ?? "[]"
-          ) as typeof template.savedTemplates
-        } catch {
-          return []
-        }
-      }
-      const persistTemplatesQuietly = (
-        nextTemplates: typeof template.savedTemplates
-      ): void => {
-        localStorage.setItem(
-          STORAGE_KEYS.savedTemplates,
-          JSON.stringify(nextTemplates)
-        )
-      }
-
-      const currentTemplates = loadTemplates()
       if (template.activeTemplateId !== null) {
-        const active = currentTemplates.find(
+        const active = template.savedTemplates.find(
           (item) => item.id === template.activeTemplateId
         )
         if (active !== undefined) {
-          persistTemplatesQuietly(
-            currentTemplates.map((item) =>
-              item.id === active.id
-                ? { ...item, template: nextTemplate, savedAt: Date.now() }
-                : item
-            )
-          )
+          template.saveTemplate(active.name, nextTemplate)
+          template.setTemplateResetKey((key) => key + 1)
           toast.success("CEG 템플릿 프리셋에 저장했습니다.")
           return
         }
@@ -425,18 +401,11 @@ function AppContent(): React.JSX.Element {
       ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(
         now.getHours()
       ).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-      persistTemplatesQuietly([
-        ...currentTemplates,
-        {
-          id: `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
-          name,
-          template: nextTemplate,
-          savedAt: Date.now(),
-        },
-      ])
+      template.saveTemplate(name, nextTemplate)
+      template.setTemplateResetKey((key) => key + 1)
       toast.success("새 CEG 템플릿 프리셋으로 저장했습니다.")
     },
-    [template.activeTemplateId]
+    [template]
   )
 
   // ── Tab Change Scroll Lock Cleanup ──

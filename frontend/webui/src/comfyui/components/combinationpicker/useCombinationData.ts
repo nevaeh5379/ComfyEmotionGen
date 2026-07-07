@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { toast } from "sonner"
 import { curationApi } from "../../hooks/useSavedImages"
 import { hasApproved } from "../../types/Message"
-import type { SavedImage } from "../../types/Message"
+import type { BackendEvent, SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import {
   groupSavedImagesAsRenderItems,
@@ -101,7 +101,8 @@ export function useCombinationData({
   const [searchInput, setSearchInput] = useState("")
 
   const fetchData = useCallback(async () => {
-    setLoading(true)
+    const hasExistingData = rawRenderItems.length > 0 || allImages.length > 0
+    if (!hasExistingData) setLoading(true)
     setError(null)
     try {
       if (!activeTemplate.trim()) {
@@ -160,7 +161,66 @@ export function useCombinationData({
     } finally {
       setLoading(false)
     }
-  }, [backendUrl, activeTemplate, freeGroupMode])
+  }, [allImages.length, backendUrl, activeTemplate, freeGroupMode, rawRenderItems.length])
+
+  const mergeSavedImage = useCallback(
+    (image: SavedImage) => {
+      setAllImages((prev) => {
+        const existingIdx = prev.findIndex((item) => item.hash === image.hash)
+        const next =
+          existingIdx === -1
+            ? [image, ...prev]
+            : prev.map((item) => (item.hash === image.hash ? image : item))
+        if (freeGroupMode !== null) {
+          setRawRenderItems(groupSavedImagesAsRenderItems(next, freeGroupMode))
+        }
+        return next
+      })
+    },
+    [freeGroupMode]
+  )
+
+  useEffect((): (() => void) => {
+    const fetchAndMergeSavedImage = async (hash: string): Promise<void> => {
+      try {
+        const res = await fetch(`${backendUrl}/saved-images/${hash}/meta`)
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+        mergeSavedImage((await res.json()) as SavedImage)
+      } catch (err) {
+        console.warn("Failed to refresh curation image:", err)
+      }
+    }
+
+    const handleImageEvent = (e: Event): void => {
+      const event = (e as CustomEvent<BackendEvent>).detail
+      if (event.type === "image.saved") {
+        void fetchAndMergeSavedImage(event.hash)
+        return
+      }
+      if (event.type === "image.curation") {
+        if (event.image !== undefined) {
+          mergeSavedImage(event.image)
+        } else if (event.hash !== undefined) {
+          void fetchAndMergeSavedImage(event.hash)
+        }
+        return
+      }
+      if (event.type === "image.deleted") {
+        setAllImages((prev) => {
+          const next = prev.filter((image) => image.hash !== event.hash)
+          if (freeGroupMode !== null) {
+            setRawRenderItems(groupSavedImagesAsRenderItems(next, freeGroupMode))
+          }
+          return next
+        })
+      }
+    }
+
+    window.addEventListener("ceg-image-event", handleImageEvent)
+    return () => {
+      window.removeEventListener("ceg-image-event", handleImageEvent)
+    }
+  }, [backendUrl, freeGroupMode, mergeSavedImage])
 
   const availableFilters = useMemo(() => {
     const keys: Record<string, Set<string>> = {}
