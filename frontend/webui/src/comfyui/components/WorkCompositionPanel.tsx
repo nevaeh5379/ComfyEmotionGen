@@ -546,7 +546,7 @@ export function WorkCompositionPanel({
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 text-muted-foreground"
-                      onClick={() => setIsComfyImportOpen(true)}
+                      onClick={() => { setIsComfyImportOpen(true); }}
                     >
                       <Server className="h-3.5 w-3.5" />
                     </Button>
@@ -727,7 +727,7 @@ export function WorkCompositionPanel({
 
       <ComfyWorkflowImportDialog
         isOpen={isComfyImportOpen}
-        onClose={() => setIsComfyImportOpen(false)}
+        onClose={() => { setIsComfyImportOpen(false); }}
         onImport={(workflowContent, fileName) => {
           try {
             const parsed = JSON.parse(workflowContent)

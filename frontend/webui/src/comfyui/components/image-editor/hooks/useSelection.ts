@@ -26,7 +26,7 @@ export function useSelection() {
     []
   )
 
-  const clearSelection = useCallback(() => setSelection(null), [])
+  const clearSelection = useCallback(() => { setSelection(null); }, [])
 
   return {
     selection,

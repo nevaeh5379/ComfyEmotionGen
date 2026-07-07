@@ -47,10 +47,11 @@ import logging
 import mimetypes
 import zipfile
 import os
+import time
 import tracemalloc
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union, AsyncGenerator
+from typing import Awaitable, Callable, Dict, List, Literal, Optional, Union, AsyncGenerator
 import websockets
 
 from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query, Form
@@ -63,6 +64,7 @@ from backend.src.prompt_dsl import DSLSyntaxError, parse, render, inject_into_wo
 from backend.src.worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
 from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
 from backend.src.job_store import JobStore
+from backend.src import configure_logging
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
 from backend.src.inpaint import get_capabilities as get_inpaint_capabilities, is_inpaint_available, remove_object as lama_remove_object
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
@@ -333,6 +335,22 @@ class ExportRequest(BaseModel):
     tags: Optional[List[str]] = None
     duplicateStrategy: Literal["hash", "number"] = "hash"
 
+class FilenameRenameRequest(BaseModel):
+    """파일명 그룹 일괄 리네임 요청 모델. 저장 이미지의 original_filename 부분 문자열을
+    치환하고 (옵션) 메타의 축 값도 함께 치환한다. file_key 오타 수정 등에 사용.
+
+    Request model for batch renaming saved-image filenames. Replaces a substring
+    in original_filename and optionally updates an axis value in meta_json.
+    Used by POST /saved-images/rename.
+    """
+    fromSegment: str = Field(..., description="원본 filename에서 찾을 부분 문자열")
+    toSegment: str = Field(..., description="치환할 새 부분 문자열")
+    axisName: Optional[str] = Field(None, description="함께 갱신할 축 이름")
+    axisValueFrom: Optional[str] = Field(None, description="치환 전 축 값 (이 값과 일치할 때만)")
+    axisValueTo: Optional[str] = Field(None, description="치환 후 축 값")
+    dryRun: bool = Field(False, description="true면 변경사항 적용 않고 후보만 반환")
+
+
 class JobsDeleteRequest(BaseModel):
     """잡 일괄 삭제 요청 모델. 여러 잡을 DB와 메모리에서 영구 삭제한다.
 
@@ -561,6 +579,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Performs cleanup on shutdown.
     """
     global worker_pool, job_manager, webhook_service
+    configure_logging()
+    logger.info("backend lifespan startup begin")
     store = JobStore()
     await store.open()
     initial_urls = await _resolve_initial_worker_urls(store)
@@ -602,7 +622,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        logger.info("backend lifespan shutdown begin")
         await job_manager.stop()
+        logger.info("backend lifespan shutdown complete")
 
 
 app = FastAPI(
@@ -620,6 +642,41 @@ app.add_middleware(
 
 UPLOAD_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploaded_images", StaticFiles(directory=str(UPLOAD_IMAGES_DIR)), name="uploaded_images")
+
+
+# ====== 요청 로깅 ======
+
+
+@app.middleware("http")
+async def log_http_requests(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    started = time.monotonic()
+    client = request.client.host if request.client else "-"
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = (time.monotonic() - started) * 1000
+        logger.exception(
+            "http request failed: method=%s path=%s client=%s duration_ms=%.1f",
+            request.method,
+            request.url.path,
+            client,
+            duration_ms,
+        )
+        raise
+
+    duration_ms = (time.monotonic() - started) * 1000
+    logger.info(
+        "http request complete: method=%s path=%s status=%s client=%s duration_ms=%.1f",
+        request.method,
+        request.url.path,
+        response.status_code,
+        client,
+        duration_ms,
+    )
+    return response
 
 
 # ====== 에러 핸들러 ======
@@ -661,9 +718,11 @@ def list_system_templates() -> list[dict[str, str]]:
         try:
             code = path.read_text(encoding="utf-8")
         except Exception:
+            logger.debug("failed to read template as utf-8, trying cp949: path=%s", path, exc_info=True)
             try:
                 code = path.read_text(encoding="cp949")
             except Exception:
+                logger.warning("failed to read system template: path=%s", path, exc_info=True)
                 continue
         templates.append({
             "id": f"system-{safe_id}",
@@ -1361,14 +1420,22 @@ async def saved_images_upload(
     DEFAULT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     target = DEFAULT_IMAGES_DIR / f"{sha}{ext}"
 
-    print(f"=== [DEBUG] saved_images_upload started ===", flush=True)
-    print(f"  filename: {file.filename}", flush=True)
-    print(f"  sha: {sha}", flush=True)
-    print(f"  parent_hash: {parent_hash}", flush=True)
-    print(f"  prompt: {prompt}", flush=True)
-    print(f"  meta: {meta}", flush=True)
-    print(f"  ceg_template: {ceg_template}", flush=True)
-    print(f"  workflow: {workflow}", flush=True)
+    logger.info(
+        "saved image upload started: filename=%s hash=%s parent_hash=%s size=%s ext=%s",
+        file.filename,
+        sha,
+        parent_hash,
+        len(data),
+        ext,
+    )
+    logger.debug(
+        "saved image upload form payload: hash=%s prompt_len=%d meta_len=%d ceg_template_len=%d workflow_len=%d",
+        sha,
+        len(prompt or ""),
+        len(meta or ""),
+        len(ceg_template or ""),
+        len(workflow or ""),
+    )
 
     # 폼으로 직접 전달된 값 파싱
     form_prompt = prompt or ""
@@ -1376,17 +1443,25 @@ async def saved_images_upload(
     if workflow:
         try:
             form_workflow = json.loads(workflow)
-        except Exception as e:
-            print(f"=== [DEBUG] failed to parse workflow JSON: {e} ===", flush=True)
-            pass
+        except Exception:
+            logger.warning(
+                "saved image upload workflow JSON parse failed: hash=%s workflow_len=%d",
+                sha,
+                len(workflow),
+                exc_info=True,
+            )
     form_ceg_template = ceg_template or ""
     form_meta = {}
     if meta:
         try:
             form_meta = json.loads(meta)
-        except Exception as e:
-            print(f"=== [DEBUG] failed to parse meta JSON: {e} ===", flush=True)
-            pass
+        except Exception:
+            logger.warning(
+                "saved image upload meta JSON parse failed: hash=%s meta_len=%d",
+                sha,
+                len(meta),
+                exc_info=True,
+            )
 
     # 원본 이미지의 메타데이터 복사 시도
     parent_prompt = ""
@@ -1404,9 +1479,8 @@ async def saved_images_upload(
                 orig_meta = parent_img.get("meta", {}) or {}
                 if isinstance(orig_meta, dict):
                     parent_meta.update(orig_meta)
-        except Exception as e:
+        except Exception:
             logger.exception("saved-images/upload 원본 메타데이터 조회 실패: parent_hash=%s", parent_hash)
-            print(f"=== [DEBUG] get_saved_image failed: {e} ===", flush=True)
 
     # 폼에서 전달받은 값 우선 적용 및 병합
     final_prompt = form_prompt or parent_prompt
@@ -1417,11 +1491,14 @@ async def saved_images_upload(
     final_meta.update(parent_meta)
     final_meta.update(form_meta)
 
-    print(f"=== [DEBUG] final parameter values to save ===", flush=True)
-    print(f"  final_prompt: {final_prompt}", flush=True)
-    print(f"  final_workflow: {final_workflow}", flush=True)
-    print(f"  final_ceg_template: {final_ceg_template}", flush=True)
-    print(f"  final_meta: {final_meta}", flush=True)
+    logger.debug(
+        "saved image upload resolved metadata: hash=%s prompt_len=%d workflow_keys=%s ceg_template_len=%d meta=%s",
+        sha,
+        len(final_prompt or ""),
+        sorted((final_workflow or {}).keys()),
+        len(final_ceg_template or ""),
+        final_meta,
+    )
 
     # 1. 파일 저장 (PNG인 경우 메타데이터 주입)
     if not target.exists():
@@ -1438,11 +1515,17 @@ async def saved_images_upload(
                 img.save(target, "PNG", pnginfo=pnginfo)
             else:
                 target.write_bytes(data)
-        except Exception as e:
-            print(f"=== [DEBUG] PIL save failed, falling back to direct write: {e} ===", flush=True)
+        except Exception:
+            logger.warning(
+                "saved image metadata write failed; falling back to raw file write: hash=%s target=%s",
+                sha,
+                target,
+                exc_info=True,
+            )
             try:
                 target.write_bytes(data)
             except OSError:
+                logger.exception("saved image raw file write failed: hash=%s target=%s", sha, target)
                 raise HTTPException(status_code=500, detail="failed to save file to disk")
 
     # 2. DB 레코드 생성
@@ -1464,12 +1547,11 @@ async def saved_images_upload(
         )
     except Exception as e:
         logger.exception("saved-images/upload DB 기록 실패 (파일은 저장됨): hash=%s", sha)
-        import traceback
-        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Database record insertion failed: {str(e)}"
         )
+    logger.info("saved image upload complete: hash=%s filename=%s", sha, file.filename)
     return {"hash": sha, "filename": file.filename}
 
 
@@ -1666,6 +1748,28 @@ async def saved_image_restore(hash: str) -> SavedImageResponse:
     if updated is None:
         raise HTTPException(status_code=404, detail="image not found")
     return updated
+
+
+@app.post("/saved-images/rename", response_model=None)
+async def saved_images_rename(body: FilenameRenameRequest) -> dict[str, JSONValue]:
+    """저장 이미지의 original_filename 부분 문자열을 일괄 치환한다.
+    file_key 오타 수정 등으로 템플릿의 filename이 바뀌어 기존 이미지와
+    매칭이 깨질 때 사용. 필요하면 meta의 축 값도 함께 갱신.
+    dryRun=true면 변경 않고 영향받는 후보만 반환.
+
+    Batch-rename original_filename substrings of saved images. Useful when a
+    template file_key typo fix breaks matching with existing images. Optionally
+    updates an axis value in meta_json. dryRun=true previews without changes.
+    """
+    result = await job_manager._store.rename_filename_group(
+        from_segment=body.fromSegment,
+        to_segment=body.toSegment,
+        axis_name=body.axisName,
+        axis_value_from=body.axisValueFrom,
+        axis_value_to=body.axisValueTo,
+        dry_run=body.dryRun,
+    )
+    return result
 
 
 @app.get("/tags")
@@ -2240,7 +2344,7 @@ async def ws_proxy(websocket: WebSocket, clientId: Optional[str] = None) -> None
             await websocket.accept()
             await websocket.close(code=1011, reason="No active ComfyUI worker found")
         except Exception:
-            pass
+            logger.debug("failed to close ws proxy request with no active worker", exc_info=True)
         return
 
     # ComfyUI 워커의 websocket 주소 생성
@@ -2251,17 +2355,23 @@ async def ws_proxy(websocket: WebSocket, clientId: Optional[str] = None) -> None
     try:
         await websocket.accept()
     except Exception:
+        logger.debug("ws proxy accept failed: worker=%s url=%s", worker.id, ws_url, exc_info=True)
         return
 
     try:
+        logger.info("ws proxy connected: worker=%s url=%s clientId=%s", worker.id, ws_url, clientId)
         async with websockets.connect(ws_url, max_size=None) as worker_ws:
             async def forward_to_worker():
                 try:
                     while True:
                         msg = await websocket.receive_text()
                         await worker_ws.send(msg)
+                except WebSocketDisconnect:
+                    logger.debug("ws proxy client disconnected: worker=%s", worker.id)
+                except asyncio.CancelledError:
+                    raise
                 except Exception:
-                    pass
+                    logger.debug("ws proxy client-to-worker forwarding stopped: worker=%s", worker.id, exc_info=True)
 
             async def forward_to_client():
                 try:
@@ -2270,8 +2380,10 @@ async def ws_proxy(websocket: WebSocket, clientId: Optional[str] = None) -> None
                             await websocket.send_text(msg)
                         else:
                             await websocket.send_bytes(msg)
+                except asyncio.CancelledError:
+                    raise
                 except Exception:
-                    pass
+                    logger.debug("ws proxy worker-to-client forwarding stopped: worker=%s", worker.id, exc_info=True)
 
             # 두 작업을 동시에 수행
             await asyncio.gather(
@@ -2285,7 +2397,8 @@ async def ws_proxy(websocket: WebSocket, clientId: Optional[str] = None) -> None
         try:
             await websocket.close()
         except Exception:
-            pass
+            logger.debug("ws proxy close failed: worker=%s", worker.id if worker else None, exc_info=True)
+        logger.info("ws proxy disconnected: worker=%s clientId=%s", worker.id if worker else None, clientId)
 
 
 @app.websocket("/ws/events")

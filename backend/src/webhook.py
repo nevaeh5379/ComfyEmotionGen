@@ -71,6 +71,7 @@ class WebhookService:
                     for c in data
                 ]
             except (json.JSONDecodeError, KeyError, TypeError):
+                logger.warning("failed to load webhook configs; using empty config list", exc_info=True)
                 self._configs = []
         else:
             self._configs = []

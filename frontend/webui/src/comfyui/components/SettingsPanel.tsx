@@ -21,6 +21,7 @@ import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import type { AppSettings } from "../hooks/useSettings"
 import { WorkerManager } from "./WorkerManager"
 import { WebhookSettingsPanel } from "./WebhookSettingsPanel"
+import { FilenameMigrationTool } from "./FilenameMigrationTool"
 import type { WorkerView } from "../types/Message"
 import { BUNDLE_VERSION, COMMIT, IS_LOCAL_DEV } from "@/version"
 import { useUpdateCheck } from "@/comfyui/hooks/useUpdateCheck"
@@ -742,6 +743,8 @@ export function SettingsPanel({
                 </Button>
               </div>
             </div>
+
+            <FilenameMigrationTool backendUrl={backendUrl} />
           </div>
         </Section>
       </div>

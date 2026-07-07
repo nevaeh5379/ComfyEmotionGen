@@ -29,11 +29,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+echo "==> building WebUI"
+cd $ROOT/frontend/webui && pnpm build
+
 echo "==> Starting backend on :${BACKEND_PORT}"
 (cd "$ROOT/backend/src" && CEG_DATA_DIR="$ROOT/backend/data" BACKEND_PORT="$BACKEND_PORT" BACKEND_HOST="$BACKEND_HOST" "$ROOT/.python/bin/python3" run.py) &
 BACKEND_PID=$!
-
-echo "==> Starting frontend preview on :${FRONTEND_PORT}"
+echo "==> Starting WebUI on :${FRONTEND_PORT}"
 (cd "$ROOT/frontend/webui" && "$ROOT/.node/bin/pnpm" preview --host --port "$FRONTEND_PORT") &
 FRONTEND_PID=$!
 

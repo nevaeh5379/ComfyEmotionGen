@@ -787,16 +787,25 @@ class JobStore:
         ceg_template: str = "",
         workflow: Optional[dict[str, JSONValue]] = None,
     ) -> None:
-        print(f"=== [DEBUG] save_image_record internal started ===", flush=True)
-        print(f"  hash: {hash}", flush=True)
-        print(f"  job_id: {job_id}", flush=True)
-        print(f"  original_filename: {original_filename}", flush=True)
-        print(f"  comfy_filename: {comfy_filename}", flush=True)
-        print(f"  meta: {meta}", flush=True)
-        print(f"  ceg_template: {ceg_template}", flush=True)
+        logger.info(
+            "saving image record: hash=%s job_id=%s original=%s comfy=%s size=%s worker=%s",
+            hash,
+            job_id,
+            original_filename,
+            comfy_filename,
+            size_bytes,
+            worker_id,
+        )
+        logger.debug(
+            "save image metadata: hash=%s meta=%s ceg_template_len=%d workflow_keys=%s",
+            hash,
+            meta,
+            len(ceg_template or ""),
+            sorted((workflow or {}).keys()),
+        )
 
         if self._conn is None:
-            print(f"=== [DEBUG] save_image_record failed: JobStore is not open ===", flush=True)
+            logger.error("save image record failed: store is not open hash=%s", hash)
             raise RuntimeError("JobStore is not open")
 
         resolved_meta = dict(meta or {})
@@ -805,11 +814,13 @@ class JobStore:
                 sets = self._extract_sets_from_template(ceg_template)
                 for vk, vv in sets.items():
                     resolved_meta[f"set.{vk}"] = vv
-            except Exception as e:
-                print(f"=== [DEBUG] _extract_sets_from_template failed: {e} ===", flush=True)
-                pass
+            except Exception:
+                logger.exception(
+                    "failed to extract sets from template while saving image: hash=%s",
+                    hash,
+                )
 
-        print(f"=== [DEBUG] resolved_meta: {resolved_meta} ===", flush=True)
+        logger.debug("resolved image metadata: hash=%s meta=%s", hash, resolved_meta)
 
         try:
             cursor = await self._conn.execute(
@@ -837,14 +848,14 @@ class JobStore:
                     json.dumps(workflow or {}),
                 ),
             )
-            print(f"=== [DEBUG] execute INSERT rowcount: {cursor.rowcount} ===", flush=True)
-        except Exception as e:
-            print(f"=== [DEBUG] INSERT exception: {e} ===", flush=True)
-            raise e
+            logger.debug("saved image insert executed: hash=%s rowcount=%s", hash, cursor.rowcount)
+        except Exception:
+            logger.exception("failed to insert saved image record: hash=%s", hash)
+            raise
         
         # 템플릿의 축(Axis)에 할당된 실제 생성 값을 추출하여 태그로 저장
         auto_tags = self._extract_auto_tags(ceg_template, json.dumps(resolved_meta))
-        print(f"=== [DEBUG] auto_tags: {auto_tags} ===", flush=True)
+        logger.debug("auto tags extracted: hash=%s tags=%s", hash, sorted(auto_tags))
 
         now = time.time()
         for tag in auto_tags:
@@ -856,16 +867,20 @@ class JobStore:
                     """,
                     (hash, tag, now),
                 )
-            except Exception as e:
-                print(f"=== [DEBUG] INSERT tag {tag} exception: {e} ===", flush=True)
-                raise e
+            except Exception:
+                logger.exception("failed to insert image tag: hash=%s tag=%s", hash, tag)
+                raise
 
         try:
             await self._conn.commit()
-            print(f"=== [DEBUG] DB transaction committed successfully ===", flush=True)
-        except Exception as e:
-            print(f"=== [DEBUG] commit exception: {e} ===", flush=True)
-            raise e
+            logger.info(
+                "saved image record committed: hash=%s auto_tags=%d",
+                hash,
+                len(auto_tags),
+            )
+        except Exception:
+            logger.exception("failed to commit saved image record: hash=%s", hash)
+            raise
 
     def _extract_auto_tags(self, ceg_template: str, meta_json: str) -> set[str]:
         ceg_template = ceg_template or ""
@@ -1124,6 +1139,76 @@ class JobStore:
         )
         await self._conn.commit()
         return await self.get_saved_image(hash)
+
+    async def rename_filename_group(
+        self,
+        *,
+        from_segment: str,
+        to_segment: str,
+        axis_name: Optional[str] = None,
+        axis_value_from: Optional[str] = None,
+        axis_value_to: Optional[str] = None,
+        dry_run: bool = False,
+    ) -> dict[str, JSONValue]:
+        """저장 이미지의 original_filename 부분 문자열 치환 + (옵션) 메타 축 값 치환.
+
+        - from_segment → to_segment: filename 내 부분 문자열 치환.
+        - axis_name/axis_value_from/axis_value_to: meta_json 내 해당 축 값이
+          axis_value_from과 일치하면 axis_value_to로 치환.
+        dry_run=True 면 변경사항 적용 않고 영향받는 후보만 반환.
+        """
+        if self._conn is None:
+            return {"matched": 0, "renamed": 0, "updated": []}
+        if not from_segment:
+            return {"matched": 0, "renamed": 0, "updated": []}
+
+        cursor = await self._conn.execute(
+            "SELECT hash, original_filename, meta_json FROM saved_images "
+            "WHERE original_filename LIKE ?",
+            (f"%{from_segment}%",),
+        )
+        rows = await cursor.fetchall()
+        matched: list[dict[str, JSONValue]] = []
+        renamed = 0
+        for r in rows:
+            old_fn = r["original_filename"]
+            new_fn = old_fn.replace(from_segment, to_segment)
+            if new_fn == old_fn and not (axis_name and axis_value_from):
+                continue
+            meta = json.loads(r["meta_json"] or "{}") if r["meta_json"] else {}
+            new_meta = dict(meta)
+            meta_changed = False
+            if axis_name and axis_value_from is not None:
+                cur_val = new_meta.get(axis_name)
+                if cur_val == axis_value_from:
+                    new_meta[axis_name] = axis_value_to or ""
+                    meta_changed = True
+            matched.append({
+                "hash": r["hash"],
+                "oldFilename": old_fn,
+                "newFilename": new_fn,
+                "metaChanged": meta_changed,
+            })
+            if dry_run:
+                continue
+            if new_fn != old_fn:
+                await self._conn.execute(
+                    "UPDATE saved_images SET original_filename = ? WHERE hash = ?",
+                    (new_fn, r["hash"]),
+                )
+            if meta_changed:
+                await self._conn.execute(
+                    "UPDATE saved_images SET meta_json = ? WHERE hash = ?",
+                    (json.dumps(new_meta), r["hash"]),
+                )
+            renamed += 1
+        if not dry_run and matched:
+            await self._conn.commit()
+        return {
+            "matched": len(matched),
+            "renamed": renamed,
+            "updated": matched,
+        }
 
     async def delete_saved_image(self, hash: str) -> bool:
         """saved_images 행 + 태그 영구 삭제. 디스크 파일은 호출자가 삭제."""

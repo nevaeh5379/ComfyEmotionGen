@@ -275,13 +275,29 @@ export function useCombinationData({
 
       if (hasMeta) {
         // 2. 그룹 분류 매칭: ri.meta에서 set.*를 제외한 순수 조합 축(Axis) 정보만 대조
+        // 이미지와 renderItem의 축 키 집합이 정확히 일치할 때만 매칭한다.
+        // (일부만 겹치는 더 적은 축의 renderItem에 잘못 매칭되는 것을 방지)
+        // 단, 축이 아닌 메타데이터 마커(예: image-editor가 붙이는 source)는 제외한다.
+        const isAxisKey = (key: string): boolean =>
+          !key.startsWith("set.") && key !== "source" && key !== "mode"
+        const imgAxisKeys = Object.keys(imgMeta).filter(isAxisKey).sort()
         for (const ri of rawRenderItems) {
-          let isMatch = true
           const riMetaKeys = Object.keys(ri.meta)
-          
-          const axisKeys = riMetaKeys.filter((key) => !key.startsWith("set."))
+          const axisKeys = riMetaKeys.filter(isAxisKey)
           if (axisKeys.length === 0) continue
 
+          if (axisKeys.length !== imgAxisKeys.length) continue
+          const riAxisKeysSorted = axisKeys.slice().sort()
+          let keysEqual = true
+          for (let i = 0; i < riAxisKeysSorted.length; i++) {
+            if (riAxisKeysSorted[i] !== imgAxisKeys[i]) {
+              keysEqual = false
+              break
+            }
+          }
+          if (!keysEqual) continue
+
+          let isMatch = true
           for (const key of axisKeys) {
             if (String(imgMeta[key]) !== String(ri.meta[key])) {
               isMatch = false

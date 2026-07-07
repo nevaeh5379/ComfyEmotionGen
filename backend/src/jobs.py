@@ -386,8 +386,10 @@ class JobManager:
             self._dispatcher_task.cancel()
             try:
                 await self._dispatcher_task
-            except (asyncio.CancelledError, Exception):
-                pass
+            except asyncio.CancelledError:
+                logger.debug("dispatcher task cancelled during stop")
+            except Exception:
+                logger.warning("dispatcher task failed during stop", exc_info=True)
             self._dispatcher_task = None
         await self._pool.stop()
         if self._persist_tasks:

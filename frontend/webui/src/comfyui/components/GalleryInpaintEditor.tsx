@@ -20,6 +20,7 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  ArrowLeftRight,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -70,6 +71,7 @@ interface GalleryInpaintEditorProps {
   imageUrl: string
   filename: string
   sourcePrompt?: string
+  sourceMeta?: Record<string, string> | undefined
   onOpenChange: (open: boolean) => void
 }
 
@@ -599,6 +601,7 @@ export function GalleryInpaintEditor({
   imageUrl,
   filename,
   sourcePrompt,
+  sourceMeta,
   onOpenChange,
 }: GalleryInpaintEditorProps): React.JSX.Element {
   const { savedWorkflows } = useWorkflowContext()
@@ -670,6 +673,12 @@ export function GalleryInpaintEditor({
   const [submitting, setSubmitting] = useState(false)
   const [submittedJobIds, setSubmittedJobIds] = useState<string[]>([])
   const [finalImageUrls, setFinalImageUrls] = useState<string[]>([])
+  // 결과 탭 비교용 원본 URL (CORS 버스팅이 적용된 표시용 URL)
+  const [sourceDisplayUrl, setSourceDisplayUrl] = useState<string>("")
+  // 현재 선택된 결과 이미지 인덱스 (여러 장일 때 전환)
+  const [selectedResultIndex, setSelectedResultIndex] = useState(0)
+  // 원본/결과 비교 뷰 토글
+  const [compareMode, setCompareMode] = useState(false)
 
   const selectedWorkflow = useMemo(
     () =>
@@ -711,6 +720,13 @@ export function GalleryInpaintEditor({
   const activeInpaintJob = useMemo(() => {
     return jobs.find((job) => submittedJobIds.includes(job.id)) ?? null
   }, [jobs, submittedJobIds])
+
+  // 결과 썸네일 선택 인덱스 — finalImageUrls 범위를 벗어나면 마지막 인덱스로 보정.
+  // setState-in-effect 회피를 위해 렌더 시점에 파생한다.
+  const safeSelectedResultIndex =
+    finalImageUrls.length === 0
+      ? 0
+      : Math.min(selectedResultIndex, finalImageUrls.length - 1)
 
   const livePreviewUrl = useMemo(() => {
     const workerId = activeInpaintJob?.workerId
@@ -895,6 +911,7 @@ export function GalleryInpaintEditor({
       finalUrl =
         imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
     }
+    setSourceDisplayUrl(finalUrl)
     img.src = finalUrl
   }, [imageUrl, open])
 
@@ -961,22 +978,42 @@ export function GalleryInpaintEditor({
 
   const resetResults = useCallback(() => {
     setFinalImageUrls([])
+    setSelectedResultIndex(0)
+    setCompareMode(false)
   }, [])
 
   useEffect(() => resetResults, [resetResults])
 
+  // 결과 이미지 URL — 저장된 이미지(/saved-images/{hash})를 우선 사용하고,
+  // 저장된 이미지가 없을 때만 ComfyUI worker view URL(/images/{worker}/view)를
+  // 임시 프리뷰로 사용한다. 두 소스를 합치면 동일 이미지가 2개 표시되므로,
+  // savedImageHashes가 존재하면 imageUrls는 무시한다.
   useEffect(() => {
     if (activeInpaintJob === null) return
-    const urls = [
-      ...activeInpaintJob.savedImageHashes.map(
-        (hash) => `${backendUrl}/saved-images/${hash}`
-      ),
-      ...activeInpaintJob.imageUrls,
-    ]
-    if (urls.length === 0) return
-    setFinalImageUrls((prev) =>
-      Array.from(new Set([...urls, ...prev])).slice(0, 8)
+    const savedUrls = activeInpaintJob.savedImageHashes.map(
+      (hash) => `${backendUrl}/saved-images/${hash}`
     )
+    const urls = savedUrls.length > 0 ? savedUrls : activeInpaintJob.imageUrls
+    if (urls.length === 0) return
+    setFinalImageUrls((prev) => {
+      const merged = Array.from(new Set([...urls, ...prev]))
+      // 저장된 이미지가 새로 들어오면 worker view 임시 URL을 제거해 중복 제거
+      const next =
+        savedUrls.length > 0
+          ? merged.filter(
+              (url) => !url.includes("/images/") || savedUrls.includes(url)
+            )
+          : merged
+      const trimmed = next.slice(0, 8)
+      // 내용이 동일하면 prev를 그대로 돌려 React 렌더를 건너뛴다 (무한 루프 방지)
+      if (
+        trimmed.length === prev.length &&
+        trimmed.every((u, i) => u === prev[i])
+      ) {
+        return prev
+      }
+      return trimmed
+    })
   }, [activeInpaintJob, backendUrl])
 
   useEffect(() => {
@@ -985,9 +1022,17 @@ export function GalleryInpaintEditor({
       if (detail.type !== "image.saved") return
       if (!submittedJobIds.includes(detail.jobId)) return
       const url = `${backendUrl}/saved-images/${detail.hash}`
-      setFinalImageUrls((prev) =>
-        Array.from(new Set([url, ...prev])).slice(0, 8)
-      )
+      setFinalImageUrls((prev) => {
+        // 이미 포함되어 있으면 아무 것도 하지 않는다 (무한 루프 방지)
+        if (prev.includes(url)) return prev
+        // 저장된 이미지가 도착하면 worker view URL(/images/)을 제거해
+        // 동일한 결과가 두 번 표시되는 중복을 막는다.
+        const filtered = prev.filter(
+          (u) => !u.includes("/images/") || u === url
+        )
+        const next = Array.from(new Set([url, ...filtered])).slice(0, 8)
+        return next
+      })
     }
     window.addEventListener("ceg-image-event", handleImageEvent)
     return () => {
@@ -1366,7 +1411,11 @@ export function GalleryInpaintEditor({
               filename: built.filename,
               prompt: built.prompt,
               workflow: built.workflow,
-              meta: { source: filename, mode: "inpaint" },
+              meta: {
+                ...(sourceMeta ?? {}),
+                source: filename,
+                mode: "inpaint",
+              },
               cegTemplate: "",
               imageUploads: built.imageUploads,
               workerType: "comfyui",
@@ -2184,7 +2233,7 @@ export function GalleryInpaintEditor({
                 value="result"
                 className="mt-0 min-h-0 flex-1 overflow-auto bg-neutral-950"
               >
-                <div className="p-3">
+                <div className="flex min-h-0 flex-col p-3">
                   {activeInpaintJob === null &&
                     livePreviewUrl === null &&
                     finalImageUrls.length === 0 && (
@@ -2204,73 +2253,173 @@ export function GalleryInpaintEditor({
                     <div className="text-xs font-semibold text-white/85">
                       결과
                     </div>
-                    {activeInpaintJob !== null && (
-                      <div className="flex min-w-0 items-center gap-2 truncate text-[10px] text-white/60">
-                        {activeInpaintJob.status === "running" && (
-                          <Spinner className="size-3.5 text-white/70" />
-                        )}
-                        <span className="truncate">
-                          {activeInpaintJob.currentNodeName
-                            ? `${activeInpaintJob.currentNodeName} · `
-                            : ""}
-                          {Math.round(activeInpaintJob.progressPercent)}%
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {finalImageUrls.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 border-white/15 bg-white/5 px-2 text-[11px] text-white/80 hover:bg-white/10"
+                          onClick={() => {
+                            setCompareMode((v) => !v)
+                          }}
+                          aria-pressed={compareMode}
+                          title="편집 전 이미지와 결과를 나란히 비교"
+                        >
+                          <ArrowLeftRight className="size-3.5" />
+                          {compareMode ? "비교 끄기" : "원본과 비교"}
+                        </Button>
+                      )}
+                      {activeInpaintJob !== null && (
+                        <div className="flex min-w-0 items-center gap-2 truncate text-[10px] text-white/60">
+                          {activeInpaintJob.status === "running" && (
+                            <Spinner className="size-3.5 text-white/70" />
+                          )}
+                          <span className="truncate">
+                            {activeInpaintJob.currentNodeName
+                              ? `${activeInpaintJob.currentNodeName} · `
+                              : ""}
+                            {Math.round(activeInpaintJob.progressPercent)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
-                    {livePreviewUrl !== null && finalImageUrls.length === 0 && (
-                      <div className="min-w-0 rounded-md border border-white/10 bg-white/5 p-2">
-                        <div className="mb-1 truncate text-[10px] font-medium text-white/70">
-                          생성 중 프리뷰
-                        </div>
-                        <div className="flex aspect-square items-center justify-center overflow-hidden rounded bg-black/40">
-                          <img
-                            src={livePreviewUrl}
-                            alt="생성 중 프리뷰"
-                            className="max-h-full max-w-full object-contain"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    {finalImageUrls.length > 0
-                      ? finalImageUrls.map((url) => (
-                          <div
-                            key={url}
-                            className="group relative min-w-0 rounded-md border border-white/10 bg-white/5 p-2"
-                          >
-                            <div className="mb-1 truncate text-[10px] font-medium text-white/70">
-                              완료 이미지
+                  {/* 메인 결과 영역 — 단일 결과는 크게, 비교 모드면 원본과 나란히 */}
+                  <div className="min-h-0 flex-1">
+                    {finalImageUrls.length > 0 ? (
+                      (() => {
+                        const currentUrl =
+                          finalImageUrls[safeSelectedResultIndex] ??
+                          finalImageUrls[0] ??
+                          ""
+                        if (currentUrl === "") return null
+                        if (compareMode && sourceDisplayUrl !== "") {
+                          return (
+                            <div className="grid min-h-0 grid-cols-2 gap-2">
+                              <div className="flex min-h-0 flex-col rounded-md border border-white/10 bg-white/5">
+                                <div className="shrink-0 border-b border-white/10 px-2 py-1 text-[10px] font-medium text-white/70">
+                                  편집 전
+                                </div>
+                                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-b bg-black/40 p-2">
+                                  <img
+                                    src={sourceDisplayUrl}
+                                    alt="편집 전 이미지"
+                                    className="max-h-[72vh] max-w-full object-contain"
+                                  />
+                                </div>
+                              </div>
+                              <div className="group relative flex min-h-0 flex-col rounded-md border border-white/10 bg-white/5">
+                                <div className="shrink-0 border-b border-white/10 px-2 py-1 text-[10px] font-medium text-white/70">
+                                  완료 이미지
+                                </div>
+                                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-b bg-black/40 p-2">
+                                  <img
+                                    src={currentUrl}
+                                    alt="완료 이미지"
+                                    className="max-h-[72vh] max-w-full object-contain"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  className="absolute top-1 right-1 rounded bg-black/60 p-1 opacity-0 transition group-hover:opacity-100"
+                                  onClick={() => {
+                                    downloadFinalImage(currentUrl)
+                                  }}
+                                  aria-label="이 이미지 다운로드"
+                                >
+                                  <Download className="size-3 text-white" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex aspect-square items-center justify-center overflow-hidden rounded bg-black/40">
+                          )
+                        }
+                        return (
+                          <div className="group relative flex min-h-0 flex-col rounded-md border border-white/10 bg-white/5">
+                            <div className="shrink-0 border-b border-white/10 px-2 py-1 text-[10px] font-medium text-white/70">
+                              완료 이미지
+                              {finalImageUrls.length > 1 && (
+                                <span className="ml-2 text-white/45">
+                                  {safeSelectedResultIndex + 1}/
+                                  {finalImageUrls.length}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-b bg-black/40 p-2">
                               <img
-                                src={url}
+                                src={currentUrl}
                                 alt="완료 이미지"
-                                className="max-h-full max-w-full object-contain"
+                                className="max-h-[74vh] max-w-full object-contain"
                               />
                             </div>
                             <button
                               type="button"
                               className="absolute top-1 right-1 rounded bg-black/60 p-1 opacity-0 transition group-hover:opacity-100"
                               onClick={() => {
-                                downloadFinalImage(url)
+                                downloadFinalImage(currentUrl)
                               }}
                               aria-label="이 이미지 다운로드"
                             >
                               <Download className="size-3 text-white" />
                             </button>
                           </div>
-                        ))
-                      : livePreviewUrl === null &&
-                        activeInpaintJob !== null && (
-                          <div className="col-span-full flex aspect-video items-center justify-center rounded bg-black/40 text-[11px] text-white/45">
-                            {activeInpaintJob.status === "running"
-                              ? "생성 중..."
-                              : "완료 이미지 대기 중"}
-                          </div>
-                        )}
+                        )
+                      })()
+                    ) : livePreviewUrl !== null ? (
+                      <div className="group relative flex min-h-0 flex-col rounded-md border border-white/10 bg-white/5">
+                        <div className="shrink-0 border-b border-white/10 px-2 py-1 text-[10px] font-medium text-white/70">
+                          생성 중 프리뷰
+                        </div>
+                        <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-b bg-black/40 p-2">
+                          <img
+                            src={livePreviewUrl}
+                            alt="생성 중 프리뷰"
+                            className="max-h-[74vh] max-w-full object-contain"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      activeInpaintJob !== null && (
+                        <div className="flex aspect-video min-h-[40vh] items-center justify-center rounded bg-black/40 text-[11px] text-white/45">
+                          {activeInpaintJob.status === "running"
+                            ? "생성 중..."
+                            : "완료 이미지 대기 중"}
+                        </div>
+                      )
+                    )}
                   </div>
+
+                  {/* 썸네일 트레이 — 결과가 2장 이상일 때만 표시 */}
+                  {finalImageUrls.length > 1 && (
+                    <div className="mt-3 flex shrink-0 gap-2 overflow-x-auto rounded-md border border-white/10 bg-white/5 p-2">
+                      {finalImageUrls.map((url, index) => {
+                        const isActive = index === safeSelectedResultIndex
+                        return (
+                          <button
+                            type="button"
+                            key={url}
+                            onClick={() => {
+                              setSelectedResultIndex(index)
+                            }}
+                            className={`relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-black/40 transition ${
+                              isActive
+                                ? "border-white/70 ring-1 ring-white/40"
+                                : "border-white/10 hover:border-white/30"
+                            }`}
+                            aria-pressed={isActive}
+                            aria-label={`결과 ${String(index + 1)} 선택`}
+                          >
+                            <img
+                              src={url}
+                              alt={`결과 ${String(index + 1)}`}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

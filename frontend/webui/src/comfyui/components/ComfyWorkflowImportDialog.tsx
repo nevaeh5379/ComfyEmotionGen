@@ -213,7 +213,7 @@ export function ComfyWorkflowImportDialog({
               placeholder="워크플로우 이름 검색..."
               className="h-9 pl-9"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); }}
             />
           </div>
 
