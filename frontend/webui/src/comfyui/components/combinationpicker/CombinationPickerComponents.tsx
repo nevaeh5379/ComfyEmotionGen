@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Kbd } from "@/components/ui/kbd"
 
 import { Spinner } from "@/components/ui/spinner"
 import { Input } from "@/components/ui/input"
@@ -414,6 +415,7 @@ export function RegenerateDialog({
   isLoading,
 }: RegenerateDialogProps): React.JSX.Element {
   const [count, setCount] = useLocalStorage<number>(STORAGE_KEYS.regenCount, 4)
+  const [countInput, setCountInput] = useState(() => String(count))
   const [selectedTemplateId, setSelectedTemplateId] = useLocalStorage<string>(
     STORAGE_KEYS.regenTemplateId,
     "__current__"
@@ -439,6 +441,7 @@ export function RegenerateDialog({
     >
   )
   const dialogActiveRef = useRef(open)
+  const countInputRef = useRef<HTMLInputElement | null>(null)
   const previewUrlsRef = useRef(new Set<string>())
 
   const revokePreviewUrl = useCallback(
@@ -459,10 +462,17 @@ export function RegenerateDialog({
 
   useEffect(() => {
     dialogActiveRef.current = open
+    if (open) {
+      setCountInput(String(Math.min(64, Math.max(1, count || 1))))
+      window.setTimeout(() => {
+        countInputRef.current?.focus()
+        countInputRef.current?.select()
+      }, 0)
+    }
     return (): void => {
       dialogActiveRef.current = false
     }
-  }, [open])
+  }, [count, open])
 
   useEffect(() => {
     if (open && preferCurrentTemplate) {
@@ -697,12 +707,17 @@ export function RegenerateDialog({
   const nodeMappingsRef = useLatestRef(nodeMappings)
   const resolvedTemplateRef = useLatestRef(resolvedTemplate)
   const sourceFilenameRef = useLatestRef(sourceFilename)
-  const countRef = useLatestRef(count)
   const backendUrlRef = useLatestRef(backendUrl)
   const onSubmitRef = useLatestRef(onSubmit)
 
   const handleConfirm = useCallback(async () => {
     if (isLoadingRef.current || sourceImagesRef.current.length === 0) return
+    const normalizedCount = Math.min(
+      64,
+      Math.max(1, parseInt(countInputRef.current?.value ?? "", 10) || 1)
+    )
+    setCount(normalizedCount)
+    setCountInput(String(normalizedCount))
 
     const workflowJson =
       selectedWorkflowRef.current?.workflow ??
@@ -764,7 +779,7 @@ export function RegenerateDialog({
       workerType: string
     }[] = []
 
-    for (let i = 0; i < countRef.current; i++) {
+    for (let i = 0; i < normalizedCount; i++) {
       for (const item of renderItems) {
         const wf = buildWorkflowForItem(
           workflowJson,
@@ -787,45 +802,163 @@ export function RegenerateDialog({
     await onSubmitRef.current(allItems)
   }, [
     backendUrlRef,
-    countRef,
     isLoadingRef,
     nodeMappingsRef,
     onSubmitRef,
     resolvedTemplateRef,
     selectedWorkflowRef,
+    setCount,
     sourceFilenameRef,
     sourceImagesRef,
   ])
 
   const hasWorkflowForRegeneration = parsedWorkflowData !== null
   const canConfirm = isLoading || !hasWorkflowForRegeneration
+  const normalizeCountInput = useCallback(
+    (value: string): number => Math.min(64, Math.max(1, parseInt(value, 10) || 1)),
+    []
+  )
+  const handleDialogKeyDown = useCallback(
+    (e: React.KeyboardEvent): void => {
+      if (e.nativeEvent.isComposing) return
+      const target = e.target
+      const isControlTarget =
+        target instanceof HTMLElement &&
+        target.closest(
+          "button, input, textarea, [role='button'], [role='combobox'], [role='listbox'], [role='menuitem'], .cm-editor"
+        ) !== null
+
+      if (
+        e.key === "Enter" &&
+        !e.shiftKey &&
+        !e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey
+      ) {
+        if (isControlTarget) return
+        if (canConfirm) return
+        e.preventDefault()
+        void handleConfirm()
+        return
+      }
+
+      if (!e.altKey || e.ctrlKey || e.metaKey) {
+        return
+      }
+
+      const key = e.key.toLowerCase()
+      const shortcutTarget = (() => {
+        if (key === "c") return "[data-regen-shortcut='count']"
+        if (key === "w") return "[data-regen-shortcut='workflow']"
+        if (key === "m") return "[data-regen-shortcut='mapping']"
+        if (key === "t") return "[data-regen-shortcut='template']"
+        return null
+      })()
+      if (shortcutTarget === null) return
+
+      const el = e.currentTarget.querySelector<HTMLElement>(shortcutTarget)
+      if (el === null) return
+      e.preventDefault()
+      el.focus()
+      if (key !== "c") el.click()
+    },
+    [canConfirm, handleConfirm]
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
+        onKeyDown={handleDialogKeyDown}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RefreshCwIcon className="h-5 w-5" />
             재생성 설정
           </DialogTitle>
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-muted-foreground">
+            <Kbd>Alt+C</Kbd>
+            <span>갯수</span>
+            <Kbd>Alt+W</Kbd>
+            <span>워크플로우</span>
+            <Kbd>Alt+M</Kbd>
+            <span>매핑</span>
+            <Kbd>Alt+T</Kbd>
+            <span>템플릿</span>
+            <Kbd>Enter</Kbd>
+            <span>시작</span>
+          </div>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="flex flex-col gap-2">
             <Label
               htmlFor="regen-count"
-              className="text-xs font-bold uppercase"
+              className="flex items-center gap-1.5 text-xs font-bold uppercase"
             >
-              생성 갯수 (Count)
+              <span>생성 갯수 (Count)</span>
+              <Kbd>Alt+C</Kbd>
             </Label>
             <Input
+              ref={countInputRef}
+              data-regen-shortcut="count"
               id="regen-count"
               type="number"
               min={1}
               max={64}
-              value={count}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={countInput}
               onChange={(e) => {
-                setCount(parseInt(e.target.value) || 1)
+                setCountInput(e.target.value.replace(/\D/g, ""))
+              }}
+              onBlur={() => {
+                const normalizedCount = normalizeCountInput(countInput)
+                setCount(normalizedCount)
+                setCountInput(String(normalizedCount))
+              }}
+              onCompositionEnd={(e) => {
+                setCountInput(e.currentTarget.value.replace(/\D/g, ""))
+              }}
+              onBeforeInput={(e) => {
+                const data = e.nativeEvent.data
+                if (data !== null && /\D/.test(data)) {
+                  e.preventDefault()
+                }
+              }}
+              onKeyDown={(e) => {
+                const allowedKeys = new Set([
+                  "Backspace",
+                  "Delete",
+                  "ArrowLeft",
+                  "ArrowRight",
+                  "ArrowUp",
+                  "ArrowDown",
+                  "Home",
+                  "End",
+                  "Tab",
+                  "Enter",
+                ])
+                if (
+                  !allowedKeys.has(e.key) &&
+                  !/^\d$/.test(e.key) &&
+                  !e.ctrlKey &&
+                  !e.metaKey
+                ) {
+                  e.preventDefault()
+                  return
+                }
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.altKey &&
+                  !e.ctrlKey &&
+                  !e.metaKey &&
+                  !canConfirm
+                ) {
+                  e.preventDefault()
+                  void handleConfirm()
+                }
               }}
               className="font-mono font-bold"
             />
@@ -834,9 +967,10 @@ export function RegenerateDialog({
           <div className="flex flex-col gap-2">
             <Label
               htmlFor="workflow-select"
-              className="text-xs font-bold uppercase"
+              className="flex items-center gap-1.5 text-xs font-bold uppercase"
             >
-              ComfyUI 워크플로우 선택
+              <span>ComfyUI 워크플로우 선택</span>
+              <Kbd>Alt+W</Kbd>
             </Label>
             <Select
               value={selectedWorkflowId || "__none__"}
@@ -845,7 +979,10 @@ export function RegenerateDialog({
                 setNodeMappings([])
               }}
             >
-              <SelectTrigger className="w-full max-w-full truncate">
+              <SelectTrigger
+                data-regen-shortcut="workflow"
+                className="w-full max-w-full truncate"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent
@@ -931,15 +1068,19 @@ export function RegenerateDialog({
           <div className="flex flex-col gap-2">
             <Label
               htmlFor="template-select"
-              className="text-xs font-bold uppercase"
+              className="flex items-center gap-1.5 text-xs font-bold uppercase"
             >
-              사용할 템플릿 (CEG Template)
+              <span>사용할 템플릿 (CEG Template)</span>
+              <Kbd>Alt+T</Kbd>
             </Label>
             <Select
               value={selectedTemplateId}
               onValueChange={setSelectedTemplateId}
             >
-              <SelectTrigger className="w-full max-w-full truncate">
+              <SelectTrigger
+                data-regen-shortcut="template"
+                className="w-full max-w-full truncate"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent
@@ -1015,6 +1156,9 @@ export function RegenerateDialog({
           >
             {isLoading && <Spinner className="mr-2 h-4 w-4" />}
             재생성 시작
+            <Kbd className="ml-2 border-white/20 bg-white/15 text-white">
+              Enter
+            </Kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

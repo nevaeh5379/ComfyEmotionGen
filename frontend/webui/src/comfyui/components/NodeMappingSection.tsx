@@ -9,6 +9,7 @@ import {
 import React, { useState, useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Kbd } from "@/components/ui/kbd"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -409,7 +410,19 @@ export const NodeMappingSection = React.memo(
                               )}
                               {m.sourceType === "image" && (
                                 <div className="flex items-center gap-2">
-                                  <label className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border bg-background px-3 text-[11px] font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50">
+                                  <label
+                                    role="button"
+                                    tabIndex={0}
+                                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border bg-background px-3 text-[11px] font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                                    onKeyDown={(e) => {
+                                      if (e.key !== "Enter" && e.key !== " ")
+                                        return
+                                      e.preventDefault()
+                                      e.currentTarget
+                                        .querySelector("input")
+                                        ?.click()
+                                    }}
+                                  >
                                     파일 선택
                                     <input
                                       type="file"
@@ -525,12 +538,14 @@ export const NodeMappingSection = React.memo(
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
+                        data-regen-shortcut="mapping"
                         variant="ghost"
                         size="sm"
                         className="h-9 w-full justify-start gap-2 rounded-none px-3 text-[11px] font-medium text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                       >
                         <Plus className="size-3.5 shrink-0" />
                         매핑 추가...
+                        <Kbd className="ml-auto">Alt+M</Kbd>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent

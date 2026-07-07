@@ -615,6 +615,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // ── Keyboard Handler ──
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
+      if (regenDialogState.open) return
       if (isEditableEventTarget(e.target)) return
 
       if (selectionMode) {
@@ -632,6 +633,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           e.preventDefault()
           navigateTo("prev")
         } else if (e.key === "r" || e.key === "R") {
+          e.preventDefault()
+          e.stopPropagation()
           handleContextMenuRegenerate(selectedFilename)
         } else if (e.key === "Escape") {
           setSelectedFilename(null)
@@ -661,6 +664,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     exitSelectionMode,
     setViewMode,
     setSelectedFilename,
+    regenDialogState.open,
   ])
 
   const handleTabChange = useCallback(

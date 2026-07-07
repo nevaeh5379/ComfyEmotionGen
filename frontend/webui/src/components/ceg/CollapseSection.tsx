@@ -38,7 +38,7 @@ export function CollapseSection({
     >
       <AccordionPrimitive.Item value={ITEM_VALUE} className="border-0">
         <AccordionPrimitive.Header className="flex h-9 items-center justify-between px-3.5 whitespace-nowrap">
-          <AccordionPrimitive.Trigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden outline-none">
+          <AccordionPrimitive.Trigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
             <ChevronDown
               className={cn(
                 "h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-200",
