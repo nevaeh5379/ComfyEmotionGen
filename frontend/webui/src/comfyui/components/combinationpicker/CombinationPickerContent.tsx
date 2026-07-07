@@ -53,7 +53,10 @@ import { GalleryView, TableView } from "./CombinationPickerViews"
 
 import { CombinationPickerToolbar } from "./CombinationPickerToolbar"
 import { CombinationPickerUnassignedPanel } from "./CombinationPickerUnassignedPanel"
-import { CombinationPickerSidebar } from "./CombinationPickerSidebar"
+import {
+  CombinationPickerSidebar,
+  type SidebarFilter,
+} from "./CombinationPickerSidebar"
 import { CombinationPickerDetailView } from "./CombinationPickerDetailView"
 import { useCurationContext } from "./CurationContext"
 import type {
@@ -155,6 +158,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [detailImage, setDetailImage] = useState<SavedImage | null>(null)
   const [inpaintImage, setInpaintImage] = useState<SavedImage | null>(null)
   const [editImage, setEditImage] = useState<SavedImage | null>(null)
+  const [sidebarQuery, setSidebarQuery] = useState("")
+  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>("all")
 
   const exportAction = useAsyncAction(3000)
   const regenAction = useAsyncAction(3000)
@@ -201,6 +206,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [regenDialogState, setRegenDialogState] = useState<{
     open: boolean
     sourceImages: SavedImage[]
+    targetItem?: RenderItem
     templateOverride?: string
   }>({ open: false, sourceImages: [] })
   const [cegDraftByFilename, setCegDraftByFilename] = useState<
@@ -389,21 +395,58 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     [selectedImages, curationToolbarCtx.hideRejected]
   )
 
+  const sidebarFilteredItems = useMemo(() => {
+    const q = sidebarQuery.trim().toLowerCase()
+    return renderItems.filter((item) => {
+      const imgs = imagesByFilename.get(item.filename) ?? []
+      const isDone = hasApproved(imgs)
+
+      if (sidebarFilter === "done" && !isDone) return false
+      if (sidebarFilter === "pending" && isDone) return false
+      if (sidebarFilter === "has-images" && imgs.length === 0) return false
+      if (sidebarFilter === "empty" && imgs.length > 0) return false
+
+      if (q === "") return true
+      const haystack = [
+        item.filename,
+        item.prompt,
+        ...Object.values(item.meta),
+        ...imgs.flatMap((img) => [
+          img.originalFilename,
+          img.prompt,
+          img.status,
+          ...(img.tags ?? []),
+        ]),
+      ]
+        .join(" ")
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [imagesByFilename, renderItems, sidebarFilter, sidebarQuery])
+
   // ── Handlers ──
   const navigateTo = useCallback(
     (direction: "prev" | "next") => {
-      const currentIdx = renderItems.findIndex(
+      if (sidebarFilteredItems.length === 0) return
+      const currentIdx = sidebarFilteredItems.findIndex(
         (ri) => ri.filename === selectedFilename
       )
-      const nextIdx = direction === "next" ? currentIdx + 1 : currentIdx - 1
-      if (nextIdx >= 0 && nextIdx < renderItems.length) {
-        const item = renderItems[nextIdx]
+      const nextIdx =
+        currentIdx === -1
+          ? direction === "next"
+            ? 0
+            : sidebarFilteredItems.length - 1
+          : direction === "next"
+            ? currentIdx + 1
+            : currentIdx - 1
+      if (nextIdx >= 0 && nextIdx < sidebarFilteredItems.length) {
+        const item = sidebarFilteredItems[nextIdx]
         if (item !== undefined) {
           setSelectedFilename(item.filename)
         }
       }
     },
-    [renderItems, selectedFilename, setSelectedFilename]
+    [sidebarFilteredItems, selectedFilename, setSelectedFilename]
   )
 
   const handleSelectImage = useCallback(
@@ -461,9 +504,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       if (isFreeMode && freeGroupMode !== "filename") return
       const images = imagesByFilename.get(filename) ?? []
       const draft = cegDraftByFilename[filename]
+      const targetItem = renderItems.find((item) => item.filename === filename)
       setRegenDialogState({
         open: true,
         sourceImages: images,
+        ...(targetItem !== undefined ? { targetItem } : {}),
         ...(draft !== undefined && draft !== activeTemplate
           ? { templateOverride: draft }
           : {}),
@@ -475,6 +520,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       freeGroupMode,
       imagesByFilename,
       isFreeMode,
+      renderItems,
     ]
   )
 
@@ -861,6 +907,12 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
               <CombinationPickerSidebar
                 selectedFilename={selectedFilename}
                 setSelectedFilename={setSelectedFilename}
+                items={sidebarFilteredItems}
+                totalCount={renderItems.length}
+                query={sidebarQuery}
+                setQuery={setSidebarQuery}
+                filter={sidebarFilter}
+                setFilter={setSidebarFilter}
               />
             </div>
           )}
@@ -1008,6 +1060,12 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                   setSelectedFilename(fn)
                   setIsMobileSidebarOpen(false)
                 }}
+                items={sidebarFilteredItems}
+                totalCount={renderItems.length}
+                query={sidebarQuery}
+                setQuery={setSidebarQuery}
+                filter={sidebarFilter}
+                setFilter={setSidebarFilter}
               />
             </div>
           </SheetContent>
@@ -1019,6 +1077,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             setRegenDialogState((prev) => ({ ...prev, open }))
           }}
           sourceImages={regenDialogState.sourceImages}
+          {...(regenDialogState.targetItem !== undefined
+            ? { targetItem: regenDialogState.targetItem }
+            : {})}
           backendUrl={backendUrl}
           currentCegTemplate={regenDialogState.templateOverride ?? activeTemplate}
           preferCurrentTemplate={regenDialogState.templateOverride !== undefined}

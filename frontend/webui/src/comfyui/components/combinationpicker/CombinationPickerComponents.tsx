@@ -372,6 +372,7 @@ export interface RegenerateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   sourceImages: SavedImage[]
+  targetItem?: RenderItem
   backendUrl: string
   currentCegTemplate: string
   preferCurrentTemplate?: boolean
@@ -404,6 +405,7 @@ export function RegenerateDialog({
   open,
   onOpenChange,
   sourceImages,
+  targetItem,
   backendUrl,
   currentCegTemplate,
   preferCurrentTemplate = false,
@@ -538,6 +540,7 @@ export function RegenerateDialog({
   }, [selectedWorkflow, sourceImages])
 
   const sourceFilename = sourceImages[0]?.originalFilename ?? ""
+  const targetFilename = targetItem?.filename ?? sourceFilename
 
   const resolvedTemplate = useMemo(() => {
     if (selectedTemplateId === "__current__") return currentCegTemplate
@@ -707,6 +710,8 @@ export function RegenerateDialog({
   const nodeMappingsRef = useLatestRef(nodeMappings)
   const resolvedTemplateRef = useLatestRef(resolvedTemplate)
   const sourceFilenameRef = useLatestRef(sourceFilename)
+  const targetItemRef = useLatestRef(targetItem)
+  const targetFilenameRef = useLatestRef(targetFilename)
   const backendUrlRef = useLatestRef(backendUrl)
   const onSubmitRef = useLatestRef(onSubmit)
 
@@ -755,16 +760,38 @@ export function RegenerateDialog({
       })
       if (!res.ok) throw new Error(`Render failed: HTTP ${String(res.status)}`)
       const data = (await res.json()) as { items: RenderItem[] }
-      const matching = data.items.filter(
-        (item) => item.filename === sourceFilenameRef.current
-      )
-      renderItems = matching.length > 0 ? matching : data.items
+      if (targetItemRef.current !== undefined) {
+        const targetMeta = targetItemRef.current.meta
+        const sameMeta = (item: RenderItem): boolean =>
+          Object.entries(targetMeta).every(
+            ([key, value]) => item.meta[key] === value
+          )
+        const matched =
+          data.items.find((item) => item.filename === targetFilenameRef.current) ??
+          data.items.find(sameMeta) ??
+          null
+        if (matched === null) {
+          toast.error("현재 조합을 새 템플릿 결과에서 찾지 못했습니다.")
+          return
+        }
+        renderItems = [matched]
+      } else {
+        renderItems = data.items.filter((item) =>
+          sourceImagesRef.current.some(
+            (image) => image.originalFilename === item.filename
+          )
+        )
+        if (renderItems.length === 0) {
+          toast.error("재생성할 조합을 찾지 못했습니다.")
+          return
+        }
+      }
     } else {
       renderItems = [
         {
-          filename: sourceFilenameRef.current,
+          filename: targetFilenameRef.current,
           prompt: "",
-          meta: {},
+          meta: targetItemRef.current?.meta ?? {},
         },
       ]
     }
@@ -808,8 +835,9 @@ export function RegenerateDialog({
     resolvedTemplateRef,
     selectedWorkflowRef,
     setCount,
-    sourceFilenameRef,
     sourceImagesRef,
+    targetFilenameRef,
+    targetItemRef,
   ])
 
   const hasWorkflowForRegeneration = parsedWorkflowData !== null
