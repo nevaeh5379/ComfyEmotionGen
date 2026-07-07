@@ -2,7 +2,7 @@ import {
   Maximize2Icon,
   ArrowLeftIcon,
   RefreshCwIcon,
-  Settings2Icon,
+  EllipsisVerticalIcon,
   CheckIcon,
   XIcon,
   ColumnsIcon,
@@ -13,9 +13,13 @@ import {
   BrushIcon,
   Edit3 as Edit3Icon,
   Upload as UploadIcon,
+  FileCode2Icon,
+  RotateCcwIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { Badge } from "@/components/ui/badge"
+import CodeEditor from "@/components/CodeEditor"
 import {
   Tooltip,
   TooltipContent,
@@ -50,6 +54,15 @@ import { useEffect, useMemo, useState } from "react"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target.closest(
+      "input, textarea, select, [contenteditable='true'], .cm-editor, [role='textbox']"
+    ) !== null
+  )
+}
+
 interface DetailViewProps {
   selectedFilename: string
   visibleImages: SavedImage[]
@@ -64,6 +77,11 @@ interface DetailViewProps {
   onSelectImage: (filename: string, hash: string) => void
   onRegenerate: (filename: string) => void
   regenActionIsLoading: boolean
+  activeTemplate: string
+  cegDraft: string
+  onCegDraftChange: (value: string) => void
+  onResetCegDraft: () => void
+  onSaveCegDraft?: (value: string) => void
   onRejectAll: () => void
   onCancelAllRejects: () => void
   onCancelApproval: () => void
@@ -86,6 +104,11 @@ export function CombinationPickerDetailView({
   onSelectImage,
   onRegenerate,
   regenActionIsLoading,
+  activeTemplate,
+  cegDraft,
+  onCegDraftChange,
+  onResetCegDraft,
+  onSaveCegDraft,
   onRejectAll,
   onCancelAllRejects,
   onCancelApproval,
@@ -121,6 +144,21 @@ export function CombinationPickerDetailView({
   }
 
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null)
+  const [cegEditorOpen, setCegEditorOpen] = useState(false)
+  const cegDraftDirty = cegDraft !== activeTemplate
+  const [draftPromptPreview, setDraftPromptPreview] = useState(
+    selectedItem?.prompt ?? ""
+  )
+  const [draftPreviewState, setDraftPreviewState] = useState<
+    "idle" | "loading" | "error"
+  >("idle")
+  const [draftPreviewError, setDraftPreviewError] = useState<string | null>(
+    null
+  )
+  const selectedMetaKey = useMemo(
+    () => JSON.stringify(selectedItem?.meta ?? {}),
+    [selectedItem]
+  )
 
   const compareImages = useMemo(() => {
     const result: { filename: string; hash: string }[] = []
@@ -138,11 +176,7 @@ export function CombinationPickerDetailView({
     if (viewMode !== "grid") return
 
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
-        return
+      if (isEditableEventTarget(e.target)) return
 
       if (e.key === "ArrowRight" || e.key === "l") {
         setFocusedIdx((prev) =>
@@ -163,6 +197,70 @@ export function CombinationPickerDetailView({
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [viewMode, visibleImages, focusedIdx, onSelectImage, selectedFilename])
+
+  useEffect(() => {
+    if (!cegEditorOpen) {
+      setDraftPromptPreview(selectedItem?.prompt ?? "")
+      setDraftPreviewState("idle")
+      setDraftPreviewError(null)
+      return
+    }
+    if (cegDraft.trim() === "") {
+      setDraftPromptPreview("")
+      setDraftPreviewState("idle")
+      setDraftPreviewError(null)
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      setDraftPreviewState("loading")
+      setDraftPreviewError(null)
+      void (async (): Promise<void> => {
+        try {
+          const res = await fetch(`${backendUrl}/render`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ template: cegDraft }),
+            signal: controller.signal,
+          })
+          if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+          const data = (await res.json()) as {
+            items: { filename: string; prompt: string; meta: Record<string, string> }[]
+          }
+          const selectedMeta = JSON.parse(selectedMetaKey) as Record<
+            string,
+            string
+          >
+          const sameMeta = (meta: Record<string, string>): boolean =>
+            Object.entries(selectedMeta).every(([key, value]) => meta[key] === value)
+          const matched =
+            data.items.find((item) => item.filename === selectedFilename) ??
+            data.items.find((item) => sameMeta(item.meta)) ??
+            null
+          setDraftPromptPreview(matched?.prompt ?? "")
+          setDraftPreviewState("idle")
+        } catch (err) {
+          if (err instanceof Error && err.name === "AbortError") return
+          setDraftPreviewState("error")
+          setDraftPreviewError(err instanceof Error ? err.message : String(err))
+        }
+      })()
+    }, 350)
+
+    return (): void => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [
+    backendUrl,
+    cegDraft,
+    cegEditorOpen,
+    selectedFilename,
+    selectedItem,
+    selectedMetaKey,
+  ])
+
   return (
     <div
       className={`flex min-w-0 flex-col md:pb-0 ${
@@ -262,7 +360,7 @@ export function CombinationPickerDetailView({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-9 w-9">
-                    <Settings2Icon className="h-5 w-5" />
+                    <EllipsisVerticalIcon className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
@@ -300,15 +398,6 @@ export function CombinationPickerDetailView({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <LoadingButton
-                size="sm"
-                className="h-9 w-9"
-                onClick={() => {
-                  if (selectedFilename) onRegenerate(selectedFilename)
-                }}
-                isLoading={regenActionIsLoading}
-                icon={RefreshCwIcon}
-              ></LoadingButton>
               <Button
                 variant="outline"
                 size="sm"
@@ -339,7 +428,7 @@ export function CombinationPickerDetailView({
                   size="sm"
                   className="h-7 w-7 p-0 px-4 md:h-6 md:w-6"
                 >
-                  <Settings2Icon className="h-2.5 w-2.5" />
+                  <EllipsisVerticalIcon className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
@@ -374,15 +463,6 @@ export function CombinationPickerDetailView({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <LoadingButton
-              size="sm"
-              className="h-7 w-7 p-0 px-4 md:h-6 md:w-6"
-              onClick={() => {
-                if (selectedFilename) onRegenerate(selectedFilename)
-              }}
-              isLoading={regenActionIsLoading}
-              icon={RefreshCwIcon}
-            ></LoadingButton>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -398,6 +478,101 @@ export function CombinationPickerDetailView({
             </Tooltip>
           </div>
         </div>
+      </div>
+
+      <div className="shrink-0 border-b bg-muted/10 px-2 py-2">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 px-2 text-[11px] font-bold"
+            onClick={() => {
+              setCegEditorOpen((open) => !open)
+            }}
+          >
+            <FileCode2Icon className="h-3.5 w-3.5 text-primary" />
+            CEG 수정
+          </Button>
+          {cegDraftDirty && (
+            <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+              이 조합 수정됨
+            </Badge>
+          )}
+          <div className="ml-auto flex items-center gap-1">
+            {cegDraftDirty && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px] text-muted-foreground"
+                onClick={onResetCegDraft}
+              >
+                <RotateCcwIcon className="h-3 w-3" />
+                되돌리기
+              </Button>
+            )}
+            {onSaveCegDraft !== undefined && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px]"
+                disabled={!cegDraftDirty}
+                onClick={() => {
+                  onSaveCegDraft(cegDraft)
+                }}
+              >
+                저장
+              </Button>
+            )}
+            <LoadingButton
+              size="sm"
+              className="h-7 gap-1 px-2 text-[11px]"
+              onClick={() => {
+                onRegenerate(selectedFilename)
+              }}
+              isLoading={regenActionIsLoading}
+              icon={RefreshCwIcon}
+            >
+              재생성
+            </LoadingButton>
+          </div>
+        </div>
+        {cegEditorOpen && (
+          <div className="mt-2 grid min-h-0 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(220px,34%)]">
+            <div className="h-64 overflow-hidden rounded-md border bg-background">
+              <CodeEditor
+                language="ceg"
+                value={cegDraft}
+                onChange={onCegDraftChange}
+                minHeight="100%"
+                bareWrapper
+                className="h-full w-full"
+              />
+            </div>
+            <div className="rounded-md border bg-background/80 p-2">
+              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
+                <span>드래프트 프롬프트</span>
+                {draftPreviewState === "loading" && (
+                  <Badge variant="secondary" className="px-1 py-0 text-[9px]">
+                    갱신 중
+                  </Badge>
+                )}
+                {draftPreviewState === "error" && (
+                  <Badge variant="outline" className="px-1 py-0 text-[9px]">
+                    오류
+                  </Badge>
+                )}
+              </div>
+              <div className="max-h-56 overflow-auto rounded bg-muted/40 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                {draftPreviewState === "error"
+                  ? (draftPreviewError ?? "프롬프트를 갱신할 수 없습니다.")
+                  : draftPromptPreview || "일치하는 조합을 찾지 못했습니다."}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 이미지 뷰어 */}

@@ -306,6 +306,7 @@ function AppContent(): React.JSX.Element {
     repeatCount,
     setRepeatCount,
     handleRun,
+    handleRunSingle,
     handleRunSelected,
     handleRandomRun,
     handleRunUnapproved,
@@ -380,6 +381,63 @@ function AppContent(): React.JSX.Element {
       }
     }
   }, [compositionTab, template, workflow])
+
+  const handleSaveCurationCegTemplate = useCallback(
+    (nextTemplate: string): void => {
+      const loadTemplates = (): typeof template.savedTemplates => {
+        try {
+          return JSON.parse(
+            localStorage.getItem(STORAGE_KEYS.savedTemplates) ?? "[]"
+          ) as typeof template.savedTemplates
+        } catch {
+          return []
+        }
+      }
+      const persistTemplatesQuietly = (
+        nextTemplates: typeof template.savedTemplates
+      ): void => {
+        localStorage.setItem(
+          STORAGE_KEYS.savedTemplates,
+          JSON.stringify(nextTemplates)
+        )
+      }
+
+      const currentTemplates = loadTemplates()
+      if (template.activeTemplateId !== null) {
+        const active = currentTemplates.find(
+          (item) => item.id === template.activeTemplateId
+        )
+        if (active !== undefined) {
+          persistTemplatesQuietly(
+            currentTemplates.map((item) =>
+              item.id === active.id
+                ? { ...item, template: nextTemplate, savedAt: Date.now() }
+                : item
+            )
+          )
+          toast.success("CEG 템플릿 프리셋에 저장했습니다.")
+          return
+        }
+      }
+      const now = new Date()
+      const name = `큐레이션 수정 ${String(now.getFullYear())}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(
+        now.getHours()
+      ).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+      persistTemplatesQuietly([
+        ...currentTemplates,
+        {
+          id: `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+          name,
+          template: nextTemplate,
+          savedAt: Date.now(),
+        },
+      ])
+      toast.success("새 CEG 템플릿 프리셋으로 저장했습니다.")
+    },
+    [template.activeTemplateId]
+  )
 
   // ── Tab Change Scroll Lock Cleanup ──
   useEffect(() => {
@@ -474,6 +532,7 @@ function AppContent(): React.JSX.Element {
       repeatCount,
       setRepeatCount,
       handleRun,
+      handleRunSingle,
       handleRandomRun,
       handleRunUnapproved,
       randomRunCount,
@@ -488,6 +547,7 @@ function AppContent(): React.JSX.Element {
       repeatCount,
       setRepeatCount,
       handleRun,
+      handleRunSingle,
       handleRandomRun,
       handleRunUnapproved,
       randomRunCount,
@@ -701,6 +761,7 @@ function AppContent(): React.JSX.Element {
             <CurationTab
               backendUrl={backendUrl}
               cegTemplate={template.cegTemplate}
+              onSaveCegTemplate={handleSaveCurationCegTemplate}
               savedTemplates={template.savedTemplates}
               enableHover={settings.enableHover}
               autoApplyReject={settings.autoApplyReject}
@@ -913,6 +974,7 @@ function AppContent(): React.JSX.Element {
                 handleRun={() => {
                   void handleRun()
                 }}
+                handleRunSingle={handleRunSingle}
                 handleRandomRun={() => {
                   void handleRandomRun()
                 }}
@@ -924,6 +986,8 @@ function AppContent(): React.JSX.Element {
                 estimatedRunCount={estimatedRunCount}
                 canRun={canRun}
                 previewCount={fakeJobQueue.length}
+                previewItems={fakeJobQueue}
+                backendUrl={backendUrl}
                 workers={workers}
                 targetWorkerId={targetWorkerId}
                 setTargetWorkerId={setTargetWorkerId}

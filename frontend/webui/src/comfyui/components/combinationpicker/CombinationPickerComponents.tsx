@@ -373,6 +373,7 @@ export interface RegenerateDialogProps {
   sourceImages: SavedImage[]
   backendUrl: string
   currentCegTemplate: string
+  preferCurrentTemplate?: boolean
   savedTemplates: SavedTemplate[]
   savedWorkflows: SavedWorkflow[]
   saveMappingPreset: (
@@ -404,6 +405,7 @@ export function RegenerateDialog({
   sourceImages,
   backendUrl,
   currentCegTemplate,
+  preferCurrentTemplate = false,
   savedTemplates,
   savedWorkflows,
   saveMappingPreset,
@@ -461,6 +463,12 @@ export function RegenerateDialog({
       dialogActiveRef.current = false
     }
   }, [open])
+
+  useEffect(() => {
+    if (open && preferCurrentTemplate) {
+      setSelectedTemplateId("__current__")
+    }
+  }, [open, preferCurrentTemplate, setSelectedTemplateId])
 
   const historicalTemplates = useMemo(() => {
     const templates = new Set<string>()
@@ -789,7 +797,8 @@ export function RegenerateDialog({
     sourceImagesRef,
   ])
 
-  const canConfirm = isLoading || !sourceImages[0]?.workflow
+  const hasWorkflowForRegeneration = parsedWorkflowData !== null
+  const canConfirm = isLoading || !hasWorkflowForRegeneration
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -981,9 +990,10 @@ export function RegenerateDialog({
             </div>
           )}
 
-          {!sourceImages[0]?.workflow && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              소스 이미지에 워크플로우 정보가 없습니다.
+          {!sourceImages[0]?.workflow && selectedWorkflow === undefined && (
+            <div className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-600">
+              소스 이미지에 워크플로우 정보가 없습니다. 저장된 워크플로우를
+              선택하면 재생성할 수 있습니다.
             </div>
           )}
         </div>

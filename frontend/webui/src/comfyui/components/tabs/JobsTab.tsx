@@ -17,6 +17,7 @@ import { CombinationPicker } from "../combinationpicker/CombinationPicker"
 import type { CurationViewMode } from "../combinationpicker/CurationToolbarTypes"
 
 import type { JobView, WorkerView, JobStatus } from "../../types/Message"
+import type { RenderItem } from "../../types/renderTypes"
 import type { SessionMarkerRaw, ActiveStateRaw } from "../../utils/sessionUtils"
 import type { GalleryToolbarValue } from "../../contexts/GalleryToolbarContext"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
@@ -46,12 +47,13 @@ interface SessionManagerState {
 
 /** Job runner state returned from useJobRunner */
 interface JobRunnerState {
-  fakeJobQueue: { filename: string; prompt: string }[]
+  fakeJobQueue: RenderItem[]
   hasActiveFilter: boolean
   estimatedRunCount: number | null
   repeatCount: number
   setRepeatCount: React.Dispatch<React.SetStateAction<number>>
   handleRun: () => void
+  handleRunSingle: (item: RenderItem) => Promise<boolean>
   handleRandomRun: (count: number) => void
   handleRunUnapproved: () => void
   randomRunCount: number
@@ -314,6 +316,7 @@ export function JobsTab({
               repeatCount={repeatCount}
               setRepeatCount={setRepeatCount}
               handleRun={handleRun}
+              handleRunSingle={runner.handleRunSingle}
               handleRandomRun={handleRandomRun}
               handleRunUnapproved={handleRunUnapproved}
               randomRunCount={randomRunCount}
@@ -321,6 +324,8 @@ export function JobsTab({
               estimatedRunCount={estimatedRunCount}
               canRun={canRun}
               previewCount={fakeJobQueue.length}
+              previewItems={fakeJobQueue}
+              backendUrl={backendUrl}
               workers={workers}
               targetWorkerId={targetWorkerId}
               setTargetWorkerId={setTargetWorkerId}
@@ -657,6 +662,7 @@ export function JobsTab({
               repeatCount={repeatCount}
               setRepeatCount={setRepeatCount}
               handleRun={handleRun}
+              handleRunSingle={runner.handleRunSingle}
               handleRandomRun={handleRandomRun}
               handleRunUnapproved={handleRunUnapproved}
               randomRunCount={randomRunCount}
@@ -664,6 +670,8 @@ export function JobsTab({
               estimatedRunCount={estimatedRunCount}
               canRun={canRun}
               previewCount={fakeJobQueue.length}
+              previewItems={fakeJobQueue}
+              backendUrl={backendUrl}
               workers={workers}
               targetWorkerId={targetWorkerId}
               setTargetWorkerId={setTargetWorkerId}

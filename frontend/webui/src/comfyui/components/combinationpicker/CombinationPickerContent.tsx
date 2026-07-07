@@ -86,6 +86,15 @@ function useSetToggle<T>(
 
 type ViewMode = CurationViewMode
 
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target.closest(
+      "input, textarea, select, [contenteditable='true'], .cm-editor, [role='textbox']"
+    ) !== null
+  )
+}
+
 interface CombinationPickerContentProps {
   selectedAxis: string
   setSelectedAxis: (axis: string) => void
@@ -93,6 +102,7 @@ interface CombinationPickerContentProps {
   isFreeMode: boolean
   freeGroupMode: FreeGroupBy | null
   toolbarState?: CurationToolbarState
+  onSaveCegTemplate?: (template: string) => void
 }
 
 export const CombinationPickerContent = memo(function CombinationPickerContent({
@@ -102,6 +112,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   isFreeMode,
   freeGroupMode,
   toolbarState,
+  onSaveCegTemplate,
 }: CombinationPickerContentProps) {
   useRenderLog("CombinationPickerContent")
   const {
@@ -190,7 +201,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [regenDialogState, setRegenDialogState] = useState<{
     open: boolean
     sourceImages: SavedImage[]
+    templateOverride?: string
   }>({ open: false, sourceImages: [] })
+  const [cegDraftByFilename, setCegDraftByFilename] = useState<
+    Record<string, string>
+  >({})
 
   // 미할당 이미지(고아) 관리 관련 상태
   const [unassignedSelectedFilenames, setUnassignedSelectedFilenames] =
@@ -445,9 +460,22 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     (filename: string) => {
       if (isFreeMode && freeGroupMode !== "filename") return
       const images = imagesByFilename.get(filename) ?? []
-      setRegenDialogState({ open: true, sourceImages: images })
+      const draft = cegDraftByFilename[filename]
+      setRegenDialogState({
+        open: true,
+        sourceImages: images,
+        ...(draft !== undefined && draft !== activeTemplate
+          ? { templateOverride: draft }
+          : {}),
+      })
     },
-    [isFreeMode, freeGroupMode, imagesByFilename]
+    [
+      activeTemplate,
+      cegDraftByFilename,
+      freeGroupMode,
+      imagesByFilename,
+      isFreeMode,
+    ]
   )
 
   const handleRegenDone = useCallback(() => {
@@ -587,8 +615,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // ── Keyboard Handler ──
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+      if (isEditableEventTarget(e.target)) return
 
       if (selectionMode) {
         if (e.key === "Escape") {
@@ -657,6 +684,30 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       renderItems,
     ]
   )
+
+  const handleCegDraftChange = useCallback(
+    (value: string) => {
+      if (selectedFilename === null) return
+      setCegDraftByFilename((prev) => {
+        if (prev[selectedFilename] === value) return prev
+        return {
+          ...prev,
+          [selectedFilename]: value,
+        }
+      })
+    },
+    [selectedFilename]
+  )
+
+  const handleResetCegDraft = useCallback(() => {
+    if (selectedFilename === null) return
+    setCegDraftByFilename((prev) => {
+      if (prev[selectedFilename] === undefined) return prev
+      const next = { ...prev }
+      delete next[selectedFilename]
+      return next
+    })
+  }, [selectedFilename])
 
   // ── Render ──
   if (loading)
@@ -876,6 +927,14 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 selectedApprovedHash={selectedApprovedHash ?? null}
                 compareImageKeys={compareImageKeys}
                 viewMode={viewMode}
+                activeTemplate={activeTemplate}
+                cegDraft={cegDraftByFilename[selectedFilename] ?? activeTemplate}
+                onCegDraftChange={handleCegDraftChange}
+                onResetCegDraft={handleResetCegDraft}
+                onSaveCegDraft={(value) => {
+                  onSaveCegTemplate?.(value)
+                  handleResetCegDraft()
+                }}
                 onBack={() => {
                   setSelectedFilename(null)
                   setViewMode("gallery")
@@ -957,7 +1016,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           }}
           sourceImages={regenDialogState.sourceImages}
           backendUrl={backendUrl}
-          currentCegTemplate={activeTemplate}
+          currentCegTemplate={regenDialogState.templateOverride ?? activeTemplate}
+          preferCurrentTemplate={regenDialogState.templateOverride !== undefined}
           savedTemplates={savedTemplates}
           savedWorkflows={savedWorkflows}
           saveMappingPreset={saveMappingPreset}

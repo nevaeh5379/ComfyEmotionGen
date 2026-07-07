@@ -518,10 +518,6 @@ export function TemplateGeneratorPanel({
   const [favoriteCombinations, setFavoriteCombinations] = useState<Set<string>>(
     () => loadSet("ceg_favorite_combinations")
   )
-  const [recentTestItems, setRecentTestItems] = useState<RenderItem[]>([])
-  const [activeTestItemKey, setActiveTestItemKey] = useState<string | null>(
-    null
-  )
 
   const toggleFavorite = useCallback((key: string): void => {
     setFavoriteCombinations((prev) => {
@@ -1312,36 +1308,14 @@ export function TemplateGeneratorPanel({
     )
   }, [activeQueue, previewFilter])
 
-  const activeTestItem = useMemo(() => {
-    if (activeTestItemKey === null) return null
-    return (
-      activeQueue.find((item) => itemKey(item) === activeTestItemKey) ??
-      recentTestItems.find((item) => itemKey(item) === activeTestItemKey) ??
-      null
-    )
-  }, [activeQueue, activeTestItemKey, recentTestItems])
-
-  const runTestItem = useCallback(
-    (item: RenderItem): void => {
-      const k = itemKey(item)
-      setRecentTestItems((prev) => {
-        const withoutSame = prev.filter((p) => itemKey(p) !== k)
-        return [item, ...withoutSame].slice(0, 8)
-      })
-      setActiveTestItemKey(k)
-      setExpandedItemKey(k)
-      void handleRunSingle(item, { cegTemplate: generatedCode })
-    },
-    [generatedCode, handleRunSingle]
-  )
-
   const handleRunTestFromPopover = useCallback(
     (item: RenderItem): void => {
       const k = itemKey(item)
-      runTestItem(item)
+      void handleRunSingle(item, { cegTemplate: generatedCode })
       setPreviewFilter(k)
+      setExpandedItemKey(k)
     },
-    [runTestItem]
+    [generatedCode, handleRunSingle]
   )
 
   const handleApply = useCallback((): void => {
@@ -2296,77 +2270,6 @@ export function TemplateGeneratorPanel({
           </Badge>
         )}
       </div>
-      {activeTestItem !== null && (
-        <div className="shrink-0 border-b bg-primary/[0.03] px-3 py-2">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <span className="text-[11px] font-bold text-foreground">
-                테스트
-              </span>
-              <span className="truncate font-mono text-[10px] text-muted-foreground">
-                {substitute(activeTestItem.filename, activeTestItem)}
-              </span>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-7 shrink-0 gap-1 px-2 text-[10px]"
-              onClick={() => {
-                runTestItem(activeTestItem)
-              }}
-            >
-              <Sparkles className="h-3 w-3" />
-              다시 생성
-            </Button>
-          </div>
-          {Object.keys(activeTestItem.meta).length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1">
-              {Object.entries(activeTestItem.meta).map(([mk, mv]) => (
-                <Badge
-                  key={mk}
-                  variant="outline"
-                  className="bg-background/70 text-[9px] font-normal"
-                >
-                  {mk}: {mv}
-                </Badge>
-              ))}
-            </div>
-          )}
-          {recentTestItems.length > 1 && (
-            <div className="mb-2 flex gap-1 overflow-x-auto pb-1">
-              {recentTestItems.map((item, idx) => {
-                const k = itemKey(item)
-                const selected = k === activeTestItemKey
-                return (
-                  <Button
-                    key={k}
-                    type="button"
-                    variant={selected ? "default" : "outline"}
-                    size="sm"
-                    className="h-6 shrink-0 px-2 text-[10px]"
-                    onClick={() => {
-                      setActiveTestItemKey(k)
-                      setExpandedItemKey(k)
-                    }}
-                  >
-                    {idx + 1}
-                  </Button>
-                )
-              })}
-            </div>
-          )}
-          <InlineImagePreview
-            filename={substitute(activeTestItem.filename, activeTestItem)}
-            backendUrl={backendUrl}
-            showCurationActions
-            onRegenerate={() => {
-              runTestItem(activeTestItem)
-            }}
-          />
-        </div>
-      )}
       {parserError === null && activeQueue.length > 0 && (
         <div className="shrink-0 border-b px-3 py-2">
           <div className="relative w-full">
@@ -2630,7 +2533,9 @@ export function TemplateGeneratorPanel({
                                 className="h-6 gap-1 text-[10px]"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  runTestItem(item)
+                                  void handleRunSingle(item, {
+                                    cegTemplate: generatedCode,
+                                  })
                                 }}
                               >
                                 <Sparkles className="h-3 w-3" />
@@ -2644,10 +2549,6 @@ export function TemplateGeneratorPanel({
                           <InlineImagePreview
                             filename={fn}
                             backendUrl={backendUrl}
-                            showCurationActions
-                            onRegenerate={() => {
-                              runTestItem(item)
-                            }}
                           />
                         </div>
                       </div>

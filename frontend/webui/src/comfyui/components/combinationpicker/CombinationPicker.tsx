@@ -31,6 +31,7 @@ interface Props {
   setActiveFilters?: (filters: Record<string, string>) => void
   savedGroups?: CurationGroup[]
   setSavedGroups?: (groups: CurationGroup[]) => void
+  onSaveCegTemplate?: (template: string) => void
 }
 
 export const CombinationPicker = memo(function CombinationPicker({
@@ -49,6 +50,7 @@ export const CombinationPicker = memo(function CombinationPicker({
   setActiveFilters,
   savedGroups,
   setSavedGroups,
+  onSaveCegTemplate,
 }: Props) {
   const [localActiveGroupId, setLocalActiveGroupId] = useState<string>("preset:template:__current__")
   const [localActiveFilters, setLocalActiveFilters] = useState<Record<string, string>>({})
@@ -129,6 +131,7 @@ export const CombinationPicker = memo(function CombinationPicker({
         activeTemplate={activeTemplate}
         isFreeMode={isFreeMode}
         freeGroupMode={freeGroupMode}
+        {...(onSaveCegTemplate !== undefined ? { onSaveCegTemplate } : {})}
         {...(toolbarState && { toolbarState })}
       />
     </CurationProvider>

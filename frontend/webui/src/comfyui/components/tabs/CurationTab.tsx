@@ -15,6 +15,7 @@ import type { AppSettings } from "../../hooks/useSettings"
 export interface CurationTabProps {
   backendUrl: string
   cegTemplate: string
+  onSaveCegTemplate?: (template: string) => void
   savedTemplates: SavedTemplate[]
   enableHover: AppSettings["enableHover"]
   autoApplyReject: AppSettings["autoApplyReject"]
@@ -38,6 +39,7 @@ export interface CurationTabProps {
 export function CurationTab({
   backendUrl,
   cegTemplate,
+  onSaveCegTemplate,
   savedTemplates,
   enableHover,
   autoApplyReject,
@@ -72,6 +74,7 @@ export function CurationTab({
         hideEmptyCurationFolders={hideEmptyCurationFolders}
         savedWorkflows={savedWorkflows}
         fluidGridLayout={fluidGridLayout}
+        {...(onSaveCegTemplate !== undefined ? { onSaveCegTemplate } : {})}
         toolbarState={toolbarState}
         activeGroupId={curationActiveGroupId}
         setActiveGroupId={setCurationActiveGroupId}
