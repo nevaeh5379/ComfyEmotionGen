@@ -373,6 +373,7 @@ export interface RegenerateDialogProps {
   onOpenChange: (open: boolean) => void
   sourceImages: SavedImage[]
   targetItem?: RenderItem
+  targetItems?: RenderItem[]
   backendUrl: string
   currentCegTemplate: string
   preferCurrentTemplate?: boolean
@@ -406,6 +407,7 @@ export function RegenerateDialog({
   onOpenChange,
   sourceImages,
   targetItem,
+  targetItems,
   backendUrl,
   currentCegTemplate,
   preferCurrentTemplate = false,
@@ -711,12 +713,20 @@ export function RegenerateDialog({
   const resolvedTemplateRef = useLatestRef(resolvedTemplate)
   const sourceFilenameRef = useLatestRef(sourceFilename)
   const targetItemRef = useLatestRef(targetItem)
+  const targetItemsRef = useLatestRef(targetItems)
   const targetFilenameRef = useLatestRef(targetFilename)
   const backendUrlRef = useLatestRef(backendUrl)
   const onSubmitRef = useLatestRef(onSubmit)
 
   const handleConfirm = useCallback(async () => {
-    if (isLoadingRef.current || sourceImagesRef.current.length === 0) return
+    const explicitTargets =
+      targetItemsRef.current ??
+      (targetItemRef.current !== undefined ? [targetItemRef.current] : [])
+    if (
+      isLoadingRef.current ||
+      (sourceImagesRef.current.length === 0 && explicitTargets.length === 0)
+    )
+      return
     const normalizedCount = Math.min(
       64,
       Math.max(1, parseInt(countInputRef.current?.value ?? "", 10) || 1)
@@ -761,20 +771,49 @@ export function RegenerateDialog({
       if (!res.ok) throw new Error(`Render failed: HTTP ${String(res.status)}`)
       const data = (await res.json()) as { items: RenderItem[] }
       if (targetItemRef.current !== undefined) {
-        const targetMeta = targetItemRef.current.meta
-        const sameMeta = (item: RenderItem): boolean =>
-          Object.entries(targetMeta).every(
-            ([key, value]) => item.meta[key] === value
-          )
-        const matched =
-          data.items.find((item) => item.filename === targetFilenameRef.current) ??
-          data.items.find(sameMeta) ??
-          null
-        if (matched === null) {
-          toast.error("현재 조합을 새 템플릿 결과에서 찾지 못했습니다.")
-          return
+        const matchedItems: RenderItem[] = []
+        const seen = new Set<string>()
+        for (const target of explicitTargets) {
+          const sameMeta = (item: RenderItem): boolean =>
+            Object.entries(target.meta).every(
+              ([key, value]) => item.meta[key] === value
+            )
+          const matched =
+            data.items.find((item) => item.filename === target.filename) ??
+            data.items.find(sameMeta) ??
+            null
+          if (matched === null) {
+            toast.error("현재 조합을 새 템플릿 결과에서 찾지 못했습니다.")
+            return
+          }
+          if (!seen.has(matched.filename)) {
+            seen.add(matched.filename)
+            matchedItems.push(matched)
+          }
         }
-        renderItems = [matched]
+        renderItems = matchedItems
+      } else if (explicitTargets.length > 0) {
+        const matchedItems: RenderItem[] = []
+        const seen = new Set<string>()
+        for (const target of explicitTargets) {
+          const sameMeta = (item: RenderItem): boolean =>
+            Object.entries(target.meta).every(
+              ([key, value]) => item.meta[key] === value
+            )
+          const matched =
+            data.items.find((item) => item.filename === target.filename) ??
+            data.items.find(sameMeta) ??
+            null
+          if (matched === null) {
+            toast.error("재생성할 조합을 새 템플릿 결과에서 찾지 못했습니다.")
+            return
+          }
+          if (!seen.has(matched.filename)) {
+            seen.add(matched.filename)
+            matchedItems.push(matched)
+          }
+        }
+        renderItems = matchedItems
       } else {
         renderItems = data.items.filter((item) =>
           sourceImagesRef.current.some(
@@ -787,13 +826,16 @@ export function RegenerateDialog({
         }
       }
     } else {
-      renderItems = [
-        {
-          filename: targetFilenameRef.current,
-          prompt: "",
-          meta: targetItemRef.current?.meta ?? {},
-        },
-      ]
+      renderItems =
+        explicitTargets.length > 0
+          ? explicitTargets
+          : [
+              {
+                filename: targetFilenameRef.current,
+                prompt: "",
+                meta: targetItemRef.current?.meta ?? {},
+              },
+            ]
     }
 
     const allItems: {
@@ -838,6 +880,7 @@ export function RegenerateDialog({
     sourceImagesRef,
     targetFilenameRef,
     targetItemRef,
+    targetItemsRef,
   ])
 
   const hasWorkflowForRegeneration = parsedWorkflowData !== null

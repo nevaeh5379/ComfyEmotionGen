@@ -82,6 +82,9 @@ interface ToolbarProps {
   setShowUnassignedPanel: (v: boolean) => void
 
   handleBulkRegenerate: () => void
+  handleRegeneratePending: () => void
+  pendingRegenerateCount: number
+  pendingRegenerateDisabled: boolean
   bulkRegenActionMessage: string | null
 
   handleBulkDownload: () => void
@@ -115,6 +118,9 @@ export function CombinationPickerToolbar({
   showUnassignedPanel,
   setShowUnassignedPanel,
   handleBulkRegenerate,
+  handleRegeneratePending,
+  pendingRegenerateCount,
+  pendingRegenerateDisabled,
   bulkRegenActionMessage,
   handleBulkDownload,
   bulkDownloadIsLoading,
@@ -395,7 +401,7 @@ export function CombinationPickerToolbar({
               <input
                 type="range"
                 min="120"
-                max="320"
+                max="600"
                 step="10"
                 value={thumbnailSize}
                 onChange={(e) => {
@@ -452,6 +458,30 @@ export function CombinationPickerToolbar({
               <TooltipContent>필터 토글</TooltipContent>
             </Tooltip>
           )}
+
+          {/* 미완료 조합 재생성 버튼 */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRegeneratePending}
+                disabled={
+                  pendingRegenerateCount === 0 || pendingRegenerateDisabled
+                }
+                className="h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold md:h-8"
+              >
+                <RefreshCwIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                <span className="hidden lg:inline">미완료 재생성</span>
+                <span className="font-mono tabular-nums">
+                  {pendingRegenerateCount}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs font-bold">
+              미완료 조합 전부 재생성
+            </TooltipContent>
+          </Tooltip>
 
           {/* 새로고침 버튼 */}
           <Tooltip>
@@ -1147,7 +1177,7 @@ export function CombinationPickerToolbar({
                   <input
                     type="range"
                     min="120"
-                    max="320"
+                    max="600"
                     step="10"
                     value={thumbnailSize}
                     onChange={(e) => {
@@ -1212,6 +1242,18 @@ export function CombinationPickerToolbar({
 
             {/* 데이터 새로고침 및 필터 초기화 버튼 영역 */}
             <div className="flex flex-col gap-2 border-t border-dashed pt-4">
+              <Button
+                variant="outline"
+                className="h-10 w-full gap-2 text-xs font-bold"
+                onClick={handleRegeneratePending}
+                disabled={
+                  pendingRegenerateCount === 0 || pendingRegenerateDisabled
+                }
+              >
+                <RefreshCwIcon className="h-3.5 w-3.5" />
+                미완료 조합 재생성 ({pendingRegenerateCount})
+              </Button>
+
               <Button
                 variant="outline"
                 className="h-10 w-full gap-2 text-xs font-bold"

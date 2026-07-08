@@ -13,6 +13,7 @@ export interface RenderItem {
   filename: string
   prompt: string
   meta: Record<string, string>
+  slots?: Record<string, string | number | boolean | null>
 }
 
 export interface AxisValueOut {

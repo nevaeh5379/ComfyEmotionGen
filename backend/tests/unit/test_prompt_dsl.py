@@ -250,6 +250,32 @@ class TestParser:
         assert cond.op == "eq"
         assert cond.values == ["sad"]
 
+    def test_override_block(self):
+        prog = parse(
+            '{{axis mood}}\n'
+            '  happy : "happy"\n'
+            '  sad : "sad"\n'
+            '{{/axis}}\n'
+            '{{combine mood}}\n'
+            '{{override mood=happy}}\n'
+            '  prompt += ", warm light"\n'
+            '  slot.lora = "happy.safetensors"\n'
+            '  slot.lora_strength = 0.8\n'
+            '  meta.variant = "warm"\n'
+            '{{/override}}\n'
+            '{{template}}{{mood}}{{/template}}\n'
+            '{{filename}}out{{/filename}}\n'
+        )
+        assert len(prog.overrides) == 1
+        rule = prog.overrides[0]
+        assert rule.conditions[0].axis == "mood"
+        assert [a.target for a in rule.actions] == [
+            "prompt",
+            "slot.lora",
+            "slot.lora_strength",
+            "meta.variant",
+        ]
+
     def test_exclude_in(self):
         prog = parse(
             '{{axis mood}}\n'
@@ -675,6 +701,47 @@ class TestRenderExclude:
         assert exc["conditions"][0]["axis"] == "mood"
         assert exc["conditions"][0]["op"] == "eq"
         assert exc["connective"] == "AND"
+
+
+# ══════════════════════════════════════════════
+#  Render Tests — Overrides
+# ══════════════════════════════════════════════
+
+class TestRenderOverrides:
+    """Tests for render() with combination-level override rules."""
+
+    def test_override_applies_prompt_slots_and_meta_to_matching_combo(self):
+        prog = parse(
+            '{{axis character}}\n'
+            '  alice : "alice"\n'
+            '  bob : "bob"\n'
+            '{{/axis}}\n'
+            '{{axis mood}}\n'
+            '  smile : "smiling"\n'
+            '  angry : "angry"\n'
+            '{{/axis}}\n'
+            '{{combine character * mood}}\n'
+            '{{override character=alice AND mood=smile}}\n'
+            '  prompt += ", warm light"\n'
+            '  slot.lora = "alice_smile.safetensors"\n'
+            '  slot.lora_strength = 0.8\n'
+            '  meta.variant = "warm"\n'
+            '{{/override}}\n'
+            '{{template}}{{character}}, {{mood}}{{/template}}\n'
+            '{{filename}}{{character.key}}_{{mood.key}}{{/filename}}\n'
+        )
+        result = render(prog)
+        items = result["items"]
+        matched = next(i for i in items if i["filename"] == "alice_smile")
+        other = next(i for i in items if i["filename"] == "bob_angry")
+
+        assert matched["prompt"] == "alice, smiling, warm light"
+        assert matched["slots"] == {
+            "lora": "alice_smile.safetensors",
+            "lora_strength": 0.8,
+        }
+        assert matched["meta"]["variant"] == "warm"
+        assert "slots" not in other
 
 
 # ══════════════════════════════════════════════

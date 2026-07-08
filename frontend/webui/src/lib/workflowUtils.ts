@@ -148,7 +148,15 @@ export const buildWorkflowForItem = (
   const workflow = parseWorkflow(workflowJson)
 
   nodeMappings.forEach(
-    ({ nodeId, inputKey, sourceType, seedValue, seedRandom, fixedValue }) => {
+    ({
+      nodeId,
+      inputKey,
+      sourceType,
+      seedValue,
+      seedRandom,
+      fixedValue,
+      slotKey,
+    }) => {
       if (!workflow[nodeId]) return
       switch (sourceType) {
         case "prompt":
@@ -157,6 +165,13 @@ export const buildWorkflowForItem = (
         case "filename":
           workflow[nodeId].inputs[inputKey] = item.filename
           break
+        case "slot": {
+          const key = (slotKey ?? "").trim().replace(/^slot\./, "")
+          if (key !== "" && item.slots !== undefined && key in item.slots) {
+            workflow[nodeId].inputs[inputKey] = item.slots[key] ?? ""
+          }
+          break
+        }
         case "seed": {
           const v =
             seedRandom === true

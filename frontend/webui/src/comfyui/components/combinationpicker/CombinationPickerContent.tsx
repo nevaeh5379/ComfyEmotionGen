@@ -207,6 +207,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     open: boolean
     sourceImages: SavedImage[]
     targetItem?: RenderItem
+    targetItems?: RenderItem[]
     templateOverride?: string
   }>({ open: false, sourceImages: [] })
   const [cegDraftByFilename, setCegDraftByFilename] = useState<
@@ -424,6 +425,14 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     })
   }, [imagesByFilename, renderItems, sidebarFilter, sidebarQuery])
 
+  const pendingRenderItems = useMemo(
+    () =>
+      renderItems.filter(
+        (item) => !hasApproved(imagesByFilename.get(item.filename) ?? [])
+      ),
+    [imagesByFilename, renderItems]
+  )
+
   // ── Handlers ──
   const navigateTo = useCallback(
     (direction: "prev" | "next") => {
@@ -526,10 +535,17 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   const handleRegenDone = useCallback(() => {
     setRegenDialogState((prev) => ({ ...prev, open: false }))
-    if (regenDialogState.sourceImages.length > 1) {
+    if (
+      regenDialogState.sourceImages.length > 1 ||
+      (regenDialogState.targetItems?.length ?? 0) > 1
+    ) {
       exitSelectionMode()
     }
-  }, [exitSelectionMode, regenDialogState.sourceImages])
+  }, [
+    exitSelectionMode,
+    regenDialogState.sourceImages,
+    regenDialogState.targetItems,
+  ])
 
   const handleOpen = useCallback(
     (filename: string) => {
@@ -586,11 +602,40 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       const imgs = imagesByFilename.get(filename) ?? []
       allImages.push(...imgs)
     }
+    const targetItems = renderItems.filter((item) =>
+      selectedFilenames.has(item.filename)
+    )
     setRegenDialogState({
       open: true,
       sourceImages: allImages,
+      targetItems,
     })
-  }, [selectedFilenames, isFreeMode, freeGroupMode, imagesByFilename])
+  }, [
+    selectedFilenames,
+    isFreeMode,
+    freeGroupMode,
+    imagesByFilename,
+    renderItems,
+  ])
+
+  const handleRegeneratePending = useCallback(() => {
+    if (pendingRenderItems.length === 0) return
+    if (isFreeMode && freeGroupMode !== "filename") return
+    const allImages: SavedImage[] = []
+    for (const item of pendingRenderItems) {
+      allImages.push(...(imagesByFilename.get(item.filename) ?? []))
+    }
+    setRegenDialogState({
+      open: true,
+      sourceImages: allImages,
+      targetItems: pendingRenderItems,
+    })
+  }, [
+    freeGroupMode,
+    imagesByFilename,
+    isFreeMode,
+    pendingRenderItems,
+  ])
 
   const handleBulkDownload = useCallback(async () => {
     if (bulkDownloadAction.isLoading || selectedFilenames.size === 0) return
@@ -858,6 +903,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         showUnassignedPanel={curationToolbarCtx.showUnassignedPanel}
         setShowUnassignedPanel={curationToolbarCtx.setShowUnassignedPanel}
         handleBulkRegenerate={handleBulkRegenerate}
+        handleRegeneratePending={handleRegeneratePending}
+        pendingRegenerateCount={pendingRenderItems.length}
+        pendingRegenerateDisabled={
+          isFreeMode && freeGroupMode !== "filename"
+        }
         bulkRegenActionMessage={bulkRegenAction.message}
         handleBulkDownload={() => {
           void handleBulkDownload()
@@ -1079,6 +1129,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           sourceImages={regenDialogState.sourceImages}
           {...(regenDialogState.targetItem !== undefined
             ? { targetItem: regenDialogState.targetItem }
+            : {})}
+          {...(regenDialogState.targetItems !== undefined
+            ? { targetItems: regenDialogState.targetItems }
             : {})}
           backendUrl={backendUrl}
           currentCegTemplate={regenDialogState.templateOverride ?? activeTemplate}

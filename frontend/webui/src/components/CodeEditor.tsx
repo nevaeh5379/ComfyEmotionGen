@@ -23,7 +23,7 @@ interface CodeEditorProps {
 
 interface CegState {
   inComment: boolean
-  inBlock: "template" | "filename" | "axis" | null
+  inBlock: "template" | "filename" | "axis" | "override" | null
   inTag: boolean
   curlyDepth: number
 }
@@ -66,7 +66,7 @@ const cegLanguage = StreamLanguage.define<CegState>({
 
       // Keywords inside tag context
       if (
-        stream.match(/^(?:set|axis|combine|exclude|include|in|not)\b/i) !== null
+        stream.match(/^(?:set|axis|combine|exclude|override|include|in|not)\b/i) !== null
       ) {
         return "keyword"
       }
@@ -121,13 +121,18 @@ const cegLanguage = StreamLanguage.define<CegState>({
 
     // Axis block tag opening/closing
     if (stream.match(/^\{\{/) !== null) {
-      if (stream.match(/^\/axis\}\}/) !== null) {
+      if (stream.match(/^\/(?:axis|override)\}\}/) !== null) {
         state.inBlock = null
         return "tag"
       }
       if (stream.match(/^axis\b/) !== null) {
         state.inTag = true
         state.inBlock = "axis"
+        return "tag"
+      }
+      if (stream.match(/^override\b/) !== null) {
+        state.inTag = true
+        state.inBlock = "override"
         return "tag"
       }
       if (stream.match(/^(?:set|combine|exclude)\b/) !== null) {
@@ -148,6 +153,32 @@ const cegLanguage = StreamLanguage.define<CegState>({
         return "variableName"
       }
       if (stream.match(/^[^{]+/) !== null) {
+        return null
+      }
+      stream.next()
+      return null
+    }
+
+    if (state.inBlock === "override") {
+      if (stream.match(/^\s+/) !== null) {
+        return null
+      }
+      if (stream.match(/^(?:prompt|slot\.[a-zA-Z_][a-zA-Z0-9_-]*|meta\.[a-zA-Z_][a-zA-Z0-9_-]*)/) !== null) {
+        return "variableName"
+      }
+      if (stream.match(/^"(?:[^"\\]|\\.)*"/) !== null) {
+        return "string"
+      }
+      if (stream.match(/^-?\d+(?:\.\d+)?\b/) !== null) {
+        return "number"
+      }
+      if (stream.match(/^(?:true|false)\b/i) !== null) {
+        return "atom"
+      }
+      if (stream.match(/^(?:\+=|=)/) !== null) {
+        return "operator"
+      }
+      if (stream.match(/^[^{}]+/) !== null) {
         return null
       }
       stream.next()

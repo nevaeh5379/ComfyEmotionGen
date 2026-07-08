@@ -216,6 +216,7 @@ class RenderItem(BaseModel):
     filename: str
     prompt: str
     meta: Dict[str, str]
+    slots: Dict[str, JSONValue] = Field(default_factory=dict)
 
 
 class RenderResponse(BaseModel):

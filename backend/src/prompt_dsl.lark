@@ -6,6 +6,7 @@ statement: set_stmt
          | axis_def
          | combine_stmt
          | exclude_stmt
+         | override_block
          | template_block
          | filename_block
          | comment
@@ -38,6 +39,8 @@ eq_condition: NAME "=" NAME
 in_condition: NAME "in" "[" NAME ("," NAME)* "]"
 not_in_condition: NAME "not" "in" "[" NAME ("," NAME)* "]"
 
+override_block: "{{override" condition ((AND | OR) condition)* "}}" OVERRIDE_BODY "{{/override}}"
+
 template_block: "{{template}}" TEMPLATE_BODY "{{/template}}"
 filename_block: "{{filename}}" TEMPLATE_BODY "{{/filename}}"
 
@@ -54,6 +57,9 @@ INT: /[0-9]+/
 
 // 템플릿 본문: {{/template}} 또는 {{/filename}} 이 나올 때까지 전부
 TEMPLATE_BODY: /(?:(?!\{\{\/(?:template|filename)\}\}).)+/s
+
+// 오버라이드 본문: {{/override}} 가 나올 때까지 전부
+OVERRIDE_BODY: /(?:(?!\{\{\/override\}\}).)+/s
 
 // 주석 본문: #}} 가 나올 때까지
 COMMENT_BODY: /(?:(?!#\}\}).)+/s

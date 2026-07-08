@@ -114,6 +114,7 @@ const getNodeInputSpec = (
 const SOURCE_LABELS: Record<MappingSourceType, string> = {
   prompt: "프롬프트",
   filename: "파일명",
+  slot: "슬롯",
   seed: "시드",
   image: "이미지",
   fixed: "고정값",
@@ -465,6 +466,18 @@ export const NodeMappingSection = React.memo(
                                     </span>
                                   )}
                                 </div>
+                              )}
+                              {m.sourceType === "slot" && (
+                                <Input
+                                  value={m.slotKey ?? ""}
+                                  onChange={(e) => {
+                                    updateMapping(m.id, {
+                                      slotKey: e.target.value,
+                                    })
+                                  }}
+                                  className="h-7 w-36 bg-background font-mono text-[11px] shadow-sm"
+                                  placeholder="slot.lora"
+                                />
                               )}
                               {m.sourceType === "fixed" &&
                                 (enumOptions ? (

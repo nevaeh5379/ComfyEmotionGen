@@ -94,6 +94,11 @@ interface VisualExclude {
   id: string
   statement: string
 }
+interface VisualOverride {
+  id: string
+  statement: string
+  body: string
+}
 export interface TemplateItem {
   id: string
   name: string
@@ -113,6 +118,7 @@ interface TemplateDraft {
   axes: VisualAxis[]
   combines: VisualCombine[]
   excludes: VisualExclude[]
+  overrides: VisualOverride[]
   templateBody: string
   filenameBody: string
   saveName: string
@@ -123,6 +129,7 @@ interface ParsedTemplate {
   axes: VisualAxis[]
   combines: VisualCombine[]
   excludes: VisualExclude[]
+  overrides: VisualOverride[]
   templateBody: string
   filenameBody: string
   cleanFilename: boolean
@@ -178,6 +185,7 @@ function emptyDraft(sourceId: string | null, saveName = ""): TemplateDraft {
     axes: [],
     combines: [],
     excludes: [],
+    overrides: [],
     templateBody: "",
     filenameBody: "",
     saveName,
@@ -246,6 +254,7 @@ function parseCegTemplate(code: string): ParsedTemplate {
   const axes: VisualAxis[] = []
   const combines: VisualCombine[] = []
   const excludes: VisualExclude[] = []
+  const overrides: VisualOverride[] = []
   let templateBody = ""
   let filenameBody = ""
   let cleanFilename = true
@@ -255,6 +264,7 @@ function parseCegTemplate(code: string): ParsedTemplate {
       axes,
       combines,
       excludes,
+      overrides,
       templateBody,
       filenameBody,
       cleanFilename,
@@ -342,6 +352,15 @@ function parseCegTemplate(code: string): ParsedTemplate {
       id: `ex-${String(xi++)}`,
       statement: (match[1] ?? "").trim(),
     })
+  const ovRe =
+    /\{\{\s*override\s+([^}]+)\s*\}\}([\s\S]*?)\{\{\s*\/override\s*\}\}/g
+  let oi = 0
+  while ((match = ovRe.exec(code)) !== null)
+    overrides.push({
+      id: `ov-${String(oi++)}`,
+      statement: (match[1] ?? "").trim(),
+      body: (match[2] ?? "").replace(/^\n/, "").replace(/\n$/, ""),
+    })
   const tm = /\{\{\s*template\s*\}\}([\s\S]*?)\{\{\s*\/template\s*\}\}/i.exec(
     code
   )
@@ -355,6 +374,7 @@ function parseCegTemplate(code: string): ParsedTemplate {
     axes,
     combines,
     excludes,
+    overrides,
     templateBody,
     filenameBody,
     cleanFilename,
@@ -688,6 +708,7 @@ export function TemplateGeneratorPanel({
       axes: parsed.axes,
       combines: parsed.combines,
       excludes: parsed.excludes,
+      overrides: parsed.overrides,
       templateBody: parsed.templateBody,
       filenameBody: parsed.filenameBody,
       saveName: baseName,
@@ -701,6 +722,7 @@ export function TemplateGeneratorPanel({
     axes,
     combines,
     excludes,
+    overrides,
     templateBody,
     filenameBody,
     saveName,
@@ -1222,6 +1244,12 @@ export function TemplateGeneratorPanel({
         c += `{{exclude ${ex.statement.trim()}}}\n`
     })
     if (excludes.length > 0) c += "\n"
+    overrides.forEach((ov) => {
+      const statement = ov.statement.trim()
+      if (statement === "") return
+      c += `{{override ${statement}}}\n${ov.body.trimEnd()}\n{{/override}}\n`
+    })
+    if (overrides.length > 0) c += "\n"
     if (templateBody.trim() !== "")
       c += `{{template}}\n${templateBody}\n{{/template}}\n\n`
     if (filenameBody.trim() !== "")
@@ -1232,6 +1260,7 @@ export function TemplateGeneratorPanel({
     axes,
     combines,
     excludes,
+    overrides,
     templateBody,
     filenameBody,
     cleanFilename,
@@ -2700,7 +2729,7 @@ export function TemplateGeneratorPanel({
                     onToggle={toggleSection}
                     icon={Shuffle}
                     label="규칙"
-                    count={combines.length + excludes.length}
+                    count={combines.length + excludes.length + overrides.length}
                   >
                     {combinesSection}
                   </CollapsibleSection>
@@ -2821,7 +2850,7 @@ export function TemplateGeneratorPanel({
                     onToggle={toggleSection}
                     icon={Shuffle}
                     label="규칙"
-                    count={combines.length + excludes.length}
+                    count={combines.length + excludes.length + overrides.length}
                   >
                     {combinesSection}
                   </CollapsibleSection>
