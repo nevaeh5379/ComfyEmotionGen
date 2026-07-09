@@ -47,6 +47,7 @@ export function useCombinationData({
   setSavedGroups,
 }: UseCombinationDataProps): {
   renderItems: RenderItem[]
+  rawRenderItems: RenderItem[]
   allImages: SavedImage[]
   setAllImages: React.Dispatch<React.SetStateAction<SavedImage[]>>
   loading: boolean
@@ -620,6 +621,7 @@ export function useCombinationData({
 
   return {
     renderItems,
+    rawRenderItems,
     allImages,
     setAllImages,
     loading,

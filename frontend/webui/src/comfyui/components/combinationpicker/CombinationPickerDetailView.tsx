@@ -238,11 +238,11 @@ export function CombinationPickerDetailView({
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } =
     useCurationContext()
   const { jobs, workerPreviews } = useBackend()
-  const { setStatus, imagesByFilename, renderItems, uploadUserImage } = data
+  const { setStatus, imagesByFilename, renderItems, rawRenderItems, uploadUserImage } = data
 
-  const selectedItem = renderItems.find(
-    (ri) => ri.filename === selectedFilename
-  )
+  const selectedItem =
+    renderItems.find((ri) => ri.filename === selectedFilename) ??
+    rawRenderItems.find((ri) => ri.filename === selectedFilename)
   const selectedImages = imagesByFilename.get(selectedFilename) ?? []
   const activeJobsForSelection = useMemo(
     () =>

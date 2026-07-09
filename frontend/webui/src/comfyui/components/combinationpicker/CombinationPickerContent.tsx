@@ -131,6 +131,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   const {
     renderItems,
+    rawRenderItems,
     loading,
     error,
     fetchData,
@@ -398,7 +399,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   const sidebarFilteredItems = useMemo(() => {
     const q = sidebarQuery.trim().toLowerCase()
-    return renderItems.filter((item) => {
+    // '빈 폴더' 필터는 hideEmptyCurationFolders 설정과 무관하게 빈 폴더를 보여주기 위해
+    // 필터링되지 않은 전체 목록(rawRenderItems)에서 추출한다.
+    const source = sidebarFilter === "empty" ? rawRenderItems : renderItems
+    return source.filter((item) => {
       const imgs = imagesByFilename.get(item.filename) ?? []
       const isDone = hasApproved(imgs)
 
@@ -423,7 +427,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         .toLowerCase()
       return haystack.includes(q)
     })
-  }, [imagesByFilename, renderItems, sidebarFilter, sidebarQuery])
+  }, [imagesByFilename, renderItems, rawRenderItems, sidebarFilter, sidebarQuery])
+
+  const sidebarTotalCount =
+    sidebarFilter === "empty" ? rawRenderItems.length : renderItems.length
 
   const pendingRenderItems = useMemo(
     () =>
@@ -958,7 +965,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 selectedFilename={selectedFilename}
                 setSelectedFilename={setSelectedFilename}
                 items={sidebarFilteredItems}
-                totalCount={renderItems.length}
+                totalCount={sidebarTotalCount}
                 query={sidebarQuery}
                 setQuery={setSidebarQuery}
                 filter={sidebarFilter}
@@ -1111,7 +1118,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                   setIsMobileSidebarOpen(false)
                 }}
                 items={sidebarFilteredItems}
-                totalCount={renderItems.length}
+                totalCount={sidebarTotalCount}
                 query={sidebarQuery}
                 setQuery={setSidebarQuery}
                 filter={sidebarFilter}
