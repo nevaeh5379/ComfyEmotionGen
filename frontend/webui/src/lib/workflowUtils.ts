@@ -27,6 +27,17 @@ export const parseWorkflow = (json: string): ComfyWorkflow => {
 export const itemKey = (item: RenderItem): string =>
   `${item.filename} ${item.prompt}`
 
+export const substitute = (text: string, item: RenderItem): string => {
+  let r = text || ""
+  Object.entries(item.meta).forEach(([k, v]) => {
+    r = r.split(`{{${k}}}`).join(v)
+    r = r.split(`{${k}}`).join(v)
+  })
+  r = r.split("{{input}}").join(item.prompt || "")
+  r = r.split("{input}").join(item.prompt || "")
+  return r
+}
+
 export const buildAutoMappings = (workflow: ComfyWorkflow): NodeMapping[] => {
   const auto: NodeMapping[] = []
 

@@ -10,11 +10,12 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { LayersIcon, Copy, Check, Search, X } from "lucide-react"
+import { LayersIcon, Copy, Check, Search, X, Play, Shuffle, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 import { itemKey } from "../../lib/workflowUtils"
+import { InlineImagePreview } from "./InlineImagePreview"
 
 /* ---------- types ---------- */
 interface ParserPreviewDialogProps {
@@ -22,6 +23,9 @@ interface ParserPreviewDialogProps {
   onOpenChange: (open: boolean) => void
   renderResponse: RenderItemsResponse | null
   filteredByAxisSet: Set<string> | null
+  canRun?: boolean
+  onRunSingle?: (item: RenderItem) => Promise<boolean>
+  backendUrl?: string
 }
 
 /* ---------- helpers ---------- */
@@ -42,11 +46,15 @@ export const ParserPreviewDialog = ({
   onOpenChange,
   renderResponse,
   filteredByAxisSet,
+  canRun = false,
+  onRunSingle,
+  backendUrl,
 }: ParserPreviewDialogProps): React.JSX.Element => {
   const [searchInput, setSearchInput] = useState("")
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null)
+  const [recentItems, setRecentItems] = useState<RenderItem[]>([])
 
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
     null
@@ -80,7 +88,7 @@ export const ParserPreviewDialog = ({
   const rowVirtualizer = useVirtualizer({
     count: filteredItems.length,
     getScrollElement: () => scrollElement,
-    estimateSize: () => 140,
+    estimateSize: () => 160,
     overscan: 5,
   })
 
@@ -121,6 +129,38 @@ export const ParserPreviewDialog = ({
     })
   }, [])
 
+  const handleRunItem = useCallback(
+    (item: RenderItem) => {
+      if (!onRunSingle) return
+      const key = itemKey(item)
+      setRecentItems((prev) => {
+        const withoutSame = prev.filter((p) => itemKey(p) !== key)
+        return [item, ...withoutSame].slice(0, 8)
+      })
+      setSelectedItemKey(key)
+      void onRunSingle(item)
+    },
+    [onRunSingle]
+  )
+
+  const handleRunRandom = useCallback(() => {
+    if (!onRunSingle || filteredItems.length === 0) return
+    const runnable = filteredByAxisSet
+      ? filteredItems.filter((item) => filteredByAxisSet.has(itemKey(item)))
+      : filteredItems
+    if (runnable.length === 0) return
+    const item = runnable[Math.floor(Math.random() * runnable.length)]
+    if (item !== undefined) handleRunItem(item)
+  }, [onRunSingle, filteredItems, filteredByAxisSet, handleRunItem])
+
+  const activeItem = useMemo(
+    () =>
+      selectedItemKey !== null
+        ? items.find((it) => itemKey(it) === selectedItemKey) ?? null
+        : null,
+    [items, selectedItemKey]
+  )
+
   /* ---- render ---- */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,6 +170,19 @@ export const ParserPreviewDialog = ({
           <DialogTitle className="flex items-center gap-2 text-base">
             <LayersIcon className="size-5 text-primary opacity-60" />
             파서 렌더링 결과
+            {onRunSingle && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto h-7 gap-1 px-2 text-[11px]"
+                disabled={!canRun || filteredItems.length === 0}
+                onClick={handleRunRandom}
+              >
+                <Shuffle className="h-3 w-3" />
+                랜덤 실행
+              </Button>
+            )}
           </DialogTitle>
           <DialogDescription className="text-xs">
             작성한 템플릿 문법에 따라 생성될{" "}
@@ -299,6 +352,8 @@ export const ParserPreviewDialog = ({
                   return (
                     <div
                       key={`item-${key}-${String(index)}`}
+                      data-index={index}
+                      ref={rowVirtualizer.measureElement}
                       onClick={(e) => {
                         e.preventDefault()
                         handleItemClick(item)
@@ -308,14 +363,12 @@ export const ParserPreviewDialog = ({
                         top: 0,
                         left: 0,
                         width: "100%",
-                        height: `${String(virtualItem.size)}px`,
                         transform: `translateY(${String(virtualItem.start)}px)`,
-                        paddingBottom: "8px",
                       }}
                     >
                       <div
                         className={cn(
-                          "group flex h-full cursor-pointer flex-col gap-1.5 rounded-lg border border-line bg-background p-3 shadow-xs transition-all select-none",
+                          "group mb-2 flex cursor-pointer flex-col gap-1.5 rounded-lg border border-line bg-background p-3 shadow-xs transition-all select-none",
                           !wouldRun && "opacity-30 grayscale",
                           anySelected && !isSelected && "opacity-40",
                           isSelected &&
@@ -330,6 +383,20 @@ export const ParserPreviewDialog = ({
                           <span className="flex-1 font-mono text-xs leading-tight font-bold break-all text-foreground">
                             {rf}
                           </span>
+                          {onRunSingle && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 hover:text-primary"
+                              disabled={!canRun || !wouldRun}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRunItem(item)
+                              }}
+                            >
+                              <Play className="h-3 w-3" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -345,7 +412,7 @@ export const ParserPreviewDialog = ({
                         </div>
 
                         {/* meta badges */}
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 overflow-hidden">
                           {Object.entries(item.meta).map(([k, v]) => {
                             const axisInfo = axes[k]
                             const matched = axisInfo?.values.find(
@@ -355,7 +422,7 @@ export const ParserPreviewDialog = ({
                               <span
                                 key={k}
                                 className={cn(
-                                  "rounded border px-2 py-0.5 font-mono text-[9px] font-bold transition-colors",
+                                  "shrink-0 rounded border px-2 py-0.5 font-mono text-[9px] font-bold transition-colors",
                                   isSelected
                                     ? "border-primary bg-primary/10 text-primary"
                                     : "border-line bg-muted/40 text-foreground"
@@ -403,19 +470,89 @@ export const ParserPreviewDialog = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex shrink-0 justify-end border-t px-5 py-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              onOpenChange(false)
-            }}
-            className="font-bold"
-          >
-            확인
-          </Button>
-        </div>
+        {/* Footer — quick test actions */}
+        {onRunSingle && (
+          <div className="flex shrink-0 items-center gap-3 border-t px-5 py-3">
+            {/* Recent runs */}
+            {recentItems.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">최근</span>
+                {recentItems.map((item, idx) => {
+                  const k = itemKey(item)
+                  const isActive = selectedItemKey === k
+                  return (
+                    <Button
+                      key={`recent-${k}-${String(idx)}`}
+                      type="button"
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      className="h-6 shrink-0 px-2 text-[10px]"
+                      onClick={() => {
+                        setSelectedItemKey(k)
+                        const qualifiers = Object.entries(item.meta).map(
+                          ([mk, mv]) => `${mk}:${mv}`
+                        )
+                        setSelectedKeys(qualifiers)
+                      }}
+                    >
+                      {String(idx + 1)}
+                    </Button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Selected item quick run + preview */}
+            <div className="ml-auto flex items-center gap-2">
+              {activeItem !== null && backendUrl !== undefined && (
+                <InlineImagePreview
+                  filename={activeItem.filename}
+                  backendUrl={backendUrl}
+                  showCurationActions
+                  onRegenerate={() => {
+                    handleRunItem(activeItem)
+                  }}
+                />
+              )}
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 gap-1 px-3 text-[11px]"
+                disabled={!canRun || activeItem === null}
+                onClick={() => {
+                  if (activeItem !== null) handleRunItem(activeItem)
+                }}
+              >
+                <Sparkles className="h-3 w-3" />
+                선택 실행
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-3 text-[11px]"
+                onClick={() => {
+                  onOpenChange(false)
+                }}
+              >
+                닫기
+              </Button>
+            </div>
+          </div>
+        )}
+        {!onRunSingle && (
+          <div className="flex shrink-0 justify-end border-t px-5 py-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onOpenChange(false)
+              }}
+              className="font-bold"
+            >
+              확인
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

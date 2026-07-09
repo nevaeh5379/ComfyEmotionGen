@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { CompositionTabsList } from "./CompositionTabsList"
 import { WorkCompositionToolbar } from "./WorkCompositionToolbar"
-import { QuickCombinationTestPanel } from "./QuickCombinationTestPanel"
 import CodeEditor from "@/components/CodeEditor"
 import {
   Tooltip,
@@ -36,7 +35,6 @@ import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 import type { WorkerView } from "../types/Message"
-import type { RenderItem } from "../types/renderTypes"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,7 +67,6 @@ export interface WorkCompositionPanelProps {
   repeatCount: number
   setRepeatCount: (value: number | ((prev: number) => number)) => void
   handleRun: () => void
-  handleRunSingle: (item: RenderItem) => Promise<boolean>
   handleRandomRun: (count: number) => void
   handleRunUnapproved: () => void
   randomRunCount: number
@@ -77,8 +74,6 @@ export interface WorkCompositionPanelProps {
   estimatedRunCount: number | null
   canRun: boolean
   previewCount: number
-  previewItems: RenderItem[]
-  backendUrl: string
   workers: WorkerView[]
   targetWorkerId: string | null
   setTargetWorkerId: (value: string | null) => void
@@ -107,7 +102,6 @@ export function WorkCompositionPanel({
   repeatCount,
   setRepeatCount,
   handleRun,
-  handleRunSingle,
   handleRandomRun,
   handleRunUnapproved,
   randomRunCount,
@@ -115,8 +109,6 @@ export function WorkCompositionPanel({
   estimatedRunCount,
   canRun,
   previewCount,
-  previewItems,
-  backendUrl,
   workers,
   targetWorkerId,
   setTargetWorkerId,
@@ -416,12 +408,6 @@ export function WorkCompositionPanel({
                 onFileOpen={handleTemplateFileOpen}
                 isDirty={template.isDirty}
                 onRevert={template.revert}
-              />
-              <QuickCombinationTestPanel
-                items={previewItems}
-                canRun={canRun}
-                backendUrl={backendUrl}
-                onRunSingle={handleRunSingle}
               />
             </div>
           </TabsContent>

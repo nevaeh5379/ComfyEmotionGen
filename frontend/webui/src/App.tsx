@@ -805,6 +805,9 @@ function AppContent(): React.JSX.Element {
           onOpenChange={setIsSheetOpen}
           renderResponse={renderResponse}
           filteredByAxisSet={filteredByAxisSet}
+          canRun={canRun}
+          onRunSingle={handleRunSingle}
+          backendUrl={backendUrl}
         />
 
         <AxisFilterSheet
@@ -943,7 +946,6 @@ function AppContent(): React.JSX.Element {
                 handleRun={() => {
                   void handleRun()
                 }}
-                handleRunSingle={handleRunSingle}
                 handleRandomRun={() => {
                   void handleRandomRun()
                 }}
@@ -955,8 +957,6 @@ function AppContent(): React.JSX.Element {
                 estimatedRunCount={estimatedRunCount}
                 canRun={canRun}
                 previewCount={fakeJobQueue.length}
-                previewItems={fakeJobQueue}
-                backendUrl={backendUrl}
                 workers={workers}
                 targetWorkerId={targetWorkerId}
                 setTargetWorkerId={setTargetWorkerId}

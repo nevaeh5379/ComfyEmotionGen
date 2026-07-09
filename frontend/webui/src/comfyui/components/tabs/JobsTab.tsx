@@ -316,7 +316,6 @@ export function JobsTab({
               repeatCount={repeatCount}
               setRepeatCount={setRepeatCount}
               handleRun={handleRun}
-              handleRunSingle={runner.handleRunSingle}
               handleRandomRun={handleRandomRun}
               handleRunUnapproved={handleRunUnapproved}
               randomRunCount={randomRunCount}
@@ -324,8 +323,6 @@ export function JobsTab({
               estimatedRunCount={estimatedRunCount}
               canRun={canRun}
               previewCount={fakeJobQueue.length}
-              previewItems={fakeJobQueue}
-              backendUrl={backendUrl}
               workers={workers}
               targetWorkerId={targetWorkerId}
               setTargetWorkerId={setTargetWorkerId}
@@ -662,7 +659,6 @@ export function JobsTab({
               repeatCount={repeatCount}
               setRepeatCount={setRepeatCount}
               handleRun={handleRun}
-              handleRunSingle={runner.handleRunSingle}
               handleRandomRun={handleRandomRun}
               handleRunUnapproved={handleRunUnapproved}
               randomRunCount={randomRunCount}
@@ -670,8 +666,6 @@ export function JobsTab({
               estimatedRunCount={estimatedRunCount}
               canRun={canRun}
               previewCount={fakeJobQueue.length}
-              previewItems={fakeJobQueue}
-              backendUrl={backendUrl}
               workers={workers}
               targetWorkerId={targetWorkerId}
               setTargetWorkerId={setTargetWorkerId}

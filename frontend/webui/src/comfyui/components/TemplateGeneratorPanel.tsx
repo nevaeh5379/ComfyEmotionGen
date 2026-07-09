@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Upload,
   Star,
+  Play,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -54,11 +55,11 @@ import CodeEditor from "@/components/CodeEditor"
 import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useJobRunner } from "../hooks/useJobRunner"
 import { InlineImagePreview } from "./InlineImagePreview"
-import { QuickTestPopover } from "./QuickTestPopover"
+import { QuickTestPanel } from "./QuickTestPanel"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
-import { itemKey } from "../../lib/workflowUtils"
+import { itemKey, substitute as substituteItem } from "../../lib/workflowUtils"
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -142,6 +143,7 @@ const STORAGE_KEYS = {
   expandedAxes: "tg-expanded-axes",
   axisAdvanced: "tg-axis-advanced",
   mobileTab: "tg-mobile-tab",
+  testPanelCollapsed: "tg-test-panel-collapsed",
 } as const
 
 function loadSet(key: string): Set<string> {
@@ -175,6 +177,15 @@ function saveString(key: string, value: string): void {
   } catch {
     /* ignore */
   }
+}
+function loadBool(key: string, fallback: boolean): boolean {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw !== null) return raw === "true"
+  } catch {
+    /* ignore */
+  }
+  return fallback
 }
 
 function emptyDraft(sourceId: string | null, saveName = ""): TemplateDraft {
@@ -538,6 +549,15 @@ export function TemplateGeneratorPanel({
   const [favoriteCombinations, setFavoriteCombinations] = useState<Set<string>>(
     () => loadSet("ceg_favorite_combinations")
   )
+  const [testPanelCollapsed, setTestPanelCollapsed] = useState(() =>
+    loadBool(STORAGE_KEYS.testPanelCollapsed, false)
+  )
+  const [testPanelExternalAxis, setTestPanelExternalAxis] = useState<{
+    axisName: string
+    value: string
+  } | null>(null)
+  const [testPanelExternalFavorites, setTestPanelExternalFavorites] =
+    useState(false)
 
   const toggleFavorite = useCallback((key: string): void => {
     setFavoriteCombinations((prev) => {
@@ -547,6 +567,20 @@ export function TemplateGeneratorPanel({
       saveSet("ceg_favorite_combinations", next)
       return next
     })
+  }, [])
+
+  const toggleTestPanelCollapsed = useCallback((): void => {
+    setTestPanelCollapsed((prev) => {
+      const next = !prev
+      saveString(STORAGE_KEYS.testPanelCollapsed, String(next))
+      return next
+    })
+  }, [])
+
+  const focusTestPanelFavorites = useCallback((): void => {
+    setTestPanelCollapsed(false)
+    setTestPanelExternalFavorites(true)
+    setTestPanelExternalAxis(null)
   }, [])
 
   const [isDragging, setIsDragging] = useState(false)
@@ -1266,17 +1300,6 @@ export function TemplateGeneratorPanel({
     cleanFilename,
   ])
 
-  const substitute = (text: string, item: RenderItem): string => {
-    let r = text || ""
-    Object.entries(item.meta).forEach(([k, v]) => {
-      r = r.split(`{{${k}}}`).join(v)
-      r = r.split(`{${k}}`).join(v)
-    })
-    r = r.split("{{input}}").join(item.prompt)
-    r = r.split("{input}").join(item.prompt)
-    return r
-  }
-
   useEffect(() => {
     if (generatedCode.trim() === "") {
       return
@@ -1318,6 +1341,20 @@ export function TemplateGeneratorPanel({
   )
   const renderAxes = useMemo(() => renderResponse?.axes ?? {}, [renderResponse])
   const renderSets = useMemo(() => renderResponse?.sets ?? {}, [renderResponse])
+  const favoritesCountInQueue = useMemo(
+    () =>
+      activeQueue.filter((item) => favoriteCombinations.has(itemKey(item)))
+        .length,
+    [activeQueue, favoriteCombinations]
+  )
+  const axisFilterOptions = useMemo(() => {
+    return axes
+      .map((a) => ({
+        axisName: a.name.trim(),
+        values: a.entries.map((e) => e.key.trim()).filter(Boolean),
+      }))
+      .filter((o) => o.axisName !== "" && o.values.length > 0)
+  }, [axes])
   const filtered = useMemo(() => {
     const n = previewFilter.trim().toLowerCase()
     if (n === "") return activeQueue
@@ -1330,14 +1367,14 @@ export function TemplateGeneratorPanel({
         return (
           itemKey(i).toLowerCase().includes(n) ||
           metaText.includes(n) ||
-          substitute(i.filename, i).toLowerCase().includes(n) ||
-          substitute(i.prompt, i).toLowerCase().includes(n)
+          substituteItem(i.filename, i).toLowerCase().includes(n) ||
+          substituteItem(i.prompt, i).toLowerCase().includes(n)
         )
       }
     )
   }, [activeQueue, previewFilter])
 
-  const handleRunTestFromPopover = useCallback(
+  const handleRunTest = useCallback(
     (item: RenderItem): void => {
       const k = itemKey(item)
       void handleRunSingle(item, { cegTemplate: generatedCode })
@@ -1569,15 +1606,25 @@ export function TemplateGeneratorPanel({
                     handleVarKeyDown(e, i)
                   }}
                 />
-                <QuickTestPopover
-                  factorType="variable"
-                  factorName={v.name}
-                  factorValue={v.value}
-                  activeQueue={activeQueue}
-                  favoriteCombinations={favoriteCombinations}
-                  onRunTest={handleRunTestFromPopover}
-                  onToggleFavorite={toggleFavorite}
-                />
+                {favoritesCountInQueue > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shrink-0 gap-1 px-2 text-[10px] text-muted-foreground hover:text-yellow-500"
+                        onClick={focusTestPanelFavorites}
+                      >
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {favoritesCountInQueue}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      즐겨찾기 조합 {favoritesCountInQueue}개 — 테스트 패널에서
+                      실행
+                    </TooltipContent>
+                  </Tooltip>
+                )}
 
                 {/* Desktop Copy/Delete buttons */}
                 <div className="hidden shrink-0 items-center gap-1 md:flex">
@@ -1833,15 +1880,35 @@ export function TemplateGeneratorPanel({
                             <Braces className="h-3 w-3" />
                             {entry.isComplex ? "복합" : "단순"}
                           </Button>
-                          <QuickTestPopover
-                            factorType="axis"
-                            factorName={axis.name}
-                            factorValue={entry.key}
-                            activeQueue={activeQueue}
-                            favoriteCombinations={favoriteCombinations}
-                            onRunTest={handleRunTestFromPopover}
-                            onToggleFavorite={toggleFavorite}
-                          />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary"
+                                onClick={() => {
+                                  const key = entry.key.trim()
+                                  const name = axis.name.trim()
+                                  if (key === "" || name === "") return
+                                  setTestPanelCollapsed(false)
+                                  setTestPanelExternalAxis({
+                                    axisName: name,
+                                    value: key,
+                                  })
+                                  setTestPanelExternalFavorites(false)
+                                  if (mobileTab !== "test") {
+                                    setMobileTab("test")
+                                    saveString(STORAGE_KEYS.mobileTab, "test")
+                                  }
+                                }}
+                              >
+                                <Play className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              이 값으로 테스트 패널 필터링
+                            </TooltipContent>
+                          </Tooltip>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -2376,8 +2443,8 @@ export function TemplateGeneratorPanel({
           <ScrollArea className="h-full">
             <div className="space-y-1.5 p-3">
               {filtered.map((item: RenderItem, idx: number) => {
-                const fn = substitute(item.filename, item)
-                const pr = substitute(item.prompt, item)
+                const fn = substituteItem(item.filename, item)
+                const pr = substituteItem(item.prompt, item)
                 const k = itemKey(item)
                 const isExpanded = expandedItemKey === k
                 return (
@@ -2749,7 +2816,7 @@ export function TemplateGeneratorPanel({
 
           <ResizableHandle withHandle />
 
-          {/* RIGHT: Code + Results (always visible, vertical split) */}
+          {/* RIGHT: Code + Results + Quick Test (3-way vertical split) */}
           <ResizablePanel
             defaultSize={45}
             minSize={25}
@@ -2761,7 +2828,7 @@ export function TemplateGeneratorPanel({
               className="min-h-0 flex-1"
             >
               <ResizablePanel
-                defaultSize={55}
+                defaultSize={40}
                 minSize={20}
                 className="flex flex-col overflow-hidden"
               >
@@ -2769,11 +2836,33 @@ export function TemplateGeneratorPanel({
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel
-                defaultSize={45}
+                defaultSize={35}
                 minSize={15}
                 className="flex flex-col overflow-hidden"
               >
                 {resultsContent}
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel
+                defaultSize={25}
+                minSize={8}
+                className="flex flex-col overflow-hidden"
+              >
+                <QuickTestPanel
+                  activeQueue={activeQueue}
+                  favoriteCombinations={favoriteCombinations}
+                  onRunTest={handleRunTest}
+                  onToggleFavorite={toggleFavorite}
+                  axisFilterOptions={axisFilterOptions}
+                  collapsed={testPanelCollapsed}
+                  onToggleCollapsed={toggleTestPanelCollapsed}
+                  externalAxisFilter={testPanelExternalAxis}
+                  externalOnlyFavorites={testPanelExternalFavorites}
+                  onConsumeExternal={() => {
+                    setTestPanelExternalAxis(null)
+                    setTestPanelExternalFavorites(false)
+                  }}
+                />
               </ResizablePanel>
             </ResizablePanelGroup>
           </ResizablePanel>
@@ -2809,6 +2898,18 @@ export function TemplateGeneratorPanel({
                     className="ml-1 px-1 py-0 text-[9px]"
                   >
                     {activeQueue.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="test" className="gap-1 text-xs">
+                <Sparkles className="h-3 w-3" />
+                테스트
+                {favoritesCountInQueue > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 px-1 py-0 text-[9px]"
+                  >
+                    {favoritesCountInQueue}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -2879,6 +2980,26 @@ export function TemplateGeneratorPanel({
             className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
           >
             {resultsContent}
+          </TabsContent>
+          <TabsContent
+            value="test"
+            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <QuickTestPanel
+              activeQueue={activeQueue}
+              favoriteCombinations={favoriteCombinations}
+              onRunTest={handleRunTest}
+              onToggleFavorite={toggleFavorite}
+              axisFilterOptions={axisFilterOptions}
+              collapsed={false}
+              onToggleCollapsed={toggleTestPanelCollapsed}
+              externalAxisFilter={testPanelExternalAxis}
+              externalOnlyFavorites={testPanelExternalFavorites}
+              onConsumeExternal={() => {
+                setTestPanelExternalAxis(null)
+                setTestPanelExternalFavorites(false)
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>
