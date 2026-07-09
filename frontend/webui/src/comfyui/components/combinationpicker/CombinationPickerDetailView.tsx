@@ -57,6 +57,7 @@ import { useCurationContext } from "./CurationContext"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useBackend } from "../../hooks/useBackend"
 import type { JobView } from "../../types/Message"
+import { WorkerPreviewImage } from "../WorkerPreviewImage"
 
 type ViewMode = "gallery" | "table" | "grid" | "compare" | "tournament"
 
@@ -69,11 +70,7 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
   )
 }
 
-function getJobPreviewUrl(
-  job: JobView,
-  backendUrl: string,
-  previewToken: number | undefined
-): string | null {
+function getJobPreviewUrl(job: JobView, backendUrl: string): string | null {
   const savedHash = job.savedImageHashes[0]
   if (savedHash !== undefined) return `${backendUrl}/saved-images/${savedHash}`
 
@@ -81,14 +78,6 @@ function getJobPreviewUrl(
   if (imageUrl !== undefined && imageUrl !== "") {
     if (/^https?:\/\//.test(imageUrl)) return imageUrl
     return `${backendUrl}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`
-  }
-
-  if (
-    job.workerId !== null &&
-    previewToken !== undefined &&
-    (job.status === "running" || job.status === "queued")
-  ) {
-    return `${backendUrl}/workers/${job.workerId}/preview?t=${String(previewToken)}`
   }
 
   return null
@@ -107,9 +96,16 @@ function ActiveJobImageCard({
   isCancelling: boolean
   onCancel: (jobId: string) => void
 }): React.JSX.Element {
-  const previewUrl = getJobPreviewUrl(job, backendUrl, previewToken)
+  const previewUrl = getJobPreviewUrl(job, backendUrl)
+  const canShowWorkerPreview =
+    previewUrl === null &&
+    job.workerId !== null &&
+    previewToken !== undefined &&
+    (job.status === "running" || job.status === "queued")
   const canCancel =
-    job.status === "pending" || job.status === "queued" || job.status === "running"
+    job.status === "pending" ||
+    job.status === "queued" ||
+    job.status === "running"
   const statusLabel =
     job.status === "done"
       ? "완료"
@@ -124,6 +120,14 @@ function ActiveJobImageCard({
       {previewUrl !== null ? (
         <img
           src={previewUrl}
+          alt={statusLabel}
+          className="h-full min-h-40 w-full object-contain"
+        />
+      ) : canShowWorkerPreview ? (
+        <WorkerPreviewImage
+          backendUrl={backendUrl}
+          workerId={job.workerId}
+          previewToken={previewToken}
           alt={statusLabel}
           className="h-full min-h-40 w-full object-contain"
         />

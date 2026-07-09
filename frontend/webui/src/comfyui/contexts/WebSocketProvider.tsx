@@ -46,6 +46,8 @@ const readStoredBackendUrl = (): string => {
   }
 }
 
+const WORKER_PREVIEW_MIN_INTERVAL_MS = 250
+
 export const WebSocketProvider = ({
   children,
   backendUrl,
@@ -116,9 +118,24 @@ export const WebSocketProvider = ({
         break
       case "worker.removed":
         setWorkers((prev) => prev.filter((w) => w.id !== event.workerId))
+        setWorkerPreviews((prev) => {
+          if (prev[event.workerId] === undefined) return prev
+          const { [event.workerId]: _removed, ...next } = prev
+          return next
+        })
         break
       case "worker.preview":
-        setWorkerPreviews((prev) => ({ ...prev, [event.workerId]: Date.now() }))
+        setWorkerPreviews((prev) => {
+          const now = Date.now()
+          const previous = prev[event.workerId]
+          if (
+            previous !== undefined &&
+            now - previous < WORKER_PREVIEW_MIN_INTERVAL_MS
+          ) {
+            return prev
+          }
+          return { ...prev, [event.workerId]: now }
+        })
         break
       case "control.updated":
         setPaused(event.paused)

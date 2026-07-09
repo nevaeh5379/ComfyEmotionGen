@@ -1,3 +1,4 @@
+import "./lib/memoryProbe"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"

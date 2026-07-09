@@ -64,6 +64,7 @@ import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useBackend } from "../hooks/useBackend"
 import type { BackendEvent } from "../types/Message"
 import { triggerBlobDownload } from "../utils/downloadImages"
+import { WorkerPreviewImage } from "./WorkerPreviewImage"
 
 interface GalleryInpaintEditorProps {
   open: boolean
@@ -728,13 +729,12 @@ export function GalleryInpaintEditor({
       ? 0
       : Math.min(selectedResultIndex, finalImageUrls.length - 1)
 
-  const livePreviewUrl = useMemo(() => {
-    const workerId = activeInpaintJob?.workerId
-    if (!workerId) return null
-    const previewToken = workerPreviews[workerId]
-    if (previewToken === undefined) return null
-    return `${backendUrl}/workers/${workerId}/preview?t=${String(previewToken)}`
-  }, [activeInpaintJob?.workerId, backendUrl, workerPreviews])
+  const livePreviewWorkerId = activeInpaintJob?.workerId ?? null
+  const livePreviewToken =
+    livePreviewWorkerId !== null
+      ? workerPreviews[livePreviewWorkerId]
+      : undefined
+  const hasLivePreview = livePreviewToken !== undefined
 
   const hasSourceMapping = nodeMappings.some(
     (mapping) => mapping.sourceType === "sourceImage"
@@ -2235,7 +2235,7 @@ export function GalleryInpaintEditor({
               >
                 <div className="flex min-h-0 flex-col p-3">
                   {activeInpaintJob === null &&
-                    livePreviewUrl === null &&
+                    !hasLivePreview &&
                     finalImageUrls.length === 0 && (
                       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-white/50">
                         <Info className="size-8 text-white/30" />
@@ -2366,14 +2366,16 @@ export function GalleryInpaintEditor({
                           </div>
                         )
                       })()
-                    ) : livePreviewUrl !== null ? (
+                    ) : hasLivePreview ? (
                       <div className="group relative flex min-h-0 flex-col rounded-md border border-white/10 bg-white/5">
                         <div className="shrink-0 border-b border-white/10 px-2 py-1 text-[10px] font-medium text-white/70">
                           생성 중 프리뷰
                         </div>
                         <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-b bg-black/40 p-2">
-                          <img
-                            src={livePreviewUrl}
+                          <WorkerPreviewImage
+                            backendUrl={backendUrl}
+                            workerId={livePreviewWorkerId}
+                            previewToken={livePreviewToken}
                             alt="생성 중 프리뷰"
                             className="max-h-[74vh] max-w-full object-contain"
                           />

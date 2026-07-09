@@ -55,6 +55,7 @@ import { cn } from "@/lib/utils"
 
 import { useBackend } from "../hooks/useBackend"
 import { useBackendUrl } from "../hooks/useBackendUrl"
+import { WorkerPreviewImage } from "./WorkerPreviewImage"
 import type { JobStatus, JobView, WorkerView } from "../types/Message"
 import { StatusPill } from "@/components/ceg/StatusPill"
 import { StatCard } from "@/components/ceg/StatCard"
@@ -644,8 +645,10 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     )}
                 </div>
                 {w.workerType === "comfyui" && previewToken !== undefined && (
-                  <img
-                    src={`${backendUrl}/workers/${w.id}/preview?t=${String(previewToken)}`}
+                  <WorkerPreviewImage
+                    backendUrl={backendUrl}
+                    workerId={w.id}
+                    previewToken={previewToken}
                     alt={`preview ${w.id}`}
                     className="h-80 flex-none rounded-lg border border-info/20 object-cover shadow-sm"
                   />
