@@ -17,11 +17,12 @@ import { CombinationPicker } from "../combinationpicker/CombinationPicker"
 import type { CurationViewMode } from "../combinationpicker/CurationToolbarTypes"
 
 import type { JobView, WorkerView, JobStatus } from "../../types/Message"
-import type { RenderItem } from "../../types/renderTypes"
+import type { RenderItem, RenderItemsResponse } from "../../types/renderTypes"
 import type { SessionMarkerRaw, ActiveStateRaw } from "../../utils/sessionUtils"
 import type { GalleryToolbarValue } from "../../contexts/GalleryToolbarContext"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
+import type { AxisValueFilter } from "../../../lib/workflowUtils"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +61,13 @@ interface JobRunnerState {
   setRandomRunCount: React.Dispatch<React.SetStateAction<number>>
   targetWorkerId: string | null
   setTargetWorkerId: React.Dispatch<React.SetStateAction<string | null>>
+  axisValueFilter: AxisValueFilter
+  setAxisValueFilter: React.Dispatch<React.SetStateAction<AxisValueFilter>>
+  renderResponse: RenderItemsResponse | null
+  filteredByAxisSet: Set<string> | null
+  parserError: string | null
+  parserErrorLine: number | null
+  parserErrorColumn: number | null
 }
 
 /** Window manager state (subset used by JobsTab) */
@@ -283,6 +291,13 @@ export function JobsTab({
     hasActiveFilter,
     targetWorkerId,
     setTargetWorkerId,
+    axisValueFilter,
+    setAxisValueFilter,
+    renderResponse,
+    handleRunSingle,
+    parserError,
+    parserErrorLine,
+    parserErrorColumn,
   } = runner
 
   const {
@@ -347,6 +362,13 @@ export function JobsTab({
                     : "horizontal"
                 )
               }}
+              axisValueFilter={axisValueFilter}
+              setAxisValueFilter={setAxisValueFilter}
+              renderResponse={renderResponse}
+              onRunSingle={handleRunSingle}
+              parserError={parserError}
+              parserErrorLine={parserErrorLine}
+              parserErrorColumn={parserErrorColumn}
               {...(useWindowMode
                 ? {
                     onFloatToggle: (): void => {
@@ -681,6 +703,13 @@ export function JobsTab({
                 setIsSelectionOpen(true)
               }}
               hasActiveFilter={hasActiveFilter}
+              axisValueFilter={axisValueFilter}
+              setAxisValueFilter={setAxisValueFilter}
+              renderResponse={renderResponse}
+              onRunSingle={handleRunSingle}
+              parserError={parserError}
+              parserErrorLine={parserErrorLine}
+              parserErrorColumn={parserErrorColumn}
             />
           </div>
         )}

@@ -35,6 +35,8 @@ import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 import type { WorkerView } from "../types/Message"
+import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
+import type { AxisValueFilter } from "../../lib/workflowUtils"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -92,6 +94,14 @@ export interface WorkCompositionPanelProps {
   // Layout orientation
   jobsLayoutOrientation?: "horizontal" | "vertical"
   onToggleJobsLayoutOrientation?: () => void
+  // Axis entry context menu (for CegTemplatePanel)
+  axisValueFilter?: AxisValueFilter | undefined
+  setAxisValueFilter?: React.Dispatch<React.SetStateAction<AxisValueFilter>> | undefined
+  renderResponse?: RenderItemsResponse | null | undefined
+  onRunSingle?: ((item: RenderItem) => Promise<boolean>) | undefined
+  parserError?: string | null | undefined
+  parserErrorLine?: number | null | undefined
+  parserErrorColumn?: number | null | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +133,13 @@ export function WorkCompositionPanel({
   onHeaderDragStart,
   jobsLayoutOrientation,
   onToggleJobsLayoutOrientation,
+  axisValueFilter,
+  setAxisValueFilter,
+  renderResponse,
+  onRunSingle,
+  parserError,
+  parserErrorLine,
+  parserErrorColumn,
 }: WorkCompositionPanelProps): React.ReactNode {
   // ── Consume contexts ──
   const template = useTemplateContext()
@@ -408,6 +425,13 @@ export function WorkCompositionPanel({
                 onFileOpen={handleTemplateFileOpen}
                 isDirty={template.isDirty}
                 onRevert={template.revert}
+                axisValueFilter={axisValueFilter}
+                setAxisValueFilter={setAxisValueFilter}
+                renderResponse={renderResponse}
+                onRunSingle={onRunSingle}
+                parserError={parserError}
+                parserErrorLine={parserErrorLine}
+                parserErrorColumn={parserErrorColumn}
               />
             </div>
           </TabsContent>

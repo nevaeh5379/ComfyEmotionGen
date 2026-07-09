@@ -47,6 +47,7 @@ import logging
 import mimetypes
 import zipfile
 import os
+import re
 import time
 import tracemalloc
 from contextlib import asynccontextmanager
@@ -690,11 +691,22 @@ async def _dsl_error_handler(_request: Request, exc: DSLSyntaxError) -> JSONResp
 
     Global error handler for DSL syntax errors.
     Converts DSLSyntaxError exceptions into HTTP 400 JSON responses.
+    The message may contain a leading "문법 에러 (line N, column M):" prefix
+    (from Lark UnexpectedInput); parse it out into structured fields.
     """
-    return JSONResponse(
-        status_code=400,
-        content={"error": "DSLSyntaxError", "message": str(exc)},
-    )
+    message = str(exc)
+    line: int | None = None
+    column: int | None = None
+    m = re.search(r"\(line (\d+), column (\d+)\)", message)
+    if m:
+        line = int(m.group(1))
+        column = int(m.group(2))
+    body: dict[str, JSONValue] = {"error": "DSLSyntaxError", "message": message}
+    if line is not None:
+        body["line"] = line
+    if column is not None:
+        body["column"] = column
+    return JSONResponse(status_code=400, content=body)
 
 
 # ====== 헬스/파서 ======

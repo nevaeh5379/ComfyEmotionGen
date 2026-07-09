@@ -299,6 +299,9 @@ function AppContent(): React.JSX.Element {
   const {
     fakeJobQueue,
     renderResponse,
+    parserError,
+    parserErrorLine,
+    parserErrorColumn,
     axisValueFilter,
     setAxisValueFilter,
     collapsedAxes,
@@ -508,6 +511,13 @@ function AppContent(): React.JSX.Element {
       setRandomRunCount,
       targetWorkerId,
       setTargetWorkerId,
+      axisValueFilter,
+      setAxisValueFilter,
+      renderResponse,
+      filteredByAxisSet,
+      parserError,
+      parserErrorLine,
+      parserErrorColumn,
     }),
     [
       fakeJobQueue,
@@ -523,6 +533,13 @@ function AppContent(): React.JSX.Element {
       setRandomRunCount,
       targetWorkerId,
       setTargetWorkerId,
+      axisValueFilter,
+      setAxisValueFilter,
+      renderResponse,
+      filteredByAxisSet,
+      parserError,
+      parserErrorLine,
+      parserErrorColumn,
     ]
   )
 

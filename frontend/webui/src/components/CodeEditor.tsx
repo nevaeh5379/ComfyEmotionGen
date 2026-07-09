@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import CodeMirror from "@uiw/react-codemirror"
+import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { StreamLanguage, type StringStream } from "@codemirror/language"
-import { EditorView } from "@codemirror/view"
+import { EditorView, Decoration, type DecorationSet } from "@codemirror/view"
+import { StateField, type Text } from "@codemirror/state"
+import { parseAxisEntryAtLine } from "../lib/workflowUtils"
 import { useTheme } from "./theme-context"
 
 type Language = "json" | "ceg"
+
+export interface AxisEntryContextInfo {
+  axisName: string
+  entryKey: string
+  allEntryKeys: string[]
+  screenX: number
+  screenY: number
+}
 
 interface CodeEditorProps {
   value: string
@@ -19,6 +29,12 @@ interface CodeEditorProps {
   bareWrapper?: boolean
   /** Called when a file is dropped or opened via file input */
   onFileOpen?: ((content: string, name: string) => void) | undefined
+  /** Called on right-click over an axis entry line (ceg language only). */
+  onAxisEntryContext?: ((info: AxisEntryContextInfo) => void) | undefined
+  /** lineIndex(0-based) → active boolean, for line dimming of disabled axis entries. */
+  axisEntryActiveMap?: Map<number, boolean> | undefined
+  /** 1-based line number to highlight as a syntax error (red underline). */
+  errorLine?: number | null | undefined
 }
 
 interface CegState {
@@ -254,6 +270,24 @@ const baseTheme = EditorView.theme({
   ".cm-activeLine, .cm-activeLineGutter": {
     backgroundColor: "transparent",
   },
+  ".cm-axis-entry-disabled": {
+    opacity: "0.4",
+    textDecoration: "line-through",
+    textDecorationColor: "var(--muted-foreground, #888)",
+  },
+  ".cm-axis-entry-active::before": {
+    content: "'✓'",
+    color: "var(--primary, #22c55e)",
+    fontWeight: "700",
+    marginRight: "0.25em",
+    fontSize: "0.75em",
+  },
+  ".cm-error-line": {
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
+    textDecorationLine: "underline",
+    textDecorationStyle: "wavy",
+    textDecorationColor: "#ef4444",
+  },
 })
 
 const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
@@ -267,9 +301,13 @@ const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
     maxHeight,
     bareWrapper = false,
     onFileOpen,
+    onAxisEntryContext,
+    axisEntryActiveMap,
+    errorLine,
   } = props
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const editorRef = useRef<ReactCodeMirrorRef | null>(null)
 
   const timerRef = useRef<number | null>(null)
   const pendingValueRef = useRef(value)
@@ -338,6 +376,47 @@ const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
     e.stopPropagation()
   }, [])
 
+  // 우클릭 컨텍스트 메뉴: 캡처 단계에서 CodeMirror 내부 처리보다 먼저 잡음
+  // (텍스트 선택 상태에서도 동작하도록)
+  const onAxisEntryContextRef = useRef(onAxisEntryContext)
+  useEffect(() => {
+    onAxisEntryContextRef.current = onAxisEntryContext
+  }, [onAxisEntryContext])
+
+  useEffect(() => {
+    if (!onAxisEntryContext || language !== "ceg") return
+    const view = editorRef.current?.view
+    const contentDOM = view?.contentDOM
+    if (!contentDOM) return
+
+    const handler = (event: MouseEvent): void => {
+      const cb = onAxisEntryContextRef.current
+      const v = editorRef.current?.view
+      if (!cb || !v) return
+      const pos = v.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (pos === null) return
+      const lineInfo = v.state.doc.lineAt(pos)
+      const lineIndex = lineInfo.number - 1 // 0-based
+      const text = v.state.doc.toString()
+      const loc = parseAxisEntryAtLine(text, lineIndex)
+      if (loc === null) return
+      event.preventDefault()
+      event.stopPropagation()
+      cb({
+        axisName: loc.axisName,
+        entryKey: loc.entryKey,
+        allEntryKeys: loc.allEntryKeys,
+        screenX: event.clientX,
+        screenY: event.clientY,
+      })
+    }
+    // 캡처 단계에서 등록하여 CodeMirror의 버블 단계 핸들러보다 먼저 실행
+    contentDOM.addEventListener("contextmenu", handler, true)
+    return (): void => {
+      contentDOM.removeEventListener("contextmenu", handler, true)
+    }
+  }, [onAxisEntryContext, language])
+
   const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
@@ -365,8 +444,55 @@ const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
         return false
       },
     })
-    return [lang, baseTheme, EditorView.lineWrapping, domHandlers]
-  }, [language])
+
+    const exts = [lang, baseTheme, EditorView.lineWrapping, domHandlers]
+
+    // 라인 데코레이션 (axis entry 활성/비활성 + 문법 에러 줄)
+    const activeMap = axisEntryActiveMap ?? new Map<number, boolean>()
+    const hasActiveMap = axisEntryActiveMap !== undefined && axisEntryActiveMap.size > 0
+    const errLine = errorLine ?? null
+    if (hasActiveMap || errLine !== null) {
+      const buildDecorations = (doc: Text): DecorationSet => {
+        const decos: { from: number; deco: ReturnType<typeof Decoration.line> }[] = []
+        for (let i = 0; i < doc.lines; i++) {
+          // 에러 줄이면 우선 표시 (활성/비활성과 중복 적용 방지)
+          if (errLine !== null && i === errLine - 1) {
+            decos.push({
+              from: doc.line(i + 1).from,
+              deco: Decoration.line({ class: "cm-error-line" }),
+            })
+            continue
+          }
+          if (hasActiveMap) {
+            const active = activeMap.get(i)
+            if (active === false) {
+              decos.push({
+                from: doc.line(i + 1).from,
+                deco: Decoration.line({ class: "cm-axis-entry-disabled" }),
+              })
+            } else if (active === true) {
+              decos.push({
+                from: doc.line(i + 1).from,
+                deco: Decoration.line({ class: "cm-axis-entry-active" }),
+              })
+            }
+          }
+        }
+        return Decoration.set(
+          decos.map((d) => d.deco.range(d.from)),
+          true
+        )
+      }
+      const decoField = StateField.define<DecorationSet>({
+        create: (state) => buildDecorations(state.doc),
+        update: (_current, tr) => buildDecorations(tr.state.doc),
+        provide: (f) => EditorView.decorations.from(f),
+      })
+      exts.push(decoField)
+    }
+
+    return exts
+  }, [language, axisEntryActiveMap, errorLine])
 
   return (
     <div
@@ -377,6 +503,7 @@ const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
       onDragOver={handleDragOver}
     >
       <CodeMirror
+        ref={editorRef}
         value={value}
         onChange={handleLocalChange}
         onBlur={flushChange}

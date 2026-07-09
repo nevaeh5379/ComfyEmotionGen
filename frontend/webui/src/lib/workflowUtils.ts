@@ -207,3 +207,154 @@ export const buildWorkflowForItem = (
 
   return workflow
 }
+
+// ── Axis entry context helpers ────────────────────────────────────────
+
+export type AxisValueFilter = Record<string, Record<string, boolean>>
+
+export interface AxisEntryLocation {
+  axisName: string
+  entryKey: string
+  allEntryKeys: string[]
+}
+
+const AXIS_OPEN_RE = /^\{\{\s*axis\s+([a-zA-Z_][a-zA-Z0-9_-]*)/
+const AXIS_CLOSE_RE = /^\{\{\s*\/axis\s*\}\}/
+const ENTRY_SIMPLE_RE =
+  /^([a-zA-Z_][a-zA-Z0-9_-]*)(?:\s+as\s+"(?:[^"\\]|\\.)*")?\s*:\s*"(?:[^"\\]|\\.)*"$/
+const ENTRY_COMPLEX_RE =
+  /^([a-zA-Z_][a-zA-Z0-9_-]*)(?:\s+as\s+"(?:[^"\\]|\\.)*")?\s*:\s*\{/
+const ENTRY_KEY_RE = /^([a-zA-Z_][a-zA-Z0-9_-]*)/
+
+function extractEntryKey(line: string): string | null {
+  const t = line.trim()
+  if (t === "" || t.startsWith("#") || t.startsWith("//")) return null
+  if (t.startsWith("{{")) return null
+  if (ENTRY_SIMPLE_RE.test(t)) {
+    const m = ENTRY_KEY_RE.exec(t)
+    return m ? (m[1] ?? null) : null
+  }
+  if (ENTRY_COMPLEX_RE.test(t)) {
+    const m = ENTRY_KEY_RE.exec(t)
+    return m ? (m[1] ?? null) : null
+  }
+  return null
+}
+
+/**
+ * 템플릿 텍스트에서 지정한 줄이 속한 axis 블록과 entry key를 추출한다.
+ * lineIndex는 0-based. axis 블록 밖이거나 값 줄이 아니면 null 반환.
+ */
+export function parseAxisEntryAtLine(
+  text: string,
+  lineIndex: number
+): AxisEntryLocation | null {
+  const lines = text.split("\n")
+  if (lineIndex < 0 || lineIndex >= lines.length) return null
+
+  // 위로 스캔하며 axis 블록 시작 찾기 (도중 /axis 만나면 블록 밖)
+  let axisName: string | null = null
+  let blockStart = -1
+  for (let i = lineIndex; i >= 0; i--) {
+    const raw = lines[i]
+    if (raw === undefined) continue
+    const t = raw.trim()
+    if (AXIS_CLOSE_RE.test(t)) return null
+    const open = AXIS_OPEN_RE.exec(t)
+    if (open !== null) {
+      axisName = open[1] ?? null
+      blockStart = i
+      break
+    }
+  }
+  if (axisName === null || axisName === "" || blockStart === -1) return null
+
+  // 아래로 스캔하며 블록 끝 찾기 + 모든 entry key 수집
+  const allEntryKeys: string[] = []
+  for (let i = blockStart + 1; i < lines.length; i++) {
+    const raw = lines[i]
+    if (raw === undefined) continue
+    const t = raw.trim()
+    if (AXIS_CLOSE_RE.test(t)) {
+      break
+    }
+    const key = extractEntryKey(raw)
+    if (key !== null) allEntryKeys.push(key)
+  }
+
+  const targetRaw = lines[lineIndex]
+  if (targetRaw === undefined) return null
+  const entryKey = extractEntryKey(targetRaw)
+  if (entryKey === null) return null
+
+  return {
+    axisName,
+    entryKey,
+    allEntryKeys,
+  }
+}
+
+/** 템플릿 텍스트 전체에서 각 줄의 axis entry 위치를 계산 (라인 데코레이션용). */
+export function buildAxisEntryActiveMap(
+  text: string,
+  filter: AxisValueFilter
+): Map<number, boolean> {
+  const lines = text.split("\n")
+  const map = new Map<number, boolean>()
+  let currentAxis: string | null = null
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    if (raw === undefined) continue
+    const t = raw.trim()
+    if (AXIS_CLOSE_RE.test(t)) {
+      currentAxis = null
+      continue
+    }
+    if (currentAxis === null) {
+      const open = AXIS_OPEN_RE.exec(t)
+      if (open !== null) currentAxis = open[1] ?? null
+      continue
+    }
+    const key = extractEntryKey(raw)
+    if (key !== null && currentAxis !== "") {
+      const vals = filter[currentAxis]
+      const active = vals ? vals[key] !== false : true
+      map.set(i, active)
+    }
+  }
+  return map
+}
+
+/** 지정한 axis의 값만 활성화, 나머지는 비활성화. */
+export function setAxisOnlyValue(
+  filter: AxisValueFilter,
+  axisName: string,
+  valueKey: string,
+  allEntryKeys: string[]
+): AxisValueFilter {
+  const next: Record<string, boolean> = {}
+  for (const k of allEntryKeys) next[k] = k === valueKey
+  return { ...filter, [axisName]: next }
+}
+
+/** 지정한 axis의 값 하나를 비활성화. */
+export function disableAxisValue(
+  filter: AxisValueFilter,
+  axisName: string,
+  valueKey: string
+): AxisValueFilter {
+  const prev = filter[axisName] ?? {}
+  return { ...filter, [axisName]: { ...prev, [valueKey]: false } }
+}
+
+/** 지정한 axis의 모든 값을 활성화. */
+export function enableAllAxis(
+  filter: AxisValueFilter,
+  axisName: string,
+  allEntryKeys: string[]
+): AxisValueFilter {
+  const next: Record<string, boolean> = {}
+  for (const k of allEntryKeys) next[k] = true
+  const prev = filter[axisName] ?? {}
+  return { ...filter, [axisName]: { ...prev, ...next } }
+}

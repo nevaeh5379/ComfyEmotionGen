@@ -21,6 +21,8 @@ export function useJobRunner(): {
   fakeJobQueue: RenderItem[]
   renderResponse: RenderItemsResponse | null
   parserError: string | null
+  parserErrorLine: number | null
+  parserErrorColumn: number | null
   axisValueFilter: Record<string, Record<string, boolean>>
   setAxisValueFilter: React.Dispatch<
     React.SetStateAction<Record<string, Record<string, boolean>>>
@@ -66,6 +68,8 @@ export function useJobRunner(): {
 
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [parserError, setParserError] = useState<string | null>(null)
+  const [parserErrorLine, setParserErrorLine] = useState<number | null>(null)
+  const [parserErrorColumn, setParserErrorColumn] = useState<number | null>(null)
   const [axisValueFilter, setAxisValueFilter] = useState<
     Record<string, Record<string, boolean>>
   >({})
@@ -120,6 +124,8 @@ export function useJobRunner(): {
     const timer = setTimeout(() => {
       const runParser = async (): Promise<void> => {
         setParserError(null)
+        setParserErrorLine(null)
+        setParserErrorColumn(null)
         try {
           const res = await fetch(`${backendUrl}${API.render}`, {
             method: "POST",
@@ -127,7 +133,28 @@ export function useJobRunner(): {
             body: JSON.stringify({ template: cegTemplate }),
             signal: controller.signal,
           })
-          if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+          if (!res.ok) {
+            // DSL 문법 에러 응답 본문에서 message/line/column 추출
+            let errMsg = `HTTP ${String(res.status)}`
+            let errLine: number | null = null
+            let errCol: number | null = null
+            try {
+              const body = (await res.json()) as {
+                message?: string
+                line?: number
+                column?: number
+              }
+              if (typeof body.message === "string") errMsg = body.message
+              if (typeof body.line === "number") errLine = body.line
+              if (typeof body.column === "number") errCol = body.column
+            } catch {
+              // 응답 본문이 JSON이 아니면 폴백
+            }
+            throw Object.assign(new Error(errMsg), {
+              line: errLine,
+              column: errCol,
+            })
+          }
           const data = (await res.json()) as RenderItemsResponse
           setFakeJobQueue(data.items)
           setRenderResponse(data)
@@ -145,6 +172,14 @@ export function useJobRunner(): {
         } catch (err: unknown) {
           if (err instanceof Error && err.name === "AbortError") return
           setParserError(err instanceof Error ? err.message : String(err))
+          const lineVal = (err as { line?: unknown }).line
+          const colVal = (err as { column?: unknown }).column
+          setParserErrorLine(
+            typeof lineVal === "number" ? lineVal : null
+          )
+          setParserErrorColumn(
+            typeof colVal === "number" ? colVal : null
+          )
           setRenderResponse(null)
         }
       }
@@ -179,8 +214,25 @@ export function useJobRunner(): {
         body: JSON.stringify({ template: cegTemplateRef.current }),
       })
       if (!response.ok) {
-        const errorText = await response.text().catch(() => "")
-        throw new Error(`HTTP ${String(response.status)}: ${errorText}`)
+        let errMsg = `HTTP ${String(response.status)}`
+        let errLine: number | null = null
+        let errCol: number | null = null
+        try {
+          const body = (await response.json()) as {
+            message?: string
+            line?: number
+            column?: number
+          }
+          if (typeof body.message === "string") errMsg = body.message
+          if (typeof body.line === "number") errLine = body.line
+          if (typeof body.column === "number") errCol = body.column
+        } catch {
+          // non-JSON fallback
+        }
+        throw Object.assign(new Error(errMsg), {
+          line: errLine,
+          column: errCol,
+        })
       }
       return (await response.json()) as RenderItemsResponse
     } catch (error: unknown) {
@@ -512,6 +564,8 @@ export function useJobRunner(): {
     fakeJobQueue: activeFakeJobQueue,
     renderResponse: activeRenderResponse,
     parserError,
+    parserErrorLine,
+    parserErrorColumn,
     axisValueFilter,
     setAxisValueFilter,
     collapsedAxes,
