@@ -13,6 +13,7 @@ export const API = {
     resume: "/jobs/resume",
     retry: (id: string) => `/jobs/${id}/retry`,
     move: (id: string) => `/jobs/${id}/move`,
+    updatePendingTemplate: "/jobs/update-pending-template",
     cancelAll: "/jobs/cancel-all",
     delete: "/jobs/delete",
     savedImages: (id: string) => `/jobs/${id}/saved-images`,

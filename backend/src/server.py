@@ -71,6 +71,7 @@ from backend.src.inpaint import get_capabilities as get_inpaint_capabilities, is
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 from backend.src.models import (
     JobItem,
+    JobTemplateReplacement,
     NormalizedEvent,
     JobUpdatedEvent,
     JobStatus,
@@ -292,6 +293,16 @@ class JobsCreateRequest(BaseModel):
     with seeds/prompts already injected. Used by POST /jobs.
     """
     items: List[JobItem]
+
+
+class JobsTemplateUpdateRequest(BaseModel):
+    """대기 중인 잡 payload를 현재 CEG 템플릿 결과로 갱신한다.
+
+    Request model for replacing payloads of existing pending jobs with
+    workflows/prompts generated from the current CEG template.
+    Used by POST /jobs/update-pending-template.
+    """
+    replacements: List[JobTemplateReplacement] = Field(..., min_length=1)
 
 
 class CurationPatch(BaseModel):
@@ -1197,6 +1208,21 @@ async def jobs_session_stats(req: SessionStatsRequest) -> SessionStatsResponse:
         sessionJobCounts=session_job_counts,
         selectedSessionCounts=selected_session_counts,
     )
+
+
+@app.post("/jobs/update-pending-template")
+async def jobs_update_pending_template(
+    req: JobsTemplateUpdateRequest,
+) -> dict[str, int]:
+    """pending 상태의 잡에 현재 CEG 템플릿으로 재생성한 payload를 반영한다.
+
+    Apply regenerated prompt/workflow/meta/template payloads to pending jobs.
+    Jobs that are no longer pending are skipped.
+    """
+    updated, skipped = await job_manager.update_pending_jobs_template(
+        req.replacements
+    )
+    return {"updated": updated, "skipped": skipped}
 
 
 @app.delete("/jobs/{job_id}")

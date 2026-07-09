@@ -51,6 +51,15 @@ class JobItem(BaseModel):
     workerId: Optional[str] = Field(None, description="타겟 워커 ID (None이면 자동 배분)")
 
 
+class JobTemplateReplacement(BaseModel):
+    """
+    Request model for replacing the payload of an existing pending job.
+    이미 큐에 들어간 pending 작업의 프롬프트/워크플로우/메타데이터를 갱신할 때 사용합니다.
+    """
+    jobId: str
+    item: JobItem
+
+
 class JobResponse(BaseModel):
     """
     API response model that provides complete execution progress and results for a job.

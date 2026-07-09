@@ -14,6 +14,7 @@ import {
   AlertCircle,
   ArrowUpRight,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -61,6 +62,11 @@ import {
 import { JobDetailSheet } from "./JobDetailSheet"
 import { TagInputSearch } from "./TagInputSearch"
 import { useSettings } from "../hooks/useSettings"
+import { useTemplateContext } from "../contexts/useTemplateContext"
+import { useWorkflowContext } from "../contexts/WorkflowContext"
+import { useNodeMappingContext } from "../contexts/NodeMappingContext"
+import { buildWorkflowForItem } from "@/lib/workflowUtils"
+import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 
 // Session utilities
 import type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
@@ -137,6 +143,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const confirm = useConfirm()
   const { settings } = useSettings()
+  const { cegTemplate } = useTemplateContext()
+  const { workflowJson } = useWorkflowContext()
+  const { nodeMappings } = useNodeMappingContext()
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent): void => {
@@ -159,6 +168,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [searchTags, setSearchTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState("")
   const [showFilters, setShowFilters] = useState(false)
+  const [isUpdatingPendingTemplate, setIsUpdatingPendingTemplate] =
+    useState(false)
 
   // ── pagination state ────────────────────────────────────────────────
   const [desiredPage, setPage] = useState(1)
@@ -552,6 +563,163 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       toast.error("작업 이동 요청에 실패했습니다.")
     }
   }
+
+  const fetchPendingJobsForSession = useCallback(async (): Promise<JobView[]> => {
+    const params = new URLSearchParams()
+    params.append("limit", "999999")
+    params.append("status", "pending")
+
+    if (sessionRange.from !== null) {
+      params.append("created_at_from", String(sessionRange.from))
+    }
+    if (sessionRange.to !== null) {
+      params.append("created_at_to", String(sessionRange.to))
+    }
+
+    const res = await fetch(`${backendUrl}/jobs?${params.toString()}`)
+    if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+    const data = (await res.json()) as { items?: JobView[] }
+    return data.items ?? []
+  }, [backendUrl, sessionRange])
+
+  const handleUpdatePendingTemplate = useCallback(async (): Promise<void> => {
+    if (isUpdatingPendingTemplate) return
+    if (!workflowJson) {
+      toast.error("워크플로우가 없어 대기 작업을 갱신할 수 없습니다.")
+      return
+    }
+    if (!cegTemplate.trim()) {
+      toast.error("CEG 템플릿이 비어 있습니다.")
+      return
+    }
+
+    setIsUpdatingPendingTemplate(true)
+    try {
+      const [pendingJobs, renderRes] = await Promise.all([
+        fetchPendingJobsForSession(),
+        fetch(`${backendUrl}${API.render}`, {
+          method: "POST",
+          headers: HEADERS.json,
+          body: JSON.stringify({ template: cegTemplate }),
+        }),
+      ])
+
+      if (!renderRes.ok) {
+        throw new Error(await renderRes.text().catch(() => renderRes.statusText))
+      }
+
+      const parsed = (await renderRes.json()) as RenderItemsResponse
+      const renderItemsByFilename = new Map<string, RenderItem[]>()
+      parsed.items.forEach((item) => {
+        const bucket = renderItemsByFilename.get(item.filename) ?? []
+        bucket.push(item)
+        renderItemsByFilename.set(item.filename, bucket)
+      })
+
+      const matchCursor = new Map<string, number>()
+      const replacements = pendingJobs.flatMap((job) => {
+        const bucket = renderItemsByFilename.get(job.filename)
+        if (bucket === undefined || bucket.length === 0) return []
+        const cursor = matchCursor.get(job.filename) ?? 0
+        const item = bucket[cursor % bucket.length]
+        matchCursor.set(job.filename, cursor + 1)
+        if (item === undefined) return []
+
+        const imageNameMap: Record<string, string> = {}
+        const imageUploads: Record<string, Record<string, string>> = {}
+        for (const mapping of nodeMappings) {
+          if (
+            mapping.sourceType === "image" &&
+            mapping.imageValue !== undefined &&
+            mapping.imageValue !== ""
+          ) {
+            imageNameMap[`${mapping.nodeId}.${mapping.inputKey}`] =
+              mapping.imageValue
+            const match = /^__upload__([a-f0-9]{64})\.\w+$/.exec(
+              mapping.imageValue
+            )
+            if (match?.[1] !== undefined && match[1] !== "") {
+              imageUploads[match[1]] = { name: mapping.imageValue }
+            }
+          }
+        }
+
+        return [
+          {
+            jobId: job.id,
+            item: {
+              filename: item.filename,
+              prompt: item.prompt,
+              workflow: buildWorkflowForItem(
+                workflowJson,
+                item,
+                nodeMappings,
+                imageNameMap
+              ),
+              meta: item.meta,
+              cegTemplate,
+              imageUploads,
+              workerType: job.workerType ?? "comfyui",
+              workerId: job.targetWorkerId ?? undefined,
+            },
+          },
+        ]
+      })
+
+      if (pendingJobs.length === 0) {
+        toast.info("갱신할 대기 작업이 없습니다.")
+        return
+      }
+      if (replacements.length === 0) {
+        toast.info("현재 CEG 결과와 파일명이 일치하는 대기 작업이 없습니다.")
+        return
+      }
+
+      const skippedCount = pendingJobs.length - replacements.length
+      const confirmed = await confirm({
+        title: "대기 작업 템플릿 반영",
+        description:
+          skippedCount > 0
+            ? `대기 작업 ${String(replacements.length)}개를 현재 CEG 템플릿으로 갱신합니다. 파일명이 맞지 않는 ${String(skippedCount)}개는 유지됩니다.`
+            : `대기 작업 ${String(replacements.length)}개를 현재 CEG 템플릿으로 갱신합니다.`,
+        confirmText: "반영",
+      })
+      if (!confirmed) return
+
+      const res = await fetch(`${backendUrl}${API.jobs.updatePendingTemplate}`, {
+        method: "POST",
+        headers: HEADERS.json,
+        body: JSON.stringify({ replacements }),
+      })
+      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+      const result = (await res.json()) as { updated?: number; skipped?: number }
+      toast.success(
+        `대기 작업 ${String(result.updated ?? replacements.length)}개를 갱신했습니다.`
+      )
+      if ((result.skipped ?? 0) > 0) {
+        toast.info(
+          `이미 실행 중이거나 완료된 작업 ${String(result.skipped)}개는 제외되었습니다.`
+        )
+      }
+      triggerRefetchJobs()
+      refetchStats?.()
+    } catch (err: unknown) {
+      console.error("Failed to update pending jobs from template:", err)
+      toast.error("대기 작업 템플릿 반영에 실패했습니다.")
+    } finally {
+      setIsUpdatingPendingTemplate(false)
+    }
+  }, [
+    backendUrl,
+    cegTemplate,
+    confirm,
+    fetchPendingJobsForSession,
+    isUpdatingPendingTemplate,
+    nodeMappings,
+    refetchStats,
+    triggerRefetchJobs,
+    workflowJson,
+  ])
 
   const handleDeleteOne = async (
     e: React.MouseEvent,
@@ -1021,6 +1189,30 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               </div>
             </PopoverContent>
           </Popover>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none"
+                disabled={isUpdatingPendingTemplate}
+                onClick={() => {
+                  void handleUpdatePendingTemplate()
+                }}
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    isUpdatingPendingTemplate && "animate-spin"
+                  )}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
+              대기 작업에 현재 CEG 반영
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Unified 1-Line Toolbar (Desktop viewport) */}
@@ -1158,6 +1350,24 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
                 </span>
               )}
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isUpdatingPendingTemplate}
+              onClick={() => {
+                void handleUpdatePendingTemplate()
+              }}
+              className="h-8 shrink-0 gap-1.5 border-line bg-background px-2 text-[11px] font-bold shadow-none"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5",
+                  isUpdatingPendingTemplate && "animate-spin"
+                )}
+              />
+              CEG 반영
             </Button>
 
             {onFloatToggle !== undefined && (

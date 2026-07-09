@@ -32,6 +32,9 @@ export interface JobView {
   retryCount: number
   executionDurationMs: number | null
   meta?: Record<string, string>
+  cegTemplate?: string
+  imageUploads?: Record<string, Record<string, string>>
+  workerType?: string | null
   targetWorkerId?: string | null
 }
 

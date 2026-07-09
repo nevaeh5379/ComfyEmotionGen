@@ -33,6 +33,7 @@ from typing import cast, Awaitable, Callable, Optional, overload, Any
 from pydantic import TypeAdapter, BaseModel, Field, ConfigDict
 from backend.src.models import (
     JobItem,
+    JobTemplateReplacement,
     JobStatus,
     JobResponse,
     JobViewResponse,
@@ -1602,6 +1603,56 @@ class JobManager:
         await self._emit({"type": "job.updated", "job": response.model_dump()})
         self._wakeup.set()
         return response
+
+    async def update_pending_jobs_template(
+        self, replacements: list[JobTemplateReplacement]
+    ) -> tuple[int, int]:
+        """현재 pending 상태인 잡들의 payload를 새 템플릿 결과로 교체한다.
+        Replace payload fields for jobs that are still pending.
+
+        queued/running 잡은 이미 워커 큐로 내려갔을 수 있으므로 갱신하지 않는다.
+        Jobs that are queued/running may already be submitted to a worker queue,
+        so they are intentionally skipped.
+        """
+        updated_jobs: list[Job] = []
+        skipped = 0
+
+        async with self._lock:
+            for replacement in replacements:
+                job = self._jobs.get(replacement.jobId)
+                if job is None or job.status != JobStatus.PENDING:
+                    skipped += 1
+                    continue
+
+                item = replacement.item
+                job.filename = item.filename
+                job.prompt = item.prompt
+                job.workflow = (
+                    item.workflow
+                    if item.workflow is not None
+                    else ComfyWorkflow.model_validate({})
+                )
+                job.meta = deepcopy(item.meta)
+                job.ceg_template = item.cegTemplate
+                job.image_uploads = deepcopy(item.imageUploads)
+                job.worker_type = item.workerType.value if item.workerType else None
+                job.target_worker_id = item.workerId
+                updated_jobs.append(job)
+
+        for job in updated_jobs:
+            await self._store.save(job.to_dict())
+            await self._store.save_event(
+                job.id,
+                "template_updated",
+                worker_id=job.target_worker_id,
+                details={"filename": job.filename, "prompt": job.prompt},
+            )
+            await self._emit({"type": "job.updated", "job": job.to_dict()})
+
+        if updated_jobs:
+            self._wakeup.set()
+        return len(updated_jobs), skipped
+
     async def _emit(self, event: NormalizedEvent | dict[str, JSONValue]) -> None:
         """정규화된 이벤트를 모든 구독 리스너에게 발행한다.
         Emit a normalized event to all subscribed listeners.
