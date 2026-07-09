@@ -16,6 +16,7 @@ import {
   FileCode2Icon,
   RotateCcwIcon,
   CopyIcon,
+  Clock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -207,6 +208,9 @@ interface DetailViewProps {
   onOpenDetail?: (img: SavedImage) => void
   onInpaint?: (img: SavedImage) => void
   onEdit?: (img: SavedImage) => void
+
+  heldFilenames: string[]
+  onToggleHold: () => void
 }
 
 export function CombinationPickerDetailView({
@@ -234,6 +238,8 @@ export function CombinationPickerDetailView({
   onOpenDetail,
   onInpaint,
   onEdit,
+  heldFilenames,
+  onToggleHold,
 }: DetailViewProps): React.JSX.Element {
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } =
     useCurationContext()
@@ -288,6 +294,23 @@ export function CombinationPickerDetailView({
   const [draftPreviewError, setDraftPreviewError] = useState<string | null>(
     null
   )
+
+  // ── Ctrl + S 단축키 저장 ──
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+        if (cegEditorOpen && cegDraftDirty && onSaveCegDraft !== undefined) {
+          e.preventDefault()
+          onSaveCegDraft(cegDraft)
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [cegEditorOpen, cegDraftDirty, cegDraft, onSaveCegDraft])
+
   const selectedMetaKey = useMemo(
     () => JSON.stringify(selectedItem?.meta ?? {}),
     [selectedItem]
@@ -525,6 +548,13 @@ export function CombinationPickerDetailView({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuItem
+                    onClick={onToggleHold}
+                    className="py-3"
+                  >
+                    <Clock className="mr-2 h-4 w-4 text-yellow-500" />
+                    {heldFilenames.includes(selectedFilename) ? "보류 해제" : "이 조합 보류"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     onClick={onRejectAll}
                     disabled={
                       !selectedImages.some(
@@ -574,9 +604,14 @@ export function CombinationPickerDetailView({
             <span className="truncate font-mono text-[13px] font-black text-foreground md:text-[11px]">
               {selectedFilename}
             </span>
-            <div className="no-scrollbar overflow-x-auto">
+            {heldFilenames.includes(selectedFilename) && (
+              <Badge variant="outline" className="h-5 border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0 text-[9px] font-bold text-yellow-600 dark:text-yellow-500 shrink-0">
+                보류됨
+              </Badge>
+            )}
+            {/* <div className="no-scrollbar overflow-x-auto">
               <MetaTags meta={selectedItem?.meta ?? {}} variant="compact" />
-            </div>
+            </div> */}
           </div>
 
           {/* 데스크탑 전용 우측 버튼 영역 */}
@@ -592,6 +627,12 @@ export function CombinationPickerDetailView({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  onClick={onToggleHold}
+                >
+                  <Clock className="mr-2 h-3.5 w-3.5 text-yellow-500" />
+                  {heldFilenames.includes(selectedFilename) ? "보류 해제" : "이 조합 보류"}
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={onRejectAll}
                   disabled={

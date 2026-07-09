@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/sheet"
 import { LoadingButton } from "./CombinationPickerComponents"
 import { useCurationContext } from "./CurationContext"
+import { hasApproved } from "../../types/Message"
 import { TagInputSearch } from "../TagInputSearch"
 import { useCurationToolbar } from "./useCurationToolbar"
 import {
@@ -87,6 +88,12 @@ interface ToolbarProps {
   pendingRegenerateDisabled: boolean
   bulkRegenActionMessage: string | null
 
+  heldFilenames: string[]
+  handleRegenerateHeld: () => void
+  handleRegenerateEmpty: () => void
+  heldRegenerateCount: number
+  emptyRegenerateCount: number
+
   handleBulkDownload: () => void
   bulkDownloadIsLoading: boolean
   bulkDownloadMessage: string | null
@@ -122,6 +129,11 @@ export function CombinationPickerToolbar({
   pendingRegenerateCount,
   pendingRegenerateDisabled,
   bulkRegenActionMessage,
+  heldFilenames,
+  handleRegenerateHeld,
+  handleRegenerateEmpty,
+  heldRegenerateCount,
+  emptyRegenerateCount,
   handleBulkDownload,
   bulkDownloadIsLoading,
   bulkDownloadMessage,
@@ -134,6 +146,7 @@ export function CombinationPickerToolbar({
     useCurationContext()
   const {
     renderItems,
+    rawRenderItems,
     doneCount,
     statusFilter,
     setStatusFilter,
@@ -152,6 +165,7 @@ export function CombinationPickerToolbar({
     availableFilters,
     saveCurationGroup,
     deleteCurationGroup,
+    imagesByFilename,
   } = data
 
   const { selectionMode, selectedFilenames, exitSelectionMode } = selection
@@ -366,18 +380,52 @@ export function CombinationPickerToolbar({
         <div className="hidden h-5 w-px bg-border/60 md:block" />
 
         {/* 진행률 (모바일에서는 바 숨기고 %만) */}
-        <div className="flex flex-1 items-center justify-end gap-2 md:justify-start md:gap-3">
-          <Progress
-            value={(doneCount / renderItems.length) * 100}
-            className="hidden h-1.5 w-24 bg-muted shadow-inner md:block md:flex-1"
-          />
-          <span className="shrink-0 text-[11px] font-black text-foreground/70 tabular-nums">
-            {Math.round((doneCount / renderItems.length) * 100)}%
-            <span className="xs:inline ml-1 hidden opacity-50">
-              ({doneCount}/{renderItems.length})
-            </span>
-          </span>
-        </div>
+        {(() => {
+          const total = rawRenderItems.length
+          const done = rawRenderItems.filter(
+            (ri) => hasApproved(imagesByFilename.get(ri.filename) ?? [])
+          ).length
+          const held = rawRenderItems.filter(
+            (ri) => heldFilenames.includes(ri.filename) && !hasApproved(imagesByFilename.get(ri.filename) ?? [])
+          ).length
+          const empty = rawRenderItems.filter(
+            (ri) => (imagesByFilename.get(ri.filename) ?? []).length === 0
+          ).length
+
+          const donePercent = total > 0 ? (done / total) * 100 : 0
+          const heldPercent = total > 0 ? (held / total) * 100 : 0
+          const emptyPercent = total > 0 ? (empty / total) * 100 : 0
+
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex flex-1 cursor-help items-center justify-end gap-2 md:justify-start md:gap-3">
+                  <div className="hidden h-2 w-24 overflow-hidden rounded-full bg-muted shadow-inner md:flex md:flex-1">
+                    <div style={{ width: `${donePercent}%` }} className="h-full bg-green-500 transition-all duration-300" />
+                    <div style={{ width: `${heldPercent}%` }} className="h-full bg-yellow-500 transition-all duration-300" />
+                    <div style={{ width: `${emptyPercent}%` }} className="h-full bg-zinc-400 dark:bg-zinc-500 transition-all duration-300" />
+                  </div>
+                  <span className="shrink-0 text-[11px] font-black text-foreground/70 tabular-nums">
+                    {Math.round(donePercent)}%
+                    <span className="xs:inline ml-1.5 hidden opacity-50">
+                      (완료 {done} · 남음 {total - done} · 보류 {held} · 빈 폴더 {empty})
+                    </span>
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="p-3 text-xs font-bold leading-relaxed">
+                <div className="space-y-1">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 border-b pb-1">진행 현황 상세</div>
+                  <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-green-500" /> 완료: {done}개 ({Math.round(donePercent)}%)</div>
+                  <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-500" /> 남음: {total - done}개 ({Math.round((100 - donePercent))}%)</div>
+                  <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-yellow-500" /> 보류: {held}개 ({Math.round(heldPercent)}%)</div>
+                  <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-zinc-400" /> 빈 폴더: {empty}개 ({Math.round(emptyPercent)}%)</div>
+                  <div className="flex items-center gap-2 border-t pt-1 mt-1 text-muted-foreground"><span className="h-2 w-2 rounded-full bg-muted border" /> 전체 조합: {total}개</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )
+        })()}
 
         <div className="xs:block hidden h-5 w-px bg-border/60" />
 
@@ -459,29 +507,60 @@ export function CombinationPickerToolbar({
             </Tooltip>
           )}
 
-          {/* 미완료 조합 재생성 버튼 */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
+          {/* 일괄 재생성 버튼 (드롭다운 적용) */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pendingRegenerateDisabled}
+                    className="h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold md:h-8"
+                  >
+                    <RefreshCwIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                    <span className="hidden lg:inline">일괄 재생성</span>
+                    <span className="font-mono tabular-nums">
+                      {pendingRegenerateCount}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs font-bold">
+                선택적 일괄 재생성 옵션
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-[10px] text-muted-foreground">
+                재생성 범위 선택
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 onClick={handleRegeneratePending}
-                disabled={
-                  pendingRegenerateCount === 0 || pendingRegenerateDisabled
-                }
-                className="h-9 shrink-0 gap-1.5 px-3 text-[11px] font-bold md:h-8"
+                disabled={pendingRegenerateCount === 0}
+                className="text-xs font-medium"
               >
-                <RefreshCwIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
-                <span className="hidden lg:inline">미완료 재생성</span>
-                <span className="font-mono tabular-nums">
-                  {pendingRegenerateCount}
-                </span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="text-xs font-bold">
-              미완료 조합 전부 재생성
-            </TooltipContent>
-          </Tooltip>
+                <RefreshCwIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                미완료 조합 재생성 ({pendingRegenerateCount})
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleRegenerateHeld}
+                disabled={heldRegenerateCount === 0}
+                className="text-xs font-medium"
+              >
+                <RefreshCwIcon className="mr-2 h-3.5 w-3.5 text-yellow-500" />
+                보류 조합 재생성 ({heldRegenerateCount})
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleRegenerateEmpty}
+                disabled={emptyRegenerateCount === 0}
+                className="text-xs font-medium"
+              >
+                <RefreshCwIcon className="mr-2 h-3.5 w-3.5 text-zinc-400" />
+                빈 폴더 조합 재생성 ({emptyRegenerateCount})
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* 새로고침 버튼 */}
           <Tooltip>
@@ -1242,17 +1321,48 @@ export function CombinationPickerToolbar({
 
             {/* 데이터 새로고침 및 필터 초기화 버튼 영역 */}
             <div className="flex flex-col gap-2 border-t border-dashed pt-4">
-              <Button
-                variant="outline"
-                className="h-10 w-full gap-2 text-xs font-bold"
-                onClick={handleRegeneratePending}
-                disabled={
-                  pendingRegenerateCount === 0 || pendingRegenerateDisabled
-                }
-              >
-                <RefreshCwIcon className="h-3.5 w-3.5" />
-                미완료 조합 재생성 ({pendingRegenerateCount})
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full gap-2 text-xs font-bold"
+                    disabled={pendingRegenerateDisabled}
+                  >
+                    <RefreshCwIcon className="h-3.5 w-3.5" />
+                    일괄 재생성 ({pendingRegenerateCount})
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-64" align="center">
+                  <DropdownMenuLabel className="text-[10px] text-muted-foreground">
+                    재생성 범위 선택
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleRegeneratePending}
+                    disabled={pendingRegenerateCount === 0}
+                    className="py-3 text-xs"
+                  >
+                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                    미완료 조합 재생성 ({pendingRegenerateCount})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleRegenerateHeld}
+                    disabled={heldRegenerateCount === 0}
+                    className="py-3 text-xs"
+                  >
+                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5 text-yellow-500" />
+                    보류 조합 재생성 ({heldRegenerateCount})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleRegenerateEmpty}
+                    disabled={emptyRegenerateCount === 0}
+                    className="py-3 text-xs"
+                  >
+                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5 text-zinc-400" />
+                    빈 폴더 조합 재생성 ({emptyRegenerateCount})
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <Button
                 variant="outline"

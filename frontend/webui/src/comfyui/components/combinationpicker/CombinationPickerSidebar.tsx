@@ -6,12 +6,19 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { RenderItem } from "./CombinationPickerComponents"
 
-export type SidebarFilter = "all" | "done" | "pending" | "has-images" | "empty"
+export type SidebarFilter =
+  | "all"
+  | "done"
+  | "pending"
+  | "held"
+  | "has-images"
+  | "empty"
 
 const FILTERS: { value: SidebarFilter; label: string }[] = [
   { value: "all", label: "전체" },
   { value: "done", label: "완료" },
   { value: "pending", label: "미완료" },
+  { value: "held", label: "보류" },
   { value: "has-images", label: "이미지" },
   { value: "empty", label: "빈 폴더" },
 ]
@@ -25,6 +32,7 @@ interface SidebarProps {
   setQuery: (value: string) => void
   filter: SidebarFilter
   setFilter: (value: SidebarFilter) => void
+  heldFilenames?: string[]
 }
 
 export function CombinationPickerSidebar({
@@ -36,6 +44,7 @@ export function CombinationPickerSidebar({
   setQuery,
   filter,
   setFilter,
+  heldFilenames = [],
 }: SidebarProps): React.JSX.Element {
   const { backendUrl, data } = useCurationContext()
   const { imagesByFilename } = data
@@ -129,6 +138,11 @@ export function CombinationPickerSidebar({
                   <div className="min-w-0 flex-1 truncate font-mono text-[10px] leading-tight font-bold">
                     {item.filename}
                   </div>
+                  {heldFilenames.includes(item.filename) && (
+                    <span className="shrink-0 rounded bg-yellow-500/20 px-1 py-0.5 text-[8px] font-black text-yellow-600 dark:text-yellow-400 leading-none">
+                      보류
+                    </span>
+                  )}
                   <span className="shrink-0 rounded-full bg-background/40 px-1.5 py-0.5 text-[9px] font-black tabular-nums opacity-70">
                     {imgs.length}
                   </span>

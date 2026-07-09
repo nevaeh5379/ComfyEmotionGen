@@ -35,4 +35,5 @@ export const STORAGE_KEYS = {
   curationSavedGroups: "comfy.curation.savedGroups",
   curationActiveGroupId: "comfy.curation.activeGroupId",
   curationActiveFilters: "comfy.curation.activeFilters",
+  curationHeldFilenames: "comfy.curation.heldFilenames",
 } as const

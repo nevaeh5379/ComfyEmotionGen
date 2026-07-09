@@ -393,6 +393,7 @@ function AppContent(): React.JSX.Element {
         )
         if (active !== undefined) {
           template.saveTemplate(active.name, nextTemplate)
+          template.setCegTemplate(nextTemplate)
           template.setTemplateResetKey((key) => key + 1)
           toast.success("CEG 템플릿 프리셋에 저장했습니다.")
           return
@@ -404,7 +405,11 @@ function AppContent(): React.JSX.Element {
       ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(
         now.getHours()
       ).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-      template.saveTemplate(name, nextTemplate)
+      const newPreset = template.saveTemplate(name, nextTemplate)
+      template.setCegTemplate(nextTemplate)
+      if (newPreset !== undefined) {
+        template.setActiveTemplateId(newPreset.id)
+      }
       template.setTemplateResetKey((key) => key + 1)
       toast.success("새 CEG 템플릿 프리셋으로 저장했습니다.")
     },
