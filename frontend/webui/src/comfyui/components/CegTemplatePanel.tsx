@@ -66,7 +66,9 @@ interface CegTemplatePanelProps {
   onRevert?: (() => void) | undefined
   // axis entry context menu
   axisValueFilter?: AxisValueFilter | undefined
-  setAxisValueFilter?: React.Dispatch<React.SetStateAction<AxisValueFilter>> | undefined
+  setAxisValueFilter?:
+    | React.Dispatch<React.SetStateAction<AxisValueFilter>>
+    | undefined
   renderResponse?: RenderItemsResponse | null | undefined
   onRunSingle?: ((item: RenderItem) => Promise<boolean>) | undefined
   parserError?: string | null | undefined
@@ -84,6 +86,13 @@ interface CtxMenuState {
 
 const MAX_RECENT = 5
 const MAX_FAVORITES = 20
+
+/** Stable identity for an axis combination across template text changes. */
+function combinationKey(item: RenderItem): string {
+  return JSON.stringify(
+    Object.entries(item.meta).sort(([a], [b]) => a.localeCompare(b))
+  )
+}
 
 function recentStorageKey(axisName: string, entryKey: string): string {
   return `ceg_test_recent_${axisName}_${entryKey}`
@@ -183,9 +192,15 @@ export function CegTemplatePanel({
 
   // 컨텍스트 메뉴용 최근 조합 (최대 3개)
   const ctxRecent = useMemo(() => {
-    if (ctxMenu === null) return []
-    return loadRecent(ctxMenu.axisName, ctxMenu.entryKey).slice(0, 3)
-  }, [ctxMenu])
+    if (ctxMenu === null || !renderResponse) return []
+    const currentByCombination = new Map(
+      renderResponse.items.map((item) => [combinationKey(item), item])
+    )
+    return loadRecent(ctxMenu.axisName, ctxMenu.entryKey)
+      .map((item) => currentByCombination.get(combinationKey(item)))
+      .filter((item): item is RenderItem => item !== undefined)
+      .slice(0, 3)
+  }, [ctxMenu, renderResponse])
 
   // 컨텍스트 메뉴 외부 클릭 시 닫기
   useEffect(() => {
@@ -236,9 +251,7 @@ export function CegTemplatePanel({
   ): boolean => {
     const vals = axisValueFilter?.[axisName]
     if (!vals) return allEntryKeys.length === 1
-    return allEntryKeys.every(
-      (k) => vals[k] === (k === entryKey)
-    )
+    return allEntryKeys.every((k) => vals[k] === (k === entryKey))
   }
 
   const isAllActive = (axisName: string, allEntryKeys: string[]): boolean => {
@@ -459,15 +472,12 @@ export function CegTemplatePanel({
               })
             }}
           >
-            <Check className="h-3.5 w-3.5 text-green-500" />
-            이 값만 활성화
+            <Check className="h-3.5 w-3.5 text-green-500" />이 값만 활성화
             {isOnlyValueActive(
               ctxMenu.axisName,
               ctxMenu.entryKey,
               ctxMenu.allEntryKeys
-            ) && (
-              <Check className="ml-auto h-3 w-3 text-muted-foreground" />
-            )}
+            ) && <Check className="ml-auto h-3 w-3 text-muted-foreground" />}
           </CtxMenuItem>
           <CtxMenuItem
             onClick={(): void => {
@@ -479,8 +489,7 @@ export function CegTemplatePanel({
               })
             }}
           >
-            <X className="h-3.5 w-3.5 text-muted-foreground" />
-            이 값 비활성화
+            <X className="h-3.5 w-3.5 text-muted-foreground" />이 값 비활성화
             {!isEntryActive(ctxMenu.axisName, ctxMenu.entryKey) && (
               <Check className="ml-auto h-3 w-3 text-muted-foreground" />
             )}
@@ -490,17 +499,12 @@ export function CegTemplatePanel({
               runMenuAction((): void => {
                 if (!setAxisValueFilter) return
                 setAxisValueFilter((prev) =>
-                  enableAllAxis(
-                    prev,
-                    ctxMenu.axisName,
-                    ctxMenu.allEntryKeys
-                  )
+                  enableAllAxis(prev, ctxMenu.axisName, ctxMenu.allEntryKeys)
                 )
               })
             }}
           >
-            <Check className="h-3.5 w-3.5 text-primary" />
-            이 축 전체 활성화
+            <Check className="h-3.5 w-3.5 text-primary" />이 축 전체 활성화
             {isAllActive(ctxMenu.axisName, ctxMenu.allEntryKeys) && (
               <Check className="ml-auto h-3 w-3 text-muted-foreground" />
             )}
@@ -541,7 +545,7 @@ export function CegTemplatePanel({
           {ctxRecent.length > 0 && onRunSingle && (
             <>
               <div className="my-1 h-px bg-border" />
-              <div className="px-2.5 py-1 text-[9px] uppercase tracking-wide text-muted-foreground/60">
+              <div className="px-2.5 py-1 text-[9px] tracking-wide text-muted-foreground/60 uppercase">
                 최근
               </div>
               {ctxRecent.map((item, idx) => (
@@ -551,12 +555,15 @@ export function CegTemplatePanel({
                     runMenuAction((): void => {
                       void onRunSingle(item)
                       // recent 업데이트 (localStorage에만 저장, 메뉴 다시 열릴 때 반영)
-                      const k = itemKey(item)
+                      const k = combinationKey(item)
                       const prevRecent = loadRecent(
                         ctxMenu.axisName,
                         ctxMenu.entryKey
                       )
-                      const next = [item, ...prevRecent.filter((p) => itemKey(p) !== k)].slice(0, MAX_RECENT)
+                      const next = [
+                        item,
+                        ...prevRecent.filter((p) => combinationKey(p) !== k),
+                      ].slice(0, MAX_RECENT)
                       saveRecent(ctxMenu.axisName, ctxMenu.entryKey, next)
                     })
                   }}
@@ -625,12 +632,12 @@ function TestDialog({
   // key 집합 (빠른 조회)
   const favoriteKeys = useMemo(() => {
     const s = new Set<string>()
-    for (const item of favorites) s.add(itemKey(item))
+    for (const item of favorites) s.add(combinationKey(item))
     return s
   }, [favorites])
   const recentKeys = useMemo(() => {
     const s = new Set<string>()
-    for (const item of recent) s.add(itemKey(item))
+    for (const item of recent) s.add(combinationKey(item))
     return s
   }, [recent])
 
@@ -656,21 +663,29 @@ function TestDialog({
     const recents: RenderItem[] = []
     const rest: RenderItem[] = []
     for (const item of filteredItems) {
-      const k = itemKey(item)
+      const k = combinationKey(item)
       if (favoriteKeys.has(k)) favs.push(item)
       else if (recentKeys.has(k)) recents.push(item)
       else rest.push(item)
     }
     // 즐겨찾기: 추가 역순 (최근 추가가 맨 위)
     favs.sort((a, b) => {
-      const ia = favorites.findIndex((r) => itemKey(r) === itemKey(a))
-      const ib = favorites.findIndex((r) => itemKey(r) === itemKey(b))
+      const ia = favorites.findIndex(
+        (r) => combinationKey(r) === combinationKey(a)
+      )
+      const ib = favorites.findIndex(
+        (r) => combinationKey(r) === combinationKey(b)
+      )
       return ia - ib
     })
     // 최근: 실행 역순
     recents.sort((a, b) => {
-      const ia = recent.findIndex((r) => itemKey(r) === itemKey(a))
-      const ib = recent.findIndex((r) => itemKey(r) === itemKey(b))
+      const ia = recent.findIndex(
+        (r) => combinationKey(r) === combinationKey(a)
+      )
+      const ib = recent.findIndex(
+        (r) => combinationKey(r) === combinationKey(b)
+      )
       return ia - ib
     })
     return [...favs, ...recents, ...rest]
@@ -679,9 +694,9 @@ function TestDialog({
   const handleRun = (item: RenderItem): void => {
     onRunTestItem(item)
     // recent 업데이트 (즐겨찾기와 별개)
-    const k = itemKey(item)
+    const k = combinationKey(item)
     setRecent((prev) => {
-      const withoutSame = prev.filter((p) => itemKey(p) !== k)
+      const withoutSame = prev.filter((p) => combinationKey(p) !== k)
       const next = [item, ...withoutSame].slice(0, MAX_RECENT)
       saveRecent(testDialog.axisName, testDialog.entryKey, next)
       return next
@@ -689,11 +704,11 @@ function TestDialog({
   }
 
   const toggleFavorite = (item: RenderItem): void => {
-    const k = itemKey(item)
+    const k = combinationKey(item)
     setFavorites((prev) => {
-      const exists = prev.some((p) => itemKey(p) === k)
+      const exists = prev.some((p) => combinationKey(p) === k)
       const next = exists
-        ? prev.filter((p) => itemKey(p) !== k)
+        ? prev.filter((p) => combinationKey(p) !== k)
         : [item, ...prev].slice(0, MAX_FAVORITES)
       saveFavorites(testDialog.axisName, testDialog.entryKey, next)
       return next
@@ -720,8 +735,7 @@ function TestDialog({
         {/* 헤더 */}
         <DialogHeader className="shrink-0 border-b px-4 py-3">
           <DialogTitle className="flex items-center gap-1.5 text-sm">
-            <Play className="h-4 w-4 text-primary" />
-            이 값으로 테스트 —{" "}
+            <Play className="h-4 w-4 text-primary" />이 값으로 테스트 —{" "}
             <span className="font-mono text-primary">
               {testDialog.axisName}
             </span>
@@ -738,16 +752,14 @@ function TestDialog({
             {filteredItems.length !== baseItems.length
               ? ` · 검색: ${String(filteredItems.length)}개`
               : ""}
-            {favorites.length > 0
-              ? ` · ★${String(favorites.length)}`
-              : ""}
+            {favorites.length > 0 ? ` · ★${String(favorites.length)}` : ""}
           </DialogDescription>
         </DialogHeader>
 
         {/* 검색 + 필터 토글 */}
         <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e): void => {
@@ -788,12 +800,16 @@ function TestDialog({
               : "검색/필터 결과가 없습니다."}
           </p>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto" style={{ maxHeight: "50vh" }}>
+          <div
+            className="min-h-0 flex-1 overflow-y-auto"
+            style={{ maxHeight: "50vh" }}
+          >
             <div className="flex flex-col px-2 py-1">
               {sortedItems.map((item) => {
                 const k = itemKey(item)
-                const isFav = favoriteKeys.has(k)
-                const isRecent = !isFav && recentKeys.has(k)
+                const historyKey = combinationKey(item)
+                const isFav = favoriteKeys.has(historyKey)
+                const isRecent = !isFav && recentKeys.has(historyKey)
                 const excluded =
                   !applyFilter &&
                   !applyAxisFilters([item], axisValueFilter).some(

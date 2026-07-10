@@ -376,47 +376,6 @@ const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
     e.stopPropagation()
   }, [])
 
-  // 우클릭 컨텍스트 메뉴: 캡처 단계에서 CodeMirror 내부 처리보다 먼저 잡음
-  // (텍스트 선택 상태에서도 동작하도록)
-  const onAxisEntryContextRef = useRef(onAxisEntryContext)
-  useEffect(() => {
-    onAxisEntryContextRef.current = onAxisEntryContext
-  }, [onAxisEntryContext])
-
-  useEffect(() => {
-    if (!onAxisEntryContext || language !== "ceg") return
-    const view = editorRef.current?.view
-    const contentDOM = view?.contentDOM
-    if (!contentDOM) return
-
-    const handler = (event: MouseEvent): void => {
-      const cb = onAxisEntryContextRef.current
-      const v = editorRef.current?.view
-      if (!cb || !v) return
-      const pos = v.posAtCoords({ x: event.clientX, y: event.clientY })
-      if (pos === null) return
-      const lineInfo = v.state.doc.lineAt(pos)
-      const lineIndex = lineInfo.number - 1 // 0-based
-      const text = v.state.doc.toString()
-      const loc = parseAxisEntryAtLine(text, lineIndex)
-      if (loc === null) return
-      event.preventDefault()
-      event.stopPropagation()
-      cb({
-        axisName: loc.axisName,
-        entryKey: loc.entryKey,
-        allEntryKeys: loc.allEntryKeys,
-        screenX: event.clientX,
-        screenY: event.clientY,
-      })
-    }
-    // 캡처 단계에서 등록하여 CodeMirror의 버블 단계 핸들러보다 먼저 실행
-    contentDOM.addEventListener("contextmenu", handler, true)
-    return (): void => {
-      contentDOM.removeEventListener("contextmenu", handler, true)
-    }
-  }, [onAxisEntryContext, language])
-
   const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
@@ -442,6 +401,29 @@ const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
           return true // Prevents CodeMirror's default text insertion
         }
         return false
+      },
+      contextmenu: (event, view) => {
+        if (language !== "ceg" || !onAxisEntryContext) return false
+
+        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+        if (pos === null) return false
+        const lineInfo = view.state.doc.lineAt(pos)
+        const loc = parseAxisEntryAtLine(
+          view.state.doc.toString(),
+          lineInfo.number - 1
+        )
+        if (loc === null) return false
+
+        event.preventDefault()
+        event.stopPropagation()
+        onAxisEntryContext({
+          axisName: loc.axisName,
+          entryKey: loc.entryKey,
+          allEntryKeys: loc.allEntryKeys,
+          screenX: event.clientX,
+          screenY: event.clientY,
+        })
+        return true
       },
     })
 
@@ -492,7 +474,7 @@ const CodeEditor = (props: CodeEditorProps): React.JSX.Element => {
     }
 
     return exts
-  }, [language, axisEntryActiveMap, errorLine])
+  }, [language, onAxisEntryContext, axisEntryActiveMap, errorLine])
 
   return (
     <div
