@@ -913,11 +913,6 @@ export function GalleryInpaintEditor({
     }
     setSourceDisplayUrl(finalUrl)
     img.src = finalUrl
-
-    return () => {
-      img.onload = null
-      img.onerror = null
-    }
   }, [imageUrl, open])
 
   const clearMask = useCallback(() => {

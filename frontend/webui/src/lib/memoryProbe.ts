@@ -77,8 +77,7 @@ function getCallSite(): string {
       .map((entry) => entry.trim())
       .find(
         (entry) =>
-          entry.includes("/src/") &&
-          !entry.includes("/src/lib/memoryProbe.ts")
+          entry.includes("/src/") && !entry.includes("/src/lib/memoryProbe.ts")
       ) ?? "unknown"
   return line.replace(window.location.origin, "")
 }
@@ -89,24 +88,34 @@ function getBlobPartsSize(blobParts: BlobPart[] | undefined): number {
   for (const part of blobParts) {
     if (typeof part === "string") {
       total += part.length * 2
-    } else if (part instanceof Blob) {
-      total += part.size
     } else {
-      total += part.byteLength
+      const sizedPart = part as { size?: unknown; byteLength?: unknown }
+      if (typeof sizedPart.size === "number") {
+        total += sizedPart.size
+      } else if (typeof sizedPart.byteLength === "number") {
+        total += sizedPart.byteLength
+      }
     }
   }
   return total
+}
+
+function getBlobLikeSize(object: Blob | MediaSource): number {
+  const maybeSized = object as { size?: unknown }
+  return typeof maybeSized.size === "number" ? maybeSized.size : 0
 }
 
 function increment(
   state: MemoryProbeState,
   name: CounterName,
   bytes: number,
-  site = getCallSite()
+  site?: string
 ): void {
+  if (!state.enabled) return
+  const resolvedSite = site ?? getCallSite()
   state.counters[name].count += 1
   state.counters[name].bytes += bytes
-  const key = `${name} ${site}`
+  const key = `${name} ${resolvedSite}`
   state.bySite[key] ??= { count: 0, bytes: 0 }
   state.bySite[key].count += 1
   state.bySite[key].bytes += bytes
@@ -176,6 +185,8 @@ function createState(): MemoryProbeState {
     reset(): void {
       this.counters = createCounters()
       this.bySite = {}
+      this.seenResourceNames.clear()
+      performance.clearResourceTimings()
       this.lastReportAt = performance.now()
     },
     report(): void {
@@ -188,15 +199,14 @@ function createState(): MemoryProbeState {
         total: formatBytes(this.counters[name].bytes),
         perSecond: `${formatBytes(this.counters[name].bytes / seconds)}/s`,
       })).filter((row) => row.count > 0)
-      const liveObjectUrlBytes = Array.from(this.liveObjectUrls.values()).reduce(
-        (sum, item) => sum + item.size,
-        0
-      )
+      const liveObjectUrlBytes = Array.from(
+        this.liveObjectUrls.values()
+      ).reduce((sum, item) => sum + item.size, 0)
       const dom = collectDomMemorySnapshot()
       console.groupCollapsed(
-        `[CEG memory] ${getJsHeapInfo()} liveObjectUrls=${
-          String(this.liveObjectUrls.size)
-        } (${formatBytes(liveObjectUrlBytes)}) images=${String(
+        `[CEG memory] ${getJsHeapInfo()} liveObjectUrls=${String(
+          this.liveObjectUrls.size
+        )} (${formatBytes(liveObjectUrlBytes)}) images=${String(
           dom.images
         )} blobImages=${String(dom.blobImages)} canvases=${String(
           dom.canvases
@@ -223,6 +233,9 @@ function createState(): MemoryProbeState {
         this.intervalId = null
       }
       this.enabled = false
+      this.liveObjectUrls.clear()
+      this.seenResourceNames.clear()
+      performance.clearResourceTimings()
     },
   }
 }
@@ -232,7 +245,9 @@ function installBlobProbe(state: MemoryProbeState): void {
   class InstrumentedBlob extends NativeBlob {
     constructor(blobParts?: BlobPart[], options?: BlobPropertyBag) {
       super(blobParts, options)
-      increment(state, "blob", getBlobPartsSize(blobParts))
+      if (state.enabled) {
+        increment(state, "blob", getBlobPartsSize(blobParts))
+      }
     }
   }
   window.Blob = InstrumentedBlob
@@ -242,17 +257,20 @@ function installObjectUrlProbe(state: MemoryProbeState): void {
   const nativeCreate = URL.createObjectURL.bind(URL)
   const nativeRevoke = URL.revokeObjectURL.bind(URL)
   URL.createObjectURL = (object: Blob | MediaSource): string => {
-    const site = getCallSite()
     const url = nativeCreate(object)
-    const size = object instanceof Blob ? object.size : 0
+    if (!state.enabled) return url
+    const site = getCallSite()
+    const size = getBlobLikeSize(object)
     state.liveObjectUrls.set(url, { size, site, createdAt: performance.now() })
     increment(state, "objectUrlCreate", size, site)
     return url
   }
   URL.revokeObjectURL = (url: string): void => {
-    const tracked = state.liveObjectUrls.get(url)
-    increment(state, "objectUrlRevoke", tracked?.size ?? 0, getCallSite())
-    state.liveObjectUrls.delete(url)
+    if (state.enabled) {
+      const tracked = state.liveObjectUrls.get(url)
+      increment(state, "objectUrlRevoke", tracked?.size ?? 0)
+      state.liveObjectUrls.delete(url)
+    }
     nativeRevoke(url)
   }
 }
@@ -275,7 +293,9 @@ function installCanvasProbe(state: MemoryProbeState): void {
       settings === undefined
         ? nativeGetImageData.call(this, sx, sy, sw, sh)
         : nativeGetImageData.call(this, sx, sy, sw, sh, settings)
-    increment(state, "imageData", result.data.byteLength)
+    if (state.enabled) {
+      increment(state, "imageData", result.data.byteLength)
+    }
     return result
   }
 }
@@ -298,7 +318,9 @@ function installImageProbe(state: MemoryProbeState): void {
       return srcDescriptor.get.call(this)
     },
     set(this: HTMLImageElement, value: string): void {
-      increment(state, "imgSrc", value.length * 2)
+      if (state.enabled) {
+        increment(state, "imgSrc", value.length * 2)
+      }
       srcDescriptor.set.call(this, value)
     },
   })
@@ -310,6 +332,7 @@ function installWebSocketProbe(state: MemoryProbeState): void {
     constructor(url: string | URL, protocols?: string | string[]) {
       super(url, protocols)
       super.addEventListener("message", (event: MessageEvent<unknown>) => {
+        if (!state.enabled) return
         const data = event.data
         if (data instanceof ArrayBuffer) {
           increment(state, "webSocketArrayBuffer", data.byteLength)
@@ -327,10 +350,32 @@ function installWebSocketProbe(state: MemoryProbeState): void {
 declare global {
   interface Window {
     __cegMemProbe?: MemoryProbeState
+    __cegStartMemProbe?: () => MemoryProbeState
+    __cegMemProbeStatus?: () => {
+      loaded: boolean
+      enabled: boolean
+      href: string
+      queryFlag: string | null
+      storageFlag: string | null
+      intervalRunning: boolean
+    }
   }
 }
 
-if (typeof window !== "undefined" && shouldEnableMemoryProbe()) {
+function startMemoryProbe(): MemoryProbeState {
+  const existing = window.__cegMemProbe
+  if (existing !== undefined) {
+    existing.enabled = true
+    existing.lastReportAt = performance.now()
+    existing.intervalId ??= window.setInterval(() => {
+      existing.report()
+    }, 1000)
+    console.info(
+      "[CEG memory] probe enabled. Use window.__cegMemProbe.report(), reset(), stop()."
+    )
+    return existing
+  }
+
   const state = createState()
   window.__cegMemProbe = state
   installBlobProbe(state)
@@ -344,4 +389,40 @@ if (typeof window !== "undefined" && shouldEnableMemoryProbe()) {
   console.info(
     "[CEG memory] probe enabled. Use window.__cegMemProbe.report(), reset(), stop()."
   )
+  return state
+}
+
+function getMemoryProbeStatus(): {
+  loaded: boolean
+  enabled: boolean
+  href: string
+  queryFlag: string | null
+  storageFlag: string | null
+  intervalRunning: boolean
+} {
+  let queryFlag: string | null = null
+  let storageFlag: string | null = null
+  try {
+    queryFlag = new URL(window.location.href).searchParams.get("cegMemProbe")
+    storageFlag = window.localStorage.getItem("ceg_memory_probe")
+  } catch {
+    // ignore
+  }
+  const intervalId = window.__cegMemProbe?.intervalId
+  return {
+    loaded: true,
+    enabled: window.__cegMemProbe?.enabled === true,
+    href: window.location.href,
+    queryFlag,
+    storageFlag,
+    intervalRunning: intervalId !== undefined && intervalId !== null,
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.__cegStartMemProbe = startMemoryProbe
+  window.__cegMemProbeStatus = getMemoryProbeStatus
+  if (shouldEnableMemoryProbe()) {
+    startMemoryProbe()
+  }
 }

@@ -81,11 +81,35 @@ export const WebSocketProvider = ({
 
   const applyEvent = useCallback((event: BackendEvent) => {
     applyComfyApiBridge(event)
+    const clearWorkerPreview = (workerId: string): void => {
+      setWorkerPreviews((prev) => {
+        if (prev[workerId] === undefined) return prev
+        const { [workerId]: _removed, ...next } = prev
+        return next
+      })
+    }
     switch (event.type) {
       case "snapshot": {
         setJobs(event.jobs)
         setWorkers(event.workers)
         setPaused(event.paused)
+        const busyWorkerIds = new Set(
+          event.workers
+            .filter((worker) => worker.busy)
+            .map((worker) => worker.id)
+        )
+        setWorkerPreviews((prev) => {
+          let changed = false
+          const next: Record<string, number> = {}
+          for (const [workerId, previewToken] of Object.entries(prev)) {
+            if (busyWorkerIds.has(workerId)) {
+              next[workerId] = previewToken
+            } else {
+              changed = true
+            }
+          }
+          return changed ? next : prev
+        })
         break
       }
       case "job.created": {
@@ -94,6 +118,11 @@ export const WebSocketProvider = ({
         break
       }
       case "job.updated":
+        if (["done", "error", "cancelled"].includes(event.job.status)) {
+          if (event.job.workerId !== null) {
+            clearWorkerPreview(event.job.workerId)
+          }
+        }
         setJobs((prev) => {
           if (["done", "error", "cancelled"].includes(event.job.status)) {
             return prev.filter((j) => j.id !== event.job.id)
@@ -108,6 +137,9 @@ export const WebSocketProvider = ({
         setWorkers((prev) =>
           prev.map((w) => (w.id === event.worker.id ? event.worker : w))
         )
+        if (!event.worker.busy) {
+          clearWorkerPreview(event.worker.id)
+        }
         break
       case "worker.added":
         setWorkers((prev) =>
@@ -118,11 +150,7 @@ export const WebSocketProvider = ({
         break
       case "worker.removed":
         setWorkers((prev) => prev.filter((w) => w.id !== event.workerId))
-        setWorkerPreviews((prev) => {
-          if (prev[event.workerId] === undefined) return prev
-          const { [event.workerId]: _removed, ...next } = prev
-          return next
-        })
+        clearWorkerPreview(event.workerId)
         break
       case "worker.preview":
         setWorkerPreviews((prev) => {

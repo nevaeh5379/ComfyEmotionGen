@@ -286,15 +286,44 @@ export function useComfyRuntimeBridge({
       if (cancelled) return
 
       for (const extension of rawApp.extensions) {
-        if (extension.setup !== undefined) {
+        const extensionState = extension as ComfyExtension & {
+          __cegSetupDone?: boolean
+          __cegSetupPromise?: Promise<void>
+        }
+        if (
+          extension.setup === undefined ||
+          extensionState.__cegSetupDone === true
+        ) {
+          continue
+        }
+
+        if (extensionState.__cegSetupPromise !== undefined) {
           try {
-            console.log(
-              "[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:",
-              extension.name
-            )
-            await extension.setup(rawApp)
-          } catch (err) {
-            console.error(`Extension setup failed for ${extension.name}:`, err)
+            await extensionState.__cegSetupPromise
+          } catch {
+            // The caller that started the setup reports its failure.
+          }
+          continue
+        }
+
+        const setupPromise: Promise<void> = Promise.resolve().then(
+          async (): Promise<void> => {
+            await extension.setup?.call(extension, rawApp)
+          }
+        )
+        extensionState.__cegSetupPromise = setupPromise
+        try {
+          console.log(
+            "[CEG:DEBUG ReactGraphEditor] Calling ext.setup for:",
+            extension.name
+          )
+          await setupPromise
+          extensionState.__cegSetupDone = true
+        } catch (err) {
+          console.error(`Extension setup failed for ${extension.name}:`, err)
+        } finally {
+          if (extensionState.__cegSetupPromise === setupPromise) {
+            delete extensionState.__cegSetupPromise
           }
         }
       }

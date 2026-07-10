@@ -34,10 +34,11 @@ combine_assignment: NAME "=" expr
        | "(" expr ")"
 
 exclude_stmt: "{{exclude" condition ((AND | OR) condition)* "}}"
-condition: eq_condition | in_condition | not_in_condition
+condition: eq_condition | in_condition | not_in_condition | has_condition
 eq_condition: NAME "=" NAME
 in_condition: NAME "in" "[" NAME ("," NAME)* "]"
 not_in_condition: NAME "not" "in" "[" NAME ("," NAME)* "]"
+has_condition: NAME
 
 override_block: "{{override" condition ((AND | OR) condition)* "}}" OVERRIDE_BODY "{{/override}}"
 

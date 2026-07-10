@@ -302,11 +302,6 @@ export function ImageEditorDialog({
       src = imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
     }
     img.src = src
-
-    return (): void => {
-      img.onload = null
-      img.onerror = null
-    }
   }, [
     imageUrl,
     open,

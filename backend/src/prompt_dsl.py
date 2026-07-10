@@ -279,6 +279,9 @@ class _Builder(Transformer[Token, object]):
     def not_in_condition(self, items: list[object]) -> object:
         return Condition(axis=str(items[0]), op="not_in", values=[str(v) for v in items[1:]])
 
+    def has_condition(self, items: list[object]) -> object:
+        return Condition(axis=str(items[0]), op="has", values=[])
+
     def template_block(self, items: list[object]) -> object:
         return ("template", str(items[0]))
 
@@ -669,6 +672,8 @@ def _conditions_match(
         val = cks.get(cond.axis)
         if val is None:
             results.append(False)
+        elif cond.op == "has":
+            results.append(val is not None and val != "")
         elif cond.op == "eq":
             results.append(bool(cond.values) and val == cond.values[0])
         elif cond.op == "in":

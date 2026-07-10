@@ -239,6 +239,8 @@ export class ComfyApi extends EventTarget {
   clientId?: string
   user: string
   socket: WebSocket | null = null
+  private pollQueueTimer: number | null = null
+  private reconnectTimer: number | null = null
   reportedUnknownMessageTypes = new Set<string>()
   serverFeatureFlags: Record<string, unknown> = {}
   authToken?: string
@@ -340,7 +342,8 @@ export class ComfyApi extends EventTarget {
   // ── Polling fallback ────────────────────────────────────────────
 
   private _pollQueue(): void {
-    setInterval(() => {
+    if (this.pollQueueTimer !== null) return
+    this.pollQueueTimer = window.setInterval(() => {
       void this.fetchApi("/prompt")
         .then(async (resp) => {
           const status = (await resp.json()) as StatusWsMessageStatus
@@ -350,6 +353,18 @@ export class ComfyApi extends EventTarget {
           this.dispatchCustomEvent("status", undefined)
         })
     }, 1000)
+  }
+
+  private stopPollingQueue(): void {
+    if (this.pollQueueTimer === null) return
+    window.clearInterval(this.pollQueueTimer)
+    this.pollQueueTimer = null
+  }
+
+  private stopReconnectTimer(): void {
+    if (this.reconnectTimer === null) return
+    window.clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
   }
 
   // ── WebSocket ───────────────────────────────────────────────────
@@ -379,6 +394,8 @@ export class ComfyApi extends EventTarget {
     this.socket.addEventListener("open", () => {
       if (this.socket !== socketInstance) return
       opened = true
+      this.stopPollingQueue()
+      this.stopReconnectTimer()
 
       this.socket.send(
         JSON.stringify({
@@ -402,7 +419,9 @@ export class ComfyApi extends EventTarget {
 
     this.socket.addEventListener("close", () => {
       if (this.socket !== socketInstance) return
-      setTimeout(() => {
+      this.stopReconnectTimer()
+      this.reconnectTimer = window.setTimeout(() => {
+        this.reconnectTimer = null
         if (this.socket !== socketInstance) return
         this.socket = null
         this.createSocket(true)
@@ -430,21 +449,33 @@ export class ComfyApi extends EventTarget {
     )
   }
 
+  disconnect(): void {
+    this.stopPollingQueue()
+    this.stopReconnectTimer()
+    const socket = this.socket
+    this.socket = null
+    if (socket === null) return
+    try {
+      socket.close()
+    } catch (err) {
+      console.error("Failed to close socket:", err)
+    }
+  }
+
   setApiBase(url: string): void {
-    if (this.api_base === url && this.socket) {
+    if (
+      this.api_base === url &&
+      (this.socket?.readyState === WebSocket.OPEN ||
+        this.socket?.readyState === WebSocket.CONNECTING)
+    ) {
+      this.stopPollingQueue()
       return
     }
+    this.stopPollingQueue()
+    this.stopReconnectTimer()
     console.log("[ComfyApi] Changing api_base to:", url)
     this.api_base = url
-    if (this.socket) {
-      const oldSocket = this.socket
-      this.socket = null
-      try {
-        oldSocket.close()
-      } catch (err) {
-        console.error("Failed to close socket:", err)
-      }
-    }
+    this.disconnect()
     this.createSocket()
   }
 

@@ -693,9 +693,13 @@ export function RegenerateDialog({
   )
 
   useEffect(() => {
-    if (!open) {
+    if (!open) return
+    const resetTimer = window.setTimeout(() => {
       revokeAllPreviewUrls()
       setImageUploads({})
+    }, 0)
+    return (): void => {
+      window.clearTimeout(resetTimer)
     }
   }, [open, revokeAllPreviewUrls])
 

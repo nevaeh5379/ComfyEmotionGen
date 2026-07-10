@@ -248,6 +248,12 @@ export function EditorTab(): React.JSX.Element {
     }
   }, [backendUrl])
 
+  useEffect(() => {
+    return (): void => {
+      window.api.disconnect()
+    }
+  }, [])
+
   // object_info 로드
   useEffect(() => {
     if (Object.keys(nodeDefs).length > 0) {
