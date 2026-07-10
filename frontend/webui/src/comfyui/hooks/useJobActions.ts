@@ -2,12 +2,24 @@ import { useCallback, useMemo } from "react"
 import { API, HEADERS } from "@/lib/api"
 import { toast } from "sonner"
 import { useBackend } from "./useBackend"
-import { useSessionManager } from "./useSessionManager"
 import { useBackendUrl } from "./useBackendUrl"
 import { useConfirm } from "./useConfirm"
 import { useLatestRef } from "./useLatestRef"
+import type { ActiveStateRaw, SessionMarkerRaw } from "../utils/sessionUtils"
 
-export function useJobActions(): {
+interface JobActionsSession {
+  sortedMarkers: SessionMarkerRaw[]
+  selectedSessionId: string
+  activeState: ActiveStateRaw
+  refetchStats: () => void
+}
+
+export function useJobActions({
+  sortedMarkers,
+  selectedSessionId,
+  activeState,
+  refetchStats,
+}: JobActionsSession): {
   handleTogglePause: () => Promise<void>
   handleCancelAll: () => Promise<void>
   handleRetryAllFailed: () => Promise<void>
@@ -16,8 +28,6 @@ export function useJobActions(): {
   const backendUrl = useBackendUrl()
 
   const { paused } = useBackend()
-  const { sortedMarkers, selectedSessionId, activeState, refetchStats } =
-    useSessionManager()
   const confirm = useConfirm()
 
   const sessionRange = useMemo(() => {
@@ -136,13 +146,26 @@ export function useJobActions(): {
     })
     if (!confirmed) return
     try {
-      const promises = failedIds.map((id) =>
-        fetch(`${backendUrlRef.current}${API.jobs.retry(id)}`, {
-          method: "POST",
+      let nextIndex = 0
+      let successCount = 0
+      const workerCount = Math.min(8, failedIds.length)
+      await Promise.all(
+        Array.from({ length: workerCount }, async () => {
+          while (nextIndex < failedIds.length) {
+            const id = failedIds[nextIndex++]
+            if (id === undefined) continue
+            try {
+              const response = await fetch(
+                `${backendUrlRef.current}${API.jobs.retry(id)}`,
+                { method: "POST" }
+              )
+              if (response.ok) successCount += 1
+            } catch {
+              // Count the request as failed and continue retrying the batch.
+            }
+          }
         })
       )
-      const results = await Promise.all(promises)
-      const successCount = results.filter((r) => r.ok).length
       if (successCount === failedIds.length) {
         toast.success(
           `실패/취소된 작업 ${String(successCount)}개를 재시도했습니다.`

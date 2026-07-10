@@ -221,6 +221,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [fetchedImages, setFetchedImages] = useState<Map<string, string[]>>(
     new Map()
   )
+  const fetchedImagesRef = useRef(fetchedImages)
   const [, setTick] = useState(0)
 
   // ── 세션 시간 범위 계산 ───────────────────────────────────────────
@@ -564,7 +565,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const fetchPendingJobsForSession = useCallback(async (): Promise<JobView[]> => {
+  const fetchPendingJobsForSession = useCallback(async (): Promise<
+    JobView[]
+  > => {
     const params = new URLSearchParams()
     params.append("limit", "999999")
     params.append("status", "pending")
@@ -605,7 +608,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       ])
 
       if (!renderRes.ok) {
-        throw new Error(await renderRes.text().catch(() => renderRes.statusText))
+        throw new Error(
+          await renderRes.text().catch(() => renderRes.statusText)
+        )
       }
 
       const parsed = (await renderRes.json()) as RenderItemsResponse
@@ -686,13 +691,19 @@ export const JobManagerPanel = memo(function JobManagerPanel({
       })
       if (!confirmed) return
 
-      const res = await fetch(`${backendUrl}${API.jobs.updatePendingTemplate}`, {
-        method: "POST",
-        headers: HEADERS.json,
-        body: JSON.stringify({ replacements }),
-      })
+      const res = await fetch(
+        `${backendUrl}${API.jobs.updatePendingTemplate}`,
+        {
+          method: "POST",
+          headers: HEADERS.json,
+          body: JSON.stringify({ replacements }),
+        }
+      )
       if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
-      const result = (await res.json()) as { updated?: number; skipped?: number }
+      const result = (await res.json()) as {
+        updated?: number
+        skipped?: number
+      }
       toast.success(
         `대기 작업 ${String(result.updated ?? replacements.length)}개를 갱신했습니다.`
       )
@@ -822,7 +833,8 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   const fetchJobImages = useCallback(
     async (jobId: string): Promise<void> => {
-      if (fetchedImages.has(jobId) || fetchingRef.current.has(jobId)) return
+      if (fetchedImagesRef.current.has(jobId) || fetchingRef.current.has(jobId))
+        return
       fetchingRef.current.add(jobId)
       try {
         const res = await fetch(`${backendUrl}${API.jobs.savedImages(jobId)}`)
@@ -831,7 +843,14 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           const hashes: string[] = (data.items ?? []).map((img) => img.hash)
           setFetchedImages((prev) => {
             const next = new Map(prev)
+            next.delete(jobId)
             next.set(jobId, hashes)
+            while (next.size > 50) {
+              const oldestKey = next.keys().next().value as string | undefined
+              if (oldestKey === undefined) break
+              next.delete(oldestKey)
+            }
+            fetchedImagesRef.current = next
             return next
           })
         }
@@ -841,7 +860,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         fetchingRef.current.delete(jobId)
       }
     },
-    [backendUrl, fetchedImages]
+    [backendUrl]
   )
 
   const openDetail = useCallback(

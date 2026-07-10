@@ -214,22 +214,26 @@ export function ImageDetailPanel({
           닫기
         </Button>
       </div>
-      <GalleryInpaintEditor
-        open={inpaintOpen}
-        backendUrl={backendUrl}
-        imageUrl={`${backendUrl}/saved-images/${image.hash}`}
-        filename={getImageFilename(image)}
-        sourcePrompt={image.prompt}
-        onOpenChange={setInpaintOpen}
-      />
-      <ImageEditorDialog
-        open={editOpen}
-        backendUrl={backendUrl}
-        imageUrl={`${backendUrl}/saved-images/${image.hash}`}
-        filename={getImageFilename(image)}
-        parentHash={image.hash}
-        onOpenChange={setEditOpen}
-      />
+      {inpaintOpen && (
+        <GalleryInpaintEditor
+          open={inpaintOpen}
+          backendUrl={backendUrl}
+          imageUrl={`${backendUrl}/saved-images/${image.hash}`}
+          filename={getImageFilename(image)}
+          sourcePrompt={image.prompt}
+          onOpenChange={setInpaintOpen}
+        />
+      )}
+      {editOpen && (
+        <ImageEditorDialog
+          open={editOpen}
+          backendUrl={backendUrl}
+          imageUrl={`${backendUrl}/saved-images/${image.hash}`}
+          filename={getImageFilename(image)}
+          parentHash={image.hash}
+          onOpenChange={setEditOpen}
+        />
+      )}
       {imgError ? (
         <div className="flex h-64 w-full items-center justify-center bg-muted text-muted-foreground">
           <ImageOff className="h-10 w-10" />

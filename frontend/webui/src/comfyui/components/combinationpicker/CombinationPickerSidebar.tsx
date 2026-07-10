@@ -5,6 +5,8 @@ import { FolderIcon, ImageIcon, SearchIcon, XIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { RenderItem } from "./CombinationPickerComponents"
+import { useVirtualizer } from "@tanstack/react-virtual"
+import { useRef } from "react"
 
 export type SidebarFilter =
   | "all"
@@ -48,6 +50,13 @@ export function CombinationPickerSidebar({
 }: SidebarProps): React.JSX.Element {
   const { backendUrl, data } = useCurationContext()
   const { imagesByFilename } = data
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const rowVirtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 104,
+    overscan: 4,
+  })
 
   return (
     <div
@@ -106,81 +115,100 @@ export function CombinationPickerSidebar({
           {items.length} / {totalCount}
         </div>
       </div>
-      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1">
-        {items.map((item) => {
-          const imgs = imagesByFilename.get(item.filename) ?? []
-          const isDone = hasApproved(imgs)
-          const isActive = item.filename === selectedFilename
-          return (
-            <button
-              key={item.filename}
-              onClick={() => {
-                setSelectedFilename(item.filename)
-              }}
-              className={`flex w-full items-start gap-2 rounded-md p-2 text-left transition-colors ${
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-foreground hover:bg-accent/50"
-              }`}
-            >
-              <span className="mt-0.5 flex-none">
-                <StatusIcon done={isDone} active={isActive} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="mb-1.5 flex items-center gap-1.5">
-                  <FolderIcon
-                    className={`h-3.5 w-3.5 shrink-0 ${
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-1">
+        {items.length > 0 && (
+          <div
+            className="relative w-full"
+            style={{ height: rowVirtualizer.getTotalSize() }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const item = items[virtualRow.index]
+              if (item === undefined) return null
+              const imgs = imagesByFilename.get(item.filename) ?? []
+              const isDone = hasApproved(imgs)
+              const isActive = item.filename === selectedFilename
+              return (
+                <div
+                  key={item.filename}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  className="absolute top-0 left-0 w-full pb-0.5"
+                  style={{
+                    transform: `translateY(${String(virtualRow.start)}px)`,
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setSelectedFilename(item.filename)
+                    }}
+                    className={`flex w-full items-start gap-2 rounded-md p-2 text-left transition-colors ${
                       isActive
-                        ? "text-primary-foreground/80"
-                        : "text-muted-foreground"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-foreground hover:bg-accent/50"
                     }`}
-                  />
-                  <div className="min-w-0 flex-1 truncate font-mono text-[10px] leading-tight font-bold">
-                    {item.filename}
-                  </div>
-                  {heldFilenames.includes(item.filename) && (
-                    <span className="shrink-0 rounded bg-yellow-500/20 px-1 py-0.5 text-[8px] font-black text-yellow-600 dark:text-yellow-400 leading-none">
-                      보류
+                  >
+                    <span className="mt-0.5 flex-none">
+                      <StatusIcon done={isDone} active={isActive} />
                     </span>
-                  )}
-                  <span className="shrink-0 rounded-full bg-background/40 px-1.5 py-0.5 text-[9px] font-black tabular-nums opacity-70">
-                    {imgs.length}
-                  </span>
-                </div>
-                <div className="grid h-16 grid-cols-4 gap-1 overflow-hidden rounded-md border border-black/5 bg-black/5 p-1 dark:border-white/5 dark:bg-white/5">
-                  {imgs.length === 0 ? (
-                    <div
-                      className={`col-span-4 flex h-full items-center justify-center rounded bg-background/50 ${
-                        isActive
-                          ? "text-primary-foreground/55"
-                          : "text-muted-foreground/45"
-                      }`}
-                    >
-                      <ImageIcon className="h-5 w-5" />
-                    </div>
-                  ) : (
-                    imgs.slice(0, 4).map((img) => (
-                      <div
-                        key={img.hash}
-                        className="relative overflow-hidden rounded bg-background/60"
-                      >
-                        <img
-                          src={`${backendUrl}/saved-images/${img.hash}`}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1.5 flex items-center gap-1.5">
+                        <FolderIcon
+                          className={`h-3.5 w-3.5 shrink-0 ${
+                            isActive
+                              ? "text-primary-foreground/80"
+                              : "text-muted-foreground"
+                          }`}
                         />
-                        {img.status === "approved" && (
-                          <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-green-500 ring-1 ring-white/70" />
+                        <div className="min-w-0 flex-1 truncate font-mono text-[10px] leading-tight font-bold">
+                          {item.filename}
+                        </div>
+                        {heldFilenames.includes(item.filename) && (
+                          <span className="shrink-0 rounded bg-yellow-500/20 px-1 py-0.5 text-[8px] leading-none font-black text-yellow-600 dark:text-yellow-400">
+                            보류
+                          </span>
+                        )}
+                        <span className="shrink-0 rounded-full bg-background/40 px-1.5 py-0.5 text-[9px] font-black tabular-nums opacity-70">
+                          {imgs.length}
+                        </span>
+                      </div>
+                      <div className="grid h-16 grid-cols-4 gap-1 overflow-hidden rounded-md border border-black/5 bg-black/5 p-1 dark:border-white/5 dark:bg-white/5">
+                        {imgs.length === 0 ? (
+                          <div
+                            className={`col-span-4 flex h-full items-center justify-center rounded bg-background/50 ${
+                              isActive
+                                ? "text-primary-foreground/55"
+                                : "text-muted-foreground/45"
+                            }`}
+                          >
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                        ) : (
+                          imgs.slice(0, 4).map((img) => (
+                            <div
+                              key={img.hash}
+                              className="relative overflow-hidden rounded bg-background/60"
+                            >
+                              <img
+                                src={`${backendUrl}/saved-images/${img.hash}`}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                              {img.status === "approved" && (
+                                <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-green-500 ring-1 ring-white/70" />
+                              )}
+                            </div>
+                          ))
                         )}
                       </div>
-                    ))
-                  )}
+                    </div>
+                  </button>
                 </div>
-              </div>
-            </button>
-          )
-        })}
+              )
+            })}
+          </div>
+        )}
         {items.length === 0 && (
           <div className="flex h-32 flex-col items-center justify-center gap-2 text-center text-muted-foreground/60">
             <SearchIcon className="h-5 w-5" />

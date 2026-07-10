@@ -41,7 +41,6 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { useBackendUrl } from "@/comfyui/hooks/useBackendUrl"
-import { useBackendHealth } from "@/comfyui/hooks/useBackendHealth"
 import { toast } from "sonner"
 import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
 import { ReactGraphEditor } from "@/components/graph/react/ReactGraphEditor"
@@ -188,7 +187,11 @@ function PanelToggle({
 /*  메인 컴포넌트                                                      */
 /* ------------------------------------------------------------------ */
 
-export function EditorTab(): React.JSX.Element {
+export function EditorTab({
+  isAliveBackend,
+}: {
+  isAliveBackend: boolean
+}): React.JSX.Element {
   const backendUrl = useBackendUrl()
   const [currentWorkflow, setCurrentWorkflow] =
     useState<ComfyWorkflowJSON | null>(null)
@@ -358,8 +361,6 @@ export function EditorTab(): React.JSX.Element {
   const handleNewWorkflow = useCallback((): void => {
     setCurrentWorkflow(buildWorkflowJSON([], []))
   }, [])
-
-  const { isAliveBackend } = useBackendHealth()
 
   const handleRunFromEditor = useCallback(async (): Promise<void> => {
     const state = useReactGraphStore.getState()

@@ -17,31 +17,40 @@ export function useBackendHealth(): {
   // ── Backend health check ──
   useEffect((): (() => void) | undefined => {
     let cancelled = false
-    const checkHealth = async (): Promise<boolean> => {
+    let timer: number | null = null
+    let controller: AbortController | null = null
+
+    const checkHealth = async (signal: AbortSignal): Promise<boolean> => {
       if (!isValidHttpUrl(backendUrl)) {
         return false
       }
       try {
-        const response = await fetch(`${backendUrl}${API.health}`)
+        const response = await fetch(`${backendUrl}${API.health}`, { signal })
         if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
         const data = (await response.json()) as { backend?: string }
         return data.backend === "ok"
       } catch (error: unknown) {
+        if ((error as Error).name === "AbortError") return false
         console.warn("Backend health check failed:", error)
         return false
       }
     }
     const tick = async (): Promise<void> => {
-      const ok = await checkHealth()
-      if (!cancelled) setIsAliveBackend(ok)
+      controller = new AbortController()
+      const ok = await checkHealth(controller.signal)
+      controller = null
+      if (cancelled) return
+      setIsAliveBackend(ok)
+      timer = window.setTimeout(() => {
+        timer = null
+        void tick()
+      }, HEALTH_CHECK_INTERVAL_MS)
     }
     void tick()
-    const timer = setInterval(() => {
-      void tick()
-    }, HEALTH_CHECK_INTERVAL_MS)
     return () => {
       cancelled = true
-      clearInterval(timer)
+      controller?.abort()
+      if (timer !== null) window.clearTimeout(timer)
     }
   }, [backendUrl])
 

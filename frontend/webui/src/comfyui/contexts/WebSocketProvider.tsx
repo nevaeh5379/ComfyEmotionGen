@@ -21,6 +21,7 @@ import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
 import { BackendUrlContext } from "./BackendUrlContext"
+import { WorkerPreviewContext } from "./WorkerPreviewContext"
 import { fetchAllSettings, CLIENT_ID } from "../../lib/serverStorage"
 import {
   populateSettingsCache,
@@ -315,16 +316,17 @@ export const WebSocketProvider = ({
       workers,
       paused,
       sessionStartedAt,
-      workerPreviews,
       backendUrl: url,
     }),
-    [isConnected, jobs, workers, paused, sessionStartedAt, workerPreviews, url]
+    [isConnected, jobs, workers, paused, sessionStartedAt, url]
   )
 
   return (
     <BackendUrlContext value={url}>
       <BackendContext.Provider value={value}>
-        {children}
+        <WorkerPreviewContext value={workerPreviews}>
+          {children}
+        </WorkerPreviewContext>
       </BackendContext.Provider>
     </BackendUrlContext>
   )

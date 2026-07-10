@@ -69,7 +69,9 @@ export function useJobRunner(): {
   const [fakeJobQueue, setFakeJobQueue] = useState<RenderItem[]>([])
   const [parserError, setParserError] = useState<string | null>(null)
   const [parserErrorLine, setParserErrorLine] = useState<number | null>(null)
-  const [parserErrorColumn, setParserErrorColumn] = useState<number | null>(null)
+  const [parserErrorColumn, setParserErrorColumn] = useState<number | null>(
+    null
+  )
   const [axisValueFilter, setAxisValueFilter] = useState<
     Record<string, Record<string, boolean>>
   >({})
@@ -83,25 +85,23 @@ export function useJobRunner(): {
     useState<RenderItemsResponse | null>(null)
 
   // Load uncheckedItems from localStorage when activeTemplateId changes
-  useEffect((): void => {
+  useEffect((): (() => void) => {
     const key = `ceg_unchecked_items_${activeTemplateId ?? "default"}`
+    let nextUncheckedItems = new Set<string>()
     try {
       const saved = localStorage.getItem(key)
       if (saved !== null && saved !== "") {
         const arr = JSON.parse(saved) as string[]
-        setTimeout(() => {
-          setUncheckedItems(new Set(arr))
-        }, 0)
-      } else {
-        setTimeout(() => {
-          setUncheckedItems(new Set())
-        }, 0)
+        nextUncheckedItems = new Set(arr)
       }
     } catch (e: unknown) {
       console.warn("Failed to load unchecked items", e)
-      setTimeout(() => {
-        setUncheckedItems(new Set())
-      }, 0)
+    }
+    const timer = window.setTimeout(() => {
+      setUncheckedItems(nextUncheckedItems)
+    }, 0)
+    return () => {
+      window.clearTimeout(timer)
     }
   }, [activeTemplateId])
 
@@ -158,15 +158,17 @@ export function useJobRunner(): {
           const data = (await res.json()) as RenderItemsResponse
           setFakeJobQueue(data.items)
           setRenderResponse(data)
-          // Discover axes from new data (add new keys/values, preserve existing toggles)
+          // Keep only axes present in the latest parse while preserving toggles
+          // for values that still exist. This prevents old templates from
+          // accumulating indefinitely in memory and local state.
           setAxisValueFilter((prev) => {
-            const next = { ...prev }
-            data.items.forEach((item) => {
-              Object.entries(item.meta).forEach(([key, value]) => {
+            const next: Record<string, Record<string, boolean>> = {}
+            for (const item of data.items) {
+              for (const [key, value] of Object.entries(item.meta)) {
                 next[key] ??= {}
-                next[key][value] ??= true
-              })
-            })
+                next[key][value] = prev[key]?.[value] ?? true
+              }
+            }
             return next
           })
         } catch (err: unknown) {
@@ -174,12 +176,8 @@ export function useJobRunner(): {
           setParserError(err instanceof Error ? err.message : String(err))
           const lineVal = (err as { line?: unknown }).line
           const colVal = (err as { column?: unknown }).column
-          setParserErrorLine(
-            typeof lineVal === "number" ? lineVal : null
-          )
-          setParserErrorColumn(
-            typeof colVal === "number" ? colVal : null
-          )
+          setParserErrorLine(typeof lineVal === "number" ? lineVal : null)
+          setParserErrorColumn(typeof colVal === "number" ? colVal : null)
           setRenderResponse(null)
         }
       }

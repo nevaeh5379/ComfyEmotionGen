@@ -53,7 +53,7 @@ import {
 
 import CodeEditor from "@/components/CodeEditor"
 import { useTemplateContext } from "../contexts/useTemplateContext"
-import { useJobRunner } from "../hooks/useJobRunner"
+import { useMediaQuery } from "../hooks/useMediaQuery"
 import { InlineImagePreview } from "./InlineImagePreview"
 import { QuickTestPanel } from "./QuickTestPanel"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
@@ -507,12 +507,18 @@ function VarBadgeButtons({
 export function TemplateGeneratorPanel({
   setActiveTab,
   backendUrl = DEFAULT_BACKEND_URL,
+  handleRunSingle,
 }: {
   setActiveTab: (
     t: "jobs" | "stats" | "gallery" | "curation" | "generator" | "settings"
   ) => void
   backendUrl?: string
+  handleRunSingle: (
+    item: RenderItem,
+    options?: { cegTemplate?: string }
+  ) => Promise<boolean>
 }): React.ReactNode {
+  const isDesktop = useMediaQuery("(min-width: 768px)")
   const {
     savedTemplates,
     setCegTemplate,
@@ -520,7 +526,6 @@ export function TemplateGeneratorPanel({
     setTemplateResetKey,
     setGeneratorToolbarProps,
   } = useTemplateContext()
-  const { handleRunSingle } = useJobRunner()
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
   const [loadedFileTemplate, setLoadedFileTemplate] =
     useState<LoadedFileTemplate | null>(null)
@@ -1358,20 +1363,18 @@ export function TemplateGeneratorPanel({
   const filtered = useMemo(() => {
     const n = previewFilter.trim().toLowerCase()
     if (n === "") return activeQueue
-    return activeQueue.filter(
-      (i) => {
-        const metaText = Object.entries(i.meta)
-          .map(([key, value]) => `${key}:${value}`)
-          .join(" ")
-          .toLowerCase()
-        return (
-          itemKey(i).toLowerCase().includes(n) ||
-          metaText.includes(n) ||
-          substituteItem(i.filename, i).toLowerCase().includes(n) ||
-          substituteItem(i.prompt, i).toLowerCase().includes(n)
-        )
-      }
-    )
+    return activeQueue.filter((i) => {
+      const metaText = Object.entries(i.meta)
+        .map(([key, value]) => `${key}:${value}`)
+        .join(" ")
+        .toLowerCase()
+      return (
+        itemKey(i).toLowerCase().includes(n) ||
+        metaText.includes(n) ||
+        substituteItem(i.filename, i).toLowerCase().includes(n) ||
+        substituteItem(i.prompt, i).toLowerCase().includes(n)
+      )
+    })
   }, [activeQueue, previewFilter])
 
   const handleRunTest = useCallback(
@@ -2753,256 +2756,264 @@ export function TemplateGeneratorPanel({
       onDrop={handleDrop}
     >
       {/* ═══════ DESKTOP: Left Accordion + Right Code/Results ═══════ */}
-      <div className="hidden min-h-0 flex-1 md:flex">
-        <ResizablePanelGroup
-          autoSaveId="tg-desktop"
-          orientation="horizontal"
-          className="min-h-0 flex-1"
-        >
-          {/* LEFT: Accordion Editor */}
-          <ResizablePanel
-            defaultSize={55}
-            minSize={35}
-            className="flex flex-col overflow-hidden"
+      {isDesktop && (
+        <div className="flex min-h-0 flex-1">
+          <ResizablePanelGroup
+            autoSaveId="tg-desktop"
+            orientation="horizontal"
+            className="min-h-0 flex-1"
           >
-            {!activeTemplate ? (
-              emptyState
-            ) : (
-              <ScrollArea className="min-h-0 flex-1">
-                <div className="p-4 lg:p-5">
-                  <CollapsibleSection
-                    value="variables"
-                    open={accordionValue.has("variables")}
-                    onToggle={toggleSection}
-                    icon={Sliders}
-                    label="변수"
-                    count={variables.length}
-                  >
-                    {variablesSection}
-                  </CollapsibleSection>
-                  <CollapsibleSection
-                    value="axes"
-                    open={accordionValue.has("axes")}
-                    onToggle={toggleSection}
-                    icon={Layers}
-                    label="축"
-                    count={axes.length}
-                  >
-                    {axesSection}
-                  </CollapsibleSection>
-                  <CollapsibleSection
-                    value="combines"
-                    open={accordionValue.has("combines")}
-                    onToggle={toggleSection}
-                    icon={Shuffle}
-                    label="규칙"
-                    count={combines.length + excludes.length + overrides.length}
-                  >
-                    {combinesSection}
-                  </CollapsibleSection>
-                  <CollapsibleSection
-                    value="templates"
-                    open={accordionValue.has("templates")}
-                    onToggle={toggleSection}
-                    icon={MessageSquare}
-                    label="출력"
-                  >
-                    {templatesSection}
-                  </CollapsibleSection>
-                </div>
-              </ScrollArea>
-            )}
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* RIGHT: Code + Results + Quick Test (3-way vertical split) */}
-          <ResizablePanel
-            defaultSize={45}
-            minSize={25}
-            className="flex flex-col overflow-hidden"
-          >
-            <ResizablePanelGroup
-              autoSaveId="tg-right"
-              orientation="vertical"
-              className="min-h-0 flex-1"
+            {/* LEFT: Accordion Editor */}
+            <ResizablePanel
+              defaultSize={55}
+              minSize={35}
+              className="flex flex-col overflow-hidden"
             >
-              <ResizablePanel
-                defaultSize={40}
-                minSize={20}
-                className="flex flex-col overflow-hidden"
+              {!activeTemplate ? (
+                emptyState
+              ) : (
+                <ScrollArea className="min-h-0 flex-1">
+                  <div className="p-4 lg:p-5">
+                    <CollapsibleSection
+                      value="variables"
+                      open={accordionValue.has("variables")}
+                      onToggle={toggleSection}
+                      icon={Sliders}
+                      label="변수"
+                      count={variables.length}
+                    >
+                      {variablesSection}
+                    </CollapsibleSection>
+                    <CollapsibleSection
+                      value="axes"
+                      open={accordionValue.has("axes")}
+                      onToggle={toggleSection}
+                      icon={Layers}
+                      label="축"
+                      count={axes.length}
+                    >
+                      {axesSection}
+                    </CollapsibleSection>
+                    <CollapsibleSection
+                      value="combines"
+                      open={accordionValue.has("combines")}
+                      onToggle={toggleSection}
+                      icon={Shuffle}
+                      label="규칙"
+                      count={
+                        combines.length + excludes.length + overrides.length
+                      }
+                    >
+                      {combinesSection}
+                    </CollapsibleSection>
+                    <CollapsibleSection
+                      value="templates"
+                      open={accordionValue.has("templates")}
+                      onToggle={toggleSection}
+                      icon={MessageSquare}
+                      label="출력"
+                    >
+                      {templatesSection}
+                    </CollapsibleSection>
+                  </div>
+                </ScrollArea>
+              )}
+            </ResizablePanel>
+
+            <ResizableHandle withHandle />
+
+            {/* RIGHT: Code + Results + Quick Test (3-way vertical split) */}
+            <ResizablePanel
+              defaultSize={45}
+              minSize={25}
+              className="flex flex-col overflow-hidden"
+            >
+              <ResizablePanelGroup
+                autoSaveId="tg-right"
+                orientation="vertical"
+                className="min-h-0 flex-1"
               >
-                {codeContent}
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel
-                defaultSize={35}
-                minSize={15}
-                className="flex flex-col overflow-hidden"
-              >
-                {resultsContent}
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel
-                defaultSize={25}
-                minSize={8}
-                className="flex flex-col overflow-hidden"
-              >
-                <QuickTestPanel
-                  activeQueue={activeQueue}
-                  favoriteCombinations={favoriteCombinations}
-                  onRunTest={handleRunTest}
-                  onToggleFavorite={toggleFavorite}
-                  axisFilterOptions={axisFilterOptions}
-                  collapsed={testPanelCollapsed}
-                  onToggleCollapsed={toggleTestPanelCollapsed}
-                  externalAxisFilter={testPanelExternalAxis}
-                  externalOnlyFavorites={testPanelExternalFavorites}
-                  onConsumeExternal={() => {
-                    setTestPanelExternalAxis(null)
-                    setTestPanelExternalFavorites(false)
-                  }}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+                <ResizablePanel
+                  defaultSize={40}
+                  minSize={20}
+                  className="flex flex-col overflow-hidden"
+                >
+                  {codeContent}
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel
+                  defaultSize={35}
+                  minSize={15}
+                  className="flex flex-col overflow-hidden"
+                >
+                  {resultsContent}
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel
+                  defaultSize={25}
+                  minSize={8}
+                  className="flex flex-col overflow-hidden"
+                >
+                  <QuickTestPanel
+                    activeQueue={activeQueue}
+                    favoriteCombinations={favoriteCombinations}
+                    onRunTest={handleRunTest}
+                    onToggleFavorite={toggleFavorite}
+                    axisFilterOptions={axisFilterOptions}
+                    collapsed={testPanelCollapsed}
+                    onToggleCollapsed={toggleTestPanelCollapsed}
+                    externalAxisFilter={testPanelExternalAxis}
+                    externalOnlyFavorites={testPanelExternalFavorites}
+                    onConsumeExternal={() => {
+                      setTestPanelExternalAxis(null)
+                      setTestPanelExternalFavorites(false)
+                    }}
+                  />
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+      )}
 
       {/* ═══════ MOBILE: Accordion + Code+Results tabs ═══════ */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:hidden">
-        <Tabs
-          value={mobileTab}
-          onValueChange={(v) => {
-            setMobileTab(v)
-            saveString(STORAGE_KEYS.mobileTab, v)
-          }}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <div className="shrink-0 border-b px-3">
-            <TabsList className="w-full">
-              <TabsTrigger value="edit" className="gap-1 text-xs">
-                <Sliders className="h-3 w-3" />
-                편집
-              </TabsTrigger>
-              <TabsTrigger value="code" className="gap-1 text-xs">
-                <FileCode2 className="h-3 w-3" />
-                코드
-              </TabsTrigger>
-              <TabsTrigger value="results" className="gap-1 text-xs">
-                <Eye className="h-3 w-3" />
-                결과
-                {activeQueue.length > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-1 px-1 py-0 text-[9px]"
-                  >
-                    {activeQueue.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="test" className="gap-1 text-xs">
-                <Sparkles className="h-3 w-3" />
-                테스트
-                {favoritesCountInQueue > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-1 px-1 py-0 text-[9px]"
-                  >
-                    {favoritesCountInQueue}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+      {!isDesktop && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Tabs
+            value={mobileTab}
+            onValueChange={(v) => {
+              setMobileTab(v)
+              saveString(STORAGE_KEYS.mobileTab, v)
+            }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="shrink-0 border-b px-3">
+              <TabsList className="w-full">
+                <TabsTrigger value="edit" className="gap-1 text-xs">
+                  <Sliders className="h-3 w-3" />
+                  편집
+                </TabsTrigger>
+                <TabsTrigger value="code" className="gap-1 text-xs">
+                  <FileCode2 className="h-3 w-3" />
+                  코드
+                </TabsTrigger>
+                <TabsTrigger value="results" className="gap-1 text-xs">
+                  <Eye className="h-3 w-3" />
+                  결과
+                  {activeQueue.length > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 px-1 py-0 text-[9px]"
+                    >
+                      {activeQueue.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="test" className="gap-1 text-xs">
+                  <Sparkles className="h-3 w-3" />
+                  테스트
+                  {favoritesCountInQueue > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 px-1 py-0 text-[9px]"
+                    >
+                      {favoritesCountInQueue}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          <TabsContent
-            value="edit"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
-          >
-            {!activeTemplate ? (
-              emptyState
-            ) : (
-              <ScrollArea className="min-h-0 flex-1">
-                <div className="p-4">
-                  <CollapsibleSection
-                    value="variables"
-                    open={accordionValue.has("variables")}
-                    onToggle={toggleSection}
-                    icon={Sliders}
-                    label="변수"
-                    count={variables.length}
-                  >
-                    {variablesSection}
-                  </CollapsibleSection>
-                  <CollapsibleSection
-                    value="axes"
-                    open={accordionValue.has("axes")}
-                    onToggle={toggleSection}
-                    icon={Layers}
-                    label="축"
-                    count={axes.length}
-                  >
-                    {axesSection}
-                  </CollapsibleSection>
-                  <CollapsibleSection
-                    value="combines"
-                    open={accordionValue.has("combines")}
-                    onToggle={toggleSection}
-                    icon={Shuffle}
-                    label="규칙"
-                    count={combines.length + excludes.length + overrides.length}
-                  >
-                    {combinesSection}
-                  </CollapsibleSection>
-                  <CollapsibleSection
-                    value="templates"
-                    open={accordionValue.has("templates")}
-                    onToggle={toggleSection}
-                    icon={MessageSquare}
-                    label="출력"
-                  >
-                    {templatesSection}
-                  </CollapsibleSection>
-                </div>
-              </ScrollArea>
-            )}
-          </TabsContent>
+            <TabsContent
+              value="edit"
+              className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              {!activeTemplate ? (
+                emptyState
+              ) : (
+                <ScrollArea className="min-h-0 flex-1">
+                  <div className="p-4">
+                    <CollapsibleSection
+                      value="variables"
+                      open={accordionValue.has("variables")}
+                      onToggle={toggleSection}
+                      icon={Sliders}
+                      label="변수"
+                      count={variables.length}
+                    >
+                      {variablesSection}
+                    </CollapsibleSection>
+                    <CollapsibleSection
+                      value="axes"
+                      open={accordionValue.has("axes")}
+                      onToggle={toggleSection}
+                      icon={Layers}
+                      label="축"
+                      count={axes.length}
+                    >
+                      {axesSection}
+                    </CollapsibleSection>
+                    <CollapsibleSection
+                      value="combines"
+                      open={accordionValue.has("combines")}
+                      onToggle={toggleSection}
+                      icon={Shuffle}
+                      label="규칙"
+                      count={
+                        combines.length + excludes.length + overrides.length
+                      }
+                    >
+                      {combinesSection}
+                    </CollapsibleSection>
+                    <CollapsibleSection
+                      value="templates"
+                      open={accordionValue.has("templates")}
+                      onToggle={toggleSection}
+                      icon={MessageSquare}
+                      label="출력"
+                    >
+                      {templatesSection}
+                    </CollapsibleSection>
+                  </div>
+                </ScrollArea>
+              )}
+            </TabsContent>
 
-          <TabsContent
-            value="code"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
-          >
-            {codeContent}
-          </TabsContent>
-          <TabsContent
-            value="results"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
-          >
-            {resultsContent}
-          </TabsContent>
-          <TabsContent
-            value="test"
-            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
-          >
-            <QuickTestPanel
-              activeQueue={activeQueue}
-              favoriteCombinations={favoriteCombinations}
-              onRunTest={handleRunTest}
-              onToggleFavorite={toggleFavorite}
-              axisFilterOptions={axisFilterOptions}
-              collapsed={false}
-              onToggleCollapsed={toggleTestPanelCollapsed}
-              externalAxisFilter={testPanelExternalAxis}
-              externalOnlyFavorites={testPanelExternalFavorites}
-              onConsumeExternal={() => {
-                setTestPanelExternalAxis(null)
-                setTestPanelExternalFavorites(false)
-              }}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+            <TabsContent
+              value="code"
+              className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              {codeContent}
+            </TabsContent>
+            <TabsContent
+              value="results"
+              className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              {resultsContent}
+            </TabsContent>
+            <TabsContent
+              value="test"
+              className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              <QuickTestPanel
+                activeQueue={activeQueue}
+                favoriteCombinations={favoriteCombinations}
+                onRunTest={handleRunTest}
+                onToggleFavorite={toggleFavorite}
+                axisFilterOptions={axisFilterOptions}
+                collapsed={false}
+                onToggleCollapsed={toggleTestPanelCollapsed}
+                externalAxisFilter={testPanelExternalAxis}
+                externalOnlyFavorites={testPanelExternalFavorites}
+                onConsumeExternal={() => {
+                  setTestPanelExternalAxis(null)
+                  setTestPanelExternalFavorites(false)
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
 
       {/* Drag & Drop Visual Overlay */}
       {isDragging && (

@@ -16,11 +16,13 @@ import { cn } from "@/lib/utils"
 
 import type { JobView, WorkerView, JobStatus } from "../types/Message"
 
-// Recharts Cell is deprecated in types, so we cast it to prevent ESLint deprecation error
-const CELL_KEY = "Cell"
-const RechartsCell = (recharts as Record<string, unknown>)[
-  CELL_KEY
-] as ComponentType<{ fill?: string; key?: string }>
+// Recharts Cell is deprecated in types, so access the statically named export
+// through a cast. The static property lets Rollup tree-shake the namespace.
+const RechartsCell = (
+  recharts as unknown as {
+    Cell: ComponentType<{ fill?: string; key?: string }>
+  }
+).Cell
 
 // Status color tokens (matches existing conventions)
 // ---------------------------------------------------------------------------

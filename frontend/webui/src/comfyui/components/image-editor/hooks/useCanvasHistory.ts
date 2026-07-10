@@ -4,9 +4,19 @@
  */
 
 import { useCallback, useRef, useState } from "react"
+import { enforceImageDataHistoryLimit } from "@/comfyui/utils/imageDataHistory"
 import { HISTORY_MAX } from "../types"
 
-export function useCanvasHistory() {
+interface CanvasHistory {
+  pushHistory: (canvas: HTMLCanvasElement) => void
+  undo: (canvas: HTMLCanvasElement) => void
+  redo: (canvas: HTMLCanvasElement) => void
+  resetHistory: () => void
+  canUndo: boolean
+  canRedo: boolean
+}
+
+export function useCanvasHistory(): CanvasHistory {
   const historyRef = useRef<ImageData[]>([])
   const futureRef = useRef<ImageData[]>([])
   const [canUndo, setCanUndo] = useState(false)
@@ -17,10 +27,12 @@ export function useCanvasHistory() {
     if (!ctx) return
     const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height)
     historyRef.current.push(snapshot)
-    if (historyRef.current.length > HISTORY_MAX) {
-      historyRef.current.shift()
-    }
     futureRef.current = []
+    enforceImageDataHistoryLimit(
+      historyRef.current,
+      futureRef.current,
+      HISTORY_MAX
+    )
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(false)
   }, [])
@@ -33,6 +45,11 @@ export function useCanvasHistory() {
     const previous = historyRef.current.pop()
     if (!previous) return
     futureRef.current.push(current)
+    enforceImageDataHistoryLimit(
+      historyRef.current,
+      futureRef.current,
+      HISTORY_MAX
+    )
     ctx.putImageData(previous, 0, 0)
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(futureRef.current.length > 0)
@@ -46,6 +63,11 @@ export function useCanvasHistory() {
     const next = futureRef.current.pop()
     if (!next) return
     historyRef.current.push(current)
+    enforceImageDataHistoryLimit(
+      historyRef.current,
+      futureRef.current,
+      HISTORY_MAX
+    )
     ctx.putImageData(next, 0, 0)
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(futureRef.current.length > 0)

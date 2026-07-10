@@ -52,8 +52,12 @@ export const CombinationPicker = memo(function CombinationPicker({
   setSavedGroups,
   onSaveCegTemplate,
 }: Props) {
-  const [localActiveGroupId, setLocalActiveGroupId] = useState<string>("preset:template:__current__")
-  const [localActiveFilters, setLocalActiveFilters] = useState<Record<string, string>>({})
+  const [localActiveGroupId, setLocalActiveGroupId] = useState<string>(
+    "preset:template:__current__"
+  )
+  const [localActiveFilters, setLocalActiveFilters] = useState<
+    Record<string, string>
+  >({})
   const [localSavedGroups, setLocalSavedGroups] = useState<CurationGroup[]>([])
 
   const finalActiveGroupId = activeGroupId ?? localActiveGroupId
@@ -77,7 +81,10 @@ export const CombinationPicker = memo(function CombinationPicker({
   const freeGroupMode = axisValue.kind === "free" ? axisValue.mode : null
 
   const activeTemplate = useMemo(() => {
-    if (axisValue.kind === "template" && axisValue.templateId !== CURRENT_TEMPLATE_ID) {
+    if (
+      axisValue.kind === "template" &&
+      axisValue.templateId !== CURRENT_TEMPLATE_ID
+    ) {
       return (
         savedTemplates.find((t) => t.id === axisValue.templateId)?.template ??
         cegTemplate
@@ -105,7 +112,7 @@ export const CombinationPicker = memo(function CombinationPicker({
 
   useEffect(() => {
     void fetchData()
-  }, [fetchData, backendUrl, activeTemplate, freeGroupMode])
+  }, [fetchData])
 
   const selection = useCombinationSelection(
     data.filteredRenderItems.map((i) => i.filename)

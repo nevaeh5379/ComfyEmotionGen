@@ -62,8 +62,10 @@ import { STORAGE_KEYS } from "@/lib/storageKeys"
 import type { ComfyWorkflow, NodeInputValue } from "@/lib/workflow"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useBackend } from "../hooks/useBackend"
+import { useWorkerPreviews } from "../hooks/useWorkerPreviews"
 import type { BackendEvent } from "../types/Message"
 import { triggerBlobDownload } from "../utils/downloadImages"
+import { enforceImageDataHistoryLimit } from "../utils/imageDataHistory"
 import { WorkerPreviewImage } from "./WorkerPreviewImage"
 
 interface GalleryInpaintEditorProps {
@@ -606,7 +608,8 @@ export function GalleryInpaintEditor({
   onOpenChange,
 }: GalleryInpaintEditorProps): React.JSX.Element {
   const { savedWorkflows } = useWorkflowContext()
-  const { jobs, workerPreviews } = useBackend()
+  const { jobs } = useBackend()
+  const workerPreviews = useWorkerPreviews()
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const paintingRef = useRef(false)
@@ -755,10 +758,12 @@ export function GalleryInpaintEditor({
     if (!canvas || !ctx) return
     const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height)
     historyRef.current.push(snapshot)
-    if (historyRef.current.length > HISTORY_MAX) {
-      historyRef.current.shift()
-    }
     futureRef.current = []
+    enforceImageDataHistoryLimit(
+      historyRef.current,
+      futureRef.current,
+      HISTORY_MAX
+    )
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(false)
   }, [])
@@ -771,6 +776,11 @@ export function GalleryInpaintEditor({
     const current = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const previous = historyRef.current.pop()!
     futureRef.current.push(current)
+    enforceImageDataHistoryLimit(
+      historyRef.current,
+      futureRef.current,
+      HISTORY_MAX
+    )
     ctx.putImageData(previous, 0, 0)
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(futureRef.current.length > 0)
@@ -784,6 +794,11 @@ export function GalleryInpaintEditor({
     const current = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const next = futureRef.current.pop()!
     historyRef.current.push(current)
+    enforceImageDataHistoryLimit(
+      historyRef.current,
+      futureRef.current,
+      HISTORY_MAX
+    )
     ctx.putImageData(next, 0, 0)
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(futureRef.current.length > 0)
@@ -865,9 +880,11 @@ export function GalleryInpaintEditor({
     if (!open) return
     setReady(false)
     setLoadError(false)
+    let disposed = false
     const img = new Image()
     img.crossOrigin = "anonymous"
-    img.onload = () => {
+    img.onload = (): void => {
+      if (disposed) return
       const scale = Math.min(
         1,
         CANVAS_MAX_SIZE / Math.max(img.naturalWidth, img.naturalHeight)
@@ -894,7 +911,8 @@ export function GalleryInpaintEditor({
       setPan({ x: 0, y: 0 })
       setReady(true)
     }
-    img.onerror = () => {
+    img.onerror = (): void => {
+      if (disposed) return
       setLoadError(true)
       toast.error(
         "이미지를 불러오는데 실패했습니다. 네트워크 또는 CORS 설정을 확인해주세요."
@@ -913,6 +931,13 @@ export function GalleryInpaintEditor({
     }
     setSourceDisplayUrl(finalUrl)
     img.src = finalUrl
+
+    return (): void => {
+      disposed = true
+      img.onload = null
+      img.onerror = null
+      img.removeAttribute("src")
+    }
   }, [imageUrl, open])
 
   const clearMask = useCallback(() => {
@@ -1377,21 +1402,26 @@ export function GalleryInpaintEditor({
     setSubmitting(true)
     setResultTab("result")
     try {
-      const sourceFile = await canvasToImageFile(imageCanvas, filename)
-      const maskAlphaFile = await canvasToAlphaMaskFile(maskCanvas, filename)
-      const maskRgbFile = await canvasToMaskFile(maskCanvas, filename)
-      const alphaSourceFile = await canvasToAlphaMaskedImageFile(
-        imageCanvas,
-        maskCanvas,
-        filename
-      )
+      const usedSources = new Set(nodeMappings.map((item) => item.sourceType))
       resetResults()
       const [sourceName, maskAlphaName, maskRgbName, alphaSourceName] =
         await Promise.all([
-          uploadComfyImage(sourceFile),
-          uploadComfyImage(maskAlphaFile),
-          uploadComfyImage(maskRgbFile),
-          uploadComfyImage(alphaSourceFile),
+          usedSources.has("sourceImage")
+            ? canvasToImageFile(imageCanvas, filename).then(uploadComfyImage)
+            : Promise.resolve(""),
+          usedSources.has("maskImage")
+            ? canvasToAlphaMaskFile(maskCanvas, filename).then(uploadComfyImage)
+            : Promise.resolve(""),
+          usedSources.has("maskRgbImage")
+            ? canvasToMaskFile(maskCanvas, filename).then(uploadComfyImage)
+            : Promise.resolve(""),
+          usedSources.has("sourceWithAlphaMask")
+            ? canvasToAlphaMaskedImageFile(
+                imageCanvas,
+                maskCanvas,
+                filename
+              ).then(uploadComfyImage)
+            : Promise.resolve(""),
         ])
 
       const built = applyMappings(
@@ -1450,7 +1480,9 @@ export function GalleryInpaintEditor({
     resetResults,
     filename,
     mappingValid,
+    nodeMappings,
     parsedWorkflow,
+    sourceMeta,
     uploadComfyImage,
   ])
 

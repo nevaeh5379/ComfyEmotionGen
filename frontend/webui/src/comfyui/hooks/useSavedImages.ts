@@ -75,7 +75,15 @@ export const useSavedImages = (
   const [error, setError] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
+  const groupImagesAbortRef = useRef<AbortController | null>(null)
   const urlToUse = backendUrl ?? DEFAULT_BACKEND_URL
+
+  useEffect(() => {
+    return (): void => {
+      abortRef.current?.abort()
+      groupImagesAbortRef.current?.abort()
+    }
+  }, [])
 
   // ── Refs for latest values ────────────────────────────────────────
   const groupModeRef = useLatestRef(groupMode)
@@ -121,7 +129,11 @@ export const useSavedImages = (
           items: SavedImage[]
           total?: number
         }
+        if (ac.signal.aborted) return
         setImages(data.items)
+        setGroups((prev) => (prev.length === 0 ? prev : []))
+        setGroupImagesMap((prev) => (prev.size === 0 ? prev : new Map()))
+        setGroupTotal(0)
         setTotal(
           typeof data.total === "number" ? data.total : data.items.length
         )
@@ -129,7 +141,7 @@ export const useSavedImages = (
         if ((err as Error).name === "AbortError") return
         setError((err as Error).message)
       } finally {
-        if (silent !== true) setLoading(false)
+        if (abortRef.current === ac && silent !== true) setLoading(false)
       }
     },
     [
@@ -174,7 +186,10 @@ export const useSavedImages = (
           limit: number
           offset: number
         }
+        if (ac.signal.aborted) return
         setGroups(data.groups)
+        setImages((prev) => (prev.length === 0 ? prev : []))
+        setTotal(0)
 
         // 전체 그룹 수 추정: 현재 페이지가 마지막이 아니면 대략적인 total 사용
         // 마지막 페이지면 offset + 받은 개수
@@ -190,7 +205,7 @@ export const useSavedImages = (
         if ((err as Error).name === "AbortError") return
         setError((err as Error).message)
       } finally {
-        if (silent !== true) setLoading(false)
+        if (abortRef.current === ac && silent !== true) setLoading(false)
       }
     },
     [
@@ -209,32 +224,44 @@ export const useSavedImages = (
       currentStatus: CurationStatus | "all" | undefined
     ): Promise<void> => {
       if (!groupModeRef.current || filenames.length === 0) return
+      groupImagesAbortRef.current?.abort()
+      const ac = new AbortController()
+      groupImagesAbortRef.current = ac
       const newMap = new Map<string, SavedImage[]>()
       const statusParam =
         currentStatus && currentStatus !== "all"
           ? `?status=${currentStatus}`
           : ""
-      const fetches = filenames.map(async (fn) => {
-        try {
-          const res = await fetch(
-            `${urlToUseRef.current}${API.assetGroups.detail(fn)}${statusParam}`
-          )
-          if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
-          const data = (await res.json()) as {
-            filename: string
-            items: SavedImage[]
+      let nextIndex = 0
+      const workerCount = Math.min(4, filenames.length)
+      await Promise.all(
+        Array.from({ length: workerCount }, async () => {
+          while (nextIndex < filenames.length) {
+            const fn = filenames[nextIndex++]
+            if (fn === undefined) continue
+            try {
+              const res = await fetch(
+                `${urlToUseRef.current}${API.assetGroups.detail(fn)}${statusParam}`,
+                { signal: ac.signal }
+              )
+              if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+              const data = (await res.json()) as {
+                filename: string
+                items: SavedImage[]
+              }
+              newMap.set(fn, data.items)
+            } catch (err) {
+              if ((err as Error).name === "AbortError") return
+              console.error(`fetch group images failed for ${fn}`, err)
+              toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
+              newMap.set(fn, [])
+            }
           }
-          newMap.set(fn, data.items)
-        } catch (err) {
-          console.error(`fetch group images failed for ${fn}`, err)
-          toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
-          newMap.set(fn, [])
-        }
-      })
-      await Promise.all(fetches)
-      setGroupImagesMap(newMap)
+        })
+      )
+      if (!ac.signal.aborted) setGroupImagesMap(newMap)
     },
-    [groupModeRef, urlToUseRef]
+    [groupModeRef, groupImagesAbortRef, urlToUseRef]
   )
 
   // ── Sync callbacks (call async internals) ────────────────────────
@@ -263,6 +290,8 @@ export const useSavedImages = (
       if (groupMode) {
         void fetchGroups(false)
       } else {
+        groupImagesAbortRef.current?.abort()
+        groupImagesAbortRef.current = null
         void fetchImages(false)
       }
     },
@@ -277,21 +306,28 @@ export const useSavedImages = (
       pageSize,
       groupPage,
       groupPageSize,
+      groupImagesAbortRef,
     ]
   )
 
   // 그룹 목록이 바뀌면 이미지 fetch
   // (fetchGroupImages는 내부적으로 setState를 호출하는 비동기 함수)
-  useEffect((): void => {
+  useEffect((): (() => void) | undefined => {
     if (groupMode && groups.length > 0) {
       const filenames = groups.map((g) => g.filename)
 
       void fetchGroupImages(filenames, status)
     } else if (groups.length === 0) {
-      setTimeout(() => {
+      groupImagesAbortRef.current?.abort()
+      groupImagesAbortRef.current = null
+      const timer = window.setTimeout(() => {
         setGroupImagesMap(new Map())
       }, 0)
+      return () => {
+        window.clearTimeout(timer)
+      }
     }
+    return undefined
   }, [groups, groupMode, fetchGroupImages, status])
 
   // ──── Global WebSocket 이벤트를 ceg-image-event를 통해 수신 → 백그라운드 silent 갱신 ────

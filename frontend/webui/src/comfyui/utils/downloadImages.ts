@@ -1,5 +1,3 @@
-import JSZip from "jszip"
-
 export function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
@@ -25,25 +23,40 @@ export async function downloadImagesAsZip(
 ): Promise<void> {
   if (imageUrls.length === 0) return
 
+  // ZIP creation is an infrequent, heavy feature. Load it on demand so the
+  // library does not occupy the initial bundle/heap for every page visit.
+  const { default: JSZip } = await import("jszip")
   const zip = new JSZip()
+  const usedNames = new Set<string>()
+  let nextIndex = 0
+  let addedCount = 0
+  const workerCount = Math.min(4, imageUrls.length)
 
-  const results = await Promise.allSettled(
-    imageUrls.map(async ({ url, filename }) => {
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`Failed to fetch ${url}`)
-      const blob = await response.blob()
-      return { filename, blob }
+  // Bound concurrent responses: fetching every full-resolution image at once
+  // can create a large transient memory spike before JSZip starts processing.
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < imageUrls.length) {
+        const index = nextIndex++
+        const item = imageUrls[index]
+        if (item === undefined) continue
+        try {
+          const response = await fetch(item.url)
+          if (!response.ok) throw new Error(`Failed to fetch ${item.url}`)
+          const blob = await response.blob()
+          const uniqueName = deduplicateFilename(item.filename, usedNames)
+          usedNames.add(uniqueName)
+          zip.file(uniqueName, blob)
+          addedCount += 1
+        } catch {
+          // Preserve the existing best-effort behavior: failed images are
+          // skipped while the remaining archive is still downloaded.
+        }
+      }
     })
   )
 
-  const usedNames = new Set<string>()
-  for (const result of results) {
-    if (result.status !== "fulfilled") continue
-    const { filename, blob } = result.value
-    const uniqueName = deduplicateFilename(filename, usedNames)
-    usedNames.add(uniqueName)
-    zip.file(uniqueName, blob)
-  }
+  if (addedCount === 0) return
 
   const zipBlob = await zip.generateAsync({ type: "blob" })
   triggerBlobDownload(zipBlob, zipName)

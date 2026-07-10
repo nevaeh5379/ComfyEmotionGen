@@ -261,9 +261,11 @@ export function ImageEditorDialog({
   useEffect(() => {
     if (!open) return
 
+    let disposed = false
     const img = new Image()
     img.crossOrigin = "anonymous"
     img.onload = (): void => {
+      if (disposed) return
       const scale = Math.min(
         1,
         CANVAS_MAX_SIZE / Math.max(img.naturalWidth, img.naturalHeight)
@@ -290,6 +292,7 @@ export function ImageEditorDialog({
       setReady(true)
     }
     img.onerror = (): void => {
+      if (disposed) return
       setLoadError(true)
       toast.error("이미지를 불러오지 못했습니다.")
     }
@@ -302,6 +305,13 @@ export function ImageEditorDialog({
       src = imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
     }
     img.src = src
+
+    return (): void => {
+      disposed = true
+      img.onload = null
+      img.onerror = null
+      img.removeAttribute("src")
+    }
   }, [
     imageUrl,
     open,
@@ -314,7 +324,13 @@ export function ImageEditorDialog({
   // capabilities 조회
   useEffect(() => {
     if (!open) return
-    void fetchInpaintCapabilities(backendUrl).then(setInpaintCaps)
+    let disposed = false
+    void fetchInpaintCapabilities(backendUrl).then((capabilities) => {
+      if (!disposed) setInpaintCaps(capabilities)
+    })
+    return (): void => {
+      disposed = true
+    }
   }, [backendUrl, open])
 
   // 합성 렌더 — 레이어/뷰/마스크/선택 영역 변경 시
@@ -1181,7 +1197,9 @@ export function ImageEditorDialog({
               variant="ghost"
               size="sm"
               className="h-7 w-7 rounded-full p-0 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
-              onClick={() => { setShowShortcuts(true); }}
+              onClick={() => {
+                setShowShortcuts(true)
+              }}
             >
               <HelpCircle className="size-4" />
             </Button>
@@ -1524,7 +1542,9 @@ export function ImageEditorDialog({
                         }
                         size="sm"
                         className="h-8 flex-1 rounded-none p-0 text-[11px]"
-                        onClick={() => { setObjectRemoveMode("paint"); }}
+                        onClick={() => {
+                          setObjectRemoveMode("paint")
+                        }}
                       >
                         <Brush className="mr-1 size-3.5" />
                         마스크 추가
@@ -1536,7 +1556,9 @@ export function ImageEditorDialog({
                         }
                         size="sm"
                         className="h-8 flex-1 rounded-none p-0 text-[11px]"
-                        onClick={() => { setObjectRemoveMode("erase"); }}
+                        onClick={() => {
+                          setObjectRemoveMode("erase")
+                        }}
                       >
                         <Eraser className="mr-1 size-3.5" />
                         마스크 지우개
@@ -1611,7 +1633,9 @@ export function ImageEditorDialog({
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => { setCropRect(null); }}
+                            onClick={() => {
+                              setCropRect(null)
+                            }}
                             className="h-8 flex-1 border border-zinc-800 bg-zinc-900 text-[11px] text-zinc-300 hover:bg-zinc-800"
                           >
                             취소 (Esc)
@@ -1753,7 +1777,9 @@ export function ImageEditorDialog({
                   setCursorPos(null)
                 }}
                 onWheel={onWheelZoom}
-                onContextMenu={(e) => { e.preventDefault(); }}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                }}
               />
               {/* 커서 오버레이 */}
               {(tool === "brush" ||
@@ -1997,7 +2023,9 @@ export function ImageEditorDialog({
           <div className="flex justify-end border-t border-zinc-900 pt-2">
             <Button
               size="sm"
-              onClick={() => { setShowShortcuts(false); }}
+              onClick={() => {
+                setShowShortcuts(false)
+              }}
               className="h-8"
             >
               닫기

@@ -57,6 +57,7 @@ import { hasApproved } from "../../types/Message"
 import { useCurationContext } from "./CurationContext"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useBackend } from "../../hooks/useBackend"
+import { useWorkerPreviews } from "../../hooks/useWorkerPreviews"
 import type { JobView } from "../../types/Message"
 import { WorkerPreviewImage } from "../WorkerPreviewImage"
 
@@ -243,8 +244,15 @@ export function CombinationPickerDetailView({
 }: DetailViewProps): React.JSX.Element {
   const { backendUrl, enableHover, data, thumbnailSize, fluidGridLayout } =
     useCurationContext()
-  const { jobs, workerPreviews } = useBackend()
-  const { setStatus, imagesByFilename, renderItems, rawRenderItems, uploadUserImage } = data
+  const { jobs } = useBackend()
+  const workerPreviews = useWorkerPreviews()
+  const {
+    setStatus,
+    imagesByFilename,
+    renderItems,
+    rawRenderItems,
+    uploadUserImage,
+  } = data
 
   const selectedItem =
     renderItems.find((ri) => ri.filename === selectedFilename) ??
@@ -409,14 +417,20 @@ export function CombinationPickerDetailView({
           })
           if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
           const data = (await res.json()) as {
-            items: { filename: string; prompt: string; meta: Record<string, string> }[]
+            items: {
+              filename: string
+              prompt: string
+              meta: Record<string, string>
+            }[]
           }
           const selectedMeta = JSON.parse(selectedMetaKey) as Record<
             string,
             string
           >
           const sameMeta = (meta: Record<string, string>): boolean =>
-            Object.entries(selectedMeta).every(([key, value]) => meta[key] === value)
+            Object.entries(selectedMeta).every(
+              ([key, value]) => meta[key] === value
+            )
           const matched =
             data.items.find((item) => item.filename === selectedFilename) ??
             data.items.find((item) => sameMeta(item.meta)) ??
@@ -547,12 +561,11 @@ export function CombinationPickerDetailView({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem
-                    onClick={onToggleHold}
-                    className="py-3"
-                  >
+                  <DropdownMenuItem onClick={onToggleHold} className="py-3">
                     <Clock className="mr-2 h-4 w-4 text-yellow-500" />
-                    {heldFilenames.includes(selectedFilename) ? "보류 해제" : "이 조합 보류"}
+                    {heldFilenames.includes(selectedFilename)
+                      ? "보류 해제"
+                      : "이 조합 보류"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={onRejectAll}
@@ -605,7 +618,10 @@ export function CombinationPickerDetailView({
               {selectedFilename}
             </span>
             {heldFilenames.includes(selectedFilename) && (
-              <Badge variant="outline" className="h-5 border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0 text-[9px] font-bold text-yellow-600 dark:text-yellow-500 shrink-0">
+              <Badge
+                variant="outline"
+                className="h-5 shrink-0 border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0 text-[9px] font-bold text-yellow-600 dark:text-yellow-500"
+              >
                 보류됨
               </Badge>
             )}
@@ -627,11 +643,11 @@ export function CombinationPickerDetailView({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem
-                  onClick={onToggleHold}
-                >
+                <DropdownMenuItem onClick={onToggleHold}>
                   <Clock className="mr-2 h-3.5 w-3.5 text-yellow-500" />
-                  {heldFilenames.includes(selectedFilename) ? "보류 해제" : "이 조합 보류"}
+                  {heldFilenames.includes(selectedFilename)
+                    ? "보류 해제"
+                    : "이 조합 보류"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={onRejectAll}
@@ -799,7 +815,7 @@ export function CombinationPickerDetailView({
             style={{
               gridTemplateColumns: fluidGridLayout
                 ? `repeat(auto-fill, minmax(${String(thumbnailSize)}px, 1fr))`
-              : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
+                : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
             }}
           >
             {activeJobsForSelection.map((job) => (
