@@ -104,6 +104,8 @@ function UnassignedGridItem({
                 }
               }}
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
             />
           </>
         ) : (

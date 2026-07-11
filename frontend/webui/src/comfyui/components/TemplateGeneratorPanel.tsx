@@ -60,6 +60,7 @@ import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import { itemKey, substitute as substituteItem } from "../../lib/workflowUtils"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -1376,6 +1377,13 @@ export function TemplateGeneratorPanel({
       )
     })
   }, [activeQueue, previewFilter])
+  const resultsScrollRef = useRef<HTMLDivElement | null>(null)
+  const resultsVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => resultsScrollRef.current,
+    estimateSize: () => 104,
+    overscan: 6,
+  })
 
   const handleRunTest = useCallback(
     (item: RenderItem): void => {
@@ -2443,9 +2451,15 @@ export function TemplateGeneratorPanel({
             <p className="text-xs text-muted-foreground">검색 결과 없음</p>
           </div>
         ) : (
-          <ScrollArea className="h-full">
-            <div className="space-y-1.5 p-3">
-              {filtered.map((item: RenderItem, idx: number) => {
+          <div ref={resultsScrollRef} className="h-full overflow-y-auto">
+            <div
+              className="relative w-full"
+              style={{ height: resultsVirtualizer.getTotalSize() }}
+            >
+              {resultsVirtualizer.getVirtualItems().map((virtualRow) => {
+                const idx = virtualRow.index
+                const item = filtered[idx]
+                if (item === undefined) return null
                 const fn = substituteItem(item.filename, item)
                 const pr = substituteItem(item.prompt, item)
                 const k = itemKey(item)
@@ -2453,210 +2467,219 @@ export function TemplateGeneratorPanel({
                 return (
                   <div
                     key={`r-${k}-${String(idx)}`}
-                    className={`cursor-pointer space-y-1 rounded-lg border p-2.5 transition-colors hover:bg-muted/30 ${isExpanded ? "border-primary/20 bg-primary/[0.02]" : ""}`}
-                    onClick={() => {
-                      setExpandedItemKey(isExpanded ? null : k)
+                    ref={resultsVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    className="absolute top-0 left-0 w-full px-3 pb-1.5"
+                    style={{
+                      transform: `translateY(${String(virtualRow.start)}px)`,
                     }}
                   >
-                    {/* Summary view */}
-                    <div className="flex items-start gap-1.5">
-                      <span className="flex-1 font-mono text-[11px] leading-tight font-semibold break-all select-all">
-                        {fn}
-                      </span>
-                      <Badge
-                        variant="secondary"
-                        className="shrink-0 text-[9px]"
-                      >
-                        {idx + 1}
-                      </Badge>
-                    </div>
-                    {Object.keys(item.meta).length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(item.meta).map(([mk, mv]) => (
-                          <Badge
-                            key={mk}
-                            variant="outline"
-                            className="text-[9px] font-normal"
-                          >
-                            {mk}: {mv}
-                          </Badge>
-                        ))}
+                    <div
+                      className={`cursor-pointer space-y-1 rounded-lg border p-2.5 transition-colors hover:bg-muted/30 ${isExpanded ? "border-primary/20 bg-primary/[0.02]" : ""}`}
+                      onClick={() => {
+                        setExpandedItemKey(isExpanded ? null : k)
+                      }}
+                    >
+                      {/* Summary view */}
+                      <div className="flex items-start gap-1.5">
+                        <span className="flex-1 font-mono text-[11px] leading-tight font-semibold break-all select-all">
+                          {fn}
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="shrink-0 text-[9px]"
+                        >
+                          {idx + 1}
+                        </Badge>
                       </div>
-                    )}
-                    {!isExpanded && (
-                      <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words text-muted-foreground select-all">
-                        {pr}
-                      </div>
-                    )}
-                    {/* Expanded detail view */}
-                    {isExpanded && (
-                      <div className="mt-2 space-y-2 border-t border-dashed border-primary/10 pt-2">
-                        {/* Set variables */}
-                        {Object.keys(renderSets).length > 0 && (
-                          <div>
-                            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
-                              <Sliders className="h-3 w-3" />
-                              Set 변수
+                      {Object.keys(item.meta).length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(item.meta).map(([mk, mv]) => (
+                            <Badge
+                              key={mk}
+                              variant="outline"
+                              className="text-[9px] font-normal"
+                            >
+                              {mk}: {mv}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {!isExpanded && (
+                        <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words text-muted-foreground select-all">
+                          {pr}
+                        </div>
+                      )}
+                      {/* Expanded detail view */}
+                      {isExpanded && (
+                        <div className="mt-2 space-y-2 border-t border-dashed border-primary/10 pt-2">
+                          {/* Set variables */}
+                          {Object.keys(renderSets).length > 0 && (
+                            <div>
+                              <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+                                <Sliders className="h-3 w-3" />
+                                Set 변수
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(renderSets).map(([sk, sv]) => (
+                                  <Badge
+                                    key={sk}
+                                    variant="secondary"
+                                    className="font-mono text-[9px]"
+                                  >
+                                    {sk}: {sv}
+                                  </Badge>
+                                ))}
+                              </div>
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                              {Object.entries(renderSets).map(([sk, sv]) => (
-                                <Badge
-                                  key={sk}
-                                  variant="secondary"
-                                  className="font-mono text-[9px]"
-                                >
-                                  {sk}: {sv}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {/* Axis combination details */}
-                        {Object.keys(item.meta).length > 0 && (
-                          <div>
-                            <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
-                              <Layers className="h-3 w-3" />축 조합
-                            </div>
-                            <div className="grid grid-cols-1 gap-1">
-                              {Object.entries(item.meta).map(
-                                ([axisName, key]) => {
-                                  const axisInfo = renderAxes[axisName]
-                                  const matched = axisInfo?.values.find(
-                                    (v) => v.key === key
-                                  )
-                                  const value = matched?.value ?? ""
-                                  const props = matched?.props ?? {}
-                                  const include = axisInfo?.include
-                                  return (
-                                    <div
-                                      key={axisName}
-                                      className="flex items-start gap-2 rounded-md bg-muted/30 p-1.5 text-[10px]"
-                                    >
-                                      <Badge
-                                        variant="outline"
-                                        className="shrink-0 text-[9px] font-semibold"
+                          )}
+                          {/* Axis combination details */}
+                          {Object.keys(item.meta).length > 0 && (
+                            <div>
+                              <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+                                <Layers className="h-3 w-3" />축 조합
+                              </div>
+                              <div className="grid grid-cols-1 gap-1">
+                                {Object.entries(item.meta).map(
+                                  ([axisName, key]) => {
+                                    const axisInfo = renderAxes[axisName]
+                                    const matched = axisInfo?.values.find(
+                                      (v) => v.key === key
+                                    )
+                                    const value = matched?.value ?? ""
+                                    const props = matched?.props ?? {}
+                                    const include = axisInfo?.include
+                                    return (
+                                      <div
+                                        key={axisName}
+                                        className="flex items-start gap-2 rounded-md bg-muted/30 p-1.5 text-[10px]"
                                       >
-                                        {axisName}
-                                      </Badge>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-1">
-                                          <Badge
-                                            variant="secondary"
-                                            className="font-mono text-[9px]"
-                                          >
-                                            {key}
-                                          </Badge>
-                                          {value !== "" && (
-                                            <span className="text-muted-foreground">
-                                              {value}
-                                            </span>
-                                          )}
-                                          {include !== undefined && (
+                                        <Badge
+                                          variant="outline"
+                                          className="shrink-0 text-[9px] font-semibold"
+                                        >
+                                          {axisName}
+                                        </Badge>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex flex-wrap items-center gap-1">
                                             <Badge
-                                              variant="outline"
-                                              className="text-[8px]"
+                                              variant="secondary"
+                                              className="font-mono text-[9px]"
                                             >
-                                              include: {include}
+                                              {key}
                                             </Badge>
-                                          )}
-                                        </div>
-                                        {Object.keys(props).length > 0 && (
-                                          <div className="mt-0.5 flex flex-wrap gap-0.5">
-                                            {Object.entries(props).map(
-                                              ([pk, pv]) => (
-                                                <span
-                                                  key={pk}
-                                                  className="rounded border bg-background px-1 text-[9px] text-muted-foreground"
-                                                >
-                                                  {pk}: {pv}
-                                                </span>
-                                              )
+                                            {value !== "" && (
+                                              <span className="text-muted-foreground">
+                                                {value}
+                                              </span>
+                                            )}
+                                            {include !== undefined && (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-[8px]"
+                                              >
+                                                include: {include}
+                                              </Badge>
                                             )}
                                           </div>
-                                        )}
+                                          {Object.keys(props).length > 0 && (
+                                            <div className="mt-0.5 flex flex-wrap gap-0.5">
+                                              {Object.entries(props).map(
+                                                ([pk, pv]) => (
+                                                  <span
+                                                    key={pk}
+                                                    className="rounded border bg-background px-1 text-[9px] text-muted-foreground"
+                                                  >
+                                                    {pk}: {pv}
+                                                  </span>
+                                                )
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )
-                                }
-                              )}
+                                    )
+                                  }
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {/* Original templates */}
+                          <div>
+                            <div className="mb-1 text-[10px] font-semibold text-muted-foreground">
+                              원본 템플릿
+                            </div>
+                            <div className="space-y-1.5">
+                              <div>
+                                <div className="mb-0.5 font-mono text-[9px] text-muted-foreground">
+                                  filename
+                                </div>
+                                <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words text-muted-foreground select-all">
+                                  {filenameBody}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="mb-0.5 font-mono text-[9px] text-muted-foreground">
+                                  template
+                                </div>
+                                <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground select-all">
+                                  {templateBody}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        )}
-                        {/* Original templates */}
-                        <div>
-                          <div className="mb-1 text-[10px] font-semibold text-muted-foreground">
-                            원본 템플릿
-                          </div>
-                          <div className="space-y-1.5">
-                            <div>
-                              <div className="mb-0.5 font-mono text-[9px] text-muted-foreground">
-                                filename
+                          {/* Final result */}
+                          <div>
+                            <div className="mb-1 flex items-center justify-between">
+                              <div className="text-[10px] font-semibold text-muted-foreground">
+                                최종 결과
                               </div>
-                              <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words text-muted-foreground select-all">
-                                {filenameBody}
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-yellow-500"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    toggleFavorite(k)
+                                  }}
+                                >
+                                  <Star
+                                    className={`h-3 w-3 ${favoriteCombinations.has(k) ? "fill-yellow-400 text-yellow-400" : ""}`}
+                                  />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="h-6 gap-1 text-[10px]"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    void handleRunSingle(item, {
+                                      cegTemplate: generatedCode,
+                                    })
+                                  }}
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                  테스트 생성
+                                </Button>
                               </div>
                             </div>
-                            <div>
-                              <div className="mb-0.5 font-mono text-[9px] text-muted-foreground">
-                                template
-                              </div>
-                              <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground select-all">
-                                {templateBody}
-                              </div>
+                            <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground select-all">
+                              {pr}
                             </div>
+                            <InlineImagePreview
+                              filename={fn}
+                              backendUrl={backendUrl}
+                            />
                           </div>
                         </div>
-                        {/* Final result */}
-                        <div>
-                          <div className="mb-1 flex items-center justify-between">
-                            <div className="text-[10px] font-semibold text-muted-foreground">
-                              최종 결과
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-yellow-500"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toggleFavorite(k)
-                                }}
-                              >
-                                <Star
-                                  className={`h-3 w-3 ${favoriteCombinations.has(k) ? "fill-yellow-400 text-yellow-400" : ""}`}
-                                />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="h-6 gap-1 text-[10px]"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  void handleRunSingle(item, {
-                                    cegTemplate: generatedCode,
-                                  })
-                                }}
-                              >
-                                <Sparkles className="h-3 w-3" />
-                                테스트 생성
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground select-all">
-                            {pr}
-                          </div>
-                          <InlineImagePreview
-                            filename={fn}
-                            backendUrl={backendUrl}
-                          />
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )
               })}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </div>
     </div>

@@ -91,6 +91,10 @@ export function ImageWithSkeleton({
               src={src}
               alt=""
               className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md select-none"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              aria-hidden="true"
             />
           )}
           <img
@@ -105,6 +109,8 @@ export function ImageWithSkeleton({
               setError(true)
             }}
             loading="lazy"
+            decoding="async"
+            fetchPriority="low"
           />
         </>
       )}

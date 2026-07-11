@@ -196,6 +196,10 @@ const ImageGridItem = memo(function ImageGridItem({
         <div
           data-selectable="true"
           data-image-hash={img.hash}
+          style={{
+            contentVisibility: "auto",
+            containIntrinsicSize: "180px 260px",
+          }}
           onClick={() => onFocus?.(img.hash)}
           className={`m-1 flex cursor-pointer break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md ${
             isSelected
@@ -229,6 +233,8 @@ const ImageGridItem = memo(function ImageGridItem({
                   src={`${backendUrl}/saved-images/${img.hash}`}
                   alt={img.originalFilename}
                   loading={imageLazyLoad ? "lazy" : "eager"}
+                  decoding="async"
+                  fetchPriority={imageLazyLoad ? "low" : "auto"}
                   className="w-full object-cover transition-transform group-hover:scale-105"
                   onError={() => {
                     onSetBroken(img.hash)

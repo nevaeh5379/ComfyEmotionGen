@@ -242,6 +242,7 @@ export function ImageDetailPanel({
         <img
           src={`${backendUrl}/saved-images/${image.hash}`}
           alt={image.originalFilename}
+          decoding="async"
           className="max-h-[60vh] w-full object-contain"
           onError={() => {
             setImgError(true)

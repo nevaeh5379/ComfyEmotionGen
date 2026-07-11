@@ -26,6 +26,77 @@ import {
 import { StatusIcon, MetaTags } from "./CombinationPickerHelpers"
 import { useCurationContext } from "./CurationContext"
 
+const CURATION_PAGE_SIZE = 120
+
+interface RenderItemPage {
+  pageItems: RenderItem[]
+  page: number
+  pageCount: number
+  setPage: (page: number) => void
+}
+
+function useRenderItemPage(items: RenderItem[]): RenderItemPage {
+  const first = items[0]?.filename ?? ""
+  const last = items[items.length - 1]?.filename ?? ""
+  const pageKey = `${String(items.length)}:${first}:${last}`
+  const [pageState, setPageState] = useState({ key: pageKey, page: 0 })
+  const pageCount = Math.max(1, Math.ceil(items.length / CURATION_PAGE_SIZE))
+  const page =
+    pageState.key === pageKey ? Math.min(pageState.page, pageCount - 1) : 0
+  const pageItems = items.slice(
+    page * CURATION_PAGE_SIZE,
+    (page + 1) * CURATION_PAGE_SIZE
+  )
+  const setPage = useCallback(
+    (nextPage: number): void => {
+      setPageState({
+        key: pageKey,
+        page: Math.max(0, Math.min(nextPage, pageCount - 1)),
+      })
+    },
+    [pageCount, pageKey]
+  )
+
+  return { pageItems, page, pageCount, setPage }
+}
+
+function ResultPagination({
+  page,
+  pageCount,
+  setPage,
+}: Omit<RenderItemPage, "pageItems">): React.JSX.Element | null {
+  if (pageCount <= 1) return null
+  return (
+    <div className="mt-4 flex items-center justify-center gap-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={page === 0}
+        onClick={() => {
+          setPage(page - 1)
+        }}
+      >
+        이전
+      </Button>
+      <span className="text-xs font-bold text-muted-foreground tabular-nums">
+        {page + 1} / {pageCount}
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={page >= pageCount - 1}
+        onClick={() => {
+          setPage(page + 1)
+        }}
+      >
+        다음
+      </Button>
+    </div>
+  )
+}
+
 /* ─── Magnifier ─── */
 export function Magnifier({
   src,
@@ -67,6 +138,7 @@ export function Magnifier({
         src={src}
         className="max-h-[78vh] max-w-[90vw] object-contain"
         alt=""
+        decoding="async"
         onLoad={(e) => {
           const img = e.currentTarget
           setImgNatural({ w: img.naturalWidth, h: img.naturalHeight })
@@ -188,6 +260,7 @@ export function TournamentView({
           src={`${backendUrl}/saved-images/${winner.hash}`}
           className="max-h-[60%] max-w-full rounded-lg border shadow-lg"
           alt="Winner"
+          decoding="async"
         />
         <div className="mt-8 flex gap-4">
           <Button variant="outline" size="lg" onClick={handleUndo}>
@@ -258,11 +331,14 @@ export function TournamentView({
               src={`${backendUrl}/saved-images/${img.hash}`}
               alt=""
               className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md select-none"
+              decoding="async"
+              aria-hidden="true"
             />
             <img
               src={`${backendUrl}/saved-images/${img.hash}`}
               className="relative z-10 h-full w-full object-contain"
               alt=""
+              decoding="async"
             />
             <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-2 text-center text-xs font-bold text-white opacity-100 md:p-4 md:text-sm md:opacity-0 md:group-hover:opacity-100">
               {idx === 0 ? "왼쪽 선택" : "오른쪽 선택"}
@@ -280,6 +356,7 @@ export function LongPressWrapper({
   onLongPress,
   onClick,
   className,
+  style,
   as: Comp = "button",
   ...rest
 }: {
@@ -351,7 +428,7 @@ export function LongPressWrapper({
           e.preventDefault()
         }
       }}
-      style={pressing ? { opacity: 0.7 } : undefined}
+      style={{ ...style, ...(pressing ? { opacity: 0.7 } : {}) }}
       {...rest}
     >
       {children}
@@ -455,6 +532,10 @@ function GalleryGridItem({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                style={{
+                  contentVisibility: "auto",
+                  containIntrinsicSize: "240px 300px",
+                }}
                 className={`group relative rounded-xl border bg-card p-0.5 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)] md:p-1 ${
                   isDragOver
                     ? "border-primary bg-primary/5 ring-2 ring-primary"
@@ -486,6 +567,8 @@ function GalleryGridItem({
                           }
                         }}
                         loading="lazy"
+                        decoding="async"
+                        fetchPriority="low"
                       />
                     </>
                   ) : (
@@ -597,38 +680,57 @@ export function GalleryView({
   } = useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
   const { selectionMode, selectedFilenames, toggleSelect } = selection
+  const { pageItems, page, pageCount, setPage } = useRenderItemPage(items)
+  const listTopRef = useRef<HTMLDivElement | null>(null)
+  const handlePageChange = useCallback(
+    (nextPage: number): void => {
+      setPage(nextPage)
+      window.requestAnimationFrame(() => {
+        listTopRef.current?.scrollIntoView({ block: "start" })
+      })
+    },
+    [setPage]
+  )
 
   return (
-    <div
-      className="grid items-start gap-2 sm:gap-3 md:gap-4"
-      style={{
-        gridTemplateColumns: fluidGridLayout
-          ? `repeat(auto-fill, minmax(${String(thumbnailSize)}px, 1fr))`
-          : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
-      }}
-    >
-      {items.map((item: RenderItem) => {
-        const imgs = imagesByFilename.get(item.filename) ?? []
-        const isSelected = selectedFilenames.has(item.filename)
+    <>
+      <div
+        ref={listTopRef}
+        className="grid items-start gap-2 sm:gap-3 md:gap-4"
+        style={{
+          gridTemplateColumns: fluidGridLayout
+            ? `repeat(auto-fill, minmax(${String(thumbnailSize)}px, 1fr))`
+            : `repeat(auto-fill, ${String(thumbnailSize)}px)`,
+        }}
+      >
+        {pageItems.map((item: RenderItem) => {
+          const imgs = imagesByFilename.get(item.filename) ?? []
+          const isSelected = selectedFilenames.has(item.filename)
 
-        return (
-          <GalleryGridItem
-            key={item.filename}
-            item={item}
-            imgs={imgs}
-            backendUrl={backendUrl}
-            enableHover={enableHover}
-            selectionMode={selectionMode}
-            isSelected={isSelected}
-            toggleSelect={toggleSelect}
-            onSelect={onSelect}
-            onOpen={onOpen}
-            onLongPress={onLongPress}
-            {...(onRegenerate && { onRegenerate })}
-          />
-        )
-      })}
-    </div>
+          return (
+            <GalleryGridItem
+              key={item.filename}
+              item={item}
+              imgs={imgs}
+              backendUrl={backendUrl}
+              enableHover={enableHover}
+              selectionMode={selectionMode}
+              isSelected={isSelected}
+              toggleSelect={toggleSelect}
+              onSelect={onSelect}
+              onOpen={onOpen}
+              onLongPress={onLongPress}
+              {...(onRegenerate && { onRegenerate })}
+            />
+          )
+        })}
+      </div>
+      <ResultPagination
+        page={page}
+        pageCount={pageCount}
+        setPage={handlePageChange}
+      />
+    </>
   )
 }
 
@@ -647,114 +749,135 @@ export function TableView({
   const { backendUrl, enableHover, data, selection } = useCurationContext()
   const { filteredRenderItems: items, imagesByFilename } = data
   const { selectionMode, selectedFilenames, toggleSelect } = selection
+  const { pageItems, page, pageCount, setPage } = useRenderItemPage(items)
+  const tableTopRef = useRef<HTMLDivElement | null>(null)
+  const handlePageChange = useCallback(
+    (nextPage: number): void => {
+      setPage(nextPage)
+      window.requestAnimationFrame(() => {
+        tableTopRef.current?.scrollIntoView({ block: "start" })
+      })
+    },
+    [setPage]
+  )
 
   return (
-    <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b bg-muted/50">
-          <tr>
-            {selectionMode && (
-              <th className="w-8 px-2 py-2 font-bold text-muted-foreground"></th>
-            )}
-            <th className="w-12 px-4 py-2 font-bold text-muted-foreground">
-              상태
-            </th>
-            <th className="px-4 py-2 font-bold text-muted-foreground">
-              파일명
-            </th>
-            <th className="px-4 py-2 font-bold text-muted-foreground">
-              메타데이터
-            </th>
-            <th className="w-20 px-4 py-2 text-right font-bold text-muted-foreground">
-              수
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {items.map((item: RenderItem) => {
-            const imgs = imagesByFilename.get(item.filename) ?? []
-            const isDone = hasApproved(imgs)
-            const isSelected = selectedFilenames.has(item.filename)
+    <>
+      <div
+        ref={tableTopRef}
+        className="overflow-x-auto rounded-lg border bg-card"
+      >
+        <table className="w-full text-left text-sm">
+          <thead className="border-b bg-muted/50">
+            <tr>
+              {selectionMode && (
+                <th className="w-8 px-2 py-2 font-bold text-muted-foreground"></th>
+              )}
+              <th className="w-12 px-4 py-2 font-bold text-muted-foreground">
+                상태
+              </th>
+              <th className="px-4 py-2 font-bold text-muted-foreground">
+                파일명
+              </th>
+              <th className="px-4 py-2 font-bold text-muted-foreground">
+                메타데이터
+              </th>
+              <th className="w-20 px-4 py-2 text-right font-bold text-muted-foreground">
+                수
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {pageItems.map((item: RenderItem) => {
+              const imgs = imagesByFilename.get(item.filename) ?? []
+              const isDone = hasApproved(imgs)
+              const isSelected = selectedFilenames.has(item.filename)
 
-            return (
-              <ContextMenu key={item.filename}>
-                <ContextMenuTrigger asChild>
-                  <LongPressWrapper
-                    onLongPress={() => {
-                      onLongPress(item.filename)
-                    }}
-                    onClick={(e: React.MouseEvent | React.KeyboardEvent) => {
-                      if (
-                        selectionMode ||
-                        ("shiftKey" in e && e.shiftKey) ||
-                        ("ctrlKey" in e && e.ctrlKey) ||
-                        ("metaKey" in e && e.metaKey)
-                      ) {
-                        toggleSelect(item.filename, e)
-                      } else {
-                        onSelect(item.filename)
-                      }
-                    }}
-                    className={`group cursor-pointer hover:bg-accent/50 ${isSelected ? "bg-blue-50/30 ring-1 ring-blue-300 ring-inset" : ""}`}
-                    as="tr"
-                  >
-                    {selectionMode && (
-                      <td className="px-2 py-2">
-                        {isSelected ? (
-                          <CheckSquareIcon className="h-5 w-5 text-blue-500" />
-                        ) : (
-                          <SquareIcon className="h-5 w-5 text-muted-foreground/40" />
-                        )}
-                      </td>
-                    )}
-                    <td className="px-4 py-2">
-                      <StatusIcon done={isDone} />
-                    </td>
-                    <HoverCard
-                      openDelay={enableHover ? 500 : 99999}
-                      closeDelay={100}
+              return (
+                <ContextMenu key={item.filename}>
+                  <ContextMenuTrigger asChild>
+                    <LongPressWrapper
+                      onLongPress={() => {
+                        onLongPress(item.filename)
+                      }}
+                      onClick={(e: React.MouseEvent | React.KeyboardEvent) => {
+                        if (
+                          selectionMode ||
+                          ("shiftKey" in e && e.shiftKey) ||
+                          ("ctrlKey" in e && e.ctrlKey) ||
+                          ("metaKey" in e && e.metaKey)
+                        ) {
+                          toggleSelect(item.filename, e)
+                        } else {
+                          onSelect(item.filename)
+                        }
+                      }}
+                      className={`group cursor-pointer hover:bg-accent/50 ${isSelected ? "bg-blue-50/30 ring-1 ring-blue-300 ring-inset" : ""}`}
+                      as="tr"
                     >
-                      <HoverCardTrigger asChild>
-                        <td className="cursor-default px-4 py-2">
-                          <span className="font-mono text-xs font-bold">
-                            {item.filename}
-                          </span>
+                      {selectionMode && (
+                        <td className="px-2 py-2">
+                          {isSelected ? (
+                            <CheckSquareIcon className="h-5 w-5 text-blue-500" />
+                          ) : (
+                            <SquareIcon className="h-5 w-5 text-muted-foreground/40" />
+                          )}
                         </td>
-                      </HoverCardTrigger>
-                      {enableHover && (
-                        <ImagePreviewHoverCard
-                          filename={item.filename}
-                          images={imgs}
-                          backendUrl={backendUrl}
-                        />
                       )}
-                    </HoverCard>
-                    <td className="px-4 py-2">
-                      <MetaTags meta={item.meta} variant="default" />
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {imgs.length}
-                      </span>
-                    </td>
-                  </LongPressWrapper>
-                </ContextMenuTrigger>
-                <CombinationContextMenu
-                  filename={item.filename}
-                  isSelected={isSelected}
-                  selectionMode={selectionMode}
-                  onOpen={onOpen}
-                  onToggleSelect={(f) => {
-                    toggleSelect(f)
-                  }}
-                  onLongPress={onLongPress}
-                  {...(onRegenerate !== undefined && { onRegenerate })}
-                />
-              </ContextMenu>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
+                      <td className="px-4 py-2">
+                        <StatusIcon done={isDone} />
+                      </td>
+                      <HoverCard
+                        openDelay={enableHover ? 500 : 99999}
+                        closeDelay={100}
+                      >
+                        <HoverCardTrigger asChild>
+                          <td className="cursor-default px-4 py-2">
+                            <span className="font-mono text-xs font-bold">
+                              {item.filename}
+                            </span>
+                          </td>
+                        </HoverCardTrigger>
+                        {enableHover && (
+                          <ImagePreviewHoverCard
+                            filename={item.filename}
+                            images={imgs}
+                            backendUrl={backendUrl}
+                          />
+                        )}
+                      </HoverCard>
+                      <td className="px-4 py-2">
+                        <MetaTags meta={item.meta} variant="default" />
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {imgs.length}
+                        </span>
+                      </td>
+                    </LongPressWrapper>
+                  </ContextMenuTrigger>
+                  <CombinationContextMenu
+                    filename={item.filename}
+                    isSelected={isSelected}
+                    selectionMode={selectionMode}
+                    onOpen={onOpen}
+                    onToggleSelect={(f) => {
+                      toggleSelect(f)
+                    }}
+                    onLongPress={onLongPress}
+                    {...(onRegenerate !== undefined && { onRegenerate })}
+                  />
+                </ContextMenu>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <ResultPagination
+        page={page}
+        pageCount={pageCount}
+        setPage={handlePageChange}
+      />
+    </>
   )
 }

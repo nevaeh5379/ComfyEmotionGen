@@ -194,12 +194,17 @@ export function ImagePreviewHoverCard({
                   alt=""
                   className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md select-none"
                   loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
+                  aria-hidden="true"
                 />
                 <img
                   src={`${backendUrl}/saved-images/${img.hash}`}
                   className="relative z-10 h-full w-full object-contain"
                   alt=""
                   loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
                 />
 
                 {/* Status Overlays */}

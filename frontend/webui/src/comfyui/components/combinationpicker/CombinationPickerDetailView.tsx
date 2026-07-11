@@ -123,6 +123,7 @@ function ActiveJobImageCard({
         <img
           src={previewUrl}
           alt={statusLabel}
+          decoding="async"
           className="h-full min-h-40 w-full object-contain"
         />
       ) : canShowWorkerPreview ? (

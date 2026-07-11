@@ -2302,6 +2302,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                                   src={`${backendUrl}/saved-images/${hash}`}
                                   className="max-h-full max-w-full object-contain"
                                   alt=""
+                                  loading="lazy"
+                                  decoding="async"
+                                  fetchPriority="low"
                                 />
                               ))}
                           </div>

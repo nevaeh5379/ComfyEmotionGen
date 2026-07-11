@@ -15,6 +15,7 @@ export function WorkerPreviewImage({
   workerId,
   previewToken,
   enabled = true,
+  decoding = "async",
   ...imgProps
 }: WorkerPreviewImageProps): React.JSX.Element | null {
   const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
@@ -121,5 +122,5 @@ export function WorkerPreviewImage({
   if (previewSourceKey === null || previewUrl === null) {
     return null
   }
-  return <img {...imgProps} src={previewUrl} />
+  return <img {...imgProps} src={previewUrl} decoding={decoding} />
 }
