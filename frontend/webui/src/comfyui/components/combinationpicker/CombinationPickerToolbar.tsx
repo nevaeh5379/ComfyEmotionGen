@@ -17,7 +17,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Switch } from "@/components/ui/switch"
-import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import {
   Select,
@@ -380,7 +379,7 @@ export function CombinationPickerToolbar({
         <div className="hidden h-5 w-px bg-border/60 md:block" />
 
         {/* 진행률 (모바일에서는 바 숨기고 %만) */}
-        {(() => {
+        {((): React.JSX.Element => {
           const total = rawRenderItems.length
           const done = rawRenderItems.filter(
             (ri) => hasApproved(imagesByFilename.get(ri.filename) ?? [])
@@ -401,9 +400,9 @@ export function CombinationPickerToolbar({
               <TooltipTrigger asChild>
                 <div className="flex flex-1 cursor-help items-center justify-end gap-2 md:justify-start md:gap-3">
                   <div className="hidden h-2 w-24 overflow-hidden rounded-full bg-muted shadow-inner md:flex md:flex-1">
-                    <div style={{ width: `${donePercent}%` }} className="h-full bg-green-500 transition-all duration-300" />
-                    <div style={{ width: `${heldPercent}%` }} className="h-full bg-yellow-500 transition-all duration-300" />
-                    <div style={{ width: `${emptyPercent}%` }} className="h-full bg-zinc-400 dark:bg-zinc-500 transition-all duration-300" />
+                    <div style={{ width: `${String(donePercent)}%` }} className="h-full bg-green-500 transition-all duration-300" />
+                    <div style={{ width: `${String(heldPercent)}%` }} className="h-full bg-yellow-500 transition-all duration-300" />
+                    <div style={{ width: `${String(emptyPercent)}%` }} className="h-full bg-zinc-400 dark:bg-zinc-500 transition-all duration-300" />
                   </div>
                   <span className="shrink-0 text-[11px] font-black text-foreground/70 tabular-nums">
                     {Math.round(donePercent)}%

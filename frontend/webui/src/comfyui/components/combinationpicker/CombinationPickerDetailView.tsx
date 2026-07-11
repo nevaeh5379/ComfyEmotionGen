@@ -51,7 +51,7 @@ import { copyImageUrlToClipboard } from "@/lib/clipboard"
 import { toast } from "sonner"
 import type { SavedImage } from "../../types/Message"
 import { LoadingButton } from "./CombinationPickerComponents"
-import { MetaTags, ImageWithSkeleton } from "./CombinationPickerHelpers"
+import { ImageWithSkeleton } from "./CombinationPickerHelpers"
 import { Magnifier } from "./CombinationPickerViews"
 import { hasApproved } from "../../types/Message"
 import { useCurationContext } from "./CurationContext"
@@ -276,12 +276,12 @@ export function CombinationPickerDetailView({
     const input = document.createElement("input")
     input.type = "file"
     input.accept = "image/*"
-    input.onchange = async (e) => {
+    input.onchange = async (e): Promise<void> => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
       try {
         await uploadUserImage(file, selectedItem?.meta)
-      } catch (err) {
+      } catch {
         // Handled in useCombinationData
       }
     }
@@ -315,7 +315,7 @@ export function CombinationPickerDetailView({
       }
     }
     window.addEventListener("keydown", handleKeyDown)
-    return () => {
+    return (): void => {
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [cegEditorOpen, cegDraftDirty, cegDraft, onSaveCegDraft])
@@ -392,15 +392,19 @@ export function CombinationPickerDetailView({
 
   useEffect(() => {
     if (!cegEditorOpen) {
-      setDraftPromptPreview(selectedItem?.prompt ?? "")
-      setDraftPreviewState("idle")
-      setDraftPreviewError(null)
+      queueMicrotask(() => {
+        setDraftPromptPreview(selectedItem?.prompt ?? "")
+        setDraftPreviewState("idle")
+        setDraftPreviewError(null)
+      })
       return
     }
     if (cegDraft.trim() === "") {
-      setDraftPromptPreview("")
-      setDraftPreviewState("idle")
-      setDraftPreviewError(null)
+      queueMicrotask(() => {
+        setDraftPromptPreview("")
+        setDraftPreviewState("idle")
+        setDraftPreviewError(null)
+      })
       return
     }
 
@@ -969,9 +973,11 @@ export function CombinationPickerDetailView({
                     </ContextMenuItem>
                     <ContextMenuItem
                       onClick={() => {
-                        if (img.cegTemplate?.trim()) {
+                        if ((img.cegTemplate?.trim() ?? "") !== "") {
+                          const template = img.cegTemplate
+                          if (template === undefined) return
                           void navigator.clipboard
-                            .writeText(img.cegTemplate)
+                            .writeText(template)
                             .then(() => {
                               toast.success(
                                 "CEG 문법이 클립보드에 복사되었습니다."
@@ -982,7 +988,7 @@ export function CombinationPickerDetailView({
                             })
                         }
                       }}
-                      disabled={!img.cegTemplate?.trim()}
+                      disabled={(img.cegTemplate?.trim() ?? "") === ""}
                     >
                       <FileCode2Icon className="h-4 w-4" /> CEG 문법 복사
                     </ContextMenuItem>

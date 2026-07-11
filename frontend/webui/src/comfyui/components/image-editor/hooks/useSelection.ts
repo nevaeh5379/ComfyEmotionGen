@@ -6,27 +6,42 @@
 import { useCallback, useState } from "react"
 import type { Selection, SelectionType } from "../types"
 
-export function useSelection() {
+interface SelectionController {
+  selection: Selection | null
+  setRectSelection: (
+    type: SelectionType,
+    rect: { x: number; y: number; w: number; h: number }
+  ) => void
+  setMaskSelection: (
+    type: SelectionType,
+    maskCanvas: HTMLCanvasElement
+  ) => void
+  clearSelection: () => void
+}
+
+export function useSelection(): SelectionController {
   const [selection, setSelection] = useState<Selection | null>(null)
 
   const setRectSelection = useCallback(
     (
       type: SelectionType,
       rect: { x: number; y: number; w: number; h: number }
-    ) => {
+    ): void => {
       setSelection({ type, rect })
     },
     []
   )
 
   const setMaskSelection = useCallback(
-    (type: SelectionType, maskCanvas: HTMLCanvasElement) => {
+    (type: SelectionType, maskCanvas: HTMLCanvasElement): void => {
       setSelection({ type, maskCanvas })
     },
     []
   )
 
-  const clearSelection = useCallback(() => { setSelection(null); }, [])
+  const clearSelection = useCallback((): void => {
+    setSelection(null)
+  }, [])
 
   return {
     selection,

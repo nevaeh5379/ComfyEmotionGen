@@ -20,10 +20,7 @@ async function blobToPng(blob: Blob): Promise<Blob> {
 }
 
 export async function copyImageUrlToClipboard(imageUrl: string): Promise<void> {
-  if (
-    typeof ClipboardItem === "undefined" ||
-    navigator.clipboard?.write === undefined
-  ) {
+  if (typeof ClipboardItem === "undefined") {
     throw new Error("Image clipboard is not supported")
   }
 

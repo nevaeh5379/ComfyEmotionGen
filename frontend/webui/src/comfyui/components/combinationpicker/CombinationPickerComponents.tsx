@@ -472,7 +472,9 @@ export function RegenerateDialog({
   useEffect(() => {
     dialogActiveRef.current = open
     if (open) {
-      setCountInput(String(Math.min(64, Math.max(1, count || 1))))
+      queueMicrotask(() => {
+        setCountInput(String(Math.min(64, Math.max(1, count || 1))))
+      })
       window.setTimeout(() => {
         countInputRef.current?.focus()
         countInputRef.current?.select()
@@ -716,7 +718,6 @@ export function RegenerateDialog({
   const selectedWorkflowRef = useLatestRef(selectedWorkflow)
   const nodeMappingsRef = useLatestRef(nodeMappings)
   const resolvedTemplateRef = useLatestRef(resolvedTemplate)
-  const sourceFilenameRef = useLatestRef(sourceFilename)
   const targetItemRef = useLatestRef(targetItem)
   const targetItemsRef = useLatestRef(targetItems)
   const targetFilenameRef = useLatestRef(targetFilename)
@@ -923,7 +924,7 @@ export function RegenerateDialog({
       }
 
       const key = e.key.toLowerCase()
-      const shortcutTarget = (() => {
+      const shortcutTarget = ((): string | null => {
         if (key === "c") return "[data-regen-shortcut='count']"
         if (key === "w") return "[data-regen-shortcut='workflow']"
         if (key === "m") return "[data-regen-shortcut='mapping']"

@@ -36,7 +36,7 @@ export function NodePropertiesPanel({
       const req = nodeDef?.input?.required ?? {}
       const opt = nodeDef?.input?.optional ?? {}
       const allSpecs = { ...req, ...opt }
-      const rawWidgetNames = node.properties?.widget_names
+      const rawWidgetNames = node.properties.widget_names
       const widgetNames: string[] = Array.isArray(rawWidgetNames)
         ? rawWidgetNames.filter((n): n is string => typeof n === "string")
         : []
@@ -57,28 +57,20 @@ export function NodePropertiesPanel({
             : (typeSpec ?? "string")
           return {
             name,
-            value: node.widgets_values?.[idx],
+            value: node.widgets_values[idx],
             type: typeStr,
           }
         }),
-        ...(node.inputs !== undefined
-          ? {
-              inputs: node.inputs.map((i) => ({
-                name: i.name,
-                type: i.type,
-                link: i.link ?? null,
-              })),
-            }
-          : {}),
-        ...(node.outputs !== undefined
-          ? {
-              outputs: node.outputs.map((o) => ({
-                name: o.name,
-                type: o.type,
-                links: o.links ?? [],
-              })),
-            }
-          : {}),
+        inputs: node.inputs.map((i) => ({
+          name: i.name,
+          type: i.type,
+          link: i.link ?? null,
+        })),
+        outputs: node.outputs.map((o) => ({
+          name: o.name,
+          type: o.type,
+          links: o.links ?? [],
+        })),
       }
     }
   }

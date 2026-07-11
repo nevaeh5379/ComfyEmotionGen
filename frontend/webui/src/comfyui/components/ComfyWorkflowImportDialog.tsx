@@ -44,20 +44,17 @@ export function ComfyWorkflowImportDialog({
 
   // 온라인 상태인 comfyui 타입의 워커만 필터링
   const activeWorkers = workers.filter(
-    (w) => w.alive && (w.workerType === "comfyui" || !w.workerType)
+    (w) =>
+      w.alive &&
+      (w.workerType === "comfyui" || w.workerType === "")
   )
 
-  // 기본 워커 선택
-  useEffect(() => {
-    const firstWorker = activeWorkers[0]
-    if (firstWorker && !selectedWorkerId) {
-      setSelectedWorkerId(firstWorker.id)
-    }
-  }, [activeWorkers, selectedWorkerId])
+  const effectiveWorkerId =
+    selectedWorkerId !== "" ? selectedWorkerId : (activeWorkers[0]?.id ?? "")
 
   // 워크플로우 목록 로드
   const loadWorkflows = useCallback(async (workerId: string) => {
-    if (!workerId) return
+    if (workerId === "") return
     setLoading(true)
     setError(null)
     try {
@@ -65,16 +62,15 @@ export function ComfyWorkflowImportDialog({
 
       // 다양한 ComfyUI API 버전 응답 스펙 호환 처리
       const fileNames = data
-        .map((item: any) => {
+        .map((item: unknown) => {
           if (typeof item === "string") return item
-          if (
-            typeof item === "object" &&
-            item !== null &&
-            typeof item.name === "string"
-          ) {
+          if (typeof item === "object" && item !== null) {
+            const entry = item as Record<string, unknown>
+            if (typeof entry.name !== "string") return null
             // 폴더는 리스트에서 제외 (파일명만 남김)
-            if (item.type && item.type !== "file") return null
-            return item.name
+            const type = entry.type
+            if (typeof type === "string" && type !== "file") return null
+            return entry.name
           }
           return null
         })
@@ -91,44 +87,39 @@ export function ComfyWorkflowImportDialog({
 
   // 워커 변경되거나 열릴 때 트리거
   useEffect(() => {
-    if (isOpen && selectedWorkerId) {
-      void loadWorkflows(selectedWorkerId)
+    if (isOpen && effectiveWorkerId !== "") {
+      queueMicrotask(() => void loadWorkflows(effectiveWorkerId))
     }
-  }, [isOpen, selectedWorkerId, loadWorkflows])
+  }, [isOpen, effectiveWorkerId, loadWorkflows])
 
   // 파일 선택 및 API JSON 변환 로직
-  const handleSelectWorkflow = async (filename: string) => {
-    if (!selectedWorkerId) return
+  const handleSelectWorkflow = async (filename: string): Promise<void> => {
+    if (effectiveWorkerId === "") return
     setLoading(true)
     try {
       const content = await api.getComfyWorkflowContent(
-        selectedWorkerId,
+        effectiveWorkerId,
         filename
       )
 
-      if (!content || typeof content !== "object") {
-        toast.error("유효한 JSON 파일이 아닙니다.")
-        return
-      }
-
       // UI 포맷 JSON 인지 검증 (ComfyUI의 일반 저장 포맷은 nodes 배열을 포함함)
       if (Array.isArray(content.nodes)) {
-        const rawLinks = content.links || []
+        const rawLinks = Array.isArray(content.links) ? content.links : []
 
         // ComfyUI UI JSON의 links는 보통 튜플(배열) 형태이므로 ComfyWorkflowLink 인터페이스로 변환
         const formattedLinks: ComfyWorkflowLink[] = rawLinks.map(
-          (link: any) => {
-            if (Array.isArray(link)) {
+          (link: unknown): ComfyWorkflowLink => {
+            if (Array.isArray(link) && link.length >= 6) {
               return {
-                id: link[0],
-                origin_id: link[1],
-                origin_slot: link[2],
-                target_id: link[3],
-                target_slot: link[4],
-                type: link[5],
+                id: Number(link[0]),
+                origin_id: Number(link[1]),
+                origin_slot: Number(link[2]),
+                target_id: Number(link[3]),
+                target_slot: Number(link[4]),
+                type: String(link[5]),
               }
             }
-            return link
+            return link as ComfyWorkflowLink
           }
         )
 
@@ -166,7 +157,12 @@ export function ComfyWorkflowImportDialog({
   )
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>ComfyUI 워크플로우 직접 로드</DialogTitle>
@@ -183,7 +179,7 @@ export function ComfyWorkflowImportDialog({
               서버 선택
             </span>
             <Select
-              value={selectedWorkerId}
+              value={effectiveWorkerId}
               onValueChange={setSelectedWorkerId}
             >
               <SelectTrigger className="h-9 flex-1">
@@ -224,7 +220,7 @@ export function ComfyWorkflowImportDialog({
                 <Loader2 className="h-5 w-5 animate-spin" />
                 목록을 불러오는 중...
               </div>
-            ) : error ? (
+            ) : error !== null ? (
               <div className="px-4 py-8 text-center text-xs text-destructive">
                 {error}
               </div>

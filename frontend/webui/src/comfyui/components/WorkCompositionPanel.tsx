@@ -759,7 +759,7 @@ export function WorkCompositionPanel({
         onClose={() => { setIsComfyImportOpen(false); }}
         onImport={(workflowContent, fileName) => {
           try {
-            const parsed = JSON.parse(workflowContent)
+            const parsed: unknown = JSON.parse(workflowContent)
             const formattedJson = JSON.stringify(parsed, null, 2)
             const baseName = fileName.replace(/\.[^/.]+$/, "")
             const existingNames = workflow.savedWorkflows.map((w) => w.name)

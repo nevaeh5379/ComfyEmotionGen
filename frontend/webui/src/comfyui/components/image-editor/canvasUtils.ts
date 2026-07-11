@@ -13,10 +13,10 @@ export function hexToRgba(hex: string, alpha: string): string {
       .split("")
       .map((c) => c + c)
       .join("")
-  const r = Number.parseInt(h.slice(0, 2) ?? "ff", 16)
-  const g = Number.parseInt(h.slice(2, 4) ?? "ff", 16)
-  const b = Number.parseInt(h.slice(4, 6) ?? "ff", 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  const r = Number.parseInt(h.slice(0, 2), 16)
+  const g = Number.parseInt(h.slice(2, 4), 16)
+  const b = Number.parseInt(h.slice(4, 6), 16)
+  return `rgba(${String(r)}, ${String(g)}, ${String(b)}, ${alpha})`
 }
 
 export function getCanvasPoint(
@@ -156,9 +156,10 @@ export function floodFill(
   if (contiguous) {
     const stack: number[] = [sy * w + sx]
     while (stack.length > 0) {
-      const p = stack.pop()!
+      const p = stack.pop()
+      if (p === undefined) continue
       if (p < 0 || p >= w * h) continue
-      if (visited[p]) continue
+      if (visited[p] !== 0) continue
       visited[p] = 1
       const idx = p * 4
       if (!matches(idx)) continue
@@ -339,7 +340,7 @@ export function compositeLayers(
       ctx.restore()
       // 누적 합성 결과 갱신
       accumulated = ctx.getImageData(0, 0, target.width, target.height)
-    } else if (layer.kind === "adjustment" && layer.adjust && accumulated) {
+    } else if (layer.adjust !== undefined && accumulated !== null) {
       const adjusted = applyAdjust(accumulated, layer.adjust)
       ctx.putImageData(adjusted, 0, 0)
       accumulated = adjusted
@@ -417,8 +418,9 @@ export function cutSelectionToCanvas(
   const out = document.createElement("canvas")
   out.width = sourceCanvas.width
   out.height = sourceCanvas.height
-  const outCtx = out.getContext("2d")!
-  if (selection.maskCanvas) {
+  const outCtx = out.getContext("2d")
+  if (outCtx === null) throw new Error("context unavailable")
+  if (selection.maskCanvas !== undefined) {
     outCtx.drawImage(sourceCanvas, 0, 0)
     // 마스크 영역만 남기기
     outCtx.globalCompositeOperation = "destination-in"

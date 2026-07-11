@@ -430,9 +430,11 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
-            if (img.cegTemplate?.trim()) {
+            if ((img.cegTemplate?.trim() ?? "") !== "") {
+              const template = img.cegTemplate
+              if (template === undefined) return
               void navigator.clipboard
-                .writeText(img.cegTemplate)
+                .writeText(template)
                 .then(() => {
                   toast.success("CEG 문법이 클립보드에 복사되었습니다.")
                 })
@@ -441,7 +443,7 @@ const ImageGridItem = memo(function ImageGridItem({
                 })
             }
           }}
-          disabled={!img.cegTemplate?.trim()}
+          disabled={(img.cegTemplate?.trim() ?? "") === ""}
           className="gap-2 font-bold"
         >
           <FileCode2 className="h-3.5 w-3.5" />

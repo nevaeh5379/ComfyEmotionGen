@@ -43,7 +43,7 @@ export async function uploadToSavedImages(
   const file = new File([blob], filename, { type: "image/png" })
   const form = new FormData()
   form.append("file", file)
-  if (parentHash) {
+  if (parentHash !== undefined && parentHash !== "") {
     form.append("parent_hash", parentHash)
   }
   const res = await fetch(`${backendUrl}/saved-images/upload`, {

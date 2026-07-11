@@ -3,7 +3,13 @@
  * 각 레이어는 off-screen HTMLCanvasElement + 메타데이터.
  */
 
-import { useCallback, useRef, useState } from "react"
+import {
+  useCallback,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react"
 import type { AdjustSettings, Layer, LayerKind } from "../types"
 
 function createLayerCanvas(width: number, height: number): HTMLCanvasElement {
@@ -13,7 +19,32 @@ function createLayerCanvas(width: number, height: number): HTMLCanvasElement {
   return canvas
 }
 
-export function useLayerStack(width: number, height: number) {
+interface LayerStackController {
+  layers: Layer[]
+  activeLayerId: string | null
+  setActiveLayerId: Dispatch<SetStateAction<string | null>>
+  addLayer: (
+    kind: LayerKind,
+    opts?: {
+      name?: string
+      canvas?: HTMLCanvasElement
+      adjust?: AdjustSettings
+      opacity?: number
+      offsetX?: number
+      offsetY?: number
+    }
+  ) => Layer
+  removeLayer: (id: string) => void
+  updateLayer: (id: string, patch: Partial<Layer>) => void
+  moveLayer: (id: string, direction: "up" | "down") => void
+  getActiveLayer: () => Layer | null
+  resetLayers: () => void
+}
+
+export function useLayerStack(
+  width: number,
+  height: number
+): LayerStackController {
   const [layers, setLayers] = useState<Layer[]>([])
   const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
   const idCounter = useRef(0)
@@ -30,7 +61,7 @@ export function useLayerStack(width: number, height: number) {
         offsetY?: number
       } = {}
     ): Layer => {
-      const id = `layer-${Date.now()}-${String((idCounter.current += 1))}`
+      const id = `layer-${String(Date.now())}-${String((idCounter.current += 1))}`
       const canvas = opts.canvas ?? createLayerCanvas(width, height)
       const layer: Layer = {
         id,

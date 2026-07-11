@@ -151,7 +151,7 @@ export const ReactNode = memo(function ReactNode({
         }))
       }
     } else {
-      names = (nodeData?.properties?.widget_names as string[] | undefined) ?? []
+      names = (nodeData?.properties.widget_names as string[] | undefined) ?? []
       ins = nodeData?.inputs !== undefined ? [...nodeData.inputs] : []
       outs = nodeData?.outputs !== undefined ? [...nodeData.outputs] : []
 
@@ -588,7 +588,7 @@ export const ReactNode = memo(function ReactNode({
               const widgetIdx = widgetNames.indexOf(widgetName)
               const widgetValue =
                 widgetIdx !== -1
-                  ? (nodeData?.widgets_values?.[widgetIdx] ?? "")
+                  ? (nodeData?.widgets_values[widgetIdx] ?? "")
                   : ""
 
               return (
@@ -701,7 +701,7 @@ export const ReactNode = memo(function ReactNode({
                       <ReactWidget
                         name={name}
                         value={
-                          nodeData?.widgets_values?.[
+                          nodeData?.widgets_values[
                             widgetNames.indexOf(name)
                           ] ?? ""
                         }
@@ -744,8 +744,8 @@ export const ReactNode = memo(function ReactNode({
             liveNode?.properties?.html ??
             liveNode?.properties?.custom_html ??
             liveNode?.properties?.text_html ??
-            nodeData?.properties?.html ??
-            nodeData?.properties?.custom_html
+            nodeData?.properties.html ??
+            nodeData?.properties.custom_html
           const customHtml = typeof rawHtml === "string" ? rawHtml : ""
           if (!customHtml) return null
           return (

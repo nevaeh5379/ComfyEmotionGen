@@ -531,7 +531,9 @@ function GalleryGridItem({
                 }}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
+                onDrop={(event) => {
+                  void handleDrop(event)
+                }}
                 style={{
                   contentVisibility: "auto",
                   containIntrinsicSize: "240px 300px",

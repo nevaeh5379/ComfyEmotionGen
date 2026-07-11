@@ -146,9 +146,7 @@ function clamp(value: number, min: number, max: number): number {
 
 function getPoint(
   canvas: HTMLCanvasElement,
-  event: React.PointerEvent<HTMLCanvasElement>,
-  zoom: number,
-  pan: { x: number; y: number }
+  event: React.PointerEvent<HTMLCanvasElement>
 ): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
   return {
@@ -319,7 +317,7 @@ function buildAutoInpaintMappings(
   const entries = Object.entries(workflow)
   const promptNode =
     entries.find(([, node]) => {
-      const title = node._meta?.title?.toLowerCase() ?? ""
+      const title = node._meta?.title.toLowerCase() ?? ""
       return (
         node.class_type === "CLIPTextEncode" && /positive|prompt/.test(title)
       )
@@ -521,12 +519,13 @@ function formatComfyImageWidgetValue(data: {
   subfolder?: string
   type?: string
 }): string {
-  if (!data.name) throw new Error("업로드 응답에 파일명이 없습니다.")
+  if (data.name === undefined || data.name === "")
+    throw new Error("업로드 응답에 파일명이 없습니다.")
   const path =
-    data.subfolder && data.subfolder !== ""
+    data.subfolder !== undefined && data.subfolder !== ""
       ? `${data.subfolder}/${data.name}`
       : data.name
-  return `${path} [${data.type || "input"}]`
+  return `${path} [${data.type !== undefined && data.type !== "" ? data.type : "input"}]`
 }
 
 function createOverlayCanvas(
@@ -630,21 +629,21 @@ export function GalleryInpaintEditor({
   const [brushSize, setBrushSize] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("ceg_inpaint_brush_size")
-      return saved ? Number(saved) : 56
+      return saved !== null && saved !== "" ? Number(saved) : 56
     }
     return 56
   })
   const [brushHardness, setBrushHardness] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("ceg_inpaint_brush_hardness")
-      return saved ? Number(saved) : 1
+      return saved !== null && saved !== "" ? Number(saved) : 1
     }
     return 1
   })
   const [brushOpacity, setBrushOpacity] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("ceg_inpaint_brush_opacity")
-      return saved ? Number(saved) : 1
+      return saved !== null && saved !== "" ? Number(saved) : 1
     }
     return 1
   })
@@ -774,7 +773,8 @@ export function GalleryInpaintEditor({
     if (!canvas || !ctx) return
     if (historyRef.current.length === 0) return
     const current = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const previous = historyRef.current.pop()!
+    const previous = historyRef.current.pop()
+    if (previous === undefined) return
     futureRef.current.push(current)
     enforceImageDataHistoryLimit(
       historyRef.current,
@@ -792,7 +792,8 @@ export function GalleryInpaintEditor({
     if (!canvas || !ctx) return
     if (futureRef.current.length === 0) return
     const current = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const next = futureRef.current.pop()!
+    const next = futureRef.current.pop()
+    if (next === undefined) return
     historyRef.current.push(current)
     enforceImageDataHistoryLimit(
       historyRef.current,
@@ -830,8 +831,8 @@ export function GalleryInpaintEditor({
   // nodeMappings 가 변경될 때마다 현재 활성 워크플로우에 오토세이브
   useEffect(() => {
     if (!selectedWorkflowId) return
-    setInpaintWorkflows((prev) => {
-      return prev.map((item) => {
+    queueMicrotask(() => {
+      setInpaintWorkflows((prev) => prev.map((item) => {
         if (item.id === selectedWorkflowId) {
           if (JSON.stringify(item.mappings) === JSON.stringify(nodeMappings)) {
             return item
@@ -843,7 +844,7 @@ export function GalleryInpaintEditor({
           }
         }
         return item
-      })
+      }))
     })
   }, [nodeMappings, selectedWorkflowId])
 
@@ -868,18 +869,24 @@ export function GalleryInpaintEditor({
     const workflow =
       inpaintWorkflows.find((item) => item.id === selectedWorkflowId) ?? null
     if (workflow === null) {
-      setSelectedWorkflowIdState("")
+      queueMicrotask(() => {
+        setSelectedWorkflowIdState("")
+      })
       return
     }
-    setWorkflowName(workflow.name)
-    setWorkflowDraft(workflow.workflow)
-    setNodeMappings(workflow.mappings)
+    queueMicrotask(() => {
+      setWorkflowName(workflow.name)
+      setWorkflowDraft(workflow.workflow)
+      setNodeMappings(workflow.mappings)
+    })
   }, [inpaintWorkflows, selectedWorkflowId])
 
   useEffect(() => {
     if (!open) return
-    setReady(false)
-    setLoadError(false)
+    queueMicrotask(() => {
+      setReady(false)
+      setLoadError(false)
+    })
     let disposed = false
     const img = new Image()
     img.crossOrigin = "anonymous"
@@ -929,7 +936,9 @@ export function GalleryInpaintEditor({
       finalUrl =
         imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cors=anonymous"
     }
-    setSourceDisplayUrl(finalUrl)
+    queueMicrotask(() => {
+      setSourceDisplayUrl(finalUrl)
+    })
     img.src = finalUrl
 
     return (): void => {
@@ -953,7 +962,7 @@ export function GalleryInpaintEditor({
       const canvas = maskCanvasRef.current
       const ctx = canvas?.getContext("2d")
       if (!canvas || !ctx) return
-      const point = getPoint(canvas, event, zoom, pan)
+      const point = getPoint(canvas, event)
       const lastPoint = lastPointRef.current
       if (lastPoint === null) {
         drawDot(
@@ -989,7 +998,7 @@ export function GalleryInpaintEditor({
       }
       lastPointRef.current = point
     },
-    [brushHardness, brushOpacity, brushSize, mode, pan, zoom]
+    [brushHardness, brushOpacity, brushSize, mode]
   )
 
   const stopPaint = useCallback(() => {
@@ -1020,7 +1029,8 @@ export function GalleryInpaintEditor({
     )
     const urls = savedUrls.length > 0 ? savedUrls : activeInpaintJob.imageUrls
     if (urls.length === 0) return
-    setFinalImageUrls((prev) => {
+    queueMicrotask(() => {
+      setFinalImageUrls((prev) => {
       const merged = Array.from(new Set([...urls, ...prev]))
       // 저장된 이미지가 새로 들어오면 worker view 임시 URL을 제거해 중복 제거
       const next =
@@ -1038,6 +1048,7 @@ export function GalleryInpaintEditor({
         return prev
       }
       return trimmed
+      })
     })
   }, [activeInpaintJob, backendUrl])
 
@@ -1060,7 +1071,7 @@ export function GalleryInpaintEditor({
       })
     }
     window.addEventListener("ceg-image-event", handleImageEvent)
-    return () => {
+    return (): void => {
       window.removeEventListener("ceg-image-event", handleImageEvent)
     }
   }, [backendUrl, submittedJobIds])
@@ -1134,7 +1145,7 @@ export function GalleryInpaintEditor({
     }
     window.addEventListener("keydown", handleKeyDown)
     window.addEventListener("keyup", handleKeyUp)
-    return () => {
+    return (): void => {
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
     }
@@ -1258,7 +1269,7 @@ export function GalleryInpaintEditor({
   }, [parsedWorkflow])
 
   const handleImportSourcePrompt = useCallback(() => {
-    if (!sourcePrompt || sourcePrompt.trim() === "") {
+    if (sourcePrompt === undefined || sourcePrompt.trim() === "") {
       toast.error("원본 프롬프트 정보가 없습니다.")
       return
     }
@@ -1648,7 +1659,7 @@ export function GalleryInpaintEditor({
                   variant="ghost"
                   size="sm"
                   className="h-6 gap-1 px-2 text-[11px]"
-                  disabled={!sourcePrompt || sourcePrompt.trim() === ""}
+                  disabled={sourcePrompt === undefined || sourcePrompt.trim() === ""}
                   onClick={handleImportSourcePrompt}
                   title="이미지 생성에 사용된 프롬프트 가져오기"
                 >
@@ -2321,7 +2332,7 @@ export function GalleryInpaintEditor({
                   {/* 메인 결과 영역 — 단일 결과는 크게, 비교 모드면 원본과 나란히 */}
                   <div className="min-h-0 flex-1">
                     {finalImageUrls.length > 0 ? (
-                      (() => {
+                      ((): React.JSX.Element | null => {
                         const currentUrl =
                           finalImageUrls[safeSelectedResultIndex] ??
                           finalImageUrls[0] ??

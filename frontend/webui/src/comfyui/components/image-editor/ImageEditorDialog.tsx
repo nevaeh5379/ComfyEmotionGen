@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import {
   Tooltip,
   TooltipContent,
@@ -200,13 +199,12 @@ export function ImageEditorDialog({
     panY: number
   } | null>(null)
   const lassoPathRef = useRef<Point[]>([])
-  const cloneSourceRef = useRef<Point | null>(null)
   const removeMaskCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const cursorRef = useRef<HTMLDivElement | null>(null)
 
   const [ready, setReady] = useState(false)
   const [loadError, setLoadError] = useState(false)
-  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
+  const [cloneSource, setCloneSource] = useState<Point | null>(null)
   const [tool, setTool] = useState<ToolId>("move")
   const [brush, setBrush] = useState<BrushSettings>(DEFAULT_BRUSH)
   const [magicWand, setMagicWand] =
@@ -228,7 +226,7 @@ export function ImageEditorDialog({
   const [objectRemoveMode, setObjectRemoveMode] = useState<"paint" | "erase">(
     "paint"
   )
-  const [maskVersion, setMaskVersion] = useState(0)
+  const [, setMaskVersion] = useState(0)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [cropRect, setCropRect] = useState<{
     x: number
@@ -244,8 +242,10 @@ export function ImageEditorDialog({
   } | null>(null)
 
   useEffect(() => {
-    setCropRect(null)
-    setDragSelectionRect(null)
+    queueMicrotask(() => {
+      setCropRect(null)
+      setDragSelectionRect(null)
+    })
   }, [tool])
 
   const history = useCanvasHistory()
@@ -276,7 +276,6 @@ export function ImageEditorDialog({
       if (!display) return
       display.width = w
       display.height = h
-      setCanvasSize({ w, h })
       const bg = document.createElement("canvas")
       bg.width = w
       bg.height = h
@@ -473,7 +472,6 @@ export function ImageEditorDialog({
     layerStack.layers,
     selection.selection,
     view.zoom,
-    maskVersion,
     cropRect,
     tool,
     dragSelectionRect,
@@ -570,7 +568,7 @@ export function ImageEditorDialog({
       layerStack.addLayer("image", { name: "배경", canvas: bg })
       selection.clearSelection()
       setView({ zoom: 1, pan: { x: 0, y: 0 } })
-      toast.success(`잘림: ${newW}×${newH}`)
+      toast.success(`잘림: ${String(newW)}×${String(newH)}`)
     },
     [layerStack, selection]
   )
@@ -578,7 +576,7 @@ export function ImageEditorDialog({
   // 키보드 단축키
   useEffect(() => {
     if (!open) return
-    const onKeyDown = (e: KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement | null
       if (
         t &&
@@ -641,7 +639,7 @@ export function ImageEditorDialog({
         setView({ zoom: 1, pan: { x: 0, y: 0 } })
       }
     }
-    const onKeyUp = (e: KeyboardEvent) => {
+    const onKeyUp = (e: KeyboardEvent): void => {
       if (e.code === "Space") {
         setSpaceDown(false)
         setPanning(false)
@@ -650,7 +648,7 @@ export function ImageEditorDialog({
     }
     window.addEventListener("keydown", onKeyDown)
     window.addEventListener("keyup", onKeyUp)
-    return () => {
+    return (): void => {
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
     }
@@ -738,11 +736,11 @@ export function ImageEditorDialog({
       if (tool === "clone" || tool === "heal") {
         // Alt+클릭 = source 설정, 일반 클릭 = 복제 실행
         if (e.altKey) {
-          cloneSourceRef.current = imgPt
+          setCloneSource(imgPt)
           toast.success("복제 소스점 설정")
           return
         }
-        if (!cloneSourceRef.current || !activeCanvas) return
+        if (cloneSource === null || activeCanvas === null) return
         history.pushHistory(activeCanvas)
         paintingRef.current = true
         lastPointRef.current = imgPt
@@ -789,7 +787,7 @@ export function ImageEditorDialog({
       magicWand,
       selection,
       objectRemoveMode,
-      drawStrokeWithSelection,
+      cloneSource,
       setDragSelectionRect,
     ]
   )
@@ -856,10 +854,10 @@ export function ImageEditorDialog({
       }
 
       if (paintingRef.current && (tool === "clone" || tool === "heal")) {
-        if (!cloneSourceRef.current || !activeCanvas) return
+        if (cloneSource === null || activeCanvas === null) return
         const ctx = activeCanvas.getContext("2d")
         if (!ctx) return
-        const src = cloneSourceRef.current
+        const src = cloneSource
         const last = lastPointRef.current
         if (last) {
           const dx = imgPt.x - last.x
@@ -935,20 +933,19 @@ export function ImageEditorDialog({
       view,
       activeCanvas,
       brush,
-      history,
       renderComposite,
       updateCursor,
       objectRemoveMode,
+      cloneSource,
       setCropRect,
       selection,
-      drawStrokeWithSelection,
       setDragSelectionRect,
       setMaskVersion,
     ]
   )
 
   const onPointerUp = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    (_e: React.PointerEvent<HTMLCanvasElement>): void => {
       if (!ready) return
       const display = displayCanvasRef.current
       if (!display) return
@@ -959,8 +956,6 @@ export function ImageEditorDialog({
         panStartRef.current = null
         return
       }
-
-      const imgPt = clientToImagePoint(e.clientX, e.clientY, display, view)
 
       if (paintingRef.current) {
         paintingRef.current = false
@@ -1056,9 +1051,7 @@ export function ImageEditorDialog({
     [
       ready,
       tool,
-      view,
       selection,
-      applyCrop,
       activeLayer,
       layerStack,
       setCropRect,
@@ -1109,9 +1102,9 @@ export function ImageEditorDialog({
         const out = document.createElement("canvas")
         out.width = display.width
         out.height = display.height
-        out
-          .getContext("2d")!
-          .drawImage(img, 0, 0, display.width, display.height)
+        const outContext = out.getContext("2d")
+        if (outContext === null) return
+        outContext.drawImage(img, 0, 0, display.width, display.height)
         layerStack.addLayer("image", { name: "객체 제거 결과", canvas: out })
         URL.revokeObjectURL(url)
         // 마스크 초기화
@@ -1150,7 +1143,7 @@ export function ImageEditorDialog({
     if (!display) return
     try {
       compositeLayers(layerStack.layers, display)
-      const name = `${baseName(filename)}-edit-${Date.now()}.png`
+      const name = `${baseName(filename)}-edit-${String(Date.now())}.png`
       const res = await uploadToSavedImages(
         backendUrl,
         display,
@@ -1169,8 +1162,8 @@ export function ImageEditorDialog({
     const display = displayCanvasRef.current
     if (!display) return
     compositeLayers(layerStack.layers, display)
-    downloadCanvas(display, `${baseName(filename)}-edit-${Date.now()}.png`)
-  }, [filename, layerStack, renderComposite])
+    downloadCanvas(display, `${baseName(filename)}-edit-${String(Date.now())}.png`)
+  }, [filename, layerStack])
 
   const cursorDiameter = brush.size * cursorScale
 
@@ -1301,7 +1294,7 @@ export function ImageEditorDialog({
                     setTool={setTool}
                     icon={<Sparkles className="size-4" />}
                     label={TOOL_LABELS["object-remove"]}
-                    disabled={!inpaintCaps?.enabled}
+                    disabled={inpaintCaps?.enabled !== true}
                   />
                   <ToolButton
                     tool="adjust"
@@ -1598,8 +1591,10 @@ export function ImageEditorDialog({
                       </Button>
                       <Button
                         size="sm"
-                        onClick={handleRunRemove}
-                        disabled={removing || !inpaintCaps?.enabled}
+                        onClick={() => {
+                          void handleRunRemove()
+                        }}
+                        disabled={removing || inpaintCaps?.enabled !== true}
                         className="h-8 flex-1 text-[11px]"
                       >
                         <Sparkles className="mr-1 size-3.5" />
@@ -1607,7 +1602,7 @@ export function ImageEditorDialog({
                       </Button>
                     </div>
 
-                    {!inpaintCaps?.enabled && (
+                    {inpaintCaps?.enabled !== true && (
                       <p className="rounded border border-destructive/20 bg-destructive/5 p-2 text-[10px] leading-tight text-destructive">
                         {inpaintCaps?.reason ??
                           "LaMa 미지원 (requirements-inpaint.txt 설치 필요)"}
@@ -1682,9 +1677,9 @@ export function ImageEditorDialog({
                         variant="ghost"
                         size="sm"
                         className="size-8 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30"
-                        onClick={() =>
-                          activeCanvas && history.undo(activeCanvas)
-                        }
+                        onClick={() => {
+                          if (activeCanvas !== null) history.undo(activeCanvas)
+                        }}
                         disabled={!history.canUndo}
                       >
                         <Undo2 className="size-4" />
@@ -1698,9 +1693,9 @@ export function ImageEditorDialog({
                         variant="ghost"
                         size="sm"
                         className="size-8 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30"
-                        onClick={() =>
-                          activeCanvas && history.redo(activeCanvas)
-                        }
+                        onClick={() => {
+                          if (activeCanvas !== null) history.redo(activeCanvas)
+                        }}
                         disabled={!history.canRedo}
                       >
                         <Redo2 className="size-4" />
@@ -1766,7 +1761,7 @@ export function ImageEditorDialog({
                       : "cursor-crosshair"
                 )}
                 style={{
-                  transform: `translate(${view.pan.x}px, ${view.pan.y}px) scale(${view.zoom})`,
+                  transform: `translate(${String(view.pan.x)}px, ${String(view.pan.y)}px) scale(${String(view.zoom)})`,
                   transformOrigin: "center",
                   imageRendering: "pixelated",
                 }}
@@ -1794,10 +1789,10 @@ export function ImageEditorDialog({
                       "pointer-events-none absolute rounded-full border border-white mix-blend-difference shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
                     )}
                     style={{
-                      width: `${cursorDiameter}px`,
-                      height: `${cursorDiameter}px`,
-                      left: `${cursorPos.x - cursorDiameter / 2}px`,
-                      top: `${cursorPos.y - cursorDiameter / 2}px`,
+                      width: `${String(cursorDiameter)}px`,
+                      height: `${String(cursorDiameter)}px`,
+                      left: `${String(cursorPos.x - cursorDiameter / 2)}px`,
+                      top: `${String(cursorPos.y - cursorDiameter / 2)}px`,
                     }}
                   />
                 )}
@@ -1819,7 +1814,7 @@ export function ImageEditorDialog({
                   AI 마스크 모드 활성화됨
                 </div>
               )}
-              {tool === "clone" && cloneSourceRef.current === null && (
+              {tool === "clone" && cloneSource === null && (
                 <div className="absolute top-3 left-1/2 flex -translate-x-1/2 animate-bounce items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-1 text-xs text-yellow-500 shadow-lg backdrop-blur select-none">
                   <Info className="size-3.5" />
                   <span>Alt + 클릭으로 복사할 소스점을 먼저 지정하세요.</span>
@@ -1840,11 +1835,11 @@ export function ImageEditorDialog({
                       size="sm"
                       variant="ghost"
                       className="size-7 p-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-                      onClick={() =>
+                      onClick={() => {
                         layerStack.addLayer("image", {
-                          name: `레이어 ${layerStack.layers.length + 1}`,
+                          name: `레이어 ${String(layerStack.layers.length + 1)}`,
                         })
-                      }
+                      }}
                     >
                       <Plus className="size-4" />
                     </Button>
@@ -1902,7 +1897,9 @@ export function ImageEditorDialog({
                 </Button>
                 <Button
                   size="sm"
-                  onClick={handleSaveToGallery}
+                  onClick={() => {
+                    void handleSaveToGallery()
+                  }}
                   disabled={!ready}
                   className="w-full text-[11px]"
                 >

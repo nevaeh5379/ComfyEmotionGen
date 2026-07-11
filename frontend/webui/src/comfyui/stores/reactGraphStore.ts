@@ -35,7 +35,6 @@ import {
 import {
   isRootGraphId,
   isValidSlotConnection,
-  normalizeWorkflowNodeForEditor,
   normalizeWorkflowForEditor,
 } from "../utils/workflowGraphModel"
 
@@ -631,7 +630,7 @@ export const useReactGraphStore = create<ReactGraphState>(
         nodes: nodes.map((node: EditorWorkflowNode): EditorWorkflowNode => {
           if (node.id !== nodeId) return node
 
-          const widgetNames = (node.properties?.widget_names ?? []) as string[]
+          const widgetNames = (node.properties.widget_names ?? []) as string[]
 
           if (widgetNames.length === 0) {
             const def = useNodeDefStore.getState().getNodeDef(node.type)
@@ -649,10 +648,7 @@ export const useReactGraphStore = create<ReactGraphState>(
           const idx = widgetNames.indexOf(widgetName)
           if (idx === -1) return node
 
-          const defaultValues: WidgetValue[] = new Array<WidgetValue>(
-            widgetNames.length
-          ).fill("")
-          const nextValues = [...(node.widgets_values ?? defaultValues)]
+          const nextValues = [...node.widgets_values]
           while (nextValues.length < widgetNames.length) nextValues.push("")
           nextValues[idx] = value
 
@@ -660,7 +656,7 @@ export const useReactGraphStore = create<ReactGraphState>(
             ...node,
             widgets_values: nextValues,
             properties: {
-              ...(node.properties ?? {}),
+              ...node.properties,
               widget_names: widgetNames,
             },
           }

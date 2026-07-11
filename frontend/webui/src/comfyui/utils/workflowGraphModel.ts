@@ -177,7 +177,7 @@ export function serializeGraphState(
       order: node.order,
       color: node.color,
       bgcolor: node.bgcolor,
-      ...(node.graphId !== undefined ? { graphId: node.graphId } : {}),
+      graphId: node.graphId,
     })),
     links: state.links.map((link) => ({
       id: link.id,

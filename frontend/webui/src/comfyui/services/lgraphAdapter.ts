@@ -677,7 +677,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         if (current?.widgets_values === undefined) return undefined
         const wv = current.widgets_values
         if (Array.isArray(wv)) {
-          const widgetNames = (current.properties?.widget_names ??
+          const widgetNames = (current.properties.widget_names ??
             []) as string[]
           const projected = wv.map((v: unknown, idx: number) => ({
             type: "text",
@@ -786,7 +786,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
         const numTargetSlot = typeof targetSlot === "string" ? 0 : targetSlot
         const originOutput = store
           .getState()
-          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs?.[
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs[
           slot
         ]
         const type = originOutput?.type ?? "*"
@@ -796,7 +796,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       disconnectInput(slot: number): void {
         const input = store
           .getState()
-          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.inputs?.[
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.inputs[
           slot
         ]
         if (input?.link !== undefined) {
@@ -806,7 +806,7 @@ export class LGraphAdapter implements LGraphAdapterInterface {
       disconnectOutput(slot: number): void {
         const output = store
           .getState()
-          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs?.[
+          .nodes.find((n: ComfyWorkflowNode) => n.id === node.id)?.outputs[
           slot
         ]
         if (output?.links) {

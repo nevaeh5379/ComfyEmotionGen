@@ -70,7 +70,7 @@ export function NodeMappingProvider({
   }, [imageUploads])
 
   useEffect(() => {
-    return () => {
+    return (): void => {
       Object.values(imageUploadsRef.current).forEach((upload) => {
         if (upload.previewUrl?.startsWith("blob:") === true) {
           URL.revokeObjectURL(upload.previewUrl)

@@ -2363,9 +2363,11 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                             </ContextMenuItem>
                             <ContextMenuItem
                               onClick={(): void => {
-                                if (img.cegTemplate?.trim()) {
+                                if ((img.cegTemplate?.trim() ?? "") !== "") {
+                                  const template = img.cegTemplate
+                                  if (template === undefined) return
                                   void navigator.clipboard
-                                    .writeText(img.cegTemplate)
+                                    .writeText(template)
                                     .then(() => {
                                       toast.success(
                                         "CEG 문법이 클립보드에 복사되었습니다."
@@ -2378,7 +2380,7 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                                     })
                                 }
                               }}
-                              disabled={!img.cegTemplate?.trim()}
+                              disabled={(img.cegTemplate?.trim() ?? "") === ""}
                               className="gap-2 font-bold"
                             >
                               <FileCode2 className="h-3.5 w-3.5" />
@@ -2717,9 +2719,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 singleDownloadMode={singleDownloadMode}
               />
             )}
-            {inpaintImage && (
+            {inpaintImage !== null && (
               <GalleryInpaintEditor
-                open={inpaintImage !== null}
+                open
                 backendUrl={backendUrl}
                 imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
                 filename={getImageFilename(inpaintImage)}
@@ -2730,9 +2732,9 @@ export const SavedImagesGallery = memo(function SavedImagesGallery({
                 }}
               />
             )}
-            {editImage && (
+            {editImage !== null && (
               <ImageEditorDialog
-                open={editImage !== null}
+                open
                 backendUrl={backendUrl}
                 imageUrl={`${backendUrl}/saved-images/${editImage.hash}`}
                 filename={getImageFilename(editImage)}

@@ -1354,7 +1354,7 @@ export class ComfyAppService {
                   ? {
                       ...n,
                       properties: {
-                        ...(n.properties ?? {}),
+                        ...n.properties,
                         widget_names: widgetNames,
                       },
                     }
@@ -1380,7 +1380,7 @@ export class ComfyAppService {
         const existing = useReactGraphStore
           .getState()
           .nodes.find((n) => n.id === node.id)
-        const existingWidgetNames = existing?.properties?.widget_names as
+        const existingWidgetNames = existing?.properties.widget_names as
           | string[]
           | undefined
         if (
@@ -1412,7 +1412,7 @@ export class ComfyAppService {
                     ? {
                         ...n,
                         properties: {
-                          ...(n.properties ?? {}),
+                          ...n.properties,
                           widget_names: widgetNames,
                         },
                       }
@@ -1499,12 +1499,12 @@ export class ComfyAppService {
     // subgraph 내부 노드가 있으면 계층 ID 방식 사용
     const hasSubgraphs =
       state.subgraphs.size > 0 &&
-      state.nodes.some((n) => n.graphId !== null && n.graphId !== undefined)
+      state.nodes.some((n) => n.graphId !== null)
     if (hasSubgraphs) {
       return convertGraphToPromptWithSubgraphs(state.nodes, state.links)
     }
     return convertGraphToPrompt(
-      state.nodes.filter((n) => n.graphId === null || n.graphId === undefined),
+      state.nodes.filter((n) => n.graphId === null),
       state.links
     )
   }

@@ -443,7 +443,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           img.originalFilename,
           img.prompt,
           img.status,
-          ...(img.tags ?? []),
+          ...img.tags,
         ]),
       ]
         .join(" ")
@@ -893,8 +893,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     if (selectedFilename === null) return
     setCegDraftByFilename((prev) => {
       if (prev[selectedFilename] === undefined) return prev
-      const next = { ...prev }
-      delete next[selectedFilename]
+      const { [selectedFilename]: _removed, ...next } = prev
       return next
     })
   }, [selectedFilename])
@@ -1170,7 +1169,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                   setEditImage(img)
                 }}
                 heldFilenames={heldFilenames}
-                onToggleHold={() => toggleHoldCuration(selectedFilename)}
+                onToggleHold={() => { toggleHoldCuration(selectedFilename); }}
               />
               {viewMode === "tournament" && (
                 <div className="flex-1 overflow-hidden">
@@ -1288,9 +1287,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             }}
           />
         )}
-        {inpaintImage && (
+        {inpaintImage !== null && (
           <GalleryInpaintEditor
-            open={inpaintImage !== null}
+            open
             backendUrl={backendUrl}
             imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
             filename={getImageFilename(inpaintImage)}
@@ -1301,9 +1300,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             }}
           />
         )}
-        {editImage && (
+        {editImage !== null && (
           <ImageEditorDialog
-            open={editImage !== null}
+            open
             backendUrl={backendUrl}
             imageUrl={`${backendUrl}/saved-images/${editImage.hash}`}
             filename={getImageFilename(editImage)}

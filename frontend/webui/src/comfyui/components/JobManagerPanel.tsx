@@ -846,7 +846,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             next.delete(jobId)
             next.set(jobId, hashes)
             while (next.size > 50) {
-              const oldestKey = next.keys().next().value as string | undefined
+              const oldestKey = next.keys().next().value
               if (oldestKey === undefined) break
               next.delete(oldestKey)
             }

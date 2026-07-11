@@ -635,9 +635,9 @@ export class ComfyApi extends EventTarget {
     )
   }
 
-  async getComfyWorkflows(workerId: string): Promise<any[]> {
+  async getComfyWorkflows(workerId: string): Promise<unknown[]> {
     const res = await this.fetchApi(`/workers/${workerId}/comfy_workflows`)
-    return await readJsonOrDefault<any[]>(
+    return await readJsonOrDefault<unknown[]>(
       res,
       [],
       `/workers/${workerId}/comfy_workflows`
@@ -647,11 +647,11 @@ export class ComfyApi extends EventTarget {
   async getComfyWorkflowContent(
     workerId: string,
     filename: string
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const res = await this.fetchApi(
       `/workers/${workerId}/comfy_workflows/${filename}`
     )
-    return await readJsonOrDefault<Record<string, any>>(
+    return await readJsonOrDefault<Record<string, unknown>>(
       res,
       {},
       `/workers/${workerId}/comfy_workflows/${filename}`

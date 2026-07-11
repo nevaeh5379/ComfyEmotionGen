@@ -260,7 +260,9 @@ export function EditorTab({
   // object_info 로드
   useEffect(() => {
     if (Object.keys(nodeDefs).length > 0) {
-      setIsLoading(false)
+      queueMicrotask(() => {
+        setIsLoading(false)
+      })
       return
     }
     let cancelled = false
