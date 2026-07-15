@@ -10,8 +10,12 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Server,
+  Braces,
+  Play,
+  Shuffle,
+  Clock,
 } from "lucide-react"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { ComfyWorkflowImportDialog } from "./ComfyWorkflowImportDialog"
@@ -31,12 +35,54 @@ import { CegTemplatePanel } from "./CegTemplatePanel"
 import { SaveInputBar } from "./SavedItemsManager"
 import { NodeMappingSection } from "./NodeMappingSection"
 import { WorkflowFormEditor } from "./WorkflowFormEditor"
+import { JsonTreeEditor } from "./JsonTreeEditor"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { useTemplateContext } from "../contexts/useTemplateContext"
 import { useWorkflowContext } from "../contexts/WorkflowContext"
 import { useNodeMappingContext } from "../contexts/NodeMappingContext"
 import type { WorkerView } from "../types/Message"
 import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
-import type { AxisValueFilter } from "../../lib/workflowUtils"
+import {
+  itemKey,
+  randomSelect,
+  substitute,
+  type AxisValueFilter,
+} from "../../lib/workflowUtils"
+
+const WORKFLOW_TEST_RECENTS_KEY = "workflow_test_recent_items"
+const MAX_WORKFLOW_TEST_RECENTS = 5
+
+function loadWorkflowTestRecents(): RenderItem[] {
+  try {
+    const value = JSON.parse(
+      localStorage.getItem(WORKFLOW_TEST_RECENTS_KEY) ?? "[]"
+    ) as unknown
+    return Array.isArray(value) ? (value as RenderItem[]) : []
+  } catch {
+    return []
+  }
+}
+
+function saveWorkflowTestRecent(item: RenderItem): void {
+  const next = [
+    item,
+    ...loadWorkflowTestRecents().filter(
+      (recent) => itemKey(recent) !== itemKey(item)
+    ),
+  ].slice(0, MAX_WORKFLOW_TEST_RECENTS)
+  try {
+    localStorage.setItem(WORKFLOW_TEST_RECENTS_KEY, JSON.stringify(next))
+  } catch {
+    /* ignore storage errors */
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -96,7 +142,9 @@ export interface WorkCompositionPanelProps {
   onToggleJobsLayoutOrientation?: () => void
   // Axis entry context menu (for CegTemplatePanel)
   axisValueFilter?: AxisValueFilter | undefined
-  setAxisValueFilter?: React.Dispatch<React.SetStateAction<AxisValueFilter>> | undefined
+  setAxisValueFilter?:
+    | React.Dispatch<React.SetStateAction<AxisValueFilter>>
+    | undefined
   renderResponse?: RenderItemsResponse | null | undefined
   onRunSingle?: ((item: RenderItem) => Promise<boolean>) | undefined
   parserError?: string | null | undefined
@@ -146,19 +194,38 @@ export function WorkCompositionPanel({
   const workflow = useWorkflowContext()
   const nodeMapping = useNodeMappingContext()
 
-  const [viewMode, setViewMode] = useState<"code" | "form">(() => {
+  const [viewMode, setViewMode] = useState<"code" | "form" | "tree">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("workflow_editor_view_mode")
-      if (saved === "code" || saved === "form") return saved
+      if (saved === "code" || saved === "form" || saved === "tree") return saved
     }
     return "code"
   })
   const [isComfyImportOpen, setIsComfyImportOpen] = useState(false)
 
-  const handleSetViewMode = useCallback((mode: "code" | "form") => {
+  const handleSetViewMode = useCallback((mode: "code" | "form" | "tree") => {
     setViewMode(mode)
     localStorage.setItem("workflow_editor_view_mode", mode)
   }, [])
+  const recentTestItems = useMemo(() => {
+    if (!renderResponse) return []
+    const currentItems = new Map(
+      renderResponse.items.map((item) => [itemKey(item), item])
+    )
+    return loadWorkflowTestRecents()
+      .map((item) => currentItems.get(itemKey(item)))
+      .filter((item): item is RenderItem => item !== undefined)
+      .slice(0, 3)
+  }, [renderResponse])
+
+  const runWorkflowTest = useCallback(
+    (item: RenderItem) => {
+      if (!onRunSingle) return
+      saveWorkflowTestRecent(item)
+      void onRunSingle(item)
+    },
+    [onRunSingle]
+  )
 
   // Helper to generate a unique preset/workflow/template name if conflict exists
   const getUniquePresetName = useCallback(
@@ -517,6 +584,17 @@ export function WorkCompositionPanel({
                   <SlidersHorizontal className="mr-1 h-3 w-3 text-muted-foreground" />
                   속성 편집
                 </Button>
+                <Button
+                  variant={viewMode === "tree" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-6 cursor-pointer px-2 text-[10px] font-extrabold shadow-xs"
+                  onClick={() => {
+                    handleSetViewMode("tree")
+                  }}
+                >
+                  <Braces className="mr-1 h-3 w-3 text-muted-foreground" />
+                  JSON 트리
+                </Button>
               </div>
 
               <div className="h-4 w-px shrink-0 bg-line/65" />
@@ -575,7 +653,9 @@ export function WorkCompositionPanel({
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 text-muted-foreground"
-                      onClick={() => { setIsComfyImportOpen(true); }}
+                      onClick={() => {
+                        setIsComfyImportOpen(true)
+                      }}
                     >
                       <Server className="h-3.5 w-3.5" />
                     </Button>
@@ -629,51 +709,116 @@ export function WorkCompositionPanel({
               </div>
             </div>
 
-            {/* Scrollable Body */}
-            <div
-              className="flex min-h-0 flex-1 flex-col overflow-y-auto"
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-                  e.preventDefault()
-                  if (workflow.activeWorkflow) {
-                    handleUpdateWorkflow()
-                  } else {
-                    const input =
-                      e.currentTarget.parentElement?.querySelector("input")
-                    input?.focus()
-                  }
-                }
-              }}
-            >
-              {viewMode === "code" ? (
-                <CodeEditor
-                  language="json"
-                  placeholder="워크플로우 JSON 입력"
-                  value={workflow.workflowJson}
-                  onChange={workflow.setWorkflowJson}
-                  onFileOpen={handleWorkflowFileOpen}
-                  minHeight="80px"
-                  bareWrapper
-                  className="h-full min-h-0 w-full flex-1"
-                />
-              ) : (
-                <WorkflowFormEditor
-                  workflowJson={workflow.workflowJson}
-                  onChangeWorkflowJson={workflow.setWorkflowJson}
-                  parsedWorkflowData={
-                    workflow.parsedWorkflow?.success === true
-                      ? workflow.parsedWorkflow.data
-                      : null
-                  }
-                  objectInfo={nodeMapping.objectInfo}
-                  onBackToCode={() => {
-                    handleSetViewMode("code")
+            {/* Scrollable Body + workflow test context menu */}
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <div
+                  className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+                      e.preventDefault()
+                      if (workflow.activeWorkflow) {
+                        handleUpdateWorkflow()
+                      } else {
+                        const input =
+                          e.currentTarget.parentElement?.querySelector("input")
+                        input?.focus()
+                      }
+                    }
                   }}
-                  workers={workers}
-                  setObjectInfo={nodeMapping.setObjectInfo}
-                />
-              )}
-            </div>
+                >
+                  {viewMode === "code" ? (
+                    <CodeEditor
+                      language="json"
+                      placeholder="워크플로우 JSON 입력"
+                      value={workflow.workflowJson}
+                      onChange={workflow.setWorkflowJson}
+                      onFileOpen={handleWorkflowFileOpen}
+                      minHeight="80px"
+                      bareWrapper
+                      className="h-full min-h-0 w-full flex-1"
+                    />
+                  ) : viewMode === "form" ? (
+                    <WorkflowFormEditor
+                      workflowJson={workflow.workflowJson}
+                      onChangeWorkflowJson={workflow.setWorkflowJson}
+                      parsedWorkflowData={
+                        workflow.parsedWorkflow?.success === true
+                          ? workflow.parsedWorkflow.data
+                          : null
+                      }
+                      objectInfo={nodeMapping.objectInfo}
+                      onBackToCode={() => {
+                        handleSetViewMode("code")
+                      }}
+                      workers={workers}
+                      setObjectInfo={nodeMapping.setObjectInfo}
+                    />
+                  ) : (
+                    <JsonTreeEditor
+                      value={workflow.workflowJson}
+                      onChange={workflow.setWorkflowJson}
+                      onBackToCode={() => {
+                        handleSetViewMode("code")
+                      }}
+                    />
+                  )}
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-64">
+                <ContextMenuLabel>워크플로우 바로 테스트</ContextMenuLabel>
+                <ContextMenuItem
+                  disabled={
+                    !canRun ||
+                    !onRunSingle ||
+                    (renderResponse?.items.length ?? 0) === 0
+                  }
+                  onSelect={() => {
+                    const items = renderResponse?.items
+                    if (!items || items.length === 0) return
+                    const [item] = randomSelect(items, 1)
+                    if (item) runWorkflowTest(item)
+                  }}
+                >
+                  <Shuffle />
+                  랜덤 조합으로 테스트
+                </ContextMenuItem>
+                <ContextMenuItem
+                  disabled={
+                    !canRun || (renderResponse?.items.length ?? 0) === 0
+                  }
+                  onSelect={onSelectionOpen}
+                >
+                  <Play />
+                  조합 선택...
+                  {(renderResponse?.items.length ?? 0) > 0 ? (
+                    <span className="ml-auto text-[10px] text-muted-foreground">
+                      {String(renderResponse?.items.length ?? 0)}개
+                    </span>
+                  ) : null}
+                </ContextMenuItem>
+                {recentTestItems.length > 0 && (
+                  <>
+                    <ContextMenuSeparator />
+                    <ContextMenuLabel>최근 선택한 조합</ContextMenuLabel>
+                    {recentTestItems.map((item) => (
+                      <ContextMenuItem
+                        key={`workflow-recent-${itemKey(item)}`}
+                        disabled={!canRun || !onRunSingle}
+                        onSelect={() => {
+                          runWorkflowTest(item)
+                        }}
+                      >
+                        <Clock className="text-blue-400" />
+                        <span className="min-w-0 flex-1 truncate font-mono text-[10px]">
+                          {substitute(item.filename, item)}
+                        </span>
+                      </ContextMenuItem>
+                    ))}
+                  </>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
 
             {workflow.parsedWorkflow !== undefined &&
               !workflow.parsedWorkflow.success && (
@@ -756,7 +901,9 @@ export function WorkCompositionPanel({
 
       <ComfyWorkflowImportDialog
         isOpen={isComfyImportOpen}
-        onClose={() => { setIsComfyImportOpen(false); }}
+        onClose={() => {
+          setIsComfyImportOpen(false)
+        }}
         onImport={(workflowContent, fileName) => {
           try {
             const parsed: unknown = JSON.parse(workflowContent)

@@ -100,6 +100,21 @@ export function hasApproved(images: SavedImage[]): boolean {
   return images.some((img) => img.status === "approved")
 }
 
+/**
+ * The caller already matched images to a render item via axisSignature
+ * (imagesByFilename), so we only need to check the approval status here.
+ * Filename equality is NOT checked because edited images (e.g. those saved
+ * from the image editor with a `-edit-{timestamp}` suffix) have a different
+ * originalFilename but the same axis signature, and should still count as
+ * exportable for their matched combination folder.
+ */
+export function hasExportableApproved(
+  _filename: string,
+  images: SavedImage[]
+): boolean {
+  return images.some((img) => img.status === "approved")
+}
+
 export function findApproved(images: SavedImage[]): SavedImage | undefined {
   return images.find((img) => img.status === "approved")
 }

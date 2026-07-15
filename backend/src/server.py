@@ -346,6 +346,7 @@ class ExportRequest(BaseModel):
     """
     status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = "approved"
     filenames: Optional[List[str]] = None
+    hashes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     duplicateStrategy: Literal["hash", "number"] = "hash"
 
@@ -1896,7 +1897,13 @@ async def export_dataset(body: ExportRequest) -> StreamingResponse:
     via 'hash' or 'number' strategy.
     """
     items_all: list[dict[str, JSONValue]] = []
-    if body.filenames:
+    if body.hashes:
+        wanted = set(body.hashes)
+        all_by_hash = await job_manager._store.list_saved_images(
+            limit=100_000, offset=0, status=body.status
+        )
+        items_all = [it for it in all_by_hash if str(it.get("hash", "")) in wanted]
+    elif body.filenames:
         for fn in body.filenames:
             items_all.extend(
                 await job_manager._store.list_saved_images(

@@ -1,12 +1,23 @@
 import { useCurationContext } from "./CurationContext"
 import { StatusIcon } from "./CombinationPickerHelpers"
-import { hasApproved } from "../../types/Message"
-import { FolderIcon, ImageIcon, SearchIcon, XIcon } from "lucide-react"
+import { hasExportableApproved } from "../../types/Message"
+import {
+  CrosshairIcon,
+  CheckSquareIcon,
+  Clock3Icon,
+  FolderIcon,
+  ImageIcon,
+  LoaderCircleIcon,
+  SearchIcon,
+  SquareIcon,
+  XIcon,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { RenderItem } from "./CombinationPickerComponents"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { useRef } from "react"
+import { useMemo, useRef } from "react"
+import { useBackend } from "../../hooks/useBackend"
 
 export type SidebarFilter =
   | "all"
@@ -48,8 +59,10 @@ export function CombinationPickerSidebar({
   setFilter,
   heldFilenames = [],
 }: SidebarProps): React.JSX.Element {
-  const { backendUrl, data } = useCurationContext()
+  const { backendUrl, data, selection } = useCurationContext()
+  const { jobs } = useBackend()
   const { imagesByFilename } = data
+  const { selectionMode, selectedFilenames, toggleSelect } = selection
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const rowVirtualizer = useVirtualizer({
     count: items.length,
@@ -57,6 +70,46 @@ export function CombinationPickerSidebar({
     estimateSize: () => 104,
     overscan: 4,
   })
+  const selectedIndex = useMemo(
+    () => items.findIndex((item) => item.filename === selectedFilename),
+    [items, selectedFilename]
+  )
+  const activeJobsByFilename = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { running: number; waiting: number; progress: number }
+    >()
+    for (const job of jobs) {
+      if (
+        job.status !== "running" &&
+        job.status !== "queued" &&
+        job.status !== "pending"
+      ) {
+        continue
+      }
+      const current = grouped.get(job.filename) ?? {
+        running: 0,
+        waiting: 0,
+        progress: 0,
+      }
+      if (job.status === "running") {
+        current.running += 1
+        current.progress += job.progressPercent
+      } else {
+        current.waiting += 1
+      }
+      grouped.set(job.filename, current)
+    }
+    return grouped
+  }, [jobs])
+
+  const scrollToCurrent = (): void => {
+    if (selectedIndex < 0) return
+    rowVirtualizer.scrollToIndex(selectedIndex, {
+      align: "center",
+      behavior: "smooth",
+    })
+  }
 
   return (
     <div
@@ -65,8 +118,26 @@ export function CombinationPickerSidebar({
         maxHeight: "calc(100vh - 45px - var(--toolbar-height, 60px) - 20px)",
       }}
     >
-      <div className="border-b bg-muted/30 p-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-        Combinations
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-2 py-1.5">
+        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+          Combinations
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-[10px] font-bold"
+          disabled={selectedIndex < 0}
+          onClick={scrollToCurrent}
+          title={
+            selectedIndex < 0
+              ? "현재 조합이 검색 또는 필터 결과에 없습니다."
+              : `현재 조합으로 이동 (${String(selectedIndex + 1)} / ${String(items.length)})`
+          }
+        >
+          <CrosshairIcon className="h-3.5 w-3.5" />
+          현재 위치
+        </Button>
       </div>
       <div className="border-b bg-background/80 p-2">
         <div className="relative">
@@ -125,8 +196,10 @@ export function CombinationPickerSidebar({
               const item = items[virtualRow.index]
               if (item === undefined) return null
               const imgs = imagesByFilename.get(item.filename) ?? []
-              const isDone = hasApproved(imgs)
+              const isDone = hasExportableApproved(item.filename, imgs)
               const isActive = item.filename === selectedFilename
+              const isBatchSelected = selectedFilenames.has(item.filename)
+              const activeJobs = activeJobsByFilename.get(item.filename)
               return (
                 <div
                   key={item.filename}
@@ -138,23 +211,42 @@ export function CombinationPickerSidebar({
                   }}
                 >
                   <button
-                    onClick={() => {
-                      setSelectedFilename(item.filename)
+                    onClick={(event) => {
+                      if (
+                        selectionMode ||
+                        event.ctrlKey ||
+                        event.metaKey ||
+                        event.shiftKey
+                      ) {
+                        toggleSelect(item.filename, event)
+                      } else {
+                        setSelectedFilename(item.filename)
+                      }
                     }}
                     className={`flex w-full items-start gap-2 rounded-md p-2 text-left transition-colors ${
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-foreground hover:bg-accent/50"
+                      isBatchSelected
+                        ? "bg-blue-500/15 text-foreground ring-1 ring-blue-500/50 ring-inset"
+                        : isActive
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-foreground hover:bg-accent/50"
                     }`}
                   >
                     <span className="mt-0.5 flex-none">
-                      <StatusIcon done={isDone} active={isActive} />
+                      {selectionMode ? (
+                        isBatchSelected ? (
+                          <CheckSquareIcon className="h-4 w-4 text-blue-500" />
+                        ) : (
+                          <SquareIcon className="h-4 w-4 text-muted-foreground/50" />
+                        )
+                      ) : (
+                        <StatusIcon done={isDone} active={isActive} />
+                      )}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="mb-1.5 flex items-center gap-1.5">
                         <FolderIcon
                           className={`h-3.5 w-3.5 shrink-0 ${
-                            isActive
+                            isActive && !isBatchSelected
                               ? "text-primary-foreground/80"
                               : "text-muted-foreground"
                           }`}
@@ -162,6 +254,30 @@ export function CombinationPickerSidebar({
                         <div className="min-w-0 flex-1 truncate font-mono text-[10px] leading-tight font-bold">
                           {item.filename}
                         </div>
+                        {activeJobs !== undefined && activeJobs.running > 0 && (
+                          <span
+                            className="flex shrink-0 items-center gap-0.5 rounded bg-violet-500/20 px-1 py-0.5 text-[8px] leading-none font-black text-violet-600 dark:text-violet-300"
+                            title={`AI 생성 중 · 평균 ${String(Math.round(activeJobs.progress / activeJobs.running))}%`}
+                          >
+                            <LoaderCircleIcon className="h-2.5 w-2.5 animate-spin" />
+                            생성 중
+                            {activeJobs.running > 1
+                              ? ` ${String(activeJobs.running)}`
+                              : ""}
+                          </span>
+                        )}
+                        {activeJobs !== undefined && activeJobs.waiting > 0 && (
+                          <span
+                            className="flex shrink-0 items-center gap-0.5 rounded bg-amber-500/20 px-1 py-0.5 text-[8px] leading-none font-black text-amber-700 dark:text-amber-300"
+                            title={`작업 대기 중 ${String(activeJobs.waiting)}개`}
+                          >
+                            <Clock3Icon className="h-2.5 w-2.5" />
+                            대기
+                            {activeJobs.waiting > 1
+                              ? ` ${String(activeJobs.waiting)}`
+                              : ""}
+                          </span>
+                        )}
                         {heldFilenames.includes(item.filename) && (
                           <span className="shrink-0 rounded bg-yellow-500/20 px-1 py-0.5 text-[8px] leading-none font-black text-yellow-600 dark:text-yellow-400">
                             보류

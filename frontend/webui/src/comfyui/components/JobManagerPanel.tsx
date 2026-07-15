@@ -15,6 +15,7 @@ import {
   ArrowUpRight,
   ExternalLink,
   RefreshCw,
+  GripHorizontal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -72,6 +73,10 @@ import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 import type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
 
 const PAGE_SIZE = JOB_PAGE_SIZE
+const JOB_STATUS_HEIGHT_STORAGE_KEY = "job-manager-status-height"
+const DEFAULT_STATUS_HEIGHT_PERCENT = 38
+const MIN_STATUS_HEIGHT_PERCENT = 15
+const MAX_STATUS_HEIGHT_PERCENT = 75
 
 type SortKey = "filename" | "status" | "createdAt" | "duration"
 type SortDir = "asc" | "desc"
@@ -170,6 +175,15 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [showFilters, setShowFilters] = useState(false)
   const [isUpdatingPendingTemplate, setIsUpdatingPendingTemplate] =
     useState(false)
+  const [statusHeightPercent, setStatusHeightPercent] = useState(() => {
+    const saved = Number(localStorage.getItem(JOB_STATUS_HEIGHT_STORAGE_KEY))
+    return Number.isFinite(saved) &&
+      saved >= MIN_STATUS_HEIGHT_PERCENT &&
+      saved <= MAX_STATUS_HEIGHT_PERCENT
+      ? saved
+      : DEFAULT_STATUS_HEIGHT_PERCENT
+  })
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // ── pagination state ────────────────────────────────────────────────
   const [desiredPage, setPage] = useState(1)
@@ -512,11 +526,49 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
+  const resizeStatusPanel = useCallback((clientY: number): void => {
+    const rect = panelRef.current?.getBoundingClientRect()
+    if (rect === undefined || rect.height === 0) return
+    const next = Math.min(
+      MAX_STATUS_HEIGHT_PERCENT,
+      Math.max(
+        MIN_STATUS_HEIGHT_PERCENT,
+        ((clientY - rect.top) / rect.height) * 100
+      )
+    )
+    setStatusHeightPercent(next)
+  }, [])
+
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>): void => {
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      resizeStatusPanel(e.clientY)
+    },
+    [resizeStatusPanel]
+  )
+
+  const saveStatusHeight = useCallback((): void => {
+    localStorage.setItem(
+      JOB_STATUS_HEIGHT_STORAGE_KEY,
+      String(statusHeightPercent)
+    )
+  }, [statusHeightPercent])
+
+  const adjustStatusHeight = useCallback((delta: number): void => {
+    setStatusHeightPercent((current) =>
+      Math.min(
+        MAX_STATUS_HEIGHT_PERCENT,
+        Math.max(MIN_STATUS_HEIGHT_PERCENT, current + delta)
+      )
+    )
+  }, [])
+
   const handleCancel = async (
-    e: React.MouseEvent,
+    e: React.MouseEvent | null,
     jobId: string
   ): Promise<void> => {
-    e.stopPropagation()
+    e?.stopPropagation()
     try {
       const res = await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, {
         method: "DELETE",
@@ -900,11 +952,19 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const currentSessionJobCount = sessionJobCounts.get(selectedId) ?? 0
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+    <div
+      ref={panelRef}
+      className="flex h-full min-h-0 flex-col overflow-hidden"
+      style={
+        {
+          "--job-status-height": `${String(statusHeightPercent)}%`,
+        } as React.CSSProperties
+      }
+    >
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
       <ScrollArea
         className={cn(
-          "shrink-0 border-b border-line bg-panel",
+          "shrink-0 border-b border-line bg-panel md:h-[var(--job-status-height)]",
           mobileTab === "status"
             ? "h-full max-h-none flex-1"
             : "hidden max-h-[85dvh] md:block"
@@ -925,6 +985,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 jobs={runningJobs}
                 allJobs={pageJobs}
                 workers={workers}
+                onCancelJob={(jobId) => handleCancel(null, jobId)}
               />
             </div>
           )}
@@ -933,10 +994,53 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               jobs={runningJobs}
               allJobs={pageJobs}
               workers={workers}
+              onCancelJob={(jobId) => handleCancel(null, jobId)}
             />
           )}
         </div>
       </ScrollArea>
+
+      <div
+        role="separator"
+        aria-label="작업 상태와 작업 목록 높이 조절"
+        aria-orientation="horizontal"
+        aria-valuemin={MIN_STATUS_HEIGHT_PERCENT}
+        aria-valuemax={MAX_STATUS_HEIGHT_PERCENT}
+        aria-valuenow={Math.round(statusHeightPercent)}
+        tabIndex={0}
+        className="group relative hidden h-2 shrink-0 cursor-row-resize touch-none items-center justify-center bg-line/40 transition-colors outline-none hover:bg-info/15 focus-visible:bg-info/20 md:flex"
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            resizeStatusPanel(e.clientY)
+          }
+        }}
+        onPointerUp={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId)
+          }
+          saveStatusHeight()
+        }}
+        onPointerCancel={saveStatusHeight}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowUp") {
+            e.preventDefault()
+            adjustStatusHeight(-2)
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault()
+            adjustStatusHeight(2)
+          } else if (e.key === "Home") {
+            e.preventDefault()
+            setStatusHeightPercent(MIN_STATUS_HEIGHT_PERCENT)
+          } else if (e.key === "End") {
+            e.preventDefault()
+            setStatusHeightPercent(MAX_STATUS_HEIGHT_PERCENT)
+          }
+        }}
+        onKeyUp={saveStatusHeight}
+      >
+        <GripHorizontal className="h-4 w-4 text-muted-foreground/50 transition-colors group-hover:text-info" />
+      </div>
 
       {/* 3. List Content */}
       <div

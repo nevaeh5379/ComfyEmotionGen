@@ -459,6 +459,7 @@ export const curationApi = {
     body: {
       status?: CurationStatus
       filenames?: string[]
+      hashes?: string[]
       tags?: string[]
       duplicateStrategy?: "hash" | "number"
     }

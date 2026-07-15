@@ -17,7 +17,10 @@ import {
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
 import type { SavedImage } from "../../types/Message"
-import { hasApproved, findApproved } from "../../types/Message"
+import {
+  findApproved,
+  hasExportableApproved,
+} from "../../types/Message"
 import {
   ImagePreviewHoverCard,
   CombinationContextMenu,
@@ -467,7 +470,7 @@ function GalleryGridItem({
 }): React.JSX.Element {
   const approved = findApproved(imgs)
   const preview = approved ?? imgs[0]
-  const isDone = hasApproved(imgs)
+  const isDone = hasExportableApproved(item.filename, imgs)
   const [aspect, setAspect] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -792,7 +795,7 @@ export function TableView({
           <tbody className="divide-y">
             {pageItems.map((item: RenderItem) => {
               const imgs = imagesByFilename.get(item.filename) ?? []
-              const isDone = hasApproved(imgs)
+              const isDone = hasExportableApproved(item.filename, imgs)
               const isSelected = selectedFilenames.has(item.filename)
 
               return (

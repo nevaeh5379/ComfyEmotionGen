@@ -2,9 +2,19 @@ import {
   ComfyWorkflowSchema,
   type ComfyWorkflow,
   type NodeMapping,
+  type NodeInputValue,
 } from "./workflow"
 import { MAX_RANDOM_SEED } from "./constants"
 import type { RenderItem } from "../comfyui/types/renderTypes"
+
+const CEG_CONTEXT_NODE = "CEGContext"
+const CEG_SEED_NODE = "CEGSeed"
+const CEG_VALUE_NODES = new Set([
+  "CEGText",
+  "CEGInteger",
+  "CEGFloat",
+  "CEGBoolean",
+])
 
 export const parseWorkflow = (json: string): ComfyWorkflow => {
   let obj: unknown
@@ -158,6 +168,8 @@ export const buildWorkflowForItem = (
 ): ComfyWorkflow => {
   const workflow = parseWorkflow(workflowJson)
 
+  injectCegNodes(workflow, item)
+
   nodeMappings.forEach(
     ({
       nodeId,
@@ -206,6 +218,80 @@ export const buildWorkflowForItem = (
   )
 
   return workflow
+}
+
+const readCegValue = (
+  item: RenderItem,
+  source: NodeInputValue | undefined,
+  key: NodeInputValue | undefined
+): string | number | boolean | null | undefined => {
+  if (typeof key !== "string" || key.trim() === "") return undefined
+  if (source === "meta") return item.meta[key]
+  if (source === "slot") return item.slots?.[key]
+  return undefined
+}
+
+const finiteNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number")
+    return Number.isFinite(value) ? value : undefined
+  if (typeof value !== "string" || value.trim() === "") return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const booleanValue = (value: unknown): boolean | undefined => {
+  if (typeof value === "boolean") return value
+  if (typeof value === "number") return value !== 0
+  if (typeof value !== "string") return undefined
+  const normalized = value.trim().toLowerCase()
+  if (["true", "1", "yes", "on"].includes(normalized)) return true
+  if (["false", "0", "no", "off"].includes(normalized)) return false
+  return undefined
+}
+
+const injectCegNodes = (workflow: ComfyWorkflow, item: RenderItem): void => {
+  const seed = Math.floor(Math.random() * MAX_RANDOM_SEED)
+
+  Object.values(workflow).forEach((node) => {
+    if (node.class_type === CEG_CONTEXT_NODE) {
+      node.inputs.prompt = item.prompt
+      node.inputs.filename = item.filename
+      node.inputs.seed = seed
+      node.inputs.metadata_json = JSON.stringify(item.meta)
+      node.inputs.slots_json = JSON.stringify(item.slots ?? {})
+      return
+    }
+
+    if (node.class_type === CEG_SEED_NODE) {
+      node.inputs.seed = seed
+      return
+    }
+
+    if (!CEG_VALUE_NODES.has(node.class_type)) return
+    const value = readCegValue(item, node.inputs.source, node.inputs.key)
+    if (value === undefined || value === null) return
+
+    switch (node.class_type) {
+      case "CEGText":
+        node.inputs.value = String(value)
+        break
+      case "CEGInteger": {
+        const parsed = finiteNumber(value)
+        if (parsed !== undefined) node.inputs.value = Math.trunc(parsed)
+        break
+      }
+      case "CEGFloat": {
+        const parsed = finiteNumber(value)
+        if (parsed !== undefined) node.inputs.value = parsed
+        break
+      }
+      case "CEGBoolean": {
+        const parsed = booleanValue(value)
+        if (parsed !== undefined) node.inputs.value = parsed
+        break
+      }
+    }
+  })
 }
 
 // ── Axis entry context helpers ────────────────────────────────────────

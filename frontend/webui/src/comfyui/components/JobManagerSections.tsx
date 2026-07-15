@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Ban,
   ChevronRight,
+  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -95,6 +96,7 @@ export interface RunningJobsBannerProps {
   jobs: JobView[]
   allJobs?: JobView[]
   workers: WorkerView[]
+  onCancelJob?: (jobId: string) => Promise<void>
 }
 
 export interface JobStatBarProps {
@@ -440,9 +442,30 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
   jobs,
   allJobs,
   workers,
+  onCancelJob,
 }: RunningJobsBannerProps): React.JSX.Element {
   const workerPreviews = useWorkerPreviews()
   const backendUrl = useBackendUrl()
+  const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(
+    () => new Set()
+  )
+
+  const cancelJob = useCallback(
+    async (jobId: string): Promise<void> => {
+      if (onCancelJob === undefined || cancellingJobIds.has(jobId)) return
+      setCancellingJobIds((current) => new Set(current).add(jobId))
+      try {
+        await onCancelJob(jobId)
+      } finally {
+        setCancellingJobIds((current) => {
+          const next = new Set(current)
+          next.delete(jobId)
+          return next
+        })
+      }
+    },
+    [cancellingJobIds, onCancelJob]
+  )
 
   if (workers.length === 0) {
     if (jobs.length === 0) {
@@ -645,13 +668,32 @@ export const RunningJobsBanner = memo(function RunningJobsBanner({
                     )}
                 </div>
                 {w.workerType === "comfyui" && previewToken !== undefined && (
-                  <WorkerPreviewImage
-                    backendUrl={backendUrl}
-                    workerId={w.id}
-                    previewToken={previewToken}
-                    alt={`preview ${w.id}`}
-                    className="h-80 flex-none rounded-lg border border-info/20 object-cover shadow-sm"
-                  />
+                  <div className="flex w-fit flex-none flex-col gap-2">
+                    <WorkerPreviewImage
+                      backendUrl={backendUrl}
+                      workerId={w.id}
+                      previewToken={previewToken}
+                      alt={`preview ${w.id}`}
+                      className="h-80 rounded-lg border border-info/20 object-cover shadow-sm"
+                    />
+                    {runningJob !== undefined && onCancelJob !== undefined && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                        disabled={cancellingJobIds.has(runningJob.id)}
+                        onClick={() => {
+                          void cancelJob(runningJob.id)
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {cancellingJobIds.has(runningJob.id)
+                          ? "취소 중..."
+                          : "작업 취소"}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

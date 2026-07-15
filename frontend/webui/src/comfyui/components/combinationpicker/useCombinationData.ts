@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import { curationApi } from "../../hooks/useSavedImages"
-import { hasApproved } from "../../types/Message"
+import { hasExportableApproved } from "../../types/Message"
 import type { BackendEvent, SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import {
@@ -445,7 +445,10 @@ export function useCombinationData({
   const doneCount = useMemo(
     () =>
       renderItems.filter((ri) =>
-        hasApproved(imagesByFilename.get(ri.filename) ?? [])
+        hasExportableApproved(
+          ri.filename,
+          imagesByFilename.get(ri.filename) ?? []
+        )
       ).length,
     [renderItems, imagesByFilename]
   )
@@ -475,7 +478,7 @@ export function useCombinationData({
   const filteredRenderItems = useMemo(() => {
     return renderItems.filter((ri) => {
       const imgs = imagesByFilename.get(ri.filename) ?? []
-      const isDone = hasApproved(imgs)
+      const isDone = hasExportableApproved(ri.filename, imgs)
 
       if (statusFilter === "done" && !isDone) return false
       if (statusFilter === "pending" && isDone) return false

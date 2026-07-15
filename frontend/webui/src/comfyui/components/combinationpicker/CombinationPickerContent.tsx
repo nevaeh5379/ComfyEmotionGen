@@ -24,6 +24,7 @@ import {
   SearchXIcon,
   ArrowUpIcon,
 } from "lucide-react"
+import { hasExportableApproved } from "../../types/Message"
 import {
   Sheet,
   SheetContent,
@@ -37,6 +38,7 @@ import { useAsyncAction } from "../../hooks/useAsyncAction"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
 import { useSyncedStorage } from "../../hooks/useSyncedStorage"
 import { useLatestRef } from "../../hooks/useLatestRef"
+import { useConfirm } from "../../hooks/useConfirm"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import {
   downloadImagesAsZip,
@@ -44,12 +46,16 @@ import {
 } from "../../utils/downloadImages"
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
+import {
+  metaForTarget,
+  type OrphanRecommendation,
+} from "./orphanRecommendations"
 import { RegenerateDialog } from "./CombinationPickerComponents"
 import { ImageViewer } from "../ImageViewer"
 import { ImageDetail } from "../gallery/ImageDetail"
 import { GalleryInpaintEditor } from "../GalleryInpaintEditor"
 import { ImageEditorDialog } from "../image-editor/ImageEditorDialog"
-import { hasApproved, findApproved } from "../../types/Message"
+import { findApproved } from "../../types/Message"
 import { TournamentView } from "./CombinationPickerViews"
 import { GalleryView, TableView } from "./CombinationPickerViews"
 
@@ -120,6 +126,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   onSaveCegTemplate,
 }: CombinationPickerContentProps) {
   useRenderLog("CombinationPickerContent")
+  const confirm = useConfirm()
   const {
     backendUrl,
     savedTemplates,
@@ -244,6 +251,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     Map<string, string[]>
   >(new Map())
   const [checkingTemplates, setCheckingTemplates] = useState(false)
+  const [reconnectingFilename, setReconnectingFilename] = useState<
+    string | null
+  >(null)
   const bulkTrashAction = useAsyncAction(4000)
 
   // ── Refs for latest values ────────────────────────────────────────
@@ -394,6 +404,92 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     setAllImages,
   ])
 
+  const reconnectOrphan = useCallback(
+    async (
+      filename: string,
+      images: SavedImage[],
+      recommendation: OrphanRecommendation
+    ): Promise<void> => {
+      if (reconnectingFilename !== null || images.length === 0) return
+      const targetFilename = recommendation.target.filename
+      const axisChanges = recommendation.axisRenames
+        .map((rename) => `${rename.from} → ${rename.to}`)
+        .join(", ")
+      const confirmed = await confirm({
+        title: "고아 이미지를 추천 조합에 연결",
+        description: `${filename}을(를) ${targetFilename}(으)로 변경하고 ${String(images.length)}장의 메타데이터를 갱신합니다.${axisChanges ? ` 감지된 축 변경: ${axisChanges}.` : ""}`,
+        confirmText: "재연결",
+      })
+      if (!confirmed) return
+      setReconnectingFilename(filename)
+      try {
+        const renameBody = {
+          fromSegment: filename,
+          toSegment: targetFilename,
+          axisName: null,
+          axisValueFrom: null,
+          axisValueTo: null,
+        }
+        const previewRes = await fetch(`${backendUrl}/saved-images/rename`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...renameBody, dryRun: true }),
+        })
+        if (!previewRes.ok) throw new Error("파일명 변경 범위를 확인하지 못했습니다.")
+        const preview = (await previewRes.json()) as {
+          updated: { hash: string; oldFilename: string }[]
+        }
+        const expectedHashes = new Set(images.map((image) => image.hash))
+        const scopeIsExact =
+          preview.updated.length === images.length &&
+          preview.updated.every(
+            (item) =>
+              item.oldFilename === filename && expectedHashes.has(item.hash)
+          )
+        if (!scopeIsExact) {
+          throw new Error(
+            "같은 문자열을 포함한 다른 파일이 있어 자동 연결을 중단했습니다."
+          )
+        }
+
+        const renameRes = await fetch(`${backendUrl}/saved-images/rename`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...renameBody, dryRun: false }),
+        })
+        if (!renameRes.ok) throw new Error("파일명 변경에 실패했습니다.")
+
+        const updatedMeta = new Map<string, Record<string, string>>()
+        await Promise.all(
+          images.map(async (image) => {
+            const meta = metaForTarget(image, recommendation.target)
+            updatedMeta.set(image.hash, meta)
+            await curationApi.patchMeta(backendUrl, image.hash, meta)
+          })
+        )
+        setAllImages((prev) =>
+          prev.map((image) => {
+            const meta = updatedMeta.get(image.hash)
+            return meta === undefined
+              ? image
+              : { ...image, originalFilename: targetFilename, meta }
+          })
+        )
+        toast.success(
+          `${filename} → ${targetFilename}: ${String(images.length)}장 재연결 완료`
+        )
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "고아 이미지 재연결 실패"
+        )
+        await fetchData()
+      } finally {
+        setReconnectingFilename(null)
+      }
+    },
+    [backendUrl, confirm, fetchData, reconnectingFilename, setAllImages]
+  )
+
   // 미할당 패널 닫기
   const closeUnassignedPanel = useCallback(() => {
     curationToolbarCtx.setShowUnassignedPanel(false)
@@ -425,7 +521,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     const source = sidebarFilter === "empty" ? rawRenderItems : renderItems
     return source.filter((item) => {
       const imgs = imagesByFilename.get(item.filename) ?? []
-      const isDone = hasApproved(imgs)
+      const isDone = hasExportableApproved(item.filename, imgs)
       const isHeld = heldFilenames.includes(item.filename)
 
       if (sidebarFilter === "done" && !isDone) return false
@@ -457,7 +553,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const pendingRenderItems = useMemo(
     () =>
       renderItems.filter(
-        (item) => !hasApproved(imagesByFilename.get(item.filename) ?? [])
+        (item) =>
+          !hasExportableApproved(
+            item.filename,
+            imagesByFilename.get(item.filename) ?? []
+          )
       ),
     [imagesByFilename, renderItems]
   )
@@ -498,7 +598,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         const next = renderItems.find((ri, idx) => {
           if (idx <= currentIdx) return false
           const nextImgs = imagesByFilename.get(ri.filename) ?? []
-          return !hasApproved(nextImgs)
+          return !hasExportableApproved(ri.filename, nextImgs)
         })
         if (next) setSelectedFilename(next.filename)
       }
@@ -516,14 +616,17 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     if (exportAction.isLoading || doneCount === 0) return
     await exportAction.execute(
       async () => {
-        const approvedFilenames = renderItems
-          .filter((ri) => hasApproved(imagesByFilename.get(ri.filename) ?? []))
-          .map((ri) => ri.filename)
+        const approvedHashes = renderItems.flatMap((ri) => {
+          const imgs = imagesByFilename.get(ri.filename) ?? []
+          return imgs
+            .filter((img) => img.status === "approved")
+            .map((img) => img.hash)
+        })
         await curationApi.exportDataset(backendUrl, {
-          filenames: approvedFilenames,
+          hashes: approvedHashes,
           duplicateStrategy: curationToolbarCtx.duplicateStrategy,
         })
-        return approvedFilenames.length
+        return approvedHashes.length
       },
       (count) => `${String(count)}개 파일 내보내기 완료`,
       "내보내기 실패"
@@ -670,7 +773,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     const heldItems = rawRenderItems.filter(
       (item) =>
         heldFilenames.includes(item.filename) &&
-        !hasApproved(imagesByFilename.get(item.filename) ?? [])
+        !hasExportableApproved(
+          item.filename,
+          imagesByFilename.get(item.filename) ?? []
+        )
     )
     if (heldItems.length === 0) return
     if (isFreeMode && freeGroupMode !== "filename") return
@@ -714,7 +820,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       rawRenderItems.filter(
         (item) =>
           heldFilenames.includes(item.filename) &&
-          !hasApproved(imagesByFilename.get(item.filename) ?? [])
+          !hasExportableApproved(
+            item.filename,
+            imagesByFilename.get(item.filename) ?? []
+          )
       ).length,
     [rawRenderItems, heldFilenames, imagesByFilename]
   )
@@ -1045,6 +1154,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             bulkTrashActionIsLoading={bulkTrashAction.isLoading}
             bulkTrashActionMessage={bulkTrashAction.message}
             closeUnassignedPanel={closeUnassignedPanel}
+            renderItems={rawRenderItems}
+            reconnectOrphan={reconnectOrphan}
+            reconnectingFilename={reconnectingFilename}
           />
         )}
 

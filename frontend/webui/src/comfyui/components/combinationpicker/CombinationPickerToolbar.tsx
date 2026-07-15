@@ -381,9 +381,7 @@ export function CombinationPickerToolbar({
         {/* 진행률 (모바일에서는 바 숨기고 %만) */}
         {((): React.JSX.Element => {
           const total = rawRenderItems.length
-          const done = rawRenderItems.filter(
-            (ri) => hasApproved(imagesByFilename.get(ri.filename) ?? [])
-          ).length
+          const done = doneCount
           const held = rawRenderItems.filter(
             (ri) => heldFilenames.includes(ri.filename) && !hasApproved(imagesByFilename.get(ri.filename) ?? [])
           ).length
