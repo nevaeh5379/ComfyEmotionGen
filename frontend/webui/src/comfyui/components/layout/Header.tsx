@@ -1,4 +1,3 @@
-import { useState, useRef, useEffect } from "react"
 import {
   ArrowDown,
   ArrowUp,
@@ -56,6 +55,7 @@ import { CurationGroupSelect } from "./CurationGroupSelect"
 import { JobSessionControls } from "./JobSessionControls"
 import { DesktopNavigation, MobileNavigation } from "./HeaderNavigation"
 import { GeneratorHeaderControls } from "./GeneratorHeaderControls"
+import { useHeaderResponsiveLayout } from "../../hooks/useHeaderResponsiveLayout"
 
 interface HeaderProps {
   useWindowMode?: boolean
@@ -115,158 +115,16 @@ export function Header(props: HeaderProps): JSX.Element {
   const panel = usePanelLayout()
   const tb = useGalleryToolbar()
   const curToolbar = useCurationToolbar()
-  const [, setIsCompact] = useState(false)
-  const [isGalleryToolbarCompact, setIsGalleryToolbarCompact] = useState(false)
-  const [isGalleryToolbarUltraCompact, setIsGalleryToolbarUltraCompact] =
-    useState(false)
-
-  const headerRef = useRef<HTMLDivElement>(null)
-  const logoRef = useRef<HTMLSpanElement>(null)
-  const tabsRef = useRef<HTMLDivElement>(null)
-
-  const galleryToolbarRef = useRef<HTMLDivElement>(null)
-  const curationToolbarRef = useRef<HTMLDivElement>(null)
-  const rightSectionRef = useRef<HTMLDivElement>(null)
-
-  const cachedTabsWidthRef = useRef<number>(480)
-  const cachedGalleryToolbarWidthRef = useRef<number>(560)
-  const cachedGalleryToolbarCompactWidthRef = useRef<number>(340)
-
-  useEffect(() => {
-    const tabsEl = tabsRef.current
-    if (tabsEl === null) return
-
-    const handleWheel = (e: WheelEvent): void => {
-      if (tabsEl.scrollWidth > tabsEl.clientWidth) {
-        e.preventDefault()
-        tabsEl.scrollLeft += e.deltaY
-      }
-    }
-
-    tabsEl.addEventListener("wheel", handleWheel, { passive: false })
-    return (): void => {
-      tabsEl.removeEventListener("wheel", handleWheel)
-    }
-  }, [])
-
-  useEffect(() => {
-    const tabsEl = tabsRef.current
-    if (tabsEl === null) return
-
-    const timer = setTimeout(() => {
-      const activeTabEl = tabsEl.querySelector('[aria-selected="true"]')
-      if (activeTabEl !== null) {
-        activeTabEl.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-          inline: "center",
-        })
-      }
-    }, 50)
-
-    return (): void => {
-      clearTimeout(timer)
-    }
-  }, [props.activeTab])
-
-  useEffect(() => {
-    if (headerRef.current === null) return
-
-    const getElWidth = (el: HTMLElement | null): number => {
-      if (el === null) return 0
-      return Math.max(el.scrollWidth, el.getBoundingClientRect().width)
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const currentWidth = entry.contentRect.width
-
-        const logoWidth = getElWidth(logoRef.current)
-        const rightSectionWidthRaw = getElWidth(rightSectionRef.current)
-        const galleryToolbarCurrentWidth =
-          props.activeTab === "gallery" && galleryToolbarRef.current !== null
-            ? getElWidth(galleryToolbarRef.current)
-            : 0
-        const rightSectionWidth =
-          rightSectionWidthRaw - galleryToolbarCurrentWidth
-
-        let targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
-        let toolbarWidth = rightSectionWidth
-
-        if (
-          props.activeTab === "gallery" &&
-          galleryToolbarRef.current !== null
-        ) {
-          const currentToolbarWidth = getElWidth(galleryToolbarRef.current)
-
-          if (!isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
-            cachedGalleryToolbarWidthRef.current = currentToolbarWidth
-            targetGalleryToolbarWidth = currentToolbarWidth
-          } else if (isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
-            cachedGalleryToolbarCompactWidthRef.current = currentToolbarWidth
-          }
-
-          if (isGalleryToolbarUltraCompact) {
-            targetGalleryToolbarWidth = 36
-          } else if (isGalleryToolbarCompact) {
-            targetGalleryToolbarWidth =
-              cachedGalleryToolbarCompactWidthRef.current
-          } else {
-            targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
-          }
-
-          toolbarWidth += targetGalleryToolbarWidth
-        } else if (
-          props.activeTab === "curation" &&
-          curationToolbarRef.current !== null
-        ) {
-          toolbarWidth += getElWidth(curationToolbarRef.current)
-        }
-
-        if (tabsRef.current !== null) {
-          const actualTabsWidth = getElWidth(tabsRef.current)
-          if (actualTabsWidth > 0) {
-            cachedTabsWidthRef.current = actualTabsWidth
-          }
-        }
-
-        const requiredWidthForTabs =
-          logoWidth + cachedTabsWidthRef.current + toolbarWidth + 80
-        const nextIsCompact = currentWidth < requiredWidthForTabs
-        setIsCompact(nextIsCompact)
-
-        if (props.activeTab === "gallery") {
-          const tabsWidth = nextIsCompact ? 120 : cachedTabsWidthRef.current
-
-          const requiredWidthForToolbar =
-            logoWidth +
-            tabsWidth +
-            cachedGalleryToolbarWidthRef.current +
-            rightSectionWidth +
-            80
-          const nextIsToolbarCompact = currentWidth < requiredWidthForToolbar
-          setIsGalleryToolbarCompact(nextIsToolbarCompact)
-
-          const requiredWidthForUltraToolbar =
-            logoWidth +
-            tabsWidth +
-            cachedGalleryToolbarCompactWidthRef.current +
-            rightSectionWidth +
-            80
-          const nextIsUltraCompact = currentWidth < requiredWidthForUltraToolbar
-          setIsGalleryToolbarUltraCompact(nextIsUltraCompact)
-        } else {
-          setIsGalleryToolbarCompact(false)
-          setIsGalleryToolbarUltraCompact(false)
-        }
-      }
-    })
-
-    observer.observe(headerRef.current)
-    return (): void => {
-      observer.disconnect()
-    }
-  }, [props.activeTab, isGalleryToolbarCompact, isGalleryToolbarUltraCompact])
+  const {
+    headerRef,
+    logoRef,
+    tabsRef,
+    galleryToolbarRef,
+    curationToolbarRef,
+    rightSectionRef,
+    galleryToolbarCompact: isGalleryToolbarCompact,
+    galleryToolbarUltraCompact: isGalleryToolbarUltraCompact,
+  } = useHeaderResponsiveLayout(props.activeTab)
 
   const toggleSort = (key: "createdAt" | "filename" | "sizeBytes"): void => {
     if (tb.sortKey === key) {
