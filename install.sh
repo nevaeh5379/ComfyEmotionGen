@@ -10,8 +10,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VERSION="3.14.6"
 PYTHON_BUILD="20260623"
 PYTHON_DIR="$ROOT/.python"
+PY="$PYTHON_DIR/bin/python${PYTHON_VERSION%.*}"
 
-if [[ ! -x "$PYTHON_DIR/bin/python3" ]]; then
+if [[ ! -x "$PY" ]]; then
     echo "==> Downloading Python ${PYTHON_VERSION} (standalone)"
     case "$(uname -s)-$(uname -m)" in
         Linux-x86_64)    ARCH="x86_64-unknown-linux-gnu" ;;
@@ -25,8 +26,6 @@ if [[ ! -x "$PYTHON_DIR/bin/python3" ]]; then
     curl -fsSL "$URL" | tar -xzf - -C "$ROOT"
     mv "python" "$PYTHON_DIR"
 fi
-
-PY="$PYTHON_DIR/bin/python3"
 
 echo "==> Installing backend dependencies"
 "$PY" -m pip install --upgrade pip
@@ -52,20 +51,20 @@ if [[ ! -x "$NODE_DIR/bin/node" ]]; then
 fi
 
 NODE="$NODE_DIR/bin/node"
-NPM="$NODE_DIR/bin/npm"
-PNPM="$NODE_DIR/bin/pnpm"
+NPM_CLI="$NODE_DIR/lib/node_modules/npm/bin/npm-cli.js"
+PNPM_CLI="$NODE_DIR/lib/node_modules/pnpm/bin/pnpm.cjs"
 
 # pnpm 자체 설치 (Node에는 기본 미포함)
-if [[ ! -x "$PNPM" ]]; then
+if [[ ! -f "$PNPM_CLI" ]]; then
     echo "==> Installing pnpm"
-    "$NPM" install -g pnpm --prefix "$NODE_DIR"
+    "$NODE" "$NPM_CLI" install -g pnpm --prefix "$NODE_DIR"
 fi
 
 echo "==> Installing frontend dependencies"
-(cd "$ROOT/frontend/webui" && "$PNPM" install)
+(cd "$ROOT/frontend/webui" && "$NODE" "$PNPM_CLI" install)
 
 echo "==> Building frontend"
-(cd "$ROOT/frontend/webui" && "$PNPM" build)
+(cd "$ROOT/frontend/webui" && "$NODE" "$PNPM_CLI" build)
 
 echo
 echo "✅ Install complete. Run ./run.sh to start."
